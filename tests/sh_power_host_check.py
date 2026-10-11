@@ -190,6 +190,7 @@ def check_sh_suspend_current_gates():
     #include <stdint.h>
     #include <stdbool.h>
     #include <assert.h>
+    #include <string.h>
     typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
     typedef struct { int unused; } app_pm_elapsed_ctx_t;
     typedef struct { int32_t current_ma; u32 sample_tick_32k; } bms_afe_aux_measurements_t;
@@ -203,7 +204,7 @@ def check_sh_suspend_current_gates():
     #define SUSPEND_CONN 2
     static bool s_low_power_mode, deepsleep_en;
     static u32 s_command_tick;
-    static struct { u8 reason; u32 elapsed_ms, delay_ms; } s_protective_sleep;
+    typedef struct { u8 reason; u32 elapsed_ms, delay_ms; } app_sleep_status_t;
     #define DIAG_SLEEP_REASON_NONE 0
     #define DIAG_SLEEP_REASON_COMMAND 1
     #define DIAG_SLEEP_REASON_SWITCH 3
@@ -215,7 +216,7 @@ def check_sh_suspend_current_gates():
     static u32 pm_get_32k_tick(void){return now;}
     static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){*m=measurement;return valid;}
     static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *c){(void)c;return 0;}
-    static u8 app_protective_sleep_poll(u32 seconds){(void)seconds;return 0;}
+    static u8 app_protective_sleep_poll(u32 seconds, app_sleep_status_t *s){(void)seconds;memset(s,0,sizeof(*s));return 0;}
     static u8 app_sh_explicit_sleep_poll(void){return 0;}
     static int modbus_uart_suspend_ready(void){return idle_ready&&!tx_busy&&!modbus_busy;}
     static void bms_diag_sleep(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed){

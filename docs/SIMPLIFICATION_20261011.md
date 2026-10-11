@@ -1,0 +1,136 @@
+# 对话审核与全模块简化：2026-10-11
+
+审查基线：`fa313f9ec7dc74fe97136a2e922241b6f7b3dc00`，分支 `codex-bms-monorepo`。
+来源：[代码审核建议](https://chatgpt.com/c/6acada55-0dbc-83ec-a365-ec2113b0c7c7)。
+缓存及连接器中的部分助手消息只有引用占位；已从登录浏览器核对可见的优化正文和最终
+全模块分析。没有返回正文的早期消息不作为确认结论。所有实施项均重新对照当前源码。
+
+用户已有的 `bms/products/d008/bms_product.h` 均衡限制、温度和低压延时改动保持原样，
+不纳入本次提交。这里审查的是源码条件，未对齐板上 BIN/Build ID、未读取设备证据，
+因此不能把原充电唤醒现象归因于某一条已经实板确认的故障。
+
+## 1. 对话结论如何处理
+
+| 建议或结论 | 当前源码事实与处理 |
+|---|---|
+| 唤醒后均衡可能被假疑似永久卡住 | 基线已修复主动输出关闭、普通电压异常、跳变旧基线和电流中止；本轮修复剩余的普通诊断失败路径。 |
+| 所有诊断失败都可以恢复均衡 | 不能照搬。没有异常证据的失败可以在清理成功后恢复；SH raw 异常映射不确定必须继续疑似。 |
+| 断线检测无需无充放电门禁 | 缺实板在线诊断依据。保留现有电流/加热/保护资格，不擅自带载激励；持续充放电的覆盖缺口明确保留。 |
+| feature 初始化不应重置软件保护 | 已迁至 guard；公共初始化一次，SH 失联重试保留原重建语义，DVC 重试不新增重置。 |
+| 熔断锁存不能因 AFE 初始化清零 | 已保留本次 MCU 启动锁存，并把锁存请求传给板级 GPIO 初始化；D008 不再撤销 PD4，D011 PB5 仍安全 LOW。生产自动失联恢复原本不调用 feature init，不能称为已证实的现行自动恢复故障。 |
+| heater/balance 不应共用充电会话 | 已分开。均衡保留充后零电流策略；加热由自身 IDLE/ARMING/ACTIVE 保持，启动新周期仍需可信充电证据。 |
+| 同轮配置重复读取 | 每次有效 feature 服务读取一份 user config，传给 heater/balance；不新增全局缓存。 |
+| Config 存了两组 chemistry/profile | 实际是两个 RAM 镜像，CFG2 仅存 system 那一组。本轮删除缓存镜像，保留全部字节位置。 |
+| set_soc 早退可能遗漏同步 | 当前生产写入口原本同步，未证明已有设备故障。改成唯一来源及完整 payload 去重，消除同步前提；同时修正 u32 先截断后校验的条件漏洞。 |
+| PM 有多份派生状态 | reason/elapsed/delay 改为本轮局部结果。region、normal_voltage_active、各计时和 committed 保留，因为无新鲜样本不能推断条件解除。 |
+| PM 直接复用 SOC 电流阈值 | 两处业务阈值各自定义为原 200 mA；不再随 SOC 宏变化。 |
+| SOC 的诊断暂停/恢复太复杂 | 保留有物理意义的有界暂停、三次新帧、静置、斜率和仅向下 OCV；改为通用电压质量输入，修正采样前后标志混用及各电压修正路径门禁。 |
+| SOC 未用 ICHG/IDSG 宏 | 已删除；不改变积分算法。 |
+| Event packed 成员地址风险 | map_interval 改按值传入，调用者直接清 packed 成员；编码与启动事件间隔行为不变。 |
+| 软件保护、guard、bus_mux、State/Event、ETA 可大幅裁剪 | 均有明确独立状态或外部行为；本轮未发现可直接整模块删除的依据，保留。 |
+
+## 2. 断线、均衡与 SOC 的最终路径
+
+```text
+正常新样本 → feature 读取一次配置/充电证据
+           → 均衡电压连续资格 → 原温度/保护/能力/会话门禁 → 请求及回读
+空闲合格   → 停止均衡并回读 → backend 断线激励/阶段 → 退出并校验
+           → 完整非零结果：确认掩码锁存
+           → raw 异常或映射不确定：疑似保持
+           → 无异常证据的失败：错误、退避、清理；正常样本重新建立均衡资格
+```
+
+普通失败不会清除原疑似或确认掩码。清理未确认时仍保持输出 inhibit 与均衡阻断；
+不能凭五个正常电压样本解除未停止的激励、已确认断线或 SH 不确定异常。
+真实退出 I/O 失败继续经过 guard 通信故障、watchdog 总线静默和三次新样本资格。
+
+采样前 backend 的电压隔离只看 `openwire_active || openwire_cleanup_pending`。
+采样后 feature 发布的 `openwire_sample_active` 包含最后诊断帧；app 将其转换为
+`bms_soc_sample_t.voltage_diagnostic`，四产品使用同一含义。上一帧标志不再重复抑制
+下一次正常电压发布，SH 完成当帧也不会提前推进 OCV。
+
+`voltage_untrusted` 是派生结果，没有新增私有锁存：原疑似，或当前诊断帧存在失败。
+失败帧立即清除 OCV/full/empty/terminal 的确认资格，即使应用间隔不足 200 ms；
+保留有效电流区间、积分余数和已确认满/空锁存。之后正常帧可重新累计。
+诊断/失败帧的不足 200 ms 策略余量同时撤销，不能在下一正常帧中折算成电压确认时间。
+健康诊断仍暂停 OCV，经过三个正常新测量后恢复既有合格静置时间。
+健康诊断的暂停入口按帧执行，连续短于 200 ms 的诊断也不能绕过恢复确认。
+诊断/不可信电压不能触发满充、强制空电、静置空电及放电末端电压修正。
+
+均衡并不依赖“最近一次主动检测健康”才能工作。现有正常电压范围、压差一致性、
+跳变约束、连续资格、温度回差及硬故障检查继续成立。请求掩码、应用结果和硬件回读
+有不同含义，不能合成一个 bool；写失败或残留通道必须继续保守处理。
+
+## 3. 全模块审查范围与保留理由
+
+按四产品 `sources.txt`、公共头文件、调用及状态修改入口核对 BMS 业务模块。
+下表是本轮职责/简化审查范围，不是逐行正确性认证；SDK、ABI、启动汇编和链接库保留原体系。
+
+| 模块及源码入口 | 所有者/关系与本轮结论 |
+|---|---|
+| 启动/调度：`main.c`、`app.c` | IRQ/SDK 回调只交付事件，主循环按原顺序推进业务；固定输出请求及采样时点保留，仅 SOC 输入收口。 |
+| 休眠：`app_power.c` | 保护性、命令、ACC 和普通 Suspend 的完成条件不同。删除派生全局字段，不合并其失败策略；保护性到期继续不能被 OTA/保存/AFE 失败无限否决。 |
+| AFE guard：`bms_afe_guard.c` | 拥有请求、通信 inhibit、三次新样本和 bus silence；新增软件保护初始化所有权，feature 不再反向初始化保护。 |
+| 软件保护：`bms_sw_protection.c` | 三等级、方向、触发与恢复滤波各有语义；保留电流物理恢复资格与诊断电压隔离，不用零电流清故障。 |
+| DVC 采样/恢复：`dvc1124.c`、`dvc1124_bms.c` | CC2/VADC、NTC、硬件 latch、AUTO_DIODE 和恢复窗口保留。仅修正采样前诊断标志读取。 |
+| DVC 配置/启动/特殊功能：`dvc1124_config_service.c`、`dvc1124_boot.c`、`dvc1124_special.c` | 限定芯片语义、固定运行配置及校准；未发现能与业务 feature 合并而不扩大责任的依据。 |
+| SH 采样/控制/驱动：`sh3673510_bms.c`、`sh3673510_control.c`、`sh3673520.c` | 保留 C+/LOAD 互斥、转换完成、物理恢复、NTC 与寄存器差异；移走保护初始化、修正采样标志。 |
+| 双后端 feature：`*_feature_backend.c` | 硬件激励、阶段、原始位和退出回读保留；DVC 0 mV 注释更正为项目判据，未改变数值。 |
+| 均衡/Open-Wire/heater：`bms_features.c` | 修复普通失败卡住、独立会话、单次配置读取、fuse 生命周期；确认掩码/疑似/待清理仍分别表达不同事实。 |
+| 板级：`bms_board.c` 与产品头 | 产品能力/GPIO 留平台；D008 保持熔断请求，D011 安全低，D013 禁 heater/balance，D014 无 heater/TS3 NC/TS4 MOS。 |
+| SOC/曲线：`bms_soc.c`、`bms_soc_profile.h` | 电流积分、OCV、端点、显示和循环 SOH 有独立用途；收口质量输入及电压策略资格，删未用宏。学习功能基线已删除，不重复“实施”。 |
+| ETA：`bms_soc_eta.c` | 方向、滤波、变动和 taper 决定剩余时间置信度；外部可见功能保留，不归并进 MOS 保护。 |
+| 参数启动/协议入口：`bms_parameters.c`、`bms_parameter_access.c` | 安全配置启动资格与在线候选提交分开，SN/校准有受控事务。保留，不把 Event/State 失败扩成输出安全参数失效。 |
+| Config：`bms_config_store.c` | chemistry/profile 唯一来源，业务默认赋值共用一个入口；保存失败不发布候选，编码后统一去重。 |
+| AFE profile/access：`bms_afe_hw_profile.c`、`bms_afe_hw_access.c` | requested/effective、授权、完整候选、校验、应用/回读/回滚是硬件事务；未裁剪。 |
+| State/journal/Flash：`bms_state_store.c`、`storage_record.c`、`bms_storage_platform_telink.c` | pending 与已提交 cache 不能合并；checkpoint、退避、CRC/commit、旧记录及保护边界保留，未重划分区。 |
+| Event：`bms_event_log.c` | 修复 packed 指针；保留间隔编码、合并、checkpoint、启动/休眠语义。 |
+| Modbus：`modbus_rtu.c`、`btname_modbus.c`、`bms_crc.c` | 长度/数量/地址、完整 AFE 事务与命名入口分工保留；未改协议、缩放或 CRC 算法。 |
+| UART/RS485：`modbus_uart.c` | DMA 缓冲交付、TX 完成、DE 最小线时长、timeout 与休眠恢复为物理时序状态；不删除。 |
+| D008 bus/SIF：`bus_mux.c`、`sif_send.c` | 引脚所有权与双缓冲 IRQ 发布有独立用途；不能用“通信空闲”单 bool 替代。 |
+| BLE/OTA：`app_ble.c`、`app_att.c`、`ble_ota.c` | 连接、分片、Flash 会话和 PM 回调保持 SDK 边界；未改 OTA 格式、成功条件或 APP 边界。 |
+| 诊断/日志/栈：`bms_diag.c`、`bms_runtime_diag.c`、`bms_debug_log.c`、`bms_stack_monitor.c` | RAM 快照、可选 ring、栈观测用途不同；保持量产关闭、只读地址和失效边界，未新增主动发送或 Flash 日志。 |
+
+没有为简化引入 manager/service/ops 表、动态分配、回调框架或跨产品复制源码。
+未删除有实际消费者的 API，也未把硬件反馈、软件请求和状态缓存当成重复变量合并。
+
+## 4. 原始资料与不能由软件决定的边界
+
+入口：[AFE_REFERENCE_GUIDE](AFE_REFERENCE_GUIDE.md) 及其中固定提交审查；
+原文件身份见 [SOURCE_MANIFEST](../references/afe/AFE_完整开发参考库_20261005/SOURCE_MANIFEST.md)。
+本轮重新查看原 PDF 的审查结论如下：
+
+- SH36735XX V1.0A 原 PDF p16 的 IND=1/0xAAAAA 示例与 p44 OWDL bit0=OWD1 的编号冲突仍存在。
+  因此映射外 raw 异常不能当普通无结果失败自动解除，需逐路实板确认。
+- DVC1124-2 DS V1.1 原 PDF p15 规定 100 µA 下拉并由 MCU 根据电压判断，没有将 0 mV
+  定义为断线的充要条件。本轮只更正注释，0 mV 项目判据、200 ms 等待和超时不变。
+- 不更改 AFE 寄存器、诊断激励时长、SC/OCD/OCC 恢复、Wake PAD、PC4 或 CMNT_EN 策略。
+  持续充/放电时主动检测覆盖、滤波 RC、端点/相邻断线、Gate 瞬态与实际唤醒均未关闭。
+- fuse 仅在本次 MCU 启动内保持；掉电/reset/deep-sleep 冷启动后的物理熔断完成没有新增
+  检测或 Flash 记录。软件锁存和驱动请求不能证明物理保险丝已经断开。
+
+## 5. 审查、用例与交付口径
+
+完成了源码、调用链、状态修改入口、异常清理、数据质量和 Git 差异审查；按 code-review
+工作流分 Standards/Spec 两轴交叉复核。已将审查发现的 fuse 电平保持、SOC 全部电压校正
+入口、短于策略量子的失效资格和旧夹具接口一并修正。
+
+| 审查轴 | 最终源码复核 |
+|---|---|
+| Standards | 接口替身、初始化职责、采样前后标志、策略余量等发现均已修正；未关闭发现 0 项。 |
+| Spec | 普通失败恢复、安全证据保留、SOC 诊断隔离、配置及外部边界均已核对；未关闭发现 0 项。 |
+
+两轴均为源码结论，不构成编译、回归通过或实板安全结论。
+
+补充/同步的待运行用例包括：普通 START/I/O/TIMEOUT 后持续充电恢复均衡、raw 不确定
+继续阻断、清理失败保持、确认掩码仅健康结果解除、fuse 重初始化锁存及驱动请求、
+均衡充后静置、SOC 失败重置/诊断末帧/电流积分/端点阻断/短间隔、Config u32 越界、
+双接口选型与保存失败、Event 间隔边界，以及 PM 局部快照接口。
+
+**本轮未运行 `sources --check`、host、ASan/UBSan、静态分析工具、目标编译/链接、
+资源检查或实板验证，未生成 BIN、打包、烧录或 OTA。** 项目规则要求用户明确请求后
+执行这些步骤；用例存在不表示已经通过。`git diff --check` 仅检查差异空白问题。
+
+后续获准验证公共改动时，按 [BUILD_AND_TEST](BUILD_AND_TEST.md) 执行四产品
+sources/link/resources 和受影响的 feature、SOC/Open-Wire、AFE 恢复、storage、PM 回归。
+资源余量、栈水位、Flash 掉电、物理保护和唤醒还需各自证据，历史结果不能覆盖本轮。

@@ -15,16 +15,16 @@
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 /* 初始化当前产品支持的板级功能 GPIO。 */
-void bms_board_features_init(void)
+void bms_board_features_init(uint8_t heater_fuse_fired)
 {
-    /* HS-D008：PA1 = MCC-EN-HT，PD4 = MCC-EN-RF；启动时均保持非激活。 */
+    /* HS-D008：加热初始化为 OFF；本次 MCU 启动已提交的熔断请求必须保持。 */
     gpio_set_func(BMS_BOARD_HEATER_ENABLE_PIN, AS_GPIO);
     gpio_write(BMS_BOARD_HEATER_ENABLE_PIN, 0u);
     gpio_set_input_en(BMS_BOARD_HEATER_ENABLE_PIN, 0u);
     gpio_set_output_en(BMS_BOARD_HEATER_ENABLE_PIN, 1u);
 
     gpio_set_func(BMS_BOARD_HEATER_FUSE_PIN, AS_GPIO);
-    gpio_write(BMS_BOARD_HEATER_FUSE_PIN, 0u);
+    gpio_write(BMS_BOARD_HEATER_FUSE_PIN, heater_fuse_fired ? 1u : 0u);
     gpio_set_input_en(BMS_BOARD_HEATER_FUSE_PIN, 0u);
     gpio_set_output_en(BMS_BOARD_HEATER_FUSE_PIN, 1u);
 }
@@ -80,8 +80,9 @@ void bms_board_heater_fuse_fire(void)
 uint8_t bms_board_balance_supported(void) { return 1u; }
 #else
 /* 初始化当前产品支持的板级功能 GPIO。 */
-void bms_board_features_init(void)
+void bms_board_features_init(uint8_t heater_fuse_fired)
 {
+    (void)heater_fuse_fired; /* SH 不支持不可逆熔断，D011 PB5 仍强制安全 LOW。 */
     /* D014 没有经验证的加热/熔断输出；加热支持关闭时禁止操作遗留 D011 PB4/PB5。 */
     if (SH3673510_PRODUCT_HEATER_SUPPORTED)
     {

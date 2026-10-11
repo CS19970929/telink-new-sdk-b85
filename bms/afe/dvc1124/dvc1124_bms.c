@@ -500,12 +500,12 @@ void DVC1124_BmsApp_AFEGet(void)
      * 断线检测的诊断电压不能成为恢复证据。
      */
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm,
-        (uint8_t)!features.openwire_sample_active, snapshot.voltage_fresh,
+        (uint8_t)!(features.openwire_active || features.openwire_cleanup_pending), snapshot.voltage_fresh,
         poll_tick);
 #endif
     /* 与 SH 一样每个有效应用轮次评估软件保护；等待 ADC 不能拖慢软件滤波。 */
     memset(&sw, 0, sizeof(sw));
-    sw.voltage_sample_diagnostic = features.openwire_sample_active;
+    sw.voltage_sample_diagnostic = (features.openwire_active || features.openwire_cleanup_pending);
     /* 外部负载检测暂不用，两方向恢复均只用可靠反向电流。 */
     sw.current_recovery_requires_evidence = 1u;
     sw.current_recovery_sample_fresh = snapshot.current_fresh;

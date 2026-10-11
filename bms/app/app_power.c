@@ -71,15 +71,21 @@ static u8 s_sleep_report_reason;
 
 /* 四产品保护性休眠共用计时；到期后锁存，不再回到通信/采样业务。 */
 #define APP_AFE_ERROR_SLEEP_SECONDS (30u * 60u)
+/* 普通 Suspend 与低压可靠充电分别拥有阈值，不随 SOC 电流死区调整。 */
+#define APP_SUSPEND_EXIT_CURRENT_MA ((int32_t)200)
+#define APP_SLEEP_CHARGE_CURRENT_MA ((int32_t)200)
+/* 本轮推导结果仅用于决策/诊断，不作为跨轮状态保留。 */
+typedef struct {
+    u32 elapsed_ms;
+    u32 delay_ms;
+    u8 reason;
+} app_sleep_status_t;
 typedef struct {
     u32 low_voltage_seconds;
     u32 normal_voltage_seconds;
     u8 normal_voltage_active;
     u32 afe_error_seconds;
-    u32 elapsed_ms;
-    u32 delay_ms;
     u8 region;
-    u8 reason;
     u8 committed;
 } app_protective_sleep_t;
 static app_protective_sleep_t s_protective_sleep;
@@ -91,9 +97,6 @@ static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
     return ((u32)(pm_get_32k_tick() - m->sample_tick_32k) <=
             BMS_SAMPLE_MAX_POLL_GAP_32K) ? 1u : 0u;
 }
-
-/* 与 SOC 可靠电流范围一致；充、放电两侧均阻止普通 suspend。 */
-#define APP_SUSPEND_EXIT_CURRENT_MA ((int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #define APP_POWER_OFF_RETRY_SECONDS 5u
@@ -289,7 +292,7 @@ static void app_enter_protective_sleep(void)
 }
 
 /* 两类计时独立；BLE/串口/OTA 不清零，AFE 异常不被旧低压报告遮住。 */
-static u8 app_protective_sleep_poll(u32 elapsed_sec)
+static u8 app_protective_sleep_poll(u32 elapsed_sec, app_sleep_status_t *status)
 {
     bms_afe_aux_measurements_t m;
     u8 valid;
@@ -307,13 +310,13 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec)
         limit = 0u;
         s_protective_sleep.normal_voltage_active =
             g_bms_report.cell_min_mv < BMS_SLEEP_NORMAL_CELL_MV &&
-            m.current_ma >= -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+            m.current_ma >= -APP_SLEEP_CHARGE_CURRENT_MA;
         if (g_bms_report.cell_min_mv < 2550u) {
             region = 1u; limit = 3600u;
         } else if (g_bms_report.cell_min_mv < BMS_SLEEP_LOW_CELL_MV) {
             region = 2u; limit = BMS_SLEEP_LOW_SECONDS;
         } else if (g_bms_report.cell_min_mv < BMS_SLEEP_NORMAL_CELL_MV &&
-                   m.current_ma >= -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA) {
+                   m.current_ma >= -APP_SLEEP_CHARGE_CURRENT_MA) {
             region = 3u; limit = BMS_SLEEP_NORMAL_SECONDS;
         }
     }
@@ -328,29 +331,28 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec)
     s_protective_sleep.afe_error_seconds = (!valid || bms_error_get(BMS_ERROR_AFE1)) ?
         app_pm_elapsed_limit(s_protective_sleep.afe_error_seconds, elapsed_sec,
                              APP_AFE_ERROR_SLEEP_SECONDS) : 0u;
-    s_protective_sleep.reason = region ? (u8)(DIAG_SLEEP_REASON_VERY_LOW + region - 1u) :
+    status->reason = region ? (u8)(DIAG_SLEEP_REASON_VERY_LOW + region - 1u) :
                                          DIAG_SLEEP_REASON_NONE;
-    s_protective_sleep.elapsed_ms = s_protective_sleep.low_voltage_seconds * 1000u;
-    s_protective_sleep.delay_ms = limit * 1000u;
+    status->elapsed_ms = s_protective_sleep.low_voltage_seconds * 1000u;
+    status->delay_ms = limit * 1000u;
     if (s_protective_sleep.normal_voltage_active &&
         (region == 3u || BMS_SLEEP_NORMAL_SECONDS - s_protective_sleep.normal_voltage_seconds <=
                          limit - s_protective_sleep.low_voltage_seconds)) {
-        s_protective_sleep.reason = (u8)(DIAG_SLEEP_REASON_VERY_LOW + 2u);
-        s_protective_sleep.elapsed_ms = s_protective_sleep.normal_voltage_seconds * 1000u;
-        s_protective_sleep.delay_ms = BMS_SLEEP_NORMAL_SECONDS * 1000u;
+        status->reason = (u8)(DIAG_SLEEP_REASON_VERY_LOW + 2u);
+        status->elapsed_ms = s_protective_sleep.normal_voltage_seconds * 1000u;
+        status->delay_ms = BMS_SLEEP_NORMAL_SECONDS * 1000u;
     }
     if (s_protective_sleep.afe_error_seconds &&
         (!region || (APP_AFE_ERROR_SLEEP_SECONDS - s_protective_sleep.afe_error_seconds) * 1000u <=
-                    s_protective_sleep.delay_ms - s_protective_sleep.elapsed_ms)) {
-        s_protective_sleep.reason = DIAG_SLEEP_REASON_AFE;
-        s_protective_sleep.elapsed_ms = s_protective_sleep.afe_error_seconds * 1000u;
-        s_protective_sleep.delay_ms = APP_AFE_ERROR_SLEEP_SECONDS * 1000u;
+                    status->delay_ms - status->elapsed_ms)) {
+        status->reason = DIAG_SLEEP_REASON_AFE;
+        status->elapsed_ms = s_protective_sleep.afe_error_seconds * 1000u;
+        status->delay_ms = APP_AFE_ERROR_SLEEP_SECONDS * 1000u;
     }
-    if (s_protective_sleep.reason != DIAG_SLEEP_REASON_NONE)
-        bms_diag_sleep(s_protective_sleep.reason, 0u, s_protective_sleep.elapsed_ms,
-                        s_protective_sleep.delay_ms, 0u, 0u);
-    if (s_protective_sleep.delay_ms &&
-        s_protective_sleep.elapsed_ms >= s_protective_sleep.delay_ms) {
+    if (status->reason != DIAG_SLEEP_REASON_NONE)
+        bms_diag_sleep(status->reason, 0u, status->elapsed_ms,
+                        status->delay_ms, 0u, 0u);
+    if (status->delay_ms && status->elapsed_ms >= status->delay_ms) {
         app_enter_protective_sleep();
         return 1u;
     }
@@ -360,15 +362,15 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec)
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 
 /* 深睡/关机与普通 suspend 的门禁不同，不能复用 pm_block 推断倒计时。 */
-static void app_dvc_publish_sleep(u8 reason, u32 elapsed_ms, u32 delay_ms,
-                                  u8 suspend_allowed)
+static void app_dvc_publish_sleep(const app_sleep_status_t *protective,
+                                  u8 reason, u8 suspend_allowed)
 {
     bms_afe_aux_measurements_t m;
     u32 block = 0u;
     u32 retry_ms;
-    if (s_protective_sleep.reason != DIAG_SLEEP_REASON_NONE) {
-        bms_diag_sleep(s_protective_sleep.reason, 0u, s_protective_sleep.elapsed_ms,
-                        s_protective_sleep.delay_ms, 0u, suspend_allowed);
+    if (protective->reason != DIAG_SLEEP_REASON_NONE) {
+        bms_diag_sleep(protective->reason, 0u, protective->elapsed_ms,
+                        protective->delay_ms, 0u, suspend_allowed);
         return;
     }
     if (ota_is_working) block |= DIAG_SLEEP_BLOCK_OTA;
@@ -384,7 +386,7 @@ static void app_dvc_publish_sleep(u8 reason, u32 elapsed_ms, u32 delay_ms,
         retry_ms = 0u;
         if (!app_get_fresh_measurements(&m)) block |= DIAG_SLEEP_BLOCK_SAMPLE;
     }
-    app_publish_sleep(reason, block, elapsed_ms, delay_ms, retry_ms, suspend_allowed);
+    app_publish_sleep(reason, block, 0u, 0u, retry_ms, suspend_allowed);
 }
 
 /* 仅由显式命令分支调用；保护性低压休眠不经过此关机流程。 */
@@ -584,6 +586,7 @@ void app_power_process(const volatile uint8_t *sample_due)
 {
     static app_pm_elapsed_ctx_t elapsed_ctx;
     bms_afe_aux_measurements_t m;
+    app_sleep_status_t protective;
     u32 elapsed_sec = app_pm_take_elapsed_seconds(&elapsed_ctx);
     u32 pm_block = 0u;
     u32 voltage_seconds;
@@ -592,7 +595,7 @@ void app_power_process(const volatile uint8_t *sample_due)
     u8 flash_busy = app_flash_lock_restore_enabled() ? 0u : 1u;
     u8 bus_busy = (BUS_STATE_OWC_IDLE != bus_mux_get_state()) ? 1u : 0u;
 
-    if (app_protective_sleep_poll(elapsed_sec)) return;
+    if (app_protective_sleep_poll(elapsed_sec, &protective)) return;
     voltage_seconds = (s_protective_sleep.region == 3u) ?
         s_protective_sleep.normal_voltage_seconds : s_protective_sleep.low_voltage_seconds;
 
@@ -616,9 +619,9 @@ void app_power_process(const volatile uint8_t *sample_due)
         bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
-        app_dvc_publish_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, 0u, 0u);
+        app_dvc_publish_sleep(&protective, DIAG_SLEEP_REASON_COMMAND, 0u);
         if (app_enter_command_power_off()) return;
-        app_dvc_publish_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, 0u, 0u);
+        app_dvc_publish_sleep(&protective, DIAG_SLEEP_REASON_COMMAND, 0u);
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         if (ota_is_working) bls_pm_setManualLatency(0);
@@ -631,9 +634,9 @@ void app_power_process(const volatile uint8_t *sample_due)
         bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
-        app_dvc_publish_sleep(DIAG_SLEEP_REASON_ACC, 0u, 0u, 0u);
+        app_dvc_publish_sleep(&protective, DIAG_SLEEP_REASON_ACC, 0u);
         if (app_enter_acc_sleep()) return;
-        app_dvc_publish_sleep(DIAG_SLEEP_REASON_ACC, 0u, 0u, 0u);
+        app_dvc_publish_sleep(&protective, DIAG_SLEEP_REASON_ACC, 0u);
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         if (ota_is_working) bls_pm_setManualLatency(0);
@@ -661,12 +664,7 @@ void app_power_process(const volatile uint8_t *sample_due)
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
     }
-    if (s_protective_sleep.reason != DIAG_SLEEP_REASON_NONE) {
-        app_dvc_publish_sleep(s_protective_sleep.reason, s_protective_sleep.elapsed_ms,
-                                s_protective_sleep.delay_ms, s_low_power_mode);
-        return;
-    }
-    app_dvc_publish_sleep(DIAG_SLEEP_REASON_NONE, 0u, 0u, s_low_power_mode);
+    app_dvc_publish_sleep(&protective, DIAG_SLEEP_REASON_NONE, s_low_power_mode);
 }
 
 #else
@@ -682,9 +680,10 @@ void app_power_process(const volatile uint8_t *sample_due)
     static app_pm_elapsed_ctx_t sleep_elapsed_ctx = {0};
     u32 elapsed_sec = app_pm_take_elapsed_seconds(&sleep_elapsed_ctx);
     bms_afe_aux_measurements_t m;
+    app_sleep_status_t protective;
     u8 ui_busy = 0u;
     u8 sample_block;
-    if (app_protective_sleep_poll(elapsed_sec)) return;
+    if (app_protective_sleep_poll(elapsed_sec, &protective)) return;
     if (app_sh_explicit_sleep_poll()) return;
     sample_block = (u8)(!app_get_fresh_measurements(&m) || (*sample_due) ||
         m.current_ma >= APP_SUSPEND_EXIT_CURRENT_MA ||
@@ -705,9 +704,9 @@ void app_power_process(const volatile uint8_t *sample_due)
     if (deepsleep_en)
         bms_diag_sleep(DIAG_SLEEP_REASON_COMMAND, 0u,
             (u32)(pm_get_32k_tick() - s_command_tick) / 32u, 500u, 0u, s_low_power_mode);
-    else if (s_protective_sleep.reason != DIAG_SLEEP_REASON_NONE)
-        bms_diag_sleep(s_protective_sleep.reason, 0u, s_protective_sleep.elapsed_ms,
-            s_protective_sleep.delay_ms, 0u, s_low_power_mode);
+    else if (protective.reason != DIAG_SLEEP_REASON_NONE)
+        bms_diag_sleep(protective.reason, 0u, protective.elapsed_ms,
+            protective.delay_ms, 0u, s_low_power_mode);
     else
         bms_diag_sleep(DIAG_SLEEP_REASON_NONE, 0u, 0u, 0u, 0u, s_low_power_mode);
 }

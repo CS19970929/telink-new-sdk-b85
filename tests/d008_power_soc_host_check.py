@@ -151,7 +151,7 @@ def check_soc_openwire():
     fixture += '\n#define BMS_AFE_BACKEND 1u\n' + feature_type
     fixture += (Path(__file__).parent / 'fixtures/d008_soc_openwire.c').read_text()
     for signature in ('static uint8_t openwire_eligible(', 'static uint32_t openwire_wait_remaining(',
-                      'static void openwire_put32(', 'static void publish_openwire(', 'static void finish_openwire(',
+                      'static void openwire_put32(', 'static void publish_openwire(', 'static uint8_t openwire_result_abnormal(', 'static void finish_openwire(',
                       'static void service_openwire(',
                       'void bms_features_service(', 'static uint8_t balance_voltage_trusted(',
                       'void bms_features_get_status('):

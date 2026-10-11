@@ -123,7 +123,7 @@ def check_d008_voltage_recovery_host_check():
     recovery = source.index('alarm = dvc_clear_recovered_hw_latches(snapshot.alarm')
     software = source.index('bms_sw_protection_update_groups(&sw')
     assert recovery < software
-    assert '!features.openwire_sample_active, snapshot.voltage_fresh' in source[recovery:software]
+    assert '!(features.openwire_active || features.openwire_cleanup_pending), snapshot.voltage_fresh' in source[recovery:software]
     assert 'poll_tick);' in source[recovery:software]
     with tempfile.TemporaryDirectory(prefix='d008-voltage-recovery-') as tmp:
         c = Path(tmp) / 'check.c'

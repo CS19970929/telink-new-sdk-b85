@@ -89,6 +89,7 @@ void bms_diag_sleep(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed) {
 }
 void bms_diag_sleep_committed(void) {}
 /* PRODUCTION */
+static app_sleep_status_t sleep_status;
 static void reset(void) {
     memset(&s_protective_sleep,0,sizeof(s_protective_sleep));
     s_command_seen=0; retained_analog=wakeup_status=0;
@@ -102,50 +103,50 @@ static void reset(void) {
 }
 int main(void) {
     reset(); g_bms_report.cell_min_mv=2600; device_in_connection_state=1;
-    assert(!app_protective_sleep_poll(1800));
+    assert(!app_protective_sleep_poll(1800, &sleep_status));
     g_bms_report.cell_min_mv=2500;
-    assert(app_protective_sleep_poll(1800)); /* 跨极低压分界仍累计一小时 */
+    assert(app_protective_sleep_poll(1800, &sleep_status)); /* 跨极低压分界仍累计一小时 */
     assert(sleep_calls==1&&saves==1&&events==1&&afe_calls==1&&output_calls==1);
     assert(s_protective_sleep.committed&&s_low_power_mode);
     pins[1]=0; assert(app_power_prepare_loop());
     assert(sleep_calls==2&&saves==1&&events==1&&afe_calls==1&&output_calls==1);
     reset(); ota_is_working=1; flash_ready=0; valid=0;
-    assert(!app_protective_sleep_poll(1799)); assert(app_protective_sleep_poll(1));
+    assert(!app_protective_sleep_poll(1799, &sleep_status)); assert(app_protective_sleep_poll(1, &sleep_status));
     assert(reason==DIAG_SLEEP_REASON_AFE&&sleep_calls==1&&!saves&&!events);
     reset(); g_bms_report.cell_min_mv=2400; afe_error=1;
-    assert(!app_protective_sleep_poll(1799)); assert(app_protective_sleep_poll(1));
+    assert(!app_protective_sleep_poll(1799, &sleep_status)); assert(app_protective_sleep_poll(1, &sleep_status));
     assert(reason==DIAG_SLEEP_REASON_AFE); /* 低压不能遮住 AFE 异常 */
-    reset(); valid=0; assert(!app_protective_sleep_poll(900));
-    valid=1; assert(!app_protective_sleep_poll(1)); assert(!s_protective_sleep.afe_error_seconds);
-    now+=BMS_SOC_MAX_SAMPLE_GAP_32K+1; assert(app_protective_sleep_poll(1800));
+    reset(); valid=0; assert(!app_protective_sleep_poll(900, &sleep_status));
+    valid=1; assert(!app_protective_sleep_poll(1, &sleep_status)); assert(!s_protective_sleep.afe_error_seconds);
+    now+=BMS_SOC_MAX_SAMPLE_GAP_32K+1; assert(app_protective_sleep_poll(1800, &sleep_status));
     reset(); g_bms_report.cell_min_mv=2900; measurement.current_ma=-201;
-    assert(!app_protective_sleep_poll(86400));
-    measurement.current_ma=0; assert(!app_protective_sleep_poll(86399));
-    assert(app_protective_sleep_poll(1));
+    assert(!app_protective_sleep_poll(86400, &sleep_status));
+    measurement.current_ma=0; assert(!app_protective_sleep_poll(86399, &sleep_status));
+    assert(app_protective_sleep_poll(1, &sleep_status));
     reset(); g_bms_report.cell_min_mv=2700;
-    assert(!app_protective_sleep_poll(3599));
-    now+=12801u; assert(!app_protective_sleep_poll(0));
+    assert(!app_protective_sleep_poll(3599, &sleep_status));
+    now+=12801u; assert(!app_protective_sleep_poll(0, &sleep_status));
     assert(s_protective_sleep.low_voltage_seconds==3599u);
-    assert(app_protective_sleep_poll(1)); /* 采样等待不能推迟已确认低压的一小时到期。 */
+    assert(app_protective_sleep_poll(1, &sleep_status)); /* 采样等待不能推迟已确认低压的一小时到期。 */
     reset(); g_bms_report.cell_min_mv=2900; measurement.current_ma=-90;
-    assert(app_protective_sleep_poll(86400)); /* 可靠电流区外的偏移不冒充充电。 */
+    assert(app_protective_sleep_poll(86400, &sleep_status)); /* 可靠电流区外的偏移不冒充充电。 */
     reset(); g_bms_report.cell_min_mv=2700; now=measurement.sample_tick_32k=0;
     app_pm_elapsed_ctx_t wall_clock={0};
-    assert(!app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock)));
+    assert(!app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock), &sleep_status));
     for(u32 seconds=1;seconds<=3600u;++seconds) {
         now=seconds*32000u; measurement.sample_tick_32k=now;
-        assert(app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock))==(seconds==3600u));
+        assert(app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock), &sleep_status)==(seconds==3600u));
         assert(s_protective_sleep.low_voltage_seconds==seconds);
         if(seconds==3600u) break;
         now+=12801u;
-        assert(!app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock)));
+        assert(!app_protective_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock), &sleep_status));
         assert(s_protective_sleep.low_voltage_seconds==seconds);
     }
     /* 始终低于3000mV，跨2800mV不得丢掉24小时资格；低压一小时仍需连续。 */
     reset();
     for (unsigned step=1;step<=48u;++step) {
         g_bms_report.cell_min_mv=(step&1u)?2799u:2801u;
-        assert(app_protective_sleep_poll(1800u)==(step==48u));
+        assert(app_protective_sleep_poll(1800u, &sleep_status)==(step==48u));
     }
     assert(reason==DIAG_SLEEP_REASON_VERY_LOW + 2u);
     reset(); app_pm_elapsed_ctx_t ctx={UINT32_MAX-15999u,16000u,1u}; now=0u;

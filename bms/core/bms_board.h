@@ -13,7 +13,8 @@
  * 也不在此直接访问 AFE 寄存器；
  * 仅提供充电器存在、加热输出及不可逆保险丝触发等产品物理信号。
  */
-void bms_board_features_init(void);
+/* 冷启动传 0；同进程重初始化保持已提交的不可逆熔断输出。 */
+void bms_board_features_init(uint8_t heater_fuse_fired);
 /* 查询产品是否具有有效电芯均衡通道。 */
 uint8_t bms_board_balance_supported(void);
 /* 按产品已验证硬件输入查询充电源存在状态。 */

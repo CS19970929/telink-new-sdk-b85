@@ -110,7 +110,6 @@ static void test_config_codec_layout(void)
   }
   for(unsigned i=0;i<24u;++i) cfg.bt_name_suffix[i]=(char)codec_random(&seed,scenario);
   memcpy(expected+224u,cfg.bt_name_suffix,24u);
-  cfg.soc.chemistry=(u8)system[3];cfg.soc.profile_id=(u8)system[4];
   cfg.soc.current_deadband_ma=(u16)codec_random(&seed,scenario);
   cfg.soc.ocv_rest_prepare_s=(u16)codec_random(&seed,scenario);
   cfg.soc.ocv_error_band_percent=(u8)codec_random(&seed,scenario);
@@ -148,6 +147,26 @@ static void test_config_codec_layout(void)
         (unsigned)sizeof(bms_user_params_t),(unsigned)offsetof(bms_user_params_t,current_offset_ma));
 }
 static void test_config_schema(void){
+ /* CRC 有效也不能让超宽化学体系/profile 截断为 u8 AUTO 后放行。 */
+ fresh();bms_config_cache_t malformed=g_bms_config;
+ malformed.system.battery_chemistry=0x100u;
+ assert(bms_config_save_cache(&malformed));reboot();assert(bms_config_store_init());
+ bms_soc_config_t soc;assert(!bms_config_store_get_soc(&soc));
+ assert(!bms_config_store_validate_startup());
+ fresh();malformed=g_bms_config;malformed.system.soc_profile_id=0x100u;
+ assert(bms_config_save_cache(&malformed));reboot();assert(bms_config_store_init());
+ assert(!bms_config_store_get_soc(&soc) && !bms_config_store_validate_startup());
+ /* 两个接口读取同一选型；保存失败不能发布任何一组的新值。 */
+ fresh();bms_config_system_params_t selection=g_bms_config.system;
+ selection.battery_chemistry=2u;selection.soc_profile_id=2u;
+ assert(bms_config_store_set_system(&selection));assert(bms_config_store_get_soc(&soc));
+ assert(soc.chemistry==2u && soc.profile_id==2u);
+ soc.chemistry=1u;soc.profile_id=1u;cut=0;
+ assert(!bms_config_store_set_soc(&soc));assert(bms_config_store_get_soc(&soc));
+ assert(soc.chemistry==2u && soc.profile_id==2u);
+ cut=-1;soc.chemistry=1u;soc.profile_id=1u;
+ assert(bms_config_store_set_soc(&soc));assert(bms_config_store_get_system(&selection));
+ assert(selection.battery_chemistry==1u && selection.soc_profile_id==1u);
  fresh(); bms_config_system_params_t cap=g_bms_config.system;
  cap.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH+1u;assert(!bms_config_store_set_system(&cap));
  assert(g_bms_config.system.capacity_factory==1000);
@@ -418,7 +437,7 @@ static void test_ota_config_policy(void)
     assert(g_bms_config.system.series_num == 24u); assert_update_groups(15u);
     /* SOC 类型改变但未更新电压保护时拒绝放行。 */
     fresh(); custom = configured(); custom.system.battery_chemistry = 2u;
-    custom.system.soc_profile_id = 2u; custom.soc.chemistry = 2u; custom.soc.profile_id = 2u;
+    custom.system.soc_profile_id = 2u;
     assert(bms_config_save_cache(&custom)); test_ota_mask = 8u;
     reboot(); bms_parameters_init(); assert(!bms_protection_params_valid());
     test_ota_mask = 15u; reboot(); bms_parameters_init(); assert(bms_protection_params_valid());
@@ -527,6 +546,10 @@ static void test_storage_reliability(void){
  puts("PASS storage: no-op Config, 120 failures bounded to 3 writes/1 erase, partial-slot reuse, IO errors never default-write, cache-only reads");
 }
 static void test_event_semantics(void){
+ assert(bms_event_log_map_interval(0u)==171u && bms_event_log_map_interval(60u)==171u);
+ assert(bms_event_log_map_interval(61u)==1u && bms_event_log_map_interval(3600u)==1u);
+ assert(bms_event_log_map_interval(3601u)==2u && bms_event_log_map_interval(168u*3600u)==168u);
+ assert(bms_event_log_map_interval(168u*3600u+1u)==170u && bms_event_log_map_interval(UINT32_MAX)==170u);
  bms_event_log_sample_t sample={0};
  fresh();sample.vcell_ovp=1;now=59u*32000u;bms_event_log_poll_1s(&sample);
  sample.vcell_ovp=0;now=60u*32000u;bms_event_log_poll_1s(&sample);

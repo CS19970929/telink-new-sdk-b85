@@ -17,6 +17,7 @@ AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边�
 | [构建与验证](docs/BUILD_AND_TEST.md) | Windows 命令、产物、测试、失败排查、镜像交付 |
 | [多产品自动化验证](docs/AUTOMATED_VALIDATION.md) | 一条命令、真实代码场景、配置/行为报告、CI、证据层级和盲区 |
 | [代码阅读指南](docs/CODE_READING_GUIDE.md) | 从实际调用链熟悉代码 |
+| [全模块审查与简化（2026-10-11）](docs/SIMPLIFICATION_20261011.md) | 对话建议逐项核对、断线/均衡恢复、SOC 电压资格、状态职责及未执行验证 |
 | [第三轮简化与保留边界](docs/SIMPLIFICATION_20261007.md) · [固定提交证据](docs/SIMPLIFICATION_20261007_EVIDENCE.json) | 主流程、产品差异、删除项、状态与验证口径 |
 | [第四轮维护入口简化](docs/SIMPLIFICATION_ROUND4_20261007.md) · [固定提交证据](docs/SIMPLIFICATION_ROUND4_20261007_EVIDENCE.json) | 参数命名、配置头、诊断状态与协议可读性 |
 | [启动、诊断与产品命名收口](docs/MAINTENANCE_SIMPLIFICATION_20261007.md) · [固定提交证据](docs/MAINTENANCE_SIMPLIFICATION_20261007_EVIDENCE.json) | CI 证据、发布批准、单一启动/诊断入口及字段命名 |

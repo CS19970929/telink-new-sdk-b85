@@ -26,7 +26,7 @@ static uint32_t s_openwire_start_generation,s_openwire_start_tick,s_balance_requ
 static uint8_t s_balance_suspended;
 static dvc1124_openwire_result_t s_openwire_result;
 static uint8_t diagnostic_active;
-void bms_features_get_status(bms_features_status_t *s){memset(s,0,sizeof(*s));s->openwire_sample_active=diagnostic_active;}
+void bms_features_get_status(bms_features_status_t *s){memset(s,0,sizeof(*s));s->openwire_active=diagnostic_active;}
 static uint8_t registers[256];
 static int corrupt_reg=-1,corrupt_count;
 static uint8_t auto_cc2_event;

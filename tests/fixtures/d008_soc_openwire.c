@@ -6,10 +6,11 @@ void bms_diag_openwire(const uint16_t *words) { (void)words; }
 static uint8_t bms_afe_openwire_stop(void) { return 1u; }
 static uint8_t openwire_hard_fault(void) { return (uint8_t)afe_error; }
 static uint8_t apply_balance_mask(uint32_t mask) { return 1u; }
-static void update_charge_session(void) { s_feature.charge_session_active = (uint8_t)charge_session_active; }
+static uint8_t charge_source_present(void) { return 0u; }
+static void update_balance_charge_session(uint8_t present) { s_feature.balance_charge_session_active = (uint8_t)charge_session_active; }
 static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s) {}
-static void service_heater(const bms_afe_feature_snapshot_t *s) { s_feature.heater_on = (uint8_t)heater_on; }
-static void service_balance(const bms_afe_feature_snapshot_t *s) { s_feature.balance_active = (uint8_t)balance_active; }
+static void service_heater(const bms_afe_feature_snapshot_t *s, const bms_user_params_t *config, uint8_t present) { s_feature.heater_on = (uint8_t)heater_on; }
+static void service_balance(const bms_afe_feature_snapshot_t *s, const bms_user_params_t *config) { s_feature.balance_active = (uint8_t)balance_active; }
 static void bms_features_on_afe_invalid(void) { s_feature.openwire_suspected = 1u; }
 static uint8_t bms_afe_openwire_start(void)
 {
@@ -121,7 +122,8 @@ int main(void)
     for (int result = 1; result <= 3; ++result) {
         prime_rest(); poll_result = result;
         joint_sample(6400u); joint_sample(6400u);
-        assert(s_feature.openwire_suspected); assert_reset();
+        assert((s_feature.openwire_suspected!=0)==(result==3));
+        assert(feature_status().voltage_untrusted);assert_reset();
     }
     prime_rest(); poll_stuck = 1;
     for (unsigned i = 0u; i < 15u; ++i) joint_sample(6400u);

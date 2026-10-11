@@ -26,8 +26,6 @@ static void SOC_Result_Pass(void);
 
 #define VCELLMAX g_soc_input.cell_max_mv
 #define VCELLMIN g_soc_input.cell_min_mv
-#define ICHG     g_bms_report.charge_current_a10
-#define IDSG     g_bms_report.discharge_current_a10
 
 #define SOC_INTEGRAL_PERIOD_MS              BMS_SAMPLE_PERIOD_MS
 #define SOC_INTEGRAL_MS_PER_SEC             1000u
@@ -696,7 +694,7 @@ static uint8_t soc_rest_context_valid(void)
 {
     if (!g_soc_input.voltage_valid || !soc_temperature_reasonable() ||
         g_soc_input.balancing_active || g_soc_input.heating_active ||
-        g_soc_input.open_wire_suspected ||
+        g_soc_input.voltage_untrusted ||
         g_soc_input.afe_fault || g_soc_input.temperature_fault ||
         g_soc_input.current_fault || g_soc_input.pack_fault) return 0u;
     return 1u;
@@ -759,8 +757,8 @@ static void soc_trace_ocv_inputs(uint16_t event)
         ((uint32_t)g_soc_input.temperature_valid << 2) |
         ((uint32_t)g_soc_input.balancing_active << 3) |
         ((uint32_t)g_soc_input.heating_active << 4) |
-        ((uint32_t)g_soc_input.open_wire_active << 5) |
-        ((uint32_t)g_soc_input.open_wire_suspected << 6) |
+        ((uint32_t)g_soc_input.voltage_diagnostic << 5) |
+        ((uint32_t)g_soc_input.voltage_untrusted << 6) |
         ((uint32_t)g_soc_input.afe_fault << 7) |
         ((uint32_t)g_soc_input.temperature_fault << 8) |
         ((uint32_t)g_soc_input.current_fault << 9) |
@@ -813,7 +811,7 @@ static uint8_t soc_idle_ocv_tracking(void)
     uint32_t confidence;
     uint8_t current_soc;
 
-    if (g_soc_input.open_wire_active ||
+    if (g_soc_input.voltage_diagnostic ||
         g_soc_runtime.ocv_openwire_phase != SOC_OCV_OPENWIRE_NONE)
         soc_trace_ocv_inputs(SOC_TRACE_OCV_COW_INPUT);
 
@@ -822,10 +820,10 @@ static uint8_t soc_idle_ocv_tracking(void)
         return 0u;
     }
 
-    if (g_soc_input.open_wire_active) {
+    if (g_soc_input.voltage_diagnostic) {
         /*
-         * 只有已合格的正常基线可跨越有界诊断；失败/不确定轮次由功能所有者保持疑似，
-         * 无效样本和 GAP 更早重置本状态。
+         * 只有已合格的正常基线可跨越有界诊断；功能所有者将失败帧/异常证据
+         * 作为 voltage_untrusted 发布，作废静置资格但不丢弃有效电流积分。
          */
         if (!g_soc_runtime.idle_ocv_mv_valid ||
             g_soc_runtime.ocv_openwire_phase == SOC_OCV_OPENWIRE_RECOVERING) {
@@ -1067,7 +1065,9 @@ static uint8_t soc_apply_discharge_terminal_tracking(void)
     uint16_t current = 0u;
     uint16_t step_ticks;
 
-    if (soc_current_direction(&current) != SOC_INTEGRAL_DIR_DSG) {
+    if (!g_soc_input.voltage_valid || g_soc_input.voltage_diagnostic ||
+        g_soc_input.voltage_untrusted ||
+        soc_current_direction(&current) != SOC_INTEGRAL_DIR_DSG) {
         g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
         g_soc_runtime.dsg_empty_lock_ticks = 0u;
         return 0u;
@@ -1131,6 +1131,13 @@ static uint8_t soc_apply_full_anchor(void)
     uint8_t voltage_ready = (VCELLMAX >= full_mv) && (VCELLMIN >= full_min) &&
         (g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG();
     uint8_t before;
+
+    if (!g_soc_input.voltage_valid || g_soc_input.voltage_diagnostic ||
+        g_soc_input.voltage_untrusted) {
+        g_soc_runtime.full_lock_ticks = 0u;
+        g_soc_runtime.full_adjust_ticks = 0u;
+        return 0u;
+    }
 
     /* 单串过压仍执行保护，但不代表整包满电；满锚点也须满足最小电压和压差。 */
     if (voltage_ready && g_soc_input.third_cell_ovp) {
@@ -1196,8 +1203,8 @@ static uint8_t soc_apply_forced_empty_anchor(void)
     /* 欠压保护可能在充电恢复期间继续锁存，不能反复清掉已充入的容量。
      * MOS 欠压保护仍由保护模块处理；可靠充电方向只禁止 SOC 空电锚定。 */
     if (!g_soc_input.third_cell_uvp || isCHG() ||
-        !g_soc_input.voltage_valid || g_soc_input.open_wire_active ||
-        g_soc_input.open_wire_suspected ||
+        !g_soc_input.voltage_valid || g_soc_input.voltage_diagnostic ||
+        g_soc_input.voltage_untrusted ||
         VCELLMIN > g_bms_protection_params.cell_uvp_third_mv) return 0u;
     /* 旧 UV 锁存不是新空电证据；电压已回升时保留充入容量，不新增方向状态。 */
     before = get_soc_real();
@@ -1227,7 +1234,13 @@ static uint8_t soc_apply_idle_empty_anchor(void)
     uint16_t empty_mv = g_soc_profile->empty_sync_mv;
     uint16_t empty_max = (uint16_t)(empty_mv + g_soc_profile->empty_max_margin_mv);
     uint8_t before;
-    if (!soc_idle_for_ocv() || !soc_rest_context_valid() || g_soc_input.open_wire_active ||
+    if (!g_soc_input.voltage_valid || g_soc_input.voltage_diagnostic ||
+        g_soc_input.voltage_untrusted) {
+        g_soc_runtime.empty_lock_ticks = 0u;
+        g_soc_runtime.empty_adjust_ticks = 0u;
+        return 0u;
+    }
+    if (!soc_idle_for_ocv() || !soc_rest_context_valid() ||
         (VCELLMIN > empty_mv) || (VCELLMAX > empty_max)) {
         g_soc_runtime.empty_lock_ticks = 0u;
         g_soc_runtime.empty_adjust_ticks = 0u;
@@ -1478,6 +1491,19 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     }
     g_soc_input = *sample;
 
+    /* 先消费本帧电压资格；短于200ms或重复时间的输入也不能漏掉失败证据。
+     * 不作废电流区间、积分余数或已确认满/空锁存。 */
+    if (sample->voltage_untrusted) soc_reset_ocv_tracking();
+    if (sample->voltage_untrusted || sample->voltage_diagnostic) {
+        g_soc_strategy_pending_32k = 0u;
+        g_soc_runtime.full_lock_ticks = 0u;
+        g_soc_runtime.full_adjust_ticks = 0u;
+        g_soc_runtime.empty_lock_ticks = 0u;
+        g_soc_runtime.empty_adjust_ticks = 0u;
+        g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
+        g_soc_runtime.dsg_empty_lock_ticks = 0u;
+    }
+
     if (!g_soc_initialized || !sample->sample_valid || !sample->voltage_valid)
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_INVALID, SOC_INTEGRAL_DIR_NONE, 0u);
@@ -1539,6 +1565,9 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         return;
     }
 
+    /* 健康诊断即使不足一个策略量子，也必须记录暂停和后续新帧确认要求。 */
+    if (sample->voltage_diagnostic) (void)soc_idle_ocv_tracking();
+
     /*
      * 既有校准阈值仍为 200 ms 单位，但按实测时间计入；
      * 每个合格应用间隔最多记两个单位。长间隔下 8 mV 斜率检查保持保守。
@@ -1551,6 +1580,9 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         soc_update_low_faults();
         SOC_Result_Pass();
     }
+    /* 诊断/失败帧的不足量子时间不能转成下一正常帧的电压确认时间。 */
+    if (sample->voltage_untrusted || sample->voltage_diagnostic)
+        g_soc_strategy_pending_32k = 0u;
     g_soc_interval_32k = 0u; /* 每个采样间隔只积分一次 */
 }
 

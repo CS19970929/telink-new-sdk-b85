@@ -98,8 +98,12 @@ typedef struct {
     uint8_t balance_voltage_trusted;
     uint8_t openwire_suspected;
     uint8_t openwire_active;
-    /* 包含最后诊断帧和待清理窗口，供测量发布、软件电压保护和 SOC 隔离。 */
+    /* 采样前消费者只看当前激励/清理；不消费上一帧的诊断标志。 */
+    uint8_t openwire_cleanup_pending;
+    /* 采样后资格：包含最后诊断帧和待清理窗口，供 SOC 隔离；不能用于下一次采样前判断。 */
     uint8_t openwire_sample_active;
+    /* 异常疑似或失败诊断帧不能作电压锚定证据，不否定有效电流。 */
+    uint8_t voltage_untrusted;
 } bms_features_status_t;
 
 /* 复制本模块 RAM 状态；不读取 AFE，不改变输出授权。 */

@@ -26,7 +26,7 @@ typedef struct {
     bms_heater_state_t heater_state;
     uint16_t heater_off_hot_samples;
 
-    uint8_t charge_session_active;
+    uint8_t balance_charge_session_active;
 
     uint8_t openwire_active;
     uint8_t openwire_sample_active;
@@ -73,18 +73,18 @@ static uint8_t charge_source_present(void)
     return bms_board_charge_source_present() ? 1u : 0u;
 }
 
-/* 充电会话的唯一运行更新入口；先于 Open-Wire/Heater/均衡执行。 */
-static void update_charge_session(void)
+/* 均衡保留既有充后静置策略；加热周期由 heater_state 独立保持。 */
+static void update_balance_charge_session(uint8_t charging_present)
 {
     /*
-     * D008 无电流检测前的 AFE 硬件充电低温关断，因此可信充电电流用于建立会话。
-     * 预热主动阻断 CHG 后电流消失，零电流不能清会话；
+     * 可信充电电流或已确认充电源建立均衡会话。
+     * 会话建立后保留充后静置均衡；零电流不能证明拔掉充电器。
      * 真实放电方向是退出充电场景的可信证据。
      */
     if (g_bms_report.discharge_current_a10 != 0u)
-        s_feature.charge_session_active = 0u;
-    else if ((g_bms_report.charge_current_a10 != 0u) || charge_source_present())
-        s_feature.charge_session_active = 1u;
+        s_feature.balance_charge_session_active = 0u;
+    else if (charging_present)
+        s_feature.balance_charge_session_active = 1u;
 }
 
 /* 更新加热请求并驱动支持的板级输出。 */
@@ -234,10 +234,9 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
 }
 
 /* 推进加热需求、资格确认和故障处置状态。 */
-static void service_heater(const bms_afe_feature_snapshot_t *s)
+static void service_heater(const bms_afe_feature_snapshot_t *s,
+                           const bms_user_params_t *config, uint8_t charging_present)
 {
-    bms_user_params_t config;
-
     if ((s == 0) || !s->valid || !bms_board_heater_supported())
     {
         heater_idle();
@@ -246,14 +245,14 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
 
     if (!heater_circuit_safe(s)) return;
 
-    if (!bms_config_get_user(&config) || !config.heater_enable ||
+    if (config == 0 || !config->heater_enable ||
         !s->battery_temp_valid || heater_hard_fault())
     {
         heater_idle();
         return;
     }
 
-    if (!s_feature.charge_session_active)
+    if (g_bms_report.discharge_current_a10 != 0u)
     {
         heater_idle();
         return;
@@ -266,7 +265,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
         return;
     }
 
-    if (!heater_demand(s, &config))
+    if (!heater_demand(s, config))
     {
         heater_idle();
         return;
@@ -276,7 +275,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s)
     {
         /* 零电流可维持既有预热会话，不能证明仍有充电器来启动新周期。
          * 进入 ARMING 后，零电流才是充电路径已阻断的预期证据。 */
-        if ((g_bms_report.charge_current_a10 != 0u) || charge_source_present())
+        if (charging_present)
         {
             s_feature.heater_state = BMS_HEATER_ARMING;
         }
@@ -413,10 +412,23 @@ static void publish_openwire(void)
     bms_diag_openwire(w);
 }
 
-/* 所有退出都撤销激励并校验；超时不等于断线，清理 I/O 故障由 guard 仲裁。 */
+/* SH 映射不确定或未完成阶段也可能带有真实异常；重试不能抹掉这份疑似证据。 */
+static uint8_t openwire_result_abnormal(void)
+{
+    uint8_t count = s_feature.openwire_cell_count;
+    uint32_t valid_mask;
+    if (count == 0u || count > BMS_AFE_FEATURE_MAX_CELLS) return 0u;
+    valid_mask = (1uL << count) - 1uL;
+    return ((s_feature.openwire_result.open_cell_mask |
+             s_feature.openwire_result.raw_phase[0] |
+             s_feature.openwire_result.raw_phase[1]) & valid_mask) != 0u;
+}
+
+/* 所有退出都撤销激励并校验；普通失败记错误/退避，只有异常位构成断线疑似。 */
 static void finish_openwire(uint8_t error)
 {
     uint32_t now = bms_diag_tick();
+    if (openwire_result_abnormal()) s_feature.openwire_suspected = 1u;
     if (error == BMS_OW_ERR_NONE && s_feature.openwire_result.open_cell_mask != 0u) {
         s_feature.openwire_latched_mask = s_feature.openwire_result.open_cell_mask;
     }
@@ -431,8 +443,7 @@ static void finish_openwire(uint8_t error)
     s_feature.balance_prev_cell_count = 0u;
     if (error != BMS_OW_ERR_NONE) {
         ++s_feature.openwire_failed;
-        /* 充电/负载在检测中出现只是正常中止，不提供断线证据。 */
-        if (error != BMS_OW_ERR_INTERRUPTED) s_feature.openwire_suspected = 1u;
+        /* 没有结果的超时/启动失败不能冒充断线；清理未确认仍由独立门禁阻断。 */
         s_feature.openwire_last_error = error;
         s_feature.openwire_failure_error = error;
         s_feature.openwire_failure_tick = now;
@@ -714,9 +725,9 @@ static uint32_t select_balance_mask(const bms_afe_feature_snapshot_t *s,
  * 统一均衡资格与 mask 仲裁；只使用有效 cell，
  * 失效测量和硬故障应通过现有路径停止均衡。
  */
-static void service_balance(const bms_afe_feature_snapshot_t *s)
+static void service_balance(const bms_afe_feature_snapshot_t *s,
+                            const bms_user_params_t *config)
 {
-    bms_user_params_t config;
     uint32_t desired = 0u;
     /* 即使其他门禁阻断，也持续记录过热/降温，不能丢失暂停回差。 */
     uint8_t temperature_safe = balance_temperature_safe(s);
@@ -725,19 +736,20 @@ static void service_balance(const bms_afe_feature_snapshot_t *s)
     allowed = (uint8_t)((s != 0) && s->valid &&
                         s->cell_count > 0u && s->cell_count <= BMS_AFE_FEATURE_MAX_CELLS &&
                         !s_feature.balance_off_pending &&
-                        bms_config_get_user(&config) &&
-                        config.balance_enable &&
+                        config != 0 && config->balance_enable &&
                         bms_board_balance_supported() &&
                         balance_voltage_trusted() &&
                         !s_feature.openwire_active &&
+                        !s_feature.openwire_sample_active &&
+                        !s_feature.openwire_cleanup_pending &&
                         (s_feature.openwire_latched_mask == 0u) &&
                         !s_feature.openwire_suspected &&
                         (s_feature.heater_state == BMS_HEATER_IDLE) &&
-                        s_feature.charge_session_active &&
+                        s_feature.balance_charge_session_active &&
                         temperature_safe &&
                         !balance_hard_fault());
 
-    if (allowed) desired = select_balance_mask(s, &config);
+    if (allowed) desired = select_balance_mask(s, config);
 
     if (apply_balance_mask(desired))
         s_feature.balance_active = desired ? 1u : 0u;
@@ -757,10 +769,10 @@ void bms_features_init(void)
     /* AFE 重初始化只撤销运行资格，保留故障、原始结果和本次启动累计计数。
      * MCU 冷启动由静态 RAM 零初始化；不能用 AFE 重新初始化冒充故障解除。 */
     s_feature.heater_on = 0u;
-    s_feature.heater_fuse_fired = 0u;
+    /* 不可逆动作在本次 MCU 启动中锁存，AFE 重初始化不能重新授权。 */
     s_feature.heater_state = BMS_HEATER_IDLE;
     s_feature.heater_off_hot_samples = 0u;
-    s_feature.charge_session_active = 0u;
+    s_feature.balance_charge_session_active = 0u;
     s_feature.balance_active = 0u;
     /* 温度暂停和未确认关闭状态保留，不能用重初始化绕过恢复条件。 */
     s_feature.balance_trust_samples = 0u;
@@ -781,8 +793,7 @@ void bms_features_init(void)
     ++s_feature.openwire_sequence;
     s_feature.openwire_wait_tick = bms_diag_tick();
     s_feature.openwire_wait_ms = BMS_OPENWIRE_FIRST_IDLE_MS;
-    bms_sw_protection_init();
-    bms_board_features_init();
+    bms_board_features_init(s_feature.heater_fuse_fired);
     bms_board_heater_set(0u);
     g_bms_system_status.bits.heater_status = 0u;
     publish_balance(0u);
@@ -793,8 +804,11 @@ void bms_features_init(void)
 void bms_features_service(void)
 {
     bms_afe_feature_snapshot_t s;
+    bms_user_params_t config;
+    const bms_user_params_t *user;
+    uint8_t charging_present;
 
-    /* 轮询可能在本帧采样后完成 COW 并清 active；下次采样前不能把该诊断电压交给 SOC。 */
+    /* 轮询可能在本帧采样后完成 COW 并清 active；本帧资格仍须保留至 SOC 消费。 */
     s_feature.openwire_sample_active = s_feature.openwire_active;
     memset(&s, 0, sizeof(s));
     if (!bms_afe_get_feature_snapshot(&s) || !s.valid)
@@ -803,14 +817,16 @@ void bms_features_service(void)
         return;
     }
 
-    update_charge_session();
+    user = bms_config_get_user(&config) ? &config : 0;
+    charging_present = (g_bms_report.charge_current_a10 != 0u) || charge_source_present();
+    update_balance_charge_session(charging_present);
     if (s.cell_count != 0u && s.cell_count <= BMS_AFE_FEATURE_MAX_CELLS)
         s_feature.openwire_cell_count = s.cell_count;
     if (!s_feature.openwire_sample_active && !s_feature.openwire_cleanup_pending)
         update_balance_voltage_trust(&s);
     service_openwire();
-    service_heater(&s);
-    service_balance(&s);
+    service_heater(&s, user, charging_present);
+    service_balance(&s, user);
     publish_openwire();
 }
 
@@ -819,19 +835,20 @@ static void stop_feature_outputs(uint8_t afe_invalid)
 {
     heater_idle();
     s_feature.heater_off_hot_samples = 0u;
-    s_feature.charge_session_active = 0u;
+    s_feature.balance_charge_session_active = 0u;
     s_feature.balance_requested_mask = 0u;
     s_feature.balance_active = 0u;
     s_feature.balance_off_pending = 1u;
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
     if (s_feature.openwire_active) {
+        uint8_t error = afe_invalid ? BMS_OW_ERR_SAMPLE : BMS_OW_ERR_INTERRUPTED;
         s_feature.openwire_cleanup_pending = 1u;
         s_feature.openwire_state = BMS_OW_CLEANUP;
-        s_feature.openwire_last_error = BMS_OW_ERR_SAMPLE;
-        s_feature.openwire_failure_error = BMS_OW_ERR_SAMPLE;
+        s_feature.openwire_last_error = error;
+        s_feature.openwire_failure_error = error;
         s_feature.openwire_failure_tick = bms_diag_tick();
-        if (afe_invalid) s_feature.openwire_suspected = 1u;
+        if (openwire_result_abnormal()) s_feature.openwire_suspected = 1u;
         s_feature.openwire_finished_tick = s_feature.openwire_failure_tick;
         s_feature.openwire_wait_tick = s_feature.openwire_failure_tick;
         s_feature.openwire_wait_ms = BMS_OPENWIRE_RETRY_MS;
@@ -876,16 +893,19 @@ void bms_features_get_status(bms_features_status_t *status)
     status->heater_on = s_feature.heater_on;
     status->heater_fuse_fired = s_feature.heater_fuse_fired;
     status->heater_state = s_feature.heater_state;
-    status->charge_session_active = s_feature.charge_session_active;
+    status->charge_session_active = s_feature.balance_charge_session_active;
     /* SOC 静置资格看最后硬件回读，不能因应用失败而把残留均衡当作已关闭。 */
     status->balance_active = (g_bms_report.balance_bits_low != 0u ||
                               g_bms_report.balance_bits_high != 0u) ? 1u : 0u;
     status->balance_voltage_trusted = balance_voltage_trusted();
     status->openwire_suspected = s_feature.openwire_suspected;
     status->openwire_active = s_feature.openwire_active;
+    status->openwire_cleanup_pending = s_feature.openwire_cleanup_pending;
     status->openwire_sample_active =
         (s_feature.openwire_active || s_feature.openwire_sample_active ||
          s_feature.openwire_cleanup_pending) ? 1u : 0u;
+    status->voltage_untrusted = (s_feature.openwire_suspected ||
+        (status->openwire_sample_active && s_feature.openwire_last_error != BMS_OW_ERR_NONE)) ? 1u : 0u;
 }
 
 /* 已确认断线、参数无效或真实 AFE 清理故障未恢复时保持阻断；活动检测不阻断。 */

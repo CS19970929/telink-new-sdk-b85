@@ -1738,7 +1738,8 @@ void DVC1124_App_AFEGet(void)
 
             if (s_openwire_result.state == DVC1124_OPENWIRE_WAITING)
                 s_openwire_result.cell_mv[i] = mv;
-            if (!features.openwire_sample_active) {
+            /* 采样前只看仍在运行的激励，上一帧诊断标志由采样后的 SOC 消费。 */
+            if (!(features.openwire_active || features.openwire_cleanup_pending)) {
                 s_snapshot.cell_mv[i] = mv;
                 g_bms_report.cell_voltage_mv[i] = mv;
             }
@@ -1750,7 +1751,7 @@ void DVC1124_App_AFEGet(void)
         for (; i < DVC1124_MAX_CELLS; ++i) s_snapshot.cell_mv[i] = 0u;
         for (i = s_cfg.cell_count; i < 32u; ++i) g_bms_report.cell_voltage_mv[i] = 61001u;
 
-        if (!features.openwire_sample_active) {
+        if (!(features.openwire_active || features.openwire_cleanup_pending)) {
             g_bms_report.pack_voltage_10mv = (uint16_t)((total_mv / 10u) > 65535u ? 65535u : (total_mv / 10u));
             g_bms_report.cell_max_mv = max_mv;
             g_bms_report.cell_min_mv = (min_mv == 0xFFFFu) ? 0u : min_mv;

@@ -674,7 +674,9 @@ static uint8_t publish_measurements(void)
         return 1u;
     }
 
-    if ((status.flag2 & SH3673520_FLAG2_VADC_MASK) && !features.openwire_sample_active) {
+    /* 本轮采样前的激励资格与采样后最后诊断帧资格分开，不能多抑制一次正常电压。 */
+    if ((status.flag2 & SH3673520_FLAG2_VADC_MASK) &&
+        !(features.openwire_active || features.openwire_cleanup_pending)) {
         for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i) {
             uint16_t mv;
             mv = (uint16_t)cell[i];
@@ -774,7 +776,7 @@ static uint8_t publish_measurements(void)
 
     if (!s_afe_reconfigure_required) {
         memset(&sw, 0, sizeof(sw));
-        sw.voltage_sample_diagnostic = features.openwire_sample_active;
+        sw.voltage_sample_diagnostic = (features.openwire_active || features.openwire_cleanup_pending);
         sw.current_recovery_requires_evidence = 1u;
         sw.current_recovery_sample_fresh = !s_sample_pending;
         sw.charge_recovery_allowed =
@@ -818,7 +820,6 @@ void sh3673510_bms_afe_init(void)
 {
     uint8_t i;
 
-    bms_sw_protection_init();
     for (i = SH3673510_BOARD_CELL_COUNT; i < 32u; ++i)
         g_bms_report.cell_voltage_mv[i] = SH3510_MISSING_CELL_MV;
     memset(&s_aux, 0, sizeof(s_aux));

@@ -46,7 +46,12 @@ typedef struct {
     bms_protection_params_t protect;
     bms_config_system_params_t system;
     bms_afe_hw_profile_t afe_hw;
-    bms_soc_config_t soc;
+    /* 化学体系/profile 唯一存于 system，算法调参不再持有镜像。 */
+    struct {
+        u16 current_deadband_ma;
+        u16 ocv_rest_prepare_s;
+        u8 ocv_error_band_percent;
+    } soc;
     bms_user_params_t user;
     char bt_name_suffix[BMS_CONFIG_BTNAME_BYTES];
 } bms_config_cache_t;
@@ -59,6 +64,7 @@ static u8 g_bms_config_ready;
 static u8 g_bms_config_user_valid;
 static u8 g_bms_config_needs_save;
 static void bms_config_user_defaults(bms_user_params_t *value);
+static void bms_config_user_business_defaults(bms_user_params_t *value);
 
 /* 将 16 位值按小端写入存储缓冲区。 */
 static void bms_config_put_u16le(u8 *buf, u16 value)
@@ -204,14 +210,16 @@ static void bms_config_store_get_default_system(bms_config_system_params_t *syst
 /* 建立 CFG2 各参数组的默认缓存。 */
 static void bms_config_defaults(bms_config_cache_t *cfg)
 {
+    bms_soc_config_t soc;
     memset(cfg, 0, sizeof(*cfg));
     if (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK)
         bms_ota_update_copy_id(cfg->ota_update_id);
     bms_config_store_get_default_protect(&cfg->protect);
     bms_config_store_get_default_system(&cfg->system);
-    bms_soc_get_default_config(&cfg->soc);
-    cfg->soc.chemistry = (u8)cfg->system.battery_chemistry;
-    cfg->soc.profile_id = (u8)cfg->system.soc_profile_id;
+    bms_soc_get_default_config(&soc);
+    cfg->soc.current_deadband_ma = soc.current_deadband_ma;
+    cfg->soc.ocv_rest_prepare_s = soc.ocv_rest_prepare_s;
+    cfg->soc.ocv_error_band_percent = soc.ocv_error_band_percent;
     bms_afe_hw_profile_build_default(&cfg->afe_hw);
     bms_config_user_defaults(&cfg->user);
 }
@@ -268,8 +276,6 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     memcpy(cfg->bt_name_suffix, &payload[off], BMS_CONFIG_BTNAME_BYTES);
     off += BMS_CONFIG_BTNAME_BYTES;
     cfg->bt_name_suffix[BMS_CONFIG_BTNAME_BYTES - 1u] = '\0';
-    cfg->soc.chemistry = (u8)cfg->system.battery_chemistry;
-    cfg->soc.profile_id = (u8)cfg->system.soc_profile_id;
     cfg->soc.current_deadband_ma = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->soc.ocv_rest_prepare_s = bms_config_get_u16le(&payload[off]); off += 2u;
     cfg->soc.ocv_error_band_percent = payload[off++];
@@ -306,13 +312,7 @@ static u8 bms_config_apply_update_policy(bms_config_cache_t *cfg)
             break;
         case BMS_UPDATE_BUSINESS:
             cfg->system.capacity_factory = defaults.system.capacity_factory;
-            cfg->user.heater_enable = defaults.user.heater_enable;
-            cfg->user.heater_start_x10 = defaults.user.heater_start_x10;
-            cfg->user.heater_stop_x10 = defaults.user.heater_stop_x10;
-            cfg->user.balance_enable = defaults.user.balance_enable;
-            cfg->user.balance_start_mv = defaults.user.balance_start_mv;
-            cfg->user.balance_start_delta_mv = defaults.user.balance_start_delta_mv;
-            cfg->user.balance_stop_delta_mv = defaults.user.balance_stop_delta_mv;
+            bms_config_user_business_defaults(&cfg->user);
             break;
         case BMS_UPDATE_SOC:
             cfg->soc = defaults.soc;
@@ -430,21 +430,27 @@ int bms_config_store_get_system(bms_config_system_params_t *system)
     return 1;
 }
 
+/* 系统选型是 SOC 的唯一来源；拒绝无法组合的化学体系/profile。 */
+static int bms_config_soc_selection_valid(const bms_config_system_params_t *system)
+{
+    /* 持久字段为 u32，必须在缩窄到 SOC 的 u8 接口之前验证完整值。 */
+    return system->battery_chemistry <= BMS_SOC_CHEMISTRY_NMC &&
+        system->soc_profile_id <= BMS_SOC_PROFILE_GENERIC_NMC &&
+        !(system->battery_chemistry == BMS_SOC_CHEMISTRY_LFP &&
+          system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_NMC) &&
+        !(system->battery_chemistry == BMS_SOC_CHEMISTRY_NMC &&
+          system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_LFP);
+}
+
 /* 校验并保存系统业务配置，按保存结果更新缓存。 */
 int bms_config_store_set_system(const bms_config_system_params_t *system)
 {
     bms_config_cache_t next;
     if ((system == 0) || !bms_config_ensure_ready()) return 0;
     if (system->series_num != BMS_PRODUCT_CELL_COUNT || system->bms_type != BMS_PRODUCT_WIRE_ID) return 0;
-    if ((system->battery_chemistry > BMS_SOC_CHEMISTRY_NMC) ||
-        (system->soc_profile_id > BMS_SOC_PROFILE_GENERIC_NMC) ||
-        ((system->battery_chemistry == BMS_SOC_CHEMISTRY_LFP) && (system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_NMC)) ||
-        ((system->battery_chemistry == BMS_SOC_CHEMISTRY_NMC) && (system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_LFP))) return 0;
-    if (memcmp(&g_bms_config.system, system, sizeof(*system)) == 0) return 1;
+    if (!bms_config_soc_selection_valid(system)) return 0;
     if (system->capacity_factory == 0u || system->capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) return 0;
     next = g_bms_config; next.system = *system;
-    next.soc.chemistry = (u8)system->battery_chemistry;
-    next.soc.profile_id = (u8)system->soc_profile_id;
     return bms_config_save_cache(&next);
 }
 
@@ -500,11 +506,12 @@ int bms_config_store_set_bt_name_suffix(const char *suffix)
 int bms_config_store_validate_startup(void)
 {
     uint16_t invalid = 0u;
+    bms_soc_config_t soc;
     bms_diag_upgrade(DIAG_UPGRADE_STARTED, 0u);
     if (!bms_config_ensure_ready()) return 0;
     if (!bms_sw_protection_validate_params(&g_bms_config.protect)) invalid |= DIAG_UPGRADE_BAD_SW;
     if (!bms_afe_hw_profile_validate(&g_bms_config.afe_hw)) invalid |= DIAG_UPGRADE_BAD_AFE;
-    if (!bms_soc_config_valid(&g_bms_config.soc)) invalid |= DIAG_UPGRADE_BAD_SOC;
+    if (!bms_config_store_get_soc(&soc)) invalid |= DIAG_UPGRADE_BAD_SOC;
     if (!bms_config_user_valid(&g_bms_config.user)) invalid |= DIAG_UPGRADE_BAD_SW;
     if (g_bms_config.system.series_num != BMS_PRODUCT_CELL_COUNT ||
         g_bms_config.system.bms_type != BMS_PRODUCT_WIRE_ID ||
@@ -520,7 +527,12 @@ int bms_config_store_validate_startup(void)
 int bms_config_store_get_soc(bms_soc_config_t *config)
 {
     if (config == 0 || !g_bms_config_ready) return 0;
-    *config = g_bms_config.soc;
+    if (!bms_config_soc_selection_valid(&g_bms_config.system)) return 0;
+    config->chemistry = (u8)g_bms_config.system.battery_chemistry;
+    config->profile_id = (u8)g_bms_config.system.soc_profile_id;
+    config->current_deadband_ma = g_bms_config.soc.current_deadband_ma;
+    config->ocv_rest_prepare_s = g_bms_config.soc.ocv_rest_prepare_s;
+    config->ocv_error_band_percent = g_bms_config.soc.ocv_error_band_percent;
     return bms_soc_config_valid(config);
 }
 
@@ -530,14 +542,12 @@ int bms_config_store_set_soc(const bms_soc_config_t *config)
     bms_config_cache_t next;
     if (!bms_soc_config_valid(config) || !bms_config_ensure_ready()) return 0;
     next = g_bms_config;
-    next.soc = *config;
+    next.soc.current_deadband_ma = config->current_deadband_ma;
+    next.soc.ocv_rest_prepare_s = config->ocv_rest_prepare_s;
+    next.soc.ocv_error_band_percent = config->ocv_error_band_percent;
     next.system.battery_chemistry = config->chemistry;
     next.system.soc_profile_id = config->profile_id;
-    if (g_bms_config.soc.chemistry == config->chemistry &&
-        g_bms_config.soc.profile_id == config->profile_id &&
-        g_bms_config.soc.current_deadband_ma == config->current_deadband_ma &&
-        g_bms_config.soc.ocv_rest_prepare_s == config->ocv_rest_prepare_s &&
-        g_bms_config.soc.ocv_error_band_percent == config->ocv_error_band_percent) return 1;
+    /* 编码后的完整记录统一去重；保存失败仍保留原已提交缓存。 */
     return bms_config_save_cache(&next);
 }
 
@@ -545,6 +555,14 @@ int bms_config_store_set_soc(const bms_soc_config_t *config)
 static void bms_config_user_defaults(bms_user_params_t *v)
 {
     memset(v, 0, sizeof(*v));
+    bms_config_user_business_defaults(v);
+    v->current_gain_ppm = 1000000u;
+    /* 工厂写入前，空 SN 使用编译期身份。 */
+}
+
+/* 业务组的唯一默认赋值入口，不修改电流校准和身份。 */
+static void bms_config_user_business_defaults(bms_user_params_t *v)
+{
     v->heater_enable = 1u;
     v->heater_start_x10 = BMS_HEATER_START_TEMP_X10;
     v->heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;
@@ -552,8 +570,6 @@ static void bms_config_user_defaults(bms_user_params_t *v)
     v->balance_start_mv = BMS_BALANCE_START_VOLTAGE_MV_DEFAULT;
     v->balance_start_delta_mv = BMS_BALANCE_START_DELTA_MV_DEFAULT;
     v->balance_stop_delta_mv = BMS_BALANCE_STOP_DELTA_MV_DEFAULT;
-    v->current_gain_ppm = 1000000u;
-    /* 工厂写入前，空 SN 使用编译期身份。 */
 }
 
 /* 检查用户业务参数范围与一致性。 */
@@ -608,13 +624,7 @@ int bms_config_reset_business(void)
     if (!bms_config_ensure_ready()) return 0;
     next = g_bms_config;
     next.system.capacity_factory = BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
-    next.user.heater_enable = 1u;
-    next.user.heater_start_x10 = BMS_HEATER_START_TEMP_X10;
-    next.user.heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;
-    next.user.balance_enable = BMS_BALANCE_ENABLE_DEFAULT;
-    next.user.balance_start_mv = BMS_BALANCE_START_VOLTAGE_MV_DEFAULT;
-    next.user.balance_start_delta_mv = BMS_BALANCE_START_DELTA_MV_DEFAULT;
-    next.user.balance_stop_delta_mv = BMS_BALANCE_STOP_DELTA_MV_DEFAULT;
+    bms_config_user_business_defaults(&next.user);
     return bms_config_save_cache(&next);
 }
 /*

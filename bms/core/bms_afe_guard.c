@@ -7,6 +7,7 @@
 #include "bms_diag.h"
 #include "bms_features.h"
 #include "bms_error.h"
+#include "bms_sw_protection.h"
 #include <string.h>
 
 #define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u
@@ -141,6 +142,10 @@ static uint8_t service_failsafe_wait(void)
     s_guard.valid_snapshot_streak = 0u;
     s_guard.comm_inhibit = 1u;
 
+    /* SH 原恢复路径重建软件保护滤波，DVC 保持原有恢复语义。 */
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    bms_sw_protection_init();
+#endif
     AFE_INIT();
     AFE_OUTPUT(s_guard.output_enabled);
 
@@ -193,11 +198,17 @@ void bms_afe_init(void)
     memset(&s_guard, 0, sizeof(s_guard));
     s_guard.comm_inhibit = 1u;
     s_guard.config_inhibit = config_inhibit;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    bms_sw_protection_init();
+#endif
     AFE_INIT();
     /* 同进程重初始化不能仅靠 RAM 清零解除未验证配置；完整应用成功才解除。 */
     if (config_inhibit && AFE_APPLY()) s_guard.config_inhibit = 0u;
     AFE_OUTPUT(0u);
     (void)AFE_FETS(0u, 0u);
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    bms_sw_protection_init();
+#endif
     bms_features_init();
     (void)AFE_BAL_SET(0u);
     s_guard.comm_fault_latched = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;

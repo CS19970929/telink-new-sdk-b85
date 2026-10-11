@@ -295,12 +295,8 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma,
     bms_features_get_status(&status);
     sample.balancing_active = status.balance_active;
     sample.heating_active = status.heater_on;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    sample.open_wire_active = status.openwire_sample_active;
-#else
-    sample.open_wire_active = status.openwire_active;
-#endif
-    sample.open_wire_suspected = status.openwire_suspected;
+    sample.voltage_diagnostic = status.openwire_sample_active;
+    sample.voltage_untrusted = status.voltage_untrusted;
     sample.afe_fault = bms_error_get(BMS_ERROR_AFE1);
     sample.temperature_fault =
         ((third_faults & SOC_SAMPLE_TEMP_FAULT_MASK) != 0u) ? 1u : 0u;

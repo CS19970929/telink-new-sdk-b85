@@ -2,6 +2,12 @@
 
 适用 D008 / D011 / D013 / D014。状态和计时只由 `bms/app/app_power.c` 持有。
 
+2026-10-11 简化仅收口内部职责：跨轮保留电压区域、无可靠充电条件、独立计时和已提交状态；
+休眠原因、elapsed/delay 在本轮局部推导并发布。普通 Suspend 的 `APP_SUSPEND_EXIT_CURRENT_MA`
+与低压充电判定的 `APP_SLEEP_CHARGE_CURRENT_MA` 独立定义，数值均保持 200 mA，
+不再引用 SOC 的电流死区宏。产品电压/延时、入睡动作、失败处理及唤醒源不变。
+本轮未运行测试、编译或实板验证，详见 [审查记录](SIMPLIFICATION_20261011.md)。
+
 | 条件 | 连续时间 | 到期动作 |
 |---|---|---|
 | 新鲜有效样本的最低单体低于 2550 mV，或低于产品 `BMS_SLEEP_LOW_CELL_MV` | 低于 2550 mV 为 1 小时，其余使用 `BMS_SLEEP_LOW_SECONDS`；跨分界保留已累计时间 | D008 关闭 MCU 供电；SH MCU deep sleep |

@@ -20,6 +20,8 @@ static uint8_t bms_error_get(int x){return err;}
 static void bms_error_raise(int x){err=1;raised++;}
 static void bms_features_on_afe_invalid(void){}
 static void bms_features_init(void){}
+static unsigned protection_inits;
+static void bms_sw_protection_init(void){++protection_inits;}
 static void bms_features_service(void){}
 static int bms_features_outputs_blocked(void){return block;}
 static int bms_features_charge_direction_blocked(void){return 0;}
@@ -52,6 +54,7 @@ static void reset(void){
 }
 static void test_startup_qualification(void){
  reset();raised=0;bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
+ unsigned init_count=protection_inits;
  assert(s_guard.comm_inhibit && !err && !raised);
  for(int i=0;i<2;i++){
   bms_afe_sample();assert(s_guard.comm_inhibit && !err && !raised);
@@ -63,6 +66,7 @@ static void test_startup_qualification(void){
  aux_ok=1;
  for(int i=0;i<2;i++){bms_afe_sample();assert(err && s_guard.comm_inhibit && cmd_c==0 && cmd_d==0);}
  bms_afe_sample();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
+ assert(protection_inits==init_count); /* DVC 失联恢复保持既有保护生命周期。 */
  /* Repeated failures still silence the bus for the hardware watchdog window. */
  guard_tick=UINT32_MAX-32000u;
  aux_ok=0;bms_afe_sample();bms_afe_sample();assert(s_guard.bus_silenced && err);

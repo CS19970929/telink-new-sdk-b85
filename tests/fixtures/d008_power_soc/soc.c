@@ -23,8 +23,10 @@ typedef struct {
     uint8_t balance_voltage_trusted;
     uint8_t openwire_suspected;
     uint8_t openwire_active;
-    /* 包含健康 COW 轮询清 active 后的最后诊断样本，供 DVC SOC 使用。 */
+    uint8_t openwire_cleanup_pending;
+    /* 包含健康诊断清 active 后的最后诊断样本，供公共 SOC 使用。 */
     uint8_t openwire_sample_active;
+    uint8_t voltage_untrusted;
 } bms_features_status_t;
 static void bms_features_get_status(bms_features_status_t *s)
 {
@@ -33,6 +35,7 @@ static void bms_features_get_status(bms_features_status_t *s)
  s->balance_active=(uint8_t)balance_active;
  s->openwire_active=(uint8_t)openwire_active;s->openwire_sample_active=(uint8_t)openwire_active;
  s->openwire_suspected=(uint8_t)openwire_suspected;
+ s->voltage_untrusted=(uint8_t)openwire_suspected;
 }
 typedef struct {uint8_t valid,cell_count,battery_temp_valid,heater_temp_valid,mos_temp_valid;uint16_t battery_temp_min_x10,battery_temp_max_x10,heater_temp_x10,mos_temp_x10;} bms_afe_feature_snapshot_t;
 static uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){memset(s,0,sizeof(*s));s->valid=1;s->battery_temp_valid=(uint8_t)temp_valid;s->battery_temp_min_x10=650;s->battery_temp_max_x10=650;return 1;}
@@ -221,8 +224,8 @@ static int replay_csv(const char *input_path,const char *output_path){
   s.cell_min_mv=(uint16_t)min_mv;s.cell_max_mv=(uint16_t)max_mv;s.cell_delta_mv=(uint16_t)delta_mv;
   s.temperature_min_x10=(uint16_t)tmin;s.temperature_max_x10=(uint16_t)tmax;
   s.sample_valid=(uint8_t)sample_valid;s.voltage_valid=(uint8_t)voltage_valid;s.temperature_valid=(tmin||tmax)?1u:0u;
-  s.balancing_active=(uint8_t)balance;s.heating_active=(uint8_t)heat;s.open_wire_active=(uint8_t)owa;
-  s.open_wire_suspected=(uint8_t)ows;s.afe_fault=(uint8_t)afe;s.temperature_fault=(uint8_t)tf;
+  s.balancing_active=(uint8_t)balance;s.heating_active=(uint8_t)heat;s.voltage_diagnostic=(uint8_t)owa;
+  s.voltage_untrusted=(uint8_t)ows;s.afe_fault=(uint8_t)afe;s.temperature_fault=(uint8_t)tf;
   s.current_fault=(uint8_t)cf;s.pack_fault=(uint8_t)pf;s.third_cell_ovp=(uint8_t)ovp;s.third_cell_uvp=(uint8_t)uvp;
   /* 保留 CSV 环境记录列；SOC 只使用测量量，不以插拔标记重置资格。 */
   g_bms_report.cell_min_mv=s.cell_min_mv;g_bms_report.cell_max_mv=s.cell_max_mv;
@@ -454,7 +457,58 @@ int main(int argc,char **argv){
   stored_profile.capacity_factory=1000;
  }
 
+ /* 连续 199 ms 的健康诊断不能绕过 PAUSED 和三次正常新帧确认。 */
+ setup(1,60,3330);sample(1,0,1);sample(1,0,6400u);
+ g_soc_runtime.idle_stable_ticks=500u;g_soc_runtime.ocv_down_ticks=123u;
+ bms_soc_sample_t short_diagnostic=g_soc_input;short_diagnostic.voltage_diagnostic=1u;
+ for(unsigned n=0;n<3;n++){
+  short_diagnostic.timestamp_32k+=6368u;bms_soc_process_sample(&short_diagnostic);
+  assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_PAUSED);
+  assert(g_soc_runtime.idle_stable_ticks==500u && !g_soc_strategy_pending_32k);
+ }
+ short_diagnostic.voltage_diagnostic=0u;
+ for(unsigned n=1;n<=3;n++){
+  short_diagnostic.timestamp_32k+=6400u;bms_soc_process_sample(&short_diagnostic);
+  assert(g_soc_runtime.ocv_openwire_confirm_samples==n && g_soc_runtime.idle_stable_ticks==500u);
+ }
+ short_diagnostic.timestamp_32k+=6400u;bms_soc_process_sample(&short_diagnostic);
+ assert(g_soc_runtime.ocv_openwire_phase==SOC_OCV_OPENWIRE_NONE && g_soc_runtime.idle_stable_ticks==501u);
  /* 静置空端点只在电压/温度与业务上下文可信时累计，不能绕过 OCV 的资格。 */
+ /* 诊断/不可信电压不得推进任何满/空端点，电流积分仍保持有效。 */
+ setup(1,60,3330);sample(1,-3000,1);
+ g_soc_runtime.idle_stable_ticks=500;g_soc_runtime.ocv_down_ticks=123;
+ g_soc_runtime.full_lock_ticks=g_soc_runtime.empty_lock_ticks=10;
+ bms_soc_sample_t failed=g_soc_input;failed.voltage_untrusted=1;
+ failed.timestamp_32k+=1u;bms_soc_process_sample(&failed);
+ assert(!g_soc_runtime.idle_stable_ticks && !g_soc_runtime.ocv_down_ticks);
+ assert(!g_soc_runtime.full_lock_ticks && !g_soc_runtime.empty_lock_ticks && g_soc_input_valid);
+ g_soc_strategy_pending_32k=3200u;
+ uint32_t integral_remainder=g_soc_integral_tick_remainder;
+ bms_soc_process_sample(&failed); /* 重复时间的失败也撤销旧策略余量。 */
+ assert(!g_soc_strategy_pending_32k && g_soc_integral_tick_remainder==integral_remainder);
+ failed.timestamp_32k+=6368u;bms_soc_process_sample(&failed); /* 199 ms 失败帧。 */
+ assert(!g_soc_strategy_pending_32k && g_soc_input_valid);
+ failed.voltage_untrusted=0;failed.timestamp_32k+=32u;bms_soc_process_sample(&failed);
+ assert(g_soc_strategy_pending_32k==32u); /* 正常 1 ms 不能借用失败的 199 ms。 */
+ for(unsigned diagnostic=0;diagnostic<2;diagnostic++){
+  setup(1,60,3500);sample(1,-3000,1);
+  bms_soc_sample_t input=g_soc_input;
+  input.voltage_diagnostic=diagnostic;input.voltage_untrusted=!diagnostic;
+  input.third_cell_ovp=1;
+  uint32_t before=g_bms_soc.remaining_capacity_as10;
+  input.timestamp_32k+=6400u;bms_soc_process_sample(&input);
+  assert(g_bms_soc.remaining_capacity_as10>before && get_soc_real()<100);
+  assert(!g_soc_runtime.full_lock_ticks && !g_soc_runtime.full_adjust_ticks);
+  input.current_ma=3000;input.cell_min_mv=input.cell_max_mv=2400;
+  input.third_cell_ovp=0;input.third_cell_uvp=1;
+  before=g_bms_soc.remaining_capacity_as10;
+  input.timestamp_32k+=6400u;bms_soc_process_sample(&input);
+  assert(g_bms_soc.remaining_capacity_as10<before && get_soc_real()>0);
+  assert(!g_soc_runtime.dsg_terminal_adjust_ticks && !g_soc_runtime.dsg_empty_lock_ticks);
+  g_soc_runtime.full_anchor_latched=g_soc_runtime.empty_anchor_latched=1;
+  for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor();
+  assert(g_soc_runtime.full_anchor_latched && g_soc_runtime.empty_anchor_latched);
+ }
  for(unsigned invalid=0;invalid<10;invalid++){
   setup(1,60,2400);
   switch(invalid){
@@ -462,8 +516,8 @@ int main(int argc,char **argv){
    case 1:g_soc_input.temperature_valid=0;break;
    case 2:g_soc_input.balancing_active=1;break;
    case 3:g_soc_input.heating_active=1;break;
-   case 4:g_soc_input.open_wire_active=1;break;
-   case 5:g_soc_input.open_wire_suspected=1;break;
+   case 4:g_soc_input.voltage_diagnostic=1;break;
+   case 5:g_soc_input.voltage_untrusted=1;break;
    case 6:g_soc_input.afe_fault=1;break;
    case 7:g_soc_input.temperature_fault=1;break;
    case 8:g_soc_input.current_fault=1;break;

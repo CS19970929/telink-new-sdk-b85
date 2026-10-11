@@ -153,15 +153,11 @@ static int bms_event_log_write_snapshot(void)
 }
 
 /* 把采样间隔编码为历史事件时间字段。 */
-static u8 bms_event_log_map_interval(u32 *seconds)
+static u8 bms_event_log_map_interval(u32 seconds)
 {
-    u8 code;
-    u32 value = *seconds;
-    if (value <= 60u) code = 171u;
-    else if (value <= (3600u * 168u)) code = (u8)((value + 3599u) / 3600u);
-    else code = 170u;
-    *seconds = 0u;
-    return code;
+    if (seconds <= 60u) return 171u;
+    if (seconds <= (3600u * 168u)) return (u8)((seconds + 3599u) / 3600u);
+    return 170u;
 }
 
 /*
@@ -185,7 +181,9 @@ static int bms_event_log_append(bms_event_log_id_t event, int startup_event)
     }
     g_bms_event_log.records[pos][0] = (u8)event;
     g_bms_event_log.records[pos][1] = startup_event ? 0u :
-        bms_event_log_map_interval(&g_bms_event_log.interval_s);
+        bms_event_log_map_interval(g_bms_event_log.interval_s);
+    /* 直接访问 packed 字段，不能把未对齐成员地址作为普通 u32 * 传递。 */
+    if (!startup_event) g_bms_event_log.interval_s = 0u;
     g_bms_event_log.clock_fraction_32k = 0u;
     g_bms_event_log.repeats[pos] = 1u;
     g_bms_event_log.merge_ready = (!startup_event && event != BMS_SLEEP) ? 1u : 0u;

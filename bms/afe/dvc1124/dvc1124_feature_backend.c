@@ -141,9 +141,9 @@ bms_afe_diag_state_t dvc1124_backend_openwire_poll(bms_afe_openwire_result_t *ou
         {
             out->diagnostic_cell_mv[i] = raw.cell_mv[i];
             /*
-             * DVC COW 对每个有效单体输入施加 100 uA 下拉；按手册，
-             * 断开的采样输入在诊断窗口内被拉至 0 V。使用明确的 0 mV 判据，
-             * 不擅自增加产品阈值。
+             * DS V1.1 第 15 页规定 100 uA 下拉并由 MCU 据测量判断。
+             * 0 mV 是本项目现有判据，手册未将其定义为断线充要条件；
+             * 本轮保留判据，检出覆盖仍需实板确认。
              */
             if (raw.valid && raw.cell_mv[i] == 0u)
                 out->open_cell_mask |= (1uL << i);
