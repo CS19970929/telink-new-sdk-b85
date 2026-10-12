@@ -3,6 +3,24 @@ using System.IO;
 namespace BmsTool.Windows;
 public sealed partial class BmsClient
 {
+    // 沿用四 word 原子参数组；先读当前设备值，避免开关操作带入编辑框中的阈值。
+    public async Task SetD008BalanceAllowedAsync(bool allowed,CancellationToken ct=default)
+    {
+        await RequireD008Async(ct);
+        var values=await ReadRegistersAsync(D008Parameters.BalanceBase,4,ct);
+        D008Parameters.ValidateBalance(values);
+        values[0]=(ushort)(allowed?1:0);
+        await WriteD008VerifiedAsync(D008Parameters.BalanceBase,values,false,ct);
+    }
+    public async Task WriteD008BalanceThresholdsAsync(string startMv,string startDeltaMv,string stopDeltaMv,CancellationToken ct=default)
+    {
+        var values=D008Parameters.Balance(false,startMv,startDeltaMv,stopDeltaMv);
+        await RequireD008Async(ct);
+        var current=await ReadRegistersAsync(D008Parameters.BalanceBase,4,ct);
+        D008Parameters.ValidateBalance(current);
+        values[0]=current[0]; // 保存阈值不得顺带改变持久许可。
+        await WriteD008VerifiedAsync(D008Parameters.BalanceBase,values,false,ct);
+    }
     public async Task WriteD008VerifiedAsync(ushort address,ushort[] values,bool requiresAfeAccess,CancellationToken ct=default)
     {
         if(address==D008Parameters.BalanceBase)D008Parameters.ValidateBalance(values);

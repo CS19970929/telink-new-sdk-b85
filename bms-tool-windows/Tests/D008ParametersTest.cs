@@ -37,6 +37,22 @@ class Program {
   capture=await business.ReadD008ParametersAsync();
   Check(capture.Blocks["Balance"].SequenceEqual(new ushort[]{1,3300,30,15}) && capture.Blocks["Heater"].SequenceEqual(new ushort[]{1,350,450}));
   Check(D008Parameters.BalanceAvailable(capture)&&D008Parameters.HeaterAvailable(capture));
+  await business.SetD008BalanceAllowedAsync(false);
+  capture=await business.ReadD008ParametersAsync();
+  Check(capture.Blocks["Balance"].SequenceEqual(new ushort[]{0,3300,30,15}));
+  await business.WriteD008BalanceThresholdsAsync("3500","40","20");
+  capture=await business.ReadD008ParametersAsync();
+  Check(capture.Blocks["Balance"].SequenceEqual(new ushort[]{0,3500,40,20}));
+  await business.SetD008BalanceAllowedAsync(true);
+  capture=await business.ReadD008ParametersAsync();
+  Check(capture.Blocks["Balance"].SequenceEqual(new ushort[]{1,3500,40,20}));
+  await business.WriteD008BalanceThresholdsAsync("3300","30","15");
+  capture=await business.ReadD008ParametersAsync();Check(capture.Blocks["Balance"][0]==1);
+  business.FailRead=D008Parameters.BalanceBase;int beforeFailure=business.Writes;
+  try{await business.SetD008BalanceAllowedAsync(false);throw new Exception("permission read failure ignored");}catch(IOException){}
+  Check(business.Writes==beforeFailure);business.FailRead=0;
+  try{await noBalance.SetD008BalanceAllowedAsync(true);throw new Exception("unsupported permission write accepted");}catch(NotSupportedException){}
+  Check(noBalance.Writes==0);
   int writes=business.Writes;
   try{await business.WriteD008VerifiedAsync(D008Parameters.BalanceBase,new ushort[]{1,3300,15,30},false);throw new Exception("invalid balance write accepted");}catch(ArgumentException){}Check(business.Writes==writes);
   business.MismatchReadback=true;
@@ -53,7 +69,7 @@ class Program {
   var path=Path.Combine(Path.GetTempPath(),Guid.NewGuid()+".zip");
   try{D008Parameters.Export(path,capture);D008Parameters.Export(path,capture);using var zip=ZipFile.OpenRead(path);using var reader=new StreamReader(zip.GetEntry("parameters.json")!.Open());var json=reader.ReadToEnd();Check(json.Contains("Heater:") && !json.Contains("Token") && !json.Contains("password"));}finally{File.Delete(path);}
   client.FailWrite=true;try{await client.WriteD008VerifiedAsync(0x2e24,cal,true);throw new Exception("save failure ignored");}catch(IOException){}Check(client.Closed==2);
-  Console.WriteLine("PASS D008 parameters: heater/balance group validation, exact writes/readback, mismatch/cancellation, capability refusal, v1/v2/future, AFE authorization, MTU23 SN, partial ZIP, session cleanup");
+  Console.WriteLine("PASS D008 parameters: persistent balance permission, threshold/permission preservation, read failure refusal, heater/balance validation, exact writes/readback, mismatch/cancellation, capability refusal, v1/v2/future, AFE authorization, MTU23 SN, partial ZIP, session cleanup");
  }
 }
 namespace BmsTool.Windows {
