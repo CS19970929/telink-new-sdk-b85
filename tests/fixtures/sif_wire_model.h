@@ -6,6 +6,8 @@
 #define _attribute_ram_code_
 #define BMS_PRODUCT_SIF_ENABLE 1
 #define CLOCK_SYS_CLOCK_1US 16
+#define SYSTEM_TIMER_TICK_1US 16u
+#define BMS_SOC_CHEMISTRY_LFP 1u
 #define FLD_IRQ_TMR0_EN 1
 #define FLD_TMR_STA_TMR0 1
 #define FLD_TMR0_EN 1
@@ -13,7 +15,11 @@
 #define BMS_BOARD_OWC_RX_PIN 2
 #define MOS_TEMP1 3
 #define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 116u
-#define __TODO__ 0Xaa
+typedef struct {uint32_t capacity_factory;} bms_config_system_params_t;
+static uint32_t capacity_factory = BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
+static int config_available = 1;
+static int bms_config_store_get_system(bms_config_system_params_t *system)
+{ system->capacity_factory = capacity_factory; return config_available; }
 typedef enum {SIF_IDLE=0,SYNC_SIGNAL,SEND_PUBLIC,SEND_DATA,SEND_DATA_COMPLETE,STOP_SIGNAL} SIF_STATE_E;
 typedef struct {
  uint8_t discharge_ocp,charge_utp,charge_otp,discharge_otp,cell_uvp,cell_ovp,charge_ocp,discharge_utp;

@@ -10,6 +10,7 @@
 #include "sif_send.h"
 #include "bms_product.h"
 #include "bms_state.h"
+#include "bms_config_store.h"
 #include "bus_mux.h"
 
 #define SIF_TIMER_INTERVAL_US 500u
@@ -56,7 +57,9 @@ static inline void sif_turn_on(void)
     gpio_write(BMS_BOARD_OWC_TX_PIN, 1);
 }
 
-#define __TODO__ 0Xaa
+#define SIF_INVALID_U8 0xffu
+#define SIF_INVALID_U16 0xffffu
+#define SIF_CELL_PERIOD_TICKS (60000000u * SYSTEM_TIMER_TICK_1US)
 
 #define SIF_SYNC (2 * (10 + 1))
 #define SIF_STOP (2 * 5)
@@ -81,7 +84,8 @@ static volatile uint8_t s_active_packet;
 static volatile uint8_t s_packet_ready;
 static volatile uint8_t s_prepare_packet;
 static uint8_t s_iswakeup = 1u, s_public_count;
-static uint16_t s_private_count;
+static uint32_t s_cell_packet_tick;
+static uint8_t s_first_cell_packet = 1u;
 static volatile uint8_t s_restart_packets;
 static volatile uint8_t s_return_to_idle;
 static uint32_t s_prepared_sample_tick;
@@ -256,7 +260,7 @@ void sif_send_data_handle(void)
         break;
     case STOP_SIGNAL:
     {
-        if (sif_sync_tosc++ <= SIF_STOP)
+        if (sif_sync_tosc++ < SIF_STOP)
         {
             sif_turn_off();
         }
@@ -300,7 +304,7 @@ void sif_prepare_task(uint32_t sample_tick)
         s_packet_ready = 0u;
         s_iswakeup = 1u;
         s_public_count = 0u;
-        s_private_count = 0u;
+        s_first_cell_packet = 1u;
     }
     /* 新样本后刷新等待帧；短临界区内撤销 ready，防止主循环重建时 IRQ 抢占缓冲区。 */
     irq_state = irq_disable();
@@ -327,11 +331,13 @@ void sif_prepare_task(uint32_t sample_tick)
             s_public_count = 0u;
             s_iswakeup = 0u;
         }
-    } else if (++s_private_count <= 15u) {
-        sif_send_private_realtime_info();
-    } else {
-        s_private_count = 0u;
+    } else if (s_first_cell_packet ||
+               (uint32_t)(sample_tick - s_cell_packet_tick) >= SIF_CELL_PERIOD_TICKS) {
+        s_first_cell_packet = 0u;
+        s_cell_packet_tick = sample_tick;
         sif_send_private_cell_voltages();
+    } else {
+        sif_send_private_realtime_info();
     }
     s_prepared_sample_tick = sample_tick;
     /* 最后发布 ready；IRQ 使用前载荷与长度须全部完成。 */
@@ -339,36 +345,69 @@ void sif_prepare_task(uint32_t sample_tick)
     s_packet_ready = 1u;
 }
 
-/* 把充放电电流转换为 SIF 既有编码。 */
+/* A*10 保留小数；正放电、负充电，线值 = A*10 + 5000。 */
 static uint16_t sif_encoded_current(void)
 {
-    uint16_t current = g_bms_report.discharge_current_a10 ?
-                       g_bms_report.discharge_current_a10 : g_bms_report.charge_current_a10;
-    return (uint16_t)((current / 10u + 500u) * 10u);
+    uint16_t discharge = g_bms_report.discharge_current_a10;
+    uint16_t charge = g_bms_report.charge_current_a10;
+    if (discharge > 5000u || charge > 5000u || (discharge && charge))
+        return SIF_INVALID_U16;
+    return (uint16_t)(5000u + discharge - charge);
 }
 
-/* 把当前运行和 MOS 状态编码为 SIF 状态字。 */
+/* 协议没有静置状态：用范围内保留值 0x0f，不能把零电流标成回馈。 */
 static uint8_t sif_work_status(void)
 {
+    if (g_bms_report.discharge_current_a10 && g_bms_report.charge_current_a10) return 0x0fu;
     return g_bms_report.discharge_current_a10 ? 0u :
-           (g_bms_report.charge_current_a10 ? 1u : 2u);
+           (g_bms_report.charge_current_a10 ? 1u : 0x0fu);
+}
+
+/* 报告的 0 表示温度无效；有效编码已带 +40 偏移，只需由 0.1℃ 转为 1℃。 */
+static uint8_t sif_temperature(uint16_t encoded_x10)
+{
+    return encoded_x10 && encoded_x10 <= 1900u ? (uint8_t)(encoded_x10 / 10u) : SIF_INVALID_U8;
+}
+
+static uint8_t sif_soc(void)
+{
+    return g_bms_report.soc.soc_percent <= 100u ?
+           (uint8_t)(g_bms_report.soc.soc_percent * 2u) : SIF_INVALID_U8;
+}
+
+static uint16_t sif_extreme_cell(uint16_t mv)
+{
+    return mv && mv <= 10000u ? mv : SIF_INVALID_U16;
+}
+
+static uint8_t sif_cell_index(uint16_t index)
+{
+    return index && index <= BMS_PRODUCT_CELL_COUNT && index <= 25u ?
+           (uint8_t)index : SIF_INVALID_U8;
 }
 
 /* 构造公共 SIF 报告包供定时器发送。 */
 static void sif_send_public_packet(void)
 {
     uint8_t *p = s_packets[s_prepare_packet];
+    bms_config_system_params_t system;
+    uint16_t capacity = SIF_INVALID_U16;
+    if (bms_config_store_get_system(&system) && system.capacity_factory > 0u &&
+        system.capacity_factory <= 10000u) capacity = (uint16_t)system.capacity_factory;
     memset(p, 0, SIF_PUBLIC_BYTES);
-    p[0] = 1u; p[1] = 1u; p[2] = 1u; p[3] = __TODO__; p[4] = 3u;
-    sif_put_u16le(p + 5, BMS_PRODUCT_CELL_COUNT * 36u);
-    sif_put_u16le(p + 7, BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH);
-    p[9] = (uint8_t)(g_bms_report.soc.soc_percent * 2u);
+    p[0] = 1u; p[1] = 1u;
+    /* 无已配置的协议厂家代码或电池型号，不沿用占位品牌/型号。 */
+    p[2] = SIF_INVALID_U8; p[3] = SIF_INVALID_U8;
+    p[4] = BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_LFP ? 1u : 3u;
+    /* 没有独立的额定电压参数，不能拿实测电压或保护阈值代替。 */
+    sif_put_u16le(p + 5, SIF_INVALID_U16);
+    sif_put_u16le(p + 7, capacity);
+    p[9] = sif_soc();
     sif_put_u16le(p + 10, g_bms_report.pack_voltage_10mv / 10u);
     sif_put_u16le(p + 12, sif_encoded_current());
-    p[14] = (uint8_t)(g_bms_report.temperature_max_x10 / 10u);
-    p[15] = (uint8_t)(g_bms_report.temperature_min_x10 / 10u);
-    /* 保留公共 MOS 线格式的历史截断。 */
-    p[16] = (uint8_t)g_bms_report.temperature_x10[MOS_TEMP1];
+    p[14] = sif_temperature(g_bms_report.temperature_max_x10);
+    p[15] = sif_temperature(g_bms_report.temperature_min_x10);
+    p[16] = sif_temperature(g_bms_report.temperature_x10[MOS_TEMP1]);
     p[17] = sif_fault_code(); p[18] = sif_work_status();
     p[19] = sum_verify(p, SIF_PUBLIC_BYTES - 1u);
     s_packet_lengths[s_prepare_packet] = SIF_PUBLIC_BYTES;
@@ -380,21 +419,25 @@ static void sif_send_private_realtime_info(void)
     uint8_t *p = s_packets[s_prepare_packet];
     memset(p, 0, SIF_REALTIME_BYTES);
     p[0] = 0x3au; p[1] = 1u; p[2] = SIF_REALTIME_BYTES - 4u;
-    p[3] = (uint8_t)(g_bms_report.soc.soc_percent * 2u);
+    p[3] = sif_soc();
     sif_put_u16le(p + 4, g_bms_report.pack_voltage_10mv / 10u);
     sif_put_u16le(p + 6, sif_encoded_current());
-    p[8] = (uint8_t)(g_bms_report.temperature_max_x10 / 10u);
-    p[9] = (uint8_t)(g_bms_report.temperature_min_x10 / 10u);
-    p[10] = (uint8_t)(g_bms_report.temperature_x10[MOS_TEMP1] / 10u);
+    p[8] = sif_temperature(g_bms_report.temperature_max_x10);
+    p[9] = sif_temperature(g_bms_report.temperature_min_x10);
+    p[10] = sif_temperature(g_bms_report.temperature_x10[MOS_TEMP1]);
     p[11] = sif_fault_code(); p[12] = sif_work_status();
-    sif_put_u16le(p + 14, g_bms_report.soc.cycle_count);
-    sif_put_u16le(p + 16, g_bms_report.cell_max_mv);
-    sif_put_u16le(p + 18, g_bms_report.cell_min_mv);
-    p[20] = (uint8_t)g_bms_report.cell_max_index;
-    p[21] = (uint8_t)g_bms_report.cell_min_index;
-    p[22] = __TODO__;
-    sif_put_u16le(p + 23, 43u * BMS_PRODUCT_CELL_COUNT);
-    p[25] = 20u; p[27] = __TODO__; p[28] = __TODO__;
+    sif_put_u16le(p + 14, g_bms_report.soc.cycle_count <= 60000u ?
+                 g_bms_report.soc.cycle_count : SIF_INVALID_U16);
+    sif_put_u16le(p + 16, sif_extreme_cell(g_bms_report.cell_max_mv));
+    sif_put_u16le(p + 18, sif_extreme_cell(g_bms_report.cell_min_mv));
+    p[20] = sif_cell_index(g_bms_report.cell_max_index);
+    p[21] = sif_cell_index(g_bms_report.cell_min_index);
+    /* 未实现充电协商，按协议发送无效值，不能广播硬编码的充电请求。 */
+    p[22] = SIF_INVALID_U8;
+    sif_put_u16le(p + 23, SIF_INVALID_U16);
+    p[25] = SIF_INVALID_U8; p[26] = SIF_INVALID_U8;
+    /* 解码/加密算法另行提供；key=0 不属于合法 1..255，明确不提供认证结果。
+     * p[13] 和 p[27..31] 保留零，不得把这些字节当成真实 MOS/许可状态。 */
     p[32] = sum_verify(p, SIF_REALTIME_BYTES - 1u);
     s_packet_lengths[s_prepare_packet] = SIF_REALTIME_BYTES;
 }
@@ -406,9 +449,13 @@ static void sif_send_private_cell_voltages(void)
     uint8_t *p = s_packets[s_prepare_packet];
     memset(p, 0, SIF_CELL_BYTES);
     p[0] = 0x3bu; p[1] = 1u; p[2] = 2u * BMS_PRODUCT_CELL_COUNT;
-    for (i = 0u; i < BMS_PRODUCT_CELL_COUNT; ++i)
-        sif_put_u16le(p + 3u + i * 2u, g_bms_report.cell_voltage_mv[i]);
-    p[3u + BMS_PRODUCT_CELL_COUNT * 2u] = __TODO__;
+    for (i = 0u; i < BMS_PRODUCT_CELL_COUNT; ++i) {
+        uint16_t mv = g_bms_report.cell_voltage_mv[i];
+        /* 保留全项目的 61001 空串约定；其它超协议范围值不得回绕或冒充电压。 */
+        if (mv > 60000u && mv != 61001u) mv = SIF_INVALID_U16;
+        sif_put_u16le(p + 3u + i * 2u, mv);
+    }
+    p[SIF_CELL_BYTES - 1u] = sum_verify(p, SIF_CELL_BYTES - 1u);
     s_packet_lengths[s_prepare_packet] = SIF_CELL_BYTES;
 }
 
