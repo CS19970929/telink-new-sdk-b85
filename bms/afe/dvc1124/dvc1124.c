@@ -1517,12 +1517,6 @@ void DVC1124_App_AFEGet(void)
     s_sample_pending = 0u;
     s_snapshot.voltage_fresh = s_snapshot.current_fresh = 0u;
 
-    /* 失去温度观察后必须重新取得新转换资格；缓存和长间隔不能凑恢复次数。 */
-    if (s_voltage_seen && (uint32_t)(now - s_voltage_tick) > DVC_ADC_MAX_AGE_TICKS) {
-        memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
-        memset(s_snapshot.ntc_res_ohm, 0, sizeof(s_snapshot.ntc_res_ohm));
-    }
-
     if (s_need_config)
     {
         DVC1124_UpdataAfeConfig();
@@ -1547,6 +1541,16 @@ void DVC1124_App_AFEGet(void)
     s_snapshot.voltage_fresh = (s_pending_adc_events & DVC1124_STATUS_VADF_MASK) ? 1u : 0u;
     s_snapshot.current_fresh = (s_pending_adc_events & DVC1124_STATUS_CC2F_MASK) ? 1u : 0u;
     s_pending_adc_events = 0u;
+    /* 先确认本轮 VADF：正常新转换不撤销已合格探头；恢复计数不能跨长空档。 */
+    if (s_voltage_seen && (uint32_t)(now - s_voltage_tick) > DVC_ADC_MAX_AGE_TICKS) {
+        uint8_t i;
+        for (i = 0u; i < 4u; ++i) {
+            if (!s_snapshot.voltage_fresh || s_ntc_valid_samples[i] < DVC_NTC_VALID_SAMPLES) {
+                s_ntc_valid_samples[i] = 0u;
+                s_snapshot.ntc_res_ohm[i] = 0u;
+            }
+        }
+    }
     s_snapshot.fet_status = data[DVC1124_REG_CC2_L_FLAGS];
     s_snapshot.alarm = data[DVC1124_REG_ALARM];
     s_snapshot.status = data[DVC1124_REG_STATUS];

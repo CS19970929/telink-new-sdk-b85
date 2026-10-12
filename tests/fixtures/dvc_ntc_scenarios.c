@@ -197,18 +197,34 @@ int main(void)
     put16(DVC1124_REG_GP2_H,9000u); step(0x50u,6400u); step(0x50u,6400u); check_closed();
     put16(DVC1124_REG_GP2_H,18000u); step(0x50u,6400u); check_closed();
     put16(DVC1124_REG_GP2_H,9000u); qualify();
-    /* 短暂读失败、长采样空档均撤销温度资格；随后需三个新转换。 */
+    /* 真正读失败仍撤销资格；下一次成功读取不能直接恢复 MOS。 */
     read_ok=0u; step(0x50u,6400u); assert(!s_snapshot.valid && !s_snapshot.ntc_res_ohm[1]);
     read_ok=1u; qualify();
+    /* 已合格探头在晚轮询中取得正常新转换，不因旧缓存年龄制造 TEMP_BREAK。 */
+    step(0x50u,25600u); check_open();
+    /* 晚轮询未取得新 VADF，仍按原 512 ms 边界失效并重新资格。 */
+    step(0x10u,25600u); assert(!s_snapshot.valid && !s_snapshot.ntc_res_ohm[1]);
+    qualify();
+    step(0x10u,512u*32u); assert(s_snapshot.valid); check_open();
+    step(0x10u,1u); assert(!s_snapshot.valid && !s_snapshot.ntc_res_ohm[1]);
+    qualify();
+    /* 未完成恢复的两次好样本不能跨过长空档凑成第三次。 */
+    put16(DVC1124_REG_GP2_H,18000u); step(0x50u,6400u); check_closed();
+    put16(DVC1124_REG_GP2_H,9000u);
+    step(0x50u,6400u); step(0x50u,6400u); check_closed();
     step(0x50u,25600u); check_closed();
     step(0x50u,6400u); check_closed(); step(0x50u,6400u); check_open();
+    /* 即使本轮带 VADF，真实异常原始值仍立即触发温度失效保护。 */
+    put16(DVC1124_REG_GP2_H,18000u); step(0x50u,25600u); check_closed();
+    put16(DVC1124_REG_GP2_H,9000u); qualify();
     reset(); now=0xffffb000u; qualify();
+    step(0x50u,25600u); check_open(); /* 已合格状态跨 tick 回绕的晚轮询。 */
     put16(DVC1124_REG_GP3_H,17940u); step(0x50u,6400u); check_closed();
     put16(DVC1124_REG_GP3_H,9000u); qualify();
     /* GP1 是加热探头，其失效不等同于电池/MOS 必需温度失效。 */
     put16(DVC1124_REG_GP1_H,17940u); step(0x50u,6400u); check_open();
     assert(!s_snapshot.ntc_res_ohm[0]);
     check_cell_delta_protection();
-    puts("PASS D008 NTC 开短路、两电池探头/MOS 探头、三次新 VADF 恢复、缓存/通信空档、tick 回绕及三级压差双向关断/恢复");
+    puts("PASS D008 NTC 开短路、三次新 VADF 恢复、晚轮询/过期缓存区分、通信失败、tick 回绕及三级压差双向关断/恢复");
     return 0;
 }
