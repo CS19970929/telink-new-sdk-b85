@@ -4,6 +4,8 @@
 
 四产品固件的主开发分支是 `codex-bms-monorepo`。公共代码只维护一份，产品通过编译配置和 `sources.txt` 选择硬件输入与 AFE 后端。Windows 上位机仍在 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/` 维护。
 
+断线删除后的状态、采样接口及 SOC 继续精简见 [采样与 SOC 解耦](docs/SAMPLING_SOC_DECOUPLING.md)。
+
 当前专题与阅读顺序见 [文档导航](docs/README.md)。
 
 **新员工从 [交接与上手指南](docs/ONBOARDING.md) 开始。** 本 README 优先列出当前系统；固定提交报告与 generated evidence 见末尾历史入口。

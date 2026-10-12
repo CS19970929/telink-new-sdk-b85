@@ -55,6 +55,8 @@ DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH
 
 参数/启动资格由 guard 直接检查；feature 的双向断线阻断已删除，加热仍可阻断充电方向。功能间影响的保留依据及策略候选见 [功能耦合审查](FUNCTION_COUPLING_REVIEW.md)。
 
+SOC 不再读取 feature 状态。加热/均衡活动不阻止 OCV 或静置空电锚定；实际电流、电压、温度、故障和时间资格仍独立检查。AFE 功能快照由 getter 返回值唯一表示有效性；成功时完整填写，失败时调用方不使用内容，见 [采样与 SOC 解耦](SAMPLING_SOC_DECOUPLING.md)。
+
 ## 5. 产品和单位
 
 | 产品 | 输入 | 能力限制 |

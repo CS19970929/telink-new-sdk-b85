@@ -26,3 +26,5 @@
 | 第四轮维护入口与验证 | [SIMPLIFICATION_ROUND4_20261007](SIMPLIFICATION_ROUND4_20261007.md)、[固定提交证据](SIMPLIFICATION_ROUND4_20261007_EVIDENCE.json) |
 
 `history/` 保存迁移、简化、配置及文档审核的固定提交记录。它们不代表当前 HEAD 已验证，旧命令/源码位置只用于当时结果追溯；当前维护入口以本表为准。原始 AFE PDF 和专门安全依据保持原位置。
+
+断线检测删除后的继续精简：[采样与 SOC 解耦](SAMPLING_SOC_DECOUPLING.md)。
