@@ -16,7 +16,7 @@ def check_modbus_address_host_check():
                    name='modbus-read')
     evidence({'domain': 'protocol', 'observations': output.strip(),
               'boundary': '完整 modbus_rtu.c、真实 CRC/State/diag/logger；配置/事件/AFE 所有者替身，不含 UART/BLE/物理硬件'})
-    print('PASS production Modbus read frames, bounds, failure retries and SH mapping: ' + product)
+    print('PASS production Modbus read frames, bounds, per-request effective profile and SH mapping: ' + product)
 
 def check_modbus_fuzz_host_check():
     print("CHECK modbus_fuzz_host_check", flush=True)
@@ -35,7 +35,8 @@ def check_modbus_fuzz_host_check():
     constants += '\n' + re.search(r'^#define MODBUS_RTU_FRAME_CAPACITY[^\n]*', read('bms/core/modbus_rtu.h'), re.M).group(0)
     for header,names in (
         ('bms_afe_hw_access.h', ('BMS_AFE_HW_ACCESS_MODBUS_FUNC',)),
-        ('bms_afe_hw_modbus.h', ('BMS_AFE_HW_REQUESTED_REG_BASE','BMS_AFE_HW_REQUESTED_REG_COUNT')),
+        ('bms_afe_hw_modbus.h', ('BMS_AFE_HW_REQUESTED_REG_BASE','BMS_AFE_HW_REQUESTED_REG_COUNT',
+                                 'BMS_AFE_HW_EFFECTIVE_REG_BASE','BMS_AFE_HW_EFFECTIVE_REG_COUNT')),
         ('bms_event_log.h', ('BMS_EVENT_LOG_ENTRY_COUNT','BMS_EVENT_LOG_REG_BASE','BMS_EVENT_LOG_REG_COUNT')),
         ('btname_modbus.h', ('BTNAME_REG_BASE','BTNAME_REG_WORDS'))):
         for name in names:

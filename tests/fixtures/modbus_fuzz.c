@@ -6,6 +6,7 @@
 #include "bms_protection_params.h"
 typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 /* CONSTANTS */
+typedef struct { u16 words[BMS_AFE_HW_PROFILE_WORD_COUNT]; } bms_afe_hw_profile_t;
 #define BMS_LOG(...) ((void)0)
 bms_protection_params_t g_bms_protection_params;
 static unsigned writes, calls, iteration;
@@ -22,6 +23,8 @@ static int bms_diag_read(u16 r,u16 n,u8*d){return 0;}
 static u16 bms_event_log_read_reg(u16 r){return (u16)(r^0x55aa);}
 static int read_address_supported(u16 r){return r>=0x2100&&r<=0x2140;}
 static u16 read_reg(u16 r){return (u16)(r^0x55aa);}
+static int afe_hw_profile_is_effective_reg(u16 r){return r>=BMS_AFE_HW_EFFECTIVE_REG_BASE&&r<BMS_AFE_HW_EFFECTIVE_REG_BASE+BMS_AFE_HW_EFFECTIVE_REG_COUNT;}
+static u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t*p){memset(p,0,sizeof(*p));return 1u;}
 static u8 commit_protection_update(const bms_protection_params_t*c){++writes;g_bms_protection_params=*c;return 0;}
 static u8 write_reg(u16 r,u16 v){++writes;return 2;}
 static u8 afe_hw_profile_write_block(const u8*d,u16 n){++writes;return 0;}

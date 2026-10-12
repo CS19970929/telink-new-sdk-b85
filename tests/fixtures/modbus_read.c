@@ -9,6 +9,7 @@ bms_protection_params_t g_bms_protection_params;
 bool deepsleep_en;
 static unsigned requested_reads, effective_reads, event_reads, frames;
 static int requested_fail_at = -1, effective_fail_at = -1;
+static u16 effective_base = 0x2000u;
 static uint32_t corpus = 2166136261u;
 uint32_t bms_diag_tick(void) { return 123u; }
 
@@ -24,7 +25,7 @@ static u8 profile(bms_afe_hw_profile_t *p, unsigned *calls, int fail_at, u16 bas
 u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *p)
 { return profile(p,&requested_reads,requested_fail_at,0x1000u); }
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
-{ return profile(p,&effective_reads,effective_fail_at,0x2000u); }
+{ return profile(p,&effective_reads,effective_fail_at,effective_base); }
 u16 bms_afe_hw_profile_capabilities(void) { return 0x1234u; }
 u16 bms_afe_hw_profile_apply_state(void) { return 2u; }
 u16 bms_afe_hw_profile_last_error(void) { return 3u; }
@@ -136,7 +137,7 @@ int main(void)
     assert(read_address_supported(BTNAME_REG_BASE));
     assert(read_address_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT-1));
     assert(!read_address_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT));
-    /* All legal profile subranges and each possible single-read failure. */
+    /* 有效配置的每个合法子区间只读一次完整 profile；请求配置保持原路径。 */
     for (unsigned window=0; window<2; ++window) {
         u16 base=window ? BMS_AFE_HW_EFFECTIVE_REG_BASE : BMS_AFE_HW_REQUESTED_REG_BASE;
         for (unsigned start=0; start<BMS_AFE_HW_PROFILE_WORD_COUNT; ++start)
@@ -144,18 +145,37 @@ int main(void)
                 for (unsigned i=0; i<qty; ++i) words[i]=(u16)((window?0x2000u:0x1000u)+start+i);
                 requested_reads=effective_reads=0;
                 expect_read(1,(u16)(base+start),(u16)qty,words,0);
-                assert((window?effective_reads:requested_reads)==qty);
+                assert((window?effective_reads:requested_reads)==(window?1u:qty));
+                assert((window?requested_reads:effective_reads)==0u);
             }
-        for (unsigned fail=1; fail<=BMS_AFE_HW_PROFILE_WORD_COUNT; ++fail) {
+        for (unsigned fail=1; fail<=(window?1u:BMS_AFE_HW_PROFILE_WORD_COUNT); ++fail) {
             for (unsigned i=0; i<BMS_AFE_HW_PROFILE_WORD_COUNT; ++i)
-                words[i]=(u16)((window?0x2000u:0x1000u)+i);
+                words[i]=window?0xffffu:(u16)(0x1000u+i);
             words[fail-1]=0xffff; requested_reads=effective_reads=0;
             if (window) effective_fail_at=(int)fail; else requested_fail_at=(int)fail;
             expect_read(1,base,BMS_AFE_HW_PROFILE_WORD_COUNT,words,0);
-            assert((window?effective_reads:requested_reads)==BMS_AFE_HW_PROFILE_WORD_COUNT);
+            assert((window?effective_reads:requested_reads)==(window?1u:BMS_AFE_HW_PROFILE_WORD_COUNT));
         }
         requested_fail_at=effective_fail_at=-1;
     }
+    /* 每个新请求重新回读，失败结果不能污染下一请求，也不能跨请求复用旧配置。 */
+    for (unsigned i=0; i<7u; ++i) words[i]=0xffffu;
+    effective_fail_at=1; effective_reads=0u;
+    expect_read(1,BMS_AFE_HW_EFFECTIVE_REG_BASE+5u,7u,words,0);
+    assert(effective_reads==1u);
+    effective_fail_at=-1;
+    for (unsigned pass=0; pass<2u; ++pass) {
+        effective_base=(u16)(0x2100u+pass*0x100u);
+        for (unsigned i=0; i<BMS_AFE_HW_PROFILE_WORD_COUNT; ++i) words[i]=(u16)(effective_base+i);
+        effective_reads=0u;
+        expect_read(1,BMS_AFE_HW_EFFECTIVE_REG_BASE,BMS_AFE_HW_EFFECTIVE_REG_COUNT,words,0);
+        assert(effective_reads==1u);
+    }
+    effective_base=0x2000u;
+    effective_reads=0u;
+    expect_read(1,BMS_AFE_HW_EFFECTIVE_REG_BASE+BMS_AFE_HW_EFFECTIVE_REG_COUNT-1u,2u,words,2u);
+    expect_read(1,BMS_AFE_HW_EFFECTIVE_REG_BASE-1u,2u,words,2u);
+    assert(effective_reads==0u);
     words[0]=0x1234; words[1]=1;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     words[2]=DVC1124_DEFAULT_SHUNT_UOHM; words[4]=DVC1124_I2C_WATCHDOG_SECONDS;
@@ -198,6 +218,6 @@ int main(void)
 #else
     assert(!read_address_supported(0x2180)); expect_read(1,0x2180,1,words,2);
 #endif
-    printf("frames=%u corpus=%08lx requested/effective retry order preserved\n",frames,(unsigned long)corpus);
+    printf("frames=%u corpus=%08lx requested reads and per-request effective snapshot checked\n",frames,(unsigned long)corpus);
     return 0;
 }

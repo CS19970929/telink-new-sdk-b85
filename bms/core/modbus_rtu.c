@@ -105,19 +105,11 @@ static int afe_hw_profile_is_reg(u16 reg)
     return afe_hw_profile_is_requested_reg(reg) || afe_hw_profile_is_effective_reg(reg);
 }
 
-/* 读取硬件保护窗口中的一个协议寄存器。 */
+/* 读取硬件保护请求配置和元数据；有效配置在整帧入口只回读一次。 */
 static u16 afe_hw_profile_read_reg(u16 reg)
 {
     bms_afe_hw_profile_t p;
     u16 offset;
-
-    if (afe_hw_profile_is_effective_reg(reg))
-    {
-        offset = (u16)(reg - BMS_AFE_HW_EFFECTIVE_REG_BASE);
-        if (offset >= BMS_AFE_HW_EFFECTIVE_REG_COUNT ||
-            !bms_afe_hw_profile_get_effective(&p)) return 0xFFFFu;
-        return ((const u16 *)&p)[offset];
-    }
 
     if (!afe_hw_profile_is_requested_reg(reg)) return 0xFFFFu;
     offset = (u16)(reg - BMS_AFE_HW_REQUESTED_REG_BASE);
@@ -344,7 +336,7 @@ static u16 read_reg(u16 reg)
         return read_afe_actual_reg(reg);
 #endif
 
-    if (afe_hw_profile_is_reg(reg)) return afe_hw_profile_read_reg(reg);
+    if (afe_hw_profile_is_requested_reg(reg)) return afe_hw_profile_read_reg(reg);
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
@@ -495,6 +487,17 @@ static int modbus_read_holding(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
     } else if (reg == BMS_EVENT_LOG_REG_BASE && qty <= BMS_EVENT_LOG_REG_COUNT) {
         for (i = 0u; i < qty; ++i)
             put_u16be(&rsp[3u + (u32)i * 2u], bms_event_log_read_reg(i));
+    } else if (afe_hw_profile_is_effective_reg(reg)) {
+        bms_afe_hw_profile_t effective;
+        u16 offset = (u16)(reg - BMS_AFE_HW_EFFECTIVE_REG_BASE);
+        u8 valid;
+        if ((u32)offset + qty > BMS_AFE_HW_EFFECTIVE_REG_COUNT)
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+        /* 一次查询只回读一份配置；失败整段未知，避免重复 AFE I/O 和混合结果。 */
+        valid = bms_afe_hw_profile_get_effective(&effective);
+        for (i = 0u; i < qty; ++i)
+            put_u16be(&rsp[3u + (u32)i * 2u],
+                valid ? ((const u16 *)&effective)[offset + i] : 0xFFFFu);
     } else {
         /* 先校验整个范围；非法尾地址不能造成部分读取。 */
         for (i = 0u; i < qty; ++i)

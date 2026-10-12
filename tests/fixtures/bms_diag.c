@@ -15,9 +15,12 @@ typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define BMS_AFE_HW_ACCESS_MODBUS_FUNC 0x42u
 #define BMS_AFE_HW_REQUESTED_REG_BASE 0x2500u
 #define BMS_AFE_HW_PROFILE_WORD_COUNT 35u
+#define BMS_AFE_HW_EFFECTIVE_REG_BASE 0x2540u
+#define BMS_AFE_HW_EFFECTIVE_REG_COUNT BMS_AFE_HW_PROFILE_WORD_COUNT
 #define BTNAME_REG_BASE 0x100u
 #define BTNAME_REG_WORDS 12u
 typedef struct {u16 cell_ovp_first_mv;u16 rest[64];} bms_protection_params_t;
+typedef struct {u16 words[BMS_AFE_HW_PROFILE_WORD_COUNT];} bms_afe_hw_profile_t;
 static bms_protection_params_t g_bms_protection_params;
 static u32 tick, reads,writes;
 u32 bms_diag_tick(void){return tick;}
@@ -28,6 +31,8 @@ static int modbus_exception(u8 a,u8 f,u8 e,u8*r,u32*n){r[0]=a;r[1]=f|0x80;r[2]=e
 static int bms_afe_hw_access_modbus_on_frame(const u8*q,u32 n,u8*r,u32*l){writes++;return 0;}
 u16 bms_event_log_read_reg(u16 reg){reads++;return 0;}
 static u16 read_reg(u16 r){reads++;return 0;}
+static int afe_hw_profile_is_effective_reg(u16 r){return r>=BMS_AFE_HW_EFFECTIVE_REG_BASE&&r<BMS_AFE_HW_EFFECTIVE_REG_BASE+BMS_AFE_HW_EFFECTIVE_REG_COUNT;}
+static u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t*p){reads++;memset(p,0,sizeof(*p));return 1u;}
 static u8 write_reg(u16 r,u16 v){writes++;return 0;}
 static u8 commit_protection_update(bms_protection_params_t*p){writes++;return 0;}
 static u8 afe_hw_profile_write_block(const u8*p,u16 n){writes++;return 0;}
