@@ -19,7 +19,7 @@ typedef enum {
     BMS_EVENT_NULL1 = 0,
     BMS_START_UP,
     BMS_SLEEP,
-    BALANCE_OPEN,
+    BALANCE_OPEN, /* 仅保留旧记录 ID，正常均衡开启不再写入持久历史。 */
     HEAT_OPEN,
     COOL_OPEN,
     VCELL_OVP,
@@ -41,7 +41,6 @@ typedef enum {
 } bms_event_log_id_t;
 
 typedef struct {
-    u8 balance;
     u8 vcell_ovp, vbus_ovp, chg_ocp, vcell_uvp, vbus_uvp, dsg_ocp;
     u8 chg_utp, dsg_utp, chg_otp, dsg_otp, vdelta_op;
     u8 afe1_err, cbc_err;

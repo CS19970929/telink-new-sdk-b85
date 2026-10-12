@@ -260,7 +260,6 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
     if (sample == 0) return;
     if (!bms_event_log_init()) return;
     bms_event_log_advance_time();
-    bms_event_log_track_edge(sample->balance, BALANCE_OPEN);
     bms_event_log_track_edge(sample->vcell_ovp, VCELL_OVP);
     bms_event_log_track_edge(sample->vbus_ovp, VBUS_OVP);
     bms_event_log_track_edge(sample->chg_ocp, CHG_OCP);

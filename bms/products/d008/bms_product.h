@@ -25,8 +25,8 @@
 #if BMS_D008_BALANCE_TEST_ENABLE
 #define BMS_BALANCE_ENABLE_DEFAULT 1u
 #define BMS_BALANCE_START_VOLTAGE_MV_DEFAULT 3300u
-#define BMS_BALANCE_START_DELTA_MV_DEFAULT 10u
-#define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 3u
+#define BMS_BALANCE_START_DELTA_MV_DEFAULT 30u
+#define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 15u
 #endif
 #include "../bms_battery_defaults.h"
 
@@ -34,13 +34,13 @@
  * 温度使用 (摄氏度 + 40) * 10；启用时必须 0 < 恢复值 < 停止值 <= 1650。
  * 数量限制总使能位数，奇偶交替由 AFE 完成。 */
 #ifndef BMS_BALANCE_MAX_CELLS
-#define BMS_BALANCE_MAX_CELLS 0u
+#define BMS_BALANCE_MAX_CELLS 3u
 #endif
 #ifndef BMS_BALANCE_TEMP_STOP_X10
-#define BMS_BALANCE_TEMP_STOP_X10 0u
+#define BMS_BALANCE_TEMP_STOP_X10 1000u
 #endif
 #ifndef BMS_BALANCE_TEMP_RESUME_X10
-#define BMS_BALANCE_TEMP_RESUME_X10 0u
+#define BMS_BALANCE_TEMP_RESUME_X10 900u
 #endif
 
 
@@ -67,7 +67,8 @@
 #define BMS_SLEEP_NORMAL_CELL_MV             	(3000)
 #define	BMS_SLEEP_NORMAL_SECONDS	          (60 * 60 * 24)
 #define BMS_SLEEP_LOW_CELL_MV     		          (2800)
-#define	BMS_SLEEP_LOW_SECONDS		          (60 * 60 * 1)
+// #define	BMS_SLEEP_LOW_SECONDS		          (60 * 60 * 1)
+#define	BMS_SLEEP_LOW_SECONDS		          (60)
 
 /* 移除无关遗留产品表时保留持久化类型 ID 和出厂容量回退，容量单位 Ah * 10。 */
 #define BMS_PRODUCT_WIRE_ID   12u

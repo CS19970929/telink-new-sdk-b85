@@ -94,8 +94,6 @@ static void app_event_log_1s_task(void)
 
 	memset(&sample, 0, sizeof(sample));
 
-	sample.balance = ((g_bms_report.balance_bits_low != 0u) || (g_bms_report.balance_bits_high != 0u)) ? 1u : 0u;
-
 	sample.vcell_ovp = g_bms_report.fault_third.bits.cell_ovp ? 1u : 0u;
 	sample.vbus_ovp = g_bms_report.fault_third.bits.pack_ovp ? 1u : 0u;
 	sample.chg_ocp = g_bms_report.fault_third.bits.charge_ocp ? 1u : 0u;
