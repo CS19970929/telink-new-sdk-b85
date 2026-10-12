@@ -439,12 +439,12 @@ static uint8_t balance_hard_fault(void)
             f->mos_otp) ? 1u : 0u;
 }
 
-/* 不限通道数时直接合并；有限额时保留旧通道，再用最高电压补位。 */
+/* 每串独立判断准入；有限额时按电压竞争，旧通道只享有有界切换回差。 */
 static uint32_t select_balance_mask(const bms_afe_feature_snapshot_t *s,
                                     const bms_user_params_t *config)
 {
     uint32_t active = s_feature.balance_active ? reported_balance_mask() : 0u;
-    uint32_t retained = 0u, starting = 0u;
+    uint32_t candidates = 0u;
     uint8_t i;
     for (i = 0u; i < s->cell_count; ++i)
     {
@@ -454,35 +454,46 @@ static uint32_t select_balance_mask(const bms_afe_feature_snapshot_t *s,
         if (cell < config->balance_start_mv || cell < g_bms_report.cell_min_mv) continue;
         delta = (uint16_t)(cell - g_bms_report.cell_min_mv);
         if (active & bit) {
-            if (delta > config->balance_stop_delta_mv) retained |= bit;
+            if (delta > config->balance_stop_delta_mv) candidates |= bit;
         } else if (delta >= config->balance_start_delta_mv) {
-            starting |= bit;
+            candidates |= bit;
         }
     }
 
 #if BMS_BALANCE_MAX_CELLS == 0
-    return retained | starting;
+    return candidates;
 #else
     {
         uint32_t selected = 0u;
-        uint8_t count = 0u, phase;
-        for (phase = 0u; phase < 2u; ++phase)
+        uint16_t switch_delta_mv = (uint16_t)(config->balance_start_delta_mv -
+                                             config->balance_stop_delta_mv);
+        uint8_t count;
+        /* Config 已校验 start > stop。复用两者差值，避免电压交叉时每帧换串。
+         * 新通道必须比旧通道高出超过回差才可替换；不增加参数或跨轮状态。 */
+        for (count = 0u; count < BMS_BALANCE_MAX_CELLS && candidates != 0u; ++count)
         {
-            uint32_t candidates = (phase == 0u) ? retained : starting;
-            for (; count < BMS_BALANCE_MAX_CELLS && candidates != 0u; ++count)
-            {
-                uint8_t best = s->cell_count;
-                uint16_t highest_mv = 0u;
-                for (i = 0u; i < s->cell_count; ++i) {
-                    if ((candidates & (1uL << i)) && g_bms_report.cell_voltage_mv[i] > highest_mv) {
-                        best = i;
-                        highest_mv = g_bms_report.cell_voltage_mv[i];
-                    }
+            uint8_t best = s->cell_count;
+            uint8_t best_active = 0u;
+            uint32_t highest_priority_mv = 0u;
+            for (i = 0u; i < s->cell_count; ++i) {
+                uint32_t bit = 1uL << i;
+                uint32_t priority_mv;
+                uint8_t cell_active;
+                if (!(candidates & bit)) continue;
+                cell_active = (active & bit) ? 1u : 0u;
+                priority_mv = (uint32_t)g_bms_report.cell_voltage_mv[i] +
+                              (cell_active ? switch_delta_mv : 0u);
+                /* 回差边界优先旧通道；同状态同电压按较小串号稳定选择。 */
+                if (priority_mv > highest_priority_mv ||
+                    (priority_mv == highest_priority_mv && cell_active && !best_active)) {
+                    best = i;
+                    best_active = cell_active;
+                    highest_priority_mv = priority_mv;
                 }
-                if (best == s->cell_count) break;
-                selected |= 1uL << best;
-                candidates &= ~(1uL << best);
             }
+            if (best == s->cell_count) break;
+            selected |= 1uL << best;
+            candidates &= ~(1uL << best);
         }
         return selected;
     }

@@ -19,6 +19,7 @@ for name, overrides in (
     ('features', []),
     ('features-balance-unlimited', ['-DBMS_BALANCE_MAX_CELLS=0']),
     ('features-balance-all-cells', ['-DBMS_BALANCE_MAX_CELLS=24']),
+    ('features-balance-five-cells', ['-DBMS_BALANCE_MAX_CELLS=5']),
     ('features-balance-limits', ['-DBMS_BALANCE_MAX_CELLS=2',
                                '-DBMS_BALANCE_TEMP_STOP_X10=1000',
                                '-DBMS_BALANCE_TEMP_RESUME_X10=900']),

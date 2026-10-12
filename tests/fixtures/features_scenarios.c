@@ -159,17 +159,51 @@ int main(void)
     assert(balance==(bms_board_balance_supported()?(((1uL << snapshot.cell_count)-1u)&~2u):0u));
 #endif
 #if BMS_BALANCE_MAX_CELLS == 2
-    /* 上限与温度值仅用于夹具，产品宏仍默认关闭新增限制。 */
+    /* 两通道配置验证竞争、切换回差及同压顺序。 */
     reset();user.balance_start_mv=3300;user.balance_start_delta_mv=10;user.balance_stop_delta_mv=3;
     voltages(10);g_bms_report.cell_voltage_mv[1]=3420;g_bms_report.cell_voltage_mv[2]=3430;
     g_bms_report.cell_max_mv=3430;g_bms_report.cell_delta_mv=30;step(5);
     assert(balance==(bms_board_balance_supported()?6u:0u));
-    g_bms_report.cell_voltage_mv[0]=3440;g_bms_report.cell_max_mv=3440;g_bms_report.cell_delta_mv=40;
-    step(1);assert(balance==(bms_board_balance_supported()?6u:0u)); /* 旧通道保留。 */
-    g_bms_report.cell_voltage_mv[1]=3403;step(1);
-    assert(balance==(bms_board_balance_supported()?5u:0u)); /* 达停止压差后腾位给最高串。 */
+    g_bms_report.cell_voltage_mv[0]=3427;
+    step(1);assert(balance==(bms_board_balance_supported()?6u:0u)); /* 高出恰好 7 mV 不抢占。 */
+    g_bms_report.cell_voltage_mv[0]=3428;
+    step(1);assert(balance==(bms_board_balance_supported()?5u:0u)); /* 高出 8 mV 替换仍合格的旧串。 */
+    g_bms_report.cell_voltage_mv[1]=3428;
+    step(1);assert(balance==(bms_board_balance_supported()?5u:0u)); /* 同压不来回切换。 */
+    g_bms_report.cell_voltage_mv[1]=3435;g_bms_report.cell_max_mv=3435;g_bms_report.cell_delta_mv=35;
+    step(1);assert(balance==(bms_board_balance_supported()?5u:0u)); /* 反向替换也须超过回差。 */
+    g_bms_report.cell_voltage_mv[1]=3436;g_bms_report.cell_max_mv=3436;g_bms_report.cell_delta_mv=36;
+    step(1);assert(balance==(bms_board_balance_supported()?6u:0u));
+    g_bms_report.cell_voltage_mv[1]=3403;g_bms_report.cell_max_mv=3430;g_bms_report.cell_delta_mv=30;
+    step(1);assert(balance==(bms_board_balance_supported()?5u:0u)); /* 到停止压差立即退出。 */
+    /* 回差带中的旧串可继续，但抢占失去名额后须重新满足启动门槛。 */
+    reset();user.balance_start_mv=3300;user.balance_start_delta_mv=10;user.balance_stop_delta_mv=3;
+    voltages(10);g_bms_report.cell_voltage_mv[1]=3420;
+    g_bms_report.cell_max_mv=3420;g_bms_report.cell_delta_mv=20;step(5);
+    assert(balance==(bms_board_balance_supported()?3u:0u));
+    g_bms_report.cell_voltage_mv[0]=3404;step(1);
+    assert(balance==(bms_board_balance_supported()?3u:0u));
+    g_bms_report.cell_voltage_mv[2]=3412;step(1);
+    assert(balance==(bms_board_balance_supported()?6u:0u));
+    g_bms_report.cell_voltage_mv[2]=3403;step(1);
+    assert(balance==(bms_board_balance_supported()?2u:0u)); /* 3404 mV 不能借停止门槛重启。 */
     reset();voltages(50);g_bms_report.cell_voltage_mv[1]=3450;g_bms_report.cell_voltage_mv[2]=3450;
     step(5);assert(balance==(bms_board_balance_supported()?3u:0u)); /* 同压按串号，相邻串可选。 */
+#endif
+#if BMS_BALANCE_MAX_CELLS == 5 && BMS_PRODUCT_CELL_COUNT == 16
+    /* D008 截图回归：先建立旧五串，再发布截图电压，必须让更高电压串抢占。 */
+    reset();user.balance_start_mv=3300;user.balance_start_delta_mv=30;user.balance_stop_delta_mv=15;
+    for(unsigned i=0;i<snapshot.cell_count;i++)g_bms_report.cell_voltage_mv[i]=3368;
+    g_bms_report.cell_voltage_mv[0]=3406;g_bms_report.cell_voltage_mv[1]=3400;
+    g_bms_report.cell_voltage_mv[2]=3402;g_bms_report.cell_voltage_mv[12]=3400;
+    g_bms_report.cell_voltage_mv[15]=3658;
+    g_bms_report.cell_min_mv=3368;g_bms_report.cell_max_mv=3658;g_bms_report.cell_delta_mv=290;
+    step(5);assert(balance==(bms_board_balance_supported()?0x9007u:0u));
+    const uint16_t screenshot_mv[16]={3406,3381,3402,3403,3368,3368,3428,3460,
+                                      3424,3376,3443,3399,3393,3371,3467,3658};
+    memcpy(g_bms_report.cell_voltage_mv,screenshot_mv,sizeof(screenshot_mv));
+    step(1);assert(balance==(bms_board_balance_supported()?0xC4C0u:0u)); /* 7/8/11/15/16 串；2 串退出。 */
+    step(3);assert(balance==(bms_board_balance_supported()?0xC4C0u:0u));
 #endif
 #if BMS_BALANCE_TEMP_STOP_X10 == 1000 && BMS_BALANCE_TEMP_RESUME_X10 == 900
     reset();step(5);snapshot.mos_temp_x10=1000;step(1);
