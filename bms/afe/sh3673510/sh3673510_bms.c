@@ -659,16 +659,16 @@ static void sh3510_publish_current(int32_t current_ma, uint32_t now)
 }
 
 /* 温度只消费本轮已读取原始值；电池、加热及 MOS 角色仍按产品选择。 */
-static void sh3510_publish_temperatures(const sh3673520_temperature_raw_t *temp)
+static void sh3510_publish_temperatures(const int32_t *external_raw)
 {
     uint16_t bat_temp_min = 0u, bat_temp_max = 0u;
     uint8_t i;
-    s_mos_ntc_raw = (int16_t)temp->external_raw[SH3673510_BOARD_MOS_NTC_INDEX];
+    s_mos_ntc_raw = (int16_t)external_raw[SH3673510_BOARD_MOS_NTC_INDEX];
     memset(s_ntc_valid, 0, sizeof(s_ntc_valid));
     memset(s_ntc_ohm, 0, sizeof(s_ntc_ohm));
     for (i = 0u; i < 4u; ++i) {
         uint32_t r;
-        if (SH3673520_NtcRawToOhm(temp->external_raw[i], &r) == SH3673520_OK &&
+        if (SH3673520_NtcRawToOhm(external_raw[i], &r) == SH3673520_OK &&
             r >= 500u && r <= 300000u) { s_ntc_valid[i] = 1u; s_ntc_ohm[i] = r; }
     }
     g_bms_report.temperature_x10[AFE1_TEMP1] =
@@ -770,8 +770,8 @@ static uint8_t publish_measurements(void)
     int32_t cell[SH3673510_BOARD_CELL_COUNT];
     int32_t pack_mv;
     int32_t current_ma;
-    sh3673520_current_raw_t current;
-    sh3673520_temperature_raw_t temp;
+    int32_t cadc_raw;
+    int32_t external_raw[SH3673520_EXTERNAL_TEMP_COUNT];
     sh3673510_control_status_t status;
     uint8_t i;
     uint32_t now;
@@ -790,9 +790,9 @@ static uint8_t publish_measurements(void)
                                      SH3673520_BSTATUS2_SLEEP_MASK)) << 5));
     if (SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CELL_READ);
     if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_PACK_READ);
-    if (SH3673520_ReadCurrent(&current) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CURRENT_READ);
-    if (SH3673520_ReadTemperatures(&temp) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_TEMP_READ);
-    if (SH3673520_CurrentRawToMilliAmp(current.cadc_raw,
+    if (SH3673520_ReadCurrent(&cadc_raw) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CURRENT_READ);
+    if (SH3673520_ReadTemperatures(external_raw) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_TEMP_READ);
+    if (SH3673520_CurrentRawToMilliAmp(cadc_raw,
         SH3673510_BOARD_SHUNT_UOHM, &current_ma) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CURRENT_CONVERT);
 
     /* 修改共享报告前先拒绝整个无效帧。 */
@@ -823,7 +823,7 @@ static uint8_t publish_measurements(void)
     if (status.flag2 & SH3673520_FLAG2_CADC_MASK)
         sh3510_publish_current(current_ma, now);
     if (status.flag2 & SH3673520_FLAG2_VADC_MASK)
-        sh3510_publish_temperatures(&temp);
+        sh3510_publish_temperatures(external_raw);
 
     if (!s_afe_reconfigure_required &&
         !sh3510_update_protection(&status)) return 0u;

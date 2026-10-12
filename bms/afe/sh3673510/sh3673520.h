@@ -50,16 +50,6 @@ typedef struct {
     sh3673520_status_t last_error;
 } sh3673520_comm_stats_t;
 
-typedef struct {
-    int32_t vadc_raw;
-    int32_t cadc_raw;
-} sh3673520_current_raw_t;
-
-typedef struct {
-    int32_t external_raw[SH3673520_EXTERNAL_TEMP_COUNT];
-    int32_t internal_raw;
-} sh3673520_temperature_raw_t;
-
 /* 绑定端口和配置，复位并初始化 AFE。 */
 sh3673520_status_t SH3673520_Init(void);
 /* 执行复位并清除驱动就绪状态。 */
@@ -90,10 +80,10 @@ sh3673520_status_t SH3673520_SetBalanceMask(uint32_t cell_mask,
 sh3673520_status_t SH3673520_ReadCellVoltages(int32_t *cell_mv, uint8_t cell_count);
 /* 读取并换算电池包总压。 */
 sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *pack_mv);
-/* 读取并换算有符号电流。 */
-sh3673520_status_t SH3673520_ReadCurrent(sh3673520_current_raw_t *current);
-/* 读取 NTC 通道测量及有效性。 */
-sh3673520_status_t SH3673520_ReadTemperatures(sh3673520_temperature_raw_t *temperatures);
+/* 读取有符号 CADC 原始电流；mA 换算由 CurrentRawToMilliAmp 完成。 */
+sh3673520_status_t SH3673520_ReadCurrent(int32_t *cadc_raw);
+/* 写入 SH3673520_EXTERNAL_TEMP_COUNT 个 TS1..TS4 原始值，不读取未使用的内部温度。 */
+sh3673520_status_t SH3673520_ReadTemperatures(int32_t *external_raw);
 
 /* 计算 AFE 通信数据的 CRC8 校验值。 */
 uint8_t SH3673520_Crc8(const uint8_t *data, sh3673520_size_t length);

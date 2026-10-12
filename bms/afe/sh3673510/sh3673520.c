@@ -765,13 +765,13 @@ sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *pack_mv)
     return SH3673520_OK;
 }
 
-/* 读取并换算有符号电流。 */
-sh3673520_status_t SH3673520_ReadCurrent(sh3673520_current_raw_t *current)
+/* 公共电流仅使用 CADC；不读取无消费者的 CURH/L，FLAG2 仍由采样层独占。 */
+sh3673520_status_t SH3673520_ReadCurrent(int32_t *cadc_raw)
 {
     uint8_t raw[2];
     sh3673520_status_t status;
 
-    if (current == NULL) {
+    if (cadc_raw == NULL) {
         return SH3673520_ERR_INVALID_PARAM;
     }
 
@@ -780,29 +780,23 @@ sh3673520_status_t SH3673520_ReadCurrent(sh3673520_current_raw_t *current)
         return status;
     }
 
-    status = SH3673520_ReadRegs(SH3673520_REG_CURH, raw, sizeof(raw));
-    if (status != SH3673520_OK) {
-        return status;
-    }
-    current->vadc_raw = SH3673520_DecodeSigned16(raw[0], raw[1]);
-
     status = SH3673520_ReadRegs(SH3673520_REG_CADCDH, raw, sizeof(raw));
     if (status != SH3673520_OK) {
         return status;
     }
-    current->cadc_raw = SH3673520_DecodeSigned16(raw[0], raw[1]);
+    *cadc_raw = SH3673520_DecodeSigned16(raw[0], raw[1]);
 
     return SH3673520_OK;
 }
 
-/* 读取 NTC 通道测量及有效性。 */
-sh3673520_status_t SH3673520_ReadTemperatures(sh3673520_temperature_raw_t *temperatures)
+/* TS1..TS4 连续位于 0x5D..0x64；内部温度 0x65..0x66 无生产消费者。 */
+sh3673520_status_t SH3673520_ReadTemperatures(int32_t *external_raw)
 {
-    uint8_t raw[(SH3673520_EXTERNAL_TEMP_COUNT + 1u) * 2u];
+    uint8_t raw[SH3673520_EXTERNAL_TEMP_COUNT * 2u];
     uint8_t index;
     sh3673520_status_t status;
 
-    if (temperatures == NULL) {
+    if (external_raw == NULL) {
         return SH3673520_ERR_INVALID_PARAM;
     }
 
@@ -817,14 +811,10 @@ sh3673520_status_t SH3673520_ReadTemperatures(sh3673520_temperature_raw_t *tempe
     }
 
     for (index = 0u; index < SH3673520_EXTERNAL_TEMP_COUNT; ++index) {
-        temperatures->external_raw[index] =
+        external_raw[index] =
             SH3673520_DecodeSigned16(raw[(uint8_t)(index * 2u)],
                                      raw[(uint8_t)(index * 2u + 1u)]);
     }
-
-    temperatures->internal_raw = SH3673520_DecodeSigned16(
-        raw[SH3673520_EXTERNAL_TEMP_COUNT * 2u],
-        raw[SH3673520_EXTERNAL_TEMP_COUNT * 2u + 1u]);
 
     return SH3673520_OK;
 }

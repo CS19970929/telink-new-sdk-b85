@@ -359,15 +359,14 @@ static int test_init_and_measurements(void)
         0x10u, 0x00u, 0x20u, 0x00u, 0x30u, 0x00u, 0x40u, 0x00u
     };
     uint8_t pack_raw[2] = {0x01u, 0x00u};
-    uint8_t cur_vadc[2] = {0x7Fu, 0xFFu};
     uint8_t cur_cadc[2] = {0xFFu, 0xFFu};
-    uint8_t temps[10] = {
-        0x40u, 0x00u, 0x40u, 0x00u, 0x40u, 0x00u, 0x40u, 0x00u, 0x00u, 0x00u
+    uint8_t temps[8] = {
+        0x40u, 0x00u, 0x40u, 0x00u, 0x40u, 0x00u, 0x40u, 0x00u
     };
     int32_t cells[4];
     int32_t pack_mv;
-    sh3673520_current_raw_t current;
-    sh3673520_temperature_raw_t temperature;
+    int32_t cadc_raw;
+    int32_t temperature[SH3673520_EXTERNAL_TEMP_COUNT + 2u] = {123L,0L,0L,0L,0L,456L};
     uint8_t status[2];
 
     mock_clear();
@@ -394,18 +393,16 @@ static int test_init_and_measurements(void)
           "pack voltage read");
     CHECK(pack_mv == 1000L, "pack voltage semantic conversion");
 
-    script_read(SH3673520_REG_CURH, cur_vadc, 2u, 0);
     script_read(SH3673520_REG_CADCDH, cur_cadc, 2u, 0);
-    CHECK(SH3673520_ReadCurrent(&current) == SH3673520_OK, "current read");
-    CHECK(current.vadc_raw == 32767L && current.cadc_raw == -1L,
-          "current signed decode");
+    CHECK(SH3673520_ReadCurrent(&cadc_raw) == SH3673520_OK, "CADC-only current read");
+    CHECK(cadc_raw == -1L, "current signed decode");
 
-    script_read(SH3673520_REG_TEMP1H, temps, 10u, 0);
-    CHECK(SH3673520_ReadTemperatures(&temperature) == SH3673520_OK,
+    script_read(SH3673520_REG_TEMP1H, temps, 8u, 0);
+    CHECK(SH3673520_ReadTemperatures(&temperature[1]) == SH3673520_OK,
           "temperature read");
-    CHECK(temperature.external_raw[0] == 16384L &&
-          temperature.external_raw[3] == 16384L &&
-          temperature.internal_raw == 0L, "temperature raw decode");
+    CHECK(temperature[1] == 16384L && temperature[4] == 16384L &&
+          temperature[0] == 123L && temperature[5] == 456L,
+          "external temperature raw decode");
 
     script_read(SH3673520_REG_BSTATUS1, status_pair, 2u, 0);
     CHECK(SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, status, sizeof(status)) == SH3673520_OK, "status read");
@@ -414,6 +411,25 @@ static int test_init_and_measurements(void)
 
     CHECK(g_mismatch == 0, "measurement frame contract");
     CHECK(g_transaction == g_script_count, "all scripted transactions consumed");
+
+    CHECK(SH3673520_ReadCurrent(NULL) == SH3673520_ERR_INVALID_PARAM,
+          "null CADC destination rejected");
+    CHECK(SH3673520_ReadTemperatures(NULL) == SH3673520_ERR_INVALID_PARAM,
+          "null temperature destination rejected");
+    CHECK(g_transaction == g_script_count, "null destination performs no SPI");
+    mock_clear();cadc_raw = 12345L;
+    for(unsigned i=0;i<5u;++i)script_read(SH3673520_REG_CADCDH, cur_cadc, 2u, 1);
+    CHECK(SH3673520_ReadCurrent(&cadc_raw) == SH3673520_ERR_CRC,
+          "failed CADC CRC propagated");
+    CHECK(cadc_raw == 12345L && !g_mismatch && g_transaction == 5u,
+          "failed CADC read does not publish data");
+    mock_clear();
+    for(unsigned i=0;i<5u;++i)script_read(SH3673520_REG_TEMP1H, temps, 8u, 1);
+    CHECK(SH3673520_ReadTemperatures(&temperature[1]) == SH3673520_ERR_CRC,
+          "failed external temperature CRC propagated");
+    CHECK(temperature[1] == 16384L && temperature[4] == 16384L &&
+          temperature[0] == 123L && temperature[5] == 456L &&
+          !g_mismatch && g_transaction == 5u, "failed temperature read preserves destination");
 
     return 0;
 }
