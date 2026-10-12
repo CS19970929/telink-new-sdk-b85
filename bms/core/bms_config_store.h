@@ -18,7 +18,7 @@ typedef struct {
     u16 heater_enable;
     u16 heater_start_x10; /* 温度编码：(degC + 40) * 10。 */
     u16 heater_stop_x10;
-    u16 balance_enable;
+    u16 balance_enable; /* 持久许可：0 禁止；1 只允许条件检测，不强制均衡。 */
     u16 balance_start_mv;
     u16 balance_start_delta_mv;
     u16 balance_stop_delta_mv;
@@ -34,7 +34,7 @@ int bms_config_get_user(bms_user_params_t *value);
 int bms_config_get_current_calibration(int32_t *offset_ma, uint32_t *gain_ppm);
 /* 校验并保存用户业务参数。 */
 int bms_config_set_user(const bms_user_params_t *value);
-/* 仅恢复业务参数类别，保留独立持久域边界。 */
+/* 恢复业务阈值，保留均衡许可、校准与身份。 */
 int bms_config_reset_business(void);
 /* 对有符号电流应用限幅、零点与比例校准。 */
 int32_t bms_config_calibrate_current(int32_t raw_ma);

@@ -59,6 +59,17 @@ int main(void)
     /* 功能只报告自己的 MOS 阻断；参数失效仍停功能输出，MOS 由 guard 独立阻断。 */
     reset();params_valid=0;step(5);
     assert(!balance && !heater);
+    /* 许可为零时持续禁止；AFE 重初始化也不能覆盖持久配置。 */
+    reset();step(5);user.balance_enable=0;step(1);assert(!balance);
+    unsigned on_before=balance_on_calls;
+    bms_features_init();step(20);assert(!balance && balance_on_calls==on_before);
+    /* 恢复许可只恢复条件检测，压差不足仍然不启动。 */
+    voltages(49);user.balance_enable=1;step(5);assert(!balance);
+    voltages(50);step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
+    user.balance_enable=0;balance_off_fail=1;step(1);
+    on_before=balance_on_calls;step(3);assert(balance_on_calls==on_before);
+    balance_off_fail=0;step(1);assert(!balance);
+    step(10);assert(!balance && balance_on_calls==on_before);
     /* 冷启动静置直接建立电压资格；不依赖过去充电，也不查询充电器。 */
     reset();g_bms_report.charge_current_a10=0;
     step(4);assert(!balance);

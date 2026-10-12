@@ -574,6 +574,8 @@ int bms_config_store_set_soc(const bms_soc_config_t *config)
 static void bms_config_user_defaults(bms_user_params_t *v)
 {
     memset(v, 0, sizeof(*v));
+    /* 仅首次建立配置使用默认许可；业务恢复/OTA 不得解除用户的禁止。 */
+    v->balance_enable = BMS_BALANCE_ENABLE_DEFAULT;
     bms_config_user_business_defaults(v);
     v->current_gain_ppm = 1000000u;
     /* 工厂写入前，空 SN 使用编译期身份。 */
@@ -585,7 +587,7 @@ static void bms_config_user_business_defaults(bms_user_params_t *v)
     v->heater_enable = 1u;
     v->heater_start_x10 = BMS_HEATER_START_TEMP_X10;
     v->heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;
-    v->balance_enable = BMS_BALANCE_ENABLE_DEFAULT;
+    /* balance_enable 是持久许可，只能由显式在线均衡参数写入改变。 */
     v->balance_start_mv = BMS_BALANCE_START_VOLTAGE_MV_DEFAULT;
     v->balance_start_delta_mv = BMS_BALANCE_START_DELTA_MV_DEFAULT;
     v->balance_stop_delta_mv = BMS_BALANCE_STOP_DELTA_MV_DEFAULT;

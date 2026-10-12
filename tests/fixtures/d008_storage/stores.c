@@ -376,6 +376,34 @@ static void test_user_parameters(void){
  assert(bms_state_store_set_soc_cycle(88,9,999));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==88 && g_bms_state.cycle==999);
  puts("PASS new parameters: heater validation, SN persistence, Config byte cuts, independent reset, 10000 current arithmetic oracle cases, synchronous State rollback");
 }
+static void test_balance_permission(void)
+{
+ fresh();u8 words[]={0,0,0x0d,0xac,0,30,0,15}; /* 3500/30/15；许可单独切换。 */
+ for(unsigned allowed=0u;allowed<2u;++allowed){
+  words[1]=(u8)allowed;
+  assert(bms_parameter_write(0x2e70u,4u,words)==0u);
+  reboot();bms_parameters_init();assert(bms_parameter_read(0x2e70u)==allowed);
+  assert(bms_config_reset_business());assert(bms_parameter_read(0x2e70u)==allowed);
+  test_ota_mask=4u;bms_config_cache_t next=g_bms_config;
+  memset(next.ota_update_id,0xff,sizeof(next.ota_update_id));
+  assert(bms_config_save_cache(&next));
+  reboot();bms_parameters_init();assert(bms_protection_params_valid());
+  assert(bms_parameter_read(0x2e70u)==allowed);
+  assert(bms_parameter_read(0x2e71u)==BMS_BALANCE_START_VOLTAGE_MV_DEFAULT);
+ }
+ words[1]=0u;assert(bms_parameter_write(0x2e70u,4u,words)==0u);
+ memcpy(backup,flash,sizeof(flash));words[1]=1u;
+ /* 每个写中断点都必须保留旧禁止状态，不能先发布尚未提交的允许。 */
+ for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);++byte){
+  memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_init();cut=byte;
+  assert(bms_parameter_write(0x2e70u,4u,words)==4u);
+  assert(bms_parameter_read(0x2e70u)==0u);
+  reboot();bms_parameters_init();assert(bms_parameter_read(0x2e70u)==0u);
+ }
+ assert(bms_parameter_write(0x2e70u,4u,words)==0u);
+ reboot();bms_parameters_init();assert(bms_parameter_read(0x2e70u)==1u);
+ puts("PASS balance permission: explicit disable/allow, reboot, business reset, OTA retention and interrupted allow rollback");
+}
 /* OTA 策略回归：通过真实记录模拟客户旧值，启动流程负责按 BIN 选择提交。 */
 static bms_config_cache_t configured(void)
 {
@@ -384,6 +412,7 @@ static bms_config_cache_t configured(void)
     cfg.afe_hw.cov_mv = 4100u;
     cfg.system.capacity_factory = 1234u;
     cfg.user.heater_enable = 0u;
+    cfg.user.balance_enable = 0u; /* 用户禁止不随任何 OTA 组重新允许。 */
     cfg.user.balance_start_mv = 3500u;
     cfg.soc.ocv_rest_prepare_s = 777u;
     cfg.user.current_offset_ma = -123;
@@ -399,6 +428,7 @@ static void assert_update_groups(unsigned mask)
     assert(g_bms_config.afe_hw.cov_mv == ((mask & 2u) ? 3650u : 4100u));
     assert(g_bms_config.system.capacity_factory == ((mask & 4u) ? 1000u : 1234u));
     assert(g_bms_config.user.heater_enable == ((mask & 4u) ? 1u : 0u));
+    assert(g_bms_config.user.balance_enable == 0u);
     assert(g_bms_config.user.balance_start_mv == ((mask & 4u) ? BMS_BALANCE_START_VOLTAGE_MV_DEFAULT : 3500u));
     assert(g_bms_config.soc.ocv_rest_prepare_s == ((mask & 8u) ? 600u : 777u));
     assert(g_bms_config.user.current_offset_ma == -123);
@@ -601,4 +631,4 @@ static void test_event_semantics(void){
  puts("PASS events: checkpoint-independent merging, elapsed time, CBC onset only, sleep cancellation, abrupt reset window, fractional tick/wrap, semantic decode");
 }
 
-int main(void){test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+int main(void){test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_balance_permission();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
