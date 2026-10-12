@@ -5,7 +5,18 @@ public sealed partial class BmsClient
 {
     public async Task WriteD008VerifiedAsync(ushort address,ushort[] values,bool requiresAfeAccess,CancellationToken ct=default)
     {
+        if(address==D008Parameters.BalanceBase)D008Parameters.ValidateBalance(values);
+        if(address==D008Parameters.HeaterBase)D008Parameters.ValidateHeater(values);
         await RequireD008Async(ct);
+        if(address==D008Parameters.BalanceBase || address==D008Parameters.HeaterBase) {
+            var header=await ReadRegistersAsync(D008Parameters.Base,12,ct);
+            var capability=new D008ParameterCapture{Supported=header[0]==D008Parameters.Magic &&
+                D008Parameters.SupportsProtocol(header[1]),ProtocolVersion=header[1]};
+            capability.Blocks["Capability"]=header;
+            if(address==D008Parameters.BalanceBase ? !D008Parameters.BalanceAvailable(capability) :
+                                                    !D008Parameters.HeaterAvailable(capability))
+                throw new NotSupportedException("设备未声明支持该功能，未发送参数写命令。");
+        }
         AfeHardwareAccessSession? session=null;
         try {
             if(requiresAfeAccess) {

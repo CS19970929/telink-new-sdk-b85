@@ -20,6 +20,7 @@ public static class D008Parameters
 {
     public const ushort Base=0x2E00, Magic=0xD008, MinimumProtocolVersion=1, CurrentProtocolVersion=2;
     public const ushort BalanceCapability=0x0040;
+    public const ushort HeaterCapability=0x0004, HeaterBase=0x2E20, BalanceBase=0x2E70;
     public static bool SupportsProtocol(ushort version)=>version is >=MinimumProtocolVersion and <=CurrentProtocolVersion;
     public static uint U32(ushort[] w,int i)=>(uint)w[i]|((uint)w[i+1]<<16);
     public static int I32(ushort[] w,int i)=>unchecked((int)U32(w,i));
@@ -44,6 +45,32 @@ public static class D008Parameters
         if(value<1 || value>6553 || value!=decimal.Truncate(value))throw new ArgumentException("额定容量范围 0.1～655.3 Ah，最多一位小数。");
         return (ushort)value;
     }
+    public static ushort[] Heater(bool enabled,string startC,string stopC)
+    {
+        var values=new[]{(ushort)(enabled?1:0),Temperature(startC),Temperature(stopC)};
+        ValidateHeater(values);return values;
+    }
+    public static void ValidateHeater(ushort[] values)
+    {
+        if(values.Length!=3 || values[0]>1 || values[1]>=values[2] || values[2]>1650)
+            throw new ArgumentException("加热参数须整组三项：开关为 0/1，温度 -40.0～125.0 ℃，启动温度低于停止温度。");
+    }
+    public static ushort[] Balance(bool enabled,string startMv,string startDeltaMv,string stopDeltaMv)
+    {
+        var values=new[]{(ushort)(enabled?1:0),ushort.Parse(startMv),ushort.Parse(startDeltaMv),ushort.Parse(stopDeltaMv)};
+        ValidateBalance(values);return values;
+    }
+    public static void ValidateBalance(ushort[] values)
+    {
+        if(values.Length!=4 || values[0]>1 || values[1] is <1000 or >4500 ||
+           values[2] is <1 or >1000 || values[3]>=values[2])
+            throw new ArgumentException("均衡参数须整组四项：开关为 0/1，起始电压 1000～4500 mV，启动压差 1～1000 mV，停止压差须小于启动压差（允许 0）。");
+    }
+    public static bool HeaterAvailable(D008ParameterCapture capture)=>capture.Supported &&
+        capture.Blocks.TryGetValue("Capability",out var h) && h.Length>=12 &&
+        (h[2]&HeaterCapability)!=0 && h[9]==1;
+    public static bool BalanceAvailable(D008ParameterCapture capture)=>capture.Supported && capture.ProtocolVersion>=2 &&
+        capture.Blocks.TryGetValue("Capability",out var h) && h.Length>=3 && (h[2]&BalanceCapability)!=0;
     public static uint Gain(double meanRaw,int offset,int referenceMa)
     {
         double corrected=meanRaw-offset;
