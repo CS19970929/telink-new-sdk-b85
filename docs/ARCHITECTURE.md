@@ -35,7 +35,9 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | 前者 Flash checkpoint，后者仅 RAM；均有丢失窗口 |
 
 2026-10-11 的职责收口见 [全模块审查与简化](SIMPLIFICATION_20261011.md)：软件保护初始化由 guard
-拥有，feature 不再初始化保护模块；加热周期由 `heater_state` 保持，均衡单独保留充后静置会话。
+拥有，feature 不再初始化保护模块；加热周期由 `heater_state` 保持。2026-10-12 按用户决定，
+均衡删除充电会话记忆，冷启动静置也可建立资格；当前真实放电仍停止均衡。
+充电源查询仅用于启动有需求且受支持的加热周期，不参与均衡。
 Config 的化学体系/profile 只存于 system，SOC getter 组装运行配置，CFG2 编码不变。
 PM 的原因/elapsed/delay 是本轮局部结果，跨轮只保存计时、最后确认条件和提交状态。
 

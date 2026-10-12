@@ -4,6 +4,8 @@ static bms_user_params_t user;
 static bms_afe_feature_snapshot_t snapshot;
 static uint8_t snapshot_valid, heater, balance_fail, balance_off_fail, balance_read_fail, params_valid=1;
 static unsigned balance_on_calls, balance_off_calls;
+static unsigned charger_queries;
+static uint8_t charger_present, charger_valid;
 static unsigned fuse_count;
 static uint8_t fuse_request;
 static uint32_t balance, balance_dropped_mask;
@@ -14,7 +16,7 @@ uint8_t bms_protection_params_valid(void){return params_valid;}
 void bms_board_features_init(uint8_t fired){fuse_request=fired;}
 void bms_board_heater_set(uint8_t on){heater=on;}
 void bms_board_heater_fuse_fire(void){++fuse_count;fuse_request=1u;}
-uint8_t bms_afe_get_charge_source_present(uint8_t *present){*present=0;return 1;}
+uint8_t bms_afe_get_charge_source_present(uint8_t *present){++charger_queries;*present=charger_present;return charger_valid;}
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){if(!snapshot_valid){memset(s,0xa5,sizeof(*s));return 0;}*s=snapshot;return 1;}
 uint8_t bms_afe_set_balance_mask(uint32_t mask){
     if(mask)++balance_on_calls;else ++balance_off_calls;
@@ -39,6 +41,7 @@ static void reset(void)
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));memset(&snapshot,0,sizeof(snapshot));
     params_valid=1;balance=0;balance_dropped_mask=0;balance_fail=balance_off_fail=balance_read_fail=0;
     balance_on_calls=balance_off_calls=0;fuse_count=0;fuse_request=0;
+    charger_queries=0;charger_present=0;charger_valid=1;
     snapshot_valid=1;snapshot.cell_count=BMS_PRODUCT_CELL_COUNT;
     snapshot.battery_temp_valid=1;snapshot.heater_temp_valid=1;snapshot.mos_temp_valid=1;
     snapshot.battery_temp_min_x10=650;snapshot.battery_temp_max_x10=650;
@@ -56,13 +59,23 @@ int main(void)
     /* 功能只报告自己的 MOS 阻断；参数失效仍停功能输出，MOS 由 guard 独立阻断。 */
     reset();params_valid=0;step(5);
     assert(!balance && !heater);
+    /* 冷启动静置直接建立电压资格；不依赖过去充电，也不查询充电器。 */
+    reset();g_bms_report.charge_current_a10=0;
+    step(4);assert(!balance);
+    step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
+    assert(!charger_queries && !heater);
+    g_bms_report.discharge_current_a10=1;step(1);assert(!balance);
+    g_bms_report.discharge_current_a10=0;step(1);
+    assert(balance==(bms_board_balance_supported()?1u:0u));
+    bms_features_stop();bms_features_init();step(4);assert(!balance);
+    step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
     reset();step(4);assert(!balance && !balance_voltage_trusted());
     step(1);assert(balance_voltage_trusted());
     assert(balance==(bms_board_balance_supported()?1u:0u));
     g_bms_report.charge_current_a10=0;step(1);
-    assert(s_feature.balance_charge_session_active && balance==(bms_board_balance_supported()?1u:0u));
+    assert(balance==(bms_board_balance_supported()?1u:0u));
     g_bms_report.discharge_current_a10=1;step(1);
-    assert(!s_feature.balance_charge_session_active && !balance);
+    assert(!balance);
     g_bms_report.discharge_current_a10=0;g_bms_report.charge_current_a10=10;step(1);
     voltages(31);step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
     voltages(30);step(1);assert(!balance);
@@ -134,6 +147,17 @@ int main(void)
     }
     reset();user.balance_stop_delta_mv=0;step(5);voltages(0);step(1);
     assert(!balance); /* 零停止压差不能把最低电芯或所有电芯打开。 */
+#if BMS_BALANCE_MAX_CELLS == 0 || BMS_BALANCE_MAX_CELLS >= BMS_PRODUCT_CELL_COUNT
+    /* 无竞争时全部合格串入选，包括最后一串；保留串使用停止迟滞。 */
+    reset();voltages(50);
+    for(unsigned i=1;i+1<snapshot.cell_count;i++)g_bms_report.cell_voltage_mv[i]=3450;
+    step(5);
+    uint32_t all_high=(1uL << (snapshot.cell_count-1u))-1u;
+    assert(balance==(bms_board_balance_supported()?all_high:0u));
+    g_bms_report.cell_voltage_mv[snapshot.cell_count-1u]=3450;
+    g_bms_report.cell_voltage_mv[1]=3400;step(1);
+    assert(balance==(bms_board_balance_supported()?(((1uL << snapshot.cell_count)-1u)&~2u):0u));
+#endif
 #if BMS_BALANCE_MAX_CELLS == 2
     /* 上限与温度值仅用于夹具，产品宏仍默认关闭新增限制。 */
     reset();user.balance_start_mv=3300;user.balance_start_delta_mv=10;user.balance_stop_delta_mv=3;
@@ -176,9 +200,9 @@ int main(void)
         snapshot.battery_temp_min_x10=450;step(1);assert(!heater && s_feature.heater_state==BMS_HEATER_IDLE);
         snapshot.battery_temp_min_x10=399;
         g_bms_report.charge_current_a10=10;step(1);g_bms_report.charge_current_a10=0;step(1);assert(heater);
-        /* 同时报告充放电时放电优先，由会话所有者统一撤销资格。 */
+        /* 同时报告充放电时放电优先，直接停止加热和均衡。 */
         g_bms_report.charge_current_a10=10;g_bms_report.discharge_current_a10=1;
-        step(1);assert(!heater && !s_feature.balance_charge_session_active);
+        step(1);assert(!heater && !balance);
         if(bms_board_heater_fuse_supported()){
             snapshot.heater_temp_x10=bms_board_heater_off_fault_temp_x10();
             unsigned n=(bms_board_heater_off_fault_confirm_ms()+199u)/200u;
@@ -194,7 +218,16 @@ int main(void)
     for(unsigned i=0;i<1600u;i++) {
         step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
     }
-    printf("PASS cells=%u heater=%u fuse=%u balance=%u：边界/迟滞/资格/故障/断线隔离\n",
+    /* 充电器证据仅用于启动加热，失效查询不能用其输出值授权。 */
+    reset();g_bms_report.charge_current_a10=0;snapshot.battery_temp_min_x10=399;
+    charger_present=1;charger_valid=0;step(5);assert(!heater);
+    assert(s_feature.heater_state==BMS_HEATER_IDLE);
+    charger_valid=1;step(1);
+    if(bms_board_heater_supported()) {
+        assert(s_feature.heater_state==BMS_HEATER_ARMING);
+        unsigned queries=charger_queries;step(1);assert(heater && charger_queries==queries);
+    } else assert(!heater && !charger_queries);
+    printf("PASS cells=%u heater=%u fuse=%u balance=%u：边界/迟滞/资格/故障/冷启动静置\n",
            (unsigned)BMS_PRODUCT_CELL_COUNT,bms_board_heater_supported(),bms_board_heater_fuse_supported(),bms_board_balance_supported());
     return 0;
 }

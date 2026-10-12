@@ -28,8 +28,6 @@ typedef struct {
     bms_heater_state_t heater_state;
     uint16_t heater_off_hot_samples;
 
-    uint8_t balance_charge_session_active;
-
     uint8_t balance_active;
     uint8_t balance_temperature_paused; /* 仅温度回落确认可解除，AFE 重初始化不清除。 */
     uint8_t balance_off_pending; /* 必须确认关闭后才能重新选择通道。 */
@@ -50,27 +48,6 @@ static uint32_t reported_balance_mask(void)
 {
     return ((uint32_t)g_bms_report.balance_bits_high << 16) |
            g_bms_report.balance_bits_low;
-}
-
-/* 仅采用 AFE 确认的充电源；D008 CHG-IN/PB1 是负载输入，不能作为充电器证据。 */
-static uint8_t charge_source_present(void)
-{
-    uint8_t present = 0u;
-    return bms_afe_get_charge_source_present(&present) && present;
-}
-
-/* 均衡保留既有充后静置策略；加热周期由 heater_state 独立保持。 */
-static void update_balance_charge_session(uint8_t charging_present)
-{
-    /*
-     * 可信充电电流或已确认充电源建立均衡会话。
-     * 会话建立后保留充后静置均衡；零电流不能证明拔掉充电器。
-     * 真实放电方向是退出充电场景的可信证据。
-     */
-    if (g_bms_report.discharge_current_a10 != 0u)
-        s_feature.balance_charge_session_active = 0u;
-    else if (charging_present)
-        s_feature.balance_charge_session_active = 1u;
 }
 
 /* 更新加热请求并驱动支持的板级输出。 */
@@ -219,7 +196,7 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
 
 /* 推进加热需求、资格确认和故障处置状态。 */
 static void service_heater(const bms_afe_feature_snapshot_t *s,
-                           const bms_user_params_t *config, uint8_t charging_present)
+                           const bms_user_params_t *config)
 {
     if (!bms_board_heater_supported())
     {
@@ -250,9 +227,12 @@ static void service_heater(const bms_afe_feature_snapshot_t *s,
 
     if (s_feature.heater_state == BMS_HEATER_IDLE)
     {
+        uint8_t present;
         /* 零电流可维持既有预热会话，不能证明仍有充电器来启动新周期。
-         * 进入 ARMING 后，零电流才是充电路径已阻断的预期证据。 */
-        if (charging_present)
+         * 进入 ARMING 后，零电流才是充电路径已阻断的预期证据。
+         * 充电源只影响加热启动；D008 PB1 是负载输入，不能作为充电器证据。 */
+        if (g_bms_report.charge_current_a10 != 0u ||
+            (bms_afe_get_charge_source_present(&present) && present))
         {
             s_feature.heater_state = BMS_HEATER_ARMING;
         }
@@ -459,18 +439,13 @@ static uint8_t balance_hard_fault(void)
             f->mos_otp) ? 1u : 0u;
 }
 
-/* 保留合格旧通道，再用最高电压补位；每轮最多扫描 24×24 次，无排序数组。 */
+/* 不限通道数时直接合并；有限额时保留旧通道，再用最高电压补位。 */
 static uint32_t select_balance_mask(const bms_afe_feature_snapshot_t *s,
                                     const bms_user_params_t *config)
 {
     uint32_t active = s_feature.balance_active ? reported_balance_mask() : 0u;
-    uint32_t retained = 0u, starting = 0u, selected = 0u;
-    uint8_t limit = s->cell_count;
-    uint8_t count = 0u, phase, i;
-
-#if BMS_BALANCE_MAX_CELLS != 0
-    if (limit > BMS_BALANCE_MAX_CELLS) limit = BMS_BALANCE_MAX_CELLS;
-#endif
+    uint32_t retained = 0u, starting = 0u;
+    uint8_t i;
     for (i = 0u; i < s->cell_count; ++i)
     {
         uint16_t cell = g_bms_report.cell_voltage_mv[i];
@@ -485,25 +460,33 @@ static uint32_t select_balance_mask(const bms_afe_feature_snapshot_t *s,
         }
     }
 
-    for (phase = 0u; phase < 2u; ++phase)
+#if BMS_BALANCE_MAX_CELLS == 0
+    return retained | starting;
+#else
     {
-        uint32_t candidates = (phase == 0u) ? retained : starting;
-        for (; count < limit && candidates != 0u; ++count)
+        uint32_t selected = 0u;
+        uint8_t count = 0u, phase;
+        for (phase = 0u; phase < 2u; ++phase)
         {
-            uint8_t best = s->cell_count;
-            uint16_t highest_mv = 0u;
-            for (i = 0u; i < s->cell_count; ++i) {
-                if ((candidates & (1uL << i)) && g_bms_report.cell_voltage_mv[i] > highest_mv) {
-                    best = i;
-                    highest_mv = g_bms_report.cell_voltage_mv[i];
+            uint32_t candidates = (phase == 0u) ? retained : starting;
+            for (; count < BMS_BALANCE_MAX_CELLS && candidates != 0u; ++count)
+            {
+                uint8_t best = s->cell_count;
+                uint16_t highest_mv = 0u;
+                for (i = 0u; i < s->cell_count; ++i) {
+                    if ((candidates & (1uL << i)) && g_bms_report.cell_voltage_mv[i] > highest_mv) {
+                        best = i;
+                        highest_mv = g_bms_report.cell_voltage_mv[i];
+                    }
                 }
+                if (best == s->cell_count) break;
+                selected |= 1uL << best;
+                candidates &= ~(1uL << best);
             }
-            if (best == s->cell_count) break;
-            selected |= 1uL << best;
-            candidates &= ~(1uL << best);
         }
+        return selected;
     }
-    return selected;
+#endif
 }
 
 /*
@@ -518,13 +501,14 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
     uint8_t temperature_safe = balance_temperature_safe(s);
     uint8_t allowed;
 
+    /* 冷启动静置可均衡；只检查当前放电，不保留充电经历。 */
     allowed = (uint8_t)(s->cell_count > 0u && s->cell_count <= BMS_AFE_FEATURE_MAX_CELLS &&
                         !s_feature.balance_off_pending &&
                         config != 0 && config->balance_enable &&
                         bms_board_balance_supported() &&
                         balance_voltage_trusted() &&
                         (s_feature.heater_state == BMS_HEATER_IDLE) &&
-                        s_feature.balance_charge_session_active &&
+                        g_bms_report.discharge_current_a10 == 0u &&
                         temperature_safe &&
                         !balance_hard_fault());
 
@@ -550,7 +534,6 @@ void bms_features_init(void)
     /* 不可逆动作在本次 MCU 启动中锁存，AFE 重初始化不能重新授权。 */
     s_feature.heater_state = BMS_HEATER_IDLE;
     s_feature.heater_off_hot_samples = 0u;
-    s_feature.balance_charge_session_active = 0u;
     s_feature.balance_active = 0u;
     /* 温度暂停和未确认关闭状态保留，不能用重初始化绕过恢复条件。 */
     s_feature.balance_trust_samples = 0u;
@@ -569,7 +552,6 @@ void bms_features_service(void)
     bms_afe_feature_snapshot_t s;
     bms_user_params_t config;
     const bms_user_params_t *user;
-    uint8_t charging_present;
 
     if (!bms_afe_get_feature_snapshot(&s))
     {
@@ -578,10 +560,8 @@ void bms_features_service(void)
     }
 
     user = bms_config_get_user(&config) ? &config : 0;
-    charging_present = (g_bms_report.charge_current_a10 != 0u) || charge_source_present();
-    update_balance_charge_session(charging_present);
     update_balance_voltage_trust(&s);
-    service_heater(&s, user, charging_present);
+    service_heater(&s, user);
     service_balance(&s, user);
 }
 
@@ -590,7 +570,6 @@ void bms_features_stop(void)
 {
     heater_idle();
     s_feature.heater_off_hot_samples = 0u;
-    s_feature.balance_charge_session_active = 0u;
     s_feature.balance_requested_mask = 0u;
     s_feature.balance_active = 0u;
     s_feature.balance_off_pending = 1u;
