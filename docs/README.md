@@ -28,3 +28,5 @@
 `history/` 保存迁移、简化、配置及文档审核的固定提交记录。它们不代表当前 HEAD 已验证，旧命令/源码位置只用于当时结果追溯；当前维护入口以本表为准。原始 AFE PDF 和专门安全依据保持原位置。
 
 断线检测删除后的继续精简：[采样与 SOC 解耦](SAMPLING_SOC_DECOUPLING.md)。
+
+冷启动静置均衡及 SH 未消费采样删除：[均衡与采样精简](BALANCE_IDLE_SIMPLIFICATION.md)。

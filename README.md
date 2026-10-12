@@ -6,6 +6,8 @@
 
 断线删除后的状态、采样接口及 SOC 继续精简见 [采样与 SOC 解耦](docs/SAMPLING_SOC_DECOUPLING.md)。
 
+允许冷启动静置均衡、删除充电会话及 SH 未消费采样，见 [均衡与采样精简及回归资源对比](docs/BALANCE_IDLE_SIMPLIFICATION.md)。
+
 当前专题与阅读顺序见 [文档导航](docs/README.md)。
 
 **新员工从 [交接与上手指南](docs/ONBOARDING.md) 开始。** 本 README 优先列出当前系统；固定提交报告与 generated evidence 见末尾历史入口。
