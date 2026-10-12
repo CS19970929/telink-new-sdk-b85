@@ -641,30 +641,16 @@ static uint8_t soc_ocv_sample_valid(void)
     return 1u;
 }
 
-/* 检查温度有效性与 OCV 允许范围。 */
-static uint8_t soc_temperature_reasonable(void)
-{
-    if (!g_soc_input.temperature_valid) return 0u;
-    if ((g_soc_input.temperature_min_x10 < SOC_OCV_TEMP_MIN_X10) ||
-        (g_soc_input.temperature_max_x10 > SOC_OCV_TEMP_MAX_X10) ||
-        (g_soc_input.temperature_max_x10 < g_soc_input.temperature_min_x10)) return 0u;
-    return 1u;
-}
-
-/* 检查静置校正所需的保护与采样上下文。 */
+/* 静置校正只依据测量、故障和电流；业务加热/均衡状态不阻止校正。 */
 static uint8_t soc_rest_context_valid(void)
 {
-    if (!g_soc_input.voltage_valid || !soc_temperature_reasonable() ||
-        g_soc_input.balancing_active || g_soc_input.heating_active ||
-        g_soc_input.afe_fault || g_soc_input.temperature_fault ||
-        g_soc_input.current_fault || g_soc_input.pack_fault) return 0u;
-    return 1u;
-}
-
-/* 判断电流与静置条件是否允许 OCV 估算。 */
-static uint8_t soc_idle_for_ocv(void)
-{
-    return (soc_current_direction(0) == SOC_INTEGRAL_DIR_NONE) ? 1u : 0u;
+    return soc_current_direction(0) == SOC_INTEGRAL_DIR_NONE &&
+        g_soc_input.voltage_valid && g_soc_input.temperature_valid &&
+        g_soc_input.temperature_min_x10 >= SOC_OCV_TEMP_MIN_X10 &&
+        g_soc_input.temperature_max_x10 <= SOC_OCV_TEMP_MAX_X10 &&
+        g_soc_input.temperature_max_x10 >= g_soc_input.temperature_min_x10 &&
+        !g_soc_input.afe_fault && !g_soc_input.temperature_fault &&
+        !g_soc_input.current_fault && !g_soc_input.pack_fault;
 }
 
 /* 依据当前化学体系曲线由单体电压估算 SOC。 */
@@ -732,7 +718,7 @@ static uint8_t soc_idle_ocv_tracking(void)
     uint32_t confidence;
     uint8_t current_soc;
 
-    if (!soc_idle_for_ocv() || !soc_rest_context_valid() ||
+    if (!soc_rest_context_valid() ||
         !soc_ocv_sample_valid() ||
         g_soc_input.cell_delta_mv > SOC_OCV_IDLE_CELL_DELTA_MAX_MV) {
         soc_reset_ocv_tracking();
@@ -1081,7 +1067,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
         g_soc_runtime.empty_adjust_ticks = 0u;
         return 0u;
     }
-    if (!soc_idle_for_ocv() || !soc_rest_context_valid() ||
+    if (!soc_rest_context_valid() ||
         (VCELLMIN > empty_mv) || (VCELLMAX > empty_max)) {
         g_soc_runtime.empty_lock_ticks = 0u;
         g_soc_runtime.empty_adjust_ticks = 0u;

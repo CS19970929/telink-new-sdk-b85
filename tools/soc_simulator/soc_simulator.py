@@ -27,6 +27,7 @@ TEMP_ROOT = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) 
     "CodexTemp/telink-bms/soc-simulator"
 GOLDEN_TRACE_DIR = ROOT / "tests/soc/traces"
 
+# balancing/heating 仅保留为环境记录，和 charger/load 一样不提交给 SOC。
 INPUT_COLUMNS = (
     "scenario", "step", "timestamp_32k", "current_ma", "cell_min_mv",
     "cell_max_mv", "cell_delta_mv", "pack_voltage_mv", "temp_min_x10",

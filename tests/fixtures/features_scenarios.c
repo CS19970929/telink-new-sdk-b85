@@ -2,7 +2,7 @@
 bms_protection_params_t g_bms_protection_params;
 static bms_user_params_t user;
 static bms_afe_feature_snapshot_t snapshot;
-static uint8_t heater, balance_fail, balance_off_fail, balance_read_fail, params_valid=1;
+static uint8_t snapshot_valid, heater, balance_fail, balance_off_fail, balance_read_fail, params_valid=1;
 static unsigned balance_on_calls, balance_off_calls;
 static unsigned fuse_count;
 static uint8_t fuse_request;
@@ -15,7 +15,7 @@ void bms_board_features_init(uint8_t fired){fuse_request=fired;}
 void bms_board_heater_set(uint8_t on){heater=on;}
 void bms_board_heater_fuse_fire(void){++fuse_count;fuse_request=1u;}
 uint8_t bms_afe_get_charge_source_present(uint8_t *present){*present=0;return 1;}
-uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){*s=snapshot;return 1;}
+uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){if(!snapshot_valid){memset(s,0xa5,sizeof(*s));return 0;}*s=snapshot;return 1;}
 uint8_t bms_afe_set_balance_mask(uint32_t mask){
     if(mask)++balance_on_calls;else ++balance_off_calls;
     if(balance_fail || (!mask && balance_off_fail))return 0;
@@ -23,11 +23,6 @@ uint8_t bms_afe_set_balance_mask(uint32_t mask){
 }
 uint8_t bms_afe_get_balance_mask(uint32_t *mask){if(balance_read_fail)return 0;*mask=balance;return 1;}
 /* FEATURES */
-static bms_features_status_t feature_status(void)
-{
- bms_features_status_t status;bms_features_get_status(&status);return status;
-}
-
 static void voltages(unsigned delta)
 {
     for(unsigned i=0;i<BMS_AFE_FEATURE_MAX_CELLS;i++)
@@ -44,7 +39,7 @@ static void reset(void)
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));memset(&snapshot,0,sizeof(snapshot));
     params_valid=1;balance=0;balance_dropped_mask=0;balance_fail=balance_off_fail=balance_read_fail=0;
     balance_on_calls=balance_off_calls=0;fuse_count=0;fuse_request=0;
-    snapshot.valid=1;snapshot.cell_count=BMS_PRODUCT_CELL_COUNT;
+    snapshot_valid=1;snapshot.cell_count=BMS_PRODUCT_CELL_COUNT;
     snapshot.battery_temp_valid=1;snapshot.heater_temp_valid=1;snapshot.mos_temp_valid=1;
     snapshot.battery_temp_min_x10=650;snapshot.battery_temp_max_x10=650;
     snapshot.heater_temp_x10=650;snapshot.mos_temp_x10=650;
@@ -61,13 +56,13 @@ int main(void)
     /* 功能只报告自己的 MOS 阻断；参数失效仍停功能输出，MOS 由 guard 独立阻断。 */
     reset();params_valid=0;step(5);
     assert(!balance && !heater);
-    reset();step(4);assert(!balance && !feature_status().balance_voltage_trusted);
-    step(1);assert(feature_status().balance_voltage_trusted);
+    reset();step(4);assert(!balance && !balance_voltage_trusted());
+    step(1);assert(balance_voltage_trusted());
     assert(balance==(bms_board_balance_supported()?1u:0u));
     g_bms_report.charge_current_a10=0;step(1);
-    assert(feature_status().charge_session_active && balance==(bms_board_balance_supported()?1u:0u));
+    assert(s_feature.balance_charge_session_active && balance==(bms_board_balance_supported()?1u:0u));
     g_bms_report.discharge_current_a10=1;step(1);
-    assert(!feature_status().charge_session_active && !balance);
+    assert(!s_feature.balance_charge_session_active && !balance);
     g_bms_report.discharge_current_a10=0;g_bms_report.charge_current_a10=10;step(1);
     voltages(31);step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
     voltages(30);step(1);assert(!balance);
@@ -79,7 +74,7 @@ int main(void)
     balance_fail=0;step(1);assert(!bms_error_get(BMS_ERROR_BALANCE));
     /* 不存在串位的 61001 不得进入 mask；真实有效串异常必须失去资格。 */
     g_bms_report.cell_voltage_mv[0]=61001;step(1);
-    assert(!balance && !feature_status().balance_voltage_trusted);
+    assert(!balance && !balance_voltage_trusted());
     voltages(50);step(5); /* 恢复有效电压后重新确认均衡资格。 */
     assert(balance==(bms_board_balance_supported()?1u:0u));
     /* 充电唤醒时 AFE 输出先关闭，重新取得有效样本后恢复均衡资格。 */
@@ -90,10 +85,10 @@ int main(void)
     step(5);assert(balance==(bms_board_balance_supported()?1u:0u));
     /* 一次超限电压跳变只拒绝当前帧；不使用旧基线无限阻断后续充电。 */
     reset();step(5);voltages(350);step(1);
-    assert(!balance && !feature_status().balance_voltage_trusted);
+    assert(!balance && !balance_voltage_trusted());
     step(4);assert(!balance);step(1);
     assert(balance==(bms_board_balance_supported()?1u:0u));
-    reset();step(5);snapshot.valid=0;step(1);assert(!heater && !feature_status().balance_voltage_trusted);
+    reset();step(5);snapshot_valid=0;step(1);assert(!heater && !balance_voltage_trusted());
     /* 总线未知时保留最后读回，不能用软件请求 OFF 冒充硬件 OFF。 */
     assert(g_bms_report.balance_bits_low==(bms_board_balance_supported()?1u:0u));
     /* 10/3 mV 测试组：新通道不得借用其他通道的停止门槛。 */
@@ -117,13 +112,13 @@ int main(void)
     reset();balance_dropped_mask=1u;step(5);
     assert(!balance && !g_bms_report.balance_bits_low);
     assert((bms_error_get(BMS_ERROR_BALANCE)!=0)==(bms_board_balance_supported()!=0));
-    assert(!feature_status().balance_active);
+    assert(!(reported_balance_mask()!=0u));
     balance_dropped_mask=0;step(1);assert(!bms_error_get(BMS_ERROR_BALANCE));
     reset();g_bms_report.cell_voltage_mv[1]=3450;step(5);
     balance_dropped_mask=2u;balance_off_fail=1u;step(1);
     assert(balance==(bms_board_balance_supported()?1u:0u));
     assert(!s_feature.balance_active); /* 应用资格失败。 */
-    assert(feature_status().balance_active==bms_board_balance_supported()); /* SOC仍看到残留均衡。 */
+    assert((reported_balance_mask()!=0u)==bms_board_balance_supported()); /* 对外报告仍保留实际残留均衡。 */
     if(bms_board_balance_supported()) {
         unsigned on_calls=balance_on_calls;
         assert(s_feature.balance_off_pending);
@@ -166,32 +161,32 @@ int main(void)
     user.balance_enable=0;g_bms_protection_params.charge_otp_recover_x10=0;
     snapshot.battery_temp_max_x10=1000;step(1);assert(s_feature.balance_temperature_paused);
     snapshot.battery_temp_max_x10=950;user.balance_enable=1;step(1);assert(!balance);
-    snapshot.valid=0;step(1);assert(s_feature.balance_temperature_paused);
-    snapshot.valid=1;snapshot.battery_temp_max_x10=899;step(1);
+    snapshot_valid=0;step(1);assert(s_feature.balance_temperature_paused);
+    snapshot_valid=1;snapshot.battery_temp_max_x10=899;step(1);
     assert(!s_feature.balance_temperature_paused); /* 降温可解除，其他资格仍需重新建立。 */
 #endif
     reset();snapshot.battery_temp_min_x10=399;step(1);
     if(bms_board_heater_supported()){
-        assert(feature_status().heater_state==BMS_HEATER_ARMING && !heater && bms_features_charge_direction_blocked());
+        assert(s_feature.heater_state==BMS_HEATER_ARMING && !heater && bms_features_charge_direction_blocked());
         step(3);assert(!heater);g_bms_report.charge_current_a10=0;step(1);assert(heater);
         snapshot.battery_temp_min_x10=449;step(1);assert(heater);
         snapshot.battery_temp_min_x10=450;step(1);assert(!heater);
-        snapshot.battery_temp_min_x10=399;step(1);assert(!heater && feature_status().heater_state==BMS_HEATER_IDLE);
-        g_bms_report.charge_current_a10=10;step(1);assert(feature_status().heater_state==BMS_HEATER_ARMING);
-        snapshot.battery_temp_min_x10=450;step(1);assert(!heater && feature_status().heater_state==BMS_HEATER_IDLE);
+        snapshot.battery_temp_min_x10=399;step(1);assert(!heater && s_feature.heater_state==BMS_HEATER_IDLE);
+        g_bms_report.charge_current_a10=10;step(1);assert(s_feature.heater_state==BMS_HEATER_ARMING);
+        snapshot.battery_temp_min_x10=450;step(1);assert(!heater && s_feature.heater_state==BMS_HEATER_IDLE);
         snapshot.battery_temp_min_x10=399;
         g_bms_report.charge_current_a10=10;step(1);g_bms_report.charge_current_a10=0;step(1);assert(heater);
         /* 同时报告充放电时放电优先，由会话所有者统一撤销资格。 */
         g_bms_report.charge_current_a10=10;g_bms_report.discharge_current_a10=1;
-        step(1);assert(!heater && !feature_status().charge_session_active);
+        step(1);assert(!heater && !s_feature.balance_charge_session_active);
         if(bms_board_heater_fuse_supported()){
             snapshot.heater_temp_x10=bms_board_heater_off_fault_temp_x10();
             unsigned n=(bms_board_heater_off_fault_confirm_ms()+199u)/200u;
             if(n==0)n=1;
-            step(n-1);assert(!fuse_count);step(1);assert(fuse_count==1 && feature_status().heater_fuse_fired);
+            step(n-1);assert(!fuse_count);step(1);assert(fuse_count==1 && s_feature.heater_fuse_fired);
             step(n+1);assert(fuse_count==1);
             bms_features_init();step(n+1);
-            assert(fuse_count==1 && fuse_request && feature_status().heater_fuse_fired && !heater);
+            assert(fuse_count==1 && fuse_request && s_feature.heater_fuse_fired && !heater);
         }
     }else{g_bms_report.charge_current_a10=0;step(10);assert(!heater && !fuse_count);}
     /* 超过旧周期的空闲运行不再暂停均衡；仍依赖真实回读和温度资格。 */

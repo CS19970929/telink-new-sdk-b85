@@ -41,7 +41,6 @@ uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
     if (!s.valid) return 0u;
     DVC1124_GetConfig(&cfg);
 
-    out->valid = 1u;
     out->cell_count = cfg.cell_count;
 
     /* HS-D008 温度职责：GP1 加热 MOS，GP2/GP3 电池，GP4 功率 MOS。 */

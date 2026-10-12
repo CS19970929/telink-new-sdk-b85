@@ -67,7 +67,6 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *sample);
 #define BMS_AFE_FEATURE_MAX_CELLS 24u
 /* 温度字段均使用 (摄氏度 + 40) * 10。 */
 typedef struct {
-    uint8_t valid;
     uint8_t cell_count;
     uint8_t battery_temp_valid;
     uint8_t heater_temp_valid;
@@ -77,7 +76,7 @@ typedef struct {
     uint16_t heater_temp_x10;
     uint16_t mos_temp_x10;
 } bms_afe_feature_snapshot_t;
-/* 取得公共功能所需的后端采样快照。 */
+/* 成功返回 1 并完整填写快照；失败时调用方不得使用内容。 */
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
 /* 取得后端可验证的充电源存在状态。 */
 uint8_t bms_afe_get_charge_source_present(uint8_t *present);

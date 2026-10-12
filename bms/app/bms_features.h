@@ -70,24 +70,6 @@ void bms_features_init(void);
 void bms_features_service(void);
 void bms_features_stop(void);
 
-typedef enum {
-    BMS_HEATER_IDLE = 0u,
-    BMS_HEATER_ARMING = 1u,
-    BMS_HEATER_ACTIVE = 2u
-} bms_heater_state_t;
-
-typedef struct {
-    bms_heater_state_t heater_state;
-    uint8_t heater_on;
-    uint8_t heater_fuse_fired;
-    uint8_t charge_session_active;
-    uint8_t balance_active;
-    uint8_t balance_voltage_trusted;
-} bms_features_status_t;
-
-/* 复制本模块 RAM 状态；不读取 AFE，不改变输出授权。 */
-void bms_features_get_status(bms_features_status_t *status);
-
 /* 查询充电方向相关的公共功能阻断。 */
 uint8_t bms_features_charge_direction_blocked(void);
 #endif /* 头文件保护：BMS_FEATURES_H_。 */

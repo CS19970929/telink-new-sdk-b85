@@ -4,7 +4,6 @@
  * bms/app/bms_features.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
-#include "bms_diag.h"
 #include "bms_features.h"
 #include "bms_config_store.h"
 
@@ -13,10 +12,15 @@
 #include "bms_state.h"
 #include "bms_sw_protection.h"
 #include "bms_parameters.h"
-#include <string.h>
 
 #define BMS_BALANCE_TRUST_CONFIRM_SAMPLES \
     ((BMS_BALANCE_TRUST_CONFIRM_MS + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) / BMS_FEATURE_SERVICE_PERIOD_MS)
+
+typedef enum {
+    BMS_HEATER_IDLE = 0u,
+    BMS_HEATER_ARMING = 1u,
+    BMS_HEATER_ACTIVE = 2u
+} bms_heater_state_t;
 
 typedef struct {
     uint8_t heater_on;
@@ -41,17 +45,6 @@ typedef struct {
  */
 static bms_feature_state_t s_feature;
 
-/* 业务资格沿用两后端既有的 0.1A 上报死区，不直接以非零 mA 改变启停门限。 */
-static uint8_t charging_current_reported(void)
-{
-    return g_bms_report.charge_current_a10 != 0u;
-}
-
-static uint8_t discharging_current_reported(void)
-{
-    return g_bms_report.discharge_current_a10 != 0u;
-}
-
 /* 对外状态的均衡掩码只在此处解码；回读结果与应用请求仍分别保存。 */
 static uint32_t reported_balance_mask(void)
 {
@@ -74,7 +67,7 @@ static void update_balance_charge_session(uint8_t charging_present)
      * 会话建立后保留充后静置均衡；零电流不能证明拔掉充电器。
      * 真实放电方向是退出充电场景的可信证据。
      */
-    if (discharging_current_reported())
+    if (g_bms_report.discharge_current_a10 != 0u)
         s_feature.balance_charge_session_active = 0u;
     else if (charging_present)
         s_feature.balance_charge_session_active = 1u;
@@ -140,7 +133,7 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
         return 0u;
     }
 
-    if ((s == 0) || !s->heater_temp_valid)
+    if (!s->heater_temp_valid)
     {
         s_feature.heater_off_hot_samples = 0u;
         heater_idle();
@@ -208,7 +201,6 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
 {
     uint16_t charge_utp_trip;
 
-    if ((s == 0) || (config == 0) || !s->battery_temp_valid) return 0u;
 
     /*
      * 不能等待滤波后的充电低温故障位再预热；首个可信电流样本就需停止低温充电尝试。
@@ -229,7 +221,7 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
 static void service_heater(const bms_afe_feature_snapshot_t *s,
                            const bms_user_params_t *config, uint8_t charging_present)
 {
-    if ((s == 0) || !s->valid || !bms_board_heater_supported())
+    if (!bms_board_heater_supported())
     {
         heater_idle();
         return;
@@ -244,7 +236,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s,
         return;
     }
 
-    if (discharging_current_reported())
+    if (g_bms_report.discharge_current_a10 != 0u)
     {
         heater_idle();
         return;
@@ -336,7 +328,7 @@ static uint8_t balance_sample_plausible(const bms_afe_feature_snapshot_t *s)
     uint8_t step_ok = 1u;
     uint8_t i;
 
-    if ((s == 0) || !s->valid || (s->cell_count == 0u) ||
+    if ((s->cell_count == 0u) ||
         (s->cell_count > BMS_AFE_FEATURE_MAX_CELLS))
     {
         s_feature.balance_prev_cell_count = 0u;
@@ -415,7 +407,7 @@ static uint8_t balance_temperature_safe(const bms_afe_feature_snapshot_t *s)
     uint16_t charge_ut_recover;
     uint16_t mos_ot_recover;
 
-    if ((s == 0) || !s->valid || !s->battery_temp_valid || !s->mos_temp_valid) return 0u;
+    if (!s->battery_temp_valid || !s->mos_temp_valid) return 0u;
 
 #if BMS_BALANCE_TEMP_STOP_X10 != 0
     {
@@ -526,8 +518,7 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
     uint8_t temperature_safe = balance_temperature_safe(s);
     uint8_t allowed;
 
-    allowed = (uint8_t)((s != 0) && s->valid &&
-                        s->cell_count > 0u && s->cell_count <= BMS_AFE_FEATURE_MAX_CELLS &&
+    allowed = (uint8_t)(s->cell_count > 0u && s->cell_count <= BMS_AFE_FEATURE_MAX_CELLS &&
                         !s_feature.balance_off_pending &&
                         config != 0 && config->balance_enable &&
                         bms_board_balance_supported() &&
@@ -565,14 +556,14 @@ void bms_features_init(void)
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
     s_feature.balance_requested_mask = 0u;
-    memset(s_feature.balance_prev_cell_mv, 0, sizeof(s_feature.balance_prev_cell_mv));
+    /* prev_cell_count 为零时不读旧数组；完整有效帧才建立新基线。 */
     bms_board_features_init(s_feature.heater_fuse_fired);
     bms_board_heater_set(0u);
     g_bms_system_status.bits.heater_status = 0u;
     publish_balance(0u);
 }
 
-/* 按有效快照推进加热及均衡策略。 */
+/* 成功取得的栈上快照只在本次同步调用中使用，内部 helper 不重复判空/判有效。 */
 void bms_features_service(void)
 {
     bms_afe_feature_snapshot_t s;
@@ -580,15 +571,14 @@ void bms_features_service(void)
     const bms_user_params_t *user;
     uint8_t charging_present;
 
-    memset(&s, 0, sizeof(s));
-    if (!bms_afe_get_feature_snapshot(&s) || !s.valid)
+    if (!bms_afe_get_feature_snapshot(&s))
     {
         bms_features_stop();
         return;
     }
 
     user = bms_config_get_user(&config) ? &config : 0;
-    charging_present = charging_current_reported() || charge_source_present();
+    charging_present = (g_bms_report.charge_current_a10 != 0u) || charge_source_present();
     update_balance_charge_session(charging_present);
     update_balance_voltage_trust(&s);
     service_heater(&s, user, charging_present);
@@ -618,19 +608,6 @@ void bms_features_stop(void)
 
     if (s_feature.heater_fuse_fired && !bms_error_get(BMS_ERROR_HEAT))
         bms_error_raise(BMS_ERROR_HEAT);
-}
-
-/* 复制 feature 所有者的 RAM 状态，不额外读取总线或推进状态机。 */
-void bms_features_get_status(bms_features_status_t *status)
-{
-    if (status == 0) return;
-    status->heater_on = s_feature.heater_on;
-    status->heater_fuse_fired = s_feature.heater_fuse_fired;
-    status->heater_state = s_feature.heater_state;
-    status->charge_session_active = s_feature.balance_charge_session_active;
-    /* SOC 静置资格看最后硬件回读，不能因应用失败而把残留均衡当作已关闭。 */
-    status->balance_active = reported_balance_mask() ? 1u : 0u;
-    status->balance_voltage_trusted = balance_voltage_trusted();
 }
 
 /* 查询充电方向相关的公共功能阻断。 */

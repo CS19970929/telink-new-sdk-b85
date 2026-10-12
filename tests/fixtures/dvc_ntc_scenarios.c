@@ -21,7 +21,6 @@ bms_protection_params_t g_bms_protection_params;
 /* PRODUCTION STATE */
 
 uint8_t bms_protection_params_valid(void) { return 1u; }
-void bms_features_get_status(bms_features_status_t *s) { memset(s,0,sizeof(*s)); }
 uint8_t bms_features_charge_direction_blocked(void) { return 0u; }
 void bms_diag_driver(uint8_t flags,uint8_t valid) { (void)flags; (void)valid; }
 void bms_diag_command(uint8_t command,uint8_t valid) { (void)command; (void)valid; }

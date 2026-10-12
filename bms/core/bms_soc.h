@@ -55,8 +55,6 @@ typedef struct
     uint8_t sample_valid;
     uint8_t voltage_valid;
     uint8_t temperature_valid;
-    uint8_t balancing_active;
-    uint8_t heating_active;
     uint8_t afe_fault;
     uint8_t temperature_fault;
     uint8_t current_fault;

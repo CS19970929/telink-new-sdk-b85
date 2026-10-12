@@ -76,7 +76,6 @@ uint8_t sh3673510_backend_get_balance_mask(uint32_t *m) { *m=0;return 1; }
 uint8_t bms_sw_protection_charge_blocked(void) { return 0; }
 uint8_t bms_sw_protection_discharge_blocked(void) { return 0; }
 uint8_t bms_features_charge_direction_blocked(void) { return 0; }
-void bms_features_get_status(bms_features_status_t *s) { memset(s,0,sizeof(*s)); }
 void bms_sw_protection_init(void) {}
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *p) { (void)p; }
 void bms_sw_protection_reset_current_recovery(void) {}
@@ -194,7 +193,7 @@ int main(void) {
     }
     bad_cell=-1;sample();sample();
     unsigned reads=read_stage;
-    assert(sh3673510_backend_get_feature_snapshot(&snap) && snap.valid && snap.battery_temp_valid);
+    assert(sh3673510_backend_get_feature_snapshot(&snap) && snap.battery_temp_valid);
     assert(read_stage==reads && snap.cell_count==SH3673510_BOARD_CELL_COUNT);
     for(unsigned i=SH3673510_BOARD_CELL_COUNT;i<32;++i)assert(g_bms_report.cell_voltage_mv[i]==61001);
     invalid_ntc=SH3673510_BOARD_BAT_NTC1_INDEX;sample();

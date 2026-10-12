@@ -226,7 +226,6 @@ void bms_afe_sample(void)
     /* 新样本确认恢复资格期间，保留真正已发生的通信故障。 */
     if (bms_error_get(BMS_ERROR_AFE1)) s_guard.comm_fault_latched = 1u;
     AFE_SAMPLE();
-    memset(&m, 0, sizeof(m));
     if (!AFE_AUX(&m))
     {
         if (AFE_PENDING()) return;

@@ -7,28 +7,11 @@ typedef uint32_t u32;
 #define BMS_STATE_DEFAULT_SOC 60u
 typedef struct {uint32_t soc,dsg,cycle;} bms_state_store_data_t;
 static bms_state_store_data_t bms_state_store_get_default_data(void) {bms_state_store_data_t d={60,0,0};return d;}
-static int balance_active,heater_on,charge_session_active,temp_valid=1;
-typedef enum {
-    BMS_HEATER_IDLE = 0u,
-    BMS_HEATER_ARMING = 1u,
-    BMS_HEATER_ACTIVE = 2u
-} bms_heater_state_t;
-typedef struct {
-    bms_heater_state_t heater_state;
-    uint8_t heater_on;
-    uint8_t heater_fuse_fired;
-    uint8_t charge_session_active;
-    uint8_t balance_active;
-    uint8_t balance_voltage_trusted;
-} bms_features_status_t;
-static void bms_features_get_status(bms_features_status_t *s)
-{
- memset(s,0,sizeof(*s));s->heater_on=(uint8_t)heater_on;
- s->charge_session_active=(uint8_t)charge_session_active;
- s->balance_active=(uint8_t)balance_active;
-}
-typedef struct {uint8_t valid,cell_count,battery_temp_valid,heater_temp_valid,mos_temp_valid;uint16_t battery_temp_min_x10,battery_temp_max_x10,heater_temp_x10,mos_temp_x10;} bms_afe_feature_snapshot_t;
-static uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){memset(s,0,sizeof(*s));s->valid=1;s->battery_temp_valid=(uint8_t)temp_valid;s->battery_temp_min_x10=650;s->battery_temp_max_x10=650;return 1;}
+static int temp_valid=1;
+static struct {struct {uint8_t heater_status;} bits;} g_bms_system_status;
+typedef struct {uint8_t cell_count,battery_temp_valid,heater_temp_valid,mos_temp_valid;uint16_t battery_temp_min_x10,battery_temp_max_x10,heater_temp_x10,mos_temp_x10;} bms_afe_feature_snapshot_t;
+static uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){memset(s,0,sizeof(*s));s->battery_temp_valid=(uint8_t)temp_valid;s->battery_temp_min_x10=650;s->battery_temp_max_x10=650;return 1;}
+
 typedef struct {uint32_t battery_chemistry,soc_profile_id,capacity_factory;} bms_config_system_params_t;
 static bms_config_system_params_t stored_profile={1,1,1000};
 static int bms_config_store_get_system(bms_config_system_params_t*p){*p=stored_profile;return 1;}
@@ -65,7 +48,7 @@ static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  g_bms_protection_params.cell_ovp_third_mv=chemistry==1?3650:4250;
  g_bms_protection_params.cell_uvp_third_mv=2500;
  g_bms_report.cell_min_mv=voltage;g_bms_report.cell_max_mv=voltage;
- balance_active=0;heater_on=0;charge_session_active=0;temp_valid=1;
+ g_bms_system_status.bits.heater_status=0;temp_valid=1;
  afe_error=0;stored_user.current_offset_ma=0;stored_user.current_gain_ppm=1000000;
  bms_state_store_data_t d={soc,0,0};soc_param_lib_init(&d);tick=0;
  memset(&g_soc_input,0,sizeof(g_soc_input));g_soc_input.sample_valid=1;g_soc_input.voltage_valid=1;
@@ -217,7 +200,7 @@ static int replay_csv(const char *input_path,const char *output_path){
   s.cell_min_mv=(uint16_t)min_mv;s.cell_max_mv=(uint16_t)max_mv;s.cell_delta_mv=(uint16_t)delta_mv;
   s.temperature_min_x10=(uint16_t)tmin;s.temperature_max_x10=(uint16_t)tmax;
   s.sample_valid=(uint8_t)sample_valid;s.voltage_valid=(uint8_t)voltage_valid;s.temperature_valid=(tmin||tmax)?1u:0u;
-  s.balancing_active=(uint8_t)balance;s.heating_active=(uint8_t)heat;
+  /* balance/heat 与插拔列仅为环境记录，不参与 SOC 决策。 */
   s.afe_fault=(uint8_t)afe;s.temperature_fault=(uint8_t)tf;
   s.current_fault=(uint8_t)cf;s.pack_fault=(uint8_t)pf;s.third_cell_ovp=(uint8_t)ovp;s.third_cell_uvp=(uint8_t)uvp;
   /* 保留 CSV 环境记录列；SOC 只使用测量量，不以插拔标记重置资格。 */
@@ -334,11 +317,11 @@ int main(int argc,char **argv){
   sample(1,300,3200);sample(1,0,3200);assert(g_soc_runtime.idle_stable_ticks==0);
   for(int i=0;i<12010;i++)sample(1,0,6400);
   assert(get_soc_real()==79); /* 10 min prepare + 30 min downward step */
-  setup(chemistry,80,chemistry==1?3300:3750);sample(1,0,1);balance_active=1;
+  setup(chemistry,80,chemistry==1?3300:3750);sample(1,0,1);g_bms_report.balance_bits_low=1;
   for(int i=0;i<3100;i++)sample(1,0,6400);
-  assert(g_soc_runtime.idle_stable_ticks==0&&g_soc_runtime.ocv_state==BMS_SOC_OCV_WAIT_CURRENT);
-  balance_active=0;heater_on=1;for(int i=0;i<100;i++)sample(1,0,6400);
-  assert(g_soc_runtime.idle_stable_ticks==0);heater_on=0;temp_valid=0;
+  assert(g_soc_runtime.idle_stable_ticks>0&&g_soc_runtime.ocv_confidence==100);
+  g_bms_report.balance_bits_low=0;g_bms_system_status.bits.heater_status=1;for(int i=0;i<100;i++)sample(1,0,6400);
+  assert(g_soc_runtime.ocv_confidence==100);g_bms_system_status.bits.heater_status=0;temp_valid=0;
   for(int i=0;i<100;i++){
    sample(1,0,6400);
   }
@@ -348,10 +331,11 @@ int main(int argc,char **argv){
    sample(1,0,6400);
   }
   assert(g_soc_runtime.idle_stable_ticks>0);
-  /* 会话变化本身不改变静置测量；实际电流/电压/加热变化仍撤销资格。 */
+  /* 业务加热/均衡标志变化不改变静置资格；真实电流/电压变化仍撤销资格。 */
   uint32_t rest_before=g_soc_runtime.idle_stable_ticks;
   for(unsigned i=0;i<20u;i++){
-   charge_session_active=(int)(i&1u);sample(1,0,6400);
+   g_bms_report.balance_bits_low=(uint16_t)(i&1u);
+   g_bms_system_status.bits.heater_status=(uint8_t)((i>>1)&1u);sample(1,0,6400);
    assert(g_soc_runtime.idle_stable_ticks==rest_before+i+1u);
   }
   sample(1,-500,6400);assert(g_soc_runtime.idle_stable_ticks==0);
@@ -450,24 +434,28 @@ int main(int argc,char **argv){
   stored_profile.capacity_factory=1000;
  }
 
- for(unsigned invalid=0;invalid<8;invalid++){
+ for(unsigned invalid=0;invalid<6;invalid++){
   setup(1,60,2400);
   switch(invalid){
    case 0:g_soc_input.voltage_valid=0;break;
    case 1:g_soc_input.temperature_valid=0;break;
-   case 2:g_soc_input.balancing_active=1;break;
-   case 3:g_soc_input.heating_active=1;break;
-   case 4:g_soc_input.afe_fault=1;break;
-   case 5:g_soc_input.temperature_fault=1;break;
-   case 6:g_soc_input.current_fault=1;break;
+   case 2:g_soc_input.afe_fault=1;break;
+   case 3:g_soc_input.temperature_fault=1;break;
+   case 4:g_soc_input.current_fault=1;break;
    default:g_soc_input.pack_fault=1;break;
   }
   for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor();
   assert(get_soc_real()==60 && !g_soc_runtime.empty_lock_ticks);
  }
- setup(1,60,2400);
- for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor();
- assert(get_soc_real()<60);
+ /* 应用实际读取路径：加热命令和均衡回读都不再阻止静置空电锚定。 */
+ for(unsigned active=0;active<4;active++){
+  setup(1,60,2400);
+  g_bms_report.balance_bits_low=(uint16_t)(active&1u);
+  g_bms_system_status.bits.heater_status=(uint8_t)(active>>1);
+  sample(1,0,1);
+  for(unsigned n=0;n<100;n++)sample(1,0,6400);
+  assert(get_soc_real()<60);
+ }
 
  /* Charging must publish fractional capacity before integer SOC rises. */
  for(uint8_t chemistry=1;chemistry<=2;chemistry++){

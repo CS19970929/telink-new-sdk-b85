@@ -940,13 +940,12 @@ uint8_t sh3673510_backend_get_charge_source_present(uint8_t *present)
     return 1u;
 }
 
-/* 取得均衡、温度和断线策略需要的后端快照。 */
+/* 取得均衡和温度策略需要的后端快照。 */
 uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
     if (out == 0) return 0u;
     memset(out, 0, sizeof(*out));
     if (!s_snapshot_valid) return 0u;
-    out->valid = 1u;
     out->cell_count = SH3673510_BOARD_CELL_COUNT;
     out->battery_temp_valid = battery_temperature_snapshot(&out->battery_temp_min_x10,
                                                             &out->battery_temp_max_x10);

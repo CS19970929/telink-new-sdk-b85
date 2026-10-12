@@ -43,7 +43,6 @@
 #include "modbus_rtu.h"
 #include "bms_afe.h"
 #include "bms_afe_hw_access.h"
-#include "bms_features.h"
 #include "bms_diag.h"
 #include "bms_error.h"
 #include "bms_state.h"
@@ -267,11 +266,9 @@ static void app_sample_wakeup(int type)
 static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma)
 {
     bms_afe_feature_snapshot_t feature;
-    bms_features_status_t status;
     bms_soc_sample_t sample;
     uint16_t third_faults = g_bms_report.fault_third.all;
     memset(&sample, 0, sizeof(sample));
-    memset(&feature, 0, sizeof(feature));
 
     /* 积分使用应用时间；旧电流可用于新时间段，但不能冒充新的确认样本。 */
     sample.timestamp_32k = pm_get_32k_tick();
@@ -283,14 +280,11 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma)
     sample.voltage_valid = (valid && sample.cell_min_mv != 0u &&
                             sample.cell_max_mv >= sample.cell_min_mv) ? 1u : 0u;
     if (valid && bms_afe_get_feature_snapshot(&feature) &&
-        feature.valid && feature.battery_temp_valid) {
+        feature.battery_temp_valid) {
         sample.temperature_valid = 1u;
         sample.temperature_min_x10 = feature.battery_temp_min_x10;
         sample.temperature_max_x10 = feature.battery_temp_max_x10;
     }
-    bms_features_get_status(&status);
-    sample.balancing_active = status.balance_active;
-    sample.heating_active = status.heater_on;
     sample.afe_fault = bms_error_get(BMS_ERROR_AFE1);
     sample.temperature_fault =
         ((third_faults & SOC_SAMPLE_TEMP_FAULT_MASK) != 0u) ? 1u : 0u;
