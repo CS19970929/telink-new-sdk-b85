@@ -593,6 +593,14 @@ static uint8_t sample_release_evidence(const sh3673510_control_status_t *s)
                           !(s->bstatus2 & SH3673520_BSTATUS2_LOADON_MASK)) ? 1u : 0u;
         return 1u;
     }
+#if !SH3673510_PRODUCT_HEATER_SUPPORTED
+    /* 无加热产品只在软/硬件 OCC 恢复需要时读取 C+，未知不能冒充拔除。 */
+    if (!g_bms_report.fault_third.bits.charge_ocp &&
+        !(s->flag1 & SH3673520_FLAG1_OCC_MASK)) {
+        s_charger_known = 0u;
+        return 1u;
+    }
+#endif
     /* 负载检测模式有效或新 VADC 扫描完成前，不使用过时 C+ 证据。 */
     if (!(s->flag2 & SH3673520_FLAG2_VADC_MASK)) return 1u;
     if (SH3673520_ReadRegs(SH3673520_REG_VCHGRH, data, 2u) != SH3673520_OK) return 0u;

@@ -38,6 +38,7 @@ static uint16_t cplus_raw = 1024; /* 4 V, charger remains connected */
 static uint8_t load_mode;
 static uint8_t mode_ok = 1;
 static unsigned read_stage, fail_stage;
+static unsigned cplus_reads;
 static int bad_cell=-1, invalid_ntc=-1;
 static int32_t bad_cell_mv;
 static uint8_t read_ok(void) { return ++read_stage != fail_stage; }
@@ -114,7 +115,7 @@ sh3673520_status_t SH3673520_ReadCurrent(int32_t *v) { *v=0; return read_ok()?SH
 sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,uint32_t shunt,int32_t *v) { (void)raw;(void)shunt;*v=0; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
 sh3673520_status_t SH3673520_ReadTemperatures(int32_t *t) { for(uint8_t i=0;i<4;++i)t[i]=(i==invalid_ntc)?0:10000; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
 sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw,uint32_t *v) { *v=(uint32_t)raw; return raw?SH3673520_OK:SH3673520_ERR_RANGE; }
-sh3673520_status_t SH3673520_ReadRegs(uint8_t reg,uint8_t *v,sh3673520_size_t n) { (void)reg;assert(n==2);v[0]=(uint8_t)(cplus_raw>>8);v[1]=(uint8_t)cplus_raw;return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
+sh3673520_status_t SH3673520_ReadRegs(uint8_t reg,uint8_t *v,sh3673520_size_t n) { assert(reg==SH3673520_REG_VCHGRH && n==2);++cplus_reads;v[0]=(uint8_t)(cplus_raw>>8);v[1]=(uint8_t)cplus_raw;return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
 
 /* PRODUCTION */
 #ifdef GUARD_TEST
@@ -166,10 +167,23 @@ int main(void) {
     bms_afe_feature_snapshot_t snap;
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     sh3673510_bms_afe_init();
+    sh3673510_bms_afe_set_output_enabled(1u);
     for(unsigned i=0;i<8;++i)sample();
     assert(sh3673510_bms_afe_get_aux_measurements(&aux));
+    assert(command_c==1u && command_d==1u);
+#if SH3673510_PRODUCT_HEATER_SUPPORTED
+    assert(cplus_reads>0u && read_stage==8u); /* D011 加热仍需充电器证据。 */
+#else
+    assert(cplus_reads==0u && read_stage==7u);
+    uint8_t present;
+    assert(!sh3673510_backend_get_charge_source_present(&present));
+    /* 独立软件保护所有者已锁存 OCC 时，同样必须重新读取 C+。 */
+    g_bms_report.fault_third.bits.charge_ocp=1u;
+    sample(); assert(cplus_reads==1u);
+    g_bms_report.fault_third.bits.charge_ocp=0u;
+#endif
     bms_report_t before=g_bms_report;
-    for(unsigned f=1;f<=8;++f) {
+    for(unsigned f=1;f<=7;++f) {
         /* Re-establish the public healthy state before each independent fault. */
         fail_stage=0;sample();sample();
         device.bstatus2=SH3673520_BSTATUS2_IDLE_MASK;
@@ -184,6 +198,16 @@ int main(void) {
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
         assert(!sh3673510_backend_get_feature_snapshot(&snap));
     }
+    /* 硬件 OCC 需要的 C+ 读取失败仍使整帧失效并关闭两路 MOS。 */
+    fail_stage=0;sample();sample();
+    assert(command_c==1u && command_d==1u);
+    device.flag1=SH3673520_FLAG1_OCC_MASK;
+    fail_stage=8u;sample();
+    assert(failure_step==DIAG_AFE_FAIL_RELEASE_READ);
+    assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
+    assert(!memcmp(&before,&g_bms_report,sizeof(before)));
+    assert(command_c==0u && command_d==0u);
+    device.flag1=0u;
     fail_stage=0;
     for(unsigned c=0;c<SH3673510_BOARD_CELL_COUNT;++c)for(unsigned v=0;v<2;++v) {
         bad_cell=(int)c;bad_cell_mv=v?65536:-1;sample();
@@ -200,7 +224,7 @@ int main(void) {
     assert(sh3673510_backend_get_feature_snapshot(&snap) && !snap.battery_temp_valid);
     device.flag1=SH3673520_FLAG1_RST1_MASK;sample();
     assert(!sh3673510_backend_get_feature_snapshot(&snap));
-    puts("Every read/cell failure invalidates the sample without partial measurement publication");
+    puts("Required read/cell failures remain atomic; healthy heater-free products skip unused C+ reads");
     return 0;
 }
 #elif !defined(GUARD_TEST)
