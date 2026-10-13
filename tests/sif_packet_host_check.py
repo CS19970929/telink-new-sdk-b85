@@ -8,6 +8,14 @@ source = re.sub(r'^#include[^\n]*', '', source, flags=re.M)
 prefix = (ROOT / 'tests/fixtures/sif_wire_model.h').read_text(encoding='utf8')
 golden = json.loads((ROOT / 'tests/fixtures/sif_wire_6604d738.json').read_text(encoding='utf8'))
 tail = r'''
+static void check_code(const uint8_t *expected,unsigned length){
+ sif_send_private_battery_code();
+ const uint8_t *p=s_packets[s_prepare_packet];
+ assert(p[0]==0x3cu&&p[1]==1u&&p[2]==length);
+ assert(s_packet_lengths[s_prepare_packet]==length+4u);
+ assert(!memcmp(p+3,expected,length));
+ assert(p[3u+length]==sum_verify(p,3u+length));
+}
 int main(void){
  for(unsigned n=0;n<8;++n){wire_case(n);
   sif_send_public_packet();print_packet(s_packets[s_prepare_packet],s_packet_lengths[s_prepare_packet]);
@@ -41,29 +49,52 @@ int main(void){
  config_available=0;sif_send_public_packet();
  assert(s_packets[s_prepare_packet][7]==255u&&s_packets[s_prepare_packet][8]==255u);
  config_available=1;
- s_packet_ready=0;s_active_packet=0;s_iswakeup=1;s_public_count=0;s_first_cell_packet=1;
+ const uint8_t invalid_code[]={0xffu};
+ check_code(invalid_code,1u); /* 空配置不能回退成共享编译默认 SN。 */
+ memcpy(config_serial,"BMS-123",8u);check_code((const uint8_t *)"BMS-123",7u);
+ user_available=0;check_code(invalid_code,1u);user_available=1;
+ memset(config_serial,'X',sizeof(config_serial));
+ check_code((const uint8_t *)config_serial,32u); /* 满32字节不要求 NUL，也不截断。 */
+ config_serial[31]=(char)0xffu;check_code(invalid_code,1u);
+ config_serial[31]=(char)0x7fu;check_code(invalid_code,1u);
+ memset(config_serial,' ',sizeof(config_serial));check_code(invalid_code,1u);
+ memset(config_serial,0,sizeof(config_serial));
+ memcpy(config_serial,"A\0B",3u);check_code((const uint8_t *)"A",1u);
+ memcpy(config_serial,"NEW-SN",7u);check_code((const uint8_t *)"NEW-SN",6u);
+ s_packet_ready=0;s_active_packet=0;s_iswakeup=1;s_public_count=0;s_first_cell_packet=1;s_code_packet_due=0;
  state_mode=SIF_IDLE;
- unsigned frames=0,cells_seen=0,last_cell_tick=0;uint8_t saved[64];unsigned length=0;
+ unsigned frames=0,cells_seen=0,codes_seen=0,last_cell_tick=0,last_code_tick=0;
+ unsigned code_expected=0;uint8_t saved[64];unsigned length=0;
  for(unsigned tick=0;tick<400000&&frames<100;++tick){
   SIF_STATE_E previous=state_mode;
   /* 0.2s 样本刷新，16MHz tick 从回绕前开始；ISR 每 500us。 */
-  wire_case(tick%8);sif_prepare_task((uint32_t)(0xffff0000u+(tick/400u)*3200000u));
+  wire_case(tick%8);config_serial[0]=(char)('A'+tick%26);
+  sif_prepare_task((uint32_t)(0xffff0000u+(tick/400u)*3200000u));
   if(state_mode==SEND_DATA)assert(!memcmp(saved,s_packets[s_active_packet],length));
   sif_send_data_handle();
   if(previous==SYNC_SIGNAL&&state_mode==SEND_DATA){
    uint8_t id=s_packets[s_active_packet][0];
    if(frames<3)assert(id==1u);
    else if(frames==3)assert(id==0x3bu);
-   else assert(id==0x3au||id==0x3bu);
+   else if(frames==4)assert(id==0x3cu);
+   else assert(id==0x3au||id==0x3bu||id==0x3cu);
    if(id==0x3bu){
+    assert(!code_expected);code_expected=1u;
     if(cells_seen)assert(tick-last_cell_tick>=119600u&&tick-last_cell_tick<125000u);
     last_cell_tick=tick;++cells_seen;
-   }
+   }else if(id==0x3cu){
+    assert(code_expected);code_expected=0u;
+    if(codes_seen)assert(tick-last_code_tick>=119600u&&tick-last_code_tick<125000u);
+    last_code_tick=tick;++codes_seen;
+   }else{assert(!code_expected);}
    assert(sum_verify(s_packets[s_active_packet],sif_send_length-1u)==s_packets[s_active_packet][sif_send_length-1u]);
    length=sif_send_length;memcpy(saved,s_packets[s_active_packet],length);++frames;
   }
  }
- assert(frames==100&&cells_seen>=3u);return 0;
+ assert(frames==100&&cells_seen>=3u&&codes_seen>=3u);
+ bus=0;sif_send_data_handle();bus=1;sif_prepare_task(0u);
+ assert(s_packets[s_prepare_packet][0]==1u&&s_first_cell_packet&&!s_code_packet_due);
+ return 0;
 }
 '''
 for cells in (16,20,24):
@@ -99,4 +130,4 @@ for cells in (16,20,24):
                     assert raw[5:7] == b'\xff\xff' and raw[7:9] == b'\x74\x00'
                 else:
                     assert raw[22:27] == b'\xff' * 5 and raw[27:32] == b'\x00' * 5
-    print('PASS %dS SIF protocol fields/SUM, 60s cells/tick wrap, immutable IRQ packet'%cells)
+    print('PASS %dS SIF fields/SUM/SN boundaries, 60s cells+code/tick wrap/reconnect, immutable IRQ packet'%cells)

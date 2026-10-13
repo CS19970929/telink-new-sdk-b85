@@ -20,6 +20,11 @@ static uint32_t capacity_factory = BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
 static int config_available = 1;
 static int bms_config_store_get_system(bms_config_system_params_t *system)
 { system->capacity_factory = capacity_factory; return config_available; }
+typedef struct {char serial[32];} bms_user_params_t;
+static char config_serial[32];
+static int user_available = 1;
+static int bms_config_get_user(bms_user_params_t *user)
+{ memcpy(user->serial, config_serial, sizeof(config_serial)); return user_available; }
 typedef enum {SIF_IDLE=0,SYNC_SIGNAL,SEND_PUBLIC,SEND_DATA,SEND_DATA_COMPLETE,STOP_SIGNAL} SIF_STATE_E;
 typedef struct {
  uint8_t discharge_ocp,charge_utp,charge_otp,discharge_otp,cell_uvp,cell_ovp,charge_ocp,discharge_utp;

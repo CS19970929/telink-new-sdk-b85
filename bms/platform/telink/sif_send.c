@@ -40,6 +40,8 @@ _attribute_ram_code_ void sif_timer_irq_handler(void)
 
 /* 构造 SIF 私有单体电压包，只使用有效串数。 */
 static void sif_send_private_cell_voltages(void);
+/* 使用已提交的配置 SN 构造电池编码；不使用共享的编译默认身份。 */
+static void sif_send_private_battery_code(void);
 /* 构造 SIF 私有实时测量报告包。 */
 static void sif_send_private_realtime_info(void);
 /* 构造公共 SIF 报告包供定时器发送。 */
@@ -86,6 +88,7 @@ static volatile uint8_t s_prepare_packet;
 static uint8_t s_iswakeup = 1u, s_public_count;
 static uint32_t s_cell_packet_tick;
 static uint8_t s_first_cell_packet = 1u;
+static uint8_t s_code_packet_due;
 static volatile uint8_t s_restart_packets;
 static volatile uint8_t s_return_to_idle;
 static uint32_t s_prepared_sample_tick;
@@ -305,6 +308,7 @@ void sif_prepare_task(uint32_t sample_tick)
         s_iswakeup = 1u;
         s_public_count = 0u;
         s_first_cell_packet = 1u;
+        s_code_packet_due = 0u;
     }
     /* 新样本后刷新等待帧；短临界区内撤销 ready，防止主循环重建时 IRQ 抢占缓冲区。 */
     irq_state = irq_disable();
@@ -325,17 +329,24 @@ void sif_prepare_task(uint32_t sample_tick)
         sif_send_private_realtime_info();
     } else if (refresh_type == 0x3bu) {
         sif_send_private_cell_voltages();
+    } else if (refresh_type == 0x3cu) {
+        sif_send_private_battery_code();
     } else if (s_iswakeup) {
         sif_send_public_packet();
         if (++s_public_count >= 3u) {
             s_public_count = 0u;
             s_iswakeup = 0u;
         }
+    } else if (s_code_packet_due) {
+        s_code_packet_due = 0u;
+        sif_send_private_battery_code();
     } else if (s_first_cell_packet ||
                (uint32_t)(sample_tick - s_cell_packet_tick) >= SIF_CELL_PERIOD_TICKS) {
         s_first_cell_packet = 0u;
         s_cell_packet_tick = sample_tick;
         sif_send_private_cell_voltages();
+        /* 编码紧随本周期单体包，不增加另一个周期计时器。 */
+        s_code_packet_due = 1u;
     } else {
         sif_send_private_realtime_info();
     }
@@ -457,6 +468,39 @@ static void sif_send_private_cell_voltages(void)
     }
     p[SIF_CELL_BYTES - 1u] = sum_verify(p, SIF_CELL_BYTES - 1u);
     s_packet_lengths[s_prepare_packet] = SIF_CELL_BYTES;
+}
+
+/* A1.3.0 表 A.7：ASCII 不带 NUL，len 为字符数，SUM 覆盖整个头和载荷。 */
+static void sif_send_private_battery_code(void)
+{
+    bms_user_params_t user;
+    uint8_t length = 0u;
+    uint8_t has_code = 0u;
+    uint8_t *p = s_packets[s_prepare_packet];
+    p[0] = 0x3cu;
+    p[1] = 1u;
+    /* getter 只读已提交的 Config RAM 缓存；暂存 SN 和 Flash 写入不属于发送路径。
+     * SN 当前最多32字节；若以后扩大存储字段，不能静默截断成另一条编码。 */
+    if (sizeof(user.serial) <= sizeof(s_packets[0]) - 4u && bms_config_get_user(&user)) {
+        while (length < sizeof(user.serial)) {
+            uint8_t value = (uint8_t)user.serial[length];
+            if (value == 0u) break;
+            if (value < 0x20u || value > 0x7eu) {
+                has_code = 0u;
+                break;
+            }
+            p[3u + length++] = value;
+            if (value != 0x20u) has_code = 1u;
+        }
+    }
+    /* 空白/无效身份使用一个无效字节，不能发 len=0，也不伪造默认唯一编码。 */
+    if (!has_code) {
+        length = 1u;
+        p[3] = SIF_INVALID_U8;
+    }
+    p[2] = length;
+    p[3u + length] = sum_verify(p, 3u + length);
+    s_packet_lengths[s_prepare_packet] = (uint8_t)(length + 4u);
 }
 
 #else
