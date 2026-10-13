@@ -21,6 +21,7 @@
     <Compile Include="..\Shared\BmsTestEngine.cs" Link="BmsTestEngine.cs" />
     <Compile Include="..\Shared\ProductSupport.cs" Link="ProductSupport.cs" />
     <Compile Include="..\Shared\BmsClient.RuntimeLog.cs" Link="BmsClient.RuntimeLog.cs" />
+    <Compile Include="..\Shared\BmsClient.MosControl.cs" Link="BmsClient.MosControl.cs" />
     <Compile Include="..\Shared\BmsMosMonitor.cs" Link="Shared\BmsMosMonitor.cs" />
     <Compile Include="..\Shared\BmsOpenWire.cs" Link="Shared\BmsOpenWire.cs" />
     <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="BmsClient.Diagnostics.cs" />

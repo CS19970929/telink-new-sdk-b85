@@ -10,6 +10,8 @@
 - `BmsTool.Core/`：跨平台 C# 核心，单一保存 Modbus、BMS 身份读取、Telink BIN 预检和 OTA 状态机。
 - `BmsTool.Android/`：新的 .NET Android App，通过 `BluetoothGatt` 复用 `BmsTool.Core`，不使用或复制历史 Kotlin Android 客户端。
 
+Android 客户版与测试版的功能矩阵、导航和独立 MOS 控制见 [两版 App 与 MOS 控制](docs/APP_EDITIONS_AND_MOS_CONTROL.md)。
+
 四个入口共用同一套底层协议源码；Windows 客户版、内部版和 CLI 仍按原发布脚本同步构建，Android 另外构建并安装 APK。客户版不包含工厂测试入口；两版页面范围见下表。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
 
 ## Windows 页面范围（2026-10-13）

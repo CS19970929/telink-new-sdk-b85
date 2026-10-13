@@ -54,7 +54,7 @@ public sealed record RuntimeLogEntry(uint Sequence, uint Tick32k, int Level, int
         _ => $"event={Event}，arg0=0x{Arg0:X8}，arg1=0x{Arg1:X8}"
     };
     private static string Reasons(uint bits) {
-        string[] names = { "参数", "升级", "输出未授权", "通信", "软件保护", "硬件保护", "Open-Wire", "加热", "关机", "温度", "backend" };
+        string[] names = { "参数", "升级", "输出未授权", "通信", "软件保护", "硬件保护", "保留位", "加热", "关机", "温度", "backend", "用户远程许可关闭" };
         return bits == 0 ? "无" : string.Join("/", names.Where((_, i) => (bits & (1u << i)) != 0));
     }
     public string ExportLine => $"{Sequence}\t{Tick32k}\t{Severity}\t{ModuleName}\t{Event}\t0x{Arg0:X8}\t0x{Arg1:X8}\t{Detail}";

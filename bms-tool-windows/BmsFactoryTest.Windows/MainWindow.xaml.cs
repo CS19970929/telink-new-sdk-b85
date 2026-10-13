@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        AddMosControlPanel();
         InitializeUiLog();
         Loaded += (_, _) => { if (_diagTimer is null) AddDiagnosticTab(); };
         DeviceList.ItemsSource = _devices;
@@ -371,6 +372,7 @@ public partial class MainWindow : Window
 
     private async Task DisposeBmsAsync()
     {
+        ResetMosControlUi();
         _mosCts?.Cancel();
         NoteMosGap("设备断开或重连");
         if (_bms is not null)
@@ -426,6 +428,7 @@ public partial class MainWindow : Window
         BatterySnapshot snapshot = await bms.ReadBatteryAsync();
         if (!ReferenceEquals(bms, _bms)) return;
         ApplyBatterySnapshot(snapshot);
+        await RefreshMosControlStateAsync(bms, default);
         await RefreshMosMonitorAsync(bms);
         await RefreshSleepStatusAsync(bms);
     }

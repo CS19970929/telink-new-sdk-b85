@@ -10,10 +10,12 @@ namespace BmsTool.Android;
 public sealed partial class MainActivity
 {
     private readonly List<Button> _navButtons = new();
+    private readonly List<int> _navDestinations = new();
     private readonly List<View> _pages = new();
     private readonly Dictionary<ProtectionParameterRow, EditText> _protectionInputs = new();
     private readonly Dictionary<AfeParameterRow, EditText> _afeInputs = new();
     private readonly List<Button> _actionButtons = new();
+    private readonly HashSet<Button> _busyAllowedButtons = new();
 
     private TextView? _statusView;
     private TextView? _connectionView;
@@ -52,6 +54,13 @@ public sealed partial class MainActivity
     private Button? _connectButton;
     private Button? _disconnectButton;
     private Button? _otaButton;
+    private Button? _chargeMosButton;
+    private Button? _dischargeMosButton;
+    private Button? _serviceModeButton;
+    private TextView? _chargeMosState;
+    private TextView? _dischargeMosState;
+    private TextView? _mosControlNote;
+    private TextView? _serviceModeStatus;
 
     private int Dp(int value) => (int)(value * Resources!.DisplayMetrics!.Density + 0.5f);
 
@@ -116,7 +125,9 @@ public sealed partial class MainActivity
         testButtons.AddView(ActionButton("SOC 自动测试", () => RunAutomatedTestAsync("soc")));
         testButtons.AddView(ActionButton("诊断一致性测试", () => RunAutomatedTestAsync("diag")));
         page.AddView(testButtons);
-        page.AddView(ActionButton("取消自动测试", () => { CancelCurrentOperation(); return Task.CompletedTask; }, false));
+        Button cancelTest = ActionButton("取消自动测试", () => { CancelCurrentOperation(); return Task.CompletedTask; }, false);
+        _busyAllowedButtons.Add(cancelTest);
+        page.AddView(cancelTest);
         _testView = DataBlock("未测试");
         page.AddView(_testView);
         return Wrap(page);
@@ -125,46 +136,59 @@ public sealed partial class MainActivity
     private View BuildToolsPage()
     {
         LinearLayout page = Page();
-        page.AddView(ActionButton("‹ 返回设备", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
-        page.AddView(SectionTitle("设备操作"));
-        _nameInput = LabeledInput(page, "蓝牙名后缀", "");
-        page.AddView(ActionButton("修改蓝牙名", RenameAsync));
-        page.AddView(ActionButton("请求设备休眠", SleepAsync));
+        page.AddView(ActionButton("‹ 返回电池", () => { ShowPage(BatteryPage); return Task.CompletedTask; }, false));
+        var deviceTools = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        deviceTools.AddView(Note("蓝牙名后缀"));
+        _nameInput = Input("蓝牙名后缀", "");
+        deviceTools.AddView(_nameInput);
+        deviceTools.AddView(ActionButton("修改蓝牙名", RenameAsync));
+        deviceTools.AddView(ActionButton("请求设备休眠", SleepAsync));
+        deviceTools.AddView(ActionButton("连接与设备信息  ›", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
+        AddFold(page, "设备操作", deviceTools);
 
-        page.AddView(SectionTitle("长期监控"));
-        page.AddView(Note("每 5 秒保存一次实时快照，可导出 CSV。离开本页不会停止。"));
+        var monitor = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        monitor.AddView(Note("每 5 秒追加一条实时快照到 CSV；界面只保留最近 500 条。离开本页不会停止。"));
         var monitorButtons = Row();
         monitorButtons.AddView(ActionButton("开始", StartMonitorAsync));
         monitorButtons.AddView(ActionButton("停止", StopMonitorAsync));
         monitorButtons.AddView(ActionButton("导出 CSV", ExportMonitorAsync, false));
-        page.AddView(monitorButtons);
+        monitor.AddView(monitorButtons);
         _monitorStatus = DataBlock("未开始");
-        page.AddView(_monitorStatus);
+        monitor.AddView(_monitorStatus);
+        AddFold(page, "长期监控", monitor);
 
-        page.AddView(SectionTitle("OTA 升级"));
-        page.AddView(Note("导入固件后，核对目标设备再开始升级。升级完成会自动重连验证。"));
-        page.AddView(Note("无需命令行：在微信、浏览器或文件管理器中打开/分享 .bin，选择 BMS Tool 即可自动导入并进入本页。"));
+        var ota = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        ota.AddView(Note("导入固件后，核对目标设备再开始升级。升级完成会自动重连验证。"));
+        ota.AddView(Note("在微信、浏览器或文件管理器中打开/分享 .bin，选择测试版即可导入。"));
         var inboxButtons = Row();
         inboxButtons.AddView(ActionButton("刷新收件箱", RefreshFirmwareInboxAsync, false));
         inboxButtons.AddView(ActionButton("导入 BIN", PickFirmware, false));
-        page.AddView(inboxButtons);
+        ota.AddView(inboxButtons);
         _firmwareInboxStatus = DataBlock("固件收件箱为空");
-        page.AddView(_firmwareInboxStatus);
+        ota.AddView(_firmwareInboxStatus);
         _firmwareInbox = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        page.AddView(_firmwareInbox);
-        _firmwareInput = LabeledInput(page, "固件路径", "");
-        _expectedSerialInput = LabeledInput(page, "升级后期望 Serial（可选）", "");
+        ota.AddView(_firmwareInbox);
+        _firmwareInput = Input("固件路径", "");
+        ota.AddView(_firmwareInput);
+        _expectedSerialInput = Input("升级后期望 Serial（可选）", "");
+        ota.AddView(_expectedSerialInput);
         _otaButton = ActionButton("开始 OTA 并验证", StartOtaAsync);
-        page.AddView(_otaButton);
-        page.AddView(ActionButton("取消当前操作", () => { CancelCurrentOperation(); return Task.CompletedTask; }, false));
+        ota.AddView(_otaButton);
+        Button cancel = ActionButton("取消当前操作", () => { CancelCurrentOperation(); return Task.CompletedTask; }, false);
+        _busyAllowedButtons.Add(cancel);
+        ota.AddView(cancel);
+        AddFold(page, "OTA 升级", ota);
 
-        page.AddView(SectionTitle("专业调试"));
-        page.AddView(Note("原始写寄存器是工程功能，每次写入都要求二次确认并读回；不要用它绕过保护参数和 AFE 参数事务。"));
-        _rawAddressInput = LabeledInput(page, "起始地址（如 0xD000）", "0xD000");
-        _rawCountInput = LabeledInput(page, "读取数量（1..125）", "1");
-        page.AddView(ActionButton("读取原始寄存器", ReadRawAsync));
-        _rawValueInput = LabeledInput(page, "单寄存器写值（如 0x0001）", "0x0000");
-        page.AddView(ActionButton("写入并读回", WriteRawAsync));
+        var debug = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        debug.AddView(Note("原始写寄存器是工程功能，每次写入都要求二次确认并读回；不要用它绕过保护参数和 AFE 参数事务。"));
+        _rawAddressInput = Input("起始地址（如 0xD000）", "0xD000");
+        _rawCountInput = Input("读取数量（1..125）", "1");
+        debug.AddView(_rawAddressInput); debug.AddView(_rawCountInput);
+        debug.AddView(ActionButton("读取原始寄存器", ReadRawAsync));
+        _rawValueInput = Input("单寄存器写值（如 0x0001）", "0x0000");
+        debug.AddView(_rawValueInput);
+        debug.AddView(ActionButton("写入并读回", WriteRawAsync));
+        AddFold(page, "专业调试", debug);
         return Wrap(page);
     }
 
@@ -254,10 +278,10 @@ public sealed partial class MainActivity
     private void ShowPage(int selected)
     {
         for (int i = 0; i < _pages.Count; i++) _pages[i].Visibility = i == selected ? ViewStates.Visible : ViewStates.Gone;
-        int active = selected == 0 ? 0 : selected == 1 ? 1 : selected == 5 ? 2 : 3;
+        int active = _navDestinations.IndexOf(selected);
         for (int i = 0; i < _navButtons.Count; i++) StyleSelection(_navButtons[i], i == active);
         if (_pageTitle is not null) _pageTitle.Text = selected switch
-        { 0 => "我的电池", 1 => "保护参数", 2 => "业务参数", 3 => "高级诊断", 4 => "设备工具", 5 => "日志记录", _ => "我的设备" };
+        { 0 => "我的电池", 1 => "保护参数", 2 => "业务参数", 3 => "高级诊断", 4 => "测试工具", 5 => "记录", 6 => "我的设备", _ => "单体电压" };
         if (GetSystemService(InputMethodService) is InputMethodManager keyboard)
             keyboard.HideSoftInputFromWindow(_pageTitle?.WindowToken, HideSoftInputFlags.None);
         CurrentFocus?.ClearFocus();

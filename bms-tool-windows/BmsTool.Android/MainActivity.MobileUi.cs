@@ -11,7 +11,7 @@ public sealed partial class MainActivity
 {
     // Keep the existing subpage IDs used by firmware import intents.
     private const int BatteryPage = 0, ProtectionPage = 1, BusinessPage = 2, DiagnosticsPage = 3,
-        ToolsPage = 4, LogsPage = 5, DevicePage = 6;
+        ToolsPage = 4, LogsPage = 5, DevicePage = 6, CellsPage = 7;
     private const string Ink = "#172D3A", Muted = "#647784", Accent = "#126B66", Canvas = "#F3F6F8";
     private TextView? _socValue, _workState, _voltageValue, _currentValue, _capacityValue, _temperatureValue;
     private TextView? _freshnessView, _pageTitle;
@@ -49,20 +49,26 @@ public sealed partial class MainActivity
         host.AddView(BuildOverviewPage());
         host.AddView(BuildProtectionPage());
         host.AddView(BuildParameterPage());
-        host.AddView(BuildDiagnosticPage());
-        host.AddView(BuildToolsPage());
+        host.AddView(AppEdition.IsInternal ? BuildDiagnosticPage() : BuildUnavailablePage("高级诊断仅在测试版提供"));
+        host.AddView(AppEdition.IsInternal ? BuildToolsPage() : BuildUnavailablePage("工程工具仅在测试版提供"));
         host.AddView(BuildMobileLogPage());
         host.AddView(BuildMobileDevicePage());
+        host.AddView(BuildCellsPage());
         root.AddView(host, new LinearLayout.LayoutParams(-1, 0, 1));
 
         var nav = Row();
         nav.SetBackgroundColor(Color.White);
         nav.SetPadding(Dp(8), Dp(6), Dp(8), Dp(6));
-        int[] destinations = { BatteryPage, ProtectionPage, LogsPage, DevicePage };
-        string[] names = { "电池", "保护", "日志", "设备" };
+        int[] destinations = AppEdition.IsInternal
+            ? new[] { BatteryPage, ProtectionPage, LogsPage, ToolsPage }
+            : new[] { BatteryPage, CellsPage, LogsPage, DevicePage };
+        string[] names = AppEdition.IsInternal
+            ? new[] { "电池", "保护", "日志", "工具" }
+            : new[] { "电池", "单体", "记录", "设备" };
         for (int i = 0; i < names.Length; i++)
         {
             int destination = destinations[i];
+            _navDestinations.Add(destination);
             var button = MobileButton(names[i]);
             button.Click += (_, _) => ShowPage(destination);
             _navButtons.Add(button);
@@ -88,6 +94,14 @@ public sealed partial class MainActivity
         root.RequestApplyInsets();
         ShowPage(BatteryPage);
         RefreshActionAvailability();
+    }
+
+    private View BuildUnavailablePage(string message)
+    {
+        var page = Page();
+        page.AddView(Note(message));
+        page.AddView(ActionButton("返回电池", () => { ShowPage(BatteryPage); return Task.CompletedTask; }, false));
+        return Wrap(page);
     }
 
     private View BuildBatteryPage()
@@ -116,23 +130,67 @@ public sealed partial class MainActivity
         AddEqual(metrics, Metric("剩余容量", out _capacityValue));
         AddEqual(metrics, Metric("电池温度", out _temperatureValue));
         page.AddView(metrics);
+        page.AddView(BuildMosControlCard());
         page.AddView(SectionTitle("电池状态"));
         _stateView = DataBlock("等待连接后读取 MOS 与保护状态");
         page.AddView(_stateView);
         page.AddView(SectionTitle("单体电压"));
         _cellsView = Note("连接后显示单体电压、最高与最低串");
         page.AddView(_cellsView);
-        _cellGrid = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        page.AddView(_cellGrid);
+        page.AddView(ActionButton("查看全部单体  ›", () => { ShowPage(CellsPage); return Task.CompletedTask; }, false));
         page.AddView(SectionTitle("更多数据"));
         _summaryView = DataBlock("SOH、循环次数、容量与 MOS 温度等待更新");
         page.AddView(_summaryView);
         return Wrap(page);
     }
 
+    private View BuildMosControlCard()
+    {
+        var card = Card();
+        card.AddView(Label("充放电 MOS", 18, Ink, true));
+        card.AddView(Note("“允许”只解除用户关闭许可；保护、采样资格和 AFE 仍决定实际是否开启。"));
+        var states = Row();
+        AddEqual(states, MosStatePanel("充电 MOS", out _chargeMosState));
+        AddEqual(states, MosStatePanel("放电 MOS", out _dischargeMosState));
+        card.AddView(states);
+        var actions = Row();
+        _chargeMosButton = ActionButton("读取控制状态", () => ToggleMosAllowedAsync(true));
+        _dischargeMosButton = ActionButton("读取控制状态", () => ToggleMosAllowedAsync(false));
+        AddEqual(actions, _chargeMosButton); AddEqual(actions, _dischargeMosButton);
+        card.AddView(actions);
+        _mosControlNote = Note("连接后读取用户许可、产品请求和 AFE 报告");
+        card.AddView(_mosControlNote);
+        return card;
+    }
+
+    private LinearLayout MosStatePanel(string title, out TextView state)
+    {
+        var panel = Card();
+        panel.AddView(Label(title, 12, Muted));
+        state = Label("未知", 20, Muted, true);
+        state.SetPadding(0, Dp(6), 0, Dp(2));
+        panel.AddView(state);
+        return panel;
+    }
+
+    private View BuildCellsPage()
+    {
+        var page = Page();
+        page.AddView(Note("按物理串号显示有效单体；未装串位 61001 不参与统计。最低、最高和均衡串会单独标记。"));
+        page.AddView(ActionButton("刷新单体数据", () => RefreshOverviewAsync(true)));
+        _cellGrid = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        page.AddView(_cellGrid);
+        return Wrap(page);
+    }
+
     private View BuildMobileProtectionPage()
     {
         var root = Page();
+        if (!AppEdition.IsInternal)
+        {
+            root.AddView(Note("服务模式仅在本次连接有效；所有写入仍逐项确认并读回。模式开关不等于身份认证。"));
+            root.AddView(ActionButton("业务参数与 SOC 校正  ›", () => { ShowPage(BusinessPage); return Task.CompletedTask; }, false));
+        }
         var tabs = Row();
         _softwareTab = MobileButton("软件保护");
         _hardwareTab = MobileButton("硬件保护");
@@ -245,14 +303,24 @@ public sealed partial class MainActivity
         _disconnectButton = ActionButton("断开连接", DisposeConnectionAsync);
         page.AddView(_disconnectButton);
         page.AddView(SectionTitle("设备设置"));
-        page.AddView(ActionButton("业务参数与 SOC 校正  ›", () => { ShowPage(BusinessPage); return Task.CompletedTask; }, false));
-        page.AddView(ActionButton("固件升级与其他工具  ›", () => { ShowPage(ToolsPage); return Task.CompletedTask; }, false));
-        page.AddView(ActionButton("高级诊断  ›", () => { ShowPage(DiagnosticsPage); return Task.CompletedTask; }, false));
+        if (AppEdition.IsInternal)
+        {
+            page.AddView(ActionButton("业务参数与 SOC 校正  ›", () => { ShowPage(BusinessPage); return Task.CompletedTask; }, false));
+            page.AddView(ActionButton("测试工具  ›", () => { ShowPage(ToolsPage); return Task.CompletedTask; }, false));
+            page.AddView(ActionButton("高级诊断  ›", () => { ShowPage(DiagnosticsPage); return Task.CompletedTask; }, false));
+        }
+        else
+        {
+            _serviceModeButton = ActionButton("进入服务设置", EnterServiceModeAsync);
+            page.AddView(_serviceModeButton);
+            _serviceModeStatus = Note("普通模式 · 保护参数与校正入口已收起");
+            page.AddView(_serviceModeStatus);
+        }
         page.AddView(SectionTitle("设备信息"));
         _identityView = DataBlock("连接后显示设备名称、型号与版本");
         _identityView.SetTextIsSelectable(true);
         page.AddView(_identityView);
-        page.AddView(Note("BMS Tool 0.6.0"));
+        page.AddView(Note($"{AppEdition.DisplayName} 0.7.0"));
         return Wrap(page);
     }
 
@@ -344,10 +412,21 @@ public sealed partial class MainActivity
     {
         foreach (Button button in _actionButtons)
         {
-            button.Enabled = !_uiBusy && (!_connectionRequiredButtons.Contains(button) || _client is not null);
+            bool busyAllowed = _busyAllowedButtons.Contains(button);
+            button.Enabled = (!_uiBusy || busyAllowed) && (!_connectionRequiredButtons.Contains(button) || _client is not null);
             button.Alpha = button.Enabled ? 1f : 0.4f;
         }
         if (_disconnectButton is not null) _disconnectButton.Enabled = _client is not null || _uiBusy;
+        if (_chargeMosButton is not null)
+        {
+            bool enabled = !_uiBusy && _client is not null && _mosControlCapabilityChecked && _mosControlState is not null;
+            _chargeMosButton.Enabled = enabled; _chargeMosButton.Alpha = enabled ? 1f : 0.4f;
+        }
+        if (_dischargeMosButton is not null)
+        {
+            bool enabled = !_uiBusy && _client is not null && _mosControlCapabilityChecked && _mosControlState is not null;
+            _dischargeMosButton.Enabled = enabled; _dischargeMosButton.Alpha = enabled ? 1f : 0.4f;
+        }
         UpdateProtectionEdits();
     }
 
@@ -402,6 +481,7 @@ public sealed partial class MainActivity
             (snapshot.HasProtection ? $"\n一级：{snapshot.ProtectionLevel1Text}\n二级：{snapshot.ProtectionLevel2Text}\n三级：{snapshot.ProtectionLevel3Text}" : "") +
             $"\n加热：{(snapshot.HeatingOn ? "运行中" : "未运行")}    制冷：{(snapshot.CoolingOn ? "运行中" : "未运行")}";
         _stateView.SetTextColor(Color.ParseColor(snapshot.HasProtection ? "#A33625" : Ink));
+        SetMosDriverIndicators(snapshot.ChargeMosOn, snapshot.DischargeMosOn);
         _cellsView!.Text = $"{snapshot.ValidCellCount} 串 · 最低 {snapshot.MinCellMv} mV · 最高 {snapshot.MaxCellMv} mV\n压差 {snapshot.CellDeltaMv} mV";
         _cellGrid!.RemoveAllViews();
         LinearLayout? line = null;
@@ -425,6 +505,31 @@ public sealed partial class MainActivity
         if (identity is not null)
             _identityView!.Text = $"{identity.BluetoothName}\nMAC  {identity.Mac}\n序列号  {identity.Serial}\n硬件  {identity.Hardware}\n软件  {identity.Software}\nBuild ID  {(buildId.HasValue ? buildId.Value.ToString("x8") : "不可用")}";
         UpdateBatteryFreshness();
+    }
+
+    private void SetMosDriverIndicators(bool chargeOn, bool dischargeOn)
+    {
+        if (_chargeMosState is null || _dischargeMosState is null) return;
+        MosControlState? state = _mosControlState;
+        bool chargeActual = state?.DriverStateValid == true ? state.ChargeDriverOn : chargeOn;
+        bool dischargeActual = state?.DriverStateValid == true ? state.DischargeDriverOn : dischargeOn;
+        string evidence = state?.DriverStateValid == true ? "AFE 报告" : "状态指示";
+        _chargeMosState.Text = state?.ChargeAllowed == false ? "用户关闭" : chargeActual ? "已开启" : "已关闭";
+        _dischargeMosState.Text = state?.DischargeAllowed == false ? "用户关闭" : dischargeActual ? "已开启" : "已关闭";
+        _chargeMosState.SetTextColor(Color.ParseColor(state?.ChargeAllowed == false ? "#A33625" : chargeActual ? Accent : Muted));
+        _dischargeMosState.SetTextColor(Color.ParseColor(state?.DischargeAllowed == false ? "#A33625" : dischargeActual ? Accent : Muted));
+        if (_chargeMosButton is not null)
+            _chargeMosButton.Text = !_mosControlCapabilityChecked ? "读取中" : state is null ? "固件不支持" : state.ChargeAllowed ? "禁止充电" : "允许充电";
+        if (_dischargeMosButton is not null)
+            _dischargeMosButton.Text = !_mosControlCapabilityChecked ? "读取中" : state is null ? "固件不支持" : state.DischargeAllowed ? "禁止放电" : "允许放电";
+        if (_mosControlNote is not null)
+        {
+            _mosControlNote.Text = !_mosControlCapabilityChecked ? "正在读取独立 MOS 控制能力…" : state is null
+                ? "当前固件不支持独立 MOS 控制；上方仅显示实时状态。"
+                : $"{evidence} · 产品请求 充{(state.ChargeRequested ? "开" : "关")}/放{(state.DischargeRequested ? "开" : "关")} · " +
+                  $"保护门禁 {(state.OutputEnabled && !state.CommunicationInhibited && !state.FaultLatched ? "允许输出" : "限制输出")}";
+        }
+        RefreshActionAvailability();
     }
 
     private void UpdateBatteryFreshness()

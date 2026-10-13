@@ -99,10 +99,10 @@ public static class BmsDiagnostics
     public static string Reasons(uint bits)
     {
         string[] names={"保护参数无效","启动存储升级未完成","输出未授权","AFE 通信未通过资格确认",
-            "软件保护","AFE 硬件保护","Open-Wire","加热","关机保持","温度无效","其他 backend 阻断"};
+            "软件保护","AFE 硬件保护","保留位","加热","关机保持","温度无效","其他 backend 阻断","用户远程许可关闭"};
         var items=new List<string>();
         for(int i=0;i<names.Length;i++) if((bits&(1u<<i))!=0) items.Add(names[i]);
-        if((bits&~0x7FFu)!=0) items.Add($"未知位 0x{bits&~0x7FFu:X8}");
+        if((bits&~0xFFFu)!=0) items.Add($"未知位 0x{bits&~0xFFFu:X8}");
         return items.Count==0 ? "无" : string.Join("；",items);
     }
     private static string NamedBits(ushort bits, params string[] names)

@@ -18,6 +18,11 @@ public sealed partial class MainActivity
     private BmsHealthReport? _healthReport;
     private BatterySnapshot? _lastSnapshot;
     private DeviceIdentity? _lastIdentity;
+    private MosControlState? _mosControlState;
+    private bool _mosControlCapabilityChecked;
+    private bool _serviceMode;
+    private string? _monitorFilePath;
+    private int _monitorSampleCount;
 
     private async Task ScanAsync()
     {
@@ -79,6 +84,8 @@ public sealed partial class MainActivity
             _parameterCapture = null;
             _protectionModel = null;
             _afeModel = null;
+            _mosControlState = null;
+            _mosControlCapabilityChecked = false;
             var preferenceEditor = GetPreferences(FileCreationMode.Private)?.Edit();
             preferenceEditor?.PutString("last_bms_mac", mac);
             preferenceEditor?.Apply();
@@ -117,6 +124,18 @@ public sealed partial class MainActivity
         _client = null;
         _transport = null;
         _connectedMac = null;
+        _mosControlState = null;
+        _mosControlCapabilityChecked = false;
+        if (!AppEdition.IsInternal)
+        {
+            _serviceMode = false;
+            RunOnUiThread(() =>
+            {
+                if (_serviceModeButton is not null) _serviceModeButton.Text = "进入服务设置";
+                if (_serviceModeStatus is not null) _serviceModeStatus.Text = "普通模式 · 保护参数与校正入口已收起";
+                if (_pages.Count > ProtectionPage && _pages[ProtectionPage].Visibility == ViewStates.Visible) ShowPage(DevicePage);
+            });
+        }
         if (client is not null) await client.DisposeAsync();
         if (transport is not null) await transport.DisposeAsync();
     }
@@ -151,6 +170,10 @@ public sealed partial class MainActivity
         BatterySnapshot snapshot = await client.ReadBatteryAsync(ct);
         _lastSnapshot = snapshot;
         RunOnUiThread(() => RenderBatterySnapshot(snapshot, null, null));
+        MosControlState? mosControl = await client.TryReadMosControlAsync(ct);
+        _mosControlState = mosControl;
+        _mosControlCapabilityChecked = true;
+        RunOnUiThread(() => SetMosDriverIndicators(snapshot.ChargeMosOn, snapshot.DischargeMosOn));
         DeviceIdentity? deviceIdentity = identity
             ? await client.ReadIdentityAsync(_macInput?.Text?.Trim() ?? string.Empty, "", ct)
             : null;
@@ -192,6 +215,7 @@ public sealed partial class MainActivity
 
     private async Task SaveProtectionAsync()
     {
+        if (!EnsureServiceAccess("保存软件保护")) return;
         if (_protectionModel is null) { SetStatus("请先读取软件保护参数", true); return; }
         var changes = new Dictionary<ushort, ushort>();
         foreach (ProtectionParameterRow row in _protectionModel)
@@ -249,6 +273,7 @@ public sealed partial class MainActivity
 
     private async Task SaveAfeAsync()
     {
+        if (!EnsureServiceAccess("保存硬件保护")) return;
         if (_afeModel is null) { SetStatus("请先读取 AFE 硬件保护", true); return; }
         foreach (AfeParameterRow row in _afeModel.Rows) row.EditValue = _afeInputs[row].Text?.Trim() ?? string.Empty;
         if (!_afeModel.TryBuildCandidate(out ushort[] candidate, out string error)) { SetStatus(error, true); return; }
@@ -300,6 +325,7 @@ public sealed partial class MainActivity
     private Task SaveCapacityAsync() => SaveParameterAsync("额定容量", 0x2318, new[] { D008Parameters.Capacity(_capacityInput?.Text ?? "") });
     private async Task SaveSocAsync()
     {
+        if (!EnsureServiceAccess("SOC 校正")) return;
         if (!ushort.TryParse(_socInput?.Text?.Trim(), out ushort value) || value > 100)
         {
             SetStatus("SOC 必须为 0～100 的整数", true);
@@ -328,6 +354,7 @@ public sealed partial class MainActivity
     }
     private async Task SaveParameterAsync(string name, ushort address, ushort[] values)
     {
+        if (!EnsureServiceAccess("保存" + name)) return;
         if (!ParametersReady()) return;
         if (!await ConfirmAsync("保存" + name, "设备将同步保存并读回核对，是否继续？")) return;
         await WithClientAsync("保存" + name, async (client, ct) =>
@@ -341,6 +368,7 @@ public sealed partial class MainActivity
 
     private async Task ResetParameterGroupAsync(ushort group, string name)
     {
+        if (!EnsureServiceAccess("恢复默认")) return;
         if (!ParametersReady()) return;
         if (!await ConfirmAsync("恢复默认：" + name, "只恢复该分组，不清除 SN、校准或日志。是否继续？")) return;
         await WithClientAsync("恢复默认：" + name, async (client, ct) =>
@@ -745,10 +773,26 @@ public sealed partial class MainActivity
         if (_client is null) { SetStatus("请先连接 BMS", true); return Task.CompletedTask; }
         _monitorCts?.Cancel();
         _monitorCts?.Dispose();
-        _monitorCts = new CancellationTokenSource();
+        _monitorCts = null;
         _monitorRecords.Clear();
+        _monitorSampleCount = 0;
+        _monitorFilePath = OutputPath($"BMS_monitor_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.csv");
+        try
+        {
+            File.WriteAllText(_monitorFilePath,
+                "time,pack_v,current_a,soc,soh,min_cell_mv,max_cell_mv,delta_mv,min_temp_c,max_temp_c,mos_temp_c,cycle,l1,l2,l3\r\n",
+                new UTF8Encoding(true));
+        }
+        catch (Exception ex)
+        {
+            _monitorFilePath = null;
+            _monitorStatus!.Text = "监控未开始";
+            SetStatus("创建监控文件失败：" + ex.Message, true);
+            return Task.CompletedTask;
+        }
+        _monitorCts = new CancellationTokenSource();
         _ = MonitorLoopAsync(_monitorCts.Token);
-        _monitorStatus!.Text = "监控中 · 0 条";
+        _monitorStatus!.Text = "监控中 · 0 条 · 已持续写入 CSV";
         SetStatus("长期监控已开始");
         return Task.CompletedTask;
     }
@@ -756,7 +800,7 @@ public sealed partial class MainActivity
     private Task StopMonitorAsync()
     {
         _monitorCts?.Cancel();
-        _monitorStatus!.Text = $"已停止 · {_monitorRecords.Count} 条";
+        _monitorStatus!.Text = $"已停止 · {_monitorSampleCount} 条 · {_monitorFilePath}";
         return Task.CompletedTask;
     }
 
@@ -772,8 +816,12 @@ public sealed partial class MainActivity
                 try
                 {
                     BatterySnapshot snapshot = await client.ReadBatteryAsync(ct);
-                    _monitorRecords.Add(new MonitorRecord(DateTimeOffset.Now, snapshot));
-                    RunOnUiThread(() => _monitorStatus!.Text = $"监控中 · {_monitorRecords.Count} 条 · {DateTime.Now:HH:mm:ss}");
+                    var record = new MonitorRecord(DateTimeOffset.Now, snapshot);
+                    _monitorRecords.Add(record);
+                    while (_monitorRecords.Count > 500) _monitorRecords.RemoveAt(0);
+                    File.AppendAllText(_monitorFilePath!, MonitorCsvLine(record), Encoding.UTF8);
+                    _monitorSampleCount++;
+                    RunOnUiThread(() => _monitorStatus!.Text = $"监控中 · {_monitorSampleCount} 条 · {DateTime.Now:HH:mm:ss} · 已写盘");
                 }
                 finally { _operationGate.Release(); }
             }
@@ -784,17 +832,63 @@ public sealed partial class MainActivity
 
     private Task ExportMonitorAsync()
     {
-        if (_monitorRecords.Count == 0) { SetStatus("没有长期监控记录", true); return Task.CompletedTask; }
-        string path = OutputPath($"BMS_monitor_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.csv");
-        var csv = new StringBuilder("time,pack_v,current_a,soc,soh,min_cell_mv,max_cell_mv,delta_mv,min_temp_c,max_temp_c,mos_temp_c,cycle,l1,l2,l3\r\n");
-        foreach (MonitorRecord record in _monitorRecords)
-        {
-            BatterySnapshot s = record.Snapshot;
-            csv.AppendLine(string.Join(",", record.Time.ToString("O"), s.PackVoltageV.ToString(CultureInfo.InvariantCulture), s.CurrentA.ToString(CultureInfo.InvariantCulture), s.SocPercent, s.SohPercent, s.MinCellMv, s.MaxCellMv, s.CellDeltaMv, s.MinTempC.ToString(CultureInfo.InvariantCulture), s.MaxTempC.ToString(CultureInfo.InvariantCulture), s.MosTempC.ToString(CultureInfo.InvariantCulture), s.CycleCount, s.ProtectionLevel1Raw, s.ProtectionLevel2Raw, s.ProtectionLevel3Raw));
-        }
-        File.WriteAllText(path, csv.ToString(), new UTF8Encoding(true));
-        SetStatus("监控 CSV 已导出：" + path);
+        if (_monitorSampleCount == 0 || string.IsNullOrWhiteSpace(_monitorFilePath)) { SetStatus("没有长期监控记录", true); return Task.CompletedTask; }
+        SetStatus("监控 CSV 已持续保存：" + _monitorFilePath);
         return Task.CompletedTask;
+    }
+
+    private static string MonitorCsvLine(MonitorRecord record)
+    {
+        BatterySnapshot s = record.Snapshot;
+        return string.Join(",", record.Time.ToString("O"), s.PackVoltageV.ToString(CultureInfo.InvariantCulture), s.CurrentA.ToString(CultureInfo.InvariantCulture), s.SocPercent, s.SohPercent, s.MinCellMv, s.MaxCellMv, s.CellDeltaMv, s.MinTempC.ToString(CultureInfo.InvariantCulture), s.MaxTempC.ToString(CultureInfo.InvariantCulture), s.MosTempC.ToString(CultureInfo.InvariantCulture), s.CycleCount, s.ProtectionLevel1Raw, s.ProtectionLevel2Raw, s.ProtectionLevel3Raw) + "\r\n";
+    }
+
+    private async Task ToggleMosAllowedAsync(bool chargeChannel)
+    {
+        MosControlState? current = _mosControlState;
+        if (current is null) { SetStatus("当前固件不支持独立 MOS 控制", true); return; }
+        bool allowed = chargeChannel ? current.ChargeAllowed : current.DischargeAllowed;
+        string channel = chargeChannel ? "充电" : "放电";
+        string action = allowed ? "禁止" : "允许";
+        string detail = allowed
+            ? $"将{action}{channel} MOS。该设置只保存在 RAM 中，MCU 重启后恢复允许。"
+            : $"将{action}{channel} MOS，但保护、采样资格及 AFE 仍可保持关闭。";
+        if (!await ConfirmAsync(action + channel + " MOS", detail + "\n\n这不是休眠命令，是否继续？")) return;
+        await WithClientAsync(action + channel + " MOS", async (client, ct) =>
+        {
+            MosControlState state = await client.SetMosChannelAllowedAsync(chargeChannel, !allowed, ct);
+            _mosControlState = state;
+            _mosControlCapabilityChecked = true;
+            RunOnUiThread(() => SetMosDriverIndicators(_lastSnapshot?.ChargeMosOn ?? false, _lastSnapshot?.DischargeMosOn ?? false));
+            SetStatus($"{channel} MOS 用户许可已写入并读回；实际输出仍受保护控制");
+        }, TimeSpan.FromSeconds(20));
+    }
+
+    private async Task EnterServiceModeAsync()
+    {
+        if (AppEdition.IsInternal) { ShowPage(ProtectionPage); return; }
+        if (_serviceMode)
+        {
+            _serviceMode = false;
+            _serviceModeButton!.Text = "进入服务设置";
+            _serviceModeStatus!.Text = "普通模式 · 保护参数与校正入口已收起";
+            SetStatus("已退出服务模式");
+            ShowPage(DevicePage);
+            return;
+        }
+        if (!await ConfirmAsync("进入服务设置",
+            "服务设置允许修改软件保护、硬件保护、SOC 和业务参数。所有写入仍会再次确认并读回。\n\n此开关只是操作模式，不是人员身份认证。是否进入？")) return;
+        _serviceMode = true;
+        _serviceModeButton!.Text = "退出服务设置";
+        _serviceModeStatus!.Text = "服务模式 · 断开设备后自动退出";
+        ShowPage(ProtectionPage);
+    }
+
+    private bool EnsureServiceAccess(string operation)
+    {
+        if (AppEdition.IsInternal || _serviceMode) return true;
+        SetStatus(operation + "需要先从设备页进入服务设置", true);
+        return false;
     }
 
     private string OutputPath(string fileName)

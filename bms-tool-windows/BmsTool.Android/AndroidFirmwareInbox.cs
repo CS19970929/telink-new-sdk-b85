@@ -24,6 +24,7 @@ internal static class AndroidFirmwareInbox
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 }
 
+#if BMS_INTERNAL_APP
 [BroadcastReceiver(Enabled = true, Exported = true, Permission = global::Android.Manifest.Permission.Dump)]
 [IntentFilter(new[] { AndroidFirmwareInbox.ImportAction })]
 internal sealed class FirmwareImportReceiver : BroadcastReceiver
@@ -92,3 +93,4 @@ internal sealed class FirmwareImportReceiver : BroadcastReceiver
         }
     }
 }
+#endif

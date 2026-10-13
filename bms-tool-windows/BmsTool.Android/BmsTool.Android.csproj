@@ -4,16 +4,31 @@
     <OutputType>Exe</OutputType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationId>com.cs.bmstool.android</ApplicationId>
-    <ApplicationTitle>BMS Tool Android</ApplicationTitle>
-    <ApplicationVersion>11</ApplicationVersion>
-    <ApplicationDisplayVersion>0.6.0</ApplicationDisplayVersion>
+    <BmsAppEdition Condition="'$(BmsAppEdition)' == ''">Internal</BmsAppEdition>
+    <ApplicationVersion>12</ApplicationVersion>
+    <ApplicationDisplayVersion>0.7.0</ApplicationDisplayVersion>
     <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
     <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
     <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(BmsAppEdition)' == 'Internal'">
+    <ApplicationId>com.cs.bmstool.android</ApplicationId>
+    <ApplicationTitle>BMS Tool 测试版</ApplicationTitle>
+    <DefineConstants>$(DefineConstants);BMS_INTERNAL_APP</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(BmsAppEdition)' == 'Customer'">
+    <ApplicationId>com.cs.bmsbattery</ApplicationId>
+    <ApplicationTitle>BMS Battery</ApplicationTitle>
+  </PropertyGroup>
+
+  <Target Name="ValidateBmsAppEdition" BeforeTargets="PrepareForBuild"
+          Condition="'$(BmsAppEdition)' != 'Internal' and '$(BmsAppEdition)' != 'Customer'">
+    <Error Text="BmsAppEdition 只能是 Internal 或 Customer。" />
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\BmsTool.Core\BmsTool.Core.csproj" />

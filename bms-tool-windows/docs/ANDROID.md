@@ -205,3 +205,15 @@ dotnet build .\BmsTool.Android\BmsTool.Android.csproj -c Release
 - Android Release 构建和真机页面检查；手机 Xiaomi 23127PN0CC / Android 16，1200×2670。验证四入口、无连接门禁、扫描结果、用户选定设备的实时数据、软件保护 65 项、DVC1124 硬件参数读取与折叠，以及事件/通信日志显示。
 - 未执行保护/参数保存、原始寄存器写入、休眠或 OTA。本次真机读取与 UI 检查不能替代参数写入、物理保护和其它手机/字体尺寸验收。
 - 构建、源快照和截图在用户临时区；最终 APK 与发布清单在当前固件项目的 releases/bms-tool-android/ 下，不提交生成产物。
+
+## 2026-10-13 两版 UI 与独立 MOS 控制源码
+
+当前源码版本为 `0.7.0` / versionCode `12`。默认 `BmsAppEdition=Internal` 保持原 `com.cs.bmstool.android` 测试包；`BmsAppEdition=Customer` 生成可并存的 `com.cs.bmsbattery` 客户包。完整取舍见 [两版 App 与 MOS 控制](APP_EDITIONS_AND_MOS_CONTROL.md)。
+
+客户版四个主入口为“电池 / 单体 / 记录 / 设备”，日常首页突出 SOC、总压、电流、容量、温度、充放电 MOS 和告警。软件/硬件保护、SOC 与业务参数通过本次连接有效的服务设置进入；测试版保留保护、日志、诊断、OTA、长期监控和原始寄存器等工程功能。
+
+两版 App 与 Windows 上位机共用 `Shared/BmsClient.MosControl.cs`。按钮只改变固件 RAM 用户许可，不复用休眠，不绕过保护；写后读取 `0x2F10..0x2F17` 核对。旧固件不支持窗口时按钮禁用，实时数据继续工作。
+
+2026-10-13 后续获得用户明确授权后，两版 `0.7.0` Release APK 均完成构建，结果均为 0 warning / 0 error；Xiaomi 23127PN0CC / Android 16 上完成两版安装、启动和四个主入口截图检查。测试版使用正式包名覆盖安装；客户版因 HyperOS 首次安装新包名要求小米账号密码，真机检查临时复用了手机上同一开发签名的 `com.telink.bms.mobile` 包位，正式客户包名仍是 `com.cs.bmsbattery`。
+
+本次未连接 BMS，未读取或写入保护参数，未切换 MOS，也未执行休眠、烧录或 OTA。上述结果仅覆盖构建、安装和静态页面交互；上方 `0.6.0` 真机读数仍是历史基线，不能当作 `0.7.0` 协议或实板验收。

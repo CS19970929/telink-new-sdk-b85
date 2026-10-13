@@ -9,7 +9,8 @@ using System.Text;
 
 namespace BmsTool.Android;
 
-[Activity(Label = "BMS Tool", MainLauncher = true, Exported = true,
+#if BMS_INTERNAL_APP
+[Activity(Label = "BMS Tool 测试版", MainLauncher = true, Exported = true,
     LaunchMode = LaunchMode.SingleTask, ScreenOrientation = ScreenOrientation.Portrait)]
 [IntentFilter(new[] { Intent.ActionView },
     Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
@@ -17,6 +18,10 @@ namespace BmsTool.Android;
 [IntentFilter(new[] { Intent.ActionSend },
     Categories = new[] { Intent.CategoryDefault },
     DataMimeTypes = new[] { "application/octet-stream", "application/x-binary", "application/macbinary" })]
+#else
+[Activity(Label = "BMS Battery", MainLauncher = true, Exported = true,
+    LaunchMode = LaunchMode.SingleTask, ScreenOrientation = ScreenOrientation.Portrait)]
+#endif
 public sealed partial class MainActivity : Activity
 {
     private const string LogTag = "BmsTool.Android";
@@ -43,18 +48,23 @@ public sealed partial class MainActivity : Activity
         _logFilePath = Path.Combine(logDirectory, $"bms-tool-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         BuildUi();
         ApplyIntentValues();
+#if BMS_INTERNAL_APP
         _ = RefreshFirmwareInboxAsync();
         _ = HandleIncomingFirmwareIntentAsync(Intent);
+#endif
         RequestBluetoothPermissions();
         AppendLog($"LOG_FILE path={_logFilePath}");
         _refreshCts = new CancellationTokenSource();
         _ = RefreshLoopAsync(_refreshCts.Token);
+#if BMS_INTERNAL_APP
         _ = HandleConnectedAutoOtaIntentAsync(Intent);
+#endif
     }
 
     protected override void OnResume()
     {
         base.OnResume();
+        if (!AppEdition.IsInternal) return;
         if (_intentStarted || !HasBluetoothPermissions()) return;
         string? operation = Intent?.GetStringExtra("operation");
         if (operation is not ("ota" or "info")) return;
@@ -68,12 +78,15 @@ public sealed partial class MainActivity : Activity
         if (intent is null) return;
         Intent = intent;
         ApplyIntentValues();
+#if BMS_INTERNAL_APP
         _ = HandleIncomingFirmwareIntentAsync(intent);
         _ = HandleConnectedAutoOtaIntentAsync(intent);
+#endif
     }
 
     private async Task HandleConnectedAutoOtaIntentAsync(Intent? intent)
     {
+        if (!AppEdition.IsInternal) return;
         if (intent is null || !intent.GetBooleanExtra("auto_ota_if_connected", false)) return;
         intent.RemoveExtra("auto_ota_if_connected");
         if (_connectedAutoOtaRunning) return;
@@ -144,6 +157,7 @@ public sealed partial class MainActivity : Activity
         _macInput!.Text = !string.IsNullOrWhiteSpace(mac)
             ? mac
             : rememberedMac;
+        if (!AppEdition.IsInternal) return;
         if (!string.IsNullOrWhiteSpace(firmwareInboxName) && AndroidFirmwareInbox.IsValidFileName(firmwareInboxName))
             _firmwareInput!.Text = Path.Combine(FirmwareInboxDirectory(), firmwareInboxName);
         else if (!string.IsNullOrWhiteSpace(firmware))
@@ -154,6 +168,7 @@ public sealed partial class MainActivity : Activity
 
     private async Task HandleIncomingFirmwareIntentAsync(Intent? intent)
     {
+        if (!AppEdition.IsInternal) return;
         global::Android.Net.Uri? uri = null;
         if (intent?.Action == Intent.ActionView)
             uri = intent.Data;
@@ -186,6 +201,7 @@ public sealed partial class MainActivity : Activity
 
     private async Task RunIntentOperationAsync(string operation)
     {
+        if (!AppEdition.IsInternal) return;
         await ConnectSelectedAsync();
         if (_client is null)
         {
