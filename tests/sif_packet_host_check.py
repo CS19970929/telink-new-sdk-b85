@@ -84,6 +84,7 @@ int main(void){
  unsigned frames=0,cells_seen=0,codes_seen=0,last_cell_tick=0;
  unsigned code_expected=0;uint8_t saved[64];unsigned length=0;
  for(unsigned tick=0;tick<400000&&frames<100;++tick){
+  wire_us=tick*500u;
   SIF_STATE_E previous=state_mode;
   /* 0.2s 样本刷新，16MHz tick 从回绕前开始；ISR 每 500us。 */
   wire_case(tick%8);config_serial[0]=(char)('A'+tick%26);
@@ -109,7 +110,11 @@ int main(void){
   }
  }
  assert(frames==100&&cells_seen>=3u&&codes_seen>=3u);
- bus=0;sif_send_data_handle();bus=1;sif_prepare_task(0u);
+ // UART 在帧中途接管，重新接一线通后必须从完整同步/公有帧开始。
+ state_mode=SEND_DATA;sif_sync_tosc=7u;sif_send_tosc=3u;byte_cnt=12u;bit_cnt=5;
+ bus=2;sif_send_data_handle();
+ assert(state_mode==SIF_IDLE&&!sif_sync_tosc&&!sif_send_tosc&&!byte_cnt&&!bit_cnt&&!s_packet_ready);
+ bus=1;sif_prepare_task(0u);
  assert(s_packets[s_prepare_packet][0]==1u&&s_first_cell_packet&&!s_code_packet_due);
  return 0;
 }

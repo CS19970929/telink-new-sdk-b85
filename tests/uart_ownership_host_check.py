@@ -60,6 +60,9 @@ static void dma_chn_enable(int m,int e){if(e)channels|=m;else channels&=~m;}
 static int uart_is_parity_error(void){return 0;}
 static void uart_clear_parity_error(void){}
 static void bus_mux_on_uart_rx_byte(void){}
+#define BUS_STATE_UART_MODBUS 2
+static int bus_mode=BUS_STATE_UART_MODBUS;
+static int bus_mux_get_state(void){return bus_mode;}
 static int modbus_on_frame(const u8*p,u32 n,u8*r,u32*l){(void)p;(void)n;(void)r;++parsed;*l=0;return 0;}
 u8 modbus_uart_send(const u8*,u32);
 '''
@@ -105,6 +108,20 @@ static void check_suspend(void){
 #endif
 int main(void){
  u8*p,*saved;u32 n;u8 data[268];memset(data,0x55,sizeof(data));
+#if !TEST_SH_UART
+ // 一线通期间不得重开 DMA、解析旧帧或启动 UART 发送。
+ modbus_uart_init();receive(0x11,8);int count=parsed;
+ busy=0;bus_mode=0;modbus_uart_disable();
+ assert(!channels&&!s_rx_ready);
+ now=2000000u*16u;main_loop_modbus();assert(!channels&&parsed==count);
+ assert(!modbus_uart_poll(&p,&n)&&!modbus_uart_send(data,8));
+ irqsrc=1;modbus_uart_irq_proc();assert(!s_rx_ready&&!irqsrc);
+ bus_mode=BUS_STATE_UART_MODBUS;modbus_uart_init();
+ assert(modbus_uart_bus_idle());busy=1;assert(!modbus_uart_bus_idle());busy=0;
+ rx_high=0;assert(!modbus_uart_bus_idle());rx_high=1;
+ irqsrc=1;assert(!modbus_uart_bus_idle());irqsrc=0;
+ receive(0x11,8);assert(!modbus_uart_bus_idle());
+#endif
  modbus_uart_init();receive(0x11,8);assert(!(channels&1));
  assert(modbus_uart_poll(&p,&n)&&n==8);saved=p;
  receive(0x22,8);assert(saved[0]==0x11); // frozen consumer buffer

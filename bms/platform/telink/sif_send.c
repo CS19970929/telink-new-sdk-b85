@@ -161,7 +161,12 @@ void sif_send_data_handle(void)
     if (BUS_STATE_OWC_TX != bus_mux_get_state())
     {
         cnt = 0;
+        sif_sync_tosc = 0u;
+        sif_send_tosc = 0u;
+        bit_cnt = 0;
+        byte_cnt = 0u;
         state_mode = SIF_IDLE;
+        s_packet_ready = 0u;
         s_restart_packets = 1u;
         return;
     }

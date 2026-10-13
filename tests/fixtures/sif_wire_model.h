@@ -45,7 +45,18 @@ static int bus=1;
 static void irq_enable(void){}
 static uint8_t irq_disable(void){return 1u;}
 static void irq_restore(uint8_t state){assert(state==1u);}
-static void gpio_write(int p,int v){(void)p;(void)v;}
+static uint32_t wire_us,fall_us[2];
+static unsigned wire_falls;
+static int tx_high=1;
+static void gpio_write(int p,int v){
+ (void)p;
+ if(tx_high&&!v){
+  /* 用生产波形确认三个下降沿不能落入 UART 的 2.5 ms 检测窗口。 */
+  if(wire_falls>=2u)assert(wire_us-fall_us[0]>2500u);
+  fall_us[0]=fall_us[1];fall_us[1]=wire_us;++wire_falls;
+ }
+ tx_high=v;
+}
 static int gpio_read(int p){(void)p;return 1;}
 static int bus_mux_get_state(void){return bus;}
 static void bus_mux_return_to_owc_idle(void){bus=0;}

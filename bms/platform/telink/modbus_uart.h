@@ -19,6 +19,9 @@ extern volatile bms_rs485_tx_diag_t g_bms_rs485_tx_diag;
 
 /* 初始化产品 UART、DMA 缓冲区及 RS485 方向。 */
 void modbus_uart_init(void);
+/* D008 复用所有者在临界区调用：检查可释放条件，或停用 UART/DMA。 */
+u8 modbus_uart_bus_idle(void);
+void modbus_uart_disable(void);
 /* 处理 UART DMA 中断，仅交付状态和清除标志。 */
 void modbus_uart_irq_proc(void);     // 放到 DMA IRQ 里调用
 /* RX 缓冲区在 main_loop_modbus 重新启用 DMA 前保持稳定。 */
