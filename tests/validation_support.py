@@ -109,7 +109,7 @@ def profile_prefix(product):
     result += defaults[defaults.index('static const bms_protection_params_t s_default_protection'):defaults.index('\n}', defaults.index('void bms_config_store_get_default_protect')) + 2]
     result += without_includes(read('bms/core/bms_afe_hw_profile.h'))
     source = read('bms/core/bms_afe_hw_profile.c')
-    # 保留 DVC 专用换算函数的条件编译边界，SH 不应先生成再覆盖软件默认值。
-    start = source.rfind('#if ', 0, source.index('static u16 ms10_to_ms'))
+    # 从真实公开函数开始抽取，D008/SH 各自的默认 builder 和条件编译原样保留。
+    start = source.index('u16 bms_afe_hw_profile_expected_model(')
     result += source[start:source.index('u8 bms_afe_hw_profile_get(')]
     return result

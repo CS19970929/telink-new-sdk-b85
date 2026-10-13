@@ -167,7 +167,7 @@ bms/products/d008/bms_product.h
 - I2C timeout close CHG/DSG
 - fixed Core-OT policy
 
-`d008_product_profile.h` 负责三个历史 profile 以及 `custom` 的串数和 chemistry/SOC identity；Ctrl+Shift+B 可独立选择串数与类型，LFP 4～24S、4.20V NMC 4～23S（DS V1.1 原 PDF 第 1 页的 100V 包压限制），不再承载 DVC fail-safe 参数。所选类型经 `bms_battery_defaults.h` 派生电压保护、均衡和 SOC 默认；运行参数仍按各持久组处理。历史 24S 选择记录不代表当前编译默认。当前开发默认 16S LFP，生产必须显式指定 profile 并按实物核对。
+`d008_product_profile.h` 负责三个历史 profile 以及 `custom` 的串数和 chemistry/SOC identity；Ctrl+Shift+B 可独立选择串数与类型，LFP 4～24S、4.20V NMC 4～23S（DS V1.1 原 PDF 第 1 页的 100V 包压限制），不再承载 DVC fail-safe 参数。软件及 AFE 电压保护分别由 `d008_protection_config.h` 的 LFP/NMC 分支提供；`bms_battery_defaults.h` 仍派生均衡和 SOC 默认。保护总开关、完整软件参数及独立 AFE 默认的唯一编辑入口见 [D008 保护配置](D008_PROTECTION_CONFIGURATION.md)。运行参数仍按各持久组处理；历史装配选择记录不代表当前编译默认，生产必须显式指定 profile 并按实物核对。
 
 ### 5.2 Flash 中保留的保护参数
 

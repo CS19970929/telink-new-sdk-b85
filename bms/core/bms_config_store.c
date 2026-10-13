@@ -116,6 +116,73 @@ static void bms_config_decode_words(void *values, const u8 *payload, u16 count)
 
 /* 原软件保护默认表来源：Copyright (C), 2012-2013, www.armfly.com。 */
 static const bms_protection_params_t s_default_protection = {
+#if BMS_PRODUCT_ID == 8u
+    .cell_ovp_first_mv = D008_SW_CELL_OVP_FIRST_MV,
+    .cell_ovp_second_mv = D008_SW_CELL_OVP_SECOND_MV,
+    .cell_ovp_third_mv = D008_SW_CELL_OVP_THIRD_MV,
+    .cell_ovp_recover_mv = D008_SW_CELL_OVP_RECOVER_MV,
+    .cell_ovp_filter_10ms = D008_SW_CELL_OVP_FILTER_10MS,
+    .cell_uvp_first_mv = D008_SW_CELL_UVP_FIRST_MV,
+    .cell_uvp_second_mv = D008_SW_CELL_UVP_SECOND_MV,
+    .cell_uvp_third_mv = D008_SW_CELL_UVP_THIRD_MV,
+    .cell_uvp_recover_mv = D008_SW_CELL_UVP_RECOVER_MV,
+    .cell_uvp_filter_10ms = D008_SW_CELL_UVP_FILTER_10MS,
+    .pack_ovp_first_10mv = (D008_SW_PACK_OVP_FIRST_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_second_10mv = (D008_SW_PACK_OVP_SECOND_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_third_10mv = (D008_SW_PACK_OVP_THIRD_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_recover_10mv = (D008_SW_PACK_OVP_RECOVER_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_filter_10ms = D008_SW_PACK_OVP_FILTER_10MS,
+    .pack_uvp_first_10mv = (D008_SW_PACK_UVP_FIRST_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_second_10mv = (D008_SW_PACK_UVP_SECOND_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_third_10mv = (D008_SW_PACK_UVP_THIRD_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_recover_10mv = (D008_SW_PACK_UVP_RECOVER_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_filter_10ms = D008_SW_PACK_UVP_FILTER_10MS,
+    .charge_ocp_first_a10 = D008_SW_CHARGE_OCP_FIRST_A10,
+    .charge_ocp_second_a10 = D008_SW_CHARGE_OCP_SECOND_A10,
+    .charge_ocp_third_a10 = D008_SW_CHARGE_OCP_THIRD_A10,
+    .charge_ocp_recover_a10 = D008_SW_CHARGE_OCP_RECOVER_A10,
+    .charge_ocp_filter_10ms = D008_SW_CHARGE_OCP_FILTER_10MS,
+    .discharge_ocp_first_a10 = D008_SW_DISCHARGE_OCP_FIRST_A10,
+    .discharge_ocp_second_a10 = D008_SW_DISCHARGE_OCP_SECOND_A10,
+    .discharge_ocp_third_a10 = D008_SW_DISCHARGE_OCP_THIRD_A10,
+    .discharge_ocp_recover_a10 = D008_SW_DISCHARGE_OCP_RECOVER_A10,
+    .discharge_ocp_filter_10ms = D008_SW_DISCHARGE_OCP_FILTER_10MS,
+    .charge_otp_first_x10 = D008_SW_CHARGE_OTP_FIRST_X10,
+    .charge_otp_second_x10 = D008_SW_CHARGE_OTP_SECOND_X10,
+    .charge_otp_third_x10 = D008_SW_CHARGE_OTP_THIRD_X10,
+    .charge_otp_recover_x10 = D008_SW_CHARGE_OTP_RECOVER_X10,
+    .charge_otp_filter_10ms = D008_SW_CHARGE_OTP_FILTER_10MS,
+    .charge_utp_first_x10 = D008_SW_CHARGE_UTP_FIRST_X10,
+    .charge_utp_second_x10 = D008_SW_CHARGE_UTP_SECOND_X10,
+    .charge_utp_third_x10 = D008_SW_CHARGE_UTP_THIRD_X10,
+    .charge_utp_recover_x10 = D008_SW_CHARGE_UTP_RECOVER_X10,
+    .charge_utp_filter_10ms = D008_SW_CHARGE_UTP_FILTER_10MS,
+    .discharge_otp_first_x10 = D008_SW_DISCHARGE_OTP_FIRST_X10,
+    .discharge_otp_second_x10 = D008_SW_DISCHARGE_OTP_SECOND_X10,
+    .discharge_otp_third_x10 = D008_SW_DISCHARGE_OTP_THIRD_X10,
+    .discharge_otp_recover_x10 = D008_SW_DISCHARGE_OTP_RECOVER_X10,
+    .discharge_otp_filter_10ms = D008_SW_DISCHARGE_OTP_FILTER_10MS,
+    .discharge_utp_first_x10 = D008_SW_DISCHARGE_UTP_FIRST_X10,
+    .discharge_utp_second_x10 = D008_SW_DISCHARGE_UTP_SECOND_X10,
+    .discharge_utp_third_x10 = D008_SW_DISCHARGE_UTP_THIRD_X10,
+    .discharge_utp_recover_x10 = D008_SW_DISCHARGE_UTP_RECOVER_X10,
+    .discharge_utp_filter_10ms = D008_SW_DISCHARGE_UTP_FILTER_10MS,
+    .mos_otp_first_x10 = D008_SW_MOS_OTP_FIRST_X10,
+    .mos_otp_second_x10 = D008_SW_MOS_OTP_SECOND_X10,
+    .mos_otp_third_x10 = D008_SW_MOS_OTP_THIRD_X10,
+    .mos_otp_recover_x10 = D008_SW_MOS_OTP_RECOVER_X10,
+    .mos_otp_filter_10ms = D008_SW_MOS_OTP_FILTER_10MS,
+    .cell_delta_first_mv = D008_SW_CELL_DELTA_FIRST_MV,
+    .cell_delta_second_mv = D008_SW_CELL_DELTA_SECOND_MV,
+    .cell_delta_third_mv = D008_SW_CELL_DELTA_THIRD_MV,
+    .cell_delta_recover_mv = D008_SW_CELL_DELTA_RECOVER_MV,
+    .cell_delta_filter_10ms = D008_SW_CELL_DELTA_FILTER_10MS,
+    .soc_low_first_percent = D008_SW_SOC_LOW_FIRST_PERCENT,
+    .soc_low_second_percent = D008_SW_SOC_LOW_SECOND_PERCENT,
+    .soc_low_third_percent = D008_SW_SOC_LOW_THIRD_PERCENT,
+    .soc_low_recover_percent = D008_SW_SOC_LOW_RECOVER_PERCENT,
+    .soc_low_filter_10ms = D008_SW_SOC_LOW_FILTER_10MS,
+#else
     .cell_ovp_first_mv = BMS_DEFAULT_CELL_OVP_MV,
     .cell_ovp_second_mv = BMS_DEFAULT_CELL_OVP_MV,
     .cell_ovp_third_mv = BMS_DEFAULT_CELL_OVP_MV,
@@ -181,12 +248,16 @@ static const bms_protection_params_t s_default_protection = {
     .soc_low_third_percent = 5,
     .soc_low_recover_percent = 11,
     .soc_low_filter_10ms = 100,
+#endif
 };
 
+#if BMS_PRODUCT_ID != 8u
 /* 编译默认值先检查等级及恢复关系，运行参数仍由完整 validator 校验。 */
 #if (BMS_DEFAULT_CELL_UVP_ALARM_MV < BMS_DEFAULT_CUV3_MV) || \
     ((BMS_DEFAULT_CUV3_MV != 0u) && (BMS_DEFAULT_CELL_UVP_RECOVER_MV <= BMS_DEFAULT_CUV3_MV))
 #error "CUV defaults require First >= Second >= Third and Recover > Third (unless Third=0)"
+#endif
+
 #endif
 
 /* 取得产品软件保护默认配置。 */

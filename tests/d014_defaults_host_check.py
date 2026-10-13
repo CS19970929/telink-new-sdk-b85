@@ -105,6 +105,41 @@ def check_d014_afe_profile_default_host_check():
     """
     run_c(code, flags=host_includes(ROOT, 'd014'), name='d014-afe-defaults')
 
+def check_d008_protection_defaults_independent():
+    """编译真实构造函数，分别改变软件/AFE默认，检查两条配置通道互不联动。"""
+    from project_paths import host_includes
+    from validation_support import ROOT, profile_prefix, run_c
+
+    code = profile_prefix('d008')
+    # 产品配置读取后、生产默认表展开前，只改变这两个独立默认宏。
+    changes = ('#undef D008_SW_CHARGE_OCP_FIRST_A10\n'
+               '#define D008_SW_CHARGE_OCP_FIRST_A10 120u\n'
+               '#undef D008_AFE_COV_MV\n'
+               '#define D008_AFE_COV_MV 4000u\n')
+    anchor = 'static const bms_protection_params_t s_default_protection'
+    code = code.replace(anchor, changes + anchor, 1)
+    code += r'''
+    int main(void)
+    {
+        bms_protection_params_t sw;
+        bms_afe_hw_profile_t hw;
+        bms_config_store_get_default_protect(&sw);
+        bms_afe_hw_profile_build_default(&hw);
+        assert(sw.charge_ocp_first_a10 == 120u);
+        assert(hw.occ1_a10 == 100u);
+        assert(sw.cell_ovp_third_mv == 3750u);
+        assert(hw.cov_mv == 4000u);
+        assert(hw.ocd_recover_a10 == 99u && hw.occ_recover_a10 == 99u);
+        assert(hw.sc_a10 == 2000u && hw.sc_delay_us == 256u);
+        assert(bms_afe_hw_profile_validate(&hw));
+        puts("D008 independent software and AFE defaults: PASS");
+        return 0;
+    }
+    '''
+    run_c(code, flags=[*host_includes(ROOT, 'd008'), '-DD008_PRODUCT_PROFILE=3'],
+          name='d008-protection-defaults-independent')
+
+
 def check_battery_chemistry_defaults():
     """读取实际默认初始化及 AFE builder，覆盖类型与装配组合；不代替完整 TU/实板验证。"""
     import os
@@ -290,5 +325,6 @@ def check_sh_20cell_balance_mask():
 if __name__ == "__main__":
     check_sw_protection_defaults_check()
     check_d014_afe_profile_default_host_check()
+    check_d008_protection_defaults_independent()
     check_battery_chemistry_defaults()
     check_sh_20cell_balance_mask()

@@ -11,7 +11,7 @@
 - 修改软件保护不得副作用重写 AFE HW profile；
 - 修改 AFE HW profile 不得改 `g_bms_protection_params`。
 
-当前 monorepo 使用 CFG2 payload 格式、内部 journal schema 3，旧开发记录拒绝且不迁移。软件和 AFE 运行参数独立管理；同属 Config 记录但字段与更新编号独立。D008 初始默认取编译期软件默认种子并规范化，SH 默认来自产品头文件。
+当前 monorepo 使用 CFG2 payload 格式、内部 journal schema 3，旧开发记录拒绝且不迁移。软件和 AFE 运行参数独立管理；同属 Config 记录但字段与更新编号独立。D008 初始默认取产品 `d008_protection_config.h` 中独立的 `D008_AFE_*`，继续沿用原 DVC 归一化；不再依赖软件默认。SH 默认来自产品头文件。D008 直接编辑入口见 [保护配置](D008_PROTECTION_CONFIGURATION.md)。
 
 D014 当前从产品配置建立独立 AFE 默认 profile；schema/model 不匹配时重建该默认值。D014 的软件保护参数不参与 AFE 默认值生成。
 

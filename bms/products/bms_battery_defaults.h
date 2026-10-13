@@ -1,4 +1,5 @@
-/* 电池类型只选择编译默认值；运行参数仍由 Config 各分组独立持有。 */
+/* 电池类型只选择编译默认值；运行参数仍由 Config 各分组独立持有。
+ * D008 的保护默认在产品 d008_protection_config.h；这里仅提供其 SOC/均衡类型默认。 */
 #pragma once
 
 #include "bms_soc_defs.h"
@@ -10,24 +11,23 @@
 /* LFP 保留现有产品值；NMC 为已确认的 4.20 V 体系开发默认。 */
 #if BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_LFP
 #define BMS_DEFAULT_SOC_PROFILE_ID             BMS_SOC_PROFILE_GENERIC_LFP
+#if BMS_PRODUCT_ID != 8u
 #define BMS_DEFAULT_CELL_OVP_MV                3750u
 #define BMS_DEFAULT_CELL_OVP_RECOVER_MV         3500u
-#if BMS_PRODUCT_ID == 8u
-#define BMS_DEFAULT_CUV3_MV                    2800u
-#else
 #define BMS_DEFAULT_CUV3_MV                    3000u
-#endif
 #define BMS_DEFAULT_PACK_OVP_FIRST_CELL_MV     3500u
 #define BMS_DEFAULT_PACK_OVP_SECOND_CELL_MV    3600u
 #define BMS_DEFAULT_PACK_OVP_THIRD_CELL_MV     3650u
 #define BMS_DEFAULT_PACK_OVP_RECOVER_CELL_MV   3500u
 #define BMS_DEFAULT_PACK_UVP_THIRD_CELL_MV     2900u
 #define BMS_DEFAULT_PACK_UVP_RECOVER_CELL_MV   3000u
+#endif
 #ifndef BMS_BALANCE_START_VOLTAGE_MV_DEFAULT
 #define BMS_BALANCE_START_VOLTAGE_MV_DEFAULT   3400u
 #endif
 #elif BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_NMC
 #define BMS_DEFAULT_SOC_PROFILE_ID             BMS_SOC_PROFILE_GENERIC_NMC
+#if BMS_PRODUCT_ID != 8u
 #define BMS_DEFAULT_CELL_OVP_MV                4200u
 #define BMS_DEFAULT_CELL_OVP_RECOVER_MV         4100u
 #define BMS_DEFAULT_CUV3_MV                    3000u
@@ -37,6 +37,7 @@
 #define BMS_DEFAULT_PACK_OVP_RECOVER_CELL_MV   4100u
 #define BMS_DEFAULT_PACK_UVP_THIRD_CELL_MV     3000u
 #define BMS_DEFAULT_PACK_UVP_RECOVER_CELL_MV   3100u
+#endif
 #ifndef BMS_BALANCE_START_VOLTAGE_MV_DEFAULT
 #define BMS_BALANCE_START_VOLTAGE_MV_DEFAULT   4100u
 #endif
@@ -45,10 +46,12 @@
 #error "BMS_PRODUCT_CHEMISTRY must be LFP (1) or NMC (2)"
 #endif
 
+#if BMS_PRODUCT_ID != 8u
 #define BMS_DEFAULT_CELL_UVP_ALARM_MV          3000u
 #define BMS_DEFAULT_CELL_UVP_RECOVER_MV        3100u
 #define BMS_DEFAULT_PACK_UVP_FIRST_CELL_MV    3000u
 #define BMS_DEFAULT_PACK_UVP_SECOND_CELL_MV   3000u
+#endif
 
 #ifndef BMS_PRODUCT_SOC_PROFILE_ID
 #define BMS_PRODUCT_SOC_PROFILE_ID BMS_DEFAULT_SOC_PROFILE_ID

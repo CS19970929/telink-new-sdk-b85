@@ -51,6 +51,7 @@ python bms_tools/bms.py --product d014 resources
 | 产品/文档 | 重点 |
 |---|---|
 | [D008 产品 reference](docs/D008_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d008/AGENTS.md) | DVC1124，16S LFP / 20S NMC / 24S LFP，200 µΩ |
+| [D008 保护参数配置](docs/D008_PROTECTION_CONFIGURATION.md) · [直接编辑源码](bms/products/d008/d008_protection_config.h) | D008 软件三级保护、独立 AFE 硬件保护与首次烧录 |
 | [D011 产品 reference](docs/D011_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d011/AGENTS.md) | SH3673510，10S，250 µΩ，PB5 fuse 安全低电平 |
 | [D013 产品 reference](docs/D013_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d013/AGENTS.md) | 默认 10S/100 µΩ 为代码输入；TS4 MOS 10K-3435 用户确认，含接入影响审查；专属原理图/BOM 尚缺 |
 | [D014 产品 reference](docs/D014_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d014/AGENTS.md) | 8S/667 µΩ，无 heater，TS4 MOS NTC |

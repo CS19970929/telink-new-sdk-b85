@@ -1,6 +1,6 @@
 /* D008 私有 DVC 默认输入；经 bms_product.h 引入，寄存器数值与原配置一致。 */
 #pragma once
-/* 固定板级/AFE 策略直接定义；仅保护隔离与启动零点开关允许台架覆盖。 */
+/* 固定板级/AFE 策略直接定义；保护开关及阈值统一在 d008_protection_config.h。 */
 
 
 /*
@@ -29,33 +29,6 @@
 #endif
 #if (BMS_PRODUCTION_BUILD > 1u)
 #error "BMS_PRODUCTION_BUILD must be 0 or 1"
-#endif
-
-/*
- * 保护隔离：1/1 为量产软件+DVC 硬件保护；1/0 为仅软件台架测试，
- * 有意关闭自主硬件保护/故障安全源；0/1 为硬件保护且关闭软件电压/电流，温度独立；
- * 0/0 隔离电压/电流阈值，温度默认开启。
- * DVC1124_SW_TEMP_PROTECT_ENABLE 控制全部软件温度保护。
- * 各模式保留测量、I2C 和 CHGF/DSGF 采样；HW=0 仍保存请求硬件配置，
- * 只禁止台架模式下应用到 DVC。
- */
-#ifndef DVC1124_SW_PROTECT_ENABLE
-#define DVC1124_SW_PROTECT_ENABLE            1u
-#endif
-/* 电池 OTP/UTP、MOS OTP 和必要 NTC 有效性独立于电压/电流隔离；无外部温度硬件后备。 */
-#ifndef DVC1124_SW_TEMP_PROTECT_ENABLE
-#define DVC1124_SW_TEMP_PROTECT_ENABLE       1u
-#endif
-#ifndef DVC1124_HW_PROTECT_ENABLE
-#define DVC1124_HW_PROTECT_ENABLE            1u
-#endif
-#if ((DVC1124_SW_PROTECT_ENABLE > 1u) || (DVC1124_HW_PROTECT_ENABLE > 1u) || (DVC1124_SW_TEMP_PROTECT_ENABLE > 1u))
-#error "DVC1124 protection enable macros must be 0 or 1"
-#endif
-#if BMS_PRODUCTION_BUILD && ((DVC1124_SW_PROTECT_ENABLE != 1u) || \
-                             (DVC1124_HW_PROTECT_ENABLE != 1u) || \
-                             (DVC1124_SW_TEMP_PROTECT_ENABLE != 1u))
-#error "Production build requires software, hardware and temperature protection enabled"
 #endif
 
 /*
@@ -135,15 +108,6 @@
 
 /* COTT=0 保持核心过温关断关闭。 */
 #define DVC1124_DEFAULT_CORE_OT_CODE             0u
-
-/*
- * 2026-10-08 产品确认：200 A / 请求延时 256 us；200 uOhm 下阈值为 40 mV。
- * DVC1124-2 RM V1.2 p20：SCDT*10 mV、SCDD*7.81 us；沿用驱动向下量化，
- * 延时代码为 32，名义硬件延时 249.92 us，整数诊断读回 250 us。
- * 这里只提供 bms_afe_hw_profile_t 默认种子；运行值及 Flash 由该 profile 拥有。
- */
-#define DVC1124_HW_SCD_THRESHOLD_MV          40u
-#define DVC1124_HW_SCD_DELAY_US              256u
 
 /* 固定电流唤醒：0 关闭，否则 CWT * 10uV。 */
 #define DVC1124_CURRENT_WAKE_THRESHOLD_UV    0u

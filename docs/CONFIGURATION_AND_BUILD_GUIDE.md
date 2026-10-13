@@ -18,10 +18,11 @@
 |---|---|---|
 | 产品选择 | `bms.py --product`；D008 另用 `--d008-profile` | 不靠修改源码清单切产品 |
 | 容量、编译名称/软件版本、通信模式 | 产品 `bms_product.h` | 容量为 BUSINESS；编译名称/版本不等于用户 SN/蓝牙持久后缀 |
-| 电池类型及关联默认值 | 产品 `BMS_PRODUCT_CHEMISTRY`；D008 `d008_product_profile.h`；公共 `bms/products/bms_battery_defaults.h` | 联动 SW、AFE、BUSINESS、SOC 的编译默认；已保存值按 BIN 中选择更新 |
+| 电池类型及关联默认值 | 产品 `BMS_PRODUCT_CHEMISTRY`；D008 `d008_product_profile.h` / `d008_protection_config.h`；公共 `bms/products/bms_battery_defaults.h` | 联动 SW、AFE、BUSINESS、SOC 的编译默认；已保存值按 BIN 中选择更新 |
 | SH GPIO、串数、Rsense、NTC、能力、AFE 默认 | 产品 `bms_product.h` | 固定设置直接编译；`SH3673510_HW_DEFAULT_*` 对应 AFE |
-| DVC 固定配置和 SCD 种子 | D008 `bms_product.h` 包含的私有 `dvc1124_product_defaults.h` | 固定板级值或 AFE，按 default builder 区分 |
-| 软件保护默认 | `bms/core/bms_config_store.c` 的 `s_default_protection`；电压常量来自 `bms_battery_defaults.h` | 公共默认影响四产品；CUV3 延时保持产品 `BMS_DEFAULT_CUV3_FILTER`；SW |
+| DVC 固定配置 | D008 `bms_product.h` 包含的私有 `dvc1124_product_defaults.h` | 固定板级、Rsense 和故障安全策略 |
+| D008 软件/AFE 保护默认 | `bms/products/d008/d008_protection_config.h`，见 [直接修改指南](D008_PROTECTION_CONFIGURATION.md) | `D008_SW_*` 与 `D008_AFE_*` 独立；短路及保护总开关也在此；仅 D008 |
+| D011/D013/D014 软件保护默认 | `bms/core/bms_config_store.c` 的 `s_default_protection` 非 D008 分支；电压常量来自 `bms_battery_defaults.h` | 保持原值；CUV3 延时由各产品 `BMS_DEFAULT_CUV3_FILTER` 提供；SW |
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms/products/bms_battery_defaults.h`、`bms_config_user_defaults()` | 均衡起始电压跟随类型；BUSINESS；能力禁用仍优先 |
 | 均衡通道数量上限、温度回差 | 各产品 `bms_product.h` 的 `BMS_BALANCE_*` 宏，见下节 | 编译期策略，不写入 Flash、不增加协议字段 |
 | SOC 配置/OCV 曲线 | `bms/core/bms_soc.c`、`bms_soc_profile.h` | SOC，另评估 SOC_STATE |
@@ -31,7 +32,7 @@
 
 产品 include 路径由构建器选择。各模块显式引入所需产品配置；公共整数类型使用 `stdint.h`。State/Event 保存周期归各自实现，有限重试周期由 `bms_storage_platform.h` 定义。
 
-**D008 特殊点：** `bms_afe_hw_profile_build_default()` 从编译期软件默认取初始种子，再规范化 DVC 数值；SH 使用独立 `SH3673510_HW_DEFAULT_*` 覆盖。运行时仍独立保存/修改。改公共软件保护默认可能同时改变 D008 的 AFE 默认，发布时分别确认软件与 AFE 更新选择。
+**D008 独立保护入口：** `d008_protection_config.h` 分别定义完整软件保护和独立 AFE 默认；AFE builder 不再从软件保护表取初值。改 `D008_SW_*` 不联动 AFE，改 `D008_AFE_*` 不联动软件；SH 原 `SH3673510_HW_DEFAULT_*` 不变。默认数值和 DVC 归一化/量化规则保持；首次空白板使用默认，已有设备分别按 SW/AFE 更新选择处理。
 
 ### 编译时选择磷酸铁锂或三元锂
 

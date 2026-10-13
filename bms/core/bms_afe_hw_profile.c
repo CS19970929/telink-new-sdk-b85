@@ -19,15 +19,6 @@
 #include "sh3673510_quantize.h"
 #endif
 
-/* 将 10 ms 单位延时换算为毫秒。 */
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-static u16 ms10_to_ms(u16 filter_10ms)
-{
-    u32 ms = (u32)filter_10ms * 10u;
-    return (u16)((ms > 65535u) ? 65535u : ms);
-}
-#endif
-
 /* 取得当前产品要求的 AFE 型号标识。 */
 u16 bms_afe_hw_profile_expected_model(void)
 {
@@ -150,35 +141,36 @@ void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
     p->schema_version = BMS_AFE_HW_PROFILE_SCHEMA_VERSION;
     p->afe_model = bms_afe_hw_profile_expected_model();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    bms_protection_params_t defaults;
-    const bms_protection_params_t *s = &defaults;
-    bms_config_store_get_default_protect(&defaults);
-    p->cov_mv = s->cell_ovp_third_mv;
-    p->cov_delay_ms = ms10_to_ms(s->cell_ovp_filter_10ms);
-    p->cov_recover_mv = s->cell_ovp_recover_mv;
-    p->cov_recover_ms = ms10_to_ms(s->cell_ovp_filter_10ms);
-    p->cuv_mv = s->cell_uvp_third_mv;
-    p->cuv_delay_ms = ms10_to_ms(s->cell_uvp_filter_10ms);
-    p->cuv_recover_mv = s->cell_uvp_recover_mv;
-    p->cuv_recover_ms = ms10_to_ms(s->cell_uvp_filter_10ms);
-    p->ocd1_a10 = s->discharge_ocp_first_a10;
-    p->ocd1_delay_ms = ms10_to_ms(s->discharge_ocp_filter_10ms);
-    p->ocd2_a10 = s->discharge_ocp_second_a10;
-    p->ocd2_delay_ms = ms10_to_ms(s->discharge_ocp_filter_10ms);
-    p->ocd_recover_a10 = s->discharge_ocp_recover_a10;
-    p->occ1_a10 = s->charge_ocp_first_a10;
-    p->occ1_delay_ms = ms10_to_ms(s->charge_ocp_filter_10ms);
-    p->occ2_a10 = s->charge_ocp_second_a10;
-    p->occ2_delay_ms = ms10_to_ms(s->charge_ocp_filter_10ms);
-    p->occ_recover_a10 = s->charge_ocp_recover_a10;
-    if (DVC1124_HW_SCD_THRESHOLD_MV != 0u && DVC1124_DEFAULT_SHUNT_UOHM != 0u)
-        p->sc_a10 = (u16)(((u32)DVC1124_HW_SCD_THRESHOLD_MV * 10000u) /
+    /* D008 硬件默认不再从软件三级保护表取初值。 */
+    p->cov_mv = D008_AFE_COV_MV;
+    p->cov_delay_ms = D008_AFE_COV_DELAY_MS;
+    p->cov_recover_mv = D008_AFE_COV_RECOVER_MV;
+    p->cov_recover_ms = D008_AFE_COV_RECOVER_MS;
+    p->cuv_mv = D008_AFE_CUV_MV;
+    p->cuv_delay_ms = D008_AFE_CUV_DELAY_MS;
+    p->cuv_recover_mv = D008_AFE_CUV_RECOVER_MV;
+    p->cuv_recover_ms = D008_AFE_CUV_RECOVER_MS;
+    p->ocd1_a10 = D008_AFE_OCD1_A10;
+    p->ocd1_delay_ms = D008_AFE_OCD1_DELAY_MS;
+    p->ocd2_a10 = D008_AFE_OCD2_A10;
+    p->ocd2_delay_ms = D008_AFE_OCD2_DELAY_MS;
+    p->ocd_recover_a10 = D008_AFE_OCD_RECOVER_A10;
+    p->occ1_a10 = D008_AFE_OCC1_A10;
+    p->occ1_delay_ms = D008_AFE_OCC1_DELAY_MS;
+    p->occ2_a10 = D008_AFE_OCC2_A10;
+    p->occ2_delay_ms = D008_AFE_OCC2_DELAY_MS;
+    p->occ_recover_a10 = D008_AFE_OCC_RECOVER_A10;
+    if (D008_AFE_SC_THRESHOLD_MV != 0u && DVC1124_DEFAULT_SHUNT_UOHM != 0u)
+        p->sc_a10 = (u16)(((u32)D008_AFE_SC_THRESHOLD_MV * 10000u) /
                           DVC1124_DEFAULT_SHUNT_UOHM);
-    p->sc_delay_us = DVC1124_HW_SCD_DELAY_US;
-    p->enable_mask = (u16)(BMS_AFE_HW_EN_COV | BMS_AFE_HW_EN_CUV |
-                           BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2 |
-                           BMS_AFE_HW_EN_OCC1 | BMS_AFE_HW_EN_OCC2);
-    if (p->sc_a10 != 0u) p->enable_mask |= BMS_AFE_HW_EN_SC;
+    p->sc_delay_us = D008_AFE_SC_DELAY_US;
+    if (D008_AFE_ENABLE_COV) p->enable_mask |= BMS_AFE_HW_EN_COV;
+    if (D008_AFE_ENABLE_CUV) p->enable_mask |= BMS_AFE_HW_EN_CUV;
+    if (D008_AFE_ENABLE_OCD1) p->enable_mask |= BMS_AFE_HW_EN_OCD1;
+    if (D008_AFE_ENABLE_OCD2) p->enable_mask |= BMS_AFE_HW_EN_OCD2;
+    if (D008_AFE_ENABLE_OCC1) p->enable_mask |= BMS_AFE_HW_EN_OCC1;
+    if (D008_AFE_ENABLE_OCC2) p->enable_mask |= BMS_AFE_HW_EN_OCC2;
+    if (D008_AFE_ENABLE_SC && p->sc_a10 != 0u) p->enable_mask |= BMS_AFE_HW_EN_SC;
     dvc_normalize_default_profile(p);
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     /* SH 硬件保护直接使用产品默认值，无需先复制再覆盖软件保护表。 */

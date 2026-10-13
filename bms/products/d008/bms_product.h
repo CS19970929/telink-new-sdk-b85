@@ -49,6 +49,7 @@
 #define BMS_D008_20S_NMC_PROTECTION_APPROVED 0
 
 #include "dvc1124_product_defaults.h"
+#include "d008_protection_config.h"
 
 /* 文件功能：产品容量、名称、采样及通信功能配置。 */
 
@@ -105,6 +106,3 @@
 #define SOC75_PIN              (GPIO_PB7)
 #define SOC100_PIN             (GPIO_PD3)
 #define LED_BLUE_PIN           (GPIO_PB4)
-
-
-#define BMS_DEFAULT_CUV3_FILTER 100u
