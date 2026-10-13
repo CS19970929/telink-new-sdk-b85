@@ -8,7 +8,6 @@
 
 #define SLEEP_RECORD_MAGIC 0x534C5031u /* SLP1 */
 #define SLEEP_PAYLOAD_BYTES (BMS_SLEEP_CONFIG_WORDS * 2u)
-#define SLEEP_DEFAULT_AFE_DELAY_MINUTES 30u
 
 #if BMS_SLEEP_LOW_SECONDS < 60u || BMS_SLEEP_LOW_SECONDS % 60u != 0u || \
     BMS_SLEEP_LOW_SECONDS > BMS_SLEEP_NORMAL_SECONDS || \
@@ -34,7 +33,7 @@ void bms_sleep_config_defaults(bms_sleep_config_t *config)
     config->low_delay_minutes = BMS_SLEEP_LOW_SECONDS / 60u;
     config->normal_cell_mv = BMS_SLEEP_NORMAL_CELL_MV;
     config->normal_delay_minutes = BMS_SLEEP_NORMAL_SECONDS / 60u;
-    config->afe_delay_minutes = SLEEP_DEFAULT_AFE_DELAY_MINUTES;
+    config->afe_delay_minutes = BMS_SLEEP_AFE_FIXED_MINUTES;
 }
 
 int bms_sleep_config_valid(const bms_sleep_config_t *config)
@@ -43,7 +42,7 @@ int bms_sleep_config_valid(const bms_sleep_config_t *config)
         config->low_cell_mv < config->normal_cell_mv && config->normal_cell_mv <= 4500u &&
         config->low_delay_minutes != 0u &&
         config->low_delay_minutes <= config->normal_delay_minutes &&
-        config->afe_delay_minutes != 0u;
+        config->afe_delay_minutes == BMS_SLEEP_AFE_FIXED_MINUTES;
 }
 
 /* 显式按 word 编码，不把 packed 结构转换为可能未对齐的 u16 指针。 */
@@ -78,6 +77,8 @@ void bms_sleep_config_init(void)
     }
     if (storage_record_load(&s_sleep_store, payload)) {
         sleep_config_codec(&loaded, payload, 0u);
+        /* 旧版可保存此值；升级后仅保留槽位，不再允许它影响实际休眠时间。 */
+        loaded.afe_delay_minutes = BMS_SLEEP_AFE_FIXED_MINUTES;
         if (!bms_sleep_config_valid(&loaded)) {
             bms_error_raise(BMS_ERROR_EEPROM_STORE);
         } else {

@@ -19,7 +19,7 @@ storage_port → bms_storage_platform_telink → SDK Flash
 | Config | 软件保护、产品/容量/SOC 设置、AFE requested、校准、SN、蓝牙后缀、OTA 执行标记 | 3 / 322 bytes；magic `CFG2` | 候选编码改变或选中 OTA 更新未执行 |
 | State | SOC、放电累计、循环、OTA 执行标记及旧保留槽 | 3 / 44 bytes | 有变化且检查点到期，或显式保存 |
 | Event | 100 条事件环、重复计数、写位置、EVENTS 编号 | 3 / 404 bytes | dirty 且检查点到期，或入睡前提交 |
-| SleepConfig | 两档电压、两档分钟数、AFE异常分钟数 | 1 / 10 bytes；magic `SLP1` | 显式整组保存且参数变化；见 [休眠配置](SLEEP_CONFIGURATION.md) |
+| SleepConfig | 两档电压、两档分钟数及保留AFE时间槽（固定30分钟） | 1 / 10 bytes；magic `SLP1` | 显式整组保存且参数变化；见 [休眠配置](SLEEP_CONFIGURATION.md) |
 
 每域独立提交，没有跨域原子事务。Config 候选提交成功后才发布 cache；State 区分已提交 cache 与待保存副本，保存失败不丢弃候选。Event 在 RAM 先记事件，失败保留 dirty。启动安全配置校验/保存失败时，输出授权保持关闭，普通 `SaveParam` 不会绕过该门禁；State/Event 失败按文末规则降级。
 

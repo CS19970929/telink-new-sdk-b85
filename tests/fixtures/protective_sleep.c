@@ -117,6 +117,9 @@ static void reset(void) {
     memset(enabled,0,sizeof(enabled));
 }
 int main(void) {
+    reset();sleep_config.afe_delay_minutes=1u;valid=0;
+    assert(!fixture_sleep_poll(1799u,&sleep_status));assert(fixture_sleep_poll(1u,&sleep_status));
+    assert(reason==DIAG_SLEEP_REASON_AFE); /* 旧配置槽不能改变固定30分钟。 */
 
     reset();sleep_config.low_delay_minutes=10u;g_bms_report.cell_min_mv=2600u;
     g_bms_report.fault_third.bits.cell_uvp=1u;

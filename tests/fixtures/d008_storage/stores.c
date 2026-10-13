@@ -656,6 +656,14 @@ static void test_sleep_config(void)
  bms_sleep_config_get(&cfg);cfg.low_cell_mv=cfg.normal_cell_mv;
  assert(!bms_sleep_config_set(&cfg));
  cfg.low_cell_mv=2600u;cfg.low_delay_minutes=1441u;assert(!bms_sleep_config_set(&cfg));
+ cfg.low_delay_minutes=2u;cfg.afe_delay_minutes=1u;assert(!bms_sleep_config_set(&cfg));
+ u8 legacy_sleep[SLEEP_PAYLOAD_BYTES];sleep_config_codec(&cfg,legacy_sleep,1u);
+ assert(storage_record_save(&s_sleep_store,legacy_sleep)); /* 模拟旧版保存过不同AFE时间。 */
+ u32 writes_before_reload=programs;
+ reboot();bms_sleep_config_get(&cfg);
+ assert(cfg.afe_delay_minutes==30u && cfg.low_delay_minutes==2u && programs==writes_before_reload);
+ u8 forbidden_afe[]={0x0a,0x28,0,2,0x0b,0xb8,0x05,0xa0,0,1};
+ assert(bms_parameter_write(0x2e90u,5u,forbidden_afe)==3u);
  reboot();assert(bms_parameter_read(0x2e91u)==2u);
  assert(bms_config_reset_business());assert(bms_parameter_read(0x2e91u)==2u);
  memcpy(backup,flash,sizeof(flash));

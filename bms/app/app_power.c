@@ -332,7 +332,7 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec,
     bms_sleep_config_get(&config);
     low_delay = (u32)config.low_delay_minutes * 60u;
     normal_delay = (u32)config.normal_delay_minutes * 60u;
-    afe_delay = (u32)config.afe_delay_minutes * 60u;
+    afe_delay = BMS_SLEEP_AFE_FIXED_MINUTES * 60u;
     memset(status, 0, sizeof(*status));
     if (valid) {
         region = 0u;
