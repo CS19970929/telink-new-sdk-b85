@@ -27,14 +27,18 @@ static int bms_config_get_user(bms_user_params_t *user)
 { memcpy(user->serial, config_serial, sizeof(config_serial)); return user_available; }
 typedef enum {SIF_IDLE=0,SYNC_SIGNAL,SEND_PUBLIC,SEND_DATA,SEND_DATA_COMPLETE,STOP_SIGNAL} SIF_STATE_E;
 typedef struct {
- uint8_t discharge_ocp,charge_utp,charge_otp,discharge_otp,cell_uvp,cell_ovp,charge_ocp,discharge_utp;
+ uint8_t discharge_ocp,charge_utp,charge_otp,discharge_otp,cell_uvp,cell_ovp,charge_ocp,discharge_utp,pack_uvp,pack_ovp;
 } bms_fault_bits_t;
 static struct {
  uint16_t charge_current_a10,discharge_current_a10,temperature_max_x10,temperature_min_x10,temperature_x10[4],pack_voltage_10mv;
  uint16_t cell_voltage_mv[32],cell_max_mv,cell_min_mv,cell_max_index,cell_min_index;
  struct {uint16_t soc_percent,cycle_count;} soc;
- struct {bms_fault_bits_t bits;} fault_third,fault_second;
+ struct {bms_fault_bits_t bits;} fault_third,fault_second,fault_first;
 } g_bms_report;
+typedef struct {uint32_t unused;} bms_afe_aux_measurements_t;
+static uint8_t measurements_valid=1u;
+static uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *sample)
+{ (void)sample; return measurements_valid; }
 static int reg_irq_mask,reg_tmr0_tick,reg_tmr0_capt,reg_tmr_sta,reg_tmr_ctrl;
 static int bus=1;
 #define BUS_STATE_OWC_TX 1
