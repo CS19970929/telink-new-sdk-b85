@@ -416,8 +416,8 @@ uint8_t bms_afe_enter_shutdown(void)
 
     inhibit_local();
     /*
-     * 有意关机不同于失联尽力关闭，必须传播每个关闭/回读失败；
-     * 准备失败不能切 MCU 电源。
+     * 必须传播每个关闭/回读失败，由调用方决定后续动作；
+     * ACC路径保留失败重试，命令及保护性休眠失败后仍执行MCU断电。
      */
     if (!AFE_BAL_SET(0u) || !AFE_FETS(0u, 0u))
     {

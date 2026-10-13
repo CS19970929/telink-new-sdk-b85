@@ -73,6 +73,10 @@ static u8 s_sleep_report_reason;
 
 /* 四产品保护性休眠共用计时；到期后锁存，不再回到通信/采样业务。 */
 #define APP_OVERDISCHARGE_SLEEP_SECONDS 180u
+/* 命令应答只作有界等待，不能成为强制休眠的永久门禁。 */
+#define APP_COMMAND_REPLY_32K (APP_PM_TICKS_PER_SEC / 2u)
+static u8 s_command_seen;
+static u32 s_command_tick;
 /* 普通 Suspend 与低压可靠充电分别拥有阈值，不随 SOC 电流死区调整。 */
 #define APP_SUSPEND_EXIT_CURRENT_MA ((int32_t)200)
 #define APP_SLEEP_CHARGE_CURRENT_MA ((int32_t)200)
@@ -111,9 +115,6 @@ static uint8_t app_current_prevents_suspend(const bms_afe_aux_measurements_t *m,
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #define APP_POWER_OFF_RETRY_SECONDS 5u
-static u8 s_power_off_committed;
-static u8 s_power_off_retry_ready;
-static u32 s_power_off_retry_tick;
 static u8 s_acc_sleep_committed, s_acc_retry_ready, s_acc_disconnect_sent;
 static u32 s_acc_retry_tick;
 
@@ -271,7 +272,7 @@ static void app_protective_sleep_hold(void)
 #endif
 }
 
-/* 用户要求：保护性休眠不受通信、OTA、保存或 AFE 命令成功与否阻断。 */
+/* 命令及到期保护性休眠不受通信、OTA、保存或 AFE 命令成功与否阻断。 */
 static void app_enter_protective_sleep(void)
 {
     s_protective_sleep.committed = 1u;
@@ -294,12 +295,34 @@ static void app_enter_protective_sleep(void)
     s_low_power_mode = true;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     bms_diag_sleep_committed();
-    /* 低压/AFE 异常均切断 MCU 供电；PC4 拉低后禁止再保存或访问 AFE。 */
+    /* 命令/保护性休眠均切断 MCU 供电；PC4 拉低后禁止再保存或访问 AFE。 */
     gpio_write(BMS_BOARD_MCU_LDO_PIN, 0u);
 #else
     gpio_write(BMS_BOARD_CMNT_EN_PIN, 0u);
 #endif
     app_protective_sleep_hold();
+}
+
+/* 四产品命令均复用强制入口；一线通接入、OTA及失败不能撤销已锁存请求。 */
+static u8 app_command_sleep_poll(void)
+{
+    u32 now = pm_get_32k_tick();
+    u32 elapsed;
+    if (!deepsleep_en) return 0u;
+    if (s_protective_sleep.committed) return 1u;
+    if (!s_command_seen) { s_command_seen = 1u; s_command_tick = now; }
+    elapsed = (u32)(now - s_command_tick);
+    bms_diag_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, elapsed / 32u,
+                    APP_COMMAND_REPLY_32K / 32u, 0u, 0u);
+    /* 应答空闲即执行，最长等待500ms；使用无符号时间差处理tick回绕。 */
+    if (elapsed < APP_COMMAND_REPLY_32K &&
+        (uart_tx_is_busy() || modbus_uart_tx_active() ||
+         (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u))) return 0u;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, 1u, 1u);
+#endif
+    app_enter_protective_sleep();
+    return 1u;
 }
 
 /* 选最先到期的条件；所有乘法都在配置上限 65535 分钟以内。 */
@@ -401,64 +424,15 @@ static void app_dvc_publish_sleep(const app_sleep_status_t *protective,
     if (ota_is_working) block |= DIAG_SLEEP_BLOCK_OTA;
     if (!app_flash_lock_restore_enabled()) block |= DIAG_SLEEP_BLOCK_FLASH;
     if (BUS_STATE_OWC_IDLE != bus_mux_get_state()) block |= DIAG_SLEEP_BLOCK_BUS;
-    if (device_in_connection_state &&
-        (reason != DIAG_SLEEP_REASON_COMMAND || blc_ll_getTxFifoNumber() != 0u))
-        block |= DIAG_SLEEP_BLOCK_BLE;
+    if (device_in_connection_state) block |= DIAG_SLEEP_BLOCK_BLE;
     retry_ms = reason == DIAG_SLEEP_REASON_ACC ?
         app_sleep_retry_ms(s_acc_retry_ready, s_acc_retry_tick, APP_POWER_OFF_RETRY_SECONDS) :
-        app_sleep_retry_ms(s_power_off_retry_ready, s_power_off_retry_tick, APP_POWER_OFF_RETRY_SECONDS);
+        0u;
     if (reason == DIAG_SLEEP_REASON_NONE) {
         retry_ms = 0u;
         if (!sample_valid) block |= DIAG_SLEEP_BLOCK_SAMPLE;
     }
     app_publish_sleep(reason, block, 0u, 0u, retry_ms, suspend_allowed);
-}
-
-/* 仅由显式命令分支调用；保护性低压休眠不经过此关机流程。 */
-static int app_enter_command_power_off(void)
-{
-    u32 now = pm_get_32k_tick();
-
-    if (s_power_off_committed || ota_is_working ||
-        !app_flash_lock_restore_enabled() ||
-        BUS_STATE_OWC_IDLE != bus_mux_get_state()) return 0;
-    /*
-     * 显式休眠命令不要求低电压、BLE 断连或有效电流样本。断电前必须发完命令应答；
-     * 保护性深睡由独立入口执行，不使用本函数的门禁。
-     */
-    if (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u) return 0;
-    if (s_power_off_retry_ready &&
-        (u32)(now - s_power_off_retry_tick) <
-            APP_POWER_OFF_RETRY_SECONDS * APP_PM_TICKS_PER_SEC) return 0;
-    BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, 1u, 1u);
-    s_power_off_retry_ready = 1u;
-    s_power_off_retry_tick = now;
-    s_sleep_failure_mask = 0u;
-
-    /*
-     * PC4 拉低后不能再延后执行 Flash 操作；休眠事件记录尝试，
-     * shutdown 失败绝不切断供电。
-     */
-    if (!bms_state_store_write_all(g_bms_soc.soc_estimate_percent,
-                               g_bms_soc.discharge_fraction_percent,
-                               g_bms_soc.cycle_count) ||
-        !bms_event_log_note_sleep()) {
-        s_sleep_failure_mask = DIAG_SLEEP_BLOCK_STORAGE;
-        return 0;
-    }
-    if (!bms_afe_enter_shutdown()) {
-        bms_event_log_cancel_sleep();
-        s_sleep_failure_mask = DIAG_SLEEP_BLOCK_AFE;
-        BMS_LOG(BMS_LOG_WARN, BMS_LOG_POWER, BMS_LOG_SLEEP_ABORT, 1u, 1u);
-        return 0;
-    }
-
-    s_power_off_committed = 1u;
-    bls_pm_setAppWakeupLowPower(0u, 0u);
-    s_low_power_mode = true;
-    bms_diag_sleep_committed();
-    gpio_write(BMS_BOARD_MCU_LDO_PIN, 0u); /* 请求切断 MCU 电源。 */
-    return 1;
 }
 
 /*
@@ -539,15 +513,8 @@ static int app_enter_acc_sleep(void)
 #else
 
 /* 开关/命令与低压复用同一个已提交深睡入口；失败后不恢复业务。 */
-static u8 s_command_seen;
-static u32 s_command_tick;
-#define APP_SH_COMMAND_REPLY_32K (APP_PM_TICKS_PER_SEC / 2u)
-
 static u8 app_sh_explicit_sleep_poll(void)
 {
-    u32 now = pm_get_32k_tick();
-    u8 reason = DIAG_SLEEP_REASON_NONE;
-    u32 elapsed = 0u, delay = 0u;
 #if BMS_PRODUCT_SWITCH_ENABLE && BMS_PRODUCT_SWITCH_SLEEP_ENABLE
     /* 开关OFF优先于命令应答，主循环本次直接提交深睡。 */
     if (!board_switch_is_on()) {
@@ -556,22 +523,7 @@ static u8 app_sh_explicit_sleep_poll(void)
         return 1u;
     }
 #endif
-    if (deepsleep_en) {
-        if (!s_command_seen) { s_command_seen = 1u; s_command_tick = now; }
-        reason = DIAG_SLEEP_REASON_COMMAND;
-        elapsed = (u32)(now - s_command_tick);
-        delay = APP_SH_COMMAND_REPLY_32K;
-        /* 尽量发完既有应答，最长500ms；坏UART/BLE不能无限推迟命令。 */
-        if ((!uart_tx_is_busy() && !modbus_uart_tx_active() &&
-             (!device_in_connection_state || blc_ll_getTxFifoNumber() == 0u)) || elapsed >= delay) {
-            bms_diag_sleep(reason, 0u, elapsed / 32u, delay / 32u, 0u, 0u);
-            app_enter_protective_sleep();
-            return 1u;
-        }
-    }
-    if (reason != DIAG_SLEEP_REASON_NONE)
-        bms_diag_sleep(reason, 0u, elapsed / 32u, delay / 32u, 0u, 0u);
-    return 0u;
+    return app_command_sleep_poll();
 }
 
 /* SDK 最后一道普通 Suspend 检查；直接深睡已提交时绝不被此回调否决。 */
@@ -633,8 +585,7 @@ void app_power_process(const volatile uint8_t *sample_due)
 
     /*
      * 0x1102=0x000A 是锁存关机请求，不是空闲 suspend 提示。
-     * OTA/总线/持久化/AFE 失败时保留请求；五秒重试门禁由显式关机路径持有，
-     * 保护性计时已在本入口之前推进。
+     * 应答等待最多500ms，之后直接提交强制入口；保护性计时已在本入口之前推进。
      */
     if (deepsleep_en)
     {
@@ -642,9 +593,7 @@ void app_power_process(const volatile uint8_t *sample_due)
         bms_diag_runtime_pm(0u, pm_block, s_protective_sleep.region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
                             (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
-        app_dvc_publish_sleep(&protective, DIAG_SLEEP_REASON_COMMAND, 0u, valid);
-        if (app_enter_command_power_off()) return;
-        app_dvc_publish_sleep(&protective, DIAG_SLEEP_REASON_COMMAND, 0u, valid);
+        if (app_command_sleep_poll()) return;
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         if (ota_is_working) bls_pm_setManualLatency(0);
@@ -746,11 +695,6 @@ uint8_t app_power_prepare_loop(void)
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (s_acc_sleep_committed) {
         app_acc_sleep_hold();
-        return 1u;
-    }
-    if (s_power_off_committed)
-    {
-        /* PC4 已拉低；只阻止正常业务继续执行，不调用 Suspend/DeepSleep。 */
         return 1u;
     }
     bms_parameters_diag_poll();

@@ -4,6 +4,17 @@
 
 2026-10-13：当前策略改为两档可配置电压/延时及固定 AFE 异常30分钟，另外增加过放未恢复固定 180 秒。配置、协议、默认值及独立持久化见 [休眠配置](SLEEP_CONFIGURATION.md)。下述旧日期段落为历史依据，不替代本次未执行的验证。
 
+2026-10-13 命令关机修正：用户确认 D008 开关 ON 时接有一线通设备，关闭开关才停止通信。
+旧命令入口要求 `BUS_STATE_OWC_IDLE`，持续接入的 `OWC_TX` 会在关闭 AFE/MOS、PC4 之前
+一直拒绝执行。现四产品命令由 `app_command_sleep_poll()` 持有，UART/BLE 应答空闲即执行，
+等待上限沿用 SH 的 500 ms；到期后不受一线通、OTA、Flash、保存或 AFE/BLE 控制失败阻止，
+复用 `app_enter_protective_sleep()`。低压、过放及 AFE 异常到期仍直接提交，不等待命令应答。
+已提交状态共用一个所有者，主循环只保持，不重复保存/访问 AFE。普通 Suspend 与 D008 ACC
+的资格和唤醒策略保持。500 ms 仅为应答等待上限，执行仍需当前主循环调度和有界前置事务时间。
+本轮同步 D008 真实 PM 入口场景：持续一线通、OTA/Flash、保存/AFE/BLE 失败、BLE/UART
+卡住的 499/500 ms 边界、tick 回绕、提前排空及单次保存。仅完成源码/调用链/差异审查；
+未执行 host、目标编译、实板或 OTA，未生成 BIN。上位机命令地址与参数协议不变。
+
 2026-10-11 简化仅收口内部职责：跨轮保留电压区域、无可靠充电条件、独立计时和已提交状态；
 休眠原因、elapsed/delay 在本轮局部推导并发布。普通 Suspend 的 `APP_SUSPEND_EXIT_CURRENT_MA`
 与低压充电判定的 `APP_SLEEP_CHARGE_CURRENT_MA` 独立定义，数值均保持 200 mA，
@@ -74,8 +85,10 @@ RM V1.2 PDF 第 7 页 CST；PC4 供电控制见 HS-D008-24S100A-V1 原理图第 
 覆盖最终拉低 PC4、保存/AFE 失败仍断电、外部供电保持及 ACC 不断电，但未执行；
 未编译、生成 BIN 或连接实板。下述历史验证不覆盖本次断电策略改动。
 
-D008 ACC/显式命令关机保留原门禁。SH 开关 OFF 立即请求（`BMS_PRODUCT_SWITCH_SLEEP_ENABLE=1`）和命令请求现也复用本页强制深睡入口；普通 Suspend 使用串口静默 30 秒及 RX 唤醒策略，详见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。
-[实时诊断](SLEEP_STATUS.md) 中保护性原因的阻止位为零，`COMMITTED` 只代表已提交动作。
+D008 ACC 保留原门禁。四产品命令请求复用本页强制入口，应答等待最长 500 ms；SH 开关 OFF
+立即请求（`BMS_PRODUCT_SWITCH_SLEEP_ENABLE=1`）。普通 Suspend 使用原有门禁，SH 串口
+静默 30 秒及 RX 唤醒策略详见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。
+[实时诊断](SLEEP_STATUS.md) 中命令及保护性原因的阻止位和失败退避为零，`COMMITTED` 只代表已提交动作。
 
 原资料依据：DVC1124-2 RM V1.2 PDF 第 7 页 CST sleep/shutdown；SH36735XX V1.0A
 PDF 第 10 页 SLEEP/NORMAL 和唤醒。见 [AFE资料指南](AFE_REFERENCE_GUIDE.md)。

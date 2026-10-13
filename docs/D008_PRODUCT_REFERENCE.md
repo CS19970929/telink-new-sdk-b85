@@ -385,7 +385,7 @@ DVC1124-2 DS V1.1 原 PDF 第 13 页规定 CC2 周期为 256 ms；当前 VADC �
 - `app_enter_acc_sleep()`：PA0 高稳定 200 ms 后，检查通信/连接并保存状态；AFE shutdown 成功后保持 PC4 高，以 PA0 低电平 PAD 唤醒进入 deep sleep。与 PC4 断电路径不同。
 - `app_enter_protective_sleep()`：低压或 AFE 异常计时到期后，尝试 AFE Shutdown 和允许的保存，最后拉低 PC4，关闭 MCU 供电；通信、OTA、保存或 AFE 失败不阻止。按2026-10-10用户要求，拉低 PC4 后不再调用定时 Suspend 或 MCU DeepSleep 兜底，已提交标记仅阻止正常业务继续执行，规则见 [保护性休眠](LOW_POWER_POLICY.md)。
 
-普通 ACC/显式关机在保存或 shutdown 失败时保留请求并退避；保护性断电不使用这些门禁。ACC 低电平唤醒走重新初始化；PC4 断电后需要外部硬件恢复供电才能启动。物理供电、ACC 电平、负载检测与复电时序仍需实板闭环，见 [硬件验收](HARDWARE_VALIDATION.md)。
+普通 ACC 在保存或 shutdown 失败时保留请求并退避；显式命令和保护性断电不使用这些门禁。命令应答空闲即执行，等待最长500ms，持续一线通接入、OTA/Flash及保存/AFE/BLE失败不能拒绝关机，见 [休眠策略](LOW_POWER_POLICY.md)。ACC 低电平唤醒走重新初始化；PC4 断电后需要外部硬件恢复供电才能启动。物理供电、ACC 电平、负载检测与复电时序仍需实板闭环，见 [硬件验收](HARDWARE_VALIDATION.md)。
 
 `DVC1124_SW_PROTECT_ENABLE` 控制软件电压/电流/压差，`DVC1124_SW_TEMP_PROTECT_ENABLE` 独立控制温度和必需 NTC 失效保护；第 9 节 SW/HW 表必须连同温度开关理解。生产全部保护开关按门禁开启；非生产组合只作受控验证。
 

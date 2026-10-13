@@ -13,7 +13,7 @@ typedef uint8_t u8;
 #define LED_BLUE_PIN 0
 static u32 now, s_sample_tick, sample_cost;
 static volatile u8 s_sample_due;
-static u8 s_acc_sleep_committed, s_power_off_committed, valid = 1, callback_during_sample;
+static u8 s_acc_sleep_committed, valid = 1, callback_during_sample;
 static struct {u8 committed;} s_protective_sleep;
 static void app_protective_sleep_hold(void) {}
 static char calls[100];
@@ -96,6 +96,6 @@ int main(void){
  sample_cost=0;s_sample_due=1;callback_during_sample=1;app_sample_task();expect("AVSWL");assert(s_sample_due);
  callback_during_sample=0;
  s_acc_sleep_committed=1;main_loop();expect("H");
- s_acc_sleep_committed=0;s_power_off_committed=1;main_loop();expect("");
+ s_acc_sleep_committed=0;s_protective_sleep.committed=1;main_loop();expect("");
  return 0;
 }

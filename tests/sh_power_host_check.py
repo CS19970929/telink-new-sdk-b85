@@ -156,11 +156,9 @@ def check_sh_protective_sleep():
         'static u8 app_sh_other_wakeup_levels(', 'static void app_sh_set_other_wakeup(',
         'u8 app_power_boot_sleep_hold(',
         'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
-        'static void app_enter_protective_sleep(', 'static void app_select_protective_sleep(', 'static u8 app_protective_sleep_poll(',
+        'static void app_enter_protective_sleep(', 'static u8 app_command_sleep_poll(',
+        'static void app_select_protective_sleep(', 'static u8 app_protective_sleep_poll(',
         'uint8_t app_power_prepare_loop('))
-    state_start = source.index('static u8 s_command_seen')
-    state_end = source.index('static u8 app_sh_explicit_sleep_poll(', state_start)
-    body += '\n' + source[state_start:state_end]
     # 保留策略宏分支，分别覆盖开启/关闭；其他函数使用实际SH预处理分支。
     raw = (root / 'bms/app/app_power.c').read_text(encoding='utf-8')
     body += function(raw, 'static u8 app_sh_explicit_sleep_poll(')

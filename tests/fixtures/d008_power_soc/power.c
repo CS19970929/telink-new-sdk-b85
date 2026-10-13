@@ -31,13 +31,13 @@ typedef int GPIO_PinTypeDef;
 static u8 s_acc_sleep_committed,s_acc_retry_ready,s_acc_disconnect_sent;
 static u32 s_acc_retry_tick;
 static int acc_high,ldo_high,acc_wake,load_wake,deep_calls,timer_hold_calls,reboot_calls,disconnect_calls,adv_enabled=1;
-static int acc_low_during_shutdown,acc_low_during_sleep;
+static int acc_low_during_shutdown,acc_low_during_sleep,ble_control_ok=1;
 static int gpio_read(int pin){assert(pin==BMS_BOARD_ACC_PIN||pin==BMS_BOARD_LOAD_DETECT_PIN);return pin==BMS_BOARD_ACC_PIN?acc_high:0;}
 static void start_reboot(void){reboot_calls++;}
 static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(level==Level_Low||level==Level_High);if(pin==BMS_BOARD_ACC_PIN)acc_wake=en;else{assert(pin==BMS_BOARD_LOAD_DETECT_PIN);load_wake=en;}}
 static int cpu_sleep_wakeup(int mode,int src,u32 tick);
-static int bls_ll_terminateConnection(int reason){assert(reason==HCI_ERR_REMOTE_USER_TERM_CONN);disconnect_calls++;return BLE_SUCCESS;}
-static int bls_ll_setAdvEnable(int en){adv_enabled=en;return BLE_SUCCESS;}
+static int bls_ll_terminateConnection(int reason){assert(reason==HCI_ERR_REMOTE_USER_TERM_CONN);disconnect_calls++;return ble_control_ok?BLE_SUCCESS:1;}
+static int bls_ll_setAdvEnable(int en){adv_enabled=en;return ble_control_ok?BLE_SUCCESS:1;}
 #define BUS_STATE_OWC_IDLE 0
 #define SUSPEND_ADV 1
 #define SUSPEND_CONN 2
@@ -56,9 +56,8 @@ static int bls_ll_setAdvEnable(int en){adv_enabled=en;return BLE_SUCCESS;}
 #define DIAG_PM_BLOCK_ACC_SLEEP 128u
 typedef struct{uint32_t sample_tick_32k;int32_t current_ma;}bms_afe_aux_measurements_t;
 typedef struct{int unused;}app_pm_elapsed_ctx_t;
-static u8 s_power_off_committed,s_power_off_retry_ready;
 static volatile u8 s_sample_due;
-static u32 s_power_off_retry_tick,now,elapsed;
+static u32 now,elapsed;
 static int valid=1,flash_ready=1,ota_is_working,device_in_connection_state,bus_busy,mask;
 static int storage_ok=1,event_ok=1,shutdown_ok=1,cut_calls,seq[64],seq_len;
 static int afe_error, output_enabled=1,afe_shutdown_calls;
@@ -68,18 +67,20 @@ static void bms_afe_set_output_enabled(u8 en){output_enabled=en;}
 static int bms_afe_enter_shutdown(void);
 static int bms_afe_sleep(void){return bms_afe_enter_shutdown();}
 static bool deepsleep_en;
-static u8 ble_tx_pending;
+static u8 ble_tx_pending,uart_busy,modbus_tx_busy;
 static u8 blc_ll_getTxFifoNumber(void){return ble_tx_pending;}
+static int uart_tx_is_busy(void){return uart_busy;}
+static u8 modbus_uart_tx_active(void){return modbus_tx_busy;}
 static bms_afe_aux_measurements_t measurement;
 static bool s_low_power_mode;
 static u32 s_sleep_failure_mask;
 static u8 s_sleep_report_reason;
 static u8 observed_sleep_reason;
-static u32 observed_sleep_block, observed_sleep_elapsed, observed_sleep_retry;
+static u32 observed_sleep_block, observed_sleep_elapsed, observed_sleep_delay, observed_sleep_retry;
 void bms_diag_sleep(u8 reason,u32 block,u32 elapsed_ms,u32 delay_ms,u32 retry_ms,u8 allowed){
- (void)delay_ms;(void)allowed;
+ (void)allowed;
  observed_sleep_reason=reason;observed_sleep_block=block;
- observed_sleep_elapsed=elapsed_ms;observed_sleep_retry=retry_ms;
+ observed_sleep_elapsed=elapsed_ms;observed_sleep_delay=delay_ms;observed_sleep_retry=retry_ms;
 }
 void bms_diag_sleep_committed(void){}
 static struct{uint16_t cell_min_mv, pack_voltage_10mv; struct { struct { uint8_t cell_uvp, pack_uvp; } bits; } fault_third;}g_bms_report={.cell_min_mv=3300};
@@ -133,14 +134,15 @@ static void reset(void){
  acc_high=acc_wake=load_wake=deep_calls=timer_hold_calls=reboot_calls=disconnect_calls=0;ldo_high=adv_enabled=1;
  acc_low_during_shutdown=acc_low_during_sleep=0;
  s_acc_sleep_committed=s_acc_retry_ready=s_acc_disconnect_sent=0;
- deepsleep_en=false;ble_tx_pending=0;
+ deepsleep_en=false;ble_tx_pending=uart_busy=modbus_tx_busy=0;ble_control_ok=1;
+ s_command_seen=0;s_command_tick=0;
  s_sleep_failure_mask=s_sleep_report_reason=0;
  memset(&s_protective_sleep,0,sizeof(s_protective_sleep));
  sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
  g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
  g_bms_report.pack_voltage_10mv=3300;afe_error=0;output_enabled=1;
  afe_shutdown_calls=0;
- s_power_off_committed=s_power_off_retry_ready=s_sample_due=0;
+ s_sample_due=0;
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
  ota_is_working=device_in_connection_state=bus_busy=seq_len=cut_calls=0;
  now=measurement.sample_tick_32k=100;measurement.current_ma=0;elapsed=0;
@@ -309,40 +311,44 @@ int main(void){
  g_bms_report.cell_min_mv=2770;app_power_process(&s_sample_due);
  assert(cut_calls==1&&timer_hold_calls==0&&!deep_calls); /* low-voltage branch does not erase the AFE timeout */
  puts("PASS protective sleep: connected low voltage, OTA/bus/Flash/AFE failure override, invalid samples and independent AFE timeout, no repeated saves");
- reset();deepsleep_en=true;flash_ready=0;assert(!app_enter_command_power_off());assert(seq_len==0);
- reset();deepsleep_en=true;device_in_connection_state=1;ble_tx_pending=1;assert(!app_enter_command_power_off());assert(seq_len==0);
- reset();deepsleep_en=true;bus_busy=1;assert(!app_enter_command_power_off());assert(seq_len==0);
- reset();deepsleep_en=true;storage_ok=0;assert(!app_enter_command_power_off());assert(seq_len==1&&!cut_calls);
- reset();deepsleep_en=true;event_ok=0;assert(!app_enter_command_power_off());assert(seq_len==2&&!cut_calls);
- reset();deepsleep_en=true;shutdown_ok=0;assert(!app_enter_command_power_off());assert(seq_len==3&&!cut_calls);
- assert(!app_enter_command_power_off());assert(seq_len==3); /* retry must not wear Flash every loop */
- now+=5*32000;measurement.sample_tick_32k=now;seq_len=0;shutdown_ok=1;
- assert(app_enter_command_power_off());assert(cut_calls==1&&seq_len==5);
- for(int i=0;i<5;i++)assert(seq[i]==i+1);
- assert(!app_enter_command_power_off());assert(cut_calls==1);
- reset();deepsleep_en=true;s_power_off_retry_ready=1;s_power_off_retry_tick=UINT32_MAX-32000;
- now=s_power_off_retry_tick+160000u;measurement.sample_tick_32k=now;
- assert(app_enter_command_power_off());assert(cut_calls==1);
- /* Explicit command works at normal voltage while connected and with stale
-  * sampling. Its acknowledgement must drain; busy/failed work stays pending. */
- reset();deepsleep_en=true;device_in_connection_state=1;valid=0;ble_tx_pending=1;
- app_power_process(&s_sample_due);assert(!cut_calls && seq_len==0 && deepsleep_en);
- ble_tx_pending=0;ota_is_working=1;app_power_process(&s_sample_due);assert(!cut_calls);
- ota_is_working=0;bus_busy=1;app_power_process(&s_sample_due);assert(!cut_calls);
- bus_busy=0;flash_ready=0;app_power_process(&s_sample_due);assert(!cut_calls);
- flash_ready=1;storage_ok=0;app_power_process(&s_sample_due);assert(seq_len==1 && !cut_calls);
- assert(observed_sleep_reason==DIAG_SLEEP_REASON_COMMAND);
- assert(observed_sleep_block==DIAG_SLEEP_BLOCK_STORAGE && observed_sleep_retry==5000u);
- for(int i=0;i<10;i++){app_power_process(&s_sample_due);} assert(seq_len==1);
- now+=160000u;seq_len=0;storage_ok=1;shutdown_ok=0;
- app_power_process(&s_sample_due);assert(seq_len==3 && !cut_calls && deepsleep_en);
- now+=160000u;seq_len=0;shutdown_ok=1;
- app_power_process(&s_sample_due);assert(cut_calls==1 && seq_len==5 && s_power_off_committed);
- for(int i=0;i<5;i++)assert(seq[i]==i+1);
- saved=seq_len;
- assert(app_power_prepare_loop());
- assert(app_power_prepare_loop());
- assert(cut_calls==1 && seq_len==saved && !deep_calls && !timer_hold_calls && !diag_poll_calls);
- puts("PASS commanded shutdown: BLE response drain, connected/stale samples, OTA/bus/Flash wait, retry, final PC4 cut");
- puts("PASS PM: +/-500 mA, invalid/stale, OTA/bus/Flash gates, persistence/AFE failures, ordered cut-off, retry/wrap");
+ /* 命令走真实PM入口：持续一线通、OTA、Flash未就绪和各种失败都不能拒睡。 */
+ for(int failure=0;failure<8;failure++){
+  reset();deepsleep_en=true;device_in_connection_state=1;bus_busy=1;
+  if(failure==1)ota_is_working=1;
+  if(failure==2)flash_ready=0;
+  if(failure==3)storage_ok=0;
+  if(failure==4)event_ok=0;
+  if(failure==5)shutdown_ok=0;
+  if(failure==6)ble_control_ok=0;
+  if(failure==7)valid=0;
+  app_power_process(&s_sample_due);
+  assert(cut_calls==1&&s_protective_sleep.committed&&!output_enabled&&!deep_calls);
+  assert(observed_sleep_reason==DIAG_SLEEP_REASON_COMMAND&&!observed_sleep_block&&!observed_sleep_retry);
+  assert(afe_shutdown_calls==1);
+  assert(seq[0]==3&&seq[seq_len-1]==5); /* AFE先尝试，PC4断电最后执行。 */
+  if(failure==1||failure==2)assert(seq_len==3);
+  else assert(seq_len==5&&seq[1]==1&&seq[2]==2); /* 保存失败仍尝试事件一次。 */
+  saved=seq_len;
+  assert(app_power_prepare_loop()&&app_power_prepare_loop());
+  app_power_process(&s_sample_due);
+  assert(cut_calls==1&&seq_len==saved&&!diag_poll_calls&&!timer_hold_calls);
+ }
+ /* BLE/UART/DE各自卡住最多500ms；同时覆盖32位tick回绕。 */
+ for(int pending=0;pending<3;pending++){
+  reset();now=UINT32_MAX-8000u;deepsleep_en=true;device_in_connection_state=1;
+  bus_busy=ota_is_working=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;
+  ble_tx_pending=pending==0;uart_busy=pending==1;modbus_tx_busy=pending==2;
+  app_power_process(&s_sample_due);assert(!cut_calls&&!seq_len);
+  assert(observed_sleep_reason==DIAG_SLEEP_REASON_COMMAND&&observed_sleep_delay==500u);
+  now+=499u*32u;app_power_process(&s_sample_due);assert(!cut_calls&&!seq_len);
+  assert(observed_sleep_elapsed==499u&&!observed_sleep_block);
+  now+=32u;app_power_process(&s_sample_due);
+  assert(cut_calls==1&&s_protective_sleep.committed&&seq_len==3);
+ }
+ /* 应答提前发完时立即关机，无需等满500ms或关闭开关。 */
+ reset();deepsleep_en=true;device_in_connection_state=1;ble_tx_pending=1;
+ app_power_process(&s_sample_due);assert(!cut_calls);
+ ble_tx_pending=0;bus_busy=1;app_power_process(&s_sample_due);assert(cut_calls==1);
+ puts("PASS commanded shutdown: OWC/OTA/Flash/failure override, bounded BLE/UART reply, tick wrap, one-shot PC4 cut");
+ puts("PASS PM: ordinary suspend/ACC gates retained; protective and command requests cannot be blocked");
 }

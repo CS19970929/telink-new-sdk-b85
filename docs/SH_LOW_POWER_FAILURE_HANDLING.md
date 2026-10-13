@@ -14,7 +14,7 @@
 | `0x1102=0x000A` 命令 | 应答空闲后立即；最长等待 500 ms | 已锁存命令不能被通信卡死无限延后 |
 
 低压完整定义见 [保护性休眠](LOW_POWER_POLICY.md)。计时使用 32K 墙钟，处理无符号回绕。
-开关和命令由 `app_sh_explicit_sleep_poll()` 持有，电压与 AFE 条件由
+开关由 `app_sh_explicit_sleep_poll()` 持有，四产品命令共用 `app_command_sleep_poll()`，电压与 AFE 条件由
 `app_protective_sleep_poll()` 持有，最终调用同一个 `app_enter_protective_sleep()`。
 
 提交后撤销输出授权，经过 guard 尝试 AFE Sleep；允许写 Flash 且未 OTA 时，State/Event
