@@ -6,6 +6,7 @@
 #include "bms_product.h"
 #include "bms_update_policy.h"
 #include "bms_config_store.h"
+#include "bms_sleep_config.h"
 #include "bms_state_store.h"
 #include "bms_afe_hw_access.h"
 #include "bms_features.h"
@@ -41,7 +42,7 @@ static u8 finish(u8 result)
 /* 检查业务参数地址是否允许读取。 */
 int bms_parameter_readable(u16 r)
 {
-    /* 仅按既有外部寄存器块判断；不扩大可读地址范围。 */
+    /* 旧地址保持；新增休眠组只开放两个明确的五 word 块。 */
     return ((r >= BMS_PARAM_REG_MAGIC &&
              r <= BMS_PARAM_REG_DEFAULT_BALANCE_DELTA_STOP) ||
             (r >= BMS_PARAM_REG_HEATER_ENABLE &&
@@ -52,6 +53,8 @@ int bms_parameter_readable(u16 r)
              r <= BMS_PARAM_REG_SN_LAST) ||
             (r >= BMS_PARAM_REG_BALANCE_ENABLE &&
              r <= BMS_PARAM_REG_BALANCE_DELTA_STOP) ||
+            (r >= BMS_PARAM_REG_SLEEP_BASE && r <= BMS_PARAM_REG_SLEEP_LAST) ||
+            (r >= BMS_PARAM_REG_SLEEP_DEFAULT_BASE && r <= BMS_PARAM_REG_SLEEP_DEFAULT_LAST) ||
             (r >= BMS_PARAM_REG_UPDATE_REVISION_BASE &&
              r < BMS_PARAM_REG_UPDATE_REVISION_BASE + BMS_UPDATE_GROUP_COUNT) ||
             r == BMS_PARAM_REG_SOC ||
@@ -65,13 +68,15 @@ u16 bms_parameter_read(u16 r)
     bms_user_params_t v;
     bms_config_system_params_t system;
     bms_afe_aux_measurements_t sample;
+    bms_sleep_config_t sleep;
+    u16 sleep_word;
     u8 sample_valid;
     if (r >= BMS_PARAM_REG_UPDATE_REVISION_BASE && r < BMS_PARAM_REG_UPDATE_REVISION_BASE + BMS_UPDATE_GROUP_COUNT)
         return bms_update_revision((bms_update_group_t)(r - BMS_PARAM_REG_UPDATE_REVISION_BASE));
     if (r == BMS_PARAM_REG_MAGIC) return BMS_PARAMETER_INTERFACE_MAGIC;
     if (r == BMS_PARAM_REG_VERSION) return 2u;
-    if (r == BMS_PARAM_REG_CAPABILITIES) return 0x007Fu; /*
-     * 容量、SN、加热、校准、重置、State 同步与均衡。
+    if (r == BMS_PARAM_REG_CAPABILITIES) return 0x00FFu; /*
+     * 容量、SN、加热、校准、重置、State 同步、均衡及两档休眠。
      */
     if (r == BMS_PARAM_REG_LAST_RESULT) return s_result;
     if (r == BMS_PARAM_REG_SEQUENCE) return s_sequence;
@@ -86,6 +91,19 @@ u16 bms_parameter_read(u16 r)
     if (r == BMS_PARAM_REG_DEFAULT_BALANCE_START) return BMS_BALANCE_START_VOLTAGE_MV_DEFAULT;
     if (r == BMS_PARAM_REG_DEFAULT_BALANCE_DELTA_START) return BMS_BALANCE_START_DELTA_MV_DEFAULT;
     if (r == BMS_PARAM_REG_DEFAULT_BALANCE_DELTA_STOP) return BMS_BALANCE_STOP_DELTA_MV_DEFAULT;
+    if ((r >= BMS_PARAM_REG_SLEEP_BASE && r <= BMS_PARAM_REG_SLEEP_LAST) ||
+        (r >= BMS_PARAM_REG_SLEEP_DEFAULT_BASE && r <= BMS_PARAM_REG_SLEEP_DEFAULT_LAST)) {
+        u16 offset;
+        if (r >= BMS_PARAM_REG_SLEEP_DEFAULT_BASE) {
+            bms_sleep_config_defaults(&sleep);
+            offset = r - BMS_PARAM_REG_SLEEP_DEFAULT_BASE;
+        } else {
+            bms_sleep_config_get(&sleep);
+            offset = r - BMS_PARAM_REG_SLEEP_BASE;
+        }
+        memcpy(&sleep_word, (const u8 *)&sleep + offset * 2u, sizeof(sleep_word));
+        return sleep_word;
+    }
     if (r == BMS_PARAM_REG_SOC) return get_soc_real();
     if (r == BMS_PARAM_REG_CYCLE) return (u16)g_bms_soc.cycle_count;
     if (r == BMS_PARAM_REG_CAPACITY)
@@ -129,9 +147,19 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
 {
     bms_user_params_t v;
     bms_config_system_params_t system;
+    bms_sleep_config_t sleep;
     u16 value, i;
     if (!data || !qty) return finish(3u);
     value = word(data);
+    if (r == BMS_PARAM_REG_SLEEP_BASE) {
+        if (qty != BMS_SLEEP_CONFIG_WORDS) return finish(3u);
+        for (i = 0u; i < BMS_SLEEP_CONFIG_WORDS; ++i) {
+            u16 item = word(data + i * 2u);
+            memcpy((u8 *)&sleep + i * 2u, &item, sizeof(item));
+        }
+        if (!bms_sleep_config_valid(&sleep)) return finish(3u);
+        return finish(bms_sleep_config_set(&sleep) ? 0u : 4u);
+    }
     if (r == BMS_PARAM_REG_SOC || r == BMS_PARAM_REG_CYCLE)
     {
         u16 soc = (r == BMS_PARAM_REG_SOC) ? value : get_soc_real();

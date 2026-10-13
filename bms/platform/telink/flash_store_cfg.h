@@ -17,22 +17,26 @@ u32 blc_ota_getCurrentUsedMultipleBootAddress(void);
 #define FLASH_SECTOR_SIZE                 4096u
 #define FLASH_PAGE_SIZE                   256u
 
-/* 三个业务持久域；旧开发布局失效，APP/OTA 和 SDK 区域不变。 */
+/* 既有三个业务域及新增休眠配置；APP/OTA 和 SDK 区域不变。 */
 #define FLASH_ADDR_EVENT_SECTORS          16u
 #define FLASH_ADDR_STATE_SECTORS          8u
 #define FLASH_ADDR_CONFIG_SECTORS         4u
+#define FLASH_ADDR_SLEEP_CONFIG_SECTORS   2u
 
 #define FLASH_ADDR_LAYOUT_512K_EVENT_BASE    0x4C000u
 #define FLASH_ADDR_LAYOUT_512K_STATE_BASE    0x44000u
 #define FLASH_ADDR_LAYOUT_512K_CONFIG_BASE   0x40000u
+#define FLASH_ADDR_LAYOUT_512K_SLEEP_CONFIG_BASE 0x5C000u
 
 #define FLASH_ADDR_LAYOUT_1M_EVENT_BASE      0xBC000u
 #define FLASH_ADDR_LAYOUT_1M_STATE_BASE      0xB4000u
 #define FLASH_ADDR_LAYOUT_1M_CONFIG_BASE     0xB0000u
+#define FLASH_ADDR_LAYOUT_1M_SLEEP_CONFIG_BASE 0xCC000u
 
 #define FLASH_ADDR_LAYOUT_2M_EVENT_BASE      0x1BC000u
 #define FLASH_ADDR_LAYOUT_2M_STATE_BASE      0x1B4000u
 #define FLASH_ADDR_LAYOUT_2M_CONFIG_BASE     0x1B0000u
+#define FLASH_ADDR_LAYOUT_2M_SLEEP_CONFIG_BASE 0x1CC000u
 
 
 /* 检查当前 Flash 容量是否支持配置的持久分区。 */
@@ -82,3 +86,12 @@ static inline u32 flash_store_cfg_get_event_log_base(void)
 }
 /* 取得历史事件持久域占用的擦除扇区数。 */
 static inline u16 flash_store_cfg_get_event_log_sectors(void) { return FLASH_ADDR_EVENT_SECTORS; }
+
+/* 使用原未分配区的两个 sector，不移动 Config/State/Event/APP/OTA/SDK。 */
+static inline u32 flash_store_cfg_get_sleep_config_base(void)
+{
+    if (!flash_store_cfg_layout_supported()) return 0u;
+    if (blc_flash_capacity == FLASH_SIZE_1M) return FLASH_ADDR_LAYOUT_1M_SLEEP_CONFIG_BASE;
+    if (blc_flash_capacity == FLASH_SIZE_2M) return FLASH_ADDR_LAYOUT_2M_SLEEP_CONFIG_BASE;
+    return FLASH_ADDR_LAYOUT_512K_SLEEP_CONFIG_BASE;
+}

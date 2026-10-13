@@ -48,6 +48,7 @@
 #include "bms_state.h"
 #include "bms_soc.h"
 #include "bms_event_log.h"
+#include "bms_sleep_config.h"
 #include "bms_state_store.h"
 #include "bms_storage_platform.h"
 #include "btname_modbus.h"
@@ -323,6 +324,7 @@ void app_init(void)
 #endif
 		board_init();
 		bms_parameters_init();
+		bms_sleep_config_init();
 
 		bms_afe_init();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124

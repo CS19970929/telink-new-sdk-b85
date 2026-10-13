@@ -26,13 +26,18 @@ static unsigned test_ota_mask;
 #define BMS_OTA_UPDATE_ID_5 0x2468u
 #include "bms_update_policy.h"
 #define BMS_ERROR_EEPROM_STORE 1
+#define BMS_ERROR_EEPROM_COM 2
+#define BMS_SLEEP_LOW_CELL_MV 2800u
+#define BMS_SLEEP_LOW_SECONDS 60u
+#define BMS_SLEEP_NORMAL_CELL_MV 3000u
+#define BMS_SLEEP_NORMAL_SECONDS 86400u
 /* MACROS */
 /* TYPES */
 static u32 now, errors, programs, erases;
-static u32 sector_erases[28];
+static u32 sector_erases[30];
 static int read_ok=1, erase_ok=1, config_read_fail;
 static int cut=-1, begin_ok=1, region_ok=1;
-static u8 flash[28u*4096u];
+static u8 flash[30u*4096u];
 static u8 backup[sizeof(flash)];
 static u32 pm_get_32k_tick(void){return now;}
 static void bms_error_raise(int e){(void)e;++errors;}
@@ -48,7 +53,7 @@ static int program(void*c,u32 a,const u8*b,u32 n){(void)c;++programs;assert(a+n<
 static int erase(void*c,u32 a,u32 n){(void)c;++erases;++sector_erases[a/4096u];assert(a+n<=sizeof(flash));if(!erase_ok)return 0;memset(flash+a,255,n);return 1;}
 static const storage_port_t port={0,4096,4,255,begin,end,read_flash,program,erase};
 const storage_port_t*bms_storage_platform_port(void){return &port;}
-int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=16*4096;}else return 0;return 1;}
+int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=16*4096;}else if(d==BMS_STORAGE_DOMAIN_SLEEP_CONFIG){r->base=28*4096;r->size=2*4096;}else return 0;return 1;}
 uint32_t bms_diag_tick(void){return now;}
 /* PRODUCTION */
 static void reboot(void){
@@ -60,6 +65,7 @@ static void reboot(void){
  memset(&g_bms_event_log,0,sizeof(g_bms_event_log));
  memset(&g_bms_event_store,0,sizeof(g_bms_event_store));
  s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
+ bms_sleep_config_init();
 }
 static void fresh(void){
  test_ota_mask=0u;
@@ -631,4 +637,48 @@ static void test_event_semantics(void){
  puts("PASS events: checkpoint-independent merging, elapsed time, CBC onset only, sleep cancellation, abrupt reset window, fractional tick/wrap, semantic decode");
 }
 
-int main(void){test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_balance_permission();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+
+/* 执行真实独立 journal 与参数入口；检查旧 CFG2 不变、整组保存及每字节掉电。 */
+static void test_sleep_config(void)
+{
+ fresh(); bms_sleep_config_t cfg;
+ bms_sleep_config_get(&cfg);assert(cfg.low_cell_mv==2800u && cfg.low_delay_minutes==1u);
+ assert(bms_parameter_read(0x2e02u)&0x80u);
+ assert(bms_parameter_readable(0x2e90u)&&bms_parameter_readable(0x2e94u));
+ assert(!bms_parameter_readable(0x2e95u)&&!bms_parameter_readable(0x2e9du));
+ u8 values[]={0x0a,0x28,0,2,0x0b,0xb8,0x05,0xa0,0,30}; /* 2600 / 2 / 3000 / 1440 / 30 */
+ assert(bms_parameter_write(0x2e90u,4u,values)==3u);
+ assert(bms_parameter_write(0x2e91u,1u,values)==2u);
+ assert(bms_parameter_write(0x2e98u,5u,values)==2u);
+ assert(bms_parameter_write(0x2e90u,5u,values)==0u);
+ assert(bms_parameter_read(0x2e90u)==2600u&&bms_parameter_read(0x2e91u)==2u);
+ u32 written=programs;assert(bms_parameter_write(0x2e90u,5u,values)==0u&&programs==written);
+ bms_sleep_config_get(&cfg);cfg.low_cell_mv=cfg.normal_cell_mv;
+ assert(!bms_sleep_config_set(&cfg));
+ cfg.low_cell_mv=2600u;cfg.low_delay_minutes=1441u;assert(!bms_sleep_config_set(&cfg));
+ reboot();assert(bms_parameter_read(0x2e91u)==2u);
+ assert(bms_config_reset_business());assert(bms_parameter_read(0x2e91u)==2u);
+ memcpy(backup,flash,sizeof(flash));
+ for(int interrupted=0;interrupted<=44;++interrupted) {
+  memcpy(flash,backup,sizeof(flash));reboot();
+  bms_sleep_config_get(&cfg);cfg.low_delay_minutes=10u;
+  cut=interrupted;int saved=bms_sleep_config_set(&cfg);
+  if(!saved){bms_sleep_config_get(&cfg);assert(cfg.low_delay_minutes==2u);}
+  cut=-1;reboot();bms_sleep_config_get(&cfg);
+  assert(cfg.low_delay_minutes==(saved?10u:2u));
+  assert(!memcmp(flash,backup,28u*4096u)); /* Config/State/Event 字节保持。 */
+ }
+ /* 首次保存中断，无旧记录时仍可通过显式保存修复；读失败不能写。 */
+ for(int interrupted=0;interrupted<=44;++interrupted) {
+  fresh();bms_sleep_config_get(&cfg);cut=interrupted;
+  (void)bms_sleep_config_set(&cfg);cut=-1;reboot();
+  bms_sleep_config_get(&cfg);assert(cfg.low_delay_minutes==1u);
+  assert(bms_sleep_config_set(&cfg));reboot();assert(s_sleep_record_valid);
+ }
+ fresh();read_ok=0;bms_sleep_config_init();written=programs;
+ bms_sleep_config_get(&cfg);assert(!bms_sleep_config_set(&cfg)&&programs==written);
+ read_ok=1;
+ puts("PASS sleep configuration: five-word transaction, limits, cache publication, reboot, duplicate suppression, byte cuts, unchanged CFG2/State/Event");
+}
+
+int main(void){test_sleep_config();test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_balance_permission();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}

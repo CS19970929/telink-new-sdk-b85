@@ -34,7 +34,7 @@ def function(name, signature):
 
 def protective_sleep_state():
     text = (MOD / 'app_power.c').read_text()
-    start = text.index('#define APP_AFE_ERROR_SLEEP_SECONDS')
+    start = text.index('#define APP_OVERDISCHARGE_SLEEP_SECONDS')
     end = text.index('static app_protective_sleep_t s_protective_sleep;', start)
     return text[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n'
 
@@ -68,7 +68,7 @@ def main():
                 'static u32 app_sleep_retry_ms(', 'static void app_publish_sleep(',
                 'static u32 app_pm_elapsed_limit(',
                 'static void app_protective_sleep_hold(',
-                'static void app_enter_protective_sleep(', 'static u8 app_protective_sleep_poll(',
+                'static void app_enter_protective_sleep(', 'static void app_select_protective_sleep(', 'static u8 app_protective_sleep_poll(',
                 'static void app_dvc_publish_sleep(',
                 'static int app_enter_command_power_off(', 'static void app_acc_sleep_hold(',
                 'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void app_power_process(',
@@ -97,7 +97,7 @@ def main():
                 '-DBMS_PRODUCT_SWITCH_SLEEP_ENABLE=1',
                 '-std=c99', '-DBMS_HOST_TEST=1', '-Wall', '-Wextra', '-Werror',
                 '-Wno-unused-function', '-Wno-unused-parameter',
-                str(path), *([*host_includes(ROOT),'-include',str(MOD/'bms_diag.h'),str(MOD/'bms_diag.c')] if name=='guard' else []), '-o', str(executable)], check=True)
+                str(path), '-I', str(ROOT/'bms/core'), *([*host_includes(ROOT),'-include',str(MOD/'bms_diag.h'),str(MOD/'bms_diag.c')] if name=='guard' else []), '-o', str(executable)], check=True)
             if args.compile_soc_executable is not None:
                 print(f"WROTE production SOC replay executable: {executable}")
                 return
@@ -106,7 +106,7 @@ def main():
                 subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
                     '-std=c99', '-DBMS_HOST_TEST=1', '-DBMS_PRODUCT_SWITCH_SLEEP_ENABLE=0',
                     '-Wall', '-Wextra', '-Werror', '-Wno-unused-function', '-Wno-unused-parameter',
-                    str(path), '-o', str(executable)], check=True)
+                    str(path), '-I', str(ROOT/'bms/core'), '-o', str(executable)], check=True)
                 subprocess.run([str(executable)], check=True)
             if name == 'soc' and args.trajectory is not None:
                 trajectory = subprocess.run([str(executable), '--trajectory'],

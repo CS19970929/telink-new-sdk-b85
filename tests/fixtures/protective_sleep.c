@@ -37,7 +37,7 @@ typedef int GPIO_PinTypeDef;
 #define SUSPEND_DISABLE 0
 typedef struct { u32 last_tick_32k, pending_tick_32k; u8 ready; } app_pm_elapsed_ctx_t;
 typedef struct { u32 sample_tick_32k; int32_t current_ma; } bms_afe_aux_measurements_t;
-static struct { uint16_t cell_min_mv; } g_bms_report;
+static struct { uint16_t cell_min_mv, pack_voltage_10mv; struct { struct { uint8_t cell_uvp, pack_uvp; } bits; } fault_third; } g_bms_report;
 static struct { u8 soc_estimate_percent, discharge_fraction_percent; u32 cycle_count; } g_bms_soc;
 static bms_afe_aux_measurements_t measurement;
 static int valid, afe_error, ota_is_working, device_in_connection_state, flash_ready;
@@ -88,6 +88,11 @@ void bms_diag_sleep(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed) {
     (void)e;(void)d;(void)allowed; assert(!b&&!retry); reason=r;
 }
 void bms_diag_sleep_committed(void) {}
+#include "bms_sleep_config.h"
+static bms_sleep_config_t sleep_config;
+static struct { uint16_t cell_uvp_recover_mv, pack_uvp_recover_10mv; } g_bms_protection_params={2900u,2900u};
+void bms_sleep_config_get(bms_sleep_config_t *config){*config=sleep_config;}
+
 /* PRODUCTION */
 /* 回归场景仍按生产调用方读取一次有效快照，然后推进保护性休眠计时。 */
 static u8 fixture_sleep_poll(u32 seconds, app_sleep_status_t *status)
@@ -99,6 +104,9 @@ static u8 fixture_sleep_poll(u32 seconds, app_sleep_status_t *status)
 static app_sleep_status_t sleep_status;
 static void reset(void) {
     memset(&s_protective_sleep,0,sizeof(s_protective_sleep));
+ sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
+ g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
+ g_bms_report.pack_voltage_10mv=3300;
     s_command_seen=0; retained_analog=wakeup_status=0;
     deepsleep_en=0; tx_busy=ble_pending=uart_ready=uart_entered=0;
     now=measurement.sample_tick_32k=100u; measurement.current_ma=0;
@@ -109,10 +117,29 @@ static void reset(void) {
     memset(enabled,0,sizeof(enabled));
 }
 int main(void) {
+
+    reset();sleep_config.low_delay_minutes=10u;g_bms_report.cell_min_mv=2600u;
+    g_bms_report.fault_third.bits.cell_uvp=1u;
+    assert(!fixture_sleep_poll(179u,&sleep_status));
+    /* AFE 重配清了故障位，但有效电压尚未恢复；固定计时必须保持。 */
+    g_bms_report.fault_third.bits.cell_uvp=0u;
+    assert(fixture_sleep_poll(1u,&sleep_status));assert(reason==DIAG_SLEEP_REASON_OVERDISCHARGE);
+    reset();g_bms_report.fault_third.bits.pack_uvp=1u;
+    assert(!fixture_sleep_poll(179u,&sleep_status));
+    valid=0;g_bms_report.fault_third.bits.pack_uvp=0u;
+    assert(fixture_sleep_poll(1u,&sleep_status));assert(reason==DIAG_SLEEP_REASON_OVERDISCHARGE);
+    reset();g_bms_report.fault_third.bits.cell_uvp=1u;
+    assert(!fixture_sleep_poll(179u,&sleep_status));
+    g_bms_report.fault_third.bits.cell_uvp=0u;
+    assert(!fixture_sleep_poll(1u,&sleep_status));assert(!s_protective_sleep.overdischarge_seconds);
+    reset();sleep_config.low_delay_minutes=1u;g_bms_report.cell_min_mv=2500u;
+    assert(!fixture_sleep_poll(59u,&sleep_status));assert(fixture_sleep_poll(1u,&sleep_status));
+    assert(reason==DIAG_SLEEP_REASON_LOW); /* 删除2550分段，2500也使用配置的一分钟。 */
+
     reset(); g_bms_report.cell_min_mv=2600; device_in_connection_state=1;
     assert(!fixture_sleep_poll(1800, &sleep_status));
     g_bms_report.cell_min_mv=2500;
-    assert(fixture_sleep_poll(1800, &sleep_status)); /* 跨极低压分界仍累计一小时 */
+    assert(fixture_sleep_poll(1800, &sleep_status)); /* 2500 mV 与 2600 mV 同属下档，保留累计时间 */
     assert(sleep_calls==1&&saves==1&&events==1&&afe_calls==1&&output_calls==1);
     assert(s_protective_sleep.committed&&s_low_power_mode);
     pins[1]=0; assert(app_power_prepare_loop());
@@ -155,7 +182,7 @@ int main(void) {
         g_bms_report.cell_min_mv=(step&1u)?2799u:2801u;
         assert(fixture_sleep_poll(1800u, &sleep_status)==(step==48u));
     }
-    assert(reason==DIAG_SLEEP_REASON_VERY_LOW + 2u);
+    assert(reason==DIAG_SLEEP_REASON_NORMAL);
     reset(); app_pm_elapsed_ctx_t ctx={UINT32_MAX-15999u,16000u,1u}; now=0u;
     assert(app_pm_take_elapsed_seconds(&ctx)==1u&&!ctx.pending_tick_32k);
     ctx.last_tick_32k=1u;ctx.pending_tick_32k=31999u;now=0u;

@@ -56,6 +56,10 @@
 #define BMS_PARAM_REG_BALANCE_DELTA_START         0x2E72u
 #define BMS_PARAM_REG_BALANCE_DELTA_STOP          0x2E73u
 #define BMS_PARAM_REG_UPDATE_REVISION_BASE        0x2E80u
+#define BMS_PARAM_REG_SLEEP_BASE                  0x2E90u
+#define BMS_PARAM_REG_SLEEP_LAST                  0x2E94u
+#define BMS_PARAM_REG_SLEEP_DEFAULT_BASE          0x2E98u
+#define BMS_PARAM_REG_SLEEP_DEFAULT_LAST          0x2E9Cu
 
 
 #define PROD_SN_REG_BASE                   0xc002

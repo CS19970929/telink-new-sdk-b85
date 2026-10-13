@@ -147,7 +147,7 @@ def check_sh_protective_sleep():
     startup = (root / 'bms/platform/telink/main.c').read_text(encoding='utf-8')
     assert startup.index('clock_init(SYS_CLK_TYPE)') < startup.index('while (app_power_boot_sleep_hold())')
     assert startup.index('while (app_power_boot_sleep_hold())') < startup.index('wd_start()') < startup.index('user_init_normal()')
-    start = source.index('#define APP_AFE_ERROR_SLEEP_SECONDS')
+    start = source.index('#define APP_OVERDISCHARGE_SLEEP_SECONDS')
     end = source.index('static app_protective_sleep_t s_protective_sleep;', start)
     body = source[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n'
     body += '\n'.join(function(source, signature) for signature in (
@@ -156,7 +156,7 @@ def check_sh_protective_sleep():
         'static u8 app_sh_other_wakeup_levels(', 'static void app_sh_set_other_wakeup(',
         'u8 app_power_boot_sleep_hold(',
         'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
-        'static void app_enter_protective_sleep(', 'static u8 app_protective_sleep_poll(',
+        'static void app_enter_protective_sleep(', 'static void app_select_protective_sleep(', 'static u8 app_protective_sleep_poll(',
         'uint8_t app_power_prepare_loop('))
     state_start = source.index('static u8 s_command_seen')
     state_end = source.index('static u8 app_sh_explicit_sleep_poll(', state_start)

@@ -153,6 +153,10 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
         base = flash_store_cfg_get_event_log_base();
         sectors = flash_store_cfg_get_event_log_sectors();
         break;
+    case BMS_STORAGE_DOMAIN_SLEEP_CONFIG:
+        base = flash_store_cfg_get_sleep_config_base();
+        sectors = FLASH_ADDR_SLEEP_CONFIG_SECTORS;
+        break;
     default:
         return 0;
     }

@@ -44,6 +44,8 @@
 #include "bms_state_store.h"
 #include "bms_storage_platform.h"
 #include "bms_parameters.h"
+#include "bms_sleep_config.h"
+#include <string.h>
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "bus_mux.h"
@@ -70,7 +72,7 @@ static u8 s_sleep_report_reason;
 #endif
 
 /* 四产品保护性休眠共用计时；到期后锁存，不再回到通信/采样业务。 */
-#define APP_AFE_ERROR_SLEEP_SECONDS (30u * 60u)
+#define APP_OVERDISCHARGE_SLEEP_SECONDS 180u
 /* 普通 Suspend 与低压可靠充电分别拥有阈值，不随 SOC 电流死区调整。 */
 #define APP_SUSPEND_EXIT_CURRENT_MA ((int32_t)200)
 #define APP_SLEEP_CHARGE_CURRENT_MA ((int32_t)200)
@@ -85,6 +87,8 @@ typedef struct {
     u32 normal_voltage_seconds;
     u8 normal_voltage_active;
     u32 afe_error_seconds;
+    u32 overdischarge_seconds;
+    u8 overdischarge_active;
     u8 region;
     u8 committed;
 } app_protective_sleep_t;
@@ -298,63 +302,79 @@ static void app_enter_protective_sleep(void)
     app_protective_sleep_hold();
 }
 
-/* 两类计时独立；BLE/串口/OTA 不清零，AFE 异常不被旧低压报告遮住。 */
+/* 选最先到期的条件；所有乘法都在配置上限 65535 分钟以内。 */
+static void app_select_protective_sleep(app_sleep_status_t *status, u8 reason,
+                                        u32 elapsed_seconds, u32 delay_seconds)
+{
+    u32 elapsed_ms = elapsed_seconds * 1000u;
+    u32 delay_ms = delay_seconds * 1000u;
+    if (status->reason == DIAG_SLEEP_REASON_NONE ||
+        delay_ms - elapsed_ms <= status->delay_ms - status->elapsed_ms) {
+        status->reason = reason;
+        status->elapsed_ms = elapsed_ms;
+        status->delay_ms = delay_ms;
+    }
+}
+
+/* 两档低压、AFE 异常和过放分别计时；无新鲜数据不能证明已恢复。 */
 static u8 app_protective_sleep_poll(u32 elapsed_sec,
                                     const bms_afe_aux_measurements_t *m, u8 valid,
                                     app_sleep_status_t *status)
 {
+    bms_sleep_config_t config;
     u8 region = s_protective_sleep.region;
-    u32 limit = region == 1u ? 3600u :
-                region == 2u ? BMS_SLEEP_LOW_SECONDS :
-                region == 3u ? BMS_SLEEP_NORMAL_SECONDS : 0u;
+    u8 afe_fault = !valid || bms_error_get(BMS_ERROR_AFE1);
+    u32 low_delay, normal_delay, afe_delay;
     if (s_protective_sleep.committed) {
         app_protective_sleep_hold();
         return 1u;
     }
+    bms_sleep_config_get(&config);
+    low_delay = (u32)config.low_delay_minutes * 60u;
+    normal_delay = (u32)config.normal_delay_minutes * 60u;
+    afe_delay = (u32)config.afe_delay_minutes * 60u;
+    memset(status, 0, sizeof(*status));
     if (valid) {
         region = 0u;
-        limit = 0u;
         s_protective_sleep.normal_voltage_active =
-            g_bms_report.cell_min_mv < BMS_SLEEP_NORMAL_CELL_MV &&
+            g_bms_report.cell_min_mv < config.normal_cell_mv &&
             m->current_ma >= -APP_SLEEP_CHARGE_CURRENT_MA;
-        if (g_bms_report.cell_min_mv < 2550u) {
-            region = 1u; limit = 3600u;
-        } else if (g_bms_report.cell_min_mv < BMS_SLEEP_LOW_CELL_MV) {
-            region = 2u; limit = BMS_SLEEP_LOW_SECONDS;
-        } else if (g_bms_report.cell_min_mv < BMS_SLEEP_NORMAL_CELL_MV &&
-                   m->current_ma >= -APP_SLEEP_CHARGE_CURRENT_MA) {
-            region = 3u; limit = BMS_SLEEP_NORMAL_SECONDS;
-        }
+        if (g_bms_report.cell_min_mv < config.low_cell_mv) region = 2u;
+        else if (s_protective_sleep.normal_voltage_active) region = 3u;
     }
-    /* 两个电压条件分别累计；跨2800mV只结束一小时条件，不丢24小时资格。
-     * 无新鲜数据保持最后确认的条件；有效恢复或可靠充电才解除相应计时。 */
+    /* 下档不排除充电，上档只在无可靠充电时累计；保持原有两条件资格。 */
     s_protective_sleep.region = region;
-    s_protective_sleep.low_voltage_seconds = (region == 1u || region == 2u) ?
-        app_pm_elapsed_limit(s_protective_sleep.low_voltage_seconds, elapsed_sec, limit) : 0u;
+    s_protective_sleep.low_voltage_seconds = region == 2u ?
+        app_pm_elapsed_limit(s_protective_sleep.low_voltage_seconds, elapsed_sec, low_delay) : 0u;
     s_protective_sleep.normal_voltage_seconds = s_protective_sleep.normal_voltage_active ?
         app_pm_elapsed_limit(s_protective_sleep.normal_voltage_seconds, elapsed_sec,
-                             BMS_SLEEP_NORMAL_SECONDS) : 0u;
-    s_protective_sleep.afe_error_seconds = (!valid || bms_error_get(BMS_ERROR_AFE1)) ?
+                             normal_delay) : 0u;
+    s_protective_sleep.afe_error_seconds = afe_fault ?
         app_pm_elapsed_limit(s_protective_sleep.afe_error_seconds, elapsed_sec,
-                             APP_AFE_ERROR_SLEEP_SECONDS) : 0u;
-    status->reason = region ? (u8)(DIAG_SLEEP_REASON_VERY_LOW + region - 1u) :
-                                         DIAG_SLEEP_REASON_NONE;
-    status->elapsed_ms = s_protective_sleep.low_voltage_seconds * 1000u;
-    status->delay_ms = limit * 1000u;
-    if (s_protective_sleep.normal_voltage_active &&
-        (region == 3u || BMS_SLEEP_NORMAL_SECONDS - s_protective_sleep.normal_voltage_seconds <=
-                         limit - s_protective_sleep.low_voltage_seconds)) {
-        status->reason = (u8)(DIAG_SLEEP_REASON_VERY_LOW + 2u);
-        status->elapsed_ms = s_protective_sleep.normal_voltage_seconds * 1000u;
-        status->delay_ms = BMS_SLEEP_NORMAL_SECONDS * 1000u;
-    }
-    if (s_protective_sleep.afe_error_seconds &&
-        (!region || (APP_AFE_ERROR_SLEEP_SECONDS - s_protective_sleep.afe_error_seconds) * 1000u <=
-                    status->delay_ms - status->elapsed_ms)) {
-        status->reason = DIAG_SLEEP_REASON_AFE;
-        status->elapsed_ms = s_protective_sleep.afe_error_seconds * 1000u;
-        status->delay_ms = APP_AFE_ERROR_SLEEP_SECONDS * 1000u;
-    }
+                             afe_delay) : 0u;
+    /* fault_third 已合并软件/AFE 欠压。通信恢复重初始化不能冒充电池恢复。 */
+    if (g_bms_report.fault_third.bits.cell_uvp || g_bms_report.fault_third.bits.pack_uvp)
+        s_protective_sleep.overdischarge_active = 1u;
+    else if (valid && !afe_fault &&
+             g_bms_report.cell_min_mv >= g_bms_protection_params.cell_uvp_recover_mv &&
+             g_bms_report.pack_voltage_10mv >= g_bms_protection_params.pack_uvp_recover_10mv)
+        s_protective_sleep.overdischarge_active = 0u;
+    s_protective_sleep.overdischarge_seconds = s_protective_sleep.overdischarge_active ?
+        app_pm_elapsed_limit(s_protective_sleep.overdischarge_seconds, elapsed_sec,
+                             APP_OVERDISCHARGE_SLEEP_SECONDS) : 0u;
+
+    if (region == 2u)
+        app_select_protective_sleep(status, DIAG_SLEEP_REASON_LOW,
+            s_protective_sleep.low_voltage_seconds, low_delay);
+    if (s_protective_sleep.normal_voltage_active)
+        app_select_protective_sleep(status, DIAG_SLEEP_REASON_NORMAL,
+            s_protective_sleep.normal_voltage_seconds, normal_delay);
+    if (afe_fault)
+        app_select_protective_sleep(status, DIAG_SLEEP_REASON_AFE,
+            s_protective_sleep.afe_error_seconds, afe_delay);
+    if (s_protective_sleep.overdischarge_active)
+        app_select_protective_sleep(status, DIAG_SLEEP_REASON_OVERDISCHARGE,
+            s_protective_sleep.overdischarge_seconds, APP_OVERDISCHARGE_SLEEP_SECONDS);
     if (status->reason != DIAG_SLEEP_REASON_NONE)
         bms_diag_sleep(status->reason, 0u, status->elapsed_ms,
                         status->delay_ms, 0u, 0u);

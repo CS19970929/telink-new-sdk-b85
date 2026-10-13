@@ -82,7 +82,7 @@ void bms_diag_sleep(u8 reason,u32 block,u32 elapsed_ms,u32 delay_ms,u32 retry_ms
  observed_sleep_elapsed=elapsed_ms;observed_sleep_retry=retry_ms;
 }
 void bms_diag_sleep_committed(void){}
-static struct{uint16_t cell_min_mv;}g_bms_report={3300};
+static struct{uint16_t cell_min_mv, pack_voltage_10mv; struct { struct { uint8_t cell_uvp, pack_uvp; } bits; } fault_third;}g_bms_report={.cell_min_mv=3300};
 static struct{uint8_t soc_estimate_percent,discharge_fraction_percent;uint32_t cycle_count;}g_bms_soc;
 static u32 pm_get_32k_tick(void){return now;}
 static unsigned afe_snapshot_reads;
@@ -122,6 +122,11 @@ static unsigned diag_poll_calls;
 static void bms_parameters_diag_poll(void){++diag_poll_calls;}
 static void bms_storage_platform_diag_poll(void){++diag_poll_calls;}
 static void bms_afe_diag_poll(void){++diag_poll_calls;}
+#include "bms_sleep_config.h"
+static bms_sleep_config_t sleep_config;
+static struct { uint16_t cell_uvp_recover_mv, pack_uvp_recover_10mv; } g_bms_protection_params={2900u,2900u};
+void bms_sleep_config_get(bms_sleep_config_t *config){*config=sleep_config;}
+
 /* PRODUCTION_SOURCE */
 static void reset(void){
  diag_poll_calls=0;
@@ -130,7 +135,10 @@ static void reset(void){
  s_acc_sleep_committed=s_acc_retry_ready=s_acc_disconnect_sent=0;
  deepsleep_en=false;ble_tx_pending=0;
  s_sleep_failure_mask=s_sleep_report_reason=0;
- memset(&s_protective_sleep,0,sizeof(s_protective_sleep));afe_error=0;output_enabled=1;
+ memset(&s_protective_sleep,0,sizeof(s_protective_sleep));
+ sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
+ g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
+ g_bms_report.pack_voltage_10mv=3300;afe_error=0;output_enabled=1;
  afe_shutdown_calls=0;
  s_power_off_committed=s_power_off_retry_ready=s_sample_due=0;
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
@@ -210,7 +218,7 @@ static void test_low_voltage_sample_wait(void){
 }
 static void test_protective_low_voltage_shutdown(void){
  const struct {uint16_t cell_mv;u32 seconds;u8 reason;} cases[]={
-  {2400u,3600u,DIAG_SLEEP_REASON_VERY_LOW},
+  {2400u,BMS_SLEEP_LOW_SECONDS,DIAG_SLEEP_REASON_LOW},
   {2700u,BMS_SLEEP_LOW_SECONDS,DIAG_SLEEP_REASON_LOW},
   {2900u,BMS_SLEEP_NORMAL_SECONDS,DIAG_SLEEP_REASON_NORMAL}
  };
@@ -237,6 +245,28 @@ static void test_protective_low_voltage_shutdown(void){
  puts("PASS D008 low-voltage power-off: all voltage regions, save/AFE failures still cut PC4, external supply hold never repeats AFE/Flash/cut or enables PAD wake");
 }
 int main(void){
+
+ reset();sleep_config.low_delay_minutes=10u;g_bms_report.cell_min_mv=2600u;
+ g_bms_report.fault_third.bits.cell_uvp=1u;
+ elapsed=179u;app_power_process(&s_sample_due);assert(!cut_calls);
+ sleep_config.low_delay_minutes=20u; /* 改可配置时间不得清除独立180秒。 */
+ g_bms_report.fault_third.bits.cell_uvp=0u;
+ elapsed=1u;app_power_process(&s_sample_due);
+ assert(cut_calls==1&&observed_sleep_reason==DIAG_SLEEP_REASON_OVERDISCHARGE);
+ reset();g_bms_report.fault_third.bits.pack_uvp=1u;
+ elapsed=179u;app_power_process(&s_sample_due);assert(!cut_calls);
+ valid=0;g_bms_report.fault_third.bits.pack_uvp=0u;
+ elapsed=1u;app_power_process(&s_sample_due);
+ assert(cut_calls==1&&observed_sleep_reason==DIAG_SLEEP_REASON_OVERDISCHARGE);
+ reset();g_bms_report.fault_third.bits.cell_uvp=1u;
+ elapsed=179u;app_power_process(&s_sample_due);assert(!cut_calls);
+ g_bms_report.fault_third.bits.cell_uvp=0u;
+ elapsed=1u;app_power_process(&s_sample_due);assert(!cut_calls&&!s_protective_sleep.overdischarge_seconds);
+ reset();sleep_config.low_delay_minutes=1u;g_bms_report.cell_min_mv=2500u;
+ elapsed=59u;app_power_process(&s_sample_due);assert(!cut_calls);
+ elapsed=1u;app_power_process(&s_sample_due);
+ assert(cut_calls==1&&observed_sleep_reason==DIAG_SLEEP_REASON_LOW);
+
  test_acc_sleep();
  test_low_voltage_sample_wait();
  test_protective_low_voltage_shutdown();

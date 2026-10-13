@@ -63,14 +63,14 @@ class LayoutTests(unittest.TestCase):
 
     def regions(self, capacity):
         out = {}
-        for domain in ("EVENT", "STATE", "CONFIG"):
+        for domain in ("EVENT", "STATE", "CONFIG", "SLEEP_CONFIG"):
             base = macro(self.cfg, f"FLASH_ADDR_LAYOUT_{capacity}_{domain}_BASE")
             count = macro(self.cfg, f"FLASH_ADDR_{domain}_SECTORS")
             out[domain] = (base, base + count * self.sector)
         return out
 
     def test_every_domain_has_power_loss_rotation_room(self):
-        for domain in ("EVENT", "STATE", "CONFIG"):
+        for domain in ("EVENT", "STATE", "CONFIG", "SLEEP_CONFIG"):
             self.assertGreaterEqual(macro(self.cfg, f"FLASH_ADDR_{domain}_SECTORS"), 2)
 
     def test_512k_layout_is_the_reviewed_storage_v1_map(self):
@@ -78,6 +78,7 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(r["EVENT"], (0x4C000, 0x5C000))
         self.assertEqual(r["STATE"], (0x44000, 0x4C000))
         self.assertEqual(r["CONFIG"], (0x40000, 0x44000))
+        self.assertEqual(r["SLEEP_CONFIG"], (0x5C000, 0x5E000))
 
     def test_domains_do_not_overlap(self):
         for capacity in ("512K", "1M", "2M"):

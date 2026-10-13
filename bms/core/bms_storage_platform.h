@@ -19,6 +19,7 @@ typedef enum {
     BMS_STORAGE_DOMAIN_STATE,
     BMS_STORAGE_DOMAIN_RESERVED_2, /* 诊断 schema 1 的原位置保持 NOT_RUN。 */
     BMS_STORAGE_DOMAIN_EVENT,
+    BMS_STORAGE_DOMAIN_SLEEP_CONFIG, /* 新增独立参数；不复用旧诊断槽位。 */
     BMS_STORAGE_DOMAIN_COUNT
 } bms_storage_domain_t;
 

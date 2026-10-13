@@ -72,6 +72,7 @@ python bms_tools/bms.py --product d014 resources
 | [运行阶段日志](docs/RUNTIME_DEBUG_LOG.md) | 开发日志、只读协议、开关及固定提交资源记录 |
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 开关/低压强制深睡、UART静默30秒Suspend及首帧唤醒 |
 | [四产品保护性休眠](docs/LOW_POWER_POLICY.md) | 低压、AFE 异常到期 D008 断电、SH 深睡与唤醒 |
+| [两档休眠参数与固定过放休眠](docs/SLEEP_CONFIGURATION.md) | 上位机配置电压/延时、独立参数保存、过放未恢复固定 3 分钟 |
 | [MOS 无人值守监控](docs/MOS_MONITOR.md) | 请求、命令、AFE 状态、原因、开发历史及自动写盘 |
 | [MOS 关断时序优化](docs/MOS_SHUTDOWN_TIMING_OPTIMIZATION.md) | 监控异常的证据边界、配置重复读取、D008 NTC 资格及 SH 辅助采样 |
 | [历史：断线检测调研与双后端方案](docs/OPENWIRE_RESEARCH_AND_DESIGN.md) | 原厂检测目的、DVC/SH 差异、当前 MOS 隔离问题及待验证方案 |

@@ -150,3 +150,7 @@ D008 三个装配 profile 的 SCD 默认开启：200 A、请求延时 256 µs，
 软件版本、编译名称、用户 SN、持久蓝牙后缀是不同字段；改 `BMS_PRODUCT_BLE_NAME` 不会清除已有后缀。内部 tag 为 8/11/13/14；D011/D013/D014 wire ID 仍为 2，不能为显示方便擅自改变。
 
 在线配置使用 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/`，先核对固件/工具能力。AFE 写入使用授权及完整 35-word 事务。协议地址、缩放、Flash/OTA 布局、底层寄存器不属于随手试改范围。
+
+## 两档休眠与固定过放休眠（2026-10-13）
+
+Windows 客户版/内部版“业务参数 → 保护性休眠参数”可读写两档 mV、两档整数分钟和 AFE 异常分钟数；独立记录保存，不覆盖 CFG2。另有过放未恢复固定 180 秒，不可编辑。默认值、先到期规则、协议及未执行验证见 [休眠配置](SLEEP_CONFIGURATION.md)。
