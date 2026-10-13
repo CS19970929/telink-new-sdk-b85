@@ -321,6 +321,9 @@ static u8 modbus_uart_service_suspend(void)
 /* 初始化产品 UART、DMA 缓冲区及 RS485 方向。 */
 void modbus_uart_init(void)
 {
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    u8 irq_state = irq_disable();
+#endif
 #if !BMS_RS485_TX_DIAG_ENABLE
     /* 保留已验证的 new-new-master 初始化顺序。 */
     memset((void *)&s_rx_pkt, 0, sizeof(s_rx_pkt));
@@ -377,13 +380,47 @@ void modbus_uart_init(void)
     gpio_set_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, POL_FALLING);
     cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
 #endif
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    irq_restore(irq_state);
+#else
     irq_enable();
+#endif
 }
+
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+/* 调用方已关闭中断，判定与切换之间不得再交付 RX 或启动 TX。 */
+u8 modbus_uart_bus_idle(void)
+{
+    return !modbus_uart_tx_active() && !s_rx_ready &&
+           !(dma_chn_irq_status_get() & FLD_DMA_CHN_UART_RX) &&
+           gpio_read(BMS_BOARD_OWC_RX_PIN);
+}
+
+void modbus_uart_disable(void)
+{
+    uart_dma_enable(0, 0);
+    uart_irq_enable(0, 0);
+    dma_chn_irq_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 0);
+    dma_chn_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 0);
+    dma_chn_irq_status_clr(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX);
+    uart_reset();
+    uart_ndma_clear_tx_index();
+    uart_ndma_clear_rx_index();
+    s_rx_ready = 0u;
+    s_rx_pkt.dma_len = 0u;
+}
+#endif
 
 /* 中断只清 DMA 标志并交付状态；运行日志在主循环生成，避免格式化和额外发送影响时序。 */
 void modbus_uart_irq_proc(void)
 {
     u8 irqsrc = dma_chn_irq_status_get();
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    if (bus_mux_get_state() != BUS_STATE_UART_MODBUS) {
+        dma_chn_irq_status_clr(irqsrc & (FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX));
+        return;
+    }
+#endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     if (reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) {
         gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 0);
@@ -426,6 +463,9 @@ int modbus_uart_poll(u8 **p, u32 *len)
 {
     u32 l;
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    if (bus_mux_get_state() != BUS_STATE_UART_MODBUS) return 0;
+#endif
     if (p == NULL || len == NULL) return 0;
     if (!s_rx_ready) return 0;
 
@@ -447,6 +487,9 @@ int modbus_uart_poll(u8 **p, u32 *len)
 /* 检查发送状态与长度后启动 UART DMA，不覆盖活动缓冲区。 */
 u8 modbus_uart_send(const u8 *p, u32 len)
 {
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    if (bus_mux_get_state() != BUS_STATE_UART_MODBUS) return 0u;
+#endif
     if (p == NULL || len == 0u || len > sizeof(s_tx_pkt.data)) return 0u;
 
     /* uart_send_dma() 无条件重启 DMA，禁止覆盖其使用中的缓冲区。 */
@@ -554,6 +597,10 @@ static void modbus_uart_diag_send_next(void)
 /* 接收帧解析、应答与 RX 恢复的主循环所有者；日志读取走同一 TX 路径，不插入裸文本。 */
 void main_loop_modbus(void)
 {
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    /* 一线通期间不解析旧帧，也不让周期 RX 恢复重新开启 DMA。 */
+    if (bus_mux_get_state() != BUS_STATE_UART_MODBUS) return;
+#endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     if (modbus_uart_service_suspend()) return;
 #endif

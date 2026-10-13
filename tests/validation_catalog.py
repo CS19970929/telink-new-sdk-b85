@@ -51,6 +51,7 @@ register('protection', SH, '真实 backend/guard/SW 联合场景', 'sh_safety_ch
 register('afe', SH, '生产函数体与环境替身', 'sh_sample_atomic_host_check')
 register('storage', SH, '提取函数故障注入', 'sh_storage_host_check')
 register('protocol', ('d008',), '真实封包与固定 wire 向量', 'sif_packet_host_check')
+register('protocol', ('d008',), '真实总线复用与 GPIO/IRQ/UART 端口模型；不替代波形验证', 'd008_bus_mux_host_check')
 register('tooling', ('d014',), '缓存回归', 'soc_replay_freshness_check')
 register('soc', PRODUCTS, '生产 SOC 函数体与环境替身', 'soc_scenarios_host_check')
 register('storage', PRODUCTS, '生产 journal/语义存储与 RAM Flash', 'storage_host_check')

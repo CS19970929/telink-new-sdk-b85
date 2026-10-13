@@ -17,7 +17,7 @@
 
 // 参数
 #define RX_HIGH_STABLE_US      (50u * 1000u)
-#define UART_DETECT_WINDOW_US  (30u * 600u) /* 保留现有 18 ms 窗口。 */
+#define UART_DETECT_WINDOW_US  2500u
 #define UART_FALL_MIN_COUNT    3u
 #define UART_IDLE_BACK_US      (5u * 1000u * 1000u) /* 0 关闭回退。 */
 
@@ -46,7 +46,8 @@ static void owc_start_tx_only(void)
     gpio_set_input_en(BMS_BOARD_OWC_TX_PIN, 0);
     gpio_set_output_en(BMS_BOARD_OWC_TX_PIN, 1);
     gpio_write(BMS_BOARD_OWC_TX_PIN, 1);
-    gpio_en_interrupt_risc0(PIN_OWC_RX, 0);
+    /* 发送时仍监听 RX；短窗口排除自身 2 ms 位周期的回波。 */
+    gpio_en_interrupt_risc0(PIN_OWC_RX, 1);
 }
 /* 监听态GPIO初始化：不发，RX下拉，开启 RISC0 下降沿中断 */
 static void owc_listen_init(void)
@@ -72,30 +73,42 @@ static void owc_listen_init(void)
 /* 释放 UART 复用并进入被动单线监听。 */
 static void enter_owc_idle(void)
 {
-    // 退出UART复用回GPIO监听
+    uint8_t irq_state = irq_disable();
+    /* 先撤销波形所有权，再停 UART/DMA，最后恢复 GPIO。 */
+    g_state = BUS_STATE_OWC_IDLE;
+    modbus_uart_disable();
     owc_listen_init();
 
     g_rx_high_since = 0;
-    g_state = BUS_STATE_OWC_IDLE;
+    irq_restore(irq_state);
 }
 
 /* 取得引脚发送所有权并进入单线发送状态。 */
 static void enter_owc_tx(void)
 {
-    owc_start_tx_only();
-    g_state = BUS_STATE_OWC_TX;
+    uint8_t irq_state = irq_disable();
+    /* 高电平资格检查后若又出现下降沿，等待重新确认或 UART 接管。 */
+    if (g_fall_cnt == 0u && rx_is_high()) {
+        owc_start_tx_only();
+        g_state = BUS_STATE_OWC_TX;
+    }
+    irq_restore(irq_state);
 }
 
 /* 切换引脚复用到 UART Modbus 接收。 */
 static void enter_uart_modbus(void)
 {
+    uint8_t irq_state = irq_disable();
+    /* 禁止 SIF ISR 再写 TX，避免配置 UART 时被波形中断抢占。 */
+    g_state = BUS_STATE_UART_MODBUS;
     // 关RISC0对该pin的中断使能，避免UART期间误进
     gpio_en_interrupt_risc0(PIN_OWC_RX, 0);
+    reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
 
     modbus_uart_init();
 
     g_last_uart_rx = tick_now();
-    g_state = BUS_STATE_UART_MODBUS;
+    irq_restore(irq_state);
 }
 
 /* 取得当前通信引脚复用状态。 */
@@ -103,7 +116,8 @@ bus_state_t bus_mux_get_state(void) { return g_state; }
 /* 撤销当前发送并返回单线监听状态。 */
 void bus_mux_return_to_owc_idle(void)
 {
-    enter_owc_idle();
+    /* SIF 的断连接入请求可能比 UART 接管早一轮，不能撤销新的所有者。 */
+    if (g_state == BUS_STATE_OWC_TX) enter_owc_idle();
 }
 
 /* 收到 UART 字节时更新时间戳以抑制空闲回退。 */
@@ -120,15 +134,20 @@ _attribute_ram_code_ void bus_mux_irq_handler(void)
     {
         reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
 
-        if (g_state == BUS_STATE_OWC_IDLE)
+        if (g_state == BUS_STATE_OWC_IDLE || g_state == BUS_STATE_OWC_TX)
         {
             uint32_t now = tick_now();
-            if (clock_time_exceed(g_win_start, UART_DETECT_WINDOW_US))
+            /* UART 连续轮询可在 2.5 ms 内产生三个下降沿；
+             * SIF 每位 2 ms，自身回波三个下降沿至少相隔 4 ms。
+             * 确认后锁存并停止边沿 IRQ，等待主循环接管，不在 ISR 初始化 UART。 */
+            if (g_fall_cnt == 0u || clock_time_exceed(g_win_start, UART_DETECT_WINDOW_US))
             {
                 g_win_start = now;
                 g_fall_cnt = 0;
             }
             if (g_fall_cnt < UART_FALL_MIN_COUNT) g_fall_cnt++;
+            if (g_fall_cnt >= UART_FALL_MIN_COUNT)
+                gpio_en_interrupt_risc0(PIN_OWC_RX, 0);
         }
     }
 }
@@ -144,7 +163,7 @@ void bus_mux_init(void)
 void bus_mux_task(void)
 {
     // 1) OWC相关状态：优先UART活动判定
-    if ((g_state == BUS_STATE_OWC_IDLE) &&
+    if ((g_state == BUS_STATE_OWC_IDLE || g_state == BUS_STATE_OWC_TX) &&
         g_fall_cnt >= UART_FALL_MIN_COUNT)
     {
         enter_uart_modbus();
@@ -153,6 +172,14 @@ void bus_mux_task(void)
     // 2) OWC_IDLE：RX高稳定才允许发
     if (g_state == BUS_STATE_OWC_IDLE)
     {
+        uint8_t irq_state = irq_disable();
+        if (g_fall_cnt != 0u) {
+            /* 单个噪声边沿不能让“连续高 50 ms”跨过活动区间。 */
+            g_rx_high_since = 0u;
+            if (g_fall_cnt < UART_FALL_MIN_COUNT &&
+                clock_time_exceed(g_win_start, UART_DETECT_WINDOW_US)) g_fall_cnt = 0u;
+        }
+        irq_restore(irq_state);
         if (rx_is_high())
         {
             if (g_rx_high_since == 0)
@@ -171,10 +198,12 @@ void bus_mux_task(void)
     // 3) UART模式：长时间无通信回OWC_IDLE（可选）
     if (g_state == BUS_STATE_UART_MODBUS && UART_IDLE_BACK_US > 0u)
     {
-        if (clock_time_exceed(g_last_uart_rx, UART_IDLE_BACK_US))
+        uint8_t irq_state = irq_disable();
+        if (clock_time_exceed(g_last_uart_rx, UART_IDLE_BACK_US) &&
+            modbus_uart_bus_idle())
         {
             enter_owc_idle();
-            return;
         }
+        irq_restore(irq_state);
     }
 }
