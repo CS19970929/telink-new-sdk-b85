@@ -13,7 +13,6 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow : Window
 {
-    private FrameworkElement ShAccessSource() => this;
     private bool ShFactoryBusy() => _factoryTestCts is not null || _flashTestCts is not null;
 
     private enum ConnectionMode { Ble, Serial }

@@ -20,6 +20,7 @@ public partial class MainWindow
 
     private void AddRuntimeLogTab()
     {
+#if BMS_FACTORY_APP
         var root = new DockPanel { Margin = new Thickness(10) };
         var controls = new WrapPanel();
         var read = new Button { Content = "读取运行日志", Margin = new Thickness(4) };
@@ -53,6 +54,7 @@ public partial class MainWindow
             grid.Columns.Add(new DataGridTextColumn { Header = column.Item1, Binding = new Binding(column.Item2) });
         root.Children.Add(grid);
         MainTabs.Items.Add(new TabItem { Header = "运行日志", Content = root });
+#endif
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += async (_, _) => {
             if (_bms is null) { _runtimeLogAuto.IsChecked = false; _runtimeLogCts?.Cancel(); return; }

@@ -11,6 +11,8 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow
 {
+    // Flash 擦写和备份恢复期间占用通信，继续沿用共享读取门禁。
+    private bool _shBusy;
     private CancellationTokenSource? _flashTestCts;
     private readonly ComboBox _flashPattern=new(){ItemsSource=new[]{"SOC循环变化 0..100", "重复SOC 50", "小幅往返 49/50"},SelectedIndex=0,Width=170};
     private readonly CheckBox _flashForce=new(){Content="持续压力（跳过SOC变化判断）",Margin=new Thickness(8)};

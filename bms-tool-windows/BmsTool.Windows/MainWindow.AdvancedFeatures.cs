@@ -41,7 +41,6 @@ public partial class MainWindow
 
     private void InitializeAdvancedFeatures()
     {
-        AddSh3520ParameterTab();
         AddAfeHardwareTab();
         if (_advancedFeaturesInitialized) return;
         _advancedFeaturesInitialized = true;

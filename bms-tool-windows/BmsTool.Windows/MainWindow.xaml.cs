@@ -5,14 +5,12 @@ using System.IO.Ports;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
-using Microsoft.Win32;
 using Windows.Devices.Bluetooth.Advertisement;
 
 namespace BmsTool.Windows;
 
 public partial class MainWindow : Window
 {
-    private FrameworkElement ShAccessSource() => ProtectionTab;
     private bool ShFactoryBusy() => false;
 
     private enum ConnectionMode { Ble, Serial }
@@ -32,10 +30,10 @@ public partial class MainWindow : Window
     private int _serialBaudRate = BmsSerialTransport.DefaultBaudRate;
     private string _connectedName = string.Empty;
     private ConnectionMode _connectionMode = ConnectionMode.Ble;
-    private string? _firmwarePath;
-    private CancellationTokenSource? _otaCts;
     private bool _polling;
-    private bool _otaRunning;
+    // 客户版无 OTA 和 Flash 耐久操作，供共享通信门禁读取。
+    private bool _otaRunning => false;
+    private bool _shBusy => false;
     private bool _autoReconnectRunning;
     private int _pollFailureCount;
     private DateTime _nextReconnectUtc = DateTime.MinValue;
@@ -54,7 +52,6 @@ public partial class MainWindow : Window
         {
             _pollTimer.Stop();
             _watcher?.Stop();
-            _otaCts?.Cancel();
             await DisposeBmsAsync();
             _sessionLog.Write("SESSION", "Window closed");
             _sessionLog.Dispose();
@@ -186,19 +183,11 @@ public partial class MainWindow : Window
             _connectedName = selected.Name;
             _pollFailureCount = 0;
 
-            bool applicationReady = await ConnectBmsInternalAsync(selected.Address, allowIapOnly: true);
-            if (applicationReady)
-            {
-                await RefreshIdentityAsync();
-                await RefreshBatteryAsync();
-                StartAutomaticRefresh();
-                ConnectionText.Text = $"已连接：{_connectedName}";
-            }
-            else
-            {
-                ConnectionText.Text = "BLE已连接（STM32 IAP模式，仅可升级）";
-                AppendLog("BLE GATT 已连接，但普通 BMS Modbus 探测无响应；按 STM32 IAP 模式保留连接，可直接执行 OTA。", "CONNECT");
-            }
+            await ConnectBmsInternalAsync(selected.Address);
+            await RefreshIdentityAsync();
+            await RefreshBatteryAsync();
+            StartAutomaticRefresh();
+            ConnectionText.Text = $"已连接：{_connectedName}";
         }
         catch (Exception ex)
         {
@@ -597,304 +586,6 @@ public partial class MainWindow : Window
         finally { StartAutomaticRefresh(); }
     }
 
-    private void BrowseFirmware_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var dlg = new OpenFileDialog { Filter = "Telink firmware (*.bin)|*.bin|All files (*.*)|*.*" };
-            if (dlg.ShowDialog() != true) return;
-            FirmwareInspection inspection = FirmwareImage.Inspect(dlg.FileName);
-            if (!inspection.LooksLikeTelink && !inspection.FitsStm32App)
-                throw new InvalidDataException("文件既不是可识别的 Telink BIN，也不在 STM32 APP 55 KB 边界内。");
-            _firmwarePath = dlg.FileName;
-            FirmwareText.Text = inspection.Description;
-            AppendLog($"Firmware candidate loaded file='{inspection.FileName}' size={inspection.FileSize}; telink={inspection.LooksLikeTelink}; stm32={inspection.FitsStm32App}", "OTA");
-        }
-        catch (Exception ex)
-        {
-            _firmwarePath = null;
-            ShowError("固件校验失败", ex);
-        }
-    }
-
-    private async void StartOta_Click(object sender, RoutedEventArgs e)
-    {
-        if (_otaRunning || _shBusy || _diagBusy) return;
-        try
-        {
-            if(_bms?.IsSh3520==true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
-            string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
-            ulong address = _connectedAddress ?? 0;
-            if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)
-                throw new InvalidOperationException("请先连接 BMS。");
-            if (_connectionMode == ConnectionMode.Serial && string.IsNullOrWhiteSpace(_connectedSerialPort))
-                throw new InvalidOperationException("请先连接串口。");
-
-            _otaRunning = true;
-            await StopRuntimeLogsForOtaAsync();
-            _pollTimer.Stop();
-            StartOtaButton.IsEnabled = false;
-            CancelOtaButton.IsEnabled = true;
-            OtaProgressBar.Value = 0;
-            OtaVerifyText.Text = string.Empty;
-            _otaCts = new CancellationTokenSource();
-            OtaTargetKind target = _connectionMode == ConnectionMode.Serial
-                ? OtaTargetKind.Stm32SerialIap
-                : await OtaTargetDetector.DetectAsync(address, GetOtaTargetKind(), _otaCts.Token);
-            FirmwareImage image = FirmwareImage.LoadForTarget(firmwarePath, target);
-            AppendLog($"OTA architecture detected={target}; firmware={image.FileName}; bytes={image.ImageSize}", "OTA");
-
-            string oldVersion = string.Empty;
-            DeviceIdentity? preIdentity = null;
-            BatterySnapshot? preBattery = null;
-            uint? oldBuildId = null;
-            bool isD008 = false;
-            try
-            {
-                if (_bms is not null)
-                {
-                    preIdentity = await _bms.ReadIdentityAsync(_otaCts.Token);
-                    oldVersion = preIdentity.Software;
-                    oldBuildId = await TryReadFirmwareBuildIdAsync(_bms, _otaCts.Token);
-                    isD008 = await TryDetectD008Async(_bms, _otaCts.Token);
-                    try { preBattery = await _bms.ReadBatteryAsync(_otaCts.Token); }
-                    catch (Exception ex) { AppendLog("Pre-OTA battery read warning: " + ex.Message, "OTA"); }
-                }
-            }
-            catch (Exception ex)
-            {
-                AppendLog("Pre-OTA identity/build read warning: " + ex.Message, "OTA");
-            }
-
-            if (target == OtaTargetKind.Telink && isD008)
-            {
-                if (!image.HasD008TlnkStartupMarker)
-                    throw new InvalidDataException("已识别 D008，但所选 Telink BIN 缺少 D008 当前启动格式的 TLNK marker @0x08，已拒绝升级以降低刷错固件风险。");
-                if (image.ImageSize > TelinkOtaProtocol.D008DefaultMaxFirmwareBytes)
-                    throw new InvalidDataException($"已识别 D008，但固件 {image.ImageSize:N0} bytes 超过当前 Telink OTA Server 默认 124 KiB 边界。");
-            }
-
-            string endpointText = preIdentity is null
-                ? (_connectionMode == ConnectionMode.Serial ? _connectedSerialPort ?? "Serial" : $"{address:X12}")
-                : $"{preIdentity.Hardware} / {preIdentity.Software} / {preIdentity.Serial}";
-            string batteryText = preBattery is null
-                ? "电池状态：未能预读"
-                : $"电池状态：{preBattery.PackVoltageV:F2} V，最低单体 {preBattery.MinCellMv} mV";
-            string d008Text = target == OtaTargetKind.Telink
-                ? $"D008识别：{(isD008 ? "是" : "否/旧固件不支持识别")}；TLNK marker：{(image.HasD008TlnkStartupMarker ? "有" : "无")}"
-                : "非 Telink OTA";
-            if (MessageBox.Show(
-                    $"确认开始 OTA？\n\n目标：{endpointText}\n架构：{target}\n固件：{image.FileName}\n大小：{image.ImageSize:N0} bytes\n{d008Text}\n{batteryText}\n\n升级期间请保持电池供电和 PC 蓝牙稳定，不要关闭程序或断电。",
-                    "确认 OTA 升级",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning) != MessageBoxResult.Yes)
-                throw new OperationCanceledException(_otaCts.Token);
-
-            await DisposeBmsAsync();
-            ConnectionText.Text = "正在升级...";
-            OtaTransferMode requested = GetOtaMode();
-            bool serverConfirmed;
-
-            try
-            {
-                serverConfirmed = await RunOtaOnceAsync(address, image, target, requested, _otaCts.Token);
-            }
-            catch (Exception ex) when (requested == OtaTransferMode.Auto && IsExtendCompatibilityFailure(ex) && !_otaCts.IsCancellationRequested)
-            {
-                AppendLog("Extend64 rejected; fallback to Legacy Fast: " + ex.Message, "OTA");
-                await Task.Delay(700, _otaCts.Token);
-                serverConfirmed = await RunOtaOnceAsync(address, image, target, OtaTransferMode.LegacyFast, _otaCts.Token);
-            }
-
-            OtaVerifyText.Text = serverConfirmed ? "设备已接受固件，等待重启并验证..." : "数据发送完成，等待设备重启并验证...";
-            DeviceIdentity post = await VerifyAfterOtaAsync(_connectionMode == ConnectionMode.Serial ? null : address, _otaCts.Token);
-            uint? postBuildId = _bms is null ? null : await TryReadFirmwareBuildIdAsync(_bms, _otaCts.Token);
-            string expected = ExpectedVersionBox.Text.Trim();
-            bool expectedProvided = expected.Length > 0;
-            bool expectedMatched = expectedProvided && string.Equals(post.Software, expected, StringComparison.OrdinalIgnoreCase);
-            if (expectedProvided && !expectedMatched)
-                throw new IOException($"设备已重启，但软件版本不匹配：目标 {expected}，实际 {post.Software}。");
-
-            bool versionChanged = oldVersion.Length > 0 &&
-                                  post.Software.Length > 0 &&
-                                  !string.Equals(oldVersion, post.Software, StringComparison.OrdinalIgnoreCase);
-            bool buildChanged = oldBuildId.HasValue && postBuildId.HasValue && oldBuildId.Value != postBuildId.Value;
-            bool positivelyVerified = serverConfirmed || versionChanged || buildChanged;
-
-            string buildNote = oldBuildId.HasValue || postBuildId.HasValue
-                ? $"Build ID {(oldBuildId?.ToString("x8") ?? "unknown")} → {(postBuildId?.ToString("x8") ?? "unknown")}"
-                : "Build ID 不可用";
-            string versionNote = expectedMatched
-                ? $"目标版本 {post.Software} 校验通过"
-                : versionChanged
-                    ? $"版本 {oldVersion} → {post.Software}"
-                    : $"当前版本 {post.Software}";
-
-            ConnectionText.Text = string.IsNullOrEmpty(_connectedName) ? "已连接" : $"已连接：{_connectedName}";
-            if (!positivelyVerified)
-            {
-                OtaVerifyText.Text = $"升级结果未完全确认：设备已恢复通信和实时数据，但未收到 OTA_SUCCESS，软件版本未发生变化，且没有可证明新固件启动的 Build ID 变化。即使目标版本文本匹配，也不能单独证明同版本重刷成功。{versionNote}；{buildNote}。";
-                AppendLog("OTA UNCONFIRMED: " + OtaVerifyText.Text + $" serverConfirmed={serverConfirmed}", "OTA");
-                MessageBox.Show(OtaVerifyText.Text, "OTA 需人工确认", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            OtaVerifyText.Text = $"升级成功：设备已重启，BMS 通信和实时数据正常；{versionNote}；{buildNote}。";
-            AppendLog("OTA VERIFIED: " + OtaVerifyText.Text + $" serverConfirmed={serverConfirmed}; versionChanged={versionChanged}; buildChanged={buildChanged}", "OTA");
-            MessageBox.Show(OtaVerifyText.Text, "OTA 验证完成", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (OperationCanceledException)
-        {
-            AppendLog("OTA cancelled", "OTA");
-            OtaVerifyText.Text = "升级已取消";
-        }
-        catch (Exception ex)
-        {
-            _sessionLog.WriteException("OTA", "OTA/Verify", ex);
-            OtaVerifyText.Text = "升级失败：" + ex.Message;
-            MessageBox.Show(ex.Message, "OTA failed", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
-            _otaCts?.Dispose();
-            _otaCts = null;
-            _otaRunning = false;
-            StartOtaButton.IsEnabled = true;
-            CancelOtaButton.IsEnabled = false;
-            if (_bms is not null) _pollTimer.Start();
-        }
-    }
-
-    private async Task<bool> RunOtaOnceAsync(ulong address, FirmwareImage image, OtaTargetKind target, OtaTransferMode mode, CancellationToken ct)
-    {
-        if (target == OtaTargetKind.Stm32SerialIap)
-        {
-            if (_connectionMode == ConnectionMode.Serial)
-            {
-                await using var serialPortTransport = new BmsSerialTransport();
-                AppendLog($"Connecting STM32 serial OTA COM port={_connectedSerialPort}; baud={_serialBaudRate}", "OTA");
-                await serialPortTransport.ConnectAsync(_connectedSerialPort!, _serialBaudRate, ct);
-                AppendLog($"STM32 serial OTA port ready; {serialPortTransport.DiscoveryDescription}", "OTA");
-                var serialPortClient = new Stm32SerialBleOtaClient(serialPortTransport, chunkForBle: false);
-                serialPortClient.Log += m => AppendLog(m, "OTA");
-                serialPortClient.Progress += p => Dispatcher.BeginInvoke(() =>
-                {
-                    OtaProgressBar.Value = p.Percent;
-                    OtaProgressText.Text = $"STM32 串口 IAP · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
-                });
-                return await serialPortClient.UpgradeAsync(image, ct);
-            }
-
-            await using var serialTransport = new BmsBleTransport();
-            AppendLog($"Connecting STM32 serial OTA GATT address={address:X12}", "OTA");
-            await serialTransport.ConnectAsync(address, ct);
-            AppendLog($"STM32 serial OTA GATT ready; MTU={serialTransport.NegotiatedMtu}; {serialTransport.DiscoveryDescription}", "OTA");
-            var serialClient = new Stm32SerialBleOtaClient(serialTransport);
-            serialClient.Log += m => AppendLog(m, "OTA");
-            serialClient.Progress += p => Dispatcher.BeginInvoke(() =>
-            {
-                OtaProgressBar.Value = p.Percent;
-                OtaProgressText.Text = $"STM32 串口 IAP · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
-            });
-            return await serialClient.UpgradeAsync(image, ct);
-        }
-
-        await using var transport = new OtaBleTransport();
-        AppendLog($"Connecting OTA GATT address={address:X12}", "OTA");
-        await transport.ConnectAsync(address, ct);
-        AppendLog($"OTA GATT ready; MTU={transport.NegotiatedMtu}; notify={transport.NotificationsEnabled}", "OTA");
-
-        var client = new TelinkOtaClient(transport);
-        client.Log += m => AppendLog(m, "OTA");
-        client.Progress += p => Dispatcher.BeginInvoke(() =>
-        {
-            OtaProgressBar.Value = p.Percent;
-            string eta = p.Eta is null ? string.Empty : $" · ETA {p.Eta.Value.TotalSeconds:F1}s";
-            OtaProgressText.Text = $"{p.Mode} · {p.Percent:F1}% · {p.BytesPerSecond / 1024.0:F1} KB/s{eta}";
-        });
-        return await client.UpgradeAsync(image, mode, ct);
-    }
-
-    private async Task<DeviceIdentity> VerifyAfterOtaAsync(ulong? address, CancellationToken ct)
-    {
-        Exception? last = null;
-        for (int attempt = 1; attempt <= 12; attempt++)
-        {
-            ct.ThrowIfCancellationRequested();
-            try
-            {
-                await Task.Delay(attempt == 1 ? 1200 : 900, ct);
-                AppendLog($"Post-OTA reconnect {attempt}/12", "OTA");
-                if (_connectionMode == ConnectionMode.Serial)
-                    await ConnectSerialInternalAsync(_connectedSerialPort!, _serialBaudRate, ct);
-                else
-                    await ConnectBmsInternalAsync(address!.Value, ct);
-                DeviceIdentity id = await (_bms ?? throw new IOException("BMS client unavailable")).ReadIdentityAsync(ct);
-                BatterySnapshot snapshot = await _bms.ReadBatteryAsync(ct);
-                ApplyBatterySnapshot(snapshot);
-                await RefreshIdentityAsync();
-                return id;
-            }
-            catch (Exception ex)
-            {
-                last = ex;
-                AppendLog($"Post-OTA reconnect attempt={attempt} failed: {ex.GetType().Name}; hresult=0x{ex.HResult:X8}; {ex.Message}", "OTA");
-                await DisposeBmsAsync();
-            }
-        }
-        throw new IOException("OTA 数据已发送，但设备重启后未恢复到可读取的 BMS 通信状态。", last);
-    }
-
-    private async Task<uint?> TryReadFirmwareBuildIdAsync(BmsClient client, CancellationToken ct)
-    {
-        try
-        {
-            ushort[] words = await client.ReadRegistersAsync(BmsDiagnostics.Base, 24, ct);
-            if (words.Length < 24 || words[0] != BmsDiagnostics.Magic || words[1] != BmsDiagnostics.Schema)
-                return null;
-            uint buildId = BmsDiagnostics.U32(words, 22);
-            return buildId == 0 ? null : buildId;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            AppendLog("Firmware Build ID unavailable: " + ex.Message, "OTA");
-            return null;
-        }
-    }
-
-    private async Task<bool> TryDetectD008Async(BmsClient client, CancellationToken ct)
-    {
-        try
-        {
-            ushort[] words = await client.ReadRegistersAsync(0x2E00, 2, ct);
-            return words.Length >= 2 && words[0] == 0xD008 && words[1] == 1;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            AppendLog("D008 capability probe unavailable: " + ex.Message, "OTA");
-            return false;
-        }
-    }
-
-    private OtaTransferMode GetOtaMode()
-    {
-        string tag = (OtaModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Auto";
-        return Enum.TryParse(tag, out OtaTransferMode mode) ? mode : OtaTransferMode.Auto;
-    }
-
-    private static bool IsExtendCompatibilityFailure(Exception ex)
-    {
-        string message = ex.Message;
-        return message.Contains("OTA_PDU_LEN_ERR", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("OTA_MCU_NOT_SUPPORTED", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("OTA_PACKET_INVALID", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("requires MTU", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void CancelOta_Click(object sender, RoutedEventArgs e) => _otaCts?.Cancel();
-
     private void UpsertDevice(DiscoveredDevice device)
     {
         if (_deviceMap.TryGetValue(device.Address, out var old))
@@ -957,12 +648,6 @@ public partial class MainWindow : Window
         {
             transport.ConnectionProgress -= OnConnectionProgress;
         }
-    }
-
-    private OtaTargetKind GetOtaTargetKind()
-    {
-        string tag = (OtaTargetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Auto";
-        return Enum.TryParse(tag, out OtaTargetKind target) ? target : OtaTargetKind.Auto;
     }
 
     private void ShowError(string title, Exception ex, string? extra = null)

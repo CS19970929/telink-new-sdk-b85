@@ -3,16 +3,34 @@
 本目录是 BMS 仓库中的独立 Windows 项目区，与固件源码并列维护。
 
 - `BmsTool.Windows/`：客户版 BMS Assistant，面向客户交付。
-- `BmsFactoryTest.Windows/`：内部完整测试版 BMS Assistant，基于客户版最新版功能，保留全部工程/调试/出厂测试页面，启动后不需要密码。
+- `BmsFactoryTest.Windows/`：内部完整测试版 BMS Assistant，保留工程/调试/出厂测试页面（3520 保护参数页已永久删除），启动后不需要密码。
 - `BmsTool.Cli/`：无 UI 命令行版，面向快速 OTA、脚本和 AI/Codex 实板诊断。
 - `BmsTool.Core/`：跨平台 C# 核心，单一保存 Modbus、BMS 身份读取、Telink BIN 预检和 OTA 状态机。
 - `BmsTool.Android/`：新的 .NET Android App，通过 `BluetoothGatt` 复用 `BmsTool.Core`，不使用或复制历史 Kotlin Android 客户端。
 
-四个入口共用同一套底层协议源码；Windows 客户版、内部版和 CLI 仍按原发布脚本同步构建，Android 另外构建并安装 APK。客户版不包含工厂测试入口；内部完整测试版包含全部功能。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
+四个入口共用同一套底层协议源码；Windows 客户版、内部版和 CLI 仍按原发布脚本同步构建，Android 另外构建并安装 APK。客户版不包含工厂测试入口；两版页面范围见下表。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
+
+## Windows 页面范围（2026-10-13）
+
+| 页面 | 客户版 | 内部完整版 |
+|---|---|---|
+| OTA 升级 | 删除页面及窗口升级入口，高级功能解锁后也不显示 | 保留 |
+| 运行日志 | 不创建页面 | 保留 |
+| 断线检测 | 不创建独立页面 | 保留 |
+| BMS 诊断 | 不创建页面 | 保留 |
+| 3520 保护参数 | 永久删除 | 永久删除 |
+| 业务参数、MOS 监控 | 保留 | 保留 |
+
+3520 专用页面及其初始化、权限关联已删除；通用 3520 设备识别和协议实现仍由现有客户端使用。
+客户版保留主页面休眠状态、Build ID、MOS 监控及其共享只读通信；本次不删除底层诊断协议或改变设备行为。
+客户版运行日志页指固件 RAM 日志读取页，本机通信日志与 MOS 自动记录仍保持原行为。
+Android、CLI、内部版 OTA 和固件协议不受页面裁剪影响。
+正式发布包交付到用户当前固件项目的 `releases/bms-tool-windows/<发布标签>/customer/`、`internal/`；编译中间文件仍在用户临时区。
+本次仅完成源码与调用链审查、Git 差异核对，未执行编译、测试或实板操作；现有发布包尚未更新。
 
 ## MOS 无人值守监控
 
-断线检测新增独立顶层页面，配套固件的阶段、原始掩码、计数和失败原因自动写盘，见 [断线检测与监控](docs/OPENWIRE_MONITOR.md)。
+断线检测独立顶层页面仅保留在内部完整版，配套固件的阶段、原始掩码、计数和失败原因自动写盘，见 [断线检测与监控](docs/OPENWIRE_MONITOR.md)。
 
 客户版和内部版共有顶层“MOS 监控”，连接后默认写盘，记录指示变化、固件原因和通信缺口。使用方式、协议和证据边界见 [MOS 监控](docs/MOS_MONITOR.md)。
 
@@ -202,7 +220,9 @@ BmsTool.Windows\publish\customer-win-x64\BmsTool.Windows.exe
 使用 `dotnet publish` 生成 Windows x64、自包含、单文件 EXE。发布时应同时记录 EXE 的 SHA-256、源码 commit 和实际目标框架。
 
 
-## SH3673520 保护参数扩展（2026-09-07）
+## 历史：SH3673520 保护参数扩展（2026-09-07）
+
+以下记录当时实现；Windows 两版的 3520 保护参数页面已于 2026-10-13 永久删除，当前页面范围以上文为准。共享协议及其编解码检查仍保留。
 
 客户版和完整版新增“3520 保护参数”页，共用 `Shared` 中的界面和物理单位编解码。客户版随高级功能解锁可见；此前“客户版不包含 AFE 硬件参数”的限制仅针对旧 SH367309 页面。
 连接后先读取，分别编辑和保存 MCU 软件保护、AFE 硬件保护。当前保护模式、同/分口、WDT和SPI类型只读显示；未启用的兼容软件字段只读。

@@ -20,6 +20,7 @@ public partial class MainWindow
 
     private void AddOpenWireTab()
     {
+#if BMS_FACTORY_APP
         var root = new DockPanel { Margin = new Thickness(12) };
         var auto = new CheckBox { Content = "自动监控并写盘（与 MOS 监控共用）", Margin = new Thickness(6) };
         auto.SetBinding(CheckBox.IsCheckedProperty, new Binding(nameof(CheckBox.IsChecked)) { Source = _mosAuto, Mode = BindingMode.TwoWay });
@@ -34,6 +35,7 @@ public partial class MainWindow
         var style = new Style(typeof(TextBlock)); style.Setters.Add(new Setter(TextBlock.TextWrappingProperty, TextWrapping.Wrap));
         grid.Columns.Add(new DataGridTextColumn { Header = "结果 / 原因", Binding = new Binding("Detail"), ElementStyle = style, Width = new DataGridLength(1, DataGridLengthUnitType.Star), MinWidth = 260 });
         root.Children.Add(grid); MainTabs.Items.Add(new TabItem { Header = "断线检测", Content = root });
+#endif
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += (_, _) => {
             RefreshMainOpenWireFreshness();

@@ -40,6 +40,7 @@ public partial class MainWindow
         AddRuntimeLogTab();
         AddMosMonitorTab();
         AddOpenWireTab();
+#if BMS_FACTORY_APP
         var root=new DockPanel {Margin=new Thickness(12)};
         var controls=new WrapPanel {Orientation=Orientation.Horizontal};
         var read=new Button {Content="读取完整诊断",Margin=new Thickness(4),Padding=new Thickness(12,5,12,5)};
@@ -115,6 +116,8 @@ public partial class MainWindow
             tabs.Items.Add(new TabItem {Header=item.Item1,Content=item.Item2});
         root.Children.Add(tabs);MainTabs.Items.Add(new TabItem {Header="BMS 诊断",Content=root});
         _socChart.SizeChanged+=(_,_)=>RenderSocChart();
+#endif
+        // 主页面的休眠状态和通信新鲜度仍使用原诊断读取，客户版仅移除诊断界面。
         _diagTimer=new DispatcherTimer {Interval=TimeSpan.FromSeconds(1)};
         _diagTimer.Tick+=async (_,_)=> {
             RefreshSleepStatusFreshness();
