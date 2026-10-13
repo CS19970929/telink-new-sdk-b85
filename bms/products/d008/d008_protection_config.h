@@ -48,12 +48,12 @@
 #define D008_SW_CELL_OVP_SECOND_MV                        3750u
 #define D008_SW_CELL_OVP_THIRD_MV                         3750u
 #define D008_SW_CELL_OVP_RECOVER_MV                       3500u
-#define D008_SW_CELL_UVP_THIRD_MV                         2800u
+#define D008_SW_CELL_UVP_THIRD_MV                         2600u
 #define D008_SW_PACK_OVP_FIRST_CELL_MV                    3500u
 #define D008_SW_PACK_OVP_SECOND_CELL_MV                   3600u
 #define D008_SW_PACK_OVP_THIRD_CELL_MV                    3650u
 #define D008_SW_PACK_OVP_RECOVER_CELL_MV                  3500u
-#define D008_SW_PACK_UVP_THIRD_CELL_MV                    2900u
+#define D008_SW_PACK_UVP_THIRD_CELL_MV                    2800u
 #define D008_SW_PACK_UVP_RECOVER_CELL_MV                  3000u
 #elif BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_NMC
 #define D008_SW_CELL_OVP_FIRST_MV                         4200u
@@ -74,8 +74,8 @@
 /* 电压保护延时、共用欠压阈值；延时单位为 10ms。 */
 #define D008_SW_CELL_OVP_FILTER_10MS                      100u
 #define D008_SW_CELL_UVP_FIRST_MV                         3000u
-#define D008_SW_CELL_UVP_SECOND_MV                        3000u
-#define D008_SW_CELL_UVP_RECOVER_MV                       3100u
+#define D008_SW_CELL_UVP_SECOND_MV                        2900u
+#define D008_SW_CELL_UVP_RECOVER_MV                       2800  
 #define D008_SW_CELL_UVP_FILTER_10MS                      100u
 #define D008_SW_PACK_OVP_FILTER_10MS                      100u
 #define D008_SW_PACK_UVP_FIRST_CELL_MV                    3000u
@@ -83,24 +83,24 @@
 #define D008_SW_PACK_UVP_FILTER_10MS                      100u
 
 /* 2.2 充电过流：A10=0.1A；当前 100/150/200 对应 10/15/20A。 */
-#define D008_SW_CHARGE_OCP_FIRST_A10                      (100)
-#define D008_SW_CHARGE_OCP_SECOND_A10                     (150)
-#define D008_SW_CHARGE_OCP_THIRD_A10                      (200)
-#define D008_SW_CHARGE_OCP_RECOVER_A10                    (100)
+#define D008_SW_CHARGE_OCP_FIRST_A10                      (300)
+#define D008_SW_CHARGE_OCP_SECOND_A10                     (300)
+#define D008_SW_CHARGE_OCP_THIRD_A10                      (300)
+#define D008_SW_CHARGE_OCP_RECOVER_A10                    (10)
 #define D008_SW_CHARGE_OCP_FILTER_10MS                    10u
 
 /* 2.3 放电过流：A10=0.1A；软件恢复仍要求原物理恢复证据。 */
-#define D008_SW_DISCHARGE_OCP_FIRST_A10                   (100)
-#define D008_SW_DISCHARGE_OCP_SECOND_A10                  (150)
-#define D008_SW_DISCHARGE_OCP_THIRD_A10                   (200)
-#define D008_SW_DISCHARGE_OCP_RECOVER_A10                 (100)
+#define D008_SW_DISCHARGE_OCP_FIRST_A10                   (300)
+#define D008_SW_DISCHARGE_OCP_SECOND_A10                  (400)
+#define D008_SW_DISCHARGE_OCP_THIRD_A10                   (500)
+#define D008_SW_DISCHARGE_OCP_RECOVER_A10                 (10)
 #define D008_SW_DISCHARGE_OCP_FILTER_10MS                 10u
 
 /* 2.4 充电高温：温度编码为 (摄氏度+40)*10。 */
 #define D008_SW_CHARGE_OTP_FIRST_X10                      ((40 + 40) * 10)
 #define D008_SW_CHARGE_OTP_SECOND_X10                     ((50 + 40) * 10)
-#define D008_SW_CHARGE_OTP_THIRD_X10                      ((55 + 40) * 10)
-#define D008_SW_CHARGE_OTP_RECOVER_X10                    ((50 + 40) * 10)
+#define D008_SW_CHARGE_OTP_THIRD_X10                      ((50 + 40) * 10)
+#define D008_SW_CHARGE_OTP_RECOVER_X10                    ((40 + 40) * 10)
 #define D008_SW_CHARGE_OTP_FILTER_10MS                    100u
 
 /* 2.5 充电低温。 */
@@ -112,8 +112,8 @@
 
 /* 2.6 放电高温。 */
 #define D008_SW_DISCHARGE_OTP_FIRST_X10                   ((50 + 40) * 10)
-#define D008_SW_DISCHARGE_OTP_SECOND_X10                  ((50 + 40) * 10)
-#define D008_SW_DISCHARGE_OTP_THIRD_X10                   ((60 + 40) * 10)
+#define D008_SW_DISCHARGE_OTP_SECOND_X10                  ((60 + 40) * 10)
+#define D008_SW_DISCHARGE_OTP_THIRD_X10                   ((70 + 40) * 10)
 #define D008_SW_DISCHARGE_OTP_RECOVER_X10                 ((50 + 40) * 10)
 #define D008_SW_DISCHARGE_OTP_FILTER_10MS                 100u
 
@@ -162,8 +162,8 @@
 #if BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_LFP
 #define D008_AFE_COV_MV                                   3750u
 #define D008_AFE_COV_RECOVER_MV                           3500u
-#define D008_AFE_CUV_MV                                   2800u
-#define D008_AFE_CUV_RECOVER_MV                           3100u
+#define D008_AFE_CUV_MV                                   2500u
+#define D008_AFE_CUV_RECOVER_MV                           2800u
 #elif BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_NMC
 #define D008_AFE_COV_MV                                   4200u
 #define D008_AFE_COV_RECOVER_MV                           4100u
@@ -179,16 +179,16 @@
  * 原默认恢复种子 100 保留：归一化后须低于最小启用触发值100，得到99（9.9A）。
  * 如需修改恢复值，请填写小于最低启用过流阈值的数值。
  */
-#define D008_AFE_OCD1_A10                                 100u
+#define D008_AFE_OCD1_A10                                 800u
 #define D008_AFE_OCD1_DELAY_MS                            100u
-#define D008_AFE_OCD2_A10                                 150u
+#define D008_AFE_OCD2_A10                                 1000u
 #define D008_AFE_OCD2_DELAY_MS                            100u
 #define D008_AFE_OCD_RECOVER_A10                          100u
 
 /* 3.4 充电过流：单位及默认恢复值归一化规则同放电过流。 */
-#define D008_AFE_OCC1_A10                                 100u
+#define D008_AFE_OCC1_A10                                 600u
 #define D008_AFE_OCC1_DELAY_MS                            100u
-#define D008_AFE_OCC2_A10                                 150u
+#define D008_AFE_OCC2_A10                                 800u
 #define D008_AFE_OCC2_DELAY_MS                            100u
 #define D008_AFE_OCC_RECOVER_A10                          100u
 

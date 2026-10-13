@@ -31,6 +31,7 @@
 - host/链接/MAP 不替代实板、Flash 掉电、低功耗、物理保护或 OTA 验收。
 - 对象、ELF/MAP、raw BIN、日志和临时文件放源码树外；最终校验通过的 BIN 和 manifest 放 `firmware/<mode-profile>/<product>/`，不提交生成产物。批量镜像命令和 D008 profile 选择见 `docs/BUILD_AND_TEST.md`。重大变更附必要文档并提交本次文件。
 - Windows 上位机继续以 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 为维护来源。
+- 生成 Windows 上位机时，正式发布包统一交付到当前固件项目根目录的 `releases/bms-tool-windows/<发布标签>/`，客户版、内部版、CLI 分目录保存；即使源码位于其他 worktree，也以用户当前固件项目为交付根目录。发布标签使用时间戳或明确版本，保留旧包；记录源码提交、未提交修改状态及 EXE SHA-256。编译缓存、obj/bin 和临时日志仍放 `%LOCALAPPDATA%/CodexTemp/`，正式发布包不提交 Git。
 
 完整本机回归入口：`python tests/run_host_regression.py`。
 四目标入口：`python bms_tools/bms.py --all-products link --jobs 4`。
