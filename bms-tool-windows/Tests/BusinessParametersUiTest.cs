@@ -76,6 +76,12 @@ static class BusinessParametersUiTest
         Check(!Field<Button>("_parameterBalanceSave").IsEnabled,"v1 不开放均衡写入");
         type.GetField("_parameterCapture",Private)!.SetValue(window,null);Call("UpdateBusinessParameterControls");
         Check(!Field<Button>("_parameterBalanceSave").IsEnabled && !Field<Button>("_parameterHeatSave").IsEnabled,"断连或事务失败后撤销写入资格");
+        capture.ProtocolVersion=2;capture.Blocks["Capability"][2]|=BmsSleepParameters.Capability;
+        capture.Blocks["Sleep"]=new ushort[]{2800,1,3000,1440,30};Load(capture);
+        Check(Field<TextBox>("_sleepLowMv").Text=="2800" && Field<TextBox>("_sleepLowMinutes").Text=="1","休眠电压和分钟显示设备值");
+        Check(Field<Button>("_sleepSave").IsEnabled && Field<TextBlock>("_parameterBusinessReadback").Text.Contains("固定 3 分钟"),"可配置组可保存，过放时间只读");
+        capture.Blocks.Remove("Sleep");Load(capture);
+        Check(!Field<Button>("_sleepSave").IsEnabled && Field<TextBox>("_sleepLowMv").Text=="","休眠读取失败清旧值并禁止保存");
         window.Close();
         Console.WriteLine("PASS business parameters UI: actual/candidate separation, 30/15 and temperature display, two save groups, missing/invalid/v1/unsupported/disconnect gates, offscreen layout");
     }

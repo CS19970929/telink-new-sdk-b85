@@ -32,6 +32,10 @@ public sealed partial class BmsClient
             ("BluetoothName",0x0100,12),("DeviceSerial",0xC002,16),("Hardware",BmsRegisters.Hardware,16),("Software",BmsRegisters.Software,16)};
         if(c.Supported && c.ProtocolVersion>=2 && (c.Blocks["Capability"][2]&D008Parameters.BalanceCapability)!=0)
             blocks.Insert(7,("Balance",0x2E70,4));
+        if(BmsSleepParameters.Available(c)) {
+            blocks.Add(("Sleep",BmsSleepParameters.Base,BmsSleepParameters.Count));
+            blocks.Add(("SleepDefaults",BmsSleepParameters.DefaultsBase,BmsSleepParameters.Count));
+        }
         foreach(var b in blocks) {
             if(!c.Supported && b.Name is not ("SoftwareProtection" or "AfeRequested" or "AfeEffective" or "BluetoothName" or "DeviceSerial" or "Hardware" or "Software"))continue;
             if(ct.IsCancellationRequested){c.Errors.Add("读取取消，保留已读参数");break;}

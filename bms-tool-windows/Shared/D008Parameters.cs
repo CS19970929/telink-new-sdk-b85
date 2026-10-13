@@ -16,6 +16,26 @@ public sealed class D008ParameterCapture
     public List<string> Errors { get; } = new();
 }
 
+public static class BmsSleepParameters
+{
+    public const ushort Capability=0x0080, Base=0x2E90, DefaultsBase=0x2E98, Count=5;
+    public static bool Available(D008ParameterCapture capture)=>capture.Supported &&
+        capture.ProtocolVersion>=2 && capture.Blocks.TryGetValue("Capability",out var header) &&
+        header.Length>=3 && (header[2]&Capability)!=0;
+    public static ushort[] Build(string lowMv,string lowMinutes,string normalMv,string normalMinutes,string afeMinutes)
+    {
+        var values=new[]{ushort.Parse(lowMv),ushort.Parse(lowMinutes),ushort.Parse(normalMv),
+            ushort.Parse(normalMinutes),ushort.Parse(afeMinutes)};
+        Validate(values);return values;
+    }
+    public static void Validate(ushort[] values)
+    {
+        if(values.Length!=Count || values[0]<1000 || values[0]>=values[2] || values[2]>4500 ||
+           values[1]==0 || values[1]>values[3] || values[4]==0)
+            throw new ArgumentException("休眠参数须整组五项：1000≤下档电压<上档电压≤4500 mV；延时为1～65535整数分钟，下档延时不能大于上档延时。");
+    }
+}
+
 public static class D008Parameters
 {
     public const ushort Base=0x2E00, Magic=0xD008, MinimumProtocolVersion=1, CurrentProtocolVersion=2;

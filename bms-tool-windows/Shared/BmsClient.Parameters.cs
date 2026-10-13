@@ -23,16 +23,19 @@ public sealed partial class BmsClient
     }
     public async Task WriteD008VerifiedAsync(ushort address,ushort[] values,bool requiresAfeAccess,CancellationToken ct=default)
     {
+        if(address==BmsSleepParameters.Base)BmsSleepParameters.Validate(values);
         if(address==D008Parameters.BalanceBase)D008Parameters.ValidateBalance(values);
         if(address==D008Parameters.HeaterBase)D008Parameters.ValidateHeater(values);
         await RequireD008Async(ct);
-        if(address==D008Parameters.BalanceBase || address==D008Parameters.HeaterBase) {
+        if(address==D008Parameters.BalanceBase || address==D008Parameters.HeaterBase || address==BmsSleepParameters.Base) {
             var header=await ReadRegistersAsync(D008Parameters.Base,12,ct);
             var capability=new D008ParameterCapture{Supported=header[0]==D008Parameters.Magic &&
                 D008Parameters.SupportsProtocol(header[1]),ProtocolVersion=header[1]};
             capability.Blocks["Capability"]=header;
-            if(address==D008Parameters.BalanceBase ? !D008Parameters.BalanceAvailable(capability) :
-                                                    !D008Parameters.HeaterAvailable(capability))
+            bool available=address==BmsSleepParameters.Base ? BmsSleepParameters.Available(capability) :
+                address==D008Parameters.BalanceBase ? D008Parameters.BalanceAvailable(capability) :
+                                                     D008Parameters.HeaterAvailable(capability);
+            if(!available)
                 throw new NotSupportedException("设备未声明支持该功能，未发送参数写命令。");
         }
         AfeHardwareAccessSession? session=null;
@@ -45,6 +48,12 @@ public sealed partial class BmsClient
             var actual=await ReadRegistersAsync(address,(ushort)values.Length,ct);
             if(!actual.SequenceEqual(values))throw new IOException("设备写入后读回不一致；请重新读取，勿盲目重复写入。");
         } finally {if(session is not null)await TryCloseAfeHardwareAccessAsync(session.Token,CancellationToken.None);}
+    }
+    public async Task RestoreSleepDefaultsAsync(CancellationToken ct=default)
+    {
+        await RequireD008Async(ct);
+        var values=await ReadRegistersAsync(BmsSleepParameters.DefaultsBase,BmsSleepParameters.Count,ct);
+        await WriteD008VerifiedAsync(BmsSleepParameters.Base,values,false,ct);
     }
     private async Task RequireD008Async(CancellationToken ct)
     {

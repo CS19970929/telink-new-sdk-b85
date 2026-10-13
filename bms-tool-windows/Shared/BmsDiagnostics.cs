@@ -440,7 +440,7 @@ public sealed record BmsSleepStatus(ushort State, ushort Reason, bool SuspendAll
     public string ReasonText => Reason switch {
         0 => "未满足深睡/关机条件", 1 => "收到关机命令", 2 => "ACC关闭",
         3 => "开关关闭", 4 => "单体电压低于2550 mV", 5 => "单体电压低于低压休眠阈值",
-        6 => "单体低压且无充电", 7 => "AFE通信异常持续", _ => $"未知原因({Reason})" };
+        6 => "单体低压且无充电", 7 => "AFE通信异常持续", 8 => "过放未恢复（固定3分钟）", _ => $"未知原因({Reason})" };
     public string StateText => State switch {
         0 => "电源状态尚未发布", 1 => "暂不准备深睡/关机", 2 => "正在倒计时",
         3 => RemainingMs == 0 && Reason != 0 ? "时间已到，但休眠被阻止" : "休眠被阻止",
@@ -476,7 +476,7 @@ public sealed record BmsSleepStatus(ushort State, ushort Reason, bool SuspendAll
             BmsDiagnostics.U32(words, 6), BmsDiagnostics.U32(words, 8),
             BmsDiagnostics.U32(words, 10), BmsDiagnostics.U32(words, 12),
             BmsDiagnostics.U32(words, 14), BmsDiagnostics.U32(words, 16), BmsDiagnostics.U32(words, 18));
-        if (result.State > 6 || result.Reason > 7 || result.RemainingMs > result.DelayMs ||
+        if (result.State > 6 || result.Reason > 8 || result.RemainingMs > result.DelayMs ||
             result.RemainingMs != (result.ElapsedMs < result.DelayMs ? result.DelayMs - result.ElapsedMs : 0u))
             throw new System.IO.InvalidDataException("休眠状态字段不一致");
         return result;

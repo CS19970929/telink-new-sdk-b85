@@ -84,6 +84,7 @@ public partial class MainWindow
         SaveButton(_parameterBalanceSave,"保存均衡阈值并读回（保留许可）",()=>ParameterRunAsync((c,t)=>
             c.WriteD008BalanceThresholdsAsync(_parameterBalanceStart.Text,
                 _parameterBalanceDeltaStart.Text,_parameterBalanceDeltaStop.Text,t)));
+        AddSleepParameterControls(root,Field,SaveButton);
         UpdateBusinessParameterControls();
 #if BMS_FACTORY_APP
         root.Children.Add(new TextBlock{Text="工厂电流校准：保存时使用 AFE 授权会话。放电为正、充电为负，单位 mA。零点采集前须确认无实际电流；已知电流由外部仪表提供。先计算候选，再单独保存。硬件 AFE 保护量化不受软件校准替代。",TextWrapping=TextWrapping.Wrap});
@@ -176,6 +177,7 @@ public partial class MainWindow
                 business.Add($"均衡：{(bal[0]!=0?"允许自动检测":"永久禁止")}，起始 {bal[1]} mV，启动压差 {bal[2]} mV，停止压差 {bal[3]} mV；最新固件切换回差 {bal[2]-bal[3]} mV");
             } catch(ArgumentException){business.Add("均衡：读回值无效，禁止写入");}
         } else business.Add("均衡：设备未支持或本次读取失败，禁止写入");
+        ShowSleepParameters(c,business);
         _parameterBusinessReadback.Text=string.Join(Environment.NewLine,business);
         if(c.Blocks.TryGetValue("Capacity",out var cap)){_parameterCapacity.Text=(cap[0]/10m).ToString();_parameterCycle.Text=cap[1].ToString();}
         if(c.Blocks.TryGetValue("SOC",out var soc))_parameterSoc.Text=soc[0].ToString();
@@ -196,5 +198,6 @@ public partial class MainWindow
         foreach(var control in new Control[]{_parameterHeatEnable,_parameterHeatStart,_parameterHeatStop,_parameterHeatSave})control.IsEnabled=heaterReady;
         foreach(var control in new Control[]{_parameterBalanceStart,_parameterBalanceDeltaStart,_parameterBalanceDeltaStop,_parameterBalanceSave,_parameterBalanceDisable,_parameterBalanceAllow})control.IsEnabled=balanceReady;
         if(!balanceReady && !_parameterBusy)_parameterBalancePermission.Text="均衡许可：尚未确认或设备不支持，请重新读取";
+        UpdateSleepParameterControls();
     }
 }
