@@ -357,12 +357,16 @@ typedef struct {
 /* 结合物理恢复证据推进电流保护触发与解除滤波。 */
 static uint8_t bms_sw_current_filter_update(bms_sw_filter_t *state,
     uint16_t value, uint16_t trip, uint16_t recover, uint16_t filter_10ms,
-    uint8_t third, uint8_t recovery_allowed, uint8_t fresh)
+    uint8_t third, uint8_t recovery_allowed, uint8_t immediate, uint8_t fresh)
 {
     if (third && state->active && s_current_recovery_requires_evidence && trip != 0u) {
         if (!recovery_allowed) state->count = 0u;
         /* 正常 CADC 等待暂停计数；观测到重接则重置。 */
         if (!recovery_allowed || !fresh) return 1u;
+        if (immediate && value <= recover) {
+            bms_sw_filter_reset(state);
+            return 0u;
+        }
     }
     return bms_sw_filter_update(state, value, trip, recover, filter_10ms,
                                 BMS_SW_HIGH, third);
@@ -427,6 +431,7 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             f->bits.charge_ocp = bms_sw_current_filter_update(&s_filter[level][BMS_SW_F_CHG_OC],
                 measurements->charge_a10, trip, p->charge_ocp_recover_a10,
                 p->charge_ocp_filter_10ms, level == 2u, inputs->charge_recovery_allowed,
+                inputs->charge_recovery_immediate,
                 inputs->current_recovery_sample_fresh);
 
             trip = bms_sw_level_value(level, p->discharge_ocp_first_a10,
@@ -434,6 +439,7 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             f->bits.discharge_ocp = bms_sw_current_filter_update(&s_filter[level][BMS_SW_F_DSG_OC],
                 measurements->discharge_a10, trip, p->discharge_ocp_recover_a10,
                 p->discharge_ocp_filter_10ms, level == 2u, inputs->discharge_recovery_allowed,
+                inputs->discharge_recovery_immediate,
                 inputs->current_recovery_sample_fresh);
 
         } else {

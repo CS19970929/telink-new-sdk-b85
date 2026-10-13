@@ -72,6 +72,7 @@ static void reset(void)
 {
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));
     memset(&g_bms_report,0,sizeof(g_bms_report));
+    memset(&input,0,sizeof(input));
     input.battery_temp_valid=input.mos_temp_valid=input.mos_temp_required=1;
     input.battery_temp_min=input.battery_temp_max=input.mos_temp=500;
     g_bms_report.charge_current_a10=g_bms_report.discharge_current_a10=1;
@@ -150,6 +151,27 @@ int main(void)
     expect(bms_sw_protection_charge_blocked(),1);expect(bms_sw_protection_discharge_blocked(),1);
     input.battery_temp_valid=1;input.mos_temp_valid=0;update();expect(bms_sw_protection_charge_blocked(),1);
     input.mos_temp_required=0;update();expect(bms_sw_protection_charge_blocked(),0);
+    for(group=4;group<=5;group++) {
+        reset();level=2;phase="新鲜反向电流立即恢复";
+        parameter(group,2,500);parameter(group,3,400);parameter(group,4,60);
+        input.current_recovery_requires_evidence=1;
+        measurement(group,500);update();update();update();expect(active(group,2),1);
+        measurement(group,0);
+        input.charge_recovery_allowed=input.discharge_recovery_allowed=1;
+        input.charge_recovery_immediate=input.discharge_recovery_immediate=1;
+        update();expect(active(group,2),1); /* 缓存不能解锁。 */
+        input.current_recovery_sample_fresh=1;
+        input.charge_recovery_allowed=input.discharge_recovery_allowed=0;
+        update();expect(active(group,2),1); /* 无物理证据不能解锁。 */
+        input.charge_recovery_allowed=input.discharge_recovery_allowed=1;
+        measurement(group,401);update();expect(active(group,2),1);
+        measurement(group,0);update();expect(active(group,2),0);
+        /* 移除路径仍走原滤波，不把启动滤波或其它保护改成立即恢复。 */
+        measurement(group,500);update();update();update();expect(active(group,2),1);
+        input.charge_recovery_immediate=input.discharge_recovery_immediate=0;
+        measurement(group,400);update();expect(active(group,2),1);
+        update();expect(active(group,2),1);update();expect(active(group,2),0);
+    }
     printf("assertions=%u digest=%08lx\n",cases,(unsigned long)digest);
     return 0;
 }

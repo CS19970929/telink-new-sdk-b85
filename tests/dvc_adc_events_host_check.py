@@ -15,6 +15,12 @@ code=r'''
 #define MODULE_WATCHDOG_ENABLE 0
 #define DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS 270u
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
+#ifndef BMS_D008_LOAD_RELEASE_CONFIRM_MS
+#define BMS_D008_LOAD_RELEASE_CONFIRM_MS 200u
+#define BMS_BOARD_LOAD_REMOVED_LEVEL 1u
+#define BMS_BOARD_LOAD_DETECT_PIN 1u
+#endif
+static int gpio_read(unsigned pin){(void)pin;return 0;}
 #define DIAG_EV_CURRENT_RECOVERY 1u
 static dvc1124_snapshot_t s_snapshot;
 static dvc1124_config_t s_cfg={.cell_count=4};
@@ -71,7 +77,7 @@ code+=function(s,'static void dvc_publish_voltage_measurement(')
 code+=function(s,'static void dvc_publish_temperature_measurement(')
 code+=function(s,'void DVC1124_App_AFEGet(')
 recovery=read('bms/afe/dvc1124/dvc1124_bms.c')
-code+='\n'+recovery[recovery.index('#define DVC_OCC_RECOVERY_TICKS'):recovery.index('static uint16_t dvc_get_configured_temperature')]
+code+='\n'+recovery[recovery.index('#define DVC_LOAD_RELEASE_CONFIRM_TICKS'):recovery.index('static uint16_t dvc_get_configured_temperature')]
 code+=function(recovery,'static uint8_t dvc_recover_current_faults(')
 code+=r'''
 static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;DVC1124_App_AFEGet();}

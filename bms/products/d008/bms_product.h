@@ -98,6 +98,9 @@
 #define BMS_BOARD_ACC_PIN            (GPIO_PA0)
 #define BMS_BOARD_HEATER_ENABLE_PIN  (GPIO_PA1)
 #define BMS_BOARD_LOAD_DETECT_PIN    (GPIO_PB1)
+/* Q40 导通为低；仅 DSGF=0 且无可靠电流时，高电平可确认负载移除。 */
+#define BMS_BOARD_LOAD_REMOVED_LEVEL 1u
+#define BMS_D008_LOAD_RELEASE_CONFIRM_MS 200u
 #define BMS_BOARD_OWC_TX_PIN          (GPIO_PC2)
 #define BMS_BOARD_OWC_RX_PIN          (GPIO_PC3)
 #define BMS_BOARD_MCU_LDO_PIN         (GPIO_PC4)

@@ -22,42 +22,50 @@
 
 /*
  * D008 恢复状态在 AFE 重初始化后保留，MCU 复位后丢失。
- * PB1 暂不参与业务；过流恢复只接受新鲜可靠反向电流，连续确认 200 ms。
- * SDK 32K 时间差可安全跨回绕，关 MOS 后零电流不作为恢复依据。
+ * 新鲜可靠反向电流立即恢复；PB1 仅在 DSGF=0、无可靠电流时去抖确认负载移除。
+ * SDK 32K 时间差可安全跨回绕，关 MOS 后零电流本身不作为恢复依据。
  */
-#define DVC_OCC_RECOVERY_TICKS (30u * 32000u)
-#define DVC_REVERSE_CURRENT_CONFIRM_TICKS (200u * 32u)
+#define DVC_LOAD_RELEASE_CONFIRM_TICKS (BMS_D008_LOAD_RELEASE_CONFIRM_MS * 32u)
 #define DVC_OCC_ALARMS (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)
 #define DVC_DSG_ALARMS (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK | DVC1124_ALARM_SCD_MASK)
 static struct {
-    uint32_t charge_started;
-    uint32_t charge_release_started;
-    uint32_t discharge_release_started;
+    uint32_t load_release_started;
     uint32_t last_poll_tick;
     uint8_t poll_seen;
     uint8_t charge;
-    uint8_t charge_release_pending;
     uint8_t discharge;
-    uint8_t discharge_release_pending;
+    uint8_t load_release_pending;
     uint8_t hw_pending;
 } s_current_recovery;
 
-/* 每轮有效观察维持连续性；等待转换不能清零，失效/未观察/物理证据丢失必须清零。 */
+/* 负载检测只用于关断后的恢复；导通时 C- 接近 B-，不能据此判定空载。 */
 static void dvc_observe_current_recovery(const dvc1124_snapshot_t *snapshot,
                                          uint32_t poll_tick)
 {
     if (!snapshot->valid || (s_current_recovery.poll_seen &&
-        (uint32_t)(poll_tick - s_current_recovery.last_poll_tick) > BMS_SAMPLE_MAX_POLL_GAP_32K)) {
-        s_current_recovery.discharge_release_pending = 0u;
-        s_current_recovery.charge_release_pending = 0u;
-    }
+        (uint32_t)(poll_tick - s_current_recovery.last_poll_tick) > BMS_SAMPLE_MAX_POLL_GAP_32K))
+        s_current_recovery.load_release_pending = 0u;
     s_current_recovery.poll_seen = snapshot->valid;
     s_current_recovery.last_poll_tick = poll_tick;
     if (!snapshot->valid) return;
-    if (snapshot->current_ma >= -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
-        s_current_recovery.discharge_release_pending = 0u;
-    if (snapshot->current_ma <= (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
-        s_current_recovery.charge_release_pending = 0u;
+    if ((snapshot->fet_status & DVC1124_CC2_DSGF_MASK) ||
+        snapshot->current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA ||
+        snapshot->current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA ||
+        (gpio_read(BMS_BOARD_LOAD_DETECT_PIN) ? 1u : 0u) != BMS_BOARD_LOAD_REMOVED_LEVEL) {
+        s_current_recovery.load_release_pending = 0u;
+        return;
+    }
+    if (!s_current_recovery.load_release_pending) {
+        s_current_recovery.load_release_pending = 1u;
+        s_current_recovery.load_release_started = poll_tick;
+    }
+}
+
+/* 只有连续有效的关断观察才能发布 PB1 移除证据。 */
+static uint8_t dvc_load_removed(uint32_t now)
+{
+    return s_current_recovery.load_release_pending &&
+        (uint32_t)(now - s_current_recovery.load_release_started) >= DVC_LOAD_RELEASE_CONFIRM_TICKS;
 }
 
 /* 查询是否仍有电流保护等待物理条件恢复。 */
@@ -251,44 +259,22 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
     uint8_t clear_mask, verify;
     s_current_recovery.hw_pending |= (uint8_t)(alarm & (DVC_OCC_ALARMS | DVC_DSG_ALARMS));
 #endif
-    if (!s_current_recovery.charge && (sw_charge || (alarm & DVC_OCC_ALARMS))) {
+    if (sw_charge || (alarm & DVC_OCC_ALARMS))
         s_current_recovery.charge = 1u;
-        s_current_recovery.charge_started = now;
-    }
     if (sw_discharge || (alarm & DVC_DSG_ALARMS))
         s_current_recovery.discharge = 1u;
 
     /* 有效缓存不能解锁，但必须继续发布既有锁存，避免输出仲裁丢失阻断。 */
     if (!snapshot->current_fresh) goto publish_faults;
 
-    /* 仍然有效的软件阈值故障独立阻断输出。 */
-    /* 未签核充电器拔除输入；只能用新鲜反向放电证明充电故障的物理恢复。 */
-    if (s_current_recovery.charge &&
-        snapshot->current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA) {
-        if (!s_current_recovery.charge_release_pending) {
-            s_current_recovery.charge_release_pending = 1u;
-            s_current_recovery.charge_release_started = now;
-        } else if (!sw_charge &&
-                   (uint32_t)(now - s_current_recovery.charge_started) >= DVC_OCC_RECOVERY_TICKS &&
-                   (uint32_t)(now - s_current_recovery.charge_release_started) >= DVC_REVERSE_CURRENT_CONFIRM_TICKS) {
-            charge_ready = 1u;
-        }
-    } else s_current_recovery.charge_release_pending = 0u;
-    /*
-     * 负电流表示充电；既有 +/-200 mA 不可信区间不能证明充电。
-     * AUTO_DIODE 允许放电故障锁存期间反向充电；不再读取负载检测 GPIO。
-     */
+    /* 软件过流先独立恢复；D008 无充电器拔除输入，OCC 以真实反向放电解除。 */
+    charge_ready = s_current_recovery.charge && !sw_charge &&
+        snapshot->current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
     if (snapshot->current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
         release_reason = 2u;
-    if (s_current_recovery.discharge && release_reason) {
-        if (!s_current_recovery.discharge_release_pending) {
-            s_current_recovery.discharge_release_pending = 1u;
-            s_current_recovery.discharge_release_started = now;
-        } else if (!sw_discharge &&
-                   (uint32_t)(now - s_current_recovery.discharge_release_started) >= DVC_REVERSE_CURRENT_CONFIRM_TICKS) {
-            discharge_ready = 1u;
-        }
-    } else s_current_recovery.discharge_release_pending = 0u;
+    else if (dvc_load_removed(now))
+        release_reason = 1u;
+    discharge_ready = s_current_recovery.discharge && !sw_discharge && release_reason;
 
 #if DVC1124_HW_PROTECT_ENABLE
     clear_mask = (uint8_t)(s_current_recovery.hw_pending &
@@ -310,26 +296,17 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
             /* 保留回读期间新出现的其它电流故障。 */
             s_current_recovery.hw_pending |= (uint8_t)(verify & (DVC_OCC_ALARMS | DVC_DSG_ALARMS));
             if (verify & DVC_DSG_ALARMS) s_current_recovery.discharge = 1u;
-            if ((verify & DVC_OCC_ALARMS) && !s_current_recovery.charge) {
-                s_current_recovery.charge = 1u;
-                s_current_recovery.charge_started = now;
-            }
+            if (verify & DVC_OCC_ALARMS) s_current_recovery.charge = 1u;
         }
     }
 #endif
-    if (charge_ready) {
-        s_current_recovery.charge = 0u;
-        s_current_recovery.charge_release_pending = 0u;
-    }
-    if (discharge_ready) {
-        s_current_recovery.discharge = 0u;
-        s_current_recovery.discharge_release_pending = 0u;
-    }
+    if (charge_ready) s_current_recovery.charge = 0u;
+    if (discharge_ready) s_current_recovery.discharge = 0u;
 publish_faults:
     if (before != (uint8_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1)))
         bms_diag_trace(DIAG_EV_CURRENT_RECOVERY,
             (uint32_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1)),
-            /* 原 PB1 位保留为0；反向充电原因仍为2，诊断字段不移位。 */
+            /* PB1 移除原因为1，反向充电为2，诊断字段位置不变。 */
             (uint32_t)alarm | ((uint32_t)snapshot->status << 16) | ((uint32_t)release_reason << 24));
     if (s_current_recovery.charge) g_bms_report.fault_third.bits.charge_ocp = 1u;
     if (s_current_recovery.discharge) g_bms_report.fault_third.bits.discharge_ocp = 1u;
@@ -502,12 +479,13 @@ void DVC1124_BmsApp_AFEGet(void)
 #endif
     /* 与 SH 一样每个有效应用轮次评估软件保护；等待 ADC 不能拖慢软件滤波。 */
     memset(&sw, 0, sizeof(sw));
-    /* 外部负载检测暂不用，两方向恢复均只用可靠反向电流。 */
+    /* PB1 移除与真实反向充电用于放电恢复；OCC 仍需真实反向放电。 */
     sw.current_recovery_requires_evidence = 1u;
     sw.current_recovery_sample_fresh = snapshot.current_fresh;
-    sw.charge_recovery_allowed = snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
-    sw.discharge_recovery_allowed =
-        snapshot.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+    sw.charge_recovery_immediate = snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+    sw.discharge_recovery_immediate = snapshot.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+    sw.charge_recovery_allowed = sw.charge_recovery_immediate;
+    sw.discharge_recovery_allowed = sw.discharge_recovery_immediate || dvc_load_removed(poll_tick);
     sw.battery_temp_valid = dvc_get_battery_temperature_range(
         &snapshot, &sw.battery_temp_min, &sw.battery_temp_max);
     sw.mos_temp_required = 1u;

@@ -173,3 +173,7 @@ TS3 仍归 heater 策略，TS3/TS4 不并入 AFE 共用电池温度阈值。
 - `bms/core/bms_afe_hw_profile.*`：独立 AFE 硬件保护 profile。
 
 未出现在这些证据中的参数，不得在 D011 文档中补成“默认值”。
+
+## 2026-10-13 充电器检测与加热
+
+`BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT=1`：C+检测确认在位且低温时允许零流进入预热；确认拔除或查询未知时，ARMING/ACTIVE均返回IDLE并关闭加热。温度、熔断、过流/短路、通信及充电方向阻断仍独立保持。C+/LOAD互斥，保护恢复优先LOAD模式；不能以旧C+状态维持加热。D011 PB5安全电平不变，D013/D014仍无加热。详见 [四产品过流、短路恢复与充电加热](CURRENT_RECOVERY_AND_CHARGER_HEATING.md)；本轮未执行测试或实板。

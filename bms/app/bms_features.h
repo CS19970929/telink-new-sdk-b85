@@ -13,6 +13,10 @@
 /* 仅新鲜合格样本推进功能资格；按应用名义节拍换算，等待转换只会延长确认。 */
 #define BMS_FEATURE_SERVICE_PERIOD_MS BMS_SAMPLE_PERIOD_MS
 
+#ifndef BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT
+#define BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT 0u
+#endif
+
 /* 现有固件温度统一编码为 (degC + 40) * 10。 */
 #ifndef BMS_HEATER_START_TEMP_X10
 #define BMS_HEATER_START_TEMP_X10 400u /* 仅低于 0 ℃ 时开始。 */

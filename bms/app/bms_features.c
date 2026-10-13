@@ -198,6 +198,8 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
 static void service_heater(const bms_afe_feature_snapshot_t *s,
                            const bms_user_params_t *config)
 {
+    uint8_t present = 0u;
+    uint8_t source_known;
     if (!bms_board_heater_supported())
     {
         heater_idle();
@@ -225,14 +227,25 @@ static void service_heater(const bms_afe_feature_snapshot_t *s,
         return;
     }
 
+    source_known = 0u;
+#if BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT
+    source_known = bms_afe_get_charge_source_present(&present);
+    /* D011 有片内 C+ 检测：禁止靠旧会话在拔除/检测失效后继续耗电加热。 */
+    if (!source_known || !present) {
+        heater_idle();
+        return;
+    }
+#else
+    if (s_feature.heater_state == BMS_HEATER_IDLE)
+        source_known = bms_afe_get_charge_source_present(&present);
+#endif
     if (s_feature.heater_state == BMS_HEATER_IDLE)
     {
-        uint8_t present;
         /* 零电流可维持既有预热会话，不能证明仍有充电器来启动新周期。
          * 进入 ARMING 后，零电流才是充电路径已阻断的预期证据。
-         * 充电源只影响加热启动；D008 PB1 是负载输入，不能作为充电器证据。 */
+         * D008 充电源用于加热启动；D011 的在位门禁在上面持续检查。PB1 不是充电源。 */
         if (g_bms_report.charge_current_a10 != 0u ||
-            (bms_afe_get_charge_source_present(&present) && present))
+            (source_known && present))
         {
             s_feature.heater_state = BMS_HEATER_ARMING;
         }

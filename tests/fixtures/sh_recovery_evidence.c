@@ -36,6 +36,7 @@ static unsigned clear_calls;
 static uint8_t clear_ok = 1, command_c, command_d;
 static uint16_t cplus_raw = 1024; /* 4 V, charger remains connected */
 static uint8_t load_mode;
+static int32_t public_current_ma;
 static uint8_t mode_ok = 1;
 static unsigned read_stage, fail_stage;
 static unsigned cplus_reads;
@@ -112,7 +113,7 @@ void SH3673520_GetCommStats(sh3673520_comm_stats_t *s) { memset(s,0,sizeof(*s));
 sh3673520_status_t SH3673520_ReadCellVoltages(int32_t *v,uint8_t n) { for(uint8_t i=0;i<n;++i)v[i]=(i==bad_cell)?bad_cell_mv:3300; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
 sh3673520_status_t SH3673520_ReadPackVoltage(int32_t *v) { *v=3300*SH3673510_BOARD_CELL_COUNT; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
 sh3673520_status_t SH3673520_ReadCurrent(int32_t *v) { *v=0; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
-sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,uint32_t shunt,int32_t *v) { (void)raw;(void)shunt;*v=0; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
+sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,uint32_t shunt,int32_t *v) { (void)raw;(void)shunt;*v=-public_current_ma; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
 sh3673520_status_t SH3673520_ReadTemperatures(int32_t *t) { for(uint8_t i=0;i<4;++i)t[i]=(i==invalid_ntc)?0:10000; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
 sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw,uint32_t *v) { *v=(uint32_t)raw; return raw?SH3673520_OK:SH3673520_ERR_RANGE; }
 sh3673520_status_t SH3673520_ReadRegs(uint8_t reg,uint8_t *v,sh3673520_size_t n) { assert(reg==SH3673520_REG_VCHGRH && n==2);++cplus_reads;v[0]=(uint8_t)(cplus_raw>>8);v[1]=(uint8_t)cplus_raw;return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
@@ -273,6 +274,23 @@ int main(void) {
     sample();assert(load_mode==0 && command_c==0); /* C+ settle begins */
     sample();assert(clear_calls==before+2 && command_c==0);
     sample();assert(command_c==1);
+
+    /* 完整公共采样路径：新鲜反向电流无需等待OCD恢复滤波或SC移除窗口。 */
+    cplus_raw=1024;device.bstatus2=SH3673520_BSTATUS2_LOADON_MASK;
+    device.flag1=SH3673520_FLAG1_OCD1_MASK|SH3673520_FLAG1_OCD2_MASK;
+    before=clear_calls;public_current_ma=-200;sample();assert(clear_calls==before);
+    public_current_ma=-201;device.flag2=SH3673520_FLAG2_VADC_MASK;
+    sample();assert(clear_calls==before); /* 新CADC缺失，不能使用旧电流。 */
+    device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
+    sample();assert(clear_calls==before+1 && device.flag1==0);
+    sample();assert(command_d==1);
+    device.flag1=SH3673520_FLAG1_SC_MASK;before=clear_calls;
+    sample();assert(clear_calls==before+1 && command_d==0);
+    sample();assert(command_d==1 && !bms_error_get(BMS_ERROR_DSG_SHORT));
+    device.flag1=SH3673520_FLAG1_OCC_MASK;before=clear_calls;
+    public_current_ma=201;sample();assert(clear_calls==before+1 && device.flag1==0);
+    sample();assert(command_c==1);
+    public_current_ma=0;device.bstatus2=0;sample();sample();
 
     assert(sh3673510_bms_afe_get_aux_measurements(&previous));
     device.flag2=0;

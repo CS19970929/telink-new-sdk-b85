@@ -6,6 +6,8 @@
 
 D008 无放电启动 SCD、CBC 与三级放电过流的现场定位及配置顺序修复见 [启动 SCD 修复记录](docs/D008_STARTUP_SCD_FIX.md)。
 
+四产品反向电流立即恢复、D008 PB1 负载移除恢复及 D011 充电器加热门禁见 [恢复与加热说明](docs/CURRENT_RECOVERY_AND_CHARGER_HEATING.md)。
+
 断线删除后的状态、采样接口及 SOC 继续精简见 [采样与 SOC 解耦](docs/SAMPLING_SOC_DECOUPLING.md)。
 
 允许冷启动静置均衡、删除充电会话及 SH 未消费采样，以及后续高电压竞争选串，见 [均衡与采样精简及回归资源对比](docs/BALANCE_IDLE_SIMPLIFICATION.md)。

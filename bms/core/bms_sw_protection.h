@@ -33,6 +33,9 @@ typedef struct
     uint8_t current_recovery_requires_evidence;
     uint8_t charge_recovery_allowed;
     uint8_t discharge_recovery_allowed;
+    /* 新鲜可靠反向电流允许立即恢复；移除检测仍走既有恢复滤波。 */
+    uint8_t charge_recovery_immediate;
+    uint8_t discharge_recovery_immediate;
     uint8_t current_recovery_sample_fresh;
 } bms_sw_protection_inputs_t;
 

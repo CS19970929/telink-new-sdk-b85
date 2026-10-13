@@ -4,7 +4,8 @@
 #include "sh3673520_reg.h"
 #include "bms_diag.h"
 
-typedef struct { uint32_t unused; } bms_afe_aux_measurements_t;
+typedef struct { int32_t current_ma; } bms_afe_aux_measurements_t;
+#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 typedef struct { uint8_t flag1, flag2, bstatus1, bstatus2; } sh3673510_control_status_t;
 typedef struct { uint8_t last_error; uint32_t crc_error_count, retry_count; } sh3673520_comm_stats_t;
 enum { BMS_ERROR_SPI, BMS_ERROR_AFE1, BMS_ERROR_DSG_SHORT, BMS_ERROR_CBC_DSG };
@@ -58,6 +59,7 @@ static void reset(void) {
     s_fet_command_valid = 0;
     s_requested_charge_on = s_requested_discharge_on = 1;
     s_bstatus2 = 0;
+    s_aux.current_ma=0;s_sample_pending=0;
     clears = writes = 0;
     clear_ok = write_ok = init_ok = 1;
 }
@@ -83,6 +85,11 @@ static void short_recovery(void) {
     CHECK(clears == 1 && s_short_clear_pending && s_short_latched);
     sample(0, 1);
     CHECK(!s_short_latched && !errors[BMS_ERROR_DSG_SHORT]);
+
+    reset();s_aux.current_ma=-200;sample(1,0);CHECK(clears==0);
+    s_aux.current_ma=-201;s_sample_pending=1;sample(1,0);CHECK(clears==0);
+    s_sample_pending=0;sample(1,0);CHECK(clears==1 && s_short_clear_pending);
+    sample(0,0);CHECK(!s_short_latched); /* 反向充电不等待10次LOADOFF。 */
 
     /* A failed clear must not release the latch; later readback is mandatory. */
     reset(); clear_ok = 0;

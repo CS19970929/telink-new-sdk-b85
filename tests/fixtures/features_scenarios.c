@@ -41,7 +41,7 @@ static void reset(void)
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));memset(&snapshot,0,sizeof(snapshot));
     params_valid=1;balance=0;balance_dropped_mask=0;balance_fail=balance_off_fail=balance_read_fail=0;
     balance_on_calls=balance_off_calls=0;fuse_count=0;fuse_request=0;
-    charger_queries=0;charger_present=0;charger_valid=1;
+    charger_queries=0;charger_present=BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT;charger_valid=1;
     snapshot_valid=1;snapshot.cell_count=BMS_PRODUCT_CELL_COUNT;
     snapshot.battery_temp_valid=1;snapshot.heater_temp_valid=1;snapshot.mos_temp_valid=1;
     snapshot.battery_temp_min_x10=650;snapshot.battery_temp_max_x10=650;
@@ -240,7 +240,8 @@ int main(void)
         step(3);assert(!heater);g_bms_report.charge_current_a10=0;step(1);assert(heater);
         snapshot.battery_temp_min_x10=449;step(1);assert(heater);
         snapshot.battery_temp_min_x10=450;step(1);assert(!heater);
-        snapshot.battery_temp_min_x10=399;step(1);assert(!heater && s_feature.heater_state==BMS_HEATER_IDLE);
+        snapshot.battery_temp_min_x10=399;step(1);assert(!heater);
+        assert(s_feature.heater_state==(BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT?BMS_HEATER_ARMING:BMS_HEATER_IDLE));
         g_bms_report.charge_current_a10=10;step(1);assert(s_feature.heater_state==BMS_HEATER_ARMING);
         snapshot.battery_temp_min_x10=450;step(1);assert(!heater && s_feature.heater_state==BMS_HEATER_IDLE);
         snapshot.battery_temp_min_x10=399;
@@ -263,14 +264,23 @@ int main(void)
     for(unsigned i=0;i<1600u;i++) {
         step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
     }
-    /* 充电器证据仅用于启动加热，失效查询不能用其输出值授权。 */
+    /* 充电器在位可零流启动；D011持续检查并在拔除/未知时停止。 */
     reset();g_bms_report.charge_current_a10=0;snapshot.battery_temp_min_x10=399;
     charger_present=1;charger_valid=0;step(5);assert(!heater);
     assert(s_feature.heater_state==BMS_HEATER_IDLE);
     charger_valid=1;step(1);
     if(bms_board_heater_supported()) {
         assert(s_feature.heater_state==BMS_HEATER_ARMING);
-        unsigned queries=charger_queries;step(1);assert(heater && charger_queries==queries);
+        unsigned queries=charger_queries;step(1);assert(heater);
+        assert(charger_queries==queries+(BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT?1u:0u));
+#if BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT
+        charger_present=0;step(1);assert(!heater && s_feature.heater_state==BMS_HEATER_IDLE);
+        charger_present=1;step(1);step(1);assert(heater);
+        charger_valid=0;step(1);assert(!heater && s_feature.heater_state==BMS_HEATER_IDLE);
+        /* ARMING中拔除亦不能开启加热。 */
+        charger_valid=1;step(1);assert(s_feature.heater_state==BMS_HEATER_ARMING);
+        charger_present=0;step(1);assert(!heater && s_feature.heater_state==BMS_HEATER_IDLE);
+#endif
     } else assert(!heater && !charger_queries);
     printf("PASS cells=%u heater=%u fuse=%u balance=%u：边界/迟滞/资格/故障/冷启动静置\n",
            (unsigned)BMS_PRODUCT_CELL_COUNT,bms_board_heater_supported(),bms_board_heater_fuse_supported(),bms_board_balance_supported());

@@ -11,6 +11,7 @@
 #include "bms_product.h"
 #include "bms_afe_backend.h"
 #include "bms_parameters.h"
+#include "bms_soc.h"
 #include "bms_error.h"
 #include "bms_diag.h"
 #include "bms_config_store.h"
@@ -354,6 +355,17 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
 #endif
 }
 
+/* 立即恢复只接受本次完整新样本中超过死区的真实电流。 */
+static uint8_t sh3510_fresh_charging(void)
+{
+    return !s_sample_pending && s_aux.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+}
+
+static uint8_t sh3510_fresh_discharging(void)
+{
+    return !s_sample_pending && s_aux.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+}
+
 #if SH3673510_HW_PROTECT_ENABLE
 /* 把 SH 硬件保护位合并到公共故障状态。 */
 static void merge_hw_protection_faults(const sh3673510_control_status_t *s)
@@ -380,11 +392,12 @@ static void merge_hw_protection_faults(const sh3673510_control_status_t *s)
 /* 短路恢复必须满足器件状态和物理恢复窗口，不能仅凭关 MOS 后的零电流解除锁定。 */
 static uint8_t service_short_recovery(const sh3673510_control_status_t *s)
 {
+    uint8_t charging = sh3510_fresh_charging();
     if ((s == 0) || !s_short_latched) return 1u;
 
     if (s_short_clear_pending) {
         if (((s->flag1 & SH3673520_FLAG1_SC_MASK) == 0u) &&
-            s_load_removed) {
+            (s_load_removed || charging)) {
             s_short_latched = 0u;
             s_short_clear_pending = 0u;
             s_short_release_count = 0u;
@@ -406,7 +419,9 @@ static uint8_t service_short_recovery(const sh3673510_control_status_t *s)
         s_short_release_count = 0u;
     }
 
-    if (!s_short_clear_pending && s_short_release_count >= SH3510_SHORT_RELEASE_SAMPLES) {
+    /* 真实反向充电立即发起清除；负载移除仍需原连续确认窗口。 */
+    if (!s_short_clear_pending &&
+        (charging || s_short_release_count >= SH3510_SHORT_RELEASE_SAMPLES)) {
         if (!sh3673510_control_clear_flag1(SH3673520_FLAG1_SC_MASK)) {
             s_flag_clear_failed = 1u;
             return 0u;
@@ -451,8 +466,7 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
      * OCD 关闭 DSG 后电流自然为零，零电流不能证明外部过载已解除。
      * 清除 OCD 前需连续 LOADOFF 或真实充电方向证据。
      */
-    dsg_ocp_release_ok = (uint8_t)((s_load_removed ||
-                                    (s->bstatus2 & SH3673520_BSTATUS2_CHGING_MASK)) ? 1u : 0u);
+    dsg_ocp_release_ok = s_load_removed || sh3510_fresh_charging();
 
     /*
      * 复位/唤醒事件用于诊断；此处不清 RST1/RST2，
@@ -478,7 +492,7 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
     } else s_hw_recovery_count[HW_REC_UV] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCD1_MASK) {
-        if (hw_recovery_stable(HW_REC_OCD1,
+        if (sh3510_fresh_charging() || hw_recovery_stable(HW_REC_OCD1,
                 actual_ok && dsg_ocp_release_ok &&
                 g_bms_report.discharge_current_a10 <= hw.ocd_recover_a10 &&
                 g_bms_report.discharge_current_a10 < actual.ocd1_a10,
@@ -486,7 +500,7 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
     } else s_hw_recovery_count[HW_REC_OCD1] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCD2_MASK) {
-        if (hw_recovery_stable(HW_REC_OCD2,
+        if (sh3510_fresh_charging() || hw_recovery_stable(HW_REC_OCD2,
                 actual_ok && dsg_ocp_release_ok &&
                 g_bms_report.discharge_current_a10 <= hw.ocd_recover_a10 &&
                 g_bms_report.discharge_current_a10 < actual.ocd2_a10,
@@ -494,9 +508,8 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
     } else s_hw_recovery_count[HW_REC_OCD2] = 0u;
 
     if (s->flag1 & SH3673520_FLAG1_OCC_MASK) {
-        if (hw_recovery_stable(HW_REC_OCC,
-                actual_ok && (s_charger_removed ||
-                              (s->bstatus2 & SH3673520_BSTATUS2_DSGING_MASK)) &&
+        if (sh3510_fresh_discharging() || hw_recovery_stable(HW_REC_OCC,
+                actual_ok && s_charger_removed &&
                 g_bms_report.charge_current_a10 <= hw.occ_recover_a10 &&
                 g_bms_report.charge_current_a10 < actual.occ_a10,
                 (u16)((hw.occ_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OCC_MASK;
@@ -528,7 +541,7 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s)
                 (u16)((hw.temp_recover_ms + 5u) / 10u))) c2 |= SH3673520_FLAG2_UTD_MASK;
     } else s_hw_recovery_count[HW_REC_UTD] = 0u;
 
-    /* 明确排除 SC；SC 仅在连续 LOADOFF 后解除。 */
+    /* SC 独立处理：真实充电立即清除，或连续 LOADOFF 后清除。 */
     if ((c1 && !sh3673510_control_clear_flag1(c1)) ||
         (c2 && !sh3673510_control_clear_flag2(c2))) {
         s_flag_clear_failed = 1u;
@@ -738,10 +751,10 @@ static uint8_t sh3510_update_protection(const sh3673510_control_status_t *status
     memset(&sw, 0, sizeof(sw));
     sw.current_recovery_requires_evidence = 1u;
     sw.current_recovery_sample_fresh = !s_sample_pending;
-    sw.charge_recovery_allowed =
-        (s_charger_removed || (status->bstatus2 & SH3673520_BSTATUS2_DSGING_MASK));
-    sw.discharge_recovery_allowed =
-        (s_load_removed || (status->bstatus2 & SH3673520_BSTATUS2_CHGING_MASK));
+    sw.charge_recovery_immediate = sh3510_fresh_discharging();
+    sw.discharge_recovery_immediate = sh3510_fresh_charging();
+    sw.charge_recovery_allowed = s_charger_removed || sw.charge_recovery_immediate;
+    sw.discharge_recovery_allowed = s_load_removed || sw.discharge_recovery_immediate;
     sw.mos_temp_required = SH3673510_PRODUCT_MOS_NTC_SUPPORTED;
     sw.battery_temp_valid = battery_temperature_snapshot(&sw.battery_temp_min,
                                                           &sw.battery_temp_max);
@@ -761,9 +774,9 @@ static uint8_t sh3510_update_protection(const sh3673510_control_status_t *status
 #if SH3673510_HW_PROTECT_ENABLE
     merge_hw_protection_faults(status);
     /* 待完成 CADC 可暂停恢复计数，但观察到负载重接时必须立即作废旧物理窗口。 */
-    if (!s_load_removed && !(status->bstatus2 & SH3673520_BSTATUS2_CHGING_MASK))
+    if (!s_load_removed && !sw.discharge_recovery_immediate)
         s_hw_recovery_count[HW_REC_OCD1] = s_hw_recovery_count[HW_REC_OCD2] = 0u;
-    if (!s_charger_removed && !(status->bstatus2 & SH3673520_BSTATUS2_DSGING_MASK))
+    if (!s_charger_removed && !sw.charge_recovery_immediate)
         s_hw_recovery_count[HW_REC_OCC] = 0u;
     if (!service_short_recovery(status)) return sample_failed(DIAG_AFE_FAIL_SHORT_RECOVERY);
     if (!s_sample_pending && !service_hw_flag_recovery(status)) return sample_failed(DIAG_AFE_FAIL_FLAG_RECOVERY);

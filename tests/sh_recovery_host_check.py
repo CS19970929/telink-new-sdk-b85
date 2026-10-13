@@ -31,7 +31,7 @@ def check_sh3673510_recovery_host_check():
     functions = '\n'.join(function(name) for name in (
         'restart_sampling', 'filter_samples', 'note_comm_error', 'charge_blocked', 'discharge_blocked',
         'sh3510_outputs_healthy', 'sh3510_apply_requested_fets', 'publish_hw_status',
-        'service_short_recovery', 'hw_recovery_stable', 'service_afe_reconfiguration',
+        'sh3510_fresh_charging', 'sh3510_fresh_discharging', 'service_short_recovery', 'hw_recovery_stable', 'service_afe_reconfiguration',
         'sh3673510_bms_afe_set_output_enabled', 'sh3673510_bms_afe_sleep',
     ))
     fixture = (ROOT / 'tests/fixtures/sh3673510_recovery.c').read_text(encoding='utf-8')
