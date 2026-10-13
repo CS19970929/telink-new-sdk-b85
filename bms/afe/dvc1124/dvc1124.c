@@ -693,6 +693,31 @@ static uint8_t DVC1124_EncodeI2cWatchdog(uint8_t seconds, dvc1124_i2c_wdt_code_t
     }
 }
 
+/*
+ * RM V1.2 p20：复位 SCDE=1、SCDT=0、SCDD=0；现场在正式参数下发前已锁存 SCD。
+ * DS V1.1 p19：SCDE=0 解除 SCD。仅初始化时、全部输出命令及 R6 反馈关闭后处理，
+ * 随后仍由独立硬件 profile 启用正式 SCD；运行中的物理恢复锁存不在此处修改。
+ */
+static uint8_t dvc_prepare_startup_short_circuit(void)
+{
+    const uint8_t command_mask = (uint8_t)(DVC1124_FET_PDSGC_MASK |
+        DVC1124_FET_PCHGC_MASK | DVC1124_FET_DSGC_MASK | DVC1124_FET_CHGC_MASK);
+    const uint8_t flag_mask = (uint8_t)(DVC1124_CC2_PDSGF_MASK |
+        DVC1124_CC2_PCHGF_MASK | DVC1124_CC2_DSGF_MASK | DVC1124_CC2_CHGF_MASK);
+    uint8_t ctrl;
+    uint8_t flags;
+    uint8_t alarm;
+
+    if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &ctrl, 1u) ||
+        !DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL,
+            (uint8_t)(ctrl & (uint8_t)~command_mask))) return 0u;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_CC2_L_FLAGS, &flags, 1u) ||
+        (flags & flag_mask)) return 0u;
+    if (!dvc_update_reg(DVC1124_REG_SCD, DVC1124_SCD_ENABLE_MASK, 0u) ||
+        !DVC1124_ReadRegisters(DVC1124_REG_ALARM, &alarm, 1u)) return 0u;
+    return (alarm & DVC1124_ALARM_SCD_MASK) ? 0u : 1u;
+}
+
 /* 应用固定板级 AFE 工作配置。 */
 static uint8_t dvc_apply_basic_config(void)
 {
@@ -710,6 +735,7 @@ static uint8_t dvc_apply_basic_config(void)
     if (!DVC1124_EncodeBodyDiode(DVC1124_BODY_DIODE_THRESHOLD_UV, &body_diode_code)) return 0u;
     if (!DVC1124_EncodeI2cWatchdog(DVC1124_I2C_WATCHDOG_SECONDS, &watchdog_code)) return 0u;
 
+    if (!dvc_prepare_startup_short_circuit()) return 0u;
     ok &= dvc_apply_cell_masks();
     ok &= dvc_write_verified(DVC1124_REG_GP123_MODE, DVC1124_GP123_MODE_VALUE);
     ok &= dvc_write_verified(DVC1124_REG_GP456_MODE, DVC1124_GP456_MODE_VALUE);
@@ -1362,7 +1388,7 @@ void DVC1124_UpdataAfeConfig(void)
     if (DVC1124_AFE_IsReady() != 0u) { bms_diag_boot_word(25u, DIAG_INVALID); return; }
 
     ok = dvc_apply_basic_config();
-    ok &= dvc_apply_protection_from_params();
+    if (ok) ok = dvc_apply_protection_from_params();
     bms_diag_boot_word(25u, ok ? DIAG_OK : DIAG_INVALID);
     if (ok)
     {
