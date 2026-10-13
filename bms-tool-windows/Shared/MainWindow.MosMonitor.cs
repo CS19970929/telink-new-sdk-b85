@@ -69,7 +69,7 @@ public partial class MainWindow
             if (_bms is null) NoteMosGap("设备断开");
             else if (_otaRunning) NoteMosGap("OTA 期间暂停");
             else if (_mosLastSampleUtc != default && DateTimeOffset.UtcNow - _mosLastSampleUtc > TimeSpan.FromSeconds(5))
-                NoteMosGap("电池数据超过 5 秒未刷新（其他操作或通信中断）");
+                NoteMosDataStale();
         };
         timer.Start();
         Closed += (_, _) => {
@@ -172,10 +172,17 @@ public partial class MainWindow
         if (_mosRows.Count > 300) _mosRows.RemoveAt(_mosRows.Count-1);
     }
 
-    private void NoteMosGap(string reason)
+    private void NoteMosGap(string reason) => SetMosGap(reason, true);
+
+    // 显示过期不等于固件 ring 缺失；随后可按启动身份和 sequence 补回变化。
+    private void NoteMosDataStale() => SetMosGap("电池数据超过 5 秒未刷新（其他操作或通信中断）", false);
+
+    private void SetMosGap(string reason, bool breakFirmwareContinuity)
     {
-        _mosPrevious = null; Array.Clear(_mosOffTicks);
-        _mosCommandTracker.ResetContinuity();
+        if (breakFirmwareContinuity) {
+            _mosPrevious = null; Array.Clear(_mosOffTicks);
+            _mosCommandTracker.ResetContinuity();
+        }
         if (_mosJournal is null || _mosGap == reason) return;
         _mosGap = reason;
         TryMosWrite("gap", new { reason, communication = _communicationStatistics.Snapshot() });
@@ -186,14 +193,16 @@ public partial class MainWindow
     private void RecordMosSnapshot(BatterySnapshot snapshot)
     {
         if (!EnsureMosJournal()) return;
+        bool indicationContinuous = _mosGap is null;
         if (_mosGap is not null) { TryMosWrite("resume", new { previousGap = _mosGap }); _mosGap = null; }
         bool edge = _mosPrevious is not null &&
             (_mosPrevious.ChargeMosOn != snapshot.ChargeMosOn || _mosPrevious.DischargeMosOn != snapshot.DischargeMosOn);
         // 先落盘界面实际使用的源值，随后诊断失败也不丢本次边沿。
         if (!TryMosWrite("sample", new { sample = ++_mosSample, snapshot, previous = edge ? _mosPrevious : null,
-            indicationChanged = edge, communication = _communicationStatistics.Snapshot() })) return;
+            indicationChanged = edge, indicationContinuous, previousSampleUtc = _mosLastSampleUtc, communication = _communicationStatistics.Snapshot() })) return;
         if (edge) AddMosRow("上位机指示", MosHistoryEntry.Bits((snapshot.ChargeMosOn ? 1 : 0) | (snapshot.DischargeMosOn ? 2 : 0)),
-            $"SystemStatus 0x{_mosPrevious!.SystemStatus:X8} → 0x{snapshot.SystemStatus:X8}；等待固件证据，真实关断未确认");
+            $"SystemStatus 0x{_mosPrevious!.SystemStatus:X8} → 0x{snapshot.SystemStatus:X8}；" +
+            (indicationContinuous ? "等待固件证据，真实关断未确认" : "跨刷新缺口的观测差异，边沿时刻未知"));
         _mosPrevious = snapshot; _mosLastSampleUtc = DateTimeOffset.UtcNow;
     }
 
@@ -207,32 +216,37 @@ public partial class MainWindow
         try {
             await RefreshOpenWireAsync(client, cts.Token);
             var capture = await client.ReadMosHistoryAsync(_mosSequence, _mosBootTick, _mosBuildId, cts.Token);
-            if (_mosClosed || !ReferenceEquals(client, _bms) || !ReferenceEquals(client, _mosClient)) return;
-            if (capture.Reset) { NoteMosGap("固件重启或序号回退"); _mosPrevious = null; }
-            if (capture.Missing != 0) NoteMosGap($"固件历史缺失 {capture.Missing} 条（覆盖或读取中变化）");
-            if (!TryMosWrite("diagnostic", new { sample = _mosSample, capture.Header, current = capture.Current?.Words,
-                failureCurrent = capture.Current?.FailureWords,
-                capture.LegacyMosWords, capture.Missing, capture.Reset, capture.Availability })) return;
-            _mosDriverInvalid = capture.Current is not null ? !capture.Current.DriverValid :
-                capture.LegacyMosWords is { } legacy && legacy[5] == 0;
-            foreach (var entry in capture.Entries) {
-                bool continuousTime = _mosSequence.HasValue && !capture.Reset && capture.Missing == 0 &&
-                    _mosLastDiagnosticUtc != default && DateTimeOffset.UtcNow - _mosLastDiagnosticUtc < TimeSpan.FromHours(36);
-                string duration = continuousTime ? MosRecoveryDuration(entry) : "；历史回读或有缺口，不推断关断时长";
-                string commandEvent = _mosCommandTracker.Observe(entry, continuousTime);
-                if (!TryMosWrite("firmware", new { sample = _mosSample, entry.Words, entry.FailureWords, entry.Sequence, entry.Tick32k, entry.State, entry.Detail, duration, commandEvent,
-                    commandOffEvents = _mosCommandTracker.OffEvents })) return;
-                AddMosRow("固件 #" + entry.Sequence, entry.State, entry.Detail + duration + commandEvent);
-            }
-            if (capture.Enabled) { _mosSequence = capture.LatestSequence; _mosBootTick = capture.BootTick; _mosBuildId = capture.BuildId; }
-            _mosLastDiagnosticUtc = DateTimeOffset.UtcNow;
-            string currentText = capture.Current is not null ? capture.Current.State + " · " + capture.Current.Reasons :
-                capture.LegacyMosWords is { } old ? $"AFE 缓存：{(old[5] != 0 ? MosHistoryEntry.Bits(old[4] & 3) : "未知")} · 充电原因：{BmsDiagnostics.Reasons(BmsDiagnostics.U32(old,8))} · 放电原因：{BmsDiagnostics.Reasons(BmsDiagnostics.U32(old,10))}" : "";
-            _mosStatus.Text = $"正在自动写盘 · 本会话请求仍开时主动关命令 {_mosCommandTracker.OffEvents} 次 · " + capture.Availability + " · " + currentText + capture.Current?.FailureDetail;
+            ApplyMosCapture(client, capture);
         }
         catch (OperationCanceledException) { if (!_mosClosed) NoteMosGap("MOS 读取取消或超时"); }
         catch (Exception ex) { NoteMosGap("MOS 诊断读取失败：" + ex.Message); AppendLog(ex.Message, "MOS_MONITOR"); }
         finally { _mosCts = null; _mosBusy = false; }
+    }
+
+    private void ApplyMosCapture(BmsClient client, MosHistoryCapture capture)
+    {
+        if (_mosClosed || !ReferenceEquals(client, _bms) || !ReferenceEquals(client, _mosClient)) return;
+        if (capture.Reset) { NoteMosGap("固件重启或序号回退"); _mosPrevious = null; }
+        if (capture.Missing != 0) NoteMosGap($"固件历史缺失 {capture.Missing} 条（覆盖或读取中变化）");
+        if (!TryMosWrite("diagnostic", new { sample = _mosSample, capture.Header, current = capture.Current?.Words,
+            failureCurrent = capture.Current?.FailureWords,
+            capture.LegacyMosWords, capture.Missing, capture.Reset, capture.Availability })) return;
+        _mosDriverInvalid = capture.Current is not null ? !capture.Current.DriverValid :
+            capture.LegacyMosWords is { } legacy && legacy[5] == 0;
+        foreach (var entry in capture.Entries) {
+            bool continuousTime = _mosSequence.HasValue && !capture.Reset && capture.Missing == 0 &&
+                _mosLastDiagnosticUtc != default && DateTimeOffset.UtcNow - _mosLastDiagnosticUtc < TimeSpan.FromHours(36);
+            string duration = continuousTime ? MosRecoveryDuration(entry) : "；历史回读或有缺口，不推断关断时长";
+            string commandEvent = _mosCommandTracker.Observe(entry, continuousTime);
+            if (!TryMosWrite("firmware", new { sample = _mosSample, entry.Words, entry.FailureWords, entry.Sequence, entry.Tick32k, entry.State, entry.CommandState, entry.Detail, duration, commandEvent,
+                commandOffEvents = _mosCommandTracker.OffEvents })) return;
+            AddMosRow("固件 #" + entry.Sequence, entry.State, entry.Detail + duration + commandEvent);
+        }
+        if (capture.Enabled) { _mosSequence = capture.LatestSequence; _mosBootTick = capture.BootTick; _mosBuildId = capture.BuildId; }
+        _mosLastDiagnosticUtc = DateTimeOffset.UtcNow;
+        string currentText = capture.Current is not null ? capture.Current.State + " · " + capture.Current.Reasons :
+            capture.LegacyMosWords is { } old ? $"AFE 缓存：{(old[5] != 0 ? MosHistoryEntry.Bits(old[4] & 3) : "未知")} · 充电原因：{BmsDiagnostics.Reasons(BmsDiagnostics.U32(old,8))} · 放电原因：{BmsDiagnostics.Reasons(BmsDiagnostics.U32(old,10))}" : "";
+        _mosStatus.Text = $"正在自动写盘 · 本会话请求仍开时关命令/保护模式事件 {_mosCommandTracker.OffEvents} 次 · " + capture.Availability + " · " + currentText + capture.Current?.FailureDetail;
     }
 
     private string MosRecoveryDuration(MosHistoryEntry entry)

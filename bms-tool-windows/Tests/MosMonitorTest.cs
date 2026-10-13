@@ -7,6 +7,8 @@ static class MosMonitorTest
     static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     public static async Task RunAsync()
     {
+        await MonitorPollingTest.RunAsync();
+        CheckDvcModes();
         var t = new MosTransport();
         await using var client = new BmsClient(t);
         var first = await client.ReadMosHistoryAsync();
@@ -100,6 +102,38 @@ static class MosMonitorTest
         Console.WriteLine("PASS MOS monitor: short off/on, invalid samples, unknown cause, overwrite, torn slot, reset, sequence wrap, old firmware, durable journal");
     }
 
+    private static void CheckDvcModes()
+    {
+        var w = new ushort[32]; w[4]=w[5]=3; w[6]=15; w[7]=w[9]=w[19]=1; w[8]=3; w[27]=0x1124;
+        var tracker = new MosCommandTracker(); tracker.Observe(new MosHistoryEntry(w.ToArray()),false);
+        w[6]=11; w[5]=1; PutTestTick(w,32000);
+        string protect = tracker.Observe(new MosHistoryEntry(w.ToArray()),true);
+        Check(tracker.OffEvents==1 && protect.Contains("AUTO_DIODE"), "D008 discharge ON to AUTO_DIODE is one protection-mode event");
+        w[6]=15; w[5]=3; PutTestTick(w,38400);
+        Check(tracker.Observe(new MosHistoryEntry(w.ToArray()),true).Contains("200.00 ms"), "D008 discharge recovery uses DSGC bits 3:2");
+        w[6]=15; w[9]=w[19]=0;
+        Check(!new MosHistoryEntry(w).Detail.Contains("已下达关闭命令"), "D008 0x0F with invalid driver must not claim OFF command");
+        w[6]=3;
+        Check(new MosHistoryEntry(w).State.Contains("放电 关"), "D008 0x03 means charge ON and discharge OFF");
+        for(int chg=0;chg<4;chg++) for(int dsg=0;dsg<4;dsg++) {
+            w[6]=(ushort)(chg|(dsg<<2));
+            var entry=new MosHistoryEntry(w);
+            MosDriveMode Expected(int mode) => mode switch {0 or 1=>MosDriveMode.Off,2=>MosDriveMode.AutoDiode,_=>MosDriveMode.On};
+            Check(entry.ChargeMode==Expected(chg) && entry.DischargeMode==Expected(dsg),"all sixteen DVC R81 mode combinations");
+        }
+        w[27]=0xFFFF;w[6]=0;var unknown=new MosHistoryEntry(w);
+        Check(!unknown.CommandModeKnown && !unknown.Detail.Contains("已下达关闭命令"),"unknown AFE cannot invent a command interpretation");
+        w[27]=0x1124;
+        // 实板同型序列：0 -> 0x0B -> 0x0F，放电不能在 AUTO_DIODE 时提前报恢复。
+        w[6]=15; w[9]=w[19]=1; tracker.ResetSession(); tracker.Observe(new MosHistoryEntry(w.ToArray()),false);
+        w[6]=0; PutTestTick(w,1000); tracker.Observe(new MosHistoryEntry(w.ToArray()),true);
+        w[6]=11; PutTestTick(w,20520);
+        string partial = tracker.Observe(new MosHistoryEntry(w.ToArray()),true);
+        Check(partial.Contains("充电命令恢复") && !partial.Contains("放电命令恢复"), "D008 AUTO_DIODE is not discharge ON recovery");
+        w[6]=15; PutTestTick(w,26720);
+        Check(tracker.Observe(new MosHistoryEntry(w.ToArray()),true).Contains("放电命令恢复"), "D008 0x0F completes discharge recovery");
+    }
+
     private static void PutTestTick(ushort[] words,uint tick) { words[2]=(ushort)tick;words[3]=(ushort)(tick>>16); }
 
     sealed class MosTransport : IBmsTransport
@@ -127,7 +161,7 @@ static class MosMonitorTest
         private static ushort[] Entry(uint sequence)
         {
             var w = new ushort[32]; Put(w, 0, sequence); Put(w, 2, unchecked(0xFFFFF000u + sequence * 6554));
-            w[4] = w[5] = w[6] = 3; w[7] = w[9] = w[19] = 1;
+            w[27] = 0x3510; w[4] = w[5] = w[6] = 3; w[7] = w[9] = w[19] = 1;
             w[8] = sequence == 2 ? (ushort)2 : (ushort)3;
             w[28] = sequence == 3 ? (ushort)2 : (ushort)3; w[29] = 1; w[30] = sequence != 1 ? (ushort)1 : (ushort)0;
             return w;

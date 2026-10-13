@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeUiLog();
         Loaded += (_, _) => { if (_diagTimer is null) AddDiagnosticTab(); };
         DeviceList.ItemsSource = _devices;
         SerialPortList.ItemsSource = _serialPorts;
@@ -1098,19 +1099,7 @@ public partial class MainWindow : Window
     private void AppendLog(string text, string category = "APP")
     {
         _sessionLog.Write(category, text);
-        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
-        if (!Dispatcher.CheckAccess())
-        {
-            Dispatcher.BeginInvoke(() => AppendLogToUi(text, category));
-            return;
-        }
-        AppendLogToUi(text, category);
-    }
-
-    private void AppendLogToUi(string text, string category)
-    {
-        LogBox.AppendText($"{DateTime.Now:HH:mm:ss.fff} [{category}] {text}{Environment.NewLine}");
-        LogBox.ScrollToEnd();
+        QueueUiLog(text, category);
     }
 
     private void ShowError(string title, Exception ex, string? extra = null)

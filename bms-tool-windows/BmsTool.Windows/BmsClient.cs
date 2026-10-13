@@ -37,6 +37,12 @@ public sealed class BatterySnapshot
         "SOC过低", "MOS高温"
     };
 
+    // PC 读取时间范围；协议窗口之间非原子，时间不是设备采样时间。
+    public DateTimeOffset ReadStartedUtc { get; init; }
+    public DateTimeOffset CellsReadUtc { get; init; }
+    public DateTimeOffset StatusReadUtc { get; init; }
+    public DateTimeOffset RealtimeReadUtc { get; init; }
+    public string CellDataWindow => "D000";
     public double PackVoltageV { get; init; }
     public double CurrentA { get; init; }
     public int SocPercent { get; init; }
@@ -256,7 +262,7 @@ public sealed partial class BmsClient : IAsyncDisposable
     public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default)
     {
         if (quantity is 0 or > 125) throw new ArgumentOutOfRangeException(nameof(quantity), "Modbus 0x03 quantity must be 1..125.");
-        byte[] rsp = await TransactAsync(ModbusRtu.ReadHolding(start, quantity), ct);
+        byte[] rsp = await TransactAsync(ModbusRtu.ReadHolding(start, quantity), ct).ConfigureAwait(false);
         ushort[] words=ModbusRtu.ParseRead(rsp, quantity);
         if(start==Sh3520Parameters.HardwareBase && words.Length>=2) IsSh3520=words[0]==Sh3520Parameters.Magic;
         return words;
@@ -420,9 +426,13 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     public async Task<BatterySnapshot> ReadBatteryAsync(CancellationToken ct = default)
     {
-        ushort[] legacy = await ReadRegistersAsync(BmsRegisters.Legacy, 63, ct);
-        ushort[] status = await ReadRegistersAsync(BmsRegisters.SystemStatus, 2, ct);
-        ushort[] realtime = await ReadRegistersAsync(BmsRegisters.Realtime, 11, ct);
+        DateTimeOffset readStartedUtc = DateTimeOffset.UtcNow;
+        ushort[] legacy = await ReadRegistersAsync(BmsRegisters.Legacy, 63, ct).ConfigureAwait(false);
+        DateTimeOffset cellsReadUtc = DateTimeOffset.UtcNow;
+        ushort[] status = await ReadRegistersAsync(BmsRegisters.SystemStatus, 2, ct).ConfigureAwait(false);
+        DateTimeOffset statusReadUtc = DateTimeOffset.UtcNow;
+        ushort[] realtime = await ReadRegistersAsync(BmsRegisters.Realtime, 11, ct).ConfigureAwait(false);
+        DateTimeOffset realtimeReadUtc = DateTimeOffset.UtcNow;
         bool rt = realtime.Length >= 11 && realtime[0] == BmsRegisters.RealtimeMagic;
 
         ushort chg = legacy[50];
@@ -445,13 +455,13 @@ public sealed partial class BmsClient : IAsyncDisposable
             maxTemp = realtime[5];
             minTemp = realtime[6];
             mosTemp = realtime[7];
-            maxCell = realtime[8];
-            minCell = realtime[9];
-            delta = realtime[10];
+            // 单体数组、极值、串号及压差全部保留同一次 D000 应答。
         }
 
         return new BatterySnapshot
         {
+            ReadStartedUtc = readStartedUtc, CellsReadUtc = cellsReadUtc,
+            StatusReadUtc = statusReadUtc, RealtimeReadUtc = realtimeReadUtc,
             PackVoltageV = voltage / 100.0,
             CurrentA = current / 10.0,
             SocPercent = soc,
@@ -551,7 +561,7 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null)
     {
-        await _gate.WaitAsync(ct);
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
         var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
         bool sending = true;
         try
@@ -560,27 +570,27 @@ public sealed partial class BmsClient : IAsyncDisposable
                 long received = Interlocked.Read(ref _lastReceiveTick);
                 if (received != 0) {
                     double remainingMs = SerialResponseTurnaroundDelay.TotalMilliseconds - Stopwatch.GetElapsedTime(received).TotalMilliseconds;
-                    if (remainingMs > 0) await Task.Delay((int)Math.Ceiling(remainingMs), ct);
+                    if (remainingMs > 0) await Task.Delay((int)Math.Ceiling(remainingMs), ct).ConfigureAwait(false);
                 }
             }
             lock (_rxLock) { _rx.Clear(); _pending = tcs; }
             Log?.Invoke("TX " + Convert.ToHexString(request));
             long started = Stopwatch.GetTimestamp();
-            await _transport.WriteAsync(request, ct);
+            await _transport.WriteAsync(request, ct).ConfigureAwait(false);
             CommunicationStatistics.Sent(request.Length);
             sending = false;
             TimeSpan timeout = responseTimeout ?? TimeSpan.FromSeconds(4);
             byte[] rsp;
-            try { rsp = await tcs.Task.WaitAsync(timeout, ct); }
+            try { rsp = await tcs.Task.WaitAsync(timeout, ct).ConfigureAwait(false); }
             catch (TimeoutException ex) {
                 byte[] buffered;
                 lock (_rxLock) buffered = _rx.ToArray();
                 Log?.Invoke($"[MODBUS] TIMEOUT timeoutMs={timeout.TotalMilliseconds:F0}; request={Convert.ToHexString(request)}; buffered={Convert.ToHexString(buffered)}");
                 throw new TimeoutException($"Modbus response timed out after {timeout.TotalMilliseconds:F0} ms.", ex);
             }
-            Log?.Invoke("RX " + Convert.ToHexString(rsp));
             ValidateResponseHeader(request, rsp);
             CommunicationStatistics.ReceivedFrame(Stopwatch.GetElapsedTime(started).TotalMilliseconds, (rsp[1] & 0x80) != 0);
+            Log?.Invoke("RX " + Convert.ToHexString(rsp));
             return rsp;
         }
         catch (Exception ex) {
@@ -624,36 +634,26 @@ public sealed partial class BmsClient : IAsyncDisposable
         CommunicationStatistics.ReceivedBytes(fragment.Length);
         TaskCompletionSource<byte[]>? done = null;
         byte[]? frame = null;
+        string message;
         lock (_rxLock)
         {
-            if (_pending is null)
-            {
-                Log?.Invoke("[MODBUS] unsolicited RX fragment=" + Convert.ToHexString(fragment.ToArray()));
-                return;
-            }
-
-            _rx.AddRange(fragment.ToArray());
-            int? expected = ModbusRtu.InferExpectedLength(_rx);
-            Log?.Invoke($"[MODBUS] RX_FRAGMENT len={fragment.Length}; accumulated={_rx.Count}; expected={(expected?.ToString() ?? "unknown")}");
-            if (expected is not null && _rx.Count >= expected.Value)
-            {
-                frame = _rx.Take(expected.Value).ToArray();
-                done = _pending;
+            if (_pending is null) message = "[MODBUS] unsolicited RX fragment=" + Convert.ToHexString(fragment.Span);
+            else {
+                _rx.AddRange(fragment.ToArray());
+                int? expected = ModbusRtu.InferExpectedLength(_rx);
+                message = $"[MODBUS] RX_FRAGMENT len={fragment.Length}; accumulated={_rx.Count}; expected={(expected?.ToString() ?? "unknown")}";
+                if (expected is not null && _rx.Count >= expected.Value) {
+                    frame = _rx.Take(expected.Value).ToArray();
+                    done = _pending;
+                }
             }
         }
-
-        if (frame is not null && done is not null)
-        {
-            try
-            {
-                ModbusRtu.ValidateFrame(frame);
-                done.TrySetResult(frame);
-            }
-            catch (Exception ex)
-            {
-                done.TrySetException(ex);
-            }
+        // 先交付校验后的响应，再处理日志；外部回调不得占用接收锁。
+        if (frame is not null && done is not null) {
+            try { ModbusRtu.ValidateFrame(frame); done.TrySetResult(frame); }
+            catch (Exception ex) { done.TrySetException(ex); }
         }
+        Log?.Invoke(message);
     }
 
     public ValueTask DisposeAsync()

@@ -50,6 +50,48 @@ static class MosMonitorUiTest
             finally { foreach (var e in entries) e.Dispose(); }
         }
         Check(((ICollection)Get(window, "_mosRows")!).Count == 1, "edge appears in visible list");
+        // 同启动连续固件记录可补回：5 秒显示过期不能丢掉关命令起点。
+        MosHistoryCapture Capture(uint seq, ushort command, uint tick) {
+            var header = new ushort[16]; header[0]=0x4D48;header[1]=header[2]=1;header[3]=8;header[4]=32;header[5]=1;header[6]=(ushort)seq;
+            header[10]=123;header[12]=456;header[14]=0x1124;
+            var w = new ushort[32];w[0]=(ushort)seq;w[2]=(ushort)tick;w[3]=(ushort)(tick>>16);
+            w[4]=3;w[6]=command;w[7]=w[9]=w[19]=1;w[8]=3;w[27]=0x1124;
+            var entry=new MosHistoryEntry(w);var capture=new MosHistoryCapture {Header=header,Current=entry};capture.Entries.Add(entry);return capture;
+        }
+        Call(window,"ApplyMosCapture",client,Capture(1,15,100));
+        Call(window,"NoteMosDataStale");
+        Call(window,"ApplyMosCapture",client,Capture(2,0,1000));
+        var tracker=(MosCommandTracker)Get(window,"_mosCommandTracker")!;
+        Check(tracker.OffEvents==1,"stale UI preserves complete firmware command edge");
+        Call(window,"NoteMosDataStale");
+        Call(window,"ApplyMosCapture",client,Capture(3,11,20520));
+        Call(window,"ApplyMosCapture",client,Capture(4,15,26720));
+        using(var fs= new FileStream(Path.Combine(directory,"mos_0001.jsonl"),FileMode.Open,FileAccess.Read,FileShare.ReadWrite)) {
+            using var reader=new StreamReader(fs);string journal=reader.ReadToEnd();
+            Check(journal.Contains("610.00 ms") && journal.Contains("803.75 ms"),"complete firmware history preserves duration across stale battery display");
+        }
+        Call(window,"NoteMosGap","设备断开或重连");
+        Call(window,"ApplyMosCapture",client,Capture(5,0,30000));
+        Check(tracker.OffEvents==1,"real disconnect cannot fabricate an edge from old baseline");
+        // 只对有协议日志 TextBox 的内部版执行；客户版原本不在 UI 追加分片。
+        if (typeof(MainWindow).GetMethod("QueueUiLog",Private) is not null) {
+            var logBox=(TextBox)window.FindName("LogBox");
+            Check(!logBox.IsUndoEnabled,"read-only protocol log retains no undo history");
+            for(int block=0;block<40;block++) {
+                for(int i=0;i<500;i++) Call(window,"QueueUiLog",$"flood-{block}-{i} " + new string('x',512),"TEST");
+                for(int i=0;i<5;i++) Call(window,"FlushUiLog");
+                Check(logBox.Text.Length<=262144,"20,000 protocol lines cannot grow visible log without bound");
+            }
+            Check(logBox.Text.Contains("flood-39-499"),"bounded log retains latest entries");
+            for(int i=0;i<3000;i++) Call(window,"QueueUiLog",new string('z',512),"TEST");
+            Check((int)Get(window,"_uiLogPendingChars")!<=262144,"pending display work is bounded during dispatcher starvation");
+            Call(window,"AppendLog","full-file-marker-"+new string('q',20000),"TEST");
+            var session=(SessionLogger)Get(window,"_sessionLog")!;
+            using var fs=new FileStream(session.FilePath,FileMode.Open,FileAccess.Read,FileShare.ReadWrite);
+            using var reader=new StreamReader(fs);
+            Check(reader.ReadToEnd().Contains("full-file-marker-"+new string('q',20000)),"UI truncation never truncates original file record");
+            Console.WriteLine("PASS bounded log: 20,000 lines, pending queue cap, recent tail, full file retained");
+        }
         Set(window, "_mosDriverInvalid", true); Call(window, "UpdateCustomerSystemLamps");
         Check(((TextBlock)window.FindName("CustomerChargeMosText")).Text == "--", "invalid AFE evidence shows UNKNOWN lamp");
         Set(window, "_mosDriverInvalid", false); Call(window, "UpdateCustomerSystemLamps");

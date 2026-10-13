@@ -5,6 +5,8 @@ using System.Text.Json;
 namespace BmsTool.Windows;
 
 // AFE 缓存、软件请求与命令是不同证据，均不等于 Gate/Vgs 实测。
+public enum MosDriveMode { Unknown = -1, Off = 0, AutoDiode = 2, On = 3 }
+
 public sealed record MosHistoryEntry(ushort[] Words)
 {
     public ushort[]? FailureWords { get; set; }
@@ -28,17 +30,36 @@ public sealed record MosHistoryEntry(ushort[] Words)
     public ushort Requested => Words[4];
     public ushort Command => Words[6];
     public bool CommandValid => Words[7] != 0;
+    public MosDriveMode ChargeMode => DecodeCommandMode(0);
+    public MosDriveMode DischargeMode => DecodeCommandMode(1);
+    public bool CommandModeKnown => ChargeMode != MosDriveMode.Unknown && DischargeMode != MosDriveMode.Unknown;
+    public ushort CommandOnBits => (ushort)((ChargeMode == MosDriveMode.On ? 1 : 0) | (DischargeMode == MosDriveMode.On ? 2 : 0));
+    public ushort CommandRestrictedBits => (ushort)((ChargeMode is MosDriveMode.Off or MosDriveMode.AutoDiode ? 1 : 0) |
+        (DischargeMode is MosDriveMode.Off or MosDriveMode.AutoDiode ? 2 : 0));
+    private MosDriveMode DecodeCommandMode(int channel)
+    {
+        if (!CommandValid) return MosDriveMode.Unknown;
+        if (Words[27] == 0x3510) return (Command & (1 << channel)) != 0 ? MosDriveMode.On : MosDriveMode.Off;
+        if (Words[27] != 0x1124) return MosDriveMode.Unknown;
+        return ((Command >> (2 * channel)) & 3) switch {
+            0 or 1 => MosDriveMode.Off, 2 => MosDriveMode.AutoDiode, 3 => MosDriveMode.On, _ => MosDriveMode.Unknown };
+    }
+    private static string ModeText(MosDriveMode mode) => mode switch {
+        MosDriveMode.Off => "关", MosDriveMode.On => "开", MosDriveMode.AutoDiode => "AUTO_DIODE", _ => "未知" };
+    public string CommandState => $"充电 {ModeText(ChargeMode)} / 放电 {ModeText(DischargeMode)}";
     public ushort Driver => Words[8];
     public bool DriverValid => Words[9] != 0 && Words[19] != 0;
     public uint ChargeReasons => BmsDiagnostics.U32(Words, 10);
     public uint DischargeReasons => BmsDiagnostics.U32(Words, 12);
     public bool HasPrevious => Words[30] != 0;
-    public string State => DriverValid ? Bits(Driver) : CommandValid && Command != 3 ?
-        "命令：" + Bits(Command) + "；AFE 未知" : "未知（AFE 缓存无效）";
+    public string State => DriverValid ? Bits(Driver) : CommandModeKnown ?
+        "命令：" + CommandState + "；AFE 未知" : "未知（AFE 缓存无效）";
     public string Detail
     {
         get {
-            if (!DriverValid) return (CommandValid && Command != 3 ? "固件已下达关闭命令；AFE 状态回读无效；" :
+            if (!DriverValid) return (CommandModeKnown && CommandRestrictedBits != 0 ?
+                (ChargeMode == MosDriveMode.AutoDiode || DischargeMode == MosDriveMode.AutoDiode ?
+                    "固件已进入 AUTO_DIODE 保护模式；AFE 状态回读无效；" : "固件已下达关闭命令；AFE 状态回读无效；") :
                 "AFE 状态无效，不能认定 MOS 关闭；") + Reasons + FailureDetail;
             if (HasPrevious && Words[29] != 0 && (Words[28] & ~Driver & 3) != 0)
                 return "AFE 报告开启→关闭；" + Reasons + FailureDetail;
@@ -65,8 +86,10 @@ public sealed record MosHistoryEntry(ushort[] Words)
                 if ((f2 & item.Item1) != 0) flags.Add(item.Item2);
             if (flags.Count != 0) return "AFE 相关标志：" + string.Join("、", flags) + "（需核对发生时序）";
         }
-        if (!CommandValid) return "控制命令有效性未知";
-        if ((Command & bit) == 0) return "命令未开启，具体原因未提供";
+        if (!CommandModeKnown) return "控制命令模式未知";
+        MosDriveMode mode = bit == 1 ? ChargeMode : DischargeMode;
+        if (mode == MosDriveMode.Off) return "命令未开启，具体原因未提供";
+        if (mode == MosDriveMode.AutoDiode) return "命令处于 AUTO_DIODE 保护模式";
         if (HasPrevious && Words[29] == 0)
             return "采样有效性刚恢复，命令已开启，等待下一次状态回读（当前仍报告关闭）";
         return $"请求和命令仍开启，AFE 报告关闭，原因未确认（FLAG1/2=0x{Words[14]:X4}/0x{Words[15]:X4}）";
@@ -74,31 +97,36 @@ public sealed record MosHistoryEntry(ushort[] Words)
     public static string Bits(int bits) => $"充电 {((bits & 1) != 0 ? "开" : "关")} / 放电 {((bits & 2) != 0 ? "开" : "关")}";
 }
 
-// 只计算有效命令的边沿；无效 AFE 缓存不应丢掉已经成功写入的关断证据。
+// 按已知 AFE 的有效命令模式计算边沿；无效 AFE 缓存不应丢掉已经成功写入的关断证据。
 public sealed class MosCommandTracker
 {
     private ushort? _previous;
     private readonly uint?[] _offTicks = new uint?[2];
     private readonly bool[] _restored = new bool[2];
+    private readonly bool[] _autoDiode = new bool[2];
     public long OffEvents { get; private set; }
-    public void ResetContinuity() { _previous = null; Array.Clear(_offTicks); Array.Clear(_restored); }
+    public void ResetContinuity() { _previous = null; Array.Clear(_offTicks); Array.Clear(_restored); Array.Clear(_autoDiode); }
     public void ResetSession() { ResetContinuity(); OffEvents = 0; }
     public string Observe(MosHistoryEntry entry, bool continuous)
     {
         if (!continuous) ResetContinuity();
-        if (!entry.CommandValid) { ResetContinuity(); return "；命令无效，计时中断"; }
-        int off = _previous.HasValue ? _previous.Value & ~entry.Command & entry.Requested & 3 : 0;
+        if (!entry.CommandModeKnown) { ResetContinuity(); return "；命令无效或模式未知，计时中断"; }
+        int off = _previous.HasValue ? _previous.Value & entry.CommandRestrictedBits & entry.Requested & 3 : 0;
         if (off != 0) ++OffEvents;
         string text = "";
         for (int channel = 0; channel < 2; ++channel) {
             int bit = 1 << channel;
             string name = channel == 0 ? "充电" : "放电";
-            if ((off & bit) != 0) { _offTicks[channel] = entry.Tick32k; _restored[channel] = false; text += $"；{name}请求仍开，固件主动关命令"; }
+            if ((off & bit) != 0) {
+                _offTicks[channel] = entry.Tick32k; _restored[channel] = false;
+                _autoDiode[channel] = (channel == 0 ? entry.ChargeMode : entry.DischargeMode) == MosDriveMode.AutoDiode;
+                text += _autoDiode[channel] ? $"；{name}请求仍开，进入 AUTO_DIODE 保护模式" : $"；{name}请求仍开，固件主动关命令";
+            }
             if (_offTicks[channel] is not { } tick) continue;
             double ms = unchecked(entry.Tick32k-tick)/32.0;
-            if ((entry.Command&bit) != 0 && !_restored[channel]) {
+            if ((entry.CommandOnBits&bit) != 0 && !_restored[channel]) {
                 _restored[channel] = true;
-                text += $"；{name}命令恢复，关闭命令持续 {ms:F2} ms";
+                text += $"；{name}命令恢复，{(_autoDiode[channel] ? "保护模式" : "关闭命令")}持续 {ms:F2} ms";
                 if (!entry.DriverValid || (entry.Driver&bit)==0) text += "，等待 AFE 状态回读";
             }
             if (_restored[channel] && entry.DriverValid && (entry.Driver&bit)!=0) {
@@ -106,7 +134,7 @@ public sealed class MosCommandTracker
                 _offTicks[channel] = null;
             }
         }
-        _previous = entry.Command;
+        _previous = entry.CommandOnBits;
         return text;
     }
 }
@@ -170,7 +198,7 @@ public sealed partial class BmsClient
         ushort[]? block = null;
         if (_mosHistorySupported != false) {
             try {
-                block = await ReadRegistersAsync(0x3400, 48, ct);
+                block = await ReadRegistersAsync(0x3400, 48, ct).ConfigureAwait(false);
                 _mosHistorySupported = block[0] == 0x4D48 && block[1] == 1;
             }
             catch (BmsModbusException ex) when (ex.Function == 3 && ex.Code is 1 or 2) { _mosHistorySupported = false; }
@@ -178,19 +206,19 @@ public sealed partial class BmsClient
         if (_mosHistorySupported != true) {
             if (_mosSnapshotSupported is null) {
                 try {
-                    var probe = await ReadRegistersAsync(BmsDiagnostics.Base, 3, ct);
+                    var probe = await ReadRegistersAsync(BmsDiagnostics.Base, 3, ct).ConfigureAwait(false);
                     _mosSnapshotSupported = probe[0] == BmsDiagnostics.Magic && probe[1] == 1 && (probe[2] & 8) != 0;
                 }
                 catch (BmsModbusException ex) when (ex.Function == 3 && ex.Code is 1 or 2) { _mosSnapshotSupported = false; }
             }
             return new MosHistoryCapture { LegacyMosWords = _mosSnapshotSupported == true ?
-                await ReadRegistersAsync(0x2A80, 32, ct) : null };
+                await ReadRegistersAsync(0x2A80, 32, ct).ConfigureAwait(false) : null };
         }
         var header = block![..16];
         if (header[2] > 1 || header[3] != 8 || header[4] != 32 || header[5] > 8)
             throw new InvalidDataException("MOS 历史布局无效");
         if (header[2] == 0) return new MosHistoryCapture { Header = header,
-            LegacyMosWords = await ReadRegistersAsync(0x2A80, 32, ct) };
+            LegacyMosWords = await ReadRegistersAsync(0x2A80, 32, ct).ConfigureAwait(false) };
         uint latest = BmsDiagnostics.U32(header, 6);
         bool reset = (bootTick.HasValue && bootTick != BmsDiagnostics.U32(header, 10)) ||
             (buildId.HasValue && buildId != BmsDiagnostics.U32(header, 12)) ||
@@ -201,7 +229,7 @@ public sealed partial class BmsClient
         ushort[]? failureHeader = null;
         if (_mosFailureSupported != false) {
             try {
-                var failure = await ReadRegistersAsync(0x3700, 32, ct);
+                var failure = await ReadRegistersAsync(0x3700, 32, ct).ConfigureAwait(false);
                 _mosFailureSupported = failure[0] == 0x4146 && failure[1] == 1;
                 if (_mosFailureSupported == true) {
                     if (failure[3] != 8 || failure[4] != 16 || failure[5] > 8 || failure[15] != 32)
@@ -222,10 +250,10 @@ public sealed partial class BmsClient
         for (uint i = count; i > 0; --i) {
             uint seq = unchecked(latest - i + 1);
             ushort address = (ushort)(0x3430 + unchecked(seq - 1) % 8 * 32);
-            var entry = new MosHistoryEntry(await ReadRegistersAsync(address, 32, ct));
+            var entry = new MosHistoryEntry(await ReadRegistersAsync(address, 32, ct).ConfigureAwait(false));
             if (entry.Sequence == seq) {
                 if (failureHeader is not null) {
-                    var failure = await ReadRegistersAsync((ushort)(0x3720 + unchecked(seq-1)%8*16),16,ct);
+                    var failure = await ReadRegistersAsync((ushort)(0x3720 + unchecked(seq-1)%8*16),16,ct).ConfigureAwait(false);
                     if (BmsDiagnostics.U32(failure,0) == seq) entry.FailureWords = failure;
                 }
                 result.Entries.Add(entry);
@@ -233,7 +261,7 @@ public sealed partial class BmsClient
             else ++result.Missing; // 并发覆盖：不能把其他序号当成本条。
         }
         if (count != 0) {
-            var tail = await ReadRegistersAsync(0x3400, 16, ct);
+            var tail = await ReadRegistersAsync(0x3400, 16, ct).ConfigureAwait(false);
             if (tail[0] != header[0] || tail[1] != header[1] || tail[2] != header[2] ||
                 BmsDiagnostics.U32(tail, 10) != result.BootTick || BmsDiagnostics.U32(tail, 12) != result.BuildId ||
                 unchecked(BmsDiagnostics.U32(tail, 6) - latest) >= 0x80000000u)

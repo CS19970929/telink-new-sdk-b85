@@ -61,3 +61,34 @@ Windows/CLI/Core复用 `Shared/BmsMosMonitor.cs`，没有第二套通信协议�
 `BmsFactoryTest.Windows.exe --monitor-serial=COM3 --monitor-baud=115200 --monitor-mac=A4:C1:38:86:8B:DF`。
 工具自动连接并核对MAC，进入MOS页持续记录；目标不符时断开并报错。客户版也支持相同参数。
 每次关断可能产生多条状态记录，应按sequence和命令边沿合并分析，不能把每条日志当作一次关断。
+
+
+# 2026-10-13 MOS 监控修复
+
+本次只修改上位机，固件、寄存器地址、协议字节序、请求锁和写入/OTA 行为保持。
+现场 10 月 12 日 17:52 的关闭是用户主动测试，按正常保护动作处理。
+
+- 电池数据超过 5 秒未刷新仍显示未知、保存 gap，但不再清空固件历史计时。
+  同启动、同 Build ID、连续 sequence 且无历史缺失时，补回的完整变化仍可统计。
+  跨显示缺口的两次源值差异记录 `indicationChanged`，同时以 `indicationContinuous=false`
+  表示边沿时刻未知；`previousSampleUtc` 保存前一条源值接收时间。
+  断连、暂停/取消、OTA、重启、历史缺失和命令模式未知仍中断相关跟踪。
+- SH3673510 命令按 CHG/DSG 两位解码；DVC1124 的 R81 按 CHGC[1:0]、DSGC[3:2]
+  解码，00/01=关闭，10=AUTO_DIODE，11=开启。未知 AFE 不猜测命令。
+  显示和统计共享解码；进入 AUTO_DIODE 计为保护模式事件，恢复为开启模式才报命令恢复。
+  JSONL 新增 `firmware.CommandState`，原始 Words/FailureWords 保留。
+- 内部版协议日志显示每 200 ms 批量刷新，待显示队列最多 1000 条/256 Ki 字符；
+  TextBox 最多 256 Ki 字符，超限保留最近内容，并禁用 Undo。
+  单条界面日志最多显示 16 Ki 字符，完整协议文件仍保留全部原文且 AutoFlush。
+  客户版原本不向界面追加协议日志；两版共享读取和接收路径修复。
+  接收日志回调移出接收锁，完整 CRC 校验响应先交付；读取/事务续接不依赖 UI 消息泵。
+  请求仍串行，不通过并发查询提高刷新频率。
+- 单体数组、极值、串号及压差统一使用同一次 D000 响应；D120 的总压、电流、SOC、温度语义保留。
+  BatterySnapshot 新增 ReadStartedUtc/CellsReadUtc/StatusReadUtc/RealtimeReadUtc 和 CellDataWindow。
+  它们是 PC 读取时间与来源，不能视为设备采样时间，也不宣称 D000/D115/D120 为原子快照。
+
+相关验证：test-diagnostics.ps1 包含 DVC 16 种模式组合、AUTO_DIODE 恢复、跨窗口变化、
+无 UI 消息泵的真实接收拼帧；test-mos-monitor-ui.ps1 使用两版真实 MainWindow 验证过期后
+补回关命令、恢复计时、断连不造边沿、未知指示；内部版另覆盖 20,000 行日志、积压上限、
+保留最新内容及文件原文不截断。构建/测试输出统一在源码树外。
+这些离线回归不替代连接设备后的长期运行性能和实际 BLE/串口验收；不据此声称过夜性能已验证。
