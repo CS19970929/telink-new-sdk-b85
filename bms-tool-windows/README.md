@@ -2,6 +2,8 @@
 
 本目录是 BMS 仓库中的独立 Windows 项目区，与固件源码并列维护。
 
+客户版与内部版提供[一线通监控](docs/OWC_MONITOR.md)，通过 Comm Tool 采集 A1.3.3 公开字段，支持 PC 快照 v1/v2。
+
 - `BmsTool.Windows/`：客户版 BMS Assistant，面向客户交付。
 - `BmsFactoryTest.Windows/`：内部完整测试版 BMS Assistant，保留工程/调试/出厂测试页面（3520 保护参数页已永久删除），启动后不需要密码。
 - `BmsTool.Cli/`：无 UI 命令行版，面向快速 OTA、脚本和 AI/Codex 实板诊断。

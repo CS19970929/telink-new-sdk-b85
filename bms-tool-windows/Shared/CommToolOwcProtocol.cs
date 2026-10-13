@@ -1,0 +1,203 @@
+using System.Buffers.Binary;
+using System.Globalization;
+using System.Text;
+
+namespace BmsTool.Windows;
+
+public sealed record OwcSnapshot(bool Enabled, bool ChecksumOk, uint AgeMs, uint Good,
+    uint ChecksumErrors, uint TimingErrors, uint Overflows, uint Sequence,
+    byte[] Raw, ushort Session, byte Version)
+{
+    public bool Fresh => Enabled && ChecksumOk && Raw.Length > 0 &&
+        AgeMs <= (Raw[0] is 0x3B or 0x3C ? 75000u : 5000u);
+}
+
+public sealed record OwcField(string Packet, string Name, string Value, string Unit);
+public sealed record CommToolOwcFrame(byte Flags, ushort Sequence, byte Command, byte Status, byte[] Payload);
+
+// PC快照与BMS线协议独立：只接受已交付的v1/v2头，业务字段统一按A1.3.3解释。
+public static class CommToolOwcProtocol
+{
+    public static readonly byte[] PacketIds = [1, 0x3A, 0x3B, 0x3C, 0];
+    public const int HeaderSize = 32;
+
+    public static ushort Crc16(ReadOnlySpan<byte> data)
+    {
+        ushort crc = 0xFFFF;
+        foreach (byte value in data)
+        {
+            crc ^= value;
+            for (int bit = 0; bit < 8; bit++)
+                crc = (ushort)((crc & 1) != 0 ? (crc >> 1) ^ 0xA001 : crc >> 1);
+        }
+        return crc;
+    }
+
+    public static byte[] EncodeCommand(ushort sequence, byte command, ReadOnlySpan<byte> payload)
+    {
+        if (payload.Length > 512) throw new ArgumentException("Comm Tool payload超长");
+        byte[] frame = new byte[12 + payload.Length];
+        frame[0] = 0x55; frame[1] = 0xAA; frame[2] = 1;
+        BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(4), sequence);
+        frame[6] = command;
+        BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(8), (ushort)payload.Length);
+        payload.CopyTo(frame.AsSpan(10));
+        BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(frame.Length - 2),
+            Crc16(frame.AsSpan(0, frame.Length - 2)));
+        return frame;
+    }
+
+    public static CommToolOwcFrame DecodeFrame(byte[] frame)
+    {
+        if (frame.Length < 12 || frame[0] != 0x55 || frame[1] != 0xAA || frame[2] != 1)
+            throw new FormatException("Comm Tool外层帧头非法");
+        int length = BinaryPrimitives.ReadUInt16LittleEndian(frame.AsSpan(8));
+        if (length > 512 || frame.Length != length + 12) throw new FormatException("Comm Tool外层帧长度非法");
+        if (Crc16(frame.AsSpan(0, frame.Length - 2)) != BinaryPrimitives.ReadUInt16LittleEndian(frame.AsSpan(frame.Length - 2)))
+            throw new FormatException("Comm Tool响应CRC错误");
+        return new(frame[3], BinaryPrimitives.ReadUInt16LittleEndian(frame.AsSpan(4)),
+            frame[6], frame[7], frame[10..^2]);
+    }
+
+    public static OwcSnapshot DecodeSnapshot(ReadOnlySpan<byte> payload, byte requestedId)
+    {
+        if (payload.Length < HeaderSize) throw new FormatException("一线通快照头不完整");
+        byte version = payload[0];
+        if (version is not (1 or 2)) throw new FormatException($"不支持的快照版本：{version}");
+        if (!PacketIds.Contains(requestedId) || payload[1] > 1 || payload[2] > 1 || payload[3] > 1)
+            throw new FormatException("一线通快照头非法");
+        ushort session = BinaryPrimitives.ReadUInt16LittleEndian(payload[30..]);
+        if (version == 1 && session != 0) throw new FormatException("v1保留字段必须为零");
+        int length = BinaryPrimitives.ReadUInt16LittleEndian(payload[28..]);
+        if (length != payload.Length - HeaderSize || length > 259 || (payload[2] != 0) != (length != 0))
+            throw new FormatException("一线通快照长度非法");
+        byte[] raw = payload[HeaderSize..].ToArray();
+        bool valid = payload[3] != 0;
+        if (raw.Length != 0)
+        {
+            ValidatePacket(raw);
+            if (requestedId != 0 && raw[0] != requestedId) throw new FormatException("一线通报文ID不一致");
+            if (version == 2 && valid && session == 0) throw new FormatException("v2有效报文缺少会话");
+            if (valid != SumOk(raw)) throw new FormatException("一线通SUM与有效标志不一致");
+            if (requestedId != 0 && !valid) throw new FormatException("有效缓存含坏SUM");
+        }
+        else if (valid) throw new FormatException("空快照标记有效");
+        return new OwcSnapshot(payload[1] != 0, valid, U32(payload, 4), U32(payload, 8),
+            U32(payload, 12), U32(payload, 16), U32(payload, 20), U32(payload, 24), raw, session, version);
+    }
+
+    private static uint U32(ReadOnlySpan<byte> data, int offset) =>
+        BinaryPrimitives.ReadUInt32LittleEndian(data[offset..]);
+    private static ushort U16(byte[] data, int offset) =>
+        BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset));
+
+    private static void ValidatePacket(byte[] raw)
+    {
+        if (raw.Length < 4 || !PacketIds.Contains(raw[0]) || raw[0] == 0 ||
+            (raw[1] & 15) == 15 || (raw[1] >> 4) == 15 ||
+            raw.Length != (raw[0] == 1 ? 20 : raw[2] + 4))
+            throw new FormatException("一线通报文ID、版本或长度非法");
+        if ((raw[0] == 0x3A && raw[2] is not (>= 27 and <= 29)) ||
+            (raw[0] == 0x3B && (raw[2] == 0 || raw[2] % 2 != 0)) ||
+            (raw[0] == 0x3C && raw[2] == 0))
+            throw new FormatException("一线通私有报文长度非法");
+    }
+
+    private static bool SumOk(byte[] raw) => raw.Length > 0 &&
+        (raw.Take(raw.Length - 1).Sum(value => (int)value) & 255) == raw[^1];
+
+    public static bool Online(IReadOnlyDictionary<byte, OwcSnapshot> snapshots) =>
+        snapshots.Values.Any(s => s.Enabled && s.ChecksumOk && s.Raw.Length != 0 && s.AgeMs <= 5000);
+
+    public static bool Coherent(IEnumerable<OwcSnapshot> snapshots) =>
+        snapshots.Select(s => (s.Version, s.Session, s.Enabled)).Distinct().Count() == 1;
+
+    public static IReadOnlyList<OwcField> VisibleFields(OwcSnapshot snapshot,
+        IReadOnlyDictionary<byte, OwcSnapshot> snapshots)
+    {
+        if (!snapshot.Enabled || !snapshot.ChecksumOk || snapshot.Raw.Length == 0) return [];
+        byte id = snapshot.Raw[0];
+        if (id != 1 && (!Online(snapshots) || !snapshot.Fresh)) return [];
+        if (id == 0x3B && snapshots.TryGetValue(0x3A, out var realtime) && realtime.Raw.Length != 0 &&
+            (!realtime.Fresh || U16(realtime.Raw, 4) > 10000)) return [];
+        var fields = DecodeFields(snapshot.Raw);
+        // 接入公有帧只保留静态资料，实时测量以3A为准。
+        if (id == 1)
+            fields.RemoveAll(row => row.Name is not ("ID" or "协议" or "厂家代码" or "电池型号" or
+                "材料代码" or "材料" or "额定电压" or "额定容量"));
+        return fields;
+    }
+
+    public static List<OwcField> DecodeFields(byte[] raw)
+    {
+        var rows = new List<OwcField>();
+        if (!SumOk(raw)) return rows;
+        ValidatePacket(raw);
+        string packet = $"0x{raw[0]:X2}";
+        void Add(string name, string value, string unit = "") => rows.Add(new(packet, name, value, unit));
+        void Scaled(string name, int value, double scale, string unit, int maximum, double bias = 0) =>
+            Add(name, value > maximum ? "--" : (value * scale + bias).ToString("0.###", CultureInfo.InvariantCulture), unit);
+        Add("ID", packet); Add("协议", $"0x{raw[1]:X2}");
+        if (raw[0] is 1 or 0x3A)
+        {
+            int start = raw[0] == 1 ? 9 : 3;
+            Scaled("SOC", raw[start], 0.5, "%", 200);
+            Scaled("总电压", U16(raw, start + 1), 0.1, "V", 10000);
+            Scaled("电流", U16(raw, start + 3), 0.1, "A", 10000, -500);
+            Scaled("最高温度", raw[start + 5], 1, "℃", 190, -40);
+            Scaled("最低温度", raw[start + 6], 1, "℃", 190, -40);
+            Scaled("MOS温度", raw[start + 7], 1, "℃", 190, -40);
+            byte fault = raw[start + 8], work = raw[start + 9];
+            Add("故障码", $"0x{fault:X2}"); Add("故障", FaultName(fault));
+            bool workValid = work != 255 && (raw[0] == 1 ? work <= 2 : (work & 0x18) == 0);
+            Add("工作状态原值", $"0x{work:X2}");
+            Add("工作状态", workValid ? (work & 7) switch { 0 => "放电", 1 => "充电", 2 => "回馈", _ => "--" } : "--");
+            if (raw[0] == 1)
+            {
+                Add("厂家代码", raw[2] == 255 ? "--" : $"0x{raw[2]:X2}");
+                Add("电池型号", raw[3] > 15 ? "--" : raw[3].ToString());
+                Add("材料代码", $"0x{raw[4]:X2}");
+                Add("材料", raw[4] switch { 1 => "磷酸铁锂", 2 => "锰酸锂", 3 => "三元锂",
+                    4 => "钴酸锂", 5 => "聚合锂", 6 => "钛酸锂", 7 => "铅酸", 8 => "镍氢", 9 => "钠", _ => "未定义/保留" });
+                Scaled("额定电压", U16(raw, 5), 0.1, "V", 10000);
+                Scaled("额定容量", U16(raw, 7), 0.1, "Ah", 10000);
+            }
+            else
+            {
+                Add("请求应答设备", workValid ? (work >> 5) switch { 0 => "不需要应答", 1 => "充电器", 2 => "ECU", 3 => "TBOX", _ => "--" } : "--");
+                Add("BMS状态原值（需解码）", raw[27] == 0 ? "--" : $"0x{raw[13]:X2}");
+                Add("加密/充电策略/互认", "未实现");
+                Scaled("循环次数", U16(raw, 14), 1, "", 60000);
+                Scaled("最高单体", U16(raw, 16), 1, "mV", 10000);
+                Scaled("最低单体", U16(raw, 18), 1, "mV", 10000);
+                Add("最高单体位置原值", raw[20] is >= 1 and <= 25 ? raw[20].ToString() : "--");
+                Add("最低单体位置原值", raw[21] is >= 1 and <= 25 ? raw[21].ToString() : "--");
+                Add("充电状态原值", raw[26] == 255 ? "--" : $"0x{raw[26]:X2}");
+                Add("充电状态", raw[26] switch { 0 => "保留", 1 => "满充停止", 2 => "非法充电", 3 => "电池保护", 4 => "正在充电", _ => "--" });
+                Scaled("允许回馈电流", raw[22], 0.1, "A", 254);
+                Scaled("请求充电电压", U16(raw, 23), 0.1, "V", 10000);
+                Scaled("请求充电电流", raw[25], 0.1, "A", 254);
+            }
+        }
+        else if (raw[0] == 0x3B)
+            for (int i = 0; i < raw[2] / 2; i++) Scaled($"单体 {i + 1}", U16(raw, 3 + i * 2), 1, "mV", 60000);
+        else if (raw[0] == 0x3C)
+        {
+            byte[] code = raw[3..^1];
+            bool valid = code.All(b => b is >= 32 and <= 126) && code.Any(b => b != 32);
+            Add("电池编码", valid ? Encoding.ASCII.GetString(code) : "--");
+        }
+        return rows;
+    }
+
+    private static string FaultName(byte code) => code switch
+    {
+        0 => "无故障", 1 => "放电过流二级保护", 2 => "放电过流一级保护", 3 => "低温充电保护",
+        4 => "充电高温保护", 5 => "放电高温保护", 6 => "欠压保护", 7 => "过压保护",
+        8 => "充电过流保护", 9 => "放电低温保护", 0x0A => "充电MOS故障", 0x0B => "放电MOS故障",
+        0x14 => "充电高温异常报警", 0x15 => "放电高温异常报警", 0x22 => "放电过流一级预警",
+        0x23 => "低温充电预警", 0x24 => "充电高温预警", 0x25 => "放电高温预警",
+        0x26 => "欠压预警", 0x27 => "过压预警", 0x28 => "充电过流预警",
+        0x29 => "放电低温预警", _ => "未定义/保留"
+    };
+}
