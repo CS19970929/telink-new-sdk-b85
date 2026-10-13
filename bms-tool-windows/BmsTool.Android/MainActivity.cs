@@ -149,7 +149,7 @@ public sealed partial class MainActivity : Activity
         else if (!string.IsNullOrWhiteSpace(firmware))
             _firmwareInput!.Text = firmware;
         if (!string.IsNullOrWhiteSpace(expectedSerial)) _expectedSerialInput!.Text = expectedSerial;
-        if (Intent.GetBooleanExtra("show_tools", false)) ShowPage(4);
+        if (Intent.GetBooleanExtra("show_tools", false)) ShowPage(ToolsPage);
     }
 
     private async Task HandleIncomingFirmwareIntentAsync(Intent? intent)
@@ -180,7 +180,7 @@ public sealed partial class MainActivity : Activity
             return;
         }
 
-        ShowPage(4);
+        ShowPage(ToolsPage);
         await ImportFirmwareAsync(uri);
     }
 
@@ -253,7 +253,7 @@ public sealed partial class MainActivity : Activity
             }
             catch (IOException ex) { Log.Warn(LogTag, $"log write failed: {ex.Message}"); }
         }
-        RunOnUiThread(() => _logView?.Append(line + System.Environment.NewLine));
+        RunOnUiThread(() => AppendVisibleLog(line));
     }
 
     private void SetStatus(string text, bool error = false) => RunOnUiThread(() =>

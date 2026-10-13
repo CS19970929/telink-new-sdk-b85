@@ -55,123 +55,22 @@ public sealed partial class MainActivity
 
     private int Dp(int value) => (int)(value * Resources!.DisplayMetrics!.Density + 0.5f);
 
-    private void BuildUi()
-    {
-        var root = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        root.SetBackgroundColor(Color.ParseColor("#F4F7F5"));
+    private void BuildUi() => BuildMobileUi();
 
-        var header = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        header.SetPadding(Dp(18), Dp(12), Dp(18), Dp(10));
-        header.SetBackgroundColor(Color.ParseColor("#214F39"));
-        var title = new TextView(this) { Text = "BMS Tool", TextSize = 22 };
-        title.SetTextColor(Color.White);
-        title.SetTypeface(null, TypefaceStyle.Bold);
-        header.AddView(title);
-        _connectionView = new TextView(this) { Text = "未连接 · Android BLE", TextSize = 13 };
-        _connectionView.SetTextColor(Color.ParseColor("#D3E8DB"));
-        header.AddView(_connectionView);
-        root.AddView(header);
+    private View BuildOverviewPage() => BuildBatteryPage();
 
-        _statusView = new TextView(this) { Text = "请选择设备", TextSize = 13 };
-        _statusView.SetPadding(Dp(16), Dp(8), Dp(16), Dp(8));
-        _statusView.SetBackgroundColor(Color.ParseColor("#E7F0EA"));
-        root.AddView(_statusView);
-
-        var navScroll = new HorizontalScrollView(this) { HorizontalScrollBarEnabled = false };
-        var nav = new LinearLayout(this) { Orientation = Orientation.Horizontal };
-        nav.SetPadding(Dp(6), Dp(4), Dp(6), Dp(4));
-        foreach (string name in new[] { "概览", "保护", "参数", "诊断", "工具" })
-        {
-            int index = _navButtons.Count;
-            var button = new Button(this) { Text = name, TextSize = 13 };
-            button.SetMinWidth(Dp(74));
-            button.Click += (_, _) => ShowPage(index);
-            _navButtons.Add(button);
-            nav.AddView(button, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(48)));
-        }
-        navScroll.AddView(nav);
-        root.AddView(navScroll);
-
-        var pageHost = new FrameLayout(this);
-        pageHost.AddView(BuildOverviewPage());
-        pageHost.AddView(BuildProtectionPage());
-        pageHost.AddView(BuildParameterPage());
-        pageHost.AddView(BuildDiagnosticPage());
-        pageHost.AddView(BuildToolsPage());
-        root.AddView(pageHost, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
-        SetContentView(root);
-        ShowPage(0);
-    }
-
-    private View BuildOverviewPage()
-    {
-        LinearLayout page = Page();
-        page.AddView(SectionTitle("设备连接"));
-        _macInput = Input("BLE MAC", "");
-        page.AddView(_macInput);
-        var actions = Row();
-        actions.AddView(ActionButton("扫描", ScanAsync));
-        _connectButton = ActionButton("连接", ConnectSelectedAsync);
-        actions.AddView(_connectButton);
-        _disconnectButton = ActionButton("断开", DisposeConnectionAsync);
-        actions.AddView(_disconnectButton);
-        page.AddView(actions);
-        _scanResults = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        page.AddView(_scanResults);
-
-        page.AddView(SectionTitle("实时数据"));
-        page.AddView(ActionButton("立即刷新", () => RefreshOverviewAsync(true)));
-        _summaryView = DataBlock("电压、电流、SOC 等待连接后显示");
-        page.AddView(_summaryView);
-        page.AddView(SectionTitle("设置当前 SOC（通用）"));
-        page.AddView(Note("适用于支持公共 0x1005 SOC 写入的 BMS，不依赖 D008 参数协议。写入范围 0～100%，随后读取实时数据核对。"));
-        _socInput = LabeledInput(page, "目标 SOC / %", "");
-        _socInput.InputType = global::Android.Text.InputTypes.ClassNumber;
-        page.AddView(ActionButton("设置并回读 SOC", SaveSocAsync));
-        page.AddView(SectionTitle("单体电压"));
-        _cellsView = DataBlock("—");
-        page.AddView(_cellsView);
-        page.AddView(SectionTitle("系统与保护状态"));
-        _stateView = DataBlock("—");
-        page.AddView(_stateView);
-        page.AddView(SectionTitle("设备身份"));
-        _identityView = DataBlock("—");
-        page.AddView(_identityView);
-        return Wrap(page);
-    }
-
-    private View BuildProtectionPage()
-    {
-        LinearLayout page = Page();
-        page.AddView(SectionTitle("软件三级保护"));
-        page.AddView(Note("读取后按 13 个保护组显示一级、二级、三级、恢复和滤波；保存只写发生变化的完整组并逐组读回。"));
-        var buttons = Row();
-        buttons.AddView(ActionButton("读取", ReadProtectionAsync));
-        buttons.AddView(ActionButton("保存修改", SaveProtectionAsync));
-        page.AddView(buttons);
-        _protectionStatus = DataBlock("未读取");
-        page.AddView(_protectionStatus);
-        _protectionRows = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        page.AddView(_protectionRows);
-
-        page.AddView(SectionTitle("AFE 硬件保护"));
-        page.AddView(Note("Requested 与 Effective 分开显示；保存使用固件授权事务，MTU=23 时自动使用分片提交。"));
-        var afeButtons = Row();
-        afeButtons.AddView(ActionButton("读取 AFE", ReadAfeAsync));
-        afeButtons.AddView(ActionButton("原子应用", SaveAfeAsync));
-        page.AddView(afeButtons);
-        _afeStatus = DataBlock("未读取");
-        page.AddView(_afeStatus);
-        _afeRows = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        page.AddView(_afeRows);
-        return Wrap(page);
-    }
+    private View BuildProtectionPage() => BuildMobileProtectionPage();
 
     private View BuildParameterPage()
     {
         LinearLayout page = Page();
-        page.AddView(SectionTitle("D008 业务参数"));
-        page.AddView(Note("参数写入前必须先读取能力窗口；写入后自动读回。SN 为工厂身份字段，Android 客户页面只读。"));
+        page.AddView(ActionButton("‹ 返回设备", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
+        page.AddView(SectionTitle("SOC 校正"));
+        page.AddView(Note("输入目标电量百分比，保存后读取设备确认。"));
+        _socInput = LabeledInput(page, "目标 SOC / %", "");
+        page.AddView(ActionButton("保存 SOC 并核对", SaveSocAsync));
+        page.AddView(SectionTitle("业务参数"));
+        page.AddView(Note("先读取设备当前参数。修改后保存并核对；设备序列号只读。"));
         page.AddView(ActionButton("读取全部参数", ReadParametersAsync));
         _parameterStatus = DataBlock("未读取");
         page.AddView(_parameterStatus);
@@ -198,7 +97,8 @@ public sealed partial class MainActivity
     private View BuildDiagnosticPage()
     {
         LinearLayout page = Page();
-        page.AddView(SectionTitle("BMS 诊断"));
+        page.AddView(ActionButton("‹ 返回设备", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
+        page.AddView(SectionTitle("高级诊断"));
         page.AddView(Note("快速诊断读取启动、存储、MOS、电流、SOC、功耗和保护；完整诊断额外采集 Trace、Evidence、原始帧并可导出 AI 诊断包。"));
         page.AddView(ActionButton("设备健康检查", ReadHealthAsync));
         _healthView = DataBlock("未检查");
@@ -207,7 +107,7 @@ public sealed partial class MainActivity
         diagButtons.AddView(ActionButton("快速诊断", () => ReadDiagnosticsAsync(false)));
         diagButtons.AddView(ActionButton("完整诊断", () => ReadDiagnosticsAsync(true)));
         page.AddView(diagButtons);
-        page.AddView(ActionButton("导出最近诊断 ZIP", ExportDiagnosticsAsync));
+        page.AddView(ActionButton("导出最近诊断 ZIP", ExportDiagnosticsAsync, false));
         _diagnosticView = DataBlock("未采集");
         page.AddView(_diagnosticView);
         page.AddView(SectionTitle("自动测试"));
@@ -216,23 +116,16 @@ public sealed partial class MainActivity
         testButtons.AddView(ActionButton("SOC 自动测试", () => RunAutomatedTestAsync("soc")));
         testButtons.AddView(ActionButton("诊断一致性测试", () => RunAutomatedTestAsync("diag")));
         page.AddView(testButtons);
-        page.AddView(ActionButton("取消自动测试", () => { CancelCurrentOperation(); return Task.CompletedTask; }));
+        page.AddView(ActionButton("取消自动测试", () => { CancelCurrentOperation(); return Task.CompletedTask; }, false));
         _testView = DataBlock("未测试");
         page.AddView(_testView);
-        page.AddView(SectionTitle("设备事件日志"));
-        page.AddView(ActionButton("读取 100 条事件", ReadEventsAsync));
-        _eventView = DataBlock("未读取");
-        page.AddView(_eventView);
-        page.AddView(SectionTitle("通信日志"));
-        _logView = DataBlock("");
-        _logView.SetTextIsSelectable(true);
-        page.AddView(_logView);
         return Wrap(page);
     }
 
     private View BuildToolsPage()
     {
         LinearLayout page = Page();
+        page.AddView(ActionButton("‹ 返回设备", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
         page.AddView(SectionTitle("设备操作"));
         _nameInput = LabeledInput(page, "蓝牙名后缀", "");
         page.AddView(ActionButton("修改蓝牙名", RenameAsync));
@@ -243,18 +136,17 @@ public sealed partial class MainActivity
         var monitorButtons = Row();
         monitorButtons.AddView(ActionButton("开始", StartMonitorAsync));
         monitorButtons.AddView(ActionButton("停止", StopMonitorAsync));
-        monitorButtons.AddView(ActionButton("导出 CSV", ExportMonitorAsync));
+        monitorButtons.AddView(ActionButton("导出 CSV", ExportMonitorAsync, false));
         page.AddView(monitorButtons);
         _monitorStatus = DataBlock("未开始");
         page.AddView(_monitorStatus);
 
         page.AddView(SectionTitle("OTA 升级"));
-        page.AddView(Note("仅接受通过 Telink marker、尺寸和 CRC 预检的 BIN。OTA_SUCCESS 后会重连并核对 Serial；不能只凭重新连上判定成功。"));
+        page.AddView(Note("导入固件后，核对目标设备再开始升级。升级完成会自动重连验证。"));
         page.AddView(Note("无需命令行：在微信、浏览器或文件管理器中打开/分享 .bin，选择 BMS Tool 即可自动导入并进入本页。"));
-        page.AddView(Note("日常测试可由 android-ota-test.ps1 自动导入固件收件箱；App 无需每轮重新安装。"));
         var inboxButtons = Row();
-        inboxButtons.AddView(ActionButton("刷新收件箱", RefreshFirmwareInboxAsync));
-        inboxButtons.AddView(ActionButton("导入 BIN", PickFirmware));
+        inboxButtons.AddView(ActionButton("刷新收件箱", RefreshFirmwareInboxAsync, false));
+        inboxButtons.AddView(ActionButton("导入 BIN", PickFirmware, false));
         page.AddView(inboxButtons);
         _firmwareInboxStatus = DataBlock("固件收件箱为空");
         page.AddView(_firmwareInboxStatus);
@@ -264,7 +156,7 @@ public sealed partial class MainActivity
         _expectedSerialInput = LabeledInput(page, "升级后期望 Serial（可选）", "");
         _otaButton = ActionButton("开始 OTA 并验证", StartOtaAsync);
         page.AddView(_otaButton);
-        page.AddView(ActionButton("取消当前操作", () => { CancelCurrentOperation(); return Task.CompletedTask; }));
+        page.AddView(ActionButton("取消当前操作", () => { CancelCurrentOperation(); return Task.CompletedTask; }, false));
 
         page.AddView(SectionTitle("专业调试"));
         page.AddView(Note("原始写寄存器是工程功能，每次写入都要求二次确认并读回；不要用它绕过保护参数和 AFE 参数事务。"));
@@ -279,7 +171,7 @@ public sealed partial class MainActivity
     private LinearLayout Page()
     {
         var page = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        page.SetPadding(Dp(14), Dp(8), Dp(14), Dp(30));
+        page.SetPadding(Dp(14), Dp(6), Dp(14), Dp(16));
         return page;
     }
 
@@ -300,26 +192,23 @@ public sealed partial class MainActivity
 
     private TextView SectionTitle(string text)
     {
-        var view = new TextView(this) { Text = text, TextSize = 18 };
-        view.SetTypeface(null, TypefaceStyle.Bold);
-        view.SetTextColor(Color.ParseColor("#173A2A"));
-        view.SetPadding(0, Dp(14), 0, Dp(7));
+        var view = Label(text, 18, Ink, true);
+        view.SetPadding(0, Dp(16), 0, Dp(8));
         return view;
     }
 
     private TextView Note(string text)
     {
-        var view = new TextView(this) { Text = text, TextSize = 13 };
-        view.SetTextColor(Color.ParseColor("#53645B"));
-        view.SetPadding(0, 0, 0, Dp(7));
+        var view = Label(text, 13, Muted);
+        view.SetPadding(0, Dp(4), 0, Dp(8));
         return view;
     }
 
     private TextView DataBlock(string text)
     {
         var view = new TextView(this) { Text = text, TextSize = 14 };
-        view.SetTextColor(Color.ParseColor("#17211B"));
-        view.SetBackgroundColor(Color.White);
+        view.SetTextColor(Color.ParseColor(Ink));
+        view.Background = Rounded("#FFFFFF");
         view.SetPadding(Dp(12), Dp(10), Dp(12), Dp(10));
         var lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
         lp.SetMargins(0, Dp(3), 0, Dp(7));
@@ -329,7 +218,11 @@ public sealed partial class MainActivity
 
     private EditText Input(string hint, string value)
     {
-        var input = new EditText(this) { Hint = hint, Text = value, TextSize = 14 };
+        var input = new EditText(this) { Hint = hint, Text = value, TextSize = 16 };
+        input.SetTextColor(Color.ParseColor(Ink));
+        input.SetPadding(Dp(12), Dp(10), Dp(12), Dp(10));
+        input.Background = Rounded("#EAF0F3", 8);
+        input.SetMinimumHeight(Dp(48));
         input.SetSingleLine(true);
         input.ImeOptions = ImeAction.Done;
         return input;
@@ -339,32 +232,44 @@ public sealed partial class MainActivity
     {
         page.AddView(Note(label));
         var input = Input(label, value);
+        if (label.Contains("温度") || label.Contains("容量") || label.Contains("次数") || label.Contains("SOC"))
+            input.InputType = global::Android.Text.InputTypes.ClassNumber | global::Android.Text.InputTypes.NumberFlagDecimal | global::Android.Text.InputTypes.NumberFlagSigned;
         page.AddView(input);
         return input;
     }
 
-    private Button ActionButton(string text, Func<Task> action)
+    private Button ActionButton(string text, Func<Task> action, bool requiresConnection = true)
     {
-        var button = new Button(this) { Text = text, TextSize = 13 };
-        button.Click += async (_, _) => await action();
+        var button = MobileButton(text);
+        button.Click += async (_, _) =>
+        {
+            try { await action(); }
+            catch (Exception ex) { SetStatus(text + "失败：" + ex.Message, true); AppendLog(ex.ToString()); }
+        };
         _actionButtons.Add(button);
+        if (requiresConnection) _connectionRequiredButtons.Add(button);
         return button;
     }
 
     private void ShowPage(int selected)
     {
         for (int i = 0; i < _pages.Count; i++) _pages[i].Visibility = i == selected ? ViewStates.Visible : ViewStates.Gone;
-        for (int i = 0; i < _navButtons.Count; i++)
-        {
-            _navButtons[i].SetTextColor(Color.ParseColor(i == selected ? "#FFFFFF" : "#244A36"));
-            _navButtons[i].SetBackgroundColor(Color.ParseColor(i == selected ? "#2E6B4B" : "#EEF3EF"));
-        }
+        int active = selected == 0 ? 0 : selected == 1 ? 1 : selected == 5 ? 2 : 3;
+        for (int i = 0; i < _navButtons.Count; i++) StyleSelection(_navButtons[i], i == active);
+        if (_pageTitle is not null) _pageTitle.Text = selected switch
+        { 0 => "我的电池", 1 => "保护参数", 2 => "业务参数", 3 => "高级诊断", 4 => "设备工具", 5 => "日志记录", _ => "我的设备" };
+        if (GetSystemService(InputMethodService) is InputMethodManager keyboard)
+            keyboard.HideSoftInputFromWindow(_pageTitle?.WindowToken, HideSoftInputFlags.None);
+        CurrentFocus?.ClearFocus();
+        UpdateBatteryFreshness();
     }
 
     private void SetBusy(bool busy) => RunOnUiThread(() =>
     {
-        foreach (Button button in _actionButtons) button.Enabled = !busy;
-        if (_disconnectButton is not null) _disconnectButton.Enabled = true;
+        _uiBusy = busy;
+        RefreshActionAvailability();
+        foreach (EditText input in _protectionInputs.Values.Concat(_afeInputs.Values)) input.Enabled = !busy;
+        UpdateBatteryFreshness();
     });
 
     private Task<bool> ConfirmAsync(string title, string message)

@@ -44,7 +44,7 @@ public sealed partial class MainActivity
         _scanResults!.RemoveAllViews();
         foreach (AndroidScanDevice device in devices)
         {
-            var button = new Button(this) { Text = $"{device.Name}   {device.Mac}   {device.Rssi} dBm", TextSize = 12 };
+            var button = MobileButton($"{device.Name}\n{device.Mac}  ·  信号 {device.Rssi} dBm");
             button.Click += async (_, _) =>
             {
                 _macInput!.Text = device.Mac;
@@ -84,6 +84,7 @@ public sealed partial class MainActivity
             preferenceEditor?.Apply();
             RunOnUiThread(() => _connectionView!.Text = $"已连接 · {mac} · MTU {transport.NegotiatedMtu}");
             SetStatus("连接成功，正在读取实时数据");
+            RunOnUiThread(() => ShowPage(BatteryPage));
             await RefreshOverviewCoreAsync(client, cts.Token);
         }
         catch (Exception ex)
@@ -106,7 +107,7 @@ public sealed partial class MainActivity
             RunOnUiThread(() => _connectionView!.Text = "未连接 · Android BLE");
             SetStatus("已断开");
         }
-        finally { _operationGate.Release(); }
+        finally { _operationGate.Release(); RunOnUiThread(() => { RefreshActionAvailability(); UpdateBatteryFreshness(); }); }
     }
 
     private async Task DisposeConnectionCoreAsync()
@@ -127,6 +128,7 @@ public sealed partial class MainActivity
         {
             while (await timer.WaitForNextTickAsync(ct))
             {
+                RunOnUiThread(UpdateBatteryFreshness);
                 BmsClient? client = _client;
                 if (client is null || !await _operationGate.WaitAsync(0, ct)) continue;
                 try { await RefreshOverviewCoreAsync(client, ct, identity: false); }
@@ -148,30 +150,13 @@ public sealed partial class MainActivity
     {
         BatterySnapshot snapshot = await client.ReadBatteryAsync(ct);
         _lastSnapshot = snapshot;
+        RunOnUiThread(() => RenderBatterySnapshot(snapshot, null, null));
         DeviceIdentity? deviceIdentity = identity
             ? await client.ReadIdentityAsync(_macInput?.Text?.Trim() ?? string.Empty, "", ct)
             : null;
         if (deviceIdentity is not null) _lastIdentity = deviceIdentity;
         uint? buildId = identity ? await client.TryReadFirmwareBuildIdAsync(ct) : null;
-        RunOnUiThread(() =>
-        {
-            _summaryView!.Text =
-                $"{snapshot.PackVoltageV:F2} V    {snapshot.CurrentA:+0.0;-0.0;0.0} A    SOC {snapshot.SocPercent}%\n" +
-                $"{snapshot.WorkState} · SOH {snapshot.SohPercent}% · 循环 {snapshot.CycleCount}\n" +
-                $"剩余/满充/额定 {snapshot.CapacityNowAh:F2}/{snapshot.CapacityFullAh:F2}/{snapshot.CapacityFactoryAh:F2} Ah\n" +
-                $"温度 {snapshot.MinTempC:F1}～{snapshot.MaxTempC:F1} ℃ · MOS {snapshot.MosTempC:F1} ℃\n" +
-                $"单体 {snapshot.MinCellMv}～{snapshot.MaxCellMv} mV · Δ{snapshot.CellDeltaMv} mV";
-            _cellsView!.Text = string.Join("    ", snapshot.CellMillivolts
-                .Select((value, i) => (value, i))
-                .Where(item => item.value != BmsRegisters.MissingCellVoltageMv)
-                .Select(item => $"C{item.i + 1}: {item.value}mV"));
-            _stateView!.Text =
-                $"保护：{snapshot.ProtectionSummary}\nL1 {snapshot.ProtectionLevel1Text}\nL2 {snapshot.ProtectionLevel2Text}\nL3 {snapshot.ProtectionLevel3Text}\n" +
-                $"CHG {(snapshot.ChargeMosOn ? "ON" : "OFF")} · DSG {(snapshot.DischargeMosOn ? "ON" : "OFF")} · " +
-                $"加热 {(snapshot.HeatingOn ? "ON" : "OFF")} · 制冷 {(snapshot.CoolingOn ? "ON" : "OFF")} · 均衡 {(snapshot.BalancingOn ? "ON" : "OFF")}";
-            if (deviceIdentity is not null)
-                _identityView!.Text = $"BluetoothName  {deviceIdentity.BluetoothName}\nMAC  {deviceIdentity.Mac}\nSerial  {deviceIdentity.Serial}\nHardware  {deviceIdentity.Hardware}\nSoftware  {deviceIdentity.Software}\nFirmware Build ID  {(buildId.HasValue ? buildId.Value.ToString("x8") : "unavailable")}";
-        });
+        RunOnUiThread(() => RenderBatterySnapshot(snapshot, deviceIdentity, buildId));
     }
 
     private Task ReadProtectionAsync() => WithClientAsync("读取软件保护", async (client, ct) =>
@@ -186,23 +171,23 @@ public sealed partial class MainActivity
 
     private void RenderProtectionRows(IReadOnlyList<ProtectionParameterRow> rows)
     {
-        _protectionRows!.RemoveAllViews();
-        _protectionInputs.Clear();
-        foreach (IGrouping<string, ProtectionParameterRow> group in rows.GroupBy(row => row.Group))
+        _protectionRows!.RemoveAllViews(); _protectionInputs.Clear();
+        foreach (var group in rows.GroupBy(row => row.Group))
         {
-            _protectionRows.AddView(SectionTitle(group.Key));
+            var content = new LinearLayout(this) { Orientation = Orientation.Vertical };
             foreach (ProtectionParameterRow row in group)
             {
-                var line = Row();
-                var label = new TextView(this) { Text = $"{row.Stage}\n{row.Unit}", TextSize = 12, Gravity = GravityFlags.CenterVertical };
-                line.AddView(label, new LinearLayout.LayoutParams(Dp(76), ViewGroup.LayoutParams.WrapContent));
-                var input = Input(row.CustomerName, row.EditValue);
-                line.AddView(input, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1));
+                content.AddView(Note($"{row.Stage} · 当前 {row.DeviceDisplayValue} {row.Unit}"));
+                var input = Input(row.Stage + " / " + row.Unit, row.EditValue);
+                input.InputType = global::Android.Text.InputTypes.ClassNumber | global::Android.Text.InputTypes.NumberFlagDecimal | global::Android.Text.InputTypes.NumberFlagSigned;
                 _protectionInputs[row] = input;
-                _protectionRows.AddView(line);
+                input.TextChanged += (_, _) => UpdateProtectionEdits();
+                content.AddView(input);
             }
+            AddFold(_protectionRows, group.Key, content);
         }
-        _protectionStatus!.Text = $"已读取 {rows.Count} 项；修改后点击保存";
+        _protectionStatus!.Text = $"已读取 {rows.Count} 项 · 展开保护组编辑，绿色表示已修改";
+        RefreshActionAvailability();
     }
 
     private async Task SaveProtectionAsync()
@@ -212,11 +197,13 @@ public sealed partial class MainActivity
         foreach (ProtectionParameterRow row in _protectionModel)
         {
             row.EditValue = _protectionInputs[row].Text?.Trim() ?? string.Empty;
-            if (!row.TryParseEditedValue(out ushort raw)) { SetStatus($"{row.CustomerName} 输入无效", true); return; }
+            if (!row.TryParseEditedValue(out ushort raw)) { _protectionInputs[row].Error = "请输入合法数值"; SetStatus($"{row.CustomerName} 输入无效", true); return; }
             if (raw != row.DeviceValue) changes[row.Address] = raw;
         }
         if (changes.Count == 0) { SetStatus("软件保护参数没有变化"); return; }
-        if (!await ConfirmAsync("保存软件保护", $"将修改 {changes.Count} 项。固件会按完整保护组校验并保存，是否继续？")) return;
+        string detail = string.Join("\n", _protectionModel.Where(row => changes.ContainsKey(row.Address))
+            .Select(row => $"{row.CustomerName}：{row.DeviceDisplayValue} → {row.EditValue} {row.Unit}"));
+        if (!await ConfirmAsync("保存软件保护", detail + "\n\n保存后将逐组读回确认，是否继续？")) return;
         await WithClientAsync("保存软件保护", async (client, ct) =>
         {
             await client.WriteProtectionChangesAsync(changes, (address, words) =>
@@ -240,21 +227,24 @@ public sealed partial class MainActivity
 
     private void RenderAfeRows(AfeHardwareParameterModel model, AfeHardwareDeviceInfo info)
     {
-        _afeRows!.RemoveAllViews();
-        _afeInputs.Clear();
-        _afeStatus!.Text = $"{info.BackendName} · Interface v{info.InterfaceVersion} · Apply {info.ApplyStateText} · Error {info.ErrorText}";
-        foreach (IGrouping<string, AfeParameterRow> group in model.Rows.GroupBy(row => row.Group))
+        _afeRows!.RemoveAllViews(); _afeInputs.Clear();
+        _afeStatus!.Text = $"{info.BackendName}\n应用状态：{info.ApplyStateText} · 错误：{info.ErrorText}";
+        foreach (var group in model.Rows.GroupBy(row => row.Group))
         {
-            _afeRows.AddView(SectionTitle(group.Key));
+            var content = new LinearLayout(this) { Orientation = Orientation.Vertical };
             foreach (AfeParameterRow row in group)
             {
-                var label = Note($"{row.Name} · {row.EnabledText} · Requested {row.RequestedValue} · Effective {row.EffectiveValue} · {row.Unit}");
-                _afeRows.AddView(label);
-                var input = Input(row.Name, row.EditValue);
+                content.AddView(SectionTitle(row.Name));
+                content.AddView(Note($"设定 {row.RequestedValue} {row.Unit}   生效 {row.EffectiveValue} {row.Unit}\n{row.EnabledText}"));
+                var input = Input(row.Name + " / " + row.Unit, row.EditValue);
+                input.InputType = global::Android.Text.InputTypes.ClassNumber | global::Android.Text.InputTypes.NumberFlagDecimal | global::Android.Text.InputTypes.NumberFlagSigned;
                 _afeInputs[row] = input;
-                _afeRows.AddView(input);
+                input.TextChanged += (_, _) => UpdateProtectionEdits();
+                content.AddView(input);
             }
+            AddFold(_afeRows, group.Key, content);
         }
+        RefreshActionAvailability();
     }
 
     private async Task SaveAfeAsync()
@@ -263,7 +253,9 @@ public sealed partial class MainActivity
         foreach (AfeParameterRow row in _afeModel.Rows) row.EditValue = _afeInputs[row].Text?.Trim() ?? string.Empty;
         if (!_afeModel.TryBuildCandidate(out ushort[] candidate, out string error)) { SetStatus(error, true); return; }
         if (!_afeModel.HasChanges(candidate)) { SetStatus("AFE 硬件参数没有变化"); return; }
-        if (!await ConfirmAsync("原子应用 AFE 参数", "将通过授权事务提交完整 AFE profile，并核对 Requested/Effective/ApplyState。是否继续？")) return;
+        string detail = string.Join("\n", _afeModel.Rows.Where(row => candidate[row.WireIndex] != _afeModel.RequestedRaw[row.WireIndex])
+            .Select(row => $"{row.Name}：{row.RequestedValue} → {row.EditValue} {row.Unit}"));
+        if (!await ConfirmAsync("保存硬件保护", detail + "\n\n将提交整组参数并核对实际生效结果，是否继续？")) return;
         await WithClientAsync("应用 AFE 硬件保护", async (client, ct) =>
         {
             AfeHardwareSnapshot snapshot = await new AfeHardwareClient(client).WriteAllAsync(candidate, ct);
