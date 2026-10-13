@@ -74,10 +74,10 @@
 /* 移除无关遗留产品表时保留持久化类型 ID 和出厂容量回退，容量单位 Ah * 10。 */
 #define BMS_PRODUCT_WIRE_ID   12u
 #ifndef BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH
-#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 450u
+#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 500u
 #endif
 
-#define  BMS_PRODUCT_SW_VERSION  	"V8.8"
+#define  BMS_PRODUCT_SW_VERSION  	"V1.8"
 
 /* 串数仅由 D008 装配 profile 选择，硬件版本为本产品固定身份。 */
 #define BMS_PRODUCT_CELL_COUNT  (DVC1124_DEFAULT_CELL_COUNT)

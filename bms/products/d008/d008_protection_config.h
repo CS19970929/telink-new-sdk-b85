@@ -73,9 +73,9 @@
 
 /* 电压保护延时、共用欠压阈值；延时单位为 10ms。 */
 #define D008_SW_CELL_OVP_FILTER_10MS                      100u
-#define D008_SW_CELL_UVP_FIRST_MV                         3000u
-#define D008_SW_CELL_UVP_SECOND_MV                        2900u
-#define D008_SW_CELL_UVP_RECOVER_MV                       2800  
+#define D008_SW_CELL_UVP_FIRST_MV                         3200u
+#define D008_SW_CELL_UVP_SECOND_MV                        3100u
+#define D008_SW_CELL_UVP_RECOVER_MV                       3100  
 #define D008_SW_CELL_UVP_FILTER_10MS                      100u
 #define D008_SW_PACK_OVP_FILTER_10MS                      100u
 #define D008_SW_PACK_UVP_FIRST_CELL_MV                    3000u
