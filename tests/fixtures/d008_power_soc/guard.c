@@ -44,7 +44,19 @@ static void reset(void){
  params_valid=1u;
  err=raised=init_fail=0;aux_ok=1;
  balance_ok=shutdown_ok=1;fet_fail=shutdown_calls=sample_calls=0;
+ bms_afe_init();bms_afe_set_channel_allowed(0,1);bms_afe_set_channel_allowed(1,1);
+ bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
+}
+static void test_remote_control(void){
+ uint8_t c=0,d=0;
+ reset();bms_afe_set_fets(1,1);assert(cmd_c==1&&cmd_d==1);
+ assert(bms_afe_set_channel_allowed(0,0));assert(bms_afe_get_remote_allowed_mask()==2u);
+ bms_afe_get_requested_fets(&c,&d);assert(c==1u&&d==1u);assert(cmd_c==0&&cmd_d==1);
  bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
+ bms_afe_set_fets(1,1);assert(cmd_c==0&&cmd_d==1); /* AFE 重初始化不丢失关闭许可。 */
+ fet_fail=1;assert(!bms_afe_set_channel_allowed(0,1));assert(bms_afe_get_remote_allowed_mask()==2u);
+ fet_fail=0;assert(bms_afe_set_channel_allowed(0,1));assert(cmd_c==1&&cmd_d==1);
+ puts("PASS remote MOS permission: independent RAM intent, AFE reinit persistence and fail-safe enable rollback");
 }
 static void test_startup_qualification(void){
  /* 参数门禁独立于 feature；关闭任一授权均保持 MOS 请求为 OFF。 */
@@ -87,6 +99,7 @@ static void test_startup_qualification(void){
 }
 int main(void){
  test_startup_qualification();
+ test_remote_control();
  reset();bms_afe_set_fets(1,1);assert(bms_afe_sleep());
  assert(shutdown_calls==1&&s_guard.comm_inhibit&&err&&s_guard.test_shutdown_hold);
  assert(cmd_c==0&&cmd_d==0&&!bms_afe_bus_access_allowed());

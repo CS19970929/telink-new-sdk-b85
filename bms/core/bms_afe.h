@@ -21,6 +21,9 @@ void bms_afe_invalidate_configuration(void);
 uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on);
 /* 读取应用侧保存的充放电请求。 */
 void bms_afe_get_requested_fets(uint8_t *charge_on, uint8_t *discharge_on);
+/* RAM 远程许可：channel 0=充电、1=放电；允许不绕过保护，禁止不请求休眠。 */
+uint8_t bms_afe_set_channel_allowed(uint8_t channel, uint8_t allowed);
+uint8_t bms_afe_get_remote_allowed_mask(void);
 /* 设置应用输出授权并重新仲裁 MOS 请求。 */
 void bms_afe_set_output_enabled(uint8_t enabled);
 /*

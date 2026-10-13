@@ -32,6 +32,8 @@ void bms_afe_diag_poll(void)
         charge = detail.charge_block_reasons | (bms_features_charge_direction_blocked() ? DIAG_BLOCK_HEATER : 0u) | common;
     if (d && (!command_valid || !(command & 2u)))
         discharge = detail.discharge_block_reasons | common;
+    if (!(bms_afe_get_remote_allowed_mask() & 1u)) charge |= DIAG_BLOCK_REMOTE;
+    if (!(bms_afe_get_remote_allowed_mask() & 2u)) discharge |= DIAG_BLOCK_REMOTE;
     bms_diag_mos((uint16_t)(c | (d << 1)), charge, discharge);
     bms_diag_command(command, command_valid);
     bms_diag_driver(driver, driver_valid);

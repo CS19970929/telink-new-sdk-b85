@@ -11,7 +11,18 @@ static unsigned requested_reads, effective_reads, event_reads, frames;
 static int requested_fail_at = -1, effective_fail_at = -1;
 static u16 effective_base = 0x2000u;
 static uint32_t corpus = 2166136261u;
+static u8 remote_allowed_mask=3u,requested_charge=1u,requested_discharge=1u;
 uint32_t bms_diag_tick(void) { return 123u; }
+uint8_t bms_afe_get_remote_allowed_mask(void) { return remote_allowed_mask; }
+uint8_t bms_afe_set_channel_allowed(uint8_t channel,uint8_t allowed)
+{
+    u8 bit=(u8)(1u<<channel);
+    if(channel>1u||allowed>1u)return 0u;
+    if(allowed)remote_allowed_mask&=(u8)~bit;else remote_allowed_mask|=bit;
+    return 1u;
+}
+void bms_afe_get_requested_fets(uint8_t*c,uint8_t*d){*c=requested_charge;*d=requested_discharge;}
+uint16_t bms_afe_get_guard_diagnostic_bits(void){return DIAG_GUARD_OUTPUT_ENABLED|DIAG_GUARD_SAMPLES_QUALIFIED;}
 
 /* Register-owner spies: controlled reads; unexpected writes abort. */
 static u8 profile(bms_afe_hw_profile_t *p, unsigned *calls, int fail_at, u16 base)
@@ -111,6 +122,18 @@ static void expect_read(u8 addr,u16 reg,u16 qty,const u16 *words,u8 exception)
     for (unsigned i=0; i<size; ++i) { corpus^=expected[i]; corpus*=16777619u; }
     ++frames;
 }
+static void expect_write_single(u8 addr,u16 reg,u16 value,u8 exception)
+{
+    u8 req[8]={addr,6u,(u8)(reg>>8),(u8)reg,(u8)(value>>8),(u8)value};
+    u8 rsp[16]={0};u32 length=0u;u16 crc=wire_crc(req,6u);
+    req[6]=(u8)crc;req[7]=(u8)(crc>>8);
+    int result=modbus_on_frame(req,sizeof(req),rsp,&length);
+    if(!addr){assert(!result&&length==0u);return;}
+    assert(result);
+    if(exception){assert(length==5u&&rsp[1]==0x86u&&rsp[2]==exception);}
+    else{assert(length==8u&&!memcmp(req,rsp,6u));}
+    assert(wire_crc(rsp,length)==0u);
+}
 
 int main(void)
 {
@@ -137,6 +160,19 @@ int main(void)
     assert(read_address_supported(BTNAME_REG_BASE));
     assert(read_address_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT-1));
     assert(!read_address_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT));
+    assert(read_address_supported(BMS_MOS_CONTROL_BASE));
+    assert(read_address_supported(BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT-1u));
+    assert(!read_address_supported(BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT));
+    bms_diag_driver(3u,1u);
+    { const u16 mos[]={BMS_MOS_CONTROL_MAGIC,1u,1u,1u,3u,1u,
+        DIAG_GUARD_OUTPUT_ENABLED|DIAG_GUARD_SAMPLES_QUALIFIED,3u};
+      expect_read(1u,BMS_MOS_CONTROL_BASE,8u,mos,0u); }
+    expect_write_single(1u,BMS_MOS_CONTROL_BASE+2u,0u,0u);assert(remote_allowed_mask==2u);
+    expect_write_single(1u,BMS_MOS_CONTROL_BASE+3u,0u,0u);assert(remote_allowed_mask==0u);
+    expect_write_single(1u,BMS_MOS_CONTROL_BASE+2u,2u,3u);assert(remote_allowed_mask==0u);
+    expect_write_single(1u,BMS_MOS_CONTROL_BASE+0u,1u,2u);assert(remote_allowed_mask==0u);
+    expect_write_single(0u,BMS_MOS_CONTROL_BASE+2u,1u,0u);assert(remote_allowed_mask==0u);
+    remote_allowed_mask=3u;
     /* 有效配置的每个合法子区间只读一次完整 profile；请求配置保持原路径。 */
     for (unsigned window=0; window<2; ++window) {
         u16 base=window ? BMS_AFE_HW_EFFECTIVE_REG_BASE : BMS_AFE_HW_REQUESTED_REG_BASE;

@@ -43,6 +43,8 @@ typedef struct
 
 /* 输出授权与通信恢复的唯一状态；主循环更新，backend 不得绕过 guard 清除 inhibit。 */
 static bms_afe_guard_state_t s_guard;
+/* 主循环独占；AFE 重初始化不清除，MCU reset 后 BSS 恢复为允许。 */
+static uint8_t s_remote_off_mask;
 
 /* 业务期访问统一受通信隔离/总线静默/测试关机门禁约束；
  * 配置禁止由各自写入事务控制，不能在此悄悄改变配置恢复策略。 */
@@ -167,6 +169,8 @@ static uint8_t apply_requested(void)
 
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
+    if (s_remote_off_mask & 1u) c = 0u;
+    if (s_remote_off_mask & 2u) d = 0u;
     /* 参数资格直接由输出门禁消费，不借业务功能代为阻断。 */
     if (!s_guard.output_enabled || !bms_protection_params_valid())
     {
@@ -315,6 +319,36 @@ uint8_t bms_afe_set_fets(uint8_t c, uint8_t d)
 
     if (!apply_requested())
     {
+        note_invalid();
+        return 0u;
+    }
+    return 1u;
+}
+
+uint8_t bms_afe_get_remote_allowed_mask(void)
+{
+    return (uint8_t)(3u & ~s_remote_off_mask);
+}
+
+uint8_t bms_afe_set_channel_allowed(uint8_t channel, uint8_t allowed)
+{
+    uint8_t bit;
+    uint8_t old_mask;
+    if (channel > 1u || allowed > 1u) return 0u;
+    bit = (uint8_t)(1u << channel);
+    old_mask = s_remote_off_mask;
+    if (allowed) s_remote_off_mask &= (uint8_t)~bit;
+    else s_remote_off_mask |= bit;
+    if (s_remote_off_mask == old_mask) return 1u;
+    /* 命令已变化但尚未获得新回读，不能继续发布旧 driver 状态。 */
+    bms_diag_driver(0u, 0u);
+    /* 静默阶段只记意图，不访问总线；AFE 恢复后继续执行关闭。 */
+    if (!apply_requested()) {
+        /* 开启许可失败时恢复原来的关闭许可；关闭失败仍保留 fail-safe 意图。 */
+        if (allowed) {
+            s_remote_off_mask = old_mask;
+            (void)apply_requested();
+        }
         note_invalid();
         return 0u;
     }
@@ -481,6 +515,8 @@ void bms_afe_diag_poll(void)
     if (s_guard.comm_inhibit || s_guard.bus_silenced) common |= DIAG_BLOCK_COMM;
     if (s_guard.test_shutdown_hold) common |= DIAG_BLOCK_SHUTDOWN;
     c |= bms_diag_cached_word(146u); d |= bms_diag_cached_word(147u);
+    if (s_remote_off_mask & 1u) c |= DIAG_BLOCK_REMOTE;
+    if (s_remote_off_mask & 2u) d |= DIAG_BLOCK_REMOTE;
     bms_diag_mos((uint16_t)(s_guard.requested_charge_on | (s_guard.requested_discharge_on << 1)), c | common, d | common);
     if (common & (DIAG_BLOCK_COMM | DIAG_BLOCK_SHUTDOWN)) {
         bms_diag_driver(0u, 0u);

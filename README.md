@@ -78,6 +78,7 @@ python bms_tools/bms.py --product d014 resources
 | [四产品保护性休眠](docs/LOW_POWER_POLICY.md) | 低压、AFE 异常到期 D008 断电、SH 深睡与唤醒 |
 | [两档休眠参数与固定过放休眠](docs/SLEEP_CONFIGURATION.md) | 上位机配置电压/延时、独立参数保存、过放未恢复固定 3 分钟 |
 | [MOS 无人值守监控](docs/MOS_MONITOR.md) | 请求、命令、AFE 状态、原因、开发历史及自动写盘 |
+| [充放电 MOS 独立远程许可](docs/MOS_REMOTE_CONTROL.md) | App/Windows 独立控制、RAM 生命周期、协议、AFE 报告与安全边界 |
 | [MOS 关断时序优化](docs/MOS_SHUTDOWN_TIMING_OPTIMIZATION.md) | 监控异常的证据边界、配置重复读取、D008 NTC 资格及 SH 辅助采样 |
 | [历史：断线检测调研与双后端方案](docs/OPENWIRE_RESEARCH_AND_DESIGN.md) | 原厂检测目的、DVC/SH 差异、当前 MOS 隔离问题及待验证方案 |
 | [历史：断线检测与实时监控](docs/OPENWIRE_MONITOR.md) | 检测过程不主动关 MOS、真实故障保护、只读状态和 Windows 自动记录 |

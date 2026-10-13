@@ -49,6 +49,10 @@
 #define BMS_REALTIME_REG_COUNT 11u
 #define BMS_REALTIME_REG_MAGIC 0x4253u
 #define BMS_REALTIME_REG_VERSION 0x0001u
+/* 独立 RAM MOS 许可窗口；不复用休眠命令，不改变持久化布局。 */
+#define BMS_MOS_CONTROL_BASE 0x2F10u
+#define BMS_MOS_CONTROL_COUNT 8u
+#define BMS_MOS_CONTROL_MAGIC 0x4D43u
 #define BMS_AFE_ACTUAL_REG_BASE  0x2180u
 #define BMS_AFE_ACTUAL_REG_COUNT 11u
 
@@ -312,7 +316,8 @@ static int modbus_exception(u8 addr,
 /* 检查读请求地址是否属于已实现的窗口。 */
 static int read_address_supported(u16 r)
 {
-    return bms_parameter_readable(r) || r<3u ||
+    return (r >= BMS_MOS_CONTROL_BASE && r < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT) ||
+           bms_parameter_readable(r) || r<3u ||
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
            (r>=BMS_AFE_ACTUAL_REG_BASE && r<BMS_AFE_ACTUAL_REG_BASE+BMS_AFE_ACTUAL_REG_COUNT) ||
 #endif
@@ -330,6 +335,23 @@ static int read_address_supported(u16 r)
 /* 按地址分派读取一个协议寄存器。 */
 static u16 read_reg(u16 reg)
 {
+    if (reg >= BMS_MOS_CONTROL_BASE && reg < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT) {
+        uint8_t c, d;
+        uint16_t guard = bms_afe_get_guard_diagnostic_bits();
+        bms_afe_get_requested_fets(&c, &d);
+        switch (reg-BMS_MOS_CONTROL_BASE) {
+        case 0: return BMS_MOS_CONTROL_MAGIC;
+        case 1: return 1u;
+        case 2: return bms_afe_get_remote_allowed_mask() & 1u;
+        case 3: return (bms_afe_get_remote_allowed_mask() >> 1) & 1u;
+        case 4: return bms_diag_cached_word(132u) & 3u;
+        case 5: return (bms_diag_cached_word(133u) &&
+            (guard & DIAG_GUARD_SAMPLES_QUALIFIED)) ? 1u : 0u;
+        case 6: return guard;
+        case 7: return (uint16_t)(c | (d << 1));
+        default: return 0u;
+        }
+    }
     if (bms_parameter_readable(reg)) return bms_parameter_read(reg);
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     if (reg >= BMS_AFE_ACTUAL_REG_BASE && reg < BMS_AFE_ACTUAL_REG_BASE+BMS_AFE_ACTUAL_REG_COUNT)
@@ -416,6 +438,11 @@ static u16 read_reg(u16 reg)
 /* 校验地址及取值后写入一个协议寄存器。 */
 static u8 write_reg(u16 reg, u16 val)
 {
+    if (reg == BMS_MOS_CONTROL_BASE+2u || reg == BMS_MOS_CONTROL_BASE+3u) {
+        if (val > 1u) return MB_EX_ILLEGAL_VALUE;
+        return bms_afe_set_channel_allowed((uint8_t)(reg-BMS_MOS_CONTROL_BASE-2u), (uint8_t)val)
+            ? 0u : MB_EX_DEVICE_FAILURE;
+    }
     if (afe_hw_profile_is_reg(reg)) return MB_EX_ILLEGAL_ADDRESS;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
@@ -527,6 +554,8 @@ static int modbus_write_single(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
     if (req_len != 8u) return 0;
     reg = u16be(&req[2]);
     val = u16be(&req[4]);
+    if (addr == 0u && reg >= BMS_MOS_CONTROL_BASE && reg < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT)
+        return 0; /* 多设备广播不得切换 MOS。 */
     if (bms_diag_overlaps(reg, 1u) || bms_debug_log_overlaps(reg, 1u))
         return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
     if (reg >= 0x2100u && reg <= 0x2140u) {
@@ -571,6 +600,8 @@ static int modbus_write_multiple(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_l
         return modbus_exception(addr, func, MB_EX_ILLEGAL_VALUE, rsp, rsp_len);
     if (req_len != (u32)(7u + bytecnt + 2u)) return 0;
 
+    if (addr == 0u && reg < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT &&
+        (u32)reg+qty > BMS_MOS_CONTROL_BASE) return 0;
     pdata = &req[7];
     if (reg == BMS_AFE_HW_REQUESTED_REG_BASE) {
         if (addr == 0x00u) return 0;
