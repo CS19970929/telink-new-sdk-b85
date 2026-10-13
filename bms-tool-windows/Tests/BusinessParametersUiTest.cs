@@ -80,6 +80,7 @@ static class BusinessParametersUiTest
         capture.Blocks["Sleep"]=new ushort[]{2800,1,3000,1440,30};Load(capture);
         Check(Field<TextBox>("_sleepLowMv").Text=="2800" && Field<TextBox>("_sleepLowMinutes").Text=="1","休眠电压和分钟显示设备值");
         Check(Field<Button>("_sleepSave").IsEnabled && Field<TextBlock>("_parameterBusinessReadback").Text.Contains("固定 3 分钟"),"可配置组可保存，过放时间只读");
+        Check(type.GetField("_sleepAfeMinutes",Private)==null,"AFE异常时间不提供编辑控件");
         capture.Blocks.Remove("Sleep");Load(capture);
         Check(!Field<Button>("_sleepSave").IsEnabled && Field<TextBox>("_sleepLowMv").Text=="","休眠读取失败清旧值并禁止保存");
         window.Close();

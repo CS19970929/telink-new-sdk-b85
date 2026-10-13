@@ -19,10 +19,10 @@ class Program {
       Reject(()=>D008Parameters.ValidateBalance(words));
   foreach(var words in new[]{new ushort[]{1,400},new ushort[]{2,400,450},new ushort[]{1,400,400},new ushort[]{1,400,1651}})
       Reject(()=>D008Parameters.ValidateHeater(words));
-  Check(BmsSleepParameters.Build("2800","1","3000","1440","30").SequenceEqual(new ushort[]{2800,1,3000,1440,30}));
+  Check(BmsSleepParameters.Build("2800","1","3000","1440").SequenceEqual(new ushort[]{2800,1,3000,1440,30}));
   foreach(var words in new[]{new ushort[]{2800,1,3000,1440},new ushort[]{999,1,3000,1440,30},
       new ushort[]{3000,1,3000,1440,30},new ushort[]{2800,1,4501,1440,30},
-      new ushort[]{2800,0,3000,1440,30},new ushort[]{2800,1441,3000,1440,30},new ushort[]{2800,1,3000,1440,0}})
+      new ushort[]{2800,0,3000,1440,30},new ushort[]{2800,1441,3000,1440,30},new ushort[]{2800,1,3000,1440,0},new ushort[]{2800,1,3000,1440,1}})
       Reject(()=>BmsSleepParameters.Validate(words));
   var sleepClient=new BmsClient{CapabilityFlags=0x00ff};
   await sleepClient.WriteD008VerifiedAsync(BmsSleepParameters.Base,new ushort[]{2800,1,3000,1440,30},false);

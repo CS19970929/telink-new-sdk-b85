@@ -22,17 +22,18 @@ public static class BmsSleepParameters
     public static bool Available(D008ParameterCapture capture)=>capture.Supported &&
         capture.ProtocolVersion>=2 && capture.Blocks.TryGetValue("Capability",out var header) &&
         header.Length>=3 && (header[2]&Capability)!=0;
-    public static ushort[] Build(string lowMv,string lowMinutes,string normalMv,string normalMinutes,string afeMinutes)
+    public const ushort FixedAfeMinutes=30;
+    public static ushort[] Build(string lowMv,string lowMinutes,string normalMv,string normalMinutes)
     {
         var values=new[]{ushort.Parse(lowMv),ushort.Parse(lowMinutes),ushort.Parse(normalMv),
-            ushort.Parse(normalMinutes),ushort.Parse(afeMinutes)};
+            ushort.Parse(normalMinutes),FixedAfeMinutes};
         Validate(values);return values;
     }
     public static void Validate(ushort[] values)
     {
         if(values.Length!=Count || values[0]<1000 || values[0]>=values[2] || values[2]>4500 ||
-           values[1]==0 || values[1]>values[3] || values[4]==0)
-            throw new ArgumentException("休眠参数须整组五项：1000≤下档电压<上档电压≤4500 mV；延时为1～65535整数分钟，下档延时不能大于上档延时。");
+           values[1]==0 || values[1]>values[3] || values[4]!=FixedAfeMinutes)
+            throw new ArgumentException("休眠设置要求：1000≤一级休眠电压<二级休眠电压≤4500 mV；延时为1～65535整数分钟，一级休眠延时不能大于二级休眠延时。AFE异常时间由固件固定，禁止修改。");
     }
 }
 
