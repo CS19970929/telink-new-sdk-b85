@@ -12,10 +12,8 @@
 #error "D008 20S NMC protection parameters are not approved"
 #endif
 /* 开放开发配置不等于扩大既有生产签核的串数/体系范围。 */
-#if D008_PRODUCT_PROFILE == D008_PRODUCT_PROFILE_CUSTOM
 #if !((BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_LFP && (D008_PRODUCT_CELL_COUNT == 16u || D008_PRODUCT_CELL_COUNT == 24u)) || (BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_NMC && D008_PRODUCT_CELL_COUNT == 20u))
-#error "Custom D008 assembly requires a source-controlled production approval"
-#endif
+#error "D008 assembly requires a source-controlled production approval"
 #endif
 #elif BMS_PRODUCT_ID == 13u
 #if !BMS_D013_HW_CONFIG_APPROVED

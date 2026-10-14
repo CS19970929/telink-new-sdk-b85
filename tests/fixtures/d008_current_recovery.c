@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>
+#define GPIO_PB1 1u /* host 输入编号；GPIO 电平由下面的夹具提供。 */
 #include "dvc1124.h"
 #include "bms_diag.h"
 static struct { struct { struct { uint8_t charge_ocp, discharge_ocp; } bits; } fault_third; } g_bms_report;

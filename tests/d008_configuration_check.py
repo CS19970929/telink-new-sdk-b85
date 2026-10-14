@@ -70,10 +70,14 @@ def check_d008_profile_selection_host_check():
     APP = Sources(ROOT)
     with tempfile.TemporaryDirectory(prefix='d008-profile-') as d:
         p=Path(d)/'profile.c'
-        for selector,count in ((None,16),(1,24),(2,20),(3,16)):
+        import sys
+        sys.path.insert(0, str(ROOT))
+        from bms_tools import build_options
+        configured = build_options.read_source(ROOT, 'd008')['cell_count']
+        for selector,count in ((None,configured),(1,24),(2,20),(3,16)):
             p.write_text('#include "d008_product_profile.h"\n#if D008_PRODUCT_CELL_COUNT != %d\n#error inconsistent_profile\n#endif\nint main(void){return 0;}\n'%count)
             subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99',*host_includes(ROOT),str(p),'-o',str(Path(d)/'profile.exe')]+([] if selector is None else ['-DD008_PRODUCT_PROFILE=%d'%selector]),check=True)
-    print('PASS default 16S and explicit 24S/20S/16S identities')
+    print('PASS committed source default and explicit 24S/20S/16S identities')
 
     with tempfile.TemporaryDirectory(prefix='d008-release-profile-') as d:
         p=Path(d)/'profile.c'
@@ -82,6 +86,11 @@ def check_d008_profile_selection_host_check():
         assert subprocess.run(base,capture_output=True).returncode != 0
         for selector in (1,2,3):
             subprocess.run(base+['-DD008_PRODUCT_PROFILE=%d'%selector],check=True,stdout=subprocess.DEVNULL)
+        p.write_text('#include "bms_release_approval.h"\n')
+        for selector in (1, 3):
+            subprocess.run(base+['-DD008_PRODUCT_PROFILE=%d'%selector], check=True, stdout=subprocess.DEVNULL)
+        result = subprocess.run(base+['-DD008_PRODUCT_PROFILE=5'], capture_output=True, text=True)
+        assert result.returncode != 0 and 'source-controlled production approval' in result.stderr
     print('PASS production rejects implicit D008 profile; all three explicit profiles accepted')
 
 def check_d008_framework_contract_check():
@@ -123,7 +132,7 @@ def check_d008_framework_contract_check():
             cls.dvc_bms = read("dvc1124_bms.c")
             cls.fixed_backend = read("dvc1124.c") + read("dvc1124_boot.c")
             cls.service = read("dvc1124_config_service.c")
-            cls.project = (read("bms_product.h") + read("dvc1124_product_defaults.h"))
+            cls.project = (read("bms_product.h") + read("dvc1124_product_defaults.h") + read("d008_protection_config.h"))
             cls.product = read("d008_product_profile.h")
             cls.features = read("bms_features.c")
             cls.param = read("bms_parameters.c")
@@ -304,7 +313,7 @@ def check_d008_framework_contract_check():
             self.assertEqual(macro_literal(self.product, "D008_PRODUCT_PROFILE_24S_LFP"), 1)
             self.assertEqual(macro_literal(self.product, "D008_PRODUCT_PROFILE_20S_NMC"), 2)
             self.assertEqual(macro_literal(self.product, "D008_PRODUCT_PROFILE_16S_LFP"), 3)
-            self.assertIn("#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_16S_LFP", self.product)
+            self.assertRegex(self.product, r"#define D008_PRODUCT_PROFILE D008_PRODUCT_PROFILE_(?:16S_LFP|20S_NMC|24S_LFP|23S_LFP|CUSTOM)")
             self.assertIn("D008 production requires an explicit D008_PRODUCT_PROFILE", self.product)
             self.assertIn("D008_PRODUCT_CELL_COUNT       16u", self.product)
             self.assertIn("D008_PRODUCT_CELL_COUNT       20u", self.product)

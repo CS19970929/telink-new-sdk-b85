@@ -33,10 +33,13 @@ static void decode(void)
     /* 固定默认配置的独立寄存器期望，来自基线轨迹及 RM V1.2 编码；不读取驱动私有缓存。 */
     check(delays[regs[0x71]&15u],1000u,"COV delay");
     check(delays[regs[0x73]&15u],1000u,"CUV delay");
-    check(regs[0x59],8u,"OCD1 code");
-    check(regs[0x5a],8u,"OCC1 code");
-    check(regs[0x5e]&63u,0u,"OCD2 code");
-    check(regs[0x5f]&63u,0u,"OCC2 code");
+    /* 独立解码寄存器为分流电阻电压，与当前源码请求量化后的物理量比较。 */
+    check(regs[0x59]*250u, (requested.ocd1_a10*s_cfg.shunt_uohm/10u/250u)*250u,"OCD1 uV");
+    check(regs[0x5a]*250u, (requested.occ1_a10*s_cfg.shunt_uohm/10u/250u)*250u,"OCC1 uV");
+    unsigned ocd2_steps=requested.ocd2_a10*s_cfg.shunt_uohm/10u/4000u;
+    unsigned occ2_steps=requested.occ2_a10*s_cfg.shunt_uohm/10u/4000u;
+    check(((regs[0x5e]&63u)+1u)*4000u,(ocd2_steps?ocd2_steps:1u)*4000u,"OCD2 uV");
+    check(((regs[0x5f]&63u)+1u)*4000u,(occ2_steps?occ2_steps:1u)*4000u,"OCC2 uV");
     check((regs[0x5b]+1u)*8u,96u,"OCD1 delay");
     check((regs[0x60]+1u)*4u,100u,"OCD2 delay");
     check(regs[0x5e]&0x80,0x80,"OC2 保留位");

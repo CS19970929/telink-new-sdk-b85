@@ -13,7 +13,8 @@ def check_bms_diag_host_check():
             'static int modbus_finish_response(', 'static int modbus_read_holding(',
             'static int modbus_write_single(', 'static int modbus_write_multiple(',
             'int modbus_on_frame('))
-        constants='\n'.join(re.findall(r'^#define BMS_PARAM_REG_\w+[^\n]*', read('bms/core/bms_parameter_access.h'), re.M))
+        constants='\n'.join(re.findall(r'^#define (?:BMS_PARAM_REG_\w+|BMS_MOS_CONTROL_(?:BASE|COUNT))[^\n]*',
+                                      read('bms/core/bms_parameter_access.h') + '\n' + source, re.M))
         fixture=read('tests/fixtures/bms_diag.c').replace('/* MODBUS */',constants+'\n'+ingress)
         for defines in ([], ['-DBMS_DEBUG_LOG_ENABLE=1', '-DBMS_DEBUG_LOG_LEVEL=4'],
                         ['-DBMS_DIAG_TRACE_ENABLE=0'],

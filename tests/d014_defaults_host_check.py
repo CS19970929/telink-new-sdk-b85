@@ -126,10 +126,10 @@ def check_d008_protection_defaults_independent():
         bms_config_store_get_default_protect(&sw);
         bms_afe_hw_profile_build_default(&hw);
         assert(sw.charge_ocp_first_a10 == 120u);
-        assert(hw.occ1_a10 == 100u);
+        assert(hw.occ1_a10 == D008_AFE_OCC1_A10);
         assert(sw.cell_ovp_third_mv == 3750u);
         assert(hw.cov_mv == 4000u);
-        assert(hw.ocd_recover_a10 == 99u && hw.occ_recover_a10 == 99u);
+        assert(hw.ocd_recover_a10 < hw.ocd1_a10 && hw.occ_recover_a10 < hw.occ1_a10);
         assert(hw.sc_a10 == 2000u && hw.sc_delay_us == 256u);
         assert(bms_afe_hw_profile_validate(&hw));
         puts("D008 independent software and AFE defaults: PASS");
@@ -184,7 +184,7 @@ def check_battery_chemistry_defaults():
                 expected_cov={4200 if nmc else 3750},
                 expected_cov_recover={4100 if nmc else 3500}, expected_cuv={uvp},
                 expected_balance={3300 if balance_test else 4100 if nmc else 3400},
-                expected_balance_start={10 if balance_test else 50}, expected_balance_stop={3 if balance_test else 30},
+                expected_balance_start={30 if balance_test else 50}, expected_balance_stop={15 if balance_test else 30},
                 expected_pack_ovp1={4200 if nmc else 3500},
                 expected_pack_ovp2={4200 if nmc else 3600},
                 expected_pack_ovp3={4200 if nmc else 3650},
@@ -207,18 +207,35 @@ def check_battery_chemistry_defaults():
             assert(system.series_num == expected_cells);
             assert(sw.cell_ovp_first_mv == expected_cov && sw.cell_ovp_second_mv == expected_cov);
             assert(sw.cell_ovp_third_mv == expected_cov && sw.cell_ovp_recover_mv == expected_cov_recover);
+        #if BMS_PRODUCT_ID == 8u
+            assert(sw.cell_uvp_first_mv == D008_SW_CELL_UVP_FIRST_MV);
+            assert(sw.cell_uvp_second_mv == D008_SW_CELL_UVP_SECOND_MV);
+            assert(sw.cell_uvp_third_mv == D008_SW_CELL_UVP_THIRD_MV);
+        #else
             assert(sw.cell_uvp_first_mv == 3000 && sw.cell_uvp_second_mv == 3000);
-            assert(sw.cell_uvp_third_mv == expected_cuv && sw.cell_uvp_recover_mv == 3100);
+            assert(sw.cell_uvp_third_mv == expected_cuv);
+        #endif
+            assert(sw.cell_uvp_recover_mv == 3100);
             assert(sw.pack_ovp_first_10mv == expected_pack_ovp1 / 10 * expected_cells);
             assert(sw.pack_ovp_second_10mv == expected_pack_ovp2 / 10 * expected_cells);
             assert(sw.pack_ovp_third_10mv == expected_pack_ovp3 / 10 * expected_cells);
             assert(sw.pack_ovp_recover_10mv == expected_cov_recover / 10 * expected_cells);
             assert(sw.pack_uvp_first_10mv == 300 * expected_cells);
             assert(sw.pack_uvp_second_10mv == 300 * expected_cells);
+        #if BMS_PRODUCT_ID == 8u
+            assert(sw.pack_uvp_third_10mv == D008_SW_PACK_UVP_THIRD_CELL_MV / 10 * expected_cells);
+        #else
             assert(sw.pack_uvp_third_10mv == expected_pack_uvp3 / 10 * expected_cells);
+        #endif
             assert(sw.pack_uvp_recover_10mv == expected_pack_uv_recover / 10 * expected_cells);
             assert(hw.cov_mv == expected_cov && hw.cov_recover_mv == expected_cov_recover);
-            assert(hw.cuv_mv == expected_cuv && hw.cuv_recover_mv == 3100);
+        #if BMS_PRODUCT_ID == 8u
+            assert(hw.cuv_mv == D008_AFE_CUV_MV);
+            assert(hw.cuv_recover_mv == D008_AFE_CUV_RECOVER_MV);
+        #else
+            assert(hw.cuv_mv == expected_cuv);
+            assert(hw.cuv_recover_mv == 3100);
+        #endif
             assert(bms_afe_hw_profile_validate(&hw));
             assert(user.balance_enable == 1 && user.balance_start_mv == expected_balance);
             assert(user.balance_start_delta_mv == expected_balance_start && user.balance_stop_delta_mv == expected_balance_stop);

@@ -72,7 +72,17 @@ static inline uint16_t bms_update_revision(bms_update_group_t group)
 #define BMS_OTA_UPDATE_CONFIG_MASK 0x000Fu
 #define BMS_OTA_UPDATE_SUPPORTED_MASK 0x004Fu
 #ifndef BMS_OTA_UPDATE_MASK
+#ifdef BMS_OTA_UPDATE_SW
+#define BMS_OTA_UPDATE_MASK ((BMS_OTA_UPDATE_SW << 0) | (BMS_OTA_UPDATE_AFE << 1) | \
+    (BMS_OTA_UPDATE_BUSINESS << 2) | (BMS_OTA_UPDATE_SOC << 3) | (BMS_OTA_UPDATE_SOC_STATE << 6))
+#else
+/* 独立语义存储夹具可提供产品身份和策略，不强制引入完整板级配置。 */
 #define BMS_OTA_UPDATE_MASK 0u
+#endif
+#endif
+#if BMS_OTA_UPDATE_SW > 1u || BMS_OTA_UPDATE_AFE > 1u || BMS_OTA_UPDATE_BUSINESS > 1u || \
+    BMS_OTA_UPDATE_SOC > 1u || BMS_OTA_UPDATE_SOC_STATE > 1u
+#error "OTA source switches must be 0 or 1"
 #endif
 #ifndef BMS_OTA_UPDATE_ID_0
 #define BMS_OTA_UPDATE_ID_0 0u

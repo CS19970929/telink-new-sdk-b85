@@ -59,7 +59,9 @@ static void test_remote_control(void){
  bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
  bms_afe_set_fets(1,1);assert(cmd_c==0&&cmd_d==1); /* AFE 重初始化不丢失关闭许可。 */
  fet_fail=1;assert(!bms_afe_set_channel_allowed(0,1));assert(bms_afe_get_remote_allowed_mask()==2u);
- fet_fail=0;assert(bms_afe_set_channel_allowed(0,1));assert(cmd_c==1&&cmd_d==1);
+ fet_fail=0;assert(bms_afe_set_channel_allowed(0,1));assert(s_guard.comm_inhibit);
+ for(int i=0;i<3;i++)bms_afe_sample();
+ assert(cmd_c==1&&cmd_d==1); /* 通信失败后，重新授权不能绕过三次有效样本资格。 */
  puts("PASS remote MOS permission: independent RAM intent, AFE reinit persistence and fail-safe enable rollback");
 }
 static void test_remote_direction_override(void){

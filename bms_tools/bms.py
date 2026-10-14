@@ -56,13 +56,13 @@ _product_args = argparse.ArgumentParser(add_help=False)
 _product_args.add_argument("--product", choices=PRODUCTS, default=os.environ.get("BMS_PRODUCT", "d014"))
 _product_args.add_argument("--all-products", action="store_true")
 _product_args.add_argument("--production", action="store_true", help="enforce production policy on every translation unit")
-_product_args.add_argument("--d008-profile", choices=("16s-lfp", "20s-nmc", "24s-lfp", "custom"))
+_product_args.add_argument("--d008-profile", choices=("16s-lfp", "20s-nmc", "24s-lfp", "23s-lfp", "custom"))
 _selection, _cli = _product_args.parse_known_args(_cli)
 PRODUCT = _selection.product
 PRODUCTION = _selection.production
 D008_PROFILE = _selection.d008_profile
 BUILD_MODE = "production" if PRODUCTION else "development"
-PROFILE_IDS = {"24s-lfp": 1, "20s-nmc": 2, "16s-lfp": 3, "custom": 4}
+PROFILE_IDS = {"24s-lfp": 1, "20s-nmc": 2, "16s-lfp": 3, "custom": 4, "23s-lfp": 5}
 
 
 def _selection_args(product=None):
@@ -72,22 +72,27 @@ def _selection_args(product=None):
 
 def _selected_build_options():
     try:
-        return build_options.from_environment(os.environ, PRODUCT, D008_PROFILE)
+        if build_options.ENV_NAME in os.environ:
+            raise ValueError("BMS_BUILD_OPTIONS 已停用；请保存产品源码配置并提交。")
+        return build_options.verify_source(REPO_ROOT, PRODUCT, D008_PROFILE)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
 
 
 def _build_configuration():
     configuration = {"product": PRODUCT, "build_mode": BUILD_MODE, "production": PRODUCTION,
-            "d008_profile": (D008_PROFILE or "16s-lfp") if PRODUCT == "d008" else None,
+            "d008_profile": (D008_PROFILE or build_options.source_profile(REPO_ROOT)) if PRODUCT == "d008" else None,
             "core_optimization": "-Os" if PRODUCTION else "-O2"}
     options = _selected_build_options()
     if options:
         configuration["build_options"] = options
+        configuration["parameter_inputs_sha256"] = build_options.parameter_inputs_hash(REPO_ROOT, PRODUCT, options)
     return configuration
 
 _HERE = Path(__file__).resolve().parent
 REPO_ROOT = _HERE.parent
+if PRODUCT == "d008" and D008_PROFILE is None:
+    D008_PROFILE = build_options.source_profile(REPO_ROOT)
 SDK_SUBDIR = "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk"
 SDK_DIR = (REPO_ROOT / SDK_SUBDIR).resolve()
 PROJ_DIR = (SDK_DIR / "project" / "tlsr_tc32" / "B85").resolve()
@@ -604,11 +609,11 @@ def _firmware_git_dirty() -> int:
 
 def _effective_extra_defines() -> str:
     extra = os.environ.get("EXTRA_DEFINES", "").strip()
-    if build_options.ENV_NAME in os.environ:
-        try:
-            build_options.check_extra_defines(extra)
-        except ValueError as exc:
-            _die(str(exc))
+    try:
+        build_options.check_extra_defines(extra)
+        _selected_build_options()
+    except ValueError as exc:
+        _die(str(exc))
     reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE|BMS_D008_SCD_POLICY_APPROVED|BMS_D008_20S_NMC_PROTECTION_APPROVED|BMS_D013_HW_CONFIG_APPROVED|BMS_PRODUCT_RELEASE_APPROVED)(?:\b)"
     if re.search(reserved, extra):
         _die("Build identity/mode/profile are owned by bms.py; use --production / --d008-profile")
@@ -620,7 +625,6 @@ def _effective_extra_defines() -> str:
             _die("D008 production requires --d008-profile (16s-lfp, 20s-nmc or 24s-lfp)")
     flags = [extra, f"-DBMS_PRODUCTION_BUILD={int(PRODUCTION)}",
              f"-DBMS_DIAG_BUILD_ID={build_id}", f"-DBMS_DIAG_BUILD_DIRTY={dirty}"]
-    flags.extend(build_options.defines(_selected_build_options()))
     if PRODUCT == "d008" and D008_PROFILE:
         flags.append(f"-DD008_PRODUCT_PROFILE={PROFILE_IDS[D008_PROFILE]}")
     return " ".join(x for x in flags if x)
@@ -772,6 +776,15 @@ def _invoke_make(targets: list[str], jobs: int = 1,
 
 def _require_release_approval() -> None:
     """正式生产镜像必须通过源码签核；link/resources 允许验证未签核工程配置。"""
+    try:
+        if os.environ.get("EXTRA_DEFINES", "").strip():
+            raise ValueError("交付构建不接受 EXTRA_DEFINES；所有行为配置须保存到源码并提交。")
+        build_options.require_clean_source(REPO_ROOT)
+        build_options.verify_source(REPO_ROOT, PRODUCT, D008_PROFILE)
+        if PRODUCT == "d008" and D008_PROFILE != build_options.source_profile(REPO_ROOT):
+            raise ValueError("交付装配与源码选择不同；请先保存 D008 装配并提交。")
+    except ValueError as error:
+        _die(str(error))
     if not PRODUCTION:
         return
     command = [_tc32_tool("tc32-elf-gcc"), "-E", "-x", "c",

@@ -1,7 +1,8 @@
 ﻿param(
     [string]$RepositoryRoot,
     [string]$SettingsRoot,
-    [ValidateSet('defaults', 'saved')][string]$Scenario
+    [ValidateSet('defaults', 'saved')][string]$Scenario,
+    [string]$PythonExecutable
 )
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
@@ -33,7 +34,13 @@ function Assert-Menu([bool]$condition, [string]$message) {
 }
 
 # 使用真实窗口和事件；只替换最后的 Python 调用，避免生成 BIN 或发送 OTA。
+$global:menuTestPython = $PythonExecutable
 function global:python {
+    if ([IO.Path]::GetFileName($args[0]) -eq 'build_options.py') {
+        & $global:menuTestPython @args
+        $global:LASTEXITCODE = $LASTEXITCODE
+        return
+    }
     Write-Output ('CALL:' + (ConvertTo-Json -InputObject @($args) -Compress))
     $global:LASTEXITCODE = 0
 }
@@ -46,7 +53,7 @@ $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 100
 $timer.Add_Tick({
     $form = [System.Windows.Forms.Application]::OpenForms |
-        Where-Object { $_.Text -eq 'BMS 单项目配置与编译' } | Select-Object -First 1
+        Where-Object { $_.Text -eq 'BMS 源码配置与编译' } | Select-Object -First 1
     if ($null -eq $form) { return }
     $timer.Stop()
     try {
@@ -68,7 +75,7 @@ $timer.Add_Tick({
         foreach ($productIndex in 0..3) {
             $productList.SelectedIndex = $productIndex
             $id = $products[$productIndex]
-            $expected = $global:menuTestProfiles[$id]
+            $expected = $null # 本机旧参数缓存不得覆盖源码。
             if ($null -eq $expected) {
                 $sourceDefaults = Get-TargetDefaults $id
                 $expected = @{ CellCount = $sourceDefaults.Cells; Chemistry = $sourceDefaults.Chemistry;
@@ -133,6 +140,16 @@ $timer.Add_Tick({
             foreach ($check in $checks) { $check.Checked = $true }
             $clean.Checked = $true
             $autoOta.Checked = $true
+            $saveButton = $form.Controls | Where-Object { $_.Text -eq '保存到源码' }
+            $saveButton.PerformClick()
+            $saved = Get-TargetDefaults 'd014'
+            Assert-Menu ($saved.Cells -eq 19 -and $saved.Capacity0p1Ah -eq 400 -and $saved.Chemistry -eq 'nmc') 'window did not save source'
+            Assert-Menu ($saved.UpdateGroups.Count -eq 5 -and $saved.UpdateId) 'OTA policy/identifier not saved'
+            $form.AcceptButton.PerformClick()
+            Assert-Menu $form.Visible 'dirty source was allowed to build'
+            & git -C $repositoryRoot add -A
+            & git -C $repositoryRoot -c 'user.name=配置回归' -c 'user.email=fixture@example.invalid' commit -qm '提交窗口配置夹具'
+            if ($LASTEXITCODE -ne 0) { throw 'fixture commit failed' }
             $form.AcceptButton.PerformClick()
         }
     } catch {

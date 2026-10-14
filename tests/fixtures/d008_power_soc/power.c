@@ -204,7 +204,8 @@ static void test_low_voltage_sample_wait(void){
   assert(observed_sleep_elapsed==seconds*1000u);
   if(seconds==3600){assert(cut_calls==1&&timer_hold_calls==0&&!deep_calls&&!output_enabled);break;}
   now+=12801u;elapsed=0;app_power_process(&s_sample_due);
-  assert(s_protective_sleep.region==2&&observed_sleep_elapsed==seconds*1000u);
+  /* 无新鲜样本时诊断可能优先显示 AFE 倒计时；低压计时所有者必须保持。 */
+  assert(s_protective_sleep.region==2&&s_protective_sleep.low_voltage_seconds==seconds);
   assert(mask==SUSPEND_DISABLE&&!deep_calls);
  }
  /* 无效缓存的“恢复电压”不能清零；有效恢复和不同延时区才可以。 */

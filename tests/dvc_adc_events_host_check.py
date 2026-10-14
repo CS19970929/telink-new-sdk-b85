@@ -6,6 +6,7 @@ code=r'''
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#define GPIO_PB1 1u /* host 输入编号；不操作物理 GPIO。 */
 #include "dvc1124.h"
 #include "bms_features.h"
 #include "bms_diag.h"

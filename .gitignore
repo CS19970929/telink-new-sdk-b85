@@ -24,6 +24,7 @@
 
 # Windows 上位机正式发布包；编译缓存仍放源码树外。
 /releases/bms-tool-windows/
+/releases/bms-tool-android/
 
 # 原目录的本地 exclude 曾忽略这两个目录；本分支将它们作为源码维护。
 !/bms_tools/

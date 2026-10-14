@@ -4,6 +4,24 @@
  * 当前开发默认原样搬入，不代表电芯规格/实板签核。 */
 #pragma once
 
+/* OTA_SOURCE_POLICY_BEGIN：本包更新选择和固定标识，保存后一起提交。 */
+#define BMS_OTA_UPDATE_SW        0u
+#define BMS_OTA_UPDATE_AFE       0u
+#define BMS_OTA_UPDATE_BUSINESS  0u
+#define BMS_OTA_UPDATE_SOC       0u
+#define BMS_OTA_UPDATE_SOC_STATE 0u
+#ifndef BMS_OTA_UPDATE_ID_0
+#define BMS_OTA_UPDATE_ID_0 0x0000u
+#define BMS_OTA_UPDATE_ID_1 0x0000u
+#define BMS_OTA_UPDATE_ID_2 0x0000u
+#define BMS_OTA_UPDATE_ID_3 0x0000u
+#define BMS_OTA_UPDATE_ID_4 0x0000u
+#define BMS_OTA_UPDATE_ID_5 0x0000u
+#endif
+#define BMS_OTA_UPDATE_CONTENT_SHA256 "0000000000000000000000000000000000000000000000000000000000000000"
+/* OTA_SOURCE_POLICY_END */
+
+
 
 /* 单体过压 / mV：一级、二级、三级、恢复、滤波。 */
 #define BMS_SW_CELL_OVP_FIRST_MV_FOR(c)                        ((c) == BMS_SOC_CHEMISTRY_LFP ? 3750u : 4200u)

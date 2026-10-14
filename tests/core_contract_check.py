@@ -330,13 +330,13 @@ def check_soc_contract_check():
 
         def test_coulomb_integration_and_deadband(self):
             # 积分时间行为由 d008_power_soc_host_check 的实际时间场景验证。
-            self.assertIn("SOC_CURRENT_DEADBAND_MA_DEFAULT     200u", C)
+            self.assertIn("SOC_CURRENT_DEADBAND_MA_DEFAULT     BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT", C)
             self.assertIn("soc_current_direction", C)
             self.assertIn("g_soc_integral_tick_remainder", C)
 
         def test_ocv_requires_ten_minutes_and_uses_band(self):
-            self.assertIn("SOC_OCV_REST_PREPARE_SECONDS        600u", C)
-            self.assertIn("SOC_OCV_ERROR_BAND_PERCENT          5u", C)
+            self.assertIn("SOC_OCV_REST_PREPARE_SECONDS        BMS_SOC_OCV_REST_PREPARE_S_DEFAULT", C)
+            self.assertIn("SOC_OCV_ERROR_BAND_PERCENT          BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT", C)
             self.assertIn("g_soc_runtime.ocv_low", C)
             self.assertIn("g_soc_runtime.ocv_high", C)
             self.assertIn("soc_step_down_to(g_soc_runtime.ocv_high)", C)

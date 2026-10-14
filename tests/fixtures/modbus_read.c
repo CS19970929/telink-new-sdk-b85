@@ -18,7 +18,7 @@ uint8_t bms_afe_set_channel_allowed(uint8_t channel,uint8_t allowed)
 {
     u8 bit=(u8)(1u<<channel);
     if(channel>1u||allowed>1u)return 0u;
-    if(allowed)remote_allowed_mask&=(u8)~bit;else remote_allowed_mask|=bit;
+    if(allowed)remote_allowed_mask|=bit;else remote_allowed_mask&=(u8)~bit;
     return 1u;
 }
 void bms_afe_get_requested_fets(uint8_t*c,uint8_t*d){*c=requested_charge;*d=requested_discharge;}
@@ -47,6 +47,9 @@ int bms_parameter_readable(u16 r) { return r>=0x2E00u && r<=0x2E0Fu; }
 u16 bms_parameter_read(u16 r) { return (u16)(r^0x55aau); }
 int bms_config_get_user(bms_user_params_t *u) { memset(u,0,sizeof(*u)); return 1; }
 void bms_config_store_get_default_protect(bms_protection_params_t *p) { (void)p; abort(); }
+int bms_config_store_get_system(bms_config_system_params_t *p) { (void)p; abort(); }
+void bms_config_store_get_chemistry_protect(u8 chemistry, bms_protection_params_t *p) { (void)chemistry; (void)p; abort(); }
+void bms_afe_hw_profile_build_chemistry_default(u8 chemistry, bms_afe_hw_profile_t *p) { (void)chemistry; (void)p; abort(); }
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p) { (void)p; abort(); }
 u8 bms_protection_params_commit(const bms_protection_params_t *p) { (void)p; abort(); }
 u8 bms_protection_params_valid(void) { abort(); }

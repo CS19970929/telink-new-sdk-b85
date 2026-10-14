@@ -32,7 +32,6 @@ def check_sh_event_checkpoint_host_check():
     #define DIAG_OK 0
     #define DIAG_BACKOFF 12
     #define DIAG_SAVE 7
-    #define BMS_PRODUCT_ID 14u
     #include "bms_update_policy.h"
     /* TYPES */
     static const storage_port_t port={0};

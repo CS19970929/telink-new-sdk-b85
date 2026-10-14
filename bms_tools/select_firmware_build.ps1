@@ -11,11 +11,17 @@ param(
     [string]$UpdateId,
     [switch]$Rebuild,
     [switch]$PlanOnly,
-    [switch]$BuildOnly
+    [switch]$BuildOnly,
+    [switch]$SaveOnly,
+    [switch]$NewPackage
 )
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $workflow = Join-Path $PSScriptRoot 'android_ota.py'
+$configurationTool = Join-Path $PSScriptRoot 'build_options.py'
+$env:PYTHONUTF8 = '1'
+$env:PYTHONDONTWRITEBYTECODE = '1'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $targets = @(
     @{ Id = 'd008'; Name = 'D008' },
     @{ Id = 'd011'; Name = 'D011' },
@@ -25,84 +31,58 @@ $targets = @(
 if ($Target -and $Target -notin $targets.Id) { throw "Unknown build target: $Target" }
 if ($PlanOnly -and -not $Target) { throw 'PlanOnly requires an explicit Target.' }
 
+function Invoke-SourceConfiguration([string[]]$toolArguments) {
+    $output = & python $configurationTool @toolArguments
+    if ($LASTEXITCODE -ne 0) { throw '源码配置操作失败，请查看终端错误。' }
+    return ($output | ConvertFrom-Json)
+}
+
 function Get-TargetDefaults([string]$id) {
-    $product = $id.Split('-')[0]
-    $header = Get-Content (Join-Path $repositoryRoot "bms/products/$product/bms_product.h") -Raw
-    # 容量已集中到各产品独立参数文件；板级头文件仍提供串数和类型。
-    $parameters = Get-Content (Join-Path $repositoryRoot "bms/products/$product/${product}_protection_config.h") -Raw
-    if ($parameters -notmatch '(?m)^\s*#define\s+BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH\s+(\d+)') {
-        throw "无法读取 $product 默认容量。"
-    }
-    $capacity = [int]$Matches[1]
-    if ($product -eq 'd008') {
-        $profile = Get-Content (Join-Path $repositoryRoot 'bms/products/d008/d008_product_profile.h') -Raw
-        if ($profile -notmatch '(?m)^\s*#define\s+D008_PRODUCT_PROFILE\s+D008_PRODUCT_PROFILE_(\d+)S_(LFP|NMC)') {
-            throw '无法读取 D008 默认串数与电池类型。'
-        }
-        $cells = [int]$Matches[1]
-        $chemical = $Matches[2].ToLowerInvariant()
-        $model = 'dvc1124'
-    } else {
-        if ($header -notmatch '(?m)^\s*#define\s+SH3673510_BOARD_CELL_COUNT\s+(\d+)') {
-            throw "无法读取 $product 串数。"
-        }
-        $cells = [int]$Matches[1]
-        if ($header -notmatch '(?m)^\s*#define\s+BMS_PRODUCT_CHEMISTRY\s+BMS_SOC_CHEMISTRY_(LFP|NMC)') {
-            throw "无法读取 $product 电池类型。"
-        }
-        $chemical = $Matches[1].ToLowerInvariant()
-        $shDefaults = Get-Content (Join-Path $repositoryRoot 'bms/products/sh3673510_defaults.h') -Raw
-        if ($shDefaults -notmatch '(?m)^\s*#define\s+BMS_BUILD_AFE_MODEL\s+(3510|3520)') {
-            throw '无法读取 SH 默认 AFE 型号。'
-        }
-        $model = 'sh367' + $Matches[1]
-    }
-    return @{ Capacity0p1Ah = $capacity; Chemistry = $chemical; Cells = $cells; AfeModel = $model }
+    $source = Invoke-SourceConfiguration @('show', '--root', $repositoryRoot, '--product', $id)
+    return @{ Capacity0p1Ah = $source.capacity_0p1ah; Chemistry = $source.chemistry;
+        Cells = $source.cell_count; AfeModel = $source.afe_model;
+        UpdateGroups = @($source.update_groups | Where-Object { $_ }); UpdateId = $source.update_id }
+}
+
+if ($SaveOnly) {
+    if (-not $Target) { throw 'SaveOnly requires an explicit Target.' }
+    $saveArguments = @('save', '--root', $repositoryRoot, '--product', $Target)
+    if ($AfeModel) { $saveArguments += @('--afe-model', $AfeModel) }
+    if ($Chemistry) { $saveArguments += @('--chemistry', $Chemistry) }
+    if ($CellCount) { $saveArguments += @('--cell-count', "$CellCount") }
+    if ($Capacity0p1Ah) { $saveArguments += @('--capacity-0p1ah', "$Capacity0p1Ah") }
+    if ($PSBoundParameters.ContainsKey('UpdateGroups')) { $saveArguments += @('--update-groups') + $UpdateGroups }
+    if ($NewPackage) { $saveArguments += '--new-package' }
+    if ($UpdateId) { throw '更新标识由保存新参数包生成，不能通过命令行覆盖。' }
+    Invoke-SourceConfiguration $saveArguments | ConvertTo-Json -Depth 5
+    exit 0
+}
+if ($Chemistry -or $AfeModel -or $CellCount -or $Capacity0p1Ah -or $UpdateGroups.Count -or $UpdateId -or $NewPackage) {
+    throw '构建阶段不接受参数覆盖；请先用 SaveOnly 或窗口保存配置并提交。'
 }
 
 if (-not $Target) {
-    # 只记住板级配置；参数更新选择每次默认关闭，避免无意覆盖客户参数。
+    # 本机仅记住项目和构建模式；参数和 OTA 策略始终读取源码。
     $hash = [System.Security.Cryptography.SHA256]::Create()
     try {
         $repoKey = ([BitConverter]::ToString($hash.ComputeHash(
             [Text.Encoding]::UTF8.GetBytes($repositoryRoot)))).Replace('-', '').Substring(0, 12)
     } finally { $hash.Dispose() }
     $settingsPath = Join-Path $env:LOCALAPPDATA "BmsBuildMenu/$repoKey.json"
-    $settings = @{ Target = $targets[0].Id; Mode = $Mode; Profiles = @{} }
+    $settings = @{ Target = $targets[0].Id; Mode = $Mode }
     if (Test-Path -LiteralPath $settingsPath) {
         try {
             $saved = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
             if ($saved.Target -in $targets.Id) { $settings.Target = $saved.Target }
-            if ($saved.Target -match '^d008-(\d+)s-(lfp|nmc)$') {
-                $settings.Target = 'd008'
-                $oldD008 = $saved.Profiles.($saved.Target)
-                if ($null -ne $oldD008) {
-                    $oldD008 | Add-Member -NotePropertyName CellCount -NotePropertyValue ([int]$Matches[1]) -Force
-                    $saved.Profiles | Add-Member -NotePropertyName d008 -NotePropertyValue $oldD008 -Force
-                }
-            }
             if ($saved.Mode -in @('production', 'development')) { $settings.Mode = $saved.Mode }
-            foreach ($entry in $targets) {
-                $item = $saved.Profiles.($entry.Id)
-                if ($null -ne $item -and $item.Chemistry -in @('lfp', 'nmc') -and
-                    $item.Capacity0p1Ah -ge 1 -and $item.Capacity0p1Ah -le 6553) {
-                    if ($null -eq $item.CellCount) {
-                        $item | Add-Member -NotePropertyName CellCount -NotePropertyValue (Get-TargetDefaults $entry.Id).Cells
-                    }
-                    if ($null -eq $item.AfeModel) {
-                        $item | Add-Member -NotePropertyName AfeModel -NotePropertyValue (Get-TargetDefaults $entry.Id).AfeModel
-                    }
-                    $settings.Profiles[$entry.Id] = $item
-                }
-            }
         } catch { Write-Warning '上次窗口设置无法读取，本次使用源码默认。' }
     }
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
     [System.Windows.Forms.Application]::EnableVisualStyles()
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = 'BMS 单项目配置与编译'
-    $form.ClientSize = New-Object System.Drawing.Size(590, 526)
+    $form.Text = 'BMS 源码配置与编译'
+    $form.ClientSize = New-Object System.Drawing.Size(590, 654)
     $form.StartPosition = 'CenterScreen'
     $form.FormBorderStyle = 'FixedDialog'
     $form.MaximizeBox = $false
@@ -158,7 +138,7 @@ if (-not $Target) {
     $capacityInput.Maximum = [decimal]655.3
     $form.Controls.Add($capacityInput)
     $updateBox = New-Object System.Windows.Forms.GroupBox
-    $updateBox.Text = 'OTA 后更新所选组为本次默认值（全不选则保留参数）'
+    $updateBox.Text = '保存到源码的 OTA 更新策略（全不选则保留参数）'
     $updateBox.SetBounds(16, 180, 558, 124)
     $form.Controls.Add($updateBox)
     $groupChoices = @(
@@ -190,6 +170,17 @@ if (-not $Target) {
     $autoOta.SetBounds(16, 432, 558, 28)
     $autoOta.Checked = -not $BuildOnly.IsPresent
     $form.Controls.Add($autoOta)
+    $newPackageCheck = New-Object System.Windows.Forms.CheckBox
+    $newPackageCheck.Text = '保存时制作新参数更新包（重新固定更新标识）'
+    $newPackageCheck.SetBounds(16, 464, 558, 28)
+    $form.Controls.Add($newPackageCheck)
+    $fixedId = New-Object System.Windows.Forms.Label
+    $fixedId.SetBounds(16, 504, 558, 28)
+    $form.Controls.Add($fixedId)
+    $saveStatus = New-Object System.Windows.Forms.Label
+    $saveStatus.Text = '先保存到源码，审查 Git 差异并提交，再点击编译。'
+    $saveStatus.SetBounds(16, 608, 558, 40)
+    $form.Controls.Add($saveStatus)
     $script:loadingInputs = $false
     $script:targetInputsValid = $false
     function Select-LinkedGroups {
@@ -211,17 +202,10 @@ if (-not $Target) {
         try {
             $id = $targets[$productList.SelectedIndex].Id
             $defaults = Get-TargetDefaults $id
-            $item = $settings.Profiles[$id]
             $chemical = $defaults.Chemistry
             $capacity = $defaults.Capacity0p1Ah
             $cells = $defaults.Cells
             $model = $defaults.AfeModel
-            if ($null -ne $item) {
-                $chemical = $item.Chemistry
-                $cells = [int]$item.CellCount
-                $model = $item.AfeModel
-                $capacity = [int]$item.Capacity0p1Ah
-            }
             $afeList.Items.Clear()
             if ($id -eq 'd008') {
                 [void]$afeList.Items.Add('DVC1124-2')
@@ -237,7 +221,10 @@ if (-not $Target) {
             Update-CellRange
             $cellInput.Value = $cells
             $capacityInput.Value = [decimal]$capacity / 10
-            foreach ($check in $updateChecks.Values) { $check.Checked = $false }
+            foreach ($choice in $groupChoices) { $updateChecks[$choice.Id].Checked = $choice.Id -in $defaults.UpdateGroups }
+            $fixedId.Text = if ($defaults.UpdateId) { "固定更新标识：$($defaults.UpdateId)" }
+                elseif ($defaults.UpdateGroups.Count) { '已选择更新组，请保存以固定新标识。' }
+                else { '源码策略：保留参数；无更新标识' }
             $script:targetInputsValid = $true
         } catch {
             [void][System.Windows.Forms.MessageBox]::Show("配置读取失败：$_", 'BMS')
@@ -248,19 +235,60 @@ if (-not $Target) {
     $chemistryList.Add_SelectedIndexChanged({ Update-CellRange; Select-LinkedGroups })
     $cellInput.Add_ValueChanged({ Select-LinkedGroups })
     $capacityInput.Add_ValueChanged({ if (-not $script:loadingInputs) { $updateChecks['business'].Checked = $true } })
+    function Get-WindowConfiguration {
+        $id = $targets[$productList.SelectedIndex].Id
+        return @{ Product = $id; Chemistry = $(if ($chemistryList.SelectedIndex -eq 1) { 'nmc' } else { 'lfp' });
+            Cells = [int]$cellInput.Value; Capacity = [int]($capacityInput.Value * 10);
+            Afe = $(if ($id -eq 'd008') { 'dvc1124' } elseif ($afeList.SelectedIndex -eq 1) { 'sh3673520' } else { 'sh3673510' });
+            Groups = @($groupChoices | Where-Object { $updateChecks[$_.Id].Checked } | ForEach-Object { $_.Id }) }
+    }
+    $save = New-Object System.Windows.Forms.Button
+    $save.Text = '保存到源码'
+    $save.SetBounds(16, 560, 132, 32)
+    $save.Add_Click({
+        if (-not $script:targetInputsValid) { return }
+        try {
+            $inputConfiguration = Get-WindowConfiguration
+            $saveArguments = @('save', '--root', $repositoryRoot, '--product', $inputConfiguration.Product,
+                '--afe-model', $inputConfiguration.Afe, '--chemistry', $inputConfiguration.Chemistry,
+                '--cell-count', "$($inputConfiguration.Cells)", '--capacity-0p1ah', "$($inputConfiguration.Capacity)",
+                '--update-groups') + $inputConfiguration.Groups
+            if ($newPackageCheck.Checked) { $saveArguments += '--new-package' }
+            $savedConfiguration = Invoke-SourceConfiguration $saveArguments
+            Update-TargetInputs
+            $newPackageCheck.Checked = $false
+            $saveStatus.Text = if ($savedConfiguration.changed_files.Count) {
+                '已写回源码。请审查 Git 差异并提交后编译。'
+            } else { '配置与源码一致；编译前仍会检查是否已提交。' }
+        } catch { $saveStatus.Text = "保存失败：$($_.Exception.Message)" }
+    })
+    $form.Controls.Add($save)
     $productList.SelectedIndex = [array]::IndexOf(@($targets.Id), $settings.Target)
     $start = New-Object System.Windows.Forms.Button
-    $start.Text = '开始编译'
-    $start.SetBounds(322, 480, 116, 32)
+    $start.Text = '已提交后编译'
+    $start.SetBounds(282, 560, 156, 32)
     $start.Add_Click({
         if (-not $script:targetInputsValid) { return }
-        $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $form.Close()
+        try {
+            $inputConfiguration = Get-WindowConfiguration
+            if ($newPackageCheck.Checked) { throw '新参数更新包尚未保存，请先保存到源码并提交。' }
+            $source = Invoke-SourceConfiguration @('verify', '--root', $repositoryRoot,
+                '--product', $inputConfiguration.Product, '--require-clean')
+            if ($source.afe_model -ne $inputConfiguration.Afe -or
+                $source.chemistry -ne $inputConfiguration.Chemistry -or
+                $source.cell_count -ne $inputConfiguration.Cells -or
+                $source.capacity_0p1ah -ne $inputConfiguration.Capacity -or
+                (@($source.update_groups) -join ',') -ne ($inputConfiguration.Groups -join ',')) {
+                throw '窗口配置尚未保存，请先保存到源码并提交。'
+            }
+            $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $form.Close()
+        } catch { $saveStatus.Text = "不能编译：$($_.Exception.Message)" }
     })
     $form.Controls.Add($start)
     $cancel = New-Object System.Windows.Forms.Button
     $cancel.Text = '取消'
-    $cancel.SetBounds(450, 480, 116, 32)
+    $cancel.SetBounds(450, 560, 116, 32)
     $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
     $form.Controls.Add($cancel)
     $form.AcceptButton = $start
@@ -283,32 +311,17 @@ if (-not $Target) {
         $BuildOnly = -not $autoOta.Checked
         $settings.Target = $Target
         $settings.Mode = $Mode
-        $settings.Profiles[$Target] = @{ Chemistry = $Chemistry; CellCount = $CellCount; AfeModel = $AfeModel; Capacity0p1Ah = $Capacity0p1Ah }
         [void][System.IO.Directory]::CreateDirectory((Split-Path -Parent $settingsPath))
         $settings | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $settingsPath -Encoding UTF8
     } finally { $form.Dispose() }
 }
 
-if ($UpdateGroups.Count -gt 0 -and -not $UpdateId) {
-    $random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    try {
-        $bytes = New-Object byte[] 10
-        $random.GetBytes($bytes)
-        $UpdateId = '0000' + ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
-        if ($UpdateId -eq ('0' * 24)) { $UpdateId = '000000000000000000000001' }
-    } finally { $random.Dispose() }
-}
 $commonArguments = @($workflow, '--target', $Target, '--mode', $Mode)
-if ($AfeModel) { $commonArguments += @('--afe-model', $AfeModel) }
-if ($Chemistry) { $commonArguments += @('--chemistry', $Chemistry) }
-if ($CellCount) { $commonArguments += @('--cell-count', "$CellCount") }
-if ($Capacity0p1Ah) { $commonArguments += @('--capacity-0p1ah', "$Capacity0p1Ah") }
-if ($UpdateGroups.Count -gt 0) { $commonArguments += @('--update-groups') + $UpdateGroups }
-if ($UpdateId) { $commonArguments += @('--update-id', $UpdateId) }
 $buildArguments = $commonArguments + @('--build-only')
 if ($Rebuild) { $buildArguments += '--rebuild' }
 if ($PlanOnly) {
-    @{ Configuration = "$($Mode):$Target"; Arguments = $buildArguments } | ConvertTo-Json -Depth 4
+    @{ Configuration = "$($Mode):$Target"; Arguments = $buildArguments;
+        SourceConfiguration = (Invoke-SourceConfiguration @('show', '--root', $repositoryRoot, '--product', $Target)) } | ConvertTo-Json -Depth 4
     exit 0
 }
 $env:PYTHONUTF8 = '1'

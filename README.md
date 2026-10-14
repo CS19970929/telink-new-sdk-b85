@@ -62,6 +62,7 @@ python bms_tools/bms.py --product d014 resources
 | [D014 产品 reference](docs/D014_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d014/AGENTS.md) | 8S/667 µΩ，无 heater，TS4 MOS NTC |
 | [AFE 原厂资料库](references/afe/README.md) · [开发使用指南](docs/AFE_REFERENCE_GUIDE.md) | 六份原 PDF、型号/版本边界、检索工具、独立审查及已知问题 |
 | [OTA 参数更新控制](docs/OTA_PARAMETERS.md) | BIN 自带分组更新、一次性执行、持久均衡许可、旧记录保留、回退和启动失败 |
+| [源码配置与固定 OTA 标识](docs/SOURCE_CONFIGURATION_WORKFLOW.md) | 四产品窗口写回源码、固定更新包、提交后构建及追溯 |
 
 ## 专题与调试
 

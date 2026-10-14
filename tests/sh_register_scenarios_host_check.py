@@ -141,11 +141,10 @@ def check_sh3673510_board_host_check():
     static struct {uint16_t temperature_x10[4];} g_bms_report;
     static uint8_t s_ntc_valid[4];
     static uint8_t s_sample_pending, s_charger_removed, s_load_removed;
-    typedef struct {uint8_t bstatus2;} test_status_t;
-    static test_status_t status_data;
+    static uint8_t sh3510_fresh_charging(void){return 0;}
+    static uint8_t sh3510_fresh_discharging(void){return 0;}
     static uint8_t battery_temperature_snapshot(uint16_t *low,uint16_t *high){*low=*high=650;return 1;}
     static bms_sw_protection_inputs_t sample(void){bms_sw_protection_inputs_t sw;
-     const test_status_t *status=&status_data;
     ''' + mapping + r'''
      return sw;
     }

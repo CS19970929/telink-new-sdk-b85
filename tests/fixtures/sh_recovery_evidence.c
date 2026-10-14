@@ -9,6 +9,7 @@
 #include "bms_error.h"
 #include "bms_diag.h"
 #include "bms_product.h"
+#include "bms_soc.h"
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"
 #include "sh3673510_ntc.h"
@@ -31,6 +32,7 @@ void bms_diag_afe_failure(uint16_t stage,int16_t error,uint16_t flag2,
 }
 /* 本夹具验证采样/恢复；MOS 原始状态的诊断存储由独立 diag 回归覆盖。 */
 void bms_diag_mos_raw_status(uint16_t raw_status) { (void)raw_status; }
+void bms_diag_driver(uint8_t charge_on, uint8_t discharge_on) { (void)charge_on; (void)discharge_on; }
 static sh3673510_control_status_t device;
 static unsigned clear_calls;
 static uint8_t clear_ok = 1, command_c, command_d;
@@ -306,6 +308,7 @@ int main(void) {
 
     /* A failed W0C write is an invalid sample, not a healthy retry loop. */
     device.flag1=SH3673520_FLAG1_OCC_MASK;
+    public_current_ma=201; /* 新鲜放电触发 OCC 清除，随后注入 W0C 写失败。 */
     clear_ok=0;
     sample();
     assert(!sh3673510_bms_afe_get_aux_measurements(&aux));

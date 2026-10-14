@@ -47,6 +47,8 @@ def main():
                         help='compile the production-C replay executable and stop')
     parser.add_argument('--soc-only', action='store_true', help='仅运行公共 SOC 和所选产品 app 样本入口')
     args = parser.parse_args()
+    product = os.environ.get('BMS_PRODUCT', 'd008')
+    product_parameters = '#define BMS_PRODUCT_ID ' + str(int(product[1:])) + 'u\n#include "' + (ROOT / 'bms/products' / product / (product + '_protection_config.h')).as_posix() + '"\n'
     floor = re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                       (MOD / 'bms_soc.h').read_text(), re.M)
     assert floor is not None, "missing D008 current reliability floor"
@@ -55,7 +57,7 @@ def main():
     assert suspend_limit is not None
     with tempfile.TemporaryDirectory(prefix='d008-host-') as directory:
         units = {
-            'soc': ('#include "' + (ROOT/'bms/core/bms_soc_eta.c').as_posix() + '"\n') + source('bms_soc_defs.h') + '\n' + source('bms_diag.h') + '\n' + source('bms_soc.h') + '\n' +
+            'soc': ('#include "' + (ROOT/'bms/core/bms_soc_eta.c').as_posix() + '"\n') + source('bms_soc_defs.h') + '\n' + product_parameters + source('bms_diag.h') + '\n' + source('bms_soc.h') + '\n' +
                    source('bms_soc_profile.h') + '\n' +
                    'static int bms_config_store_set_soc(const bms_soc_config_t *c){if(!config_store_write_ok)return 0;stored_profile.battery_chemistry=c->chemistry;stored_profile.soc_profile_id=c->profile_id;return 1;}\n'
                    'static int bms_config_store_get_soc(bms_soc_config_t *c){bms_soc_get_default_config(c);c->chemistry=stored_profile.battery_chemistry;c->profile_id=stored_profile.soc_profile_id;return 1;}\n' + source('bms_soc.c') + '\n' + '\n'.join(re.findall(r'^#define SOC_SAMPLE_(?:TEMP|CURRENT|PACK)_FAULT_MASK[^\n]*', (MOD/'app.c').read_text(), re.M)) + '\n' + function('app.c', 'static void app_update_soc_from_sample('),

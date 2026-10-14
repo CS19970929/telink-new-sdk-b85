@@ -4,6 +4,9 @@ from __future__ import annotations
 import json
 import re
 import secrets
+import hashlib
+from pathlib import Path
+import subprocess
 
 ENV_NAME = "BMS_BUILD_OPTIONS"
 MACROS = {
@@ -83,28 +86,6 @@ def variant(mode: str, product: str, profile: str | None, options: dict) -> str:
     return mode + ("-" + (profile or "16s-lfp") if product == "d008" else "")
 
 
-def from_environment(environment: dict, product: str, profile: str | None) -> dict:
-    return normalize(json.loads(environment.get(ENV_NAME, "{}")), product, profile)
-
-
-def defines(options: dict) -> list[str]:
-    flags = []
-    for key, value in options.items():
-        if key not in MACROS:
-            continue
-        if key == "afe_model":
-            value = {"dvc1124": 1124, "sh3673510": 3510, "sh3673520": 3520}[value]
-        value = f"BMS_SOC_CHEMISTRY_{value.upper()}" if key == "chemistry" else f"{value}u"
-        flags.append(f"-D{MACROS[key]}={value}")
-    mask = sum(UPDATE_GROUPS[group] for group in options.get("update_groups", []))
-    flags.append(f"-DBMS_OTA_UPDATE_MASK=0x{mask:04x}u")
-    if mask:
-        for index in range(6):
-            word = options["update_id"][index * 4:index * 4 + 4]
-            flags.append(f"-DBMS_OTA_UPDATE_ID_{index}=0x{word}u")
-    return flags
-
-
 def check_extra_defines(extra: str) -> None:
     # 窗口负责这些参数，拒绝残留环境宏偷偷覆盖窗口显示值。
     names = "|".join((*MACROS.values(), "BMS_UPDATE_SW_REVISION", "BMS_UPDATE_AFE_REVISION",
@@ -112,6 +93,265 @@ def check_extra_defines(extra: str) -> None:
                       "BMS_UPDATE_SOC_STATE_REVISION", "BMS_UPDATE_CALIBRATION_REVISION",
                       "BMS_UPDATE_IDENTITY_REVISION", "BMS_UPDATE_EVENTS_REVISION",
                       "BMS_BUILD_PARAMETERS_REVISION", "BMS_BUILD_SOC_STATE_REVISION",
-                      "BMS_OTA_UPDATE_MASK", r"BMS_OTA_UPDATE_ID_\d+"))
+                      r"BMS_OTA_UPDATE_\w+", "D008_CUSTOM_CELL_COUNT", "D008_CUSTOM_CHEMISTRY"))
     if re.search(r"(?:-D|-U)\s*(?:" + names + r")\b", extra):
         raise ValueError("EXTRA_DEFINES 残留电池/OTA 策略或旧编号宏，请清除后使用窗口配置。")
+
+
+PRODUCTS = ("d008", "d011", "d013", "d014")
+PROFILES = {"16s-lfp": (16, "lfp"), "20s-nmc": (20, "nmc"),
+            "24s-lfp": (24, "lfp"), "23s-lfp": (23, "lfp")}
+OTA_BEGIN = "/* OTA_SOURCE_POLICY_BEGIN"
+OTA_END = "/* OTA_SOURCE_POLICY_END */"
+# 保守包含默认值构造代码；这些输入改变时，已有更新包必须重新保存并固定标识。
+DEFAULT_INPUTS = ("bms/products/bms_battery_defaults.h", "bms/core/bms_parameters.c",
+                  "bms/core/bms_config_store.c", "bms/core/bms_afe_hw_profile.c",
+                  "bms/core/bms_soc_defs.h", "bms/core/bms_soc_profile.h",
+                  "bms/core/bms_soc.h", "bms/core/bms_state_store.c", "bms/core/bms_state.h",
+                  "bms/app/bms_features.h", "bms/afe/sh3673510/sh3673510_quantize.h",
+                  "bms/core/bms_update_policy.h")
+
+
+def _text(path: Path) -> str:
+    return path.read_bytes().decode("utf-8-sig")
+
+
+def _macro(text: str, name: str, pattern: str = r"\S+") -> str:
+    found = re.findall(r"(?m)^[ \t]*#define[ \t]+" + re.escape(name) +
+                       r"[ \t]+(" + pattern + r")[ \t]*(?=\r?$|/\*)", text)
+    if len(found) != 1:
+        raise ValueError("源码配置必须有且仅有一个可编辑定义：" + name)
+    return found[0]
+
+
+def _number(text: str, name: str) -> int:
+    return int(_macro(text, name, r"(?:0x[0-9a-fA-F]+|\d+)[uU]?").rstrip("uU"), 0)
+
+
+def source_profile(root: Path) -> str:
+    text = _text(root / "bms/products/d008/d008_product_profile.h")
+    name = _macro(text, "D008_PRODUCT_PROFILE", r"D008_PRODUCT_PROFILE_[A-Z0-9_]+")
+    return name.removeprefix("D008_PRODUCT_PROFILE_").lower().replace("_", "-")
+
+
+def read_source(root: Path, product: str, profile: str | None = None, *, for_edit=False) -> dict:
+    if product not in PRODUCTS:
+        raise ValueError("未知产品：" + product)
+    folder = root / "bms/products" / product
+    header = _text(folder / "bms_product.h")
+    parameters = _text(folder / f"{product}_protection_config.h")
+    if product == "d008":
+        profile = profile or source_profile(root)
+        if profile == "custom":
+            assembly = _text(folder / "d008_product_profile.h")
+            cells = _number(assembly, "D008_CUSTOM_CELL_COUNT")
+            chemistry = _macro(assembly, "D008_CUSTOM_CHEMISTRY", r"BMS_SOC_CHEMISTRY_(?:LFP|NMC)")
+            chemistry = chemistry.rsplit("_", 1)[1].lower()
+        else:
+            if profile not in PROFILES:
+                raise ValueError("未知 D008 装配：" + profile)
+            cells, chemistry = PROFILES[profile]
+        model = "dvc1124"
+    else:
+        cells = _number(header, "SH3673510_BOARD_CELL_COUNT")
+        chemistry = _macro(header, "BMS_PRODUCT_CHEMISTRY", r"BMS_SOC_CHEMISTRY_(?:LFP|NMC)")
+        chemistry = chemistry.rsplit("_", 1)[1].lower()
+        model = "sh367" + str(_number(header, "BMS_BUILD_AFE_MODEL"))
+    groups = []
+    for group in UPDATE_GROUPS:
+        enabled = _number(parameters, "BMS_OTA_UPDATE_" + group.upper())
+        if enabled not in (0, 1):
+            raise ValueError("OTA 更新开关必须为 0 或 1：" + group)
+        if enabled:
+            groups.append(group)
+    options = dict(afe_model=model, cell_count=cells, chemistry=chemistry,
+                   capacity_0p1ah=_number(parameters, "BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH"),
+                   update_groups=groups)
+    words = [_number(parameters, f"BMS_OTA_UPDATE_ID_{index}") for index in range(6)]
+    if any(word > 65535 for word in words) or words[0]:
+        raise ValueError("源码中的 OTA 标识格式无效。")
+    incomplete = bool(groups and not any(words) and for_edit)
+    if groups:
+        options["update_id"] = "".join(f"{word:04x}" for word in words)
+        if incomplete:
+            options["update_id"] = "000000000000000000000001"
+    elif any(words) and not for_edit:
+        raise ValueError("保留参数时 OTA 标识必须全零。")
+    result = normalize(options, product, profile)
+    if incomplete:
+        result.pop("update_id")
+    return result
+
+
+def parameter_inputs_hash(root: Path, product: str, options: dict, replacements=None) -> str:
+    """标识绑定受控默认值输入；排除标识本身，避免循环摘要。"""
+    replacements = replacements or {}
+    paths = list(DEFAULT_INPUTS) + [f"bms/products/{product}/bms_product.h",
+                                  f"bms/products/{product}/{product}_protection_config.h"]
+    paths.append("bms/products/d008/d008_product_profile.h" if product == "d008"
+                 else "bms/products/sh3673510_defaults.h")
+    if product == "d008":
+        paths.append("bms/products/d008/dvc1124_product_defaults.h")
+    inputs = {}
+    for relative in paths:
+        text = replacements.get(relative)
+        if text is None:
+            text = _text(root / relative)
+        if OTA_BEGIN in text:
+            text = text[:text.index(OTA_BEGIN)] + text[text.index(OTA_END) + len(OTA_END):]
+        inputs[relative] = hashlib.sha256(text.replace("\r\n", "\n").encode("utf-8")).hexdigest()
+    selected = {key: value for key, value in options.items() if key != "update_id"}
+    return hashlib.sha256(json.dumps({"inputs": inputs, "configuration": selected},
+                                    sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def verify_source(root: Path, product: str, profile: str | None = None) -> dict:
+    options = read_source(root, product, profile)
+    parameters = _text(root / f"bms/products/{product}/{product}_protection_config.h")
+    saved = _macro(parameters, "BMS_OTA_UPDATE_CONTENT_SHA256", r'"[0-9a-f]{64}"').strip('"')
+    if options.get("update_groups") and saved != parameter_inputs_hash(root, product, options):
+        raise ValueError("参数更新内容与固定标识不匹配；请保存新参数更新包并提交，不能直接重编。")
+    if options.get("update_groups"):
+        _verify_identifier_history(root, product, options["update_id"], saved)
+    return options
+
+
+def _verify_identifier_history(root: Path, product: str, identifier: str, digest: str) -> None:
+    relative = f"bms/products/{product}/{product}_protection_config.h"
+    result = subprocess.run(["git", "log", "--format=%H", "-G", "BMS_OTA_UPDATE_ID_[1-5]", "--", relative],
+                            cwd=root, capture_output=True, text=True, timeout=30)
+    if result.returncode:
+        raise ValueError("无法核对 Git 中的更新标识历史，请先初始化并提交源码。")
+    for commit in result.stdout.splitlines():
+        result = subprocess.run(["git", "show", commit + ":" + relative], cwd=root,
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
+        if result.returncode:
+            continue
+        try:
+            previous = "".join(f"{_number(result.stdout, f'BMS_OTA_UPDATE_ID_{i}'):04x}" for i in range(6))
+            previous_digest = _macro(result.stdout, "BMS_OTA_UPDATE_CONTENT_SHA256", r'"[0-9a-f]{64}"').strip('"')
+        except ValueError:
+            continue
+        if previous == identifier and previous_digest != digest:
+            raise ValueError("Git 历史中该更新标识已对应其他内容；请制作新参数更新包。")
+
+
+def require_clean_source(root: Path) -> None:
+    result = subprocess.run(["git", "status", "--porcelain", "--untracked-files=normal"],
+                            cwd=root, capture_output=True, text=True, timeout=10)
+    if result.returncode or result.stdout.strip():
+        raise ValueError("源码尚未提交或存在未跟踪文件；请审查并提交配置后再构建/发送。")
+    result = subprocess.run(["git", "rev-parse", "--verify", "HEAD"], cwd=root,
+                            capture_output=True, text=True, timeout=10)
+    if result.returncode:
+        raise ValueError("缺少有效 Git 提交，不能构建交付镜像。")
+
+
+def _replace(text: str, name: str, value: str, pattern: str = r"\S+") -> str:
+    expression = r"(?m)(^[ \t]*#define[ \t]+" + re.escape(name) + r"[ \t]+)" + pattern
+    changed, count = re.subn(expression, lambda found: found[1] + value, text)
+    if count != 1:
+        raise ValueError("无法唯一修改源码配置：" + name)
+    return changed
+
+
+def save_source(root: Path, product: str, changes: dict, *, new_package=False) -> dict:
+    """只编辑明确的产品宏；失败回滚本次写入，绝不暂存或提交其他文件。"""
+    old = read_source(root, product, for_edit=True)
+    requested = dict(old)
+    requested.update(changes)
+    groups = requested.get("update_groups", [])
+    if groups:
+        requested["update_id"] = old.get("update_id") or "000000000000000000000001"
+    else:
+        requested.pop("update_id", None)
+    options = normalize(requested, product, "custom" if product == "d008" else None)
+    relative = f"bms/products/{product}/{product}_protection_config.h"
+    parameters = _text(root / relative)
+    edited = {relative: _replace(parameters, "BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH",
+                                str(options["capacity_0p1ah"]) + "u", r"\d+[uU]?")}
+    if product == "d008":
+        assembly_path = "bms/products/d008/d008_product_profile.h"
+        assembly = _text(root / assembly_path)
+        profile = next((name for name, pair in PROFILES.items()
+                        if pair == (options["cell_count"], options["chemistry"])), "custom")
+        assembly = _replace(assembly, "D008_PRODUCT_PROFILE",
+                            "D008_PRODUCT_PROFILE_" + profile.upper().replace("-", "_"),
+                            r"D008_PRODUCT_PROFILE_[A-Z0-9_]+")
+        assembly = _replace(assembly, "D008_CUSTOM_CELL_COUNT", str(options["cell_count"]) + "u")
+        assembly = _replace(assembly, "D008_CUSTOM_CHEMISTRY",
+                            "BMS_SOC_CHEMISTRY_" + options["chemistry"].upper())
+        edited[assembly_path] = assembly
+    else:
+        board_path = f"bms/products/{product}/bms_product.h"
+        board = _text(root / board_path)
+        board = _replace(board, "SH3673510_BOARD_CELL_COUNT", str(options["cell_count"]) + "u", r"\d+[uU]?")
+        board = _replace(board, "BMS_PRODUCT_CHEMISTRY", "BMS_SOC_CHEMISTRY_" + options["chemistry"].upper())
+        board = _replace(board, "BMS_BUILD_AFE_MODEL", options["afe_model"].removeprefix("sh367") + "u")
+        edited[board_path] = board
+    digest = parameter_inputs_hash(root, product, options, edited) if groups else "0" * 64
+    old_digest = _macro(parameters, "BMS_OTA_UPDATE_CONTENT_SHA256", r'"[0-9a-f]{64}"').strip('"')
+    if groups and (new_package or digest != old_digest or not old.get("update_id")):
+        options["update_id"] = new_update_id()
+    identifier = options.get("update_id", "0" * 24)
+    text = edited[relative]
+    for group in UPDATE_GROUPS:
+        text = _replace(text, "BMS_OTA_UPDATE_" + group.upper(), "1u" if group in groups else "0u")
+    for index in range(6):
+        text = _replace(text, f"BMS_OTA_UPDATE_ID_{index}", f"0x{identifier[index*4:index*4+4]}u")
+    edited[relative] = _replace(text, "BMS_OTA_UPDATE_CONTENT_SHA256", '"' + digest + '"', r'"[0-9a-f]{64}"')
+    originals = {path: (root / path).read_bytes() for path in edited}
+    candidates = {path: (b"\xef\xbb\xbf" if originals[path].startswith(b"\xef\xbb\xbf") else b"") +
+                  text.encode("utf-8") for path, text in edited.items()}
+    changed = [path for path in edited if candidates[path] != originals[path]]
+    written = []
+    try:
+        for path in changed:
+            if (root / path).read_bytes() != originals[path]:
+                raise ValueError("保存期间源码被其他程序修改：" + path)
+            (root / path).write_bytes(candidates[path])
+            written.append(path)
+        verify_source(root, product)
+    except Exception:
+        for path in reversed(written):
+            if (root / path).read_bytes() == candidates[path]:
+                (root / path).write_bytes(originals[path])
+        raise
+    return {"product": product, "changed_files": changed, "configuration": read_source(root, product),
+            "parameter_inputs_sha256": digest}
+
+
+def main() -> int:
+    import argparse
+    import sys
+    parser = argparse.ArgumentParser(description="编辑并核对 Git 受控的产品配置；不构建、不发送 OTA。")
+    parser.add_argument("action", choices=("show", "save", "verify"))
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--product", choices=PRODUCTS, required=True)
+    parser.add_argument("--afe-model", choices=("dvc1124", "sh3673510", "sh3673520"))
+    parser.add_argument("--cell-count", type=int)
+    parser.add_argument("--chemistry", choices=("lfp", "nmc"))
+    parser.add_argument("--capacity-0p1ah", type=int)
+    parser.add_argument("--update-groups", nargs="*", choices=tuple(UPDATE_GROUPS))
+    parser.add_argument("--new-package", action="store_true")
+    parser.add_argument("--require-clean", action="store_true")
+    args = parser.parse_args()
+    try:
+        if args.action == "save":
+            changes = {key: getattr(args, key) for key in (*MACROS, "update_groups")
+                       if getattr(args, key) is not None}
+            result = save_source(args.root, args.product, changes, new_package=args.new_package)
+        else:
+            result = (verify_source(args.root, args.product) if args.action == "verify"
+                      else read_source(args.root, args.product, for_edit=True))
+        if args.require_clean:
+            require_clean_source(args.root)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        print(str(error), file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
