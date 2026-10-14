@@ -28,6 +28,8 @@ App 和 Windows 上位机可分别禁止或重新允许充电、放电 MOS。该
 
 SH36735XX CV1.0A 原 PDF 物理页 22-23 明确定义 `BSTATUS2.CHGING/DSGING` 的进入和退出条件。D011、D013、D014 直接使用最新有效 `BSTATUS2`：`DSGING` 临时放行充电 MOS，`CHGING` 临时放行放电 MOS。
 
+SH 路径不是按软件校准后的 `current_ma` 或 C+ 充电器电压判定方向。VADC 方向检测使用 `RS2-RS1` 与 `VCD1` 比较；`SCONF7.CDV` 的换算为 `VCD1 = CDV * 137.5 uV + 192.5 uV`。当前 D011、D013、D014 公共默认 `SH3673510_BOARD_CDV_CODE=4`，即 `VCD1=742.5 uV`（`0.7425 mV`）；该值目前是固件编译期板级配置，不在 CFG2、OTA 参数或 App/Modbus 可配置范围。手册另列比较器方向阈值 `VCD2` 典型值 `5 mV`，它不是当前工程暴露的可配置参数。C+ 的 `SH3510_CHARGER_ON_MV/OFF_MV` 只服务充电源存在性判定，不参与远程 MOS 临时放行。
+
 DVC1124-2 RM V1.2 原 PDF 物理页 7-8 没有与 `CHGING/DSGING` 等价的持续方向位；它定义 `CC2F` 为新转换标识，`CC2[19:0]` 为有符号二进制补码，正值放电、负值充电。D008 因而只在 `CC2F=1` 的新鲜 `CC2` 样本中更新方向：校准后的公共电流严格大于 `+200 mA` 临时放行充电 MOS，严格小于 `-200 mA` 临时放行放电 MOS，进入 `±200 mA` 死区便清除临时放行；ADC 缓存等待保持上一方向，通信/快照无效立即清除。`R6.CHGF/DSGF` 只是驱动输出报告，`CST` 是唤醒/命令状态，均不作为持续充放电方向来源。
 
 ## Modbus 窗口 v1
