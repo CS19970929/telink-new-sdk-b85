@@ -265,7 +265,7 @@ static uint8_t sh3510_apply_requested_fets(void)
      * 不要每 200 ms 重写同一命令。请求未变时硬件保护可以改变实际 FET 输出，
      * 重复软件写入会对抗该硬件行为。
      */
-    /* 显式关闭不能被同口反向恢复提升为开启。 */
+    /* 公共 guard 已释放可靠反向电流对应的远程关闭；其它显式 OFF 不在后端提升。 */
     if (!s_requested_charge_on) charge_on = 0u;
     if (!s_requested_discharge_on) discharge_on = 0u;
     if (s_fet_command_valid &&

@@ -9,10 +9,13 @@
 #include "bms_error.h"
 #include "bms_sw_protection.h"
 #include "bms_parameters.h"
+#include "bms_soc.h"
 #include <string.h>
 
 #define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u
+#define BMS_REMOTE_CHARGE_CHANNEL_MASK       0x01u
+#define BMS_REMOTE_DISCHARGE_CHANNEL_MASK    0x02u
 
 /*
  * 失联安全分两层：MCU 立即撤销输出授权，
@@ -38,6 +41,7 @@ typedef struct
     uint8_t comm_failures;
     uint8_t bus_silenced;
     uint8_t test_shutdown_hold;
+    uint8_t reverse_current_allow_mask;
     uint32_t failsafe_start_tick_32k;
 } bms_afe_guard_state_t;
 
@@ -158,6 +162,28 @@ static uint8_t service_failsafe_wait(void)
     return 1u;
 }
 
+/*
+ * 远程单管关闭不能让反向电流持续流经体二极管。只使用本次完成的新鲜有效电流；
+ * 正放电解除充电 MOS 关闭，负充电解除放电 MOS 关闭。等于可靠性边界仍不判方向。
+ */
+static void service_remote_reverse_current(const bms_afe_aux_measurements_t *m)
+{
+    uint8_t allow_mask = 0u;
+
+    if (m->current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
+        allow_mask = BMS_REMOTE_CHARGE_CHANNEL_MASK;
+    else if (m->current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
+        allow_mask = BMS_REMOTE_DISCHARGE_CHANNEL_MASK;
+
+    s_guard.reverse_current_allow_mask = allow_mask;
+    if (s_remote_off_mask & allow_mask)
+    {
+        s_remote_off_mask &= (uint8_t)~allow_mask;
+        /* 许可已自动变化；等待本轮重新仲裁后的真实 AFE 报告。 */
+        bms_diag_driver(0u, 0u);
+    }
+}
+
 /* 合并调用方 MOS 意图与 guard 授权；应用侧请求并不等同于真实 Gate 已导通。 */
 static uint8_t apply_requested(void)
 {
@@ -240,6 +266,7 @@ void bms_afe_sample(void)
     s_guard.comm_failures = 0u;
     if (!AFE_PENDING())
     {
+        service_remote_reverse_current(&m);
         if (s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
             ++s_guard.valid_snapshot_streak;
     }
@@ -336,6 +363,8 @@ uint8_t bms_afe_set_channel_allowed(uint8_t channel, uint8_t allowed)
     uint8_t old_mask;
     if (channel > 1u || allowed > 1u) return 0u;
     bit = (uint8_t)(1u << channel);
+    /* 可靠反向电流仍存在时拒绝重新关闭对应通道。 */
+    if (!allowed && (s_guard.reverse_current_allow_mask & bit)) return 0u;
     old_mask = s_remote_off_mask;
     if (allowed) s_remote_off_mask &= (uint8_t)~bit;
     else s_remote_off_mask |= bit;

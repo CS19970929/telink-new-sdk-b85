@@ -12,7 +12,7 @@
 #include "bms_soc_defs.h"
 #include "bms_diag.h"
 
-/* D008 测量可信下限，AFE 发布和 SOC 积分采用同一固定值。 */
+/* 公共电流方向可信边界，AFE 恢复、远程 MOS 安全释放和 SOC 积分使用同一固定值。 */
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 
 /* 实板临时积分测试只改变 SOC 输入；正常固件不编译测试状态。 */
