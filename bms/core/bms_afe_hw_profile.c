@@ -211,6 +211,27 @@ void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
 #endif
 }
 
+/* 类型相关电压只取产品独立 AFE 参数；电流/温度/延时仍取该产品完整默认。 */
+void bms_afe_hw_profile_build_chemistry_default(u8 chemistry, bms_afe_hw_profile_t *p)
+{
+    if (p == 0) return;
+    bms_afe_hw_profile_build_default(p);
+    if (chemistry != BMS_SOC_CHEMISTRY_LFP && chemistry != BMS_SOC_CHEMISTRY_NMC)
+        chemistry = BMS_PRODUCT_CHEMISTRY;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    p->cov_mv = D008_AFE_COV_MV_FOR(chemistry);
+    p->cov_recover_mv = D008_AFE_COV_RECOVER_MV_FOR(chemistry);
+    p->cuv_mv = D008_AFE_CUV_MV_FOR(chemistry);
+    p->cuv_recover_mv = D008_AFE_CUV_RECOVER_MV_FOR(chemistry);
+    dvc_normalize_default_profile(p);
+#elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    p->cov_mv = SH3673510_HW_DEFAULT_COV_MV_FOR(chemistry);
+    p->cov_recover_mv = SH3673510_HW_DEFAULT_COV_RECOVER_MV_FOR(chemistry);
+    p->cuv_mv = SH3673510_HW_DEFAULT_CUV_MV_FOR(chemistry);
+    p->cuv_recover_mv = SH3673510_HW_DEFAULT_CUV_RECOVER_MV_FOR(chemistry);
+#endif
+}
+
 /* 验证保护触发与恢复阈值的回差关系。 */
 /* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
 #if defined(__GNUC__)
@@ -464,6 +485,22 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 
 static u16 s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
 static u16 s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
+
+u8 bms_afe_hw_profile_apply_committed(void)
+{
+    bms_afe_hw_profile_t effective;
+    if (!bms_afe_apply_protection_config() || !bms_afe_hw_profile_get_effective(&effective)) {
+        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_INCONSISTENT;
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
+        bms_afe_invalidate_configuration();
+        bms_afe_hw_access_close();
+        return 0u;
+    }
+    s_afe_hw_apply_state = BMS_AFE_HW_APPLY_OK;
+    s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
+    bms_afe_hw_access_close();
+    return 1u;
+}
 
 /* 按协议大端字序取出硬件保护配置字。 */
 static u16 afe_hw_profile_word_be(const u8 *p)

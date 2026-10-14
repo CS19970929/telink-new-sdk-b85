@@ -9,6 +9,10 @@ typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
 #define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 1000u
 #define BMS_HEATER_START_TEMP_X10 400u
 #define BMS_HEATER_STOP_TEMP_X10 450u
+#define BMS_HEATER_ENABLE_DEFAULT 1u
+#define BMS_BATTERY_BALANCE_START_MV_FOR(c) ((c)==1u ? 3400u : 4100u)
+#define BMS_BATTERY_BALANCE_START_DELTA_MV 50u
+#define BMS_BATTERY_BALANCE_STOP_DELTA_MV 30u
 #define BMS_PRODUCT_WIRE_ID 8u
 #define BMS_PRODUCT_CELL_COUNT 24u
 #define BTNAME_SUFFIX_MAX_LEN 23u
@@ -43,6 +47,10 @@ static u32 pm_get_32k_tick(void){return now;}
 static void bms_error_raise(int e){(void)e;++errors;}
 static int bms_sw_protection_validate_params(const bms_protection_params_t *p){return p!=0;}
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t*p){memset(p,0,sizeof(*p));p->schema_version=1;p->afe_model=0x1124;p->cov_mv=3650;}
+void bms_afe_hw_profile_build_chemistry_default(u8 c,bms_afe_hw_profile_t*p){bms_afe_hw_profile_build_default(p);p->cov_mv=c==1u?3750u:4200u;}
+static unsigned config_inhibited;
+void bms_afe_invalidate_configuration(void){++config_inhibited;}
+u8 bms_soc_configure(const bms_soc_config_t *p){return p!=0;}
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t*p){return p && p->schema_version==1;}
 void bms_soc_get_default_config(bms_soc_config_t*c){memset(c,0,sizeof(*c));c->current_deadband_ma=200;c->ocv_rest_prepare_s=600;c->ocv_error_band_percent=5;}
 u8 bms_soc_config_valid(const bms_soc_config_t*c){return c && c->ocv_rest_prepare_s>=60;}
@@ -316,7 +324,13 @@ static int access_active=1;static unsigned identity_updates,capacity_updates;
 static u8 live_soc=60;
 bms_soc_state_t g_bms_soc;
 typedef struct {int32_t raw_current_ma,current_ma;u32 sample_tick_32k;} bms_afe_aux_measurements_t;
-static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*s){memset(s,0,sizeof(*s));return 1;}
+static int32_t switch_current_ma;
+static u32 switch_sample_age;
+static u8 switch_apply_ok=1u;
+static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*s){memset(s,0,sizeof(*s));s->current_ma=switch_current_ma;s->sample_tick_32k=now-switch_sample_age;return 1;}
+static u8 bms_afe_bus_access_allowed(void){return 1u;}
+static u16 bms_afe_get_guard_diagnostic_bits(void){return DIAG_GUARD_SAMPLES_QUALIFIED;}
+u8 bms_afe_hw_profile_apply_committed(void){return switch_apply_ok;}
 static u8 bms_board_heater_supported(void){return 1;}
 static u8 bms_afe_hw_access_is_active(void){return access_active;}
 u8 get_soc_real(void){return live_soc;}
@@ -689,4 +703,57 @@ static void test_sleep_config(void)
  puts("PASS sleep configuration: five-word transaction, limits, cache publication, reboot, duplicate suppression, byte cuts, unchanged CFG2/State/Event");
 }
 
-int main(void){test_sleep_config();test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_balance_permission();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+static void test_chemistry_switch(void)
+{
+ fresh();
+ u8 command[]={0,1,'h','s','4','5','6',0};
+ u32 written=programs;
+ assert(bms_parameter_read(0x2e02u)&0x100u);
+ assert(bms_parameter_read(0x2ea0u)==0x4348u && bms_parameter_read(0x2ea1u)==1u);
+ assert(bms_parameter_write(0x2ea8u,3u,command)==3u && programs==written);
+ command[7]=1u;
+ assert(bms_parameter_write(0x2ea8u,4u,command)==2u && programs==written);
+ command[7]=0u;command[1]=2u;
+ assert(bms_parameter_write(0x2ea8u,4u,command)==3u && programs==written); /* 24S NMC 拒绝。 */
+ command[1]=1u;switch_current_ma=1000;
+ assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
+ switch_current_ma=0;switch_sample_age=BMS_SOC_MAX_SAMPLE_GAP_32K+1u;
+ assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
+ switch_sample_age=0;
+ bms_config_cache_t original=g_bms_config;
+ original.protect.cell_ovp_third_mv=3999u;
+ original.system.capacity_factory=777u;
+ original.user.balance_enable=0u;
+ original.user.current_offset_ma=42;
+ original.user.current_gain_ppm=1200000u;
+ memcpy(original.user.serial,"PRESERVE",9u);
+ original.soc.current_deadband_ma=100u;
+ assert(bms_config_save_cache(&original));
+ memcpy(backup,flash,sizeof(flash));
+ for(int interrupted=0;interrupted<=380;++interrupted) {
+  memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_init();
+  config_inhibited=0u;cut=interrupted;
+  int saved=bms_parameter_write(0x2ea8u,4u,command)==0u;
+  assert(config_inhibited>0u);
+  if(!saved) assert(g_bms_config.protect.cell_ovp_third_mv==3999u);
+  cut=-1;reboot();bms_parameters_init();
+  assert(g_bms_config.protect.cell_ovp_third_mv==(saved?0u:3999u)); /* 软件默认显式 stub。 */
+  assert(g_bms_config.system.capacity_factory==777u && g_bms_config.user.balance_enable==0u);
+  assert(g_bms_config.user.current_offset_ma==42 && g_bms_config.user.current_gain_ppm==1200000u);
+  assert(!memcmp(g_bms_config.user.serial,"PRESERVE",9u));
+  assert(!memcmp(g_bms_config.ota_update_id,original.ota_update_id,sizeof(original.ota_update_id)));
+  assert(!memcmp(flash+4u*4096u,backup+4u*4096u,sizeof(flash)-4u*4096u));
+  if(saved) {
+   assert(g_bms_config.afe_hw.cov_mv==3750u);
+   assert(g_bms_config.soc.current_deadband_ma==200u);
+   assert(g_bms_config.system.battery_chemistry==1u && g_bms_config.system.soc_profile_id==1u);
+  }
+ }
+ fresh();switch_apply_ok=0u;config_inhibited=0u;
+ assert(bms_parameter_write(0x2ea8u,4u,command)==4u);
+ assert(config_inhibited>0u && bms_parameter_read(0x2ea4u)==3u);
+ switch_apply_ok=1u;
+ puts("PASS chemistry transaction: password, length, 24S limit, fresh idle sample, byte cuts, retained domains, apply failure inhibit");
+}
+
+int main(void){test_chemistry_switch();test_sleep_config();test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_balance_permission();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}

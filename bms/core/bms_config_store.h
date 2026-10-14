@@ -75,6 +75,10 @@ int bms_config_store_set_bt_name_suffix(const char *suffix);
 /* 取得产品软件保护默认配置。 */
 void bms_config_store_get_default_protect(bms_protection_params_t *protect);
 
+/* 运行时整套类型默认；仅切换入口可整条提交，不改变 CFG2 布局。 */
+void bms_config_store_get_chemistry_protect(u8 chemistry, bms_protection_params_t *protect);
+int bms_config_store_switch_chemistry(u8 chemistry);
+
 #ifdef __cplusplus
 }
 #endif

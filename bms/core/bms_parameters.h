@@ -10,4 +10,5 @@ void bms_parameters_init(void);
 uint8_t bms_protection_params_commit(const bms_protection_params_t *candidate);
 /* 刷新运行参数和启动门禁诊断。 */
 void bms_parameters_diag_poll(void);
+uint8_t bms_parameters_reload_configuration(void);
 #endif

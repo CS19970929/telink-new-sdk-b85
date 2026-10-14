@@ -11,6 +11,7 @@
 #ifndef BMS_PRODUCT_CHEMISTRY
 #define BMS_PRODUCT_CHEMISTRY BMS_SOC_CHEMISTRY_LFP
 #endif
+#include "d014_protection_config.h"
 #include "../bms_battery_defaults.h"
 
 /* 均衡调度：0 不增加数量限制；温度两项均为 0 关闭新增回差，原温度保护仍有效。
@@ -65,10 +66,6 @@
 #define BMS_PRODUCT_SWITCH_ENABLE 0
 #endif
 
-#define BMS_SLEEP_NORMAL_CELL_MV             (3000)
-#define BMS_SLEEP_NORMAL_SECONDS          (60 * 60 * 24)
-#define BMS_SLEEP_LOW_CELL_MV                (2800)
-#define BMS_SLEEP_LOW_SECONDS            (60 * 60 * 1)
 
 /* 保持历史数字产品 ID，兼容协议/存储。 */
 #define BMS_PRODUCT_WIRE_ID 2u
@@ -78,9 +75,6 @@
  * 不补充原理图缺失的产品要求；D014 参数签核前 BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 保持开发默认，
  * 保护仍由持久软件配置和独立 AFE 硬件配置负责。
  */
-#ifndef BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH
-#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH                116
-#endif
 #define BMS_PRODUCT_HW_VERSION   "D014"
 #define BMS_PRODUCT_SW_VERSION   "V1.6"
 #define BMS_PRODUCT_DEFAULT_SERIAL      "D014-20260925"
@@ -96,4 +90,4 @@
 #define BMS_PRODUCT_FACTORY_BLE_NAME_LENGTH (sizeof(BMS_PRODUCT_FACTORY_BLE_NAME)-1)
 
 
-#define BMS_DEFAULT_CUV3_FILTER 1000u
+#define BMS_DEFAULT_CUV3_FILTER BMS_SW_CELL_UVP_FILTER_10MS

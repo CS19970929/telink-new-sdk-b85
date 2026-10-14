@@ -4,6 +4,7 @@
  */
 #include "bms_parameter_access.h"
 #include "bms_product.h"
+#include "bms_diag.h"
 #include "bms_update_policy.h"
 #include "bms_config_store.h"
 #include "bms_sleep_config.h"
@@ -17,6 +18,13 @@
 #include <string.h>
 
 static u16 s_sequence, s_result, s_sn_generation, s_sn_mask;
+typedef enum {
+    CHEMISTRY_SWITCH_IDLE = 0,
+    CHEMISTRY_SWITCH_COMMITTED = 1,
+    CHEMISTRY_SWITCH_APPLIED = 2,
+    CHEMISTRY_SWITCH_FAILED = 3
+} chemistry_switch_state_t;
+static chemistry_switch_state_t s_chemistry_status;
 static u32 s_sn_tick;
 static char s_sn_stage[32];
 static u8 s_sn_active;
@@ -57,6 +65,7 @@ int bms_parameter_readable(u16 r)
             (r >= BMS_PARAM_REG_SLEEP_DEFAULT_BASE && r <= BMS_PARAM_REG_SLEEP_DEFAULT_LAST) ||
             (r >= BMS_PARAM_REG_UPDATE_REVISION_BASE &&
              r < BMS_PARAM_REG_UPDATE_REVISION_BASE + BMS_UPDATE_GROUP_COUNT) ||
+            (r >= BMS_PARAM_REG_CHEMISTRY_BASE && r <= BMS_PARAM_REG_CHEMISTRY_LAST) ||
             r == BMS_PARAM_REG_SOC ||
             r == BMS_PARAM_REG_CAPACITY ||
             r == BMS_PARAM_REG_CYCLE);
@@ -75,9 +84,24 @@ u16 bms_parameter_read(u16 r)
         return bms_update_revision((bms_update_group_t)(r - BMS_PARAM_REG_UPDATE_REVISION_BASE));
     if (r == BMS_PARAM_REG_MAGIC) return BMS_PARAMETER_INTERFACE_MAGIC;
     if (r == BMS_PARAM_REG_VERSION) return 2u;
-    if (r == BMS_PARAM_REG_CAPABILITIES) return 0x00FFu; /*
+    if (r == BMS_PARAM_REG_CAPABILITIES) return 0x00FFu | BMS_PARAM_CAP_CHEMISTRY_SWITCH; /*
      * 容量、SN、加热、校准、重置、State 同步、均衡及两档休眠。
      */
+    if (r >= BMS_PARAM_REG_CHEMISTRY_BASE && r <= BMS_PARAM_REG_CHEMISTRY_LAST) {
+        if (r == BMS_PARAM_REG_CHEMISTRY_BASE) return BMS_CHEMISTRY_SWITCH_MAGIC;
+        if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 1u) return BMS_CHEMISTRY_SWITCH_VERSION;
+        if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 4u) return s_chemistry_status;
+        if (r >= BMS_PARAM_REG_CHEMISTRY_BASE + 5u) {
+            bms_soc_config_t soc;
+            if (!bms_config_store_get_soc(&soc)) return 0xFFFFu;
+            if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 5u) return soc.current_deadband_ma;
+            if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 6u) return soc.ocv_rest_prepare_s;
+            return soc.ocv_error_band_percent;
+        }
+        if (!bms_config_store_get_system(&system)) return 0xFFFFu;
+        return r == BMS_PARAM_REG_CHEMISTRY_BASE + 2u ?
+            (u16)system.battery_chemistry : (u16)system.soc_profile_id;
+    }
     if (r == BMS_PARAM_REG_LAST_RESULT) return s_result;
     if (r == BMS_PARAM_REG_SEQUENCE) return s_sequence;
     if (r == BMS_PARAM_REG_CONFIG_FORMAT) return 2u; /* 配置格式：CFG2 schema。 */
@@ -142,6 +166,37 @@ u16 bms_parameter_read(u16 r)
     return 0u;
 }
 
+/* 完整短帧校验密码，要求新鲜静置电流；不会把关 MOS 后零电流当作恢复证据。 */
+static u8 switch_chemistry(const u8 *data, u16 qty)
+{
+    bms_afe_aux_measurements_t sample;
+    bms_soc_config_t soc;
+    u16 chemistry = word(data);
+    if (qty != 4u) return 3u;
+    /* 包含结尾 NUL，拒绝截断、前缀和额外密码字节；不保存或记录密码。 */
+    if (memcmp(data + 2u, BMS_SERVICE_DEFAULT_PASSWORD, BMS_SERVICE_PASSWORD_BYTES) != 0) return 2u;
+    if (chemistry != BMS_SOC_CHEMISTRY_LFP && chemistry != BMS_SOC_CHEMISTRY_NMC) return 3u;
+#if BMS_PRODUCT_ID == 8u
+    if (chemistry == BMS_SOC_CHEMISTRY_NMC && BMS_PRODUCT_CELL_COUNT > 23u) return 3u;
+#endif
+    if (!bms_protection_params_valid() || !bms_afe_bus_access_allowed() ||
+        !(bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) ||
+        !bms_config_store_get_soc(&soc) || !bms_afe_get_aux_measurements(&sample) ||
+        (u32)(pm_get_32k_tick() - sample.sample_tick_32k) > BMS_SOC_MAX_SAMPLE_GAP_32K ||
+        sample.current_ma > (int32_t)soc.current_deadband_ma ||
+        sample.current_ma < -(int32_t)soc.current_deadband_ma) return 4u;
+    s_chemistry_status = CHEMISTRY_SWITCH_FAILED;
+    if (!bms_config_store_switch_chemistry((u8)chemistry)) return 4u;
+    s_chemistry_status = CHEMISTRY_SWITCH_COMMITTED;
+    if (!bms_parameters_reload_configuration() || !bms_afe_hw_profile_apply_committed()) {
+        s_chemistry_status = CHEMISTRY_SWITCH_FAILED;
+        bms_afe_invalidate_configuration();
+        return 4u;
+    }
+    s_chemistry_status = CHEMISTRY_SWITCH_APPLIED;
+    return 0u;
+}
+
 /* 校验并写入业务参数，按类别执行持久化。 */
 u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
 {
@@ -151,6 +206,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
     u16 value, i;
     if (!data || !qty) return finish(3u);
     value = word(data);
+    if (r == BMS_PARAM_REG_CHEMISTRY_COMMAND) return finish(switch_chemistry(data, qty));
     if (r == BMS_PARAM_REG_SLEEP_BASE) {
         if (qty != BMS_SLEEP_CONFIG_WORDS) return finish(3u);
         for (i = 0u; i < BMS_SLEEP_CONFIG_WORDS; ++i) {

@@ -62,6 +62,18 @@
 #define BMS_PARAM_REG_SLEEP_DEFAULT_LAST          0x2E9Cu
 
 
+/* 类型切换 v1：能力发现/当前类型只读，命令只接受完整 4 word。 */
+#define BMS_PARAM_CAP_CHEMISTRY_SWITCH             0x0100u
+#define BMS_PARAM_REG_CHEMISTRY_BASE               0x2EA0u
+#define BMS_PARAM_REG_CHEMISTRY_LAST               0x2EA7u
+#define BMS_PARAM_REG_CHEMISTRY_COMMAND            0x2EA8u
+#define BMS_CHEMISTRY_SWITCH_MAGIC                 0x4348u
+#define BMS_CHEMISTRY_SWITCH_VERSION               1u
+#define BMS_SERVICE_DEFAULT_PASSWORD              "hs456"
+#define BMS_SERVICE_PASSWORD_BYTES                6u /* 五个字符及 NUL。 */
+typedef char bms_service_password_must_fit_frame[
+    sizeof(BMS_SERVICE_DEFAULT_PASSWORD) == BMS_SERVICE_PASSWORD_BYTES ? 1 : -1];
+
 #define PROD_SN_REG_BASE                   0xc002
 #define PROD_SN_REG_COUNT                  16
 

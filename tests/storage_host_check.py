@@ -13,8 +13,9 @@ def source(n):
     text = re.sub(r'^\s*#(?:include[^\n]*|pragma once)', '', (MOD/n).read_text(), flags=re.M)
     if n == 'bms_config_store.c':
         start=text.index('static const bms_protection_params_t s_default_protection')
-        end=text.index('\n}',text.index('void bms_config_store_get_default_protect'))+2
-        text=text[:start]+'void bms_config_store_get_default_protect(bms_protection_params_t *p){if(p)memset(p,0,sizeof(*p));}'+text[end:]
+        end=text.index('\n}',text.index('void bms_config_store_get_chemistry_protect'))+2
+        text=text[:start]+('void bms_config_store_get_default_protect(bms_protection_params_t *p){if(p)memset(p,0,sizeof(*p));}\n'
+            'void bms_config_store_get_chemistry_protect(u8 c,bms_protection_params_t *p){(void)c;bms_config_store_get_default_protect(p);}')+text[end:]
     return text
 def main():
     param=source('bms_protection_params.h'); a=param.index('typedef struct {'); b=param.index('} bms_protection_params_t;',a)+len('} bms_protection_params_t;')

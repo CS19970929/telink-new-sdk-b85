@@ -22,12 +22,8 @@
 #if BMS_D008_BALANCE_TEST_ENABLE != 0 && BMS_D008_BALANCE_TEST_ENABLE != 1
 #error "BMS_D008_BALANCE_TEST_ENABLE must be 0 or 1"
 #endif
-#if BMS_D008_BALANCE_TEST_ENABLE
-#define BMS_BALANCE_ENABLE_DEFAULT 1u
-#define BMS_BALANCE_START_VOLTAGE_MV_DEFAULT 3300u
-#define BMS_BALANCE_START_DELTA_MV_DEFAULT 30u
-#define BMS_BALANCE_STOP_DELTA_MV_DEFAULT 15u
-#endif
+#include "dvc1124_product_defaults.h"
+#include "d008_protection_config.h"
 #include "../bms_battery_defaults.h"
 
 /* 均衡调度：0 不增加数量限制；温度两项均为 0 关闭新增回差，原温度保护仍有效。
@@ -48,9 +44,6 @@
 #define BMS_D008_SCD_POLICY_APPROVED 1
 #define BMS_D008_20S_NMC_PROTECTION_APPROVED 0
 
-#include "dvc1124_product_defaults.h"
-#include "d008_protection_config.h"
-
 /* 文件功能：产品容量、名称、采样及通信功能配置。 */
 
 
@@ -65,17 +58,9 @@
 
 /* D008 无独立开关；ACC-MCU 是预留接口，不是供电请求。 */
 
-#define BMS_SLEEP_NORMAL_CELL_MV             	(3000)
-#define	BMS_SLEEP_NORMAL_SECONDS	          (60 * 60 * 24)
-#define BMS_SLEEP_LOW_CELL_MV     		          (2800)
-#define	BMS_SLEEP_LOW_SECONDS		          (60 * 60 * 1)
-// #define	BMS_SLEEP_LOW_SECONDS		          (60)
 
 /* 移除无关遗留产品表时保留持久化类型 ID 和出厂容量回退，容量单位 Ah * 10。 */
 #define BMS_PRODUCT_WIRE_ID   12u
-#ifndef BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH
-#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 500u
-#endif
 
 #define  BMS_PRODUCT_SW_VERSION  	"V1.8"
 

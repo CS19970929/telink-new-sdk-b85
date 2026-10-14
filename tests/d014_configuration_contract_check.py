@@ -26,7 +26,7 @@ def check_afe_hw_profile_contract_check():
     c = text('sh3673510_control.c')
     b = text('sh3673510_bms.c')
     config = text('bms_config_store.c')
-    product = text('sh3673510_project_config.h') + text('bms_product.h') + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
+    product = text('sh3673510_project_config.h') + text('bms_product.h') + text('d014_protection_config.h') + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
 
     assert 'BMS_CONFIG_AFE_WORDS             35u' in config
     assert 'storage_record_save(&g_bms_config_store' in config
@@ -103,7 +103,7 @@ def check_sh3673510_d014_integration_check():
             raise AssertionError(f"missing D014 contract text: {needle}")
 
 
-    cfg = text("sh3673510_project_config.h") + text("bms_product.h") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
+    cfg = text("sh3673510_project_config.h") + text("bms_product.h") + text("d014_protection_config.h") + (ROOT / "bms/products/sh3673510_defaults.h").read_text(encoding="utf8")
     conf = text("bms_product.h")
     app = text("app.c") + text("app_power.c")
     main = text("main.c")

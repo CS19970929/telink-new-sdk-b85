@@ -6,6 +6,7 @@
 
 
 #include "bms_soc_defs.h"
+#include "bms_product.h"
 
 /*
  * OCV/配置数据有意独立于 SOC 算法；电芯特性应在此替换/增加数据，
@@ -41,17 +42,11 @@ typedef struct
 
 /* 通用中心曲线仅为默认，不声明电芯模型精度。 */
 static const soc_ocv_point_t g_soc_ocv_lfp[] = {
-    {2800u, 0u}, {3000u, 2u}, {3100u, 5u}, {3200u, 10u},
-    {3250u, 15u}, {3280u, 25u}, {3300u, 35u}, {3315u, 45u},
-    {3330u, 55u}, {3340u, 65u}, {3350u, 75u}, {3370u, 85u},
-    {3400u, 95u}, {3450u, 98u}, {3500u, 100u},
+    BMS_SOC_OCV_LFP_POINTS,
 };
 
 static const soc_ocv_point_t g_soc_ocv_nmc[] = {
-    {3000u, 0u}, {3300u, 5u}, {3450u, 10u}, {3550u, 20u},
-    {3650u, 30u}, {3700u, 40u}, {3750u, 50u}, {3800u, 60u},
-    {3850u, 70u}, {3900u, 80u}, {4000u, 90u}, {4100u, 96u},
-    {4180u, 100u},
+    BMS_SOC_OCV_NMC_POINTS,
 };
 
 static const soc_profile_t g_soc_profile_lfp = {

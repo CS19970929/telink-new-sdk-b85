@@ -808,7 +808,9 @@ void bms_product_info_refresh(void)
 u8 bms_reset_software_parameters(void)
 {
     bms_protection_params_t defaults;
-    bms_config_store_get_default_protect(&defaults);
+    bms_config_system_params_t system;
+    if (!bms_config_store_get_system(&system)) return MB_EX_DEVICE_FAILURE;
+    bms_config_store_get_chemistry_protect((u8)system.battery_chemistry, &defaults);
     return commit_protection_update(&defaults);
 }
 /* 恢复独立 AFE 硬件保护默认参数并应用。 */
@@ -817,7 +819,9 @@ u8 bms_reset_afe_parameters(void)
     bms_afe_hw_profile_t defaults;
     u8 payload[70];
     u16 i, value;
-    bms_afe_hw_profile_build_default(&defaults);
+    bms_config_system_params_t system;
+    if (!bms_config_store_get_system(&system)) return MB_EX_DEVICE_FAILURE;
+    bms_afe_hw_profile_build_chemistry_default((u8)system.battery_chemistry, &defaults);
     for (i=0u;i<BMS_AFE_HW_PROFILE_WORD_COUNT;++i) {
         memcpy(&value, (const u8 *)&defaults+i*2u, sizeof(value));
         put_u16be(payload+i*2u,value);

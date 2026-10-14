@@ -322,9 +322,50 @@ def check_sh_20cell_balance_mask():
     run_c(code, name='sh-20cell-balance-mask')
 
 
+def check_online_battery_type_defaults():
+    """真实产品头的两种运行时默认；不替代事务掉电或 AFE 实板动作。"""
+    from project_paths import host_includes
+    from validation_support import ROOT, profile_prefix, run_c
+
+    for product in ('d008', 'd011', 'd013', 'd014'):
+        for compiled_chemistry in (1, 2):
+            flags = host_includes(ROOT, product)
+            if product == 'd008':
+                flags += ['-DD008_PRODUCT_PROFILE=' + ('3' if compiled_chemistry == 1 else '2')]
+            else:
+                flags += [f'-DBMS_PRODUCT_CHEMISTRY={compiled_chemistry}']
+            code = profile_prefix(product) + r'''
+            int main(void) {
+                bms_protection_params_t sw;
+                bms_afe_hw_profile_t hw;
+                for (u8 chemistry=1u; chemistry<=2u; ++chemistry) {
+                    bms_config_store_get_chemistry_protect(chemistry,&sw);
+                    bms_afe_hw_profile_build_chemistry_default(chemistry,&hw);
+                    assert(sw.cell_ovp_first_mv==(chemistry==1u?3750u:4200u));
+                    assert(sw.cell_ovp_second_mv==sw.cell_ovp_first_mv);
+                    assert(sw.cell_ovp_third_mv==sw.cell_ovp_first_mv);
+                    assert(sw.cell_ovp_recover_mv==(chemistry==1u?3500u:4100u));
+                    assert(hw.cov_mv==sw.cell_ovp_third_mv);
+                    assert(bms_afe_hw_profile_validate(&hw));
+                    assert(sw.pack_ovp_third_10mv==(chemistry==1u?365u:420u)*BMS_PRODUCT_CELL_COUNT);
+#if BMS_PRODUCT_ID == 8u
+                    assert(sw.cell_uvp_third_mv==(chemistry==1u?2600u:3000u));
+                    assert(hw.cuv_mv==(chemistry==1u?2500u:3000u));
+#else
+                    assert(sw.cell_uvp_third_mv==3000u && hw.cuv_mv==3000u);
+#endif
+                }
+                puts("PASS product runtime LFP/NMC defaults independent of compiled chemistry");
+                return 0;
+            }
+            '''
+            run_c(code,flags=flags,name=f'{product}-online-chemistry-{compiled_chemistry}')
+
+
 if __name__ == "__main__":
     check_sw_protection_defaults_check()
     check_d014_afe_profile_default_host_check()
     check_d008_protection_defaults_independent()
     check_battery_chemistry_defaults()
     check_sh_20cell_balance_mask()
+    check_online_battery_type_defaults()

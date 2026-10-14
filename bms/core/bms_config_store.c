@@ -11,6 +11,7 @@
 #include "bms_soc_defs.h"
 #include "bms_sw_protection.h"
 #include "bms_features.h"
+#include "bms_afe.h"
 #include "btname_modbus.h"
 #include "bms_storage_platform.h"
 #include "storage_record.h"
@@ -183,78 +184,78 @@ static const bms_protection_params_t s_default_protection = {
     .soc_low_recover_percent = D008_SW_SOC_LOW_RECOVER_PERCENT,
     .soc_low_filter_10ms = D008_SW_SOC_LOW_FILTER_10MS,
 #else
-    .cell_ovp_first_mv = BMS_DEFAULT_CELL_OVP_MV,
-    .cell_ovp_second_mv = BMS_DEFAULT_CELL_OVP_MV,
-    .cell_ovp_third_mv = BMS_DEFAULT_CELL_OVP_MV,
-    .cell_ovp_recover_mv = BMS_DEFAULT_CELL_OVP_RECOVER_MV,
-    .cell_ovp_filter_10ms = 100,
-    .cell_uvp_first_mv = BMS_DEFAULT_CELL_UVP_ALARM_MV,
-    .cell_uvp_second_mv = BMS_DEFAULT_CELL_UVP_ALARM_MV,
-    .cell_uvp_third_mv = BMS_DEFAULT_CUV3_MV,
-    .cell_uvp_recover_mv = BMS_DEFAULT_CELL_UVP_RECOVER_MV,
-    .cell_uvp_filter_10ms = BMS_DEFAULT_CUV3_FILTER,
-    .pack_ovp_first_10mv = (BMS_DEFAULT_PACK_OVP_FIRST_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
-    .pack_ovp_second_10mv = (BMS_DEFAULT_PACK_OVP_SECOND_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
-    .pack_ovp_third_10mv = (BMS_DEFAULT_PACK_OVP_THIRD_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
-    .pack_ovp_recover_10mv = (BMS_DEFAULT_PACK_OVP_RECOVER_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
-    .pack_ovp_filter_10ms = 100,
-    .pack_uvp_first_10mv = (BMS_DEFAULT_PACK_UVP_FIRST_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
-    .pack_uvp_second_10mv = (BMS_DEFAULT_PACK_UVP_SECOND_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
-    .pack_uvp_third_10mv = (BMS_DEFAULT_PACK_UVP_THIRD_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
-    .pack_uvp_recover_10mv = (BMS_DEFAULT_PACK_UVP_RECOVER_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
-    .pack_uvp_filter_10ms = 100,
-    .charge_ocp_first_a10 = (100),
-    .charge_ocp_second_a10 = (150),
-    .charge_ocp_third_a10 = (200),
-    .charge_ocp_recover_a10 = (100),
-    .charge_ocp_filter_10ms = 10,
-    .discharge_ocp_first_a10 = (100),
-    .discharge_ocp_second_a10 = (150),
-    .discharge_ocp_third_a10 = (200),
-    .discharge_ocp_recover_a10 = (100),
-    .discharge_ocp_filter_10ms = 10,
-    .charge_otp_first_x10 = ((40 + 40) * 10),
-    .charge_otp_second_x10 = ((50 + 40) * 10),
-    .charge_otp_third_x10 = ((55 + 40) * 10),
-    .charge_otp_recover_x10 = ((50 + 40) * 10),
-    .charge_otp_filter_10ms = 100,
-    .charge_utp_first_x10 = ((5 + 40) * 10),
-    .charge_utp_second_x10 = ((3 + 40) * 10),
-    .charge_utp_third_x10 = ((0 + 40) * 10),
-    .charge_utp_recover_x10 = ((3 + 40) * 10),
-    .charge_utp_filter_10ms = 100,
-    .discharge_otp_first_x10 = ((50 + 40) * 10),
-    .discharge_otp_second_x10 = ((50 + 40) * 10),
-    .discharge_otp_third_x10 = ((60 + 40) * 10),
-    .discharge_otp_recover_x10 = ((50 + 40) * 10),
-    .discharge_otp_filter_10ms = 100,
-    .discharge_utp_first_x10 = ((-10 + 40) * 10),
-    .discharge_utp_second_x10 = ((-15 + 40) * 10),
-    .discharge_utp_third_x10 = ((-20 + 40) * 10),
-    .discharge_utp_recover_x10 = ((-10 + 40) * 10),
-    .discharge_utp_filter_10ms = 100,
-    .mos_otp_first_x10 = ((75 + 40) * 10),
-    .mos_otp_second_x10 = ((85 + 40) * 10),
-    .mos_otp_third_x10 = ((95 + 40) * 10),
-    .mos_otp_recover_x10 = ((80 + 40) * 10),
-    .mos_otp_filter_10ms = 100,
-    .cell_delta_first_mv = 600,
-    .cell_delta_second_mv = 800,
-    .cell_delta_third_mv = 1000,
-    .cell_delta_recover_mv = 800,
-    .cell_delta_filter_10ms = 100,
-    .soc_low_first_percent = 20,
-    .soc_low_second_percent = 10,
-    .soc_low_third_percent = 5,
-    .soc_low_recover_percent = 11,
-    .soc_low_filter_10ms = 100,
+    .cell_ovp_first_mv = BMS_SW_CELL_OVP_FIRST_MV,
+    .cell_ovp_second_mv = BMS_SW_CELL_OVP_SECOND_MV,
+    .cell_ovp_third_mv = BMS_SW_CELL_OVP_THIRD_MV,
+    .cell_ovp_recover_mv = BMS_SW_CELL_OVP_RECOVER_MV,
+    .cell_ovp_filter_10ms = BMS_SW_CELL_OVP_FILTER_10MS,
+    .cell_uvp_first_mv = BMS_SW_CELL_UVP_FIRST_MV,
+    .cell_uvp_second_mv = BMS_SW_CELL_UVP_SECOND_MV,
+    .cell_uvp_third_mv = BMS_SW_CELL_UVP_THIRD_MV,
+    .cell_uvp_recover_mv = BMS_SW_CELL_UVP_RECOVER_MV,
+    .cell_uvp_filter_10ms = BMS_SW_CELL_UVP_FILTER_10MS,
+    .pack_ovp_first_10mv = (BMS_SW_PACK_OVP_FIRST_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_second_10mv = (BMS_SW_PACK_OVP_SECOND_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_third_10mv = (BMS_SW_PACK_OVP_THIRD_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_recover_10mv = (BMS_SW_PACK_OVP_RECOVER_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_ovp_filter_10ms = BMS_SW_PACK_OVP_FILTER_10MS,
+    .pack_uvp_first_10mv = (BMS_SW_PACK_UVP_FIRST_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_second_10mv = (BMS_SW_PACK_UVP_SECOND_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_third_10mv = (BMS_SW_PACK_UVP_THIRD_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_recover_10mv = (BMS_SW_PACK_UVP_RECOVER_CELL_MV / 10u * BMS_PRODUCT_CELL_COUNT),
+    .pack_uvp_filter_10ms = BMS_SW_PACK_UVP_FILTER_10MS,
+    .charge_ocp_first_a10 = BMS_SW_CHARGE_OCP_FIRST_A10,
+    .charge_ocp_second_a10 = BMS_SW_CHARGE_OCP_SECOND_A10,
+    .charge_ocp_third_a10 = BMS_SW_CHARGE_OCP_THIRD_A10,
+    .charge_ocp_recover_a10 = BMS_SW_CHARGE_OCP_RECOVER_A10,
+    .charge_ocp_filter_10ms = BMS_SW_CHARGE_OCP_FILTER_10MS,
+    .discharge_ocp_first_a10 = BMS_SW_DISCHARGE_OCP_FIRST_A10,
+    .discharge_ocp_second_a10 = BMS_SW_DISCHARGE_OCP_SECOND_A10,
+    .discharge_ocp_third_a10 = BMS_SW_DISCHARGE_OCP_THIRD_A10,
+    .discharge_ocp_recover_a10 = BMS_SW_DISCHARGE_OCP_RECOVER_A10,
+    .discharge_ocp_filter_10ms = BMS_SW_DISCHARGE_OCP_FILTER_10MS,
+    .charge_otp_first_x10 = BMS_SW_CHARGE_OTP_FIRST_X10,
+    .charge_otp_second_x10 = BMS_SW_CHARGE_OTP_SECOND_X10,
+    .charge_otp_third_x10 = BMS_SW_CHARGE_OTP_THIRD_X10,
+    .charge_otp_recover_x10 = BMS_SW_CHARGE_OTP_RECOVER_X10,
+    .charge_otp_filter_10ms = BMS_SW_CHARGE_OTP_FILTER_10MS,
+    .charge_utp_first_x10 = BMS_SW_CHARGE_UTP_FIRST_X10,
+    .charge_utp_second_x10 = BMS_SW_CHARGE_UTP_SECOND_X10,
+    .charge_utp_third_x10 = BMS_SW_CHARGE_UTP_THIRD_X10,
+    .charge_utp_recover_x10 = BMS_SW_CHARGE_UTP_RECOVER_X10,
+    .charge_utp_filter_10ms = BMS_SW_CHARGE_UTP_FILTER_10MS,
+    .discharge_otp_first_x10 = BMS_SW_DISCHARGE_OTP_FIRST_X10,
+    .discharge_otp_second_x10 = BMS_SW_DISCHARGE_OTP_SECOND_X10,
+    .discharge_otp_third_x10 = BMS_SW_DISCHARGE_OTP_THIRD_X10,
+    .discharge_otp_recover_x10 = BMS_SW_DISCHARGE_OTP_RECOVER_X10,
+    .discharge_otp_filter_10ms = BMS_SW_DISCHARGE_OTP_FILTER_10MS,
+    .discharge_utp_first_x10 = BMS_SW_DISCHARGE_UTP_FIRST_X10,
+    .discharge_utp_second_x10 = BMS_SW_DISCHARGE_UTP_SECOND_X10,
+    .discharge_utp_third_x10 = BMS_SW_DISCHARGE_UTP_THIRD_X10,
+    .discharge_utp_recover_x10 = BMS_SW_DISCHARGE_UTP_RECOVER_X10,
+    .discharge_utp_filter_10ms = BMS_SW_DISCHARGE_UTP_FILTER_10MS,
+    .mos_otp_first_x10 = BMS_SW_MOS_OTP_FIRST_X10,
+    .mos_otp_second_x10 = BMS_SW_MOS_OTP_SECOND_X10,
+    .mos_otp_third_x10 = BMS_SW_MOS_OTP_THIRD_X10,
+    .mos_otp_recover_x10 = BMS_SW_MOS_OTP_RECOVER_X10,
+    .mos_otp_filter_10ms = BMS_SW_MOS_OTP_FILTER_10MS,
+    .cell_delta_first_mv = BMS_SW_CELL_DELTA_FIRST_MV,
+    .cell_delta_second_mv = BMS_SW_CELL_DELTA_SECOND_MV,
+    .cell_delta_third_mv = BMS_SW_CELL_DELTA_THIRD_MV,
+    .cell_delta_recover_mv = BMS_SW_CELL_DELTA_RECOVER_MV,
+    .cell_delta_filter_10ms = BMS_SW_CELL_DELTA_FILTER_10MS,
+    .soc_low_first_percent = BMS_SW_SOC_LOW_FIRST_PERCENT,
+    .soc_low_second_percent = BMS_SW_SOC_LOW_SECOND_PERCENT,
+    .soc_low_third_percent = BMS_SW_SOC_LOW_THIRD_PERCENT,
+    .soc_low_recover_percent = BMS_SW_SOC_LOW_RECOVER_PERCENT,
+    .soc_low_filter_10ms = BMS_SW_SOC_LOW_FILTER_10MS,
 #endif
 };
 
 #if BMS_PRODUCT_ID != 8u
 /* 编译默认值先检查等级及恢复关系，运行参数仍由完整 validator 校验。 */
-#if (BMS_DEFAULT_CELL_UVP_ALARM_MV < BMS_DEFAULT_CUV3_MV) || \
-    ((BMS_DEFAULT_CUV3_MV != 0u) && (BMS_DEFAULT_CELL_UVP_RECOVER_MV <= BMS_DEFAULT_CUV3_MV))
+#if (BMS_SW_CELL_UVP_FIRST_MV < BMS_SW_CELL_UVP_SECOND_MV) || (BMS_SW_CELL_UVP_SECOND_MV < BMS_SW_CELL_UVP_THIRD_MV) || \
+    ((BMS_SW_CELL_UVP_THIRD_MV != 0u) && (BMS_SW_CELL_UVP_RECOVER_MV <= BMS_SW_CELL_UVP_THIRD_MV))
 #error "CUV defaults require First >= Second >= Third and Recover > Third (unless Third=0)"
 #endif
 
@@ -264,6 +265,94 @@ static const bms_protection_params_t s_default_protection = {
 void bms_config_store_get_default_protect(bms_protection_params_t *protect)
 {
     if (protect != 0) *protect = s_default_protection;
+}
+
+
+/* 两种在线类型在乘串数/赋给 u16 前检查总压单位和范围。 */
+#define BMS_PACK_DEFAULT_FITS(mv) (((mv) % 10u) == 0u && ((mv) / 10u * BMS_PRODUCT_CELL_COUNT) <= 65535u)
+#if BMS_PRODUCT_ID == 8u
+#if !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC))
+#error "Pack defaults must fit uint16 10mV units"
+#endif
+#else
+#if !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_OVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_OVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_OVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_OVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_OVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_OVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_OVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_OVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_UVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_UVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_UVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_UVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_UVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_UVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_UVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
+    !BMS_PACK_DEFAULT_FITS(BMS_SW_PACK_UVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC))
+#error "Pack defaults must fit uint16 10mV units"
+#endif
+#endif
+#undef BMS_PACK_DEFAULT_FITS
+
+/* 在线切换及分组恢复使用设备当前类型；编译/OTA 默认入口保持独立。 */
+void bms_config_store_get_chemistry_protect(u8 chemistry, bms_protection_params_t *protect)
+{
+    if (protect == 0) return;
+    *protect = s_default_protection;
+    if (chemistry != BMS_SOC_CHEMISTRY_LFP && chemistry != BMS_SOC_CHEMISTRY_NMC)
+        chemistry = BMS_PRODUCT_CHEMISTRY;
+#if BMS_PRODUCT_ID == 8u
+    protect->cell_ovp_first_mv = D008_SW_CELL_OVP_FIRST_MV_FOR(chemistry);
+    protect->cell_ovp_second_mv = D008_SW_CELL_OVP_SECOND_MV_FOR(chemistry);
+    protect->cell_ovp_third_mv = D008_SW_CELL_OVP_THIRD_MV_FOR(chemistry);
+    protect->cell_ovp_recover_mv = D008_SW_CELL_OVP_RECOVER_MV_FOR(chemistry);
+    protect->cell_uvp_first_mv = D008_SW_CELL_UVP_FIRST_MV_FOR(chemistry);
+    protect->cell_uvp_second_mv = D008_SW_CELL_UVP_SECOND_MV_FOR(chemistry);
+    protect->cell_uvp_third_mv = D008_SW_CELL_UVP_THIRD_MV_FOR(chemistry);
+    protect->cell_uvp_recover_mv = D008_SW_CELL_UVP_RECOVER_MV_FOR(chemistry);
+    protect->pack_ovp_first_10mv = (D008_SW_PACK_OVP_FIRST_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_ovp_second_10mv = (D008_SW_PACK_OVP_SECOND_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_ovp_third_10mv = (D008_SW_PACK_OVP_THIRD_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_ovp_recover_10mv = (D008_SW_PACK_OVP_RECOVER_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_uvp_first_10mv = (D008_SW_PACK_UVP_FIRST_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_uvp_second_10mv = (D008_SW_PACK_UVP_SECOND_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_uvp_third_10mv = (D008_SW_PACK_UVP_THIRD_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_uvp_recover_10mv = (D008_SW_PACK_UVP_RECOVER_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+#else
+    protect->cell_ovp_first_mv = BMS_SW_CELL_OVP_FIRST_MV_FOR(chemistry);
+    protect->cell_ovp_second_mv = BMS_SW_CELL_OVP_SECOND_MV_FOR(chemistry);
+    protect->cell_ovp_third_mv = BMS_SW_CELL_OVP_THIRD_MV_FOR(chemistry);
+    protect->cell_ovp_recover_mv = BMS_SW_CELL_OVP_RECOVER_MV_FOR(chemistry);
+    protect->cell_uvp_first_mv = BMS_SW_CELL_UVP_FIRST_MV_FOR(chemistry);
+    protect->cell_uvp_second_mv = BMS_SW_CELL_UVP_SECOND_MV_FOR(chemistry);
+    protect->cell_uvp_third_mv = BMS_SW_CELL_UVP_THIRD_MV_FOR(chemistry);
+    protect->cell_uvp_recover_mv = BMS_SW_CELL_UVP_RECOVER_MV_FOR(chemistry);
+    protect->pack_ovp_first_10mv = (BMS_SW_PACK_OVP_FIRST_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_ovp_second_10mv = (BMS_SW_PACK_OVP_SECOND_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_ovp_third_10mv = (BMS_SW_PACK_OVP_THIRD_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_ovp_recover_10mv = (BMS_SW_PACK_OVP_RECOVER_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_uvp_first_10mv = (BMS_SW_PACK_UVP_FIRST_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_uvp_second_10mv = (BMS_SW_PACK_UVP_SECOND_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_uvp_third_10mv = (BMS_SW_PACK_UVP_THIRD_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+    protect->pack_uvp_recover_10mv = (BMS_SW_PACK_UVP_RECOVER_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
+#endif
 }
 
 /* 取得产品系统业务默认配置。 */
@@ -655,7 +744,7 @@ static void bms_config_user_defaults(bms_user_params_t *v)
 /* 业务组的唯一默认赋值入口，不修改电流校准和身份。 */
 static void bms_config_user_business_defaults(bms_user_params_t *v)
 {
-    v->heater_enable = 1u;
+    v->heater_enable = BMS_HEATER_ENABLE_DEFAULT;
     v->heater_start_x10 = BMS_HEATER_START_TEMP_X10;
     v->heater_stop_x10 = BMS_HEATER_STOP_TEMP_X10;
     /* balance_enable 是持久许可，只能由显式在线均衡参数写入改变。 */
@@ -717,8 +806,49 @@ int bms_config_reset_business(void)
     next = g_bms_config;
     next.system.capacity_factory = BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
     bms_config_user_business_defaults(&next.user);
+    next.user.balance_start_mv = BMS_BATTERY_BALANCE_START_MV_FOR(
+        next.system.battery_chemistry == BMS_SOC_CHEMISTRY_AUTO ?
+        BMS_PRODUCT_CHEMISTRY : next.system.battery_chemistry);
+    next.user.balance_start_delta_mv = BMS_BATTERY_BALANCE_START_DELTA_MV;
+    next.user.balance_stop_delta_mv = BMS_BATTERY_BALANCE_STOP_DELTA_MV;
     return bms_config_save_cache(&next);
 }
+
+/* 四组参数只提交一条 CFG2 记录；任何失败保持输出 inhibit，重启读取完整旧/新记录。
+ * 不清 State/Event，不修改容量、串数、SN、校准、均衡许可或本包 OTA 执行标记。 */
+int bms_config_store_switch_chemistry(u8 chemistry)
+{
+    bms_config_cache_t next;
+    bms_soc_config_t soc;
+    if ((chemistry != BMS_SOC_CHEMISTRY_LFP && chemistry != BMS_SOC_CHEMISTRY_NMC) ||
+        !bms_config_ensure_ready()) return 0;
+#if BMS_PRODUCT_ID == 8u
+    /* DVC/板级 100 V 上限：24S 不能切换到 4.20 V NMC。 */
+    if (chemistry == BMS_SOC_CHEMISTRY_NMC && BMS_PRODUCT_CELL_COUNT > 23u) return 0;
+#endif
+    next = g_bms_config;
+    bms_config_store_get_chemistry_protect(chemistry, &next.protect);
+    bms_afe_hw_profile_build_chemistry_default(chemistry, &next.afe_hw);
+    bms_soc_get_default_config(&soc);
+    soc.chemistry = chemistry;
+    soc.profile_id = chemistry == BMS_SOC_CHEMISTRY_LFP ?
+        BMS_SOC_PROFILE_GENERIC_LFP : BMS_SOC_PROFILE_GENERIC_NMC;
+    next.system.battery_chemistry = soc.chemistry;
+    next.system.soc_profile_id = soc.profile_id;
+    next.soc.current_deadband_ma = soc.current_deadband_ma;
+    next.soc.ocv_rest_prepare_s = soc.ocv_rest_prepare_s;
+    next.soc.ocv_error_band_percent = soc.ocv_error_band_percent;
+    bms_config_user_business_defaults(&next.user);
+    next.user.balance_start_mv = BMS_BATTERY_BALANCE_START_MV_FOR(chemistry);
+    next.user.balance_start_delta_mv = BMS_BATTERY_BALANCE_START_DELTA_MV;
+    next.user.balance_stop_delta_mv = BMS_BATTERY_BALANCE_STOP_DELTA_MV;
+    if (!bms_sw_protection_validate_params(&next.protect) ||
+        !bms_afe_hw_profile_validate(&next.afe_hw) || !bms_soc_config_valid(&soc) ||
+        !bms_config_user_valid(&next.user)) return 0;
+    bms_afe_invalidate_configuration();
+    return bms_config_save_cache(&next);
+}
+
 /*
  * 精确计算 floor(magnitude * gain / 1000000)，
  * 不依赖固定 TC32 ABI 缺少的 64 位辅助函数。32 步中每步余数小于 1e6，

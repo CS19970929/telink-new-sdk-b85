@@ -107,6 +107,7 @@ def profile_prefix(product):
         result += '#include "sh3673510_project_config.h"\n#include "sh3673510_quantize.h"\n'
     defaults = read('bms/core/bms_config_store.c')
     result += defaults[defaults.index('static const bms_protection_params_t s_default_protection'):defaults.index('\n}', defaults.index('void bms_config_store_get_default_protect')) + 2]
+    result += '\n' + function(defaults, 'void bms_config_store_get_chemistry_protect(')
     result += without_includes(read('bms/core/bms_afe_hw_profile.h'))
     source = read('bms/core/bms_afe_hw_profile.c')
     # 从真实公开函数开始抽取，D008/SH 各自的默认 builder 和条件编译原样保留。

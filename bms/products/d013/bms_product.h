@@ -11,6 +11,7 @@
 #ifndef BMS_PRODUCT_CHEMISTRY
 #define BMS_PRODUCT_CHEMISTRY BMS_SOC_CHEMISTRY_LFP
 #endif
+#include "d013_protection_config.h"
 #include "../bms_battery_defaults.h"
 
 /* 均衡调度：0 不增加数量限制；温度两项均为 0 关闭新增回差，原温度保护仍有效。
@@ -61,18 +62,11 @@
 #define BMS_PRODUCT_SWITCH_ENABLE 0
 #endif
 
-#define BMS_SLEEP_NORMAL_CELL_MV             (3000)
-#define BMS_SLEEP_NORMAL_SECONDS          (60 * 60 * 24)
-#define BMS_SLEEP_LOW_CELL_MV                (2800)
-#define BMS_SLEEP_LOW_SECONDS            (60 * 60 * 1)
 
 /* 保持历史数字线协议产品 ID；存储有独立标记。 */
 #define BMS_PRODUCT_WIRE_ID 2u
 #define BMS_PRODUCT_CELL_COUNT                      SH3673510_BOARD_CELL_COUNT
 /* D013 开发容量 11.6 Ah（0.1 Ah 单位）；需产品参数签核。 */
-#ifndef BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH
-#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH                116
-#endif
 #define BMS_PRODUCT_HW_VERSION   "D013"
 #define BMS_PRODUCT_SW_VERSION   "V8.6"
 #define BMS_PRODUCT_DEFAULT_SERIAL      "D013-20261018"
@@ -84,4 +78,4 @@
 #define BMS_PRODUCT_FACTORY_BLE_NAME_LENGTH (sizeof(BMS_PRODUCT_FACTORY_BLE_NAME)-1)
 
 
-#define BMS_DEFAULT_CUV3_FILTER 1000u
+#define BMS_DEFAULT_CUV3_FILTER BMS_SW_CELL_UVP_FILTER_10MS

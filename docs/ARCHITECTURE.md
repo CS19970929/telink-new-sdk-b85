@@ -45,7 +45,7 @@ PM 的原因/elapsed/delay 是本轮局部结果，跨轮只保存计时、最�
 
 软件用 First/Second/Third/Recover/Filter；First/Second 报告，Third 中相应电压/电流/温度位阻断方向，三级压差同时阻断充放电。SOC Low 不直接列入 MOS 关断掩码。压差保护持续独立运行，软件恢复细节见 [SOFTWARE_PROTECTION](SOFTWARE_PROTECTION.md)。
 
-AFE 用独立 `bms_afe_hw_profile_t`，不含软件三级概念；后端按 Rsense/芯片能力校验、量化、应用和读回。运行时修改软件参数不重写 AFE，反之亦然。D008 的软件及 DVC 初始默认分别来自产品 `d008_protection_config.h` 的 `D008_SW_*` / `D008_AFE_*`，构造时也相互独立；SH 初始默认仍来自产品能力头及 `bms/products/sh3673510_defaults.h`，详见 [D008 保护配置](D008_PROTECTION_CONFIGURATION.md)。
+AFE 用独立 `bms_afe_hw_profile_t`，不含软件三级概念；后端按 Rsense/芯片能力校验、量化、应用和读回。运行时修改软件参数不重写 AFE，反之亦然。D008 的软件及 DVC 初始默认分别来自产品 `d008_protection_config.h` 的 `D008_SW_*` / `D008_AFE_*`，构造时也相互独立；SH 保护初始默认来自各产品 `dXXX_protection_config.h`，板级能力仍在产品头，详见 [D008 保护配置](D008_PROTECTION_CONFIGURATION.md)。
 
 AFE 事务：授权 → 校验完整候选 → 保存 → apply → requested/effective readback → verify；失败恢复前一 profile 并重新应用，回滚失败保持配置不一致。详见 [AFE_HARDWARE_PROTECTION_V2](AFE_HARDWARE_PROTECTION_V2.md)。
 
