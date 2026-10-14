@@ -11,6 +11,13 @@
 /* 后端 FET 写入也使用公共门禁的三帧新样本资格。 */
 uint8_t bms_afe_samples_qualified(void);
 
+/*
+ * AFE 方向状态要求临时开通的同口 FET：bit0=充电 MOS，bit1=放电 MOS。
+ * 该状态只用于覆盖用户单管关闭，不能绕过通信、输出、参数或保护门禁。
+ */
+#define BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK    0x01u
+#define BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK 0x02u
+
 #if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
 /* 初始化选定 AFE 后端并应用产品配置。 */
 void dvc1124_backend_init(void);
@@ -24,6 +31,8 @@ uint8_t dvc1124_backend_enter_shutdown(void);
 uint8_t dvc1124_backend_apply_protection_config(void);
 /* 设置后端充放电 MOS 请求并进行保护仲裁。 */
 uint8_t dvc1124_backend_set_fets(uint8_t,uint8_t);
+/* 读取由最新有效 CC2 方向确认的临时开管掩码。 */
+uint8_t dvc1124_backend_get_direction_allow_mask(void);
 /* 设置后端输出授权，禁止绕过公共安全门禁。 */
 void dvc1124_backend_set_output_enabled(uint8_t);
 /* 取得后端辅助测量与有效性。 */
@@ -47,6 +56,8 @@ uint8_t sh3673510_bms_afe_sleep(void);
 uint8_t sh3673510_bms_afe_apply_protection_config(void);
 /* 设置后端充放电 MOS 请求并进行保护仲裁。 */
 uint8_t sh3673510_bms_afe_set_fets(uint8_t,uint8_t);
+/* 读取由最新有效 BSTATUS2 方向位确认的临时开管掩码。 */
+uint8_t sh3673510_bms_afe_get_direction_allow_mask(void);
 /* 设置后端输出授权，禁止绕过公共安全门禁。 */
 void sh3673510_bms_afe_set_output_enabled(uint8_t);
 /* 取得后端辅助测量与有效性。 */

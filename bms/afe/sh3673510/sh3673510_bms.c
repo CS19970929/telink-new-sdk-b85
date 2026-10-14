@@ -265,7 +265,7 @@ static uint8_t sh3510_apply_requested_fets(void)
      * 不要每 200 ms 重写同一命令。请求未变时硬件保护可以改变实际 FET 输出，
      * 重复软件写入会对抗该硬件行为。
      */
-    /* 公共 guard 已释放可靠反向电流对应的远程关闭；其它显式 OFF 不在后端提升。 */
+    /* 公共 guard 只按 BSTATUS2 方向临时提升用户关闭；其它显式 OFF 不在后端提升。 */
     if (!s_requested_charge_on) charge_on = 0u;
     if (!s_requested_discharge_on) discharge_on = 0u;
     if (s_fet_command_valid &&
@@ -991,6 +991,19 @@ uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
     if (!s_snapshot_valid) { memset(m, 0, sizeof(*m)); return 0u; }
     *m = s_aux;
     return 1u;
+}
+
+/* 将 AFE 自带方向状态映射为同口反向电流期间需要临时开通的 MOS；不访问 SPI。 */
+uint8_t sh3673510_bms_afe_get_direction_allow_mask(void)
+{
+    uint8_t mask = 0u;
+
+    if (!s_snapshot_valid) return 0u;
+    if (s_bstatus2 & SH3673520_BSTATUS2_DSGING_MASK)
+        mask |= BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK;
+    if (s_bstatus2 & SH3673520_BSTATUS2_CHGING_MASK)
+        mask |= BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK;
+    return mask;
 }
 
 /* 取得 FET 请求、控制和保护阻断诊断。 */

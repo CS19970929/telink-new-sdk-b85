@@ -7,13 +7,15 @@ typedef uint8_t u8; typedef uint16_t u16;
 #define BMS_AFE_BACKEND 1
 #define BMS_AFE_BACKEND_DVC1124 1
 #define BMS_ERROR_AFE1 1
-typedef struct {int32_t current_ma;} bms_afe_aux_measurements_t;
+#define BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK 1u
+#define BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK 2u
+typedef struct {int dummy;} bms_afe_aux_measurements_t;
 typedef struct {int dummy;} bms_afe_feature_snapshot_t;
 static int err,cmd_c,cmd_d,apply_calls,hardware_profile,fet_fail;
 static uint8_t params_valid=1u;
 static uint8_t bms_protection_params_valid(void){return params_valid;}
 static int raised,init_fail,aux_ok=1;
-static int32_t sample_current_ma;
+static uint8_t direction_allow_mask;
 static int balance_ok=1,shutdown_ok=1,shutdown_calls,sample_calls;
 static uint8_t bms_error_get(int x){return err;}
 static void bms_error_raise(int x){err=1;raised++;}
@@ -28,8 +30,9 @@ static void dvc1124_backend_sample(void){sample_calls++;err=0;}
 static uint8_t dvc1124_backend_sample_pending(void){return 0;}
 static int dvc1124_backend_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
 static int dvc1124_backend_set_fets(int c,int d){if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
+static uint8_t dvc1124_backend_get_direction_allow_mask(void){return direction_allow_mask;}
 static void dvc1124_backend_set_output_enabled(int x){}
-static int dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t*x){x->current_ma=sample_current_ma;return aux_ok;}
+static int dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t*x){return aux_ok;}
 static int dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t*x){return 1;}
 static int dvc1124_backend_get_charge_source_present(uint8_t*x){return 0;}
 static int dvc1124_backend_set_balance_mask(uint32_t x){return balance_ok;}
@@ -42,7 +45,7 @@ uint32_t bms_diag_tick(void){return guard_tick;}
 uint8_t bms_afe_enter_shutdown(void);
 /* PRODUCTION_SOURCE */
 static void reset(void){
- params_valid=1u;sample_current_ma=0;
+ params_valid=1u;direction_allow_mask=0u;
  err=raised=init_fail=0;aux_ok=1;
  balance_ok=shutdown_ok=1;fet_fail=shutdown_calls=sample_calls=0;
  bms_afe_init();bms_afe_set_channel_allowed(0,1);bms_afe_set_channel_allowed(1,1);
@@ -59,21 +62,18 @@ static void test_remote_control(void){
  fet_fail=0;assert(bms_afe_set_channel_allowed(0,1));assert(cmd_c==1&&cmd_d==1);
  puts("PASS remote MOS permission: independent RAM intent, AFE reinit persistence and fail-safe enable rollback");
 }
-static void test_remote_reverse_current_release(void){
+static void test_remote_direction_override(void){
  reset();bms_afe_set_fets(1,1);
  assert(bms_afe_set_channel_allowed(0,0));assert(cmd_c==0&&cmd_d==1);
- sample_current_ma=-1000;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==0&&cmd_d==1);
- sample_current_ma=200;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==0&&cmd_d==1);
- sample_current_ma=201;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==3u&&cmd_c==1&&cmd_d==1);
- assert(!bms_afe_set_channel_allowed(0,0));assert(bms_afe_get_remote_allowed_mask()==3u&&cmd_c==1&&cmd_d==1);
- sample_current_ma=0;bms_afe_sample();assert(bms_afe_set_channel_allowed(0,0));assert(cmd_c==0&&cmd_d==1);
+ direction_allow_mask=1u;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==1&&cmd_d==1);
+ assert(bms_afe_set_channel_allowed(0,0));assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==1&&cmd_d==1);
+ direction_allow_mask=0u;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==0&&cmd_d==1);
  assert(bms_afe_set_channel_allowed(0,1));
  assert(bms_afe_set_channel_allowed(1,0));assert(cmd_c==1&&cmd_d==0);
- sample_current_ma=1000;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==0);
- sample_current_ma=-200;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==0);
- sample_current_ma=-201;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==3u&&cmd_c==1&&cmd_d==1);
- assert(!bms_afe_set_channel_allowed(1,0));assert(bms_afe_get_remote_allowed_mask()==3u&&cmd_c==1&&cmd_d==1);
- puts("PASS remote MOS reverse current: fresh +/-201 mA auto-release, +/-200 mA boundary and unsafe re-close rejection");
+ direction_allow_mask=2u;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==1);
+ assert(bms_afe_set_channel_allowed(1,0));assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==1);
+ direction_allow_mask=0u;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==0);
+ puts("PASS remote MOS direction override: user OFF intent persists, opposite direction opens temporarily and direction loss re-closes");
 }
 static void test_startup_qualification(void){
  /* 参数门禁独立于 feature；关闭任一授权均保持 MOS 请求为 OFF。 */
@@ -117,7 +117,7 @@ static void test_startup_qualification(void){
 int main(void){
  test_startup_qualification();
  test_remote_control();
- test_remote_reverse_current_release();
+ test_remote_direction_override();
  reset();bms_afe_set_fets(1,1);assert(bms_afe_sleep());
  assert(shutdown_calls==1&&s_guard.comm_inhibit&&err&&s_guard.test_shutdown_hold);
  assert(cmd_c==0&&cmd_d==0&&!bms_afe_bus_access_allowed());

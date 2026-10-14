@@ -434,7 +434,7 @@ static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
     else
     {
         /*
-         * 公共 guard 已释放可靠反向电流对应的远程关闭；到达后端的其它显式关闭、
+         * 公共 guard 只会按最新有效 CC2 方向临时提升用户单管关闭；其它显式关闭、
          * AFE 通信禁止、休眠和断线路径保持硬关闭，绝不能提升为 AUTO_DIODE。
          */
         if (charge_on && !charge_blocked)

@@ -9,10 +9,13 @@
 #include "drivers.h"
 #include "bms_product.h"
 #include "bms_afe_backend.h"
+#include "bms_soc.h"
 #include <string.h>
 
 /* 应用 D008 编译期板级配置，并通过公共 AFE profile 初始化硬件保护。 */
 static uint8_t s_project_config_pending = 1u;
+/* 最新新鲜 CC2 方向所要求的临时开管；缓存等待不改变，重初始化清除。 */
+static uint8_t s_direction_allow_mask;
 
 /*
  * DVC1124-2 shutdown 的 I2C 唤醒要求：SCL 高于 SDA 至少 2 V 且持续超过 50 us。
@@ -102,6 +105,7 @@ static void dvc_project_reset_with_shutdown_wake(void)
 void dvc1124_backend_init(void)
 {
     s_project_config_pending = 1u;
+    s_direction_allow_mask = 0u;
     dvc_project_reset_with_shutdown_wake();
 
     /*
@@ -125,9 +129,23 @@ void dvc1124_backend_sample(void)
 
     DVC1124_BmsApp_AFEGet();
 
+    DVC1124_GetSnapshot(&snapshot);
+    if (!snapshot.valid)
+    {
+        s_direction_allow_mask = 0u;
+    }
+    else if (snapshot.current_fresh)
+    {
+        if (snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
+            s_direction_allow_mask = BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK;
+        else if (snapshot.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
+            s_direction_allow_mask = BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK;
+        else
+            s_direction_allow_mask = 0u;
+    }
+
     if (!s_project_config_pending) return;
 
-    DVC1124_GetSnapshot(&snapshot);
     if (!snapshot.valid) return;
 
     if (DVC1124_ApplyProjectOperatingConfig())
@@ -142,6 +160,12 @@ void dvc1124_backend_sample(void)
      * 也覆盖 AFE 自行进入 shutdown 的情况。
      */
     dvc_project_reset_with_shutdown_wake();
+}
+
+/* 读取由最新有效 CC2 方向确认的临时开管掩码；不访问 I2C。 */
+uint8_t dvc1124_backend_get_direction_allow_mask(void)
+{
+    return s_direction_allow_mask;
 }
 
 /* 应用独立 AFE 硬件保护配置并返回结果。 */
