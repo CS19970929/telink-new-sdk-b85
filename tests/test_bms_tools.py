@@ -74,14 +74,15 @@ class ProductionBuildTests(unittest.TestCase):
         with mock.patch.multiple(bms, PRODUCT="d008", PRODUCTION=True, D008_PROFILE="24s-lfp"), \
              mock.patch.object(bms, "_firmware_git_build_id", return_value="0x12345678u"), \
              mock.patch.object(bms, "_firmware_git_dirty", return_value=0), \
+             mock.patch.object(bms, "_selected_build_options", return_value={}), \
              mock.patch.dict(bms.os.environ, {"EXTRA_DEFINES": ""}):
             flags = bms._effective_extra_defines()
             self.assertIn("-DBMS_PRODUCTION_BUILD=1", flags)
             self.assertIn("-DD008_PRODUCT_PROFILE=1", flags)
             with mock.patch.object(bms, "D008_PROFILE", None), self.assertRaises(SystemExit):
                 bms._effective_extra_defines()
-            with mock.patch.object(bms, "_firmware_git_dirty", return_value=1), self.assertRaises(SystemExit):
-                bms._effective_extra_defines()
+            with mock.patch.object(bms, "_firmware_git_dirty", return_value=1):
+                self.assertIn("-DBMS_DIAG_BUILD_DIRTY=1", bms._effective_extra_defines())
             for override in ("-DBMS_PRODUCTION_BUILD=0", "-UBMS_DIAG_BUILD_DIRTY", "-DBMS_DIAG_BUILD_ID=1", "-DD008_PRODUCT_PROFILE=3", "-DBMS_D008_SCD_POLICY_APPROVED=1", "-DBMS_D008_20S_NMC_PROTECTION_APPROVED=1", "-DBMS_D013_HW_CONFIG_APPROVED=1", "-DBMS_PRODUCT_RELEASE_APPROVED=1"):
                 with mock.patch.dict(bms.os.environ, {"EXTRA_DEFINES": override}), self.assertRaises(SystemExit):
                     bms._effective_extra_defines()
@@ -673,7 +674,7 @@ class PickerDefaultsTests(unittest.TestCase):
             self.assertNotIn('--update-id', plan['Arguments'])
             self.assertNotIn('--chemistry', plan['Arguments'])
 
-    def test_real_window_source_save_commit_build_and_ignored_local_parameter_cache(self):
+    def test_real_window_source_save_dirty_build_and_ignored_local_parameter_cache(self):
         for scenario in ('defaults', 'saved'):
             with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)/'source'
@@ -770,7 +771,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                     android_ota.run_workflow('d014', sender, root=root)
                 self.assertEqual(process.run.call_count, 3)
 
-    def test_dirty_source_environment_or_argument_overrides_stop_before_build(self):
+    def test_dirty_source_builds_and_only_environment_or_argument_overrides_stop(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, _, _, sender = self.create_files(root)
@@ -783,9 +784,9 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                     android_ota.run_workflow('d014', sender, root=root)
                 process.run.assert_not_called()
             (root/'unrelated.txt').write_text('dirty')
-            with self.runner() as process, self.assertRaises(ValueError):
-                android_ota.run_workflow('d014', sender, root=root)
-            process.run.assert_not_called()
+            with self.runner() as process, mock.patch('builtins.print'):
+                self.assertEqual(android_ota.run_workflow('d014', sender, root=root), 0)
+            self.assertEqual(process.run.call_count, 4)
 
     def test_send_only_revalidates_and_build_only_does_not_require_sender(self):
         with tempfile.TemporaryDirectory() as tmp:

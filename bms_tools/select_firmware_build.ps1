@@ -58,7 +58,7 @@ if ($SaveOnly) {
     exit 0
 }
 if ($Chemistry -or $AfeModel -or $CellCount -or $Capacity0p1Ah -or $UpdateGroups.Count -or $UpdateId -or $NewPackage) {
-    throw '构建阶段不接受参数覆盖；请先用 SaveOnly 或窗口保存配置并提交。'
+    throw '构建阶段不接受参数覆盖；请先用 SaveOnly 或窗口保存配置。'
 }
 
 if (-not $Target) {
@@ -178,7 +178,7 @@ if (-not $Target) {
     $fixedId.SetBounds(16, 504, 558, 28)
     $form.Controls.Add($fixedId)
     $saveStatus = New-Object System.Windows.Forms.Label
-    $saveStatus.Text = '先保存到源码，审查 Git 差异并提交，再点击编译。'
+    $saveStatus.Text = '参数修改后先保存到源码，再点击编译；Git 提交不是门禁。'
     $saveStatus.SetBounds(16, 608, 558, 40)
     $form.Controls.Add($saveStatus)
     $script:loadingInputs = $false
@@ -258,28 +258,28 @@ if (-not $Target) {
             Update-TargetInputs
             $newPackageCheck.Checked = $false
             $saveStatus.Text = if ($savedConfiguration.changed_files.Count) {
-                '已写回源码。请审查 Git 差异并提交后编译。'
-            } else { '配置与源码一致；编译前仍会检查是否已提交。' }
+                '已写回源码，可以直接编译；建议保留 Git 差异用于追溯。'
+            } else { '配置与源码一致，可以直接编译。' }
         } catch { $saveStatus.Text = "保存失败：$($_.Exception.Message)" }
     })
     $form.Controls.Add($save)
     $productList.SelectedIndex = [array]::IndexOf(@($targets.Id), $settings.Target)
     $start = New-Object System.Windows.Forms.Button
-    $start.Text = '已提交后编译'
+    $start.Text = '按源码编译'
     $start.SetBounds(282, 560, 156, 32)
     $start.Add_Click({
         if (-not $script:targetInputsValid) { return }
         try {
             $inputConfiguration = Get-WindowConfiguration
-            if ($newPackageCheck.Checked) { throw '新参数更新包尚未保存，请先保存到源码并提交。' }
+            if ($newPackageCheck.Checked) { throw '新参数更新包尚未保存，请先保存到源码。' }
             $source = Invoke-SourceConfiguration @('verify', '--root', $repositoryRoot,
-                '--product', $inputConfiguration.Product, '--require-clean')
+                '--product', $inputConfiguration.Product)
             if ($source.afe_model -ne $inputConfiguration.Afe -or
                 $source.chemistry -ne $inputConfiguration.Chemistry -or
                 $source.cell_count -ne $inputConfiguration.Cells -or
                 $source.capacity_0p1ah -ne $inputConfiguration.Capacity -or
                 (@($source.update_groups) -join ',') -ne ($inputConfiguration.Groups -join ',')) {
-                throw '窗口配置尚未保存，请先保存到源码并提交。'
+                throw '窗口配置尚未保存，请先保存到源码。'
             }
             $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
             $form.Close()

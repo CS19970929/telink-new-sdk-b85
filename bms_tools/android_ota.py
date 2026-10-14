@@ -47,17 +47,16 @@ def run_workflow(target: str, sender: Path, *, build_only: bool = False,
     if product == "d008":
         profile = profile or build_options.source_profile(root)
         if profile != build_options.source_profile(root):
-            raise ValueError("交付装配与源码选择不同；请先保存 D008 装配并提交。")
+            raise ValueError("交付装配与源码选择不同；请先保存 D008 装配。")
     selected = build_options.verify_source(root, product, profile)
     if options is not None and options != selected:
-        raise ValueError("构建/发送不能覆盖源码配置；请先保存配置并提交。")
+        raise ValueError("构建/发送不能覆盖源码配置；请先保存配置。")
     options = selected
     if build_options.ENV_NAME in os.environ:
         raise ValueError("BMS_BUILD_OPTIONS 已停用，请清除环境参数覆盖。")
     build_options.check_extra_defines(os.environ.get("EXTRA_DEFINES", ""))
     if os.environ.get("EXTRA_DEFINES", "").strip():
         raise ValueError("交付构建/发送不接受 EXTRA_DEFINES，请保存源码配置。")
-    build_options.require_clean_source(root)
     variant = build_options.variant(mode, product, profile, options)
     firmware = root / "firmware" / variant / product / "825x_ble_sample.bin"
     manifest = firmware.with_name("fw_manifest.json")
@@ -100,7 +99,6 @@ def run_workflow(target: str, sender: Path, *, build_only: bool = False,
             or configuration.get("parameter_inputs_sha256") != build_options.parameter_inputs_hash(root, product, options)
             or Path(data.get("bin", "")).resolve() != firmware.resolve()):
         raise ValueError("manifest 的产品、装配、编译参数或镜像路径不匹配；没有发送固件。")
-    build_options.require_clean_source(root)
     if build_options.verify_source(root, product, profile) != options:
         raise ValueError("校验期间源码配置改变；没有发送固件。")
     payload = firmware.read_bytes()

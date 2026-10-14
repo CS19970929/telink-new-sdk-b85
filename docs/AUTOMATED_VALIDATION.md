@@ -42,7 +42,7 @@ python tests/run_host_regression.py --product d014 --only sh_register_scenarios_
 python tests/run_host_regression.py --baseline C:/reports/previous/report.json
 ```
 
-`--with-targets` 使用开发模式，D008 为开发默认 16S。发布门禁仍按 [构建指南](BUILD_AND_TEST.md) 使用干净提交、生产模式及 D008 三装配；本入口不调用 `rebuild/check-fw/objcopy`。单检查默认 300 秒 timeout，可用 `--timeout` 显式调整，超时保留日志并终止子进程树。
+`--with-targets` 使用开发模式，D008 使用源码默认装配。发布门禁仍按 [构建指南](BUILD_AND_TEST.md) 检查生产模式、产品批准及 D008 装配；Git dirty 会写入收据但不阻止构建或发送。本入口不调用 `rebuild/check-fw/objcopy`。单检查默认 300 秒 timeout，可用 `--timeout` 显式调整，超时保留日志并终止子进程树。
 
 | 产物 | 用途 |
 |---|---|

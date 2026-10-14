@@ -321,10 +321,10 @@ def check_d008_framework_contract_check():
             self.assertIn('D008_PRODUCT_PROFILE_NAME     "D008-16S-LFP"', self.product)
             self.assertIn("DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT", self.project)
 
-        def test_production_build_blocks_debug_and_protection_isolation(self):
+        def test_production_build_blocks_debug_and_protection_isolation_but_allows_dirty_source(self):
             self.assertIn("BMS_PRODUCTION_BUILD", self.app_config)
             self.assertIn("Production build requires a nonzero Git diagnostic build ID", self.app_config)
-            self.assertIn("Production build requires a clean Git worktree", self.app_config)
+            self.assertNotIn("Production build requires a clean Git worktree", self.app_config)
             self.assertIn("Production build forbids __TEST_SOC__ command hooks", self.app_config)
             self.assertIn("Production build forbids current-test, debug GPIO and UART debug output", self.app_config)
             self.assertIn("Production build requires SDK flash protection", self.app_config)

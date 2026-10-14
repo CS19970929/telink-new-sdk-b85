@@ -3,7 +3,7 @@
   "tasks": [
     {
       "label": "BMS: 选择配置编译并发送 OTA",
-      "detail": "四产品配置与 OTA 策略先保存到源码，审查并提交后编译；可仅生成 BIN",
+      "detail": "四产品配置与 OTA 策略先保存到源码，可直接编译或发送；Git dirty 状态写入构建记录",
       "type": "process",
       "command": "powershell.exe",
       "args": [

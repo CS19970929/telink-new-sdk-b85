@@ -93,14 +93,14 @@ CMake 使用本机 C 编译器，target 范围以根 `CMakeLists.txt` 为准，�
 
 ## 4. 生产配置的 ELF 验证
 
-从已提交的干净工作区执行，先移除实验 `EXTRA_DEFINES`；生产模式在公共 core 使用 `-Os`，SDK/AFE/平台保持 `-O2`：
+从当前源码执行，先移除实验 `EXTRA_DEFINES`；生产模式在公共 core 使用 `-Os`，SDK/AFE/平台保持 `-O2`：
 
 ```powershell
 python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp link --jobs 4
 python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resources
 ```
 
-示例只验证 D008 16S。涉及全部 D008 profile 时，再分别对 `20s-nmc`、`24s-lfp` 执行 `--product d008 --production --d008-profile ... link` 和 `resources`。生产 trace/raw 诊断关闭，相关能力位和窗口按 [日志说明](RUNTIME_DEBUG_LOG.md) 处理。生产要求至少 8 KiB Flash 余量，并拒绝 dirty/空 Build ID、测试开关或保护关闭。不能用 `EXTRA_DEFINES` 伪造生产/Build ID/profile。
+示例只验证 D008 16S。涉及全部 D008 profile 时，再分别对 `20s-nmc`、`24s-lfp` 执行 `--product d008 --production --d008-profile ... link` 和 `resources`。生产 trace/raw 诊断关闭，相关能力位和窗口按 [日志说明](RUNTIME_DEBUG_LOG.md) 处理。生产要求至少 8 KiB Flash 余量，并拒绝空 Build ID、测试开关或保护关闭；dirty 源码允许构建并通过 `BMS_DIAG_BUILD_DIRTY=1` 和 manifest 明确记录。不能用 `EXTRA_DEFINES` 伪造生产/Build ID/profile。
 
 优化由 `bms_tools/build.mk` 的 `CFLAGS_BASE` / `CORE_OPT_FLAGS` 和 `bms.py` 生成的逐源规则确定：
 
@@ -115,7 +115,7 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resou
 
 `release` / `build` / `rebuild` / `objcopy` / **`check-fw`** 会生成或重新生成 BIN；`ci` 串联镜像流水线，也不是无镜像测试入口。`map`/`manifest`/`verify` 属于已有 BIN 的验收链，日常 ELF 使用 `resources`。
 
-生产镜像先要求各产品 `BMS_PRODUCT_RELEASE_APPROVED=1`，再检查专项签核：D008 全部 profile 要求 `BMS_D008_SCD_POLICY_APPROVED=1`；20S NMC 还要求 `BMS_D008_20S_NMC_PROTECTION_APPROVED=1`；D013 要求 `BMS_D013_HW_CONFIG_APPROVED=1`。2026-10-08 用户明确要求修改门禁并编译 D008 16S BIN，已将 D008 整体批准和现有 SCD 策略批准置 1，用于授权镜像生成；没有据此补写参数或实板验收通过结论，仍按 [硬件验收](HARDWARE_VALIDATION.md) 独立记录。D008 20S NMC 专项及 D011/D013/D014 批准保持 0。批准值须经受控提交，不能由 `EXTRA_DEFINES` 覆盖。`link/resources` 允许检查未签核工程配置，不构成发布签核。
+生产镜像先要求各产品 `BMS_PRODUCT_RELEASE_APPROVED=1`，再检查专项签核：D008 全部 profile 要求 `BMS_D008_SCD_POLICY_APPROVED=1`；20S NMC 还要求 `BMS_D008_20S_NMC_PROTECTION_APPROVED=1`；D013 要求 `BMS_D013_HW_CONFIG_APPROVED=1`。2026-10-08 用户明确要求修改门禁并编译 D008 16S BIN，已将 D008 整体批准和现有 SCD 策略批准置 1，用于授权镜像生成；没有据此补写参数或实板验收通过结论，仍按 [硬件验收](HARDWARE_VALIDATION.md) 独立记录。D008 20S NMC 专项及 D011/D013/D014 批准保持 0。批准值不能由 `EXTRA_DEFINES` 覆盖；正式归档建议受控提交，但 dirty 状态不阻止构建或发送。`link/resources` 允许检查未签核工程配置，不构成发布签核。
 
 本次只生成 D008 16S LFP，使用单产品命令；`--all-products` 仍会被其他产品的批准门拦截：
 
@@ -145,9 +145,9 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp verif
 
 四产品依次构建，每个产品内最多四个 Make job；各输出目录独立。D008 16S 输出在 `firmware/production-16s-lfp/d008/`，其他三个在 `firmware/production/d011/`、`d013/`、`d014/`。如需全部六配置，再分别对 D008 `20s-nmc`、`24s-lfp` 执行同样的 `rebuild` / `manifest` / `verify`，输出在相应 profile 目录。相同产品/模式/profile 保留最近一次结果，不并发两次构建。最终 BIN 只在 checker 和 CRC 通过后发布；发布新 BIN 会移除旧 manifest，随后重新执行 `manifest`。
 
-## 6. Ctrl+Shift+B 源码配置与提交后构建
+## 6. Ctrl+Shift+B 源码配置与直接构建
 
-完整流程见 [源码配置与固定 OTA 标识](SOURCE_CONFIGURATION_WORKFLOW.md)。四产品窗口先读取源码，修改后点击“保存到源码”，审查并提交，再点击“已提交后编译”。保存不构建镜像；普通 compile/link/resources 仍不生成 BIN。
+完整流程见 [源码配置与固定 OTA 标识](SOURCE_CONFIGURATION_WORKFLOW.md)。四产品窗口先读取源码，修改后点击“保存到源码”，再点击“按源码编译”。Git 提交是可选的追溯步骤，不阻止生成 BIN 或发送 OTA。保存本身不构建镜像；普通 compile/link/resources 仍不生成 BIN。
 
 | 窗口项目 | 当前行为 |
 |---|---|
@@ -156,7 +156,7 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp verif
 | OTA 更新组 | 写回同一参数文件；BUSINESS 按整组更新，SOC_STATE 单独选择 |
 | 固定更新标识 | 保存新更新包时生成并写回源码，重复编译/发送不生成 |
 | 保存到源码 | 校验并写入该产品相关文件，不暂存或提交其他修改 |
-| 已提交后编译 | 校验窗口等于源码、内容摘要、标识历史和干净提交，再构建/校验 |
+| 按源码编译 | 校验窗口等于源码、内容摘要和标识历史后构建；允许 Git dirty |
 | 清理重编 / 发送安卓并请求 OTA | 保留原操作选项；只有明确授权镜像时才执行 |
 
 DVC1124-2 DS V1.1 原 PDF 第 1 页规定 4～24 串且电池包不超过 100V，4.20V NMC 最多 23 串；SH36735XX CV1.0A 原 PDF 第 8 页规定 SH3673510 为 4～10 串，SH3673520 为 4～20 串。菜单范围不扩大实装能力、接线或生产签核。串数/类型变化仍须选齐四组 Config，校准、身份、事件保留。

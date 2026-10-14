@@ -86,8 +86,9 @@ $timer.Add_Tick({
             Assert-Menu ($capacityInput.Value -eq ([decimal]$expected.Capacity0p1Ah / 10)) "$id capacity restoration"
             Assert-Menu ($chemistryList.SelectedIndex -eq $(if ($expected.Chemistry -eq 'nmc') { 1 } else { 0 })) "$id chemistry restoration"
             Assert-Menu ($afeList.SelectedIndex -eq $(if ($expected.AfeModel -eq 'sh3673520') { 1 } else { 0 })) "$id AFE restoration"
-            Assert-Menu (@($checks | Where-Object Checked).Count -eq 0) "$id unexpectedly selects update groups"
+            Assert-Menu (@($checks | Where-Object Checked).Count -eq @($sourceDefaults.UpdateGroups).Count) "$id source update groups were not restored"
             Assert-Menu ($afeList.Enabled -eq ($id -ne 'd008')) "$id AFE selector capability"
+            foreach ($check in $checks) { $check.Checked = $false }
             $modeList.SelectedIndex = 0
             $modeList.SelectedIndex = 1
             $models = if ($id -eq 'd008') { @(0) } else { @(0, 1) }
@@ -146,11 +147,8 @@ $timer.Add_Tick({
             Assert-Menu ($saved.Cells -eq 19 -and $saved.Capacity0p1Ah -eq 400 -and $saved.Chemistry -eq 'nmc') 'window did not save source'
             Assert-Menu ($saved.UpdateGroups.Count -eq 5 -and $saved.UpdateId) 'OTA policy/identifier not saved'
             $form.AcceptButton.PerformClick()
-            Assert-Menu $form.Visible 'dirty source was allowed to build'
-            & git -C $repositoryRoot add -A
-            & git -C $repositoryRoot -c 'user.name=配置回归' -c 'user.email=fixture@example.invalid' commit -qm '提交窗口配置夹具'
-            if ($LASTEXITCODE -ne 0) { throw 'fixture commit failed' }
-            $form.AcceptButton.PerformClick()
+            $statusLabel = $form.Controls | Where-Object { $_ -is [System.Windows.Forms.Label] -and $_.Location.Y -eq 608 }
+            Assert-Menu ($form.DialogResult -eq [System.Windows.Forms.DialogResult]::OK) "dirty source was not allowed to build: $($statusLabel.Text)"
         }
     } catch {
         [Console]::WriteLine('UI_FAIL:' + $_.Exception.Message)

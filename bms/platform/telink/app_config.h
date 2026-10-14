@@ -184,9 +184,6 @@
 	#if (BMS_DIAG_BUILD_ID == 0u)
 		#error "Production build requires a nonzero Git diagnostic build ID"
 	#endif
-	#if BMS_DIAG_BUILD_DIRTY
-		#error "Production build requires a clean Git worktree"
-	#endif
 	#ifdef __TEST_SOC__
 		#error "Production build forbids __TEST_SOC__ command hooks"
 	#endif

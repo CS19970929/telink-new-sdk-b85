@@ -210,7 +210,7 @@ def verify_source(root: Path, product: str, profile: str | None = None) -> dict:
     parameters = _text(root / f"bms/products/{product}/{product}_protection_config.h")
     saved = _macro(parameters, "BMS_OTA_UPDATE_CONTENT_SHA256", r'"[0-9a-f]{64}"').strip('"')
     if options.get("update_groups") and saved != parameter_inputs_hash(root, product, options):
-        raise ValueError("参数更新内容与固定标识不匹配；请保存新参数更新包并提交，不能直接重编。")
+        raise ValueError("参数更新内容与固定标识不匹配；请保存新参数更新包，不能直接重编。")
     if options.get("update_groups"):
         _verify_identifier_history(root, product, options["update_id"], saved)
     return options
@@ -240,7 +240,7 @@ def require_clean_source(root: Path) -> None:
     result = subprocess.run(["git", "status", "--porcelain", "--untracked-files=normal"],
                             cwd=root, capture_output=True, text=True, timeout=10)
     if result.returncode or result.stdout.strip():
-        raise ValueError("源码尚未提交或存在未跟踪文件；请审查并提交配置后再构建/发送。")
+        raise ValueError("当前操作要求干净 Git 工作树，但源码存在未提交修改或未跟踪文件。")
     result = subprocess.run(["git", "rev-parse", "--verify", "HEAD"], cwd=root,
                             capture_output=True, text=True, timeout=10)
     if result.returncode:

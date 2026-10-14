@@ -13,7 +13,7 @@ push 分支、pull_request、workflow_dispatch 条件直接查 YAML。Windows jo
 
 ## Runner 与失败排查
 
-Windows 按 [构建指南](BUILD_AND_TEST.md) 准备官方 TC32、Make、Python、Cppcheck 及 Vendor 库；`BMS_BUILD_ROOT`/`BMS_TEST_OUTPUT` 指向 runner 临时区。workflow 使用单独 checkout 目录避免长期 runner 的旧锁文件干扰，生产仍要求干净 Git 状态。
+Windows 按 [构建指南](BUILD_AND_TEST.md) 准备官方 TC32、Make、Python、Cppcheck 及 Vendor 库；`BMS_BUILD_ROOT`/`BMS_TEST_OUTPUT` 指向 runner 临时区。workflow 使用单独 checkout 目录避免长期 runner 的旧锁文件干扰。生产允许 dirty 源码构建并记录 dirty 身份；CI checkout 通常仍应保持干净以便复现。
 
 先查失败 step 原始日志，再按 sources → 对应 host → 同产品/模式/profile link → resources → static 定位。`verify_baselines.py --fetch` 会访问远端取得来源证据；网络失败与固件行为失败应分开记录。编译失败不能靠旧 ELF 或提高 warning 基线绕过。
 

@@ -27,7 +27,7 @@
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms/products/bms_battery_defaults.h`、`bms_config_user_defaults()` | 均衡起始电压跟随类型；BUSINESS；能力禁用仍优先 |
 | 均衡通道数量上限、温度回差 | 各产品 `bms_product.h` 的 `BMS_BALANCE_*` 宏，见下节 | 编译期策略，不写入 Flash、不增加协议字段 |
 | SOC 配置/OCV 曲线 | 各产品 `dXXX_protection_config.h`；公共算法消费 `bms_soc_profile.h` | SOC，另评估 SOC_STATE；曲线点随固件生效 |
-| OTA 更新策略 | 各产品 dXXX_protection_config.h 的 OTA_SOURCE_POLICY 区域；公共 bms_update_policy.h 合成 | 五个更新开关、固定标识和输入摘要一起提交；历史编号只保留只读地址 |
+| OTA 更新策略 | 各产品 dXXX_protection_config.h 的 OTA_SOURCE_POLICY 区域；公共 bms_update_policy.h 合成 | 五个更新开关、固定标识和输入摘要一起保存到源码；历史编号只保留只读地址 |
 | 开关/ACC触发休眠 | 四项目各自 `bms_product.h` 的 `BMS_PRODUCT_SWITCH_SLEEP_ENABLE` | 默认1，设0只关闭开关休眠请求；不改变开关输入/唤醒/其他用途，不属于Flash参数；详见 [SH低功耗与开关策略](SH_LOW_POWER_FAILURE_HANDLING.md) |
 | 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |
 
@@ -39,7 +39,7 @@
 
 ### 编译时选择磷酸铁锂或三元锂
 
-日常使用 **Ctrl+Shift+B** 窗口编辑板型、AFE、串数、类型、容量和 OTA 策略，保存到源码、审查并提交后构建。保护/均衡默认值仍联动，详见 [源码配置流程](SOURCE_CONFIGURATION_WORKFLOW.md)。客户只需 BIN，窗口操作和分组更新见 [构建指南第 6 节](BUILD_AND_TEST.md#6-ctrlshiftb-单项目配置与编译)。
+日常使用 **Ctrl+Shift+B** 窗口编辑板型、AFE、串数、类型、容量和 OTA 策略，保存到源码后可直接构建或发送；Git 提交是可选追溯步骤。保护/均衡默认值仍联动，详见 [源码配置流程](SOURCE_CONFIGURATION_WORKFLOW.md)。客户只需 BIN，窗口操作和分组更新见 [构建指南第 6 节](BUILD_AND_TEST.md#6-ctrlshiftb-源码配置与直接构建)。
 
 底层唯一类型入口为 `BMS_PRODUCT_CHEMISTRY`，仅接受 `BMS_SOC_CHEMISTRY_LFP`（1）或 `BMS_SOC_CHEMISTRY_NMC`（2）。SOC profile 自动匹配类型；`AUTO`、未知类型或显式指定不匹配的 SOC profile 均在编译时报错。
 

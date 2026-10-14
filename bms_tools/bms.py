@@ -73,7 +73,7 @@ def _selection_args(product=None):
 def _selected_build_options():
     try:
         if build_options.ENV_NAME in os.environ:
-            raise ValueError("BMS_BUILD_OPTIONS 已停用；请保存产品源码配置并提交。")
+            raise ValueError("BMS_BUILD_OPTIONS 已停用；请保存产品源码配置。")
         return build_options.verify_source(REPO_ROOT, PRODUCT, D008_PROFILE)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
@@ -619,8 +619,8 @@ def _effective_extra_defines() -> str:
         _die("Build identity/mode/profile are owned by bms.py; use --production / --d008-profile")
     build_id, dirty = _firmware_git_build_id(), _firmware_git_dirty()
     if PRODUCTION:
-        if dirty or build_id == "0u":
-            _die("Production requires a clean committed worktree with a valid Git build ID")
+        if build_id == "0u":
+            _die("Production requires a valid Git build ID")
         if PRODUCT == "d008" and D008_PROFILE is None:
             _die("D008 production requires --d008-profile (16s-lfp, 20s-nmc or 24s-lfp)")
     flags = [extra, f"-DBMS_PRODUCTION_BUILD={int(PRODUCTION)}",
@@ -775,14 +775,13 @@ def _invoke_make(targets: list[str], jobs: int = 1,
 
 
 def _require_release_approval() -> None:
-    """正式生产镜像必须通过源码签核；link/resources 允许验证未签核工程配置。"""
+    """正式生产镜像必须通过源码签核；允许用未提交源码构建和发送测试镜像。"""
     try:
         if os.environ.get("EXTRA_DEFINES", "").strip():
-            raise ValueError("交付构建不接受 EXTRA_DEFINES；所有行为配置须保存到源码并提交。")
-        build_options.require_clean_source(REPO_ROOT)
+            raise ValueError("交付构建不接受 EXTRA_DEFINES；所有行为配置须保存到源码。")
         build_options.verify_source(REPO_ROOT, PRODUCT, D008_PROFILE)
         if PRODUCT == "d008" and D008_PROFILE != build_options.source_profile(REPO_ROOT):
-            raise ValueError("交付装配与源码选择不同；请先保存 D008 装配并提交。")
+            raise ValueError("交付装配与源码选择不同；请先保存 D008 装配。")
     except ValueError as error:
         _die(str(error))
     if not PRODUCTION:
