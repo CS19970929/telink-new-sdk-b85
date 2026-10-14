@@ -449,7 +449,9 @@ static u8 write_reg(u16 reg, u16 val)
         return dvc_comm_write(reg, val);
 #endif
 
-    if (reg==BMS_PARAM_REG_SOC || reg==BMS_PARAM_REG_CAPACITY || reg==BMS_PARAM_REG_CYCLE || (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u)) {
+    if (reg==BMS_PARAM_REG_SOC || reg==BMS_PARAM_REG_CAPACITY || reg==BMS_PARAM_REG_CYCLE ||
+        (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) ||
+        (reg>=BMS_PARAM_REG_SOC_PROFILE_STAGE_BASE && reg<BMS_PARAM_REG_SOC_PROFILE_STAGE_END)) {
         u8 bytes[2]={(u8)(val>>8),(u8)val};
         return bms_parameter_write(reg,1u,bytes);
     }
@@ -615,7 +617,9 @@ static int modbus_write_multiple(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_l
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
 
         /* 预检全部范围；单帧只能修改一个状态所有者，执行副作用前拒绝跨界/未知写入。 */
-        if (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) {
+        if ((reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) ||
+            (reg>=BMS_PARAM_REG_SOC_PROFILE_STAGE_BASE &&
+             (u32)reg+qty<=BMS_PARAM_REG_SOC_PROFILE_STAGE_END)) {
             exception=bms_parameter_write(reg,qty,pdata);
         } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
             exception=btname_modbus_on_write_holding(reg,qty,(const uint16_t *)pdata) ? 0u : MB_EX_DEVICE_FAILURE;

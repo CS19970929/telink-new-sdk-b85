@@ -92,6 +92,8 @@ void bms_soc_get_default_config(bms_soc_config_t *config);
 uint8_t bms_soc_config_valid(const bms_soc_config_t *config);
 /* 应用有效 SOC 配置并刷新曲线与容量状态。 */
 uint8_t bms_soc_configure(const bms_soc_config_t *config);
+/* 独立 SOC profile 保存成功后刷新运行曲线，不重复写 CFG2。 */
+uint8_t bms_soc_profile_reload(void);
 /* 取得 SOC 运行诊断快照。 */
 void bms_soc_get_diag(bms_soc_diag_t *diag);
 

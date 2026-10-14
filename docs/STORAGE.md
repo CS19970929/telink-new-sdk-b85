@@ -5,7 +5,7 @@
 ## 存储结构与所有权
 
 ```text
-Config / State / Event / SleepConfig（各自拥有业务缓存）
+Config / State / Event / SleepConfig / SocProfile（各自拥有业务缓存）
              ↓
 storage_record（固定记录、CRC32、序号、最后提交）
              ↓
@@ -20,6 +20,7 @@ storage_port → bms_storage_platform_telink → SDK Flash
 | State | SOC、放电累计、循环、OTA 执行标记及旧保留槽 | 3 / 44 bytes | 有变化且检查点到期，或显式保存 |
 | Event | 100 条事件环、重复计数、写位置、EVENTS 编号 | 3 / 404 bytes | dirty 且检查点到期，或入睡前提交 |
 | SleepConfig | 两档电压、两档分钟数及保留AFE时间槽（固定30分钟） | 1 / 10 bytes；magic `SLP1` | 显式整组保存且参数变化；见 [休眠配置](SLEEP_CONFIGURATION.md) |
+| SocProfile | chemistry/profile、SOC 算法阈值、最多15个 OCV 点 | 1 / 100 bytes；magic `SCP1` | App/Windows 完整候选提交或一键切换类型 |
 
 每域独立提交，没有跨域原子事务。Config 候选提交成功后才发布 cache；State 区分已提交 cache 与待保存副本，保存失败不丢弃候选。Event 在 RAM 先记事件，失败保留 dirty。启动安全配置校验/保存失败时，输出授权保持关闭，普通 `SaveParam` 不会绕过该门禁；State/Event 失败按文末规则降级。
 
@@ -39,6 +40,7 @@ TLSR8251 512 KiB：
 | State | `0x44000..0x4BFFF` | 32 KiB / 8 sectors |
 | Event | `0x4C000..0x5BFFF` | 64 KiB / 16 sectors |
 | SleepConfig | `0x5C000..0x5DFFF` | 8 KiB / 2 sectors |
+| SocProfile | `0x5E000..0x5FFFF` | 8 KiB / 2 sectors |
 | 未分配 | `0x5E000..0x73FFF` | 88 KiB |
 | SDK 保留 | `0x74000..0x7FFFF` | 48 KiB |
 
@@ -50,7 +52,7 @@ SDK 当前 825x 定义 SMP pairing `0x74000`、MAC `0x76000`、calibration `0x77
 | 1 MiB | `0xB0000` | `0xB4000` | `0xBC000` |
 | 2 MiB | `0x1B0000` | `0x1B4000` | `0x1BC000` |
 
-三种容量的 Config/State/Event 都使用 4/8/16 个 4 KiB sector；SleepConfig 另用 2 个 sector，分别从 `0x5C000` / `0xCC000` / `0x1CC000` 开始。地址仅由 `flash_store_cfg.h` 定义；OTA 兼容门禁及 SDK 地址冲突由布局检查覆盖，本次未执行。硬件型号与当前 OTA 配置仍需按实际设备验收。
+三种容量的 Config/State/Event 都使用 4/8/16 个 4 KiB sector；SleepConfig 另用 2 个 sector，分别从 `0x5C000` / `0xCC000` / `0x1CC000` 开始；SocProfile 紧随其后，从 `0x5E000` / `0xCE000` / `0x1CE000` 开始。地址仅由 `flash_store_cfg.h` 定义；OTA 兼容门禁及 SDK 地址冲突由布局检查覆盖，本次未执行。硬件型号与当前 OTA 配置仍需按实际设备验收。
 
 ## 一致性、失败与寿命
 

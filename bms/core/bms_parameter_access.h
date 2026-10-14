@@ -64,6 +64,7 @@
 
 /* 类型切换 v1：能力发现/当前类型只读，命令只接受完整 4 word。 */
 #define BMS_PARAM_CAP_CHEMISTRY_SWITCH             0x0100u
+#define BMS_PARAM_CAP_SOC_PROFILE                  0x0200u
 #define BMS_PARAM_REG_CHEMISTRY_BASE               0x2EA0u
 #define BMS_PARAM_REG_CHEMISTRY_LAST               0x2EA7u
 #define BMS_PARAM_REG_CHEMISTRY_COMMAND            0x2EA8u
@@ -73,6 +74,19 @@
 #define BMS_SERVICE_PASSWORD_BYTES                6u /* 五个字符及 NUL。 */
 typedef char bms_service_password_must_fit_frame[
     sizeof(BMS_SERVICE_DEFAULT_PASSWORD) == BMS_SERVICE_PASSWORD_BYTES ? 1 : -1];
+
+/* SOC profile v1：完整活动值只读，分段 stage，带密码的一次性 commit/default。 */
+#define BMS_PARAM_REG_SOC_PROFILE_BASE             0x2EB0u
+#define BMS_PARAM_REG_SOC_PROFILE_LAST             0x2EE3u
+#define BMS_PARAM_REG_SOC_PROFILE_PERSISTED        0x2EE4u
+#define BMS_PARAM_REG_SOC_PROFILE_GENERATION       0x2EE5u
+#define BMS_PARAM_REG_SOC_PROFILE_STAGE_STATUS     0x2EE6u
+#define BMS_PARAM_REG_SOC_PROFILE_COMMAND          0x2EF8u
+#define BMS_PARAM_REG_SOC_PROFILE_STAGE_BASE       0x2F00u
+#define BMS_PARAM_REG_SOC_PROFILE_STAGE_LAST       0x2F31u
+#define BMS_PARAM_REG_SOC_PROFILE_STAGE_END        0x2F32u
+#define BMS_SOC_PROFILE_INTERFACE_MAGIC            0x534Fu /* SO */
+#define BMS_SOC_PROFILE_INTERFACE_VERSION          1u
 
 #define PROD_SN_REG_BASE                   0xc002
 #define PROD_SN_REG_COUNT                  16
