@@ -51,9 +51,34 @@ void bms_afe_hw_profile_build_chemistry_default(u8 c,bms_afe_hw_profile_t*p){bms
 static unsigned config_inhibited;
 void bms_afe_invalidate_configuration(void){++config_inhibited;}
 u8 bms_soc_configure(const bms_soc_config_t *p){return p!=0;}
+u8 bms_soc_profile_reload(void){return 1u;}
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t*p){return p && p->schema_version==1;}
 void bms_soc_get_default_config(bms_soc_config_t*c){memset(c,0,sizeof(*c));c->current_deadband_ma=200;c->ocv_rest_prepare_s=600;c->ocv_error_band_percent=5;}
 u8 bms_soc_config_valid(const bms_soc_config_t*c){return c && c->ocv_rest_prepare_s>=60;}
+static bms_soc_profile_config_t soc_profile_stub;
+static u16 soc_profile_stub_generation=1u;
+static u8 soc_profile_stub_persisted;
+void bms_soc_profile_store_defaults(u8 chemistry,bms_soc_profile_config_t*c){
+ memset(c,0,sizeof(*c));c->chemistry=chemistry;c->profile_id=chemistry;c->profile_version=1u;c->point_count=2u;
+ c->current_deadband_ma=200u;c->ocv_rest_prepare_s=600u;c->ocv_error_band_percent=5u;
+ c->valid_min_mv=2500u;c->valid_max_mv=4300u;c->empty_sync_mv=3000u;c->full_sync_mv=chemistry==1u?3500u:4180u;
+ c->full_min_margin_mv=100u;c->empty_max_margin_mv=150u;c->ocv_min_error_band_percent=5u;
+ c->full_cell_delta_max_mv=80u;c->terminal_cell_delta_max_mv=50u;c->terminal_start_offset_mv=150u;
+ c->terminal_l1_offset_mv=100u;c->terminal_l2_offset_mv=50u;c->terminal_l3_offset_mv=20u;
+ c->points[0].mv=c->valid_min_mv;c->points[0].soc_percent=0u;c->points[1].mv=c->valid_max_mv;c->points[1].soc_percent=100u;
+}
+int bms_soc_profile_store_valid(const bms_soc_profile_config_t*c){return c&&c->chemistry>=1u&&c->chemistry<=2u&&c->profile_id==c->chemistry&&c->point_count>=2u&&c->point_count<=BMS_SOC_PROFILE_MAX_POINTS;}
+void bms_soc_profile_store_init(void){bms_soc_config_t id;if(!bms_config_store_get_soc(&id))id.chemistry=1u;bms_soc_profile_store_defaults(id.chemistry,&soc_profile_stub);soc_profile_stub_persisted=0u;}
+void bms_soc_profile_store_get(bms_soc_profile_config_t*c){
+ bms_soc_config_t id;if(bms_config_store_get_soc(&id)&&soc_profile_stub.chemistry!=id.chemistry)bms_soc_profile_store_defaults(id.chemistry,&soc_profile_stub);
+ if(c)*c=soc_profile_stub;
+}
+int bms_soc_profile_store_set(const bms_soc_profile_config_t*c){if(!bms_soc_profile_store_valid(c))return 0;soc_profile_stub=*c;soc_profile_stub_persisted=1u;if(++soc_profile_stub_generation==0u)++soc_profile_stub_generation;return 1;}
+int bms_soc_profile_store_reset(u8 chemistry){bms_soc_profile_config_t c;bms_soc_profile_store_defaults(chemistry,&c);return bms_soc_profile_store_set(&c);}
+u16 bms_soc_profile_store_word(const bms_soc_profile_config_t*c,u16 offset){u16 value=0u;if(!c||offset>=BMS_SOC_PROFILE_WORDS)return 0u;if(offset<BMS_SOC_PROFILE_FIXED_WORDS){memcpy(&value,(const u8*)c+offset*2u,2u);return value;}offset-=BMS_SOC_PROFILE_FIXED_WORDS;return(offset&1u)?c->points[offset/2u].soc_percent:c->points[offset/2u].mv;}
+int bms_soc_profile_store_set_word(bms_soc_profile_config_t*c,u16 offset,u16 value){if(!c||offset>=BMS_SOC_PROFILE_WORDS)return 0;if(offset<BMS_SOC_PROFILE_FIXED_WORDS){memcpy((u8*)c+offset*2u,&value,2u);return 1;}offset-=BMS_SOC_PROFILE_FIXED_WORDS;if(offset&1u)c->points[offset/2u].soc_percent=value;else c->points[offset/2u].mv=value;return 1;}
+u16 bms_soc_profile_store_generation(void){return soc_profile_stub_generation;}
+u8 bms_soc_profile_store_is_persisted(void){return soc_profile_stub_persisted;}
 static int begin(void*c){(void)c;return begin_ok;}
 static void end(void*c){(void)c;}
 static int read_flash(void*c,u32 a,u8*b,u32 n){(void)c;if(!read_ok || (config_read_fail && a<4u*4096u))return 0;assert(a+n<=sizeof(flash));memcpy(b,flash+a,n);return 1;}
@@ -79,7 +104,7 @@ static void fresh(void){
  test_ota_mask=0u;
  /* TC32 的 program_bytes 会整字读取 store->port，生产 RAM 对象必须四字节对齐。 */
  assert(((uintptr_t)&g_bms_event_store % 4u)==0u);
- memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_init();assert(bms_protection_params_valid());
+ memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_init();bms_soc_profile_store_init();assert(bms_protection_params_valid());
 }
 
 /* 独立按 CFG2 payload 的固定字节位置构造期望，不调用生产 codec。 */
@@ -342,6 +367,17 @@ void bms_product_info_refresh(void){identity_updates++;}
 /* PARAMETER_PROTOCOL */
 static void test_parameter_protocol(void){
  fresh();u8 retired[]={0,6};u32 flash_before=programs;u16 sequence=bms_parameter_read(0x2e04);
+ assert((bms_parameter_read(0x2e02u)&0x0200u)!=0u);
+ assert(bms_parameter_read(0x2eb0u)==0x534fu&&bms_parameter_read(0x2eb1u)==1u);
+ u8 profile_command[]={0,1,0,0,'h','s','4','5','6',0};
+ assert(bms_parameter_write(0x2ef8u,4u,profile_command)==3u);
+ profile_command[9]=1u;assert(bms_parameter_write(0x2ef8u,5u,profile_command)==2u);profile_command[9]=0u;
+ assert(bms_parameter_write(0x2ef8u,5u,profile_command)==0u);
+ u16 profile_generation=bms_parameter_read(0x2ee5u);u8 deadband[]={0,250};
+ assert(bms_parameter_write(0x2f24u,1u,deadband)==0u);
+ profile_command[0]=0u;profile_command[1]=2u;profile_command[2]=(u8)(profile_generation>>8);profile_command[3]=(u8)profile_generation;
+ assert(bms_parameter_write(0x2ef8u,5u,profile_command)==0u&&bms_parameter_read(0x2eb6u)==250u&&bms_parameter_read(0x2ee4u)==1u);
+ sequence=bms_parameter_read(0x2e04u);
  access_active=0;assert(bms_parameter_write(0x2e10,1,retired)==3);
  access_active=1;assert(bms_parameter_write(0x2e10,1,retired)==3);
  assert(programs==flash_before && bms_parameter_read(0x2e04)==sequence);

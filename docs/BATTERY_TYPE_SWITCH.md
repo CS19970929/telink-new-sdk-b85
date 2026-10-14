@@ -59,7 +59,7 @@ D008 保留首次/OTA 的既有均衡测试组。在线切换 LFP 使用 3300/30
 
 请求 17 bytes，适配 MTU=23。错误长度/类型返回 3，错误密码返回 2，静置、存储或应用失败返回 4。客户端不自动重试；成功后读回类型、软件保护、AFE requested/effective、SOC 调参与均衡；TX/超时日志隐藏密码。密码为维护操作门禁，没有新增链路加密。
 
-完整 SOC profile 使用 `0x2EB0..0x2EE6` 读取 magic/version、50-word 当前值、持久状态、stage generation 和状态。50-word 值包含 chemistry/profile/version、三项算法调参、有效电压、满/空端点、压差/末端阈值以及最多 15 个 `mV + SOC%` OCV 点。`0x2F00..0x2F31` 每次最多写 4 word 暂存；`0x2EF8` 使用 5-word 命令（op、generation、`hs456\0`）执行 begin、commit 或恢复当前类型默认。最大请求为 19 bytes，适配 MTU=23。只有完整候选校验、journal 保存和运行重载都成功才报告完成；App/Windows 随后完整读回核对。
+完整 SOC profile 使用 `0x2EB0..0x2EE6` 读取 magic/version、50-word 当前值、持久状态、stage generation 和状态。50-word 值包含 chemistry/profile/version、三项算法调参、有效电压、满/空端点、压差/末端阈值以及最多 15 个 `mV + SOC%` OCV 点。`0x2F20..0x2F51` 每次最多写 4 word 暂存；该区间避开现有独立 MOS 控制窗口 `0x2F10..0x2F17`。`0x2EF8` 使用 5-word 命令（op、generation、`hs456\0`）执行 begin、commit 或恢复当前类型默认。最大请求为 19 bytes，适配 MTU=23。只有完整候选校验、journal 保存和运行重载都成功才报告完成；App/Windows 随后完整读回核对。
 
 Android 服务模式验证成功后停留在“设备”页并展开明确入口，不再自动跳转，避免密码确认触摸落到下一页危险按钮。“软件/硬件保护”改为单一外层滚动页；整套类型切换和 SOC/OCV 编辑归到“业务参数”。Android 与两个 Windows GUI 均显示构建时 Git commit；若源码有未提交改动，显示 `-dirty`，不得把 HEAD 冒充为可复现源码。
 
