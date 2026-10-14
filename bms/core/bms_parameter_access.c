@@ -229,8 +229,9 @@ static u8 soc_profile_command(const u8 *data, u16 qty)
 {
     bms_soc_config_t identity;
     u16 op, generation;
-    if (qty != 5u || memcmp(data + 4u, BMS_SERVICE_DEFAULT_PASSWORD,
-                             BMS_SERVICE_PASSWORD_BYTES) != 0) return 2u;
+    if (qty != 5u) return 3u;
+    if (memcmp(data + 4u, BMS_SERVICE_DEFAULT_PASSWORD,
+               BMS_SERVICE_PASSWORD_BYTES) != 0) return 2u;
     op = word(data);
     generation = word(data + 2u);
     if (op == 1u) {

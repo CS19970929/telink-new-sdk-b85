@@ -41,7 +41,7 @@ TLSR8251 512 KiB：
 | Event | `0x4C000..0x5BFFF` | 64 KiB / 16 sectors |
 | SleepConfig | `0x5C000..0x5DFFF` | 8 KiB / 2 sectors |
 | SocProfile | `0x5E000..0x5FFFF` | 8 KiB / 2 sectors |
-| 未分配 | `0x5E000..0x73FFF` | 88 KiB |
+| 未分配 | `0x60000..0x73FFF` | 80 KiB |
 | SDK 保留 | `0x74000..0x7FFFF` | 48 KiB |
 
 SDK 当前 825x 定义 SMP pairing `0x74000`、MAC `0x76000`、calibration `0x77000`，master pairing `0x78000`；整个 SDK 保留区不进入业务擦除。旧文档中的 `0x7F000` MAC 是其他 MCU 分支定义，不能用于 TLSR8251。
