@@ -1284,15 +1284,19 @@ static void soc_strategy_update(void)
 /* 更新 SOC 参数与相关容量状态。 */
 void set_soc_param(uint8_t soc)
 {
+#if BMS_SOC_DIAG_STATE_ENABLE
     uint8_t before = get_soc_real();
+#endif
     g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc);
     soc_recalc_full_capacity();
     soc_recalc_now_capacity();
     soc_invalidate_sample_interval();
     soc_reset_integral_accumulator();
     set_dispsoc(get_soc_real());
+#if BMS_SOC_DIAG_STATE_ENABLE
     soc_diag_note_action(BMS_SOC_ACTION_PARAMETER_SET, before,
                          soc_limit_percent_u32(soc), 1u);
+#endif
 }
 
 /* 初始化 SOC 参数、持久状态与策略计数。 */

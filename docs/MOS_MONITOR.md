@@ -22,7 +22,9 @@ DVC1124-2 RM V1.2 原 PDF 第 7–8 页定义 R6 的 CHGF/DSGF 为驱动输出�
 
 ## 开关与保存
 
-MOS 专用 RAM 历史与 `BMS_DIAG_TRACE_ENABLE` 共用开发开关，开发默认开启，production 禁止开启。
+MOS 专用 RAM 历史由 `BMS_DIAG_TRACE_ENABLE` 控制，并依赖
+`BMS_SERVICE_DIAG_ENABLE=1`。普通 development 默认关闭，现场诊断构建须显式开启两者；
+production 禁止开启。
 新增静态数组 576 字节（当前记录 64 字节、8 条历史 512 字节），另有计数等状态；实际资源以目标 MAP 为准。
 不受普通 Trace 的 SOC/PM 事件覆盖。首次记录建立基线，之后请求、命令、有效性、
 原因、保护或 MOS 状态发生变化才记录；SH ADC 完成位不会单独触发记录。

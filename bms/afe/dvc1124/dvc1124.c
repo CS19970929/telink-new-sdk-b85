@@ -278,6 +278,7 @@ static int32_t dvc_apply_boot_zero(int32_t calibrated_ma)
 }
 
 /* 发布启动零点校准结果和诊断计数。 */
+#if BMS_SERVICE_DIAG_ENABLE
 static void dvc_boot_zero_publish_diag(void)
 {
     int32_t factory_offset = 0;
@@ -298,6 +299,9 @@ static void dvc_boot_zero_publish_diag(void)
                        (uint16_t)((shunt > 65535u) ? 65535u : shunt));
     bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_SPREAD_MA, s_boot_zero.spread_ma);
 }
+#else
+#define dvc_boot_zero_publish_diag() ((void)0)
+#endif
 
 /* 有界等待 CC2 下一次转换，避免重复采集旧读数。 */
 static uint8_t dvc_boot_zero_wait_fresh_cc2(void)

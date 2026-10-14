@@ -5,13 +5,9 @@
 #ifndef BMS_DIAG_CONFIG_H_
 #define BMS_DIAG_CONFIG_H_
 
-/* 正式版本只保留只读兼容窗口，不维护启动、运行、MOS、SOC 或休眠快照。 */
+/* 普通开发和正式版本都只保留兼容窗口；现场诊断必须由构建参数显式启用。 */
 #ifndef BMS_SERVICE_DIAG_ENABLE
-#if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
 #define BMS_SERVICE_DIAG_ENABLE 0
-#else
-#define BMS_SERVICE_DIAG_ENABLE 1
-#endif
 #endif
 
 #if (BMS_SERVICE_DIAG_ENABLE != 0) && (BMS_SERVICE_DIAG_ENABLE != 1)
@@ -22,9 +18,9 @@
 #error "Production firmware must disable BMS_SERVICE_DIAG_ENABLE"
 #endif
 
-/* 轨迹是完整服务诊断的可选子集，不能脱离服务诊断单独启用。 */
+/* 轨迹是完整服务诊断的可选子集，默认关闭且不能脱离服务诊断单独启用。 */
 #ifndef BMS_DIAG_TRACE_ENABLE
-#define BMS_DIAG_TRACE_ENABLE BMS_SERVICE_DIAG_ENABLE
+#define BMS_DIAG_TRACE_ENABLE 0
 #endif
 
 #if (BMS_DIAG_TRACE_ENABLE != 0) && (BMS_DIAG_TRACE_ENABLE != 1)
@@ -39,9 +35,9 @@
 #error "Production firmware must disable BMS_DIAG_TRACE_ENABLE"
 #endif
 
-/* 栈扫描仅用于开发观测；量产不保留水位状态和扫描循环。 */
+/* 栈扫描仅用于显式开发观测；默认不保留水位状态和扫描循环。 */
 #ifndef BMS_STACK_MONITOR_ENABLE
-#define BMS_STACK_MONITOR_ENABLE BMS_SERVICE_DIAG_ENABLE
+#define BMS_STACK_MONITOR_ENABLE 0
 #endif
 
 #if (BMS_STACK_MONITOR_ENABLE != 0) && (BMS_STACK_MONITOR_ENABLE != 1)

@@ -44,6 +44,8 @@ int main(void){
  puts("PASS 实际 SH 采样/guard/SW 保护/最终 FET 命令：OV、UV、并发 SC、NTC 无效、ADC 过期、tick 回绕");return 0;
 }
 '''
-output=run_c(fixture,['bms/core/bms_sw_protection.c'],['-DGUARD_TEST=1','-Wno-misleading-indentation'],name='sh-safety-chain')
+output=run_c(fixture,['bms/core/bms_sw_protection.c'],
+             ['-DGUARD_TEST=1','-DBMS_SERVICE_DIAG_ENABLE=1','-Wno-misleading-indentation'],
+             name='sh-safety-chain')
 evidence({'domain':'safety_chain','observations':output.strip(),
           'boundary':'真实 SH backend+guard+SW；control/芯片、feature、存储为替身；命令不代表物理 Gate'})

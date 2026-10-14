@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+/* 本夹具断言 AFE 失败现场，明确选择服务诊断构建。 */
+#ifndef BMS_SERVICE_DIAG_ENABLE
+#define BMS_SERVICE_DIAG_ENABLE 1
+#endif
 #include "bms_state.h"
 #include "bms_afe_driver.h"
 #include "bms_sw_protection.h"
@@ -32,6 +36,8 @@ void bms_diag_afe_failure(uint16_t stage,int16_t error,uint16_t flag2,
 }
 /* 本夹具验证采样/恢复；MOS 原始状态的诊断存储由独立 diag 回归覆盖。 */
 void bms_diag_mos_raw_status(uint16_t raw_status) { (void)raw_status; }
+void bms_diag_driver(uint8_t driver_bits, uint8_t valid)
+{ (void)driver_bits; (void)valid; }
 #ifndef GUARD_TEST
 void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid) { (void)driver_bits; (void)valid; }
 #endif

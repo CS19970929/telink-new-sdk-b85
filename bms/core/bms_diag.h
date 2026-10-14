@@ -169,6 +169,14 @@ enum { DIAG_SLEEP_BLOCK_OTA=1u, DIAG_SLEEP_BLOCK_FLASH=2u,
     DIAG_SLEEP_BLOCK_WAKE_PAD=64u, DIAG_SLEEP_BLOCK_SAMPLE=128u,
     DIAG_SLEEP_BLOCK_STORAGE=256u, DIAG_SLEEP_BLOCK_AFE=512u,
     DIAG_SLEEP_BLOCK_BLE_CONTROL=1024u };
+
+/* guard 位也由标准 MOS 状态窗口和配置安全检查使用，不属于可裁剪服务诊断。 */
+enum {
+    DIAG_GUARD_OUTPUT_ENABLED=1u, DIAG_GUARD_COMM_INHIBIT=2u,
+    DIAG_GUARD_BUS_SILENCED=4u, DIAG_GUARD_FAULT_LATCHED=8u,
+    DIAG_GUARD_SAMPLES_QUALIFIED=16u
+};
+
 #if BMS_SERVICE_DIAG_ENABLE
 /* 仅复制故障现场，无额外 AFE I/O；flag2 bit8=读取有效，bit9=IDLE，bit10=SLEEP。 */
 void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
@@ -229,11 +237,6 @@ void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
 /* 发布各级保护故障位快照。 */
 void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3);
 
-enum {
-    DIAG_GUARD_OUTPUT_ENABLED=1u, DIAG_GUARD_COMM_INHIBIT=2u,
-    DIAG_GUARD_BUS_SILENCED=4u, DIAG_GUARD_FAULT_LATCHED=8u,
-    DIAG_GUARD_SAMPLES_QUALIFIED=16u
-};
 /* 从应用与后端缓存汇总运行诊断，不额外采样 AFE。 */
 void bms_diag_poll_runtime(uint8_t valid, int32_t raw_current_ma,
                            int32_t current_ma, uint32_t sample_tick_32k);

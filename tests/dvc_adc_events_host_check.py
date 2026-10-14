@@ -125,7 +125,7 @@ int main(void){
  puts("PASS DVC ADC完成事件、异步通道、RC/CRC重试、R1与R6分离、缓存到期与tick回绕");return 0;
 }
 '''
-out=run_c(code,name='dvc-adc-events')
+out=run_c(code,flags=['-DBMS_SERVICE_DIAG_ENABLE=1'],name='dvc-adc-events')
 evidence({'domain':'adc_events','trace':out.strip(),'boundary':'实际CRC/ReadRegisters/App_AFEGet函数体；I2C peer非芯片仿真，外围换算替身；512ms为项目活性约束'})
 
 # 均衡命令失败必须返回失败；只验证寄存器服务结果，不代替物理均衡电流。

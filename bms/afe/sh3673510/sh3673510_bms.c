@@ -150,14 +150,20 @@ static uint16_t legacy_adc_mv(uint32_t ohm)
 static void note_comm_error(uint16_t stage)
 {
     sh3673520_comm_stats_t stats;
+#if BMS_SERVICE_DIAG_ENABLE
     uint32_t now = pm_get_32k_tick();
+#endif
 
     SH3673520_GetCommStats(&stats);
+#if BMS_SERVICE_DIAG_ENABLE
     bms_diag_afe_failure(stage, (int16_t)stats.last_error,
         stage < DIAG_AFE_FAIL_INIT ? s_sample_attempt_flag2 : 0u,
         (uint32_t)(now-s_vadc_tick), (uint32_t)(now-s_cadc_tick),
         stage < DIAG_AFE_FAIL_INIT ? (uint32_t)(now-s_sample_attempt_tick) : 0u,
         stats.crc_error_count, stats.retry_count);
+#else
+    (void)stage;
+#endif
 
     bms_sw_protection_reset_current_recovery();
     s_snapshot_valid = 0u;
@@ -1015,6 +1021,7 @@ uint8_t sh3673510_bms_afe_get_direction_allow_mask(void)
     return mask;
 }
 
+#if BMS_SERVICE_DIAG_ENABLE
 /* 取得 FET 请求、控制和保护阻断诊断。 */
 uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *command_bits,
                                                uint8_t *command_valid,
@@ -1083,6 +1090,7 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
         detail->discharge_block_reasons |= DIAG_BLOCK_HW;
     return 1u;
 }
+#endif
 
 /* 按器件与板级时序进入 AFE 休眠。 */
 uint8_t sh3673510_bms_afe_sleep(void)

@@ -4,23 +4,30 @@
 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 维护。
 四产品共享 `bms/core/bms_debug_log.c`，产品 sources.txt 引用同一文件。
 
-运行服务诊断、诊断 ring trace 与运行日志是三层开关。开发默认
-`BMS_SERVICE_DIAG_ENABLE=1`、`BMS_DIAG_TRACE_ENABLE=1`；production 强制两者为 0。
-`BMS_DEBUG_LOG_ENABLE` 仍默认 0，production 也禁止开启。量产关闭服务诊断后，不再维护
+运行服务诊断、诊断 ring trace、栈水位扫描与运行日志是四个显式开关。普通 development
+与 production 均默认 `BMS_SERVICE_DIAG_ENABLE=0`、`BMS_DIAG_TRACE_ENABLE=0`、
+`BMS_STACK_MONITOR_ENABLE=0`、`BMS_DEBUG_LOG_ENABLE=0`；production 另外禁止开启。
+默认关闭服务诊断后，不再维护
 boot/AFE/MOS/storage/fault/SOC/休眠快照及栈水位扫描；既有只读地址仍保留，返回 magic/schema、
 build 标识和 `capability=0`，其余字段为 0，不访问 AFE、Flash 或系统时钟。DVC raw register
 window 同样仅开发启用，production 不编译且读保留窗口返回 `0xFFFF`；raw 写入始终拒绝。
 
 ## 使用
 
-默认 `BMS_DEBUG_LOG_ENABLE=0`。开发时用编译参数启用，避免把调试配置提交为量产默认值：
+默认不携带服务诊断、trace、栈扫描或运行日志。开发时按问题显式启用，避免普通开发镜像长期
+消耗 Flash/RAM；`BMS_DIAG_TRACE_ENABLE=1` 必须同时启用 `BMS_SERVICE_DIAG_ENABLE=1`：
 
 ```powershell
 $env:BMS_BUILD_ROOT = "$env:LOCALAPPDATA/CodexTemp/bms-runtime-log/debug"
-$env:EXTRA_DEFINES = '-DBMS_DEBUG_LOG_ENABLE=1 -DBMS_DEBUG_LOG_LEVEL=4'
+$env:EXTRA_DEFINES = '-DBMS_SERVICE_DIAG_ENABLE=1'
 python bms_tools/bms.py --all-products link --jobs 4
 python bms_tools/bms.py --all-products resources
 ```
+
+需要 MOS/AFE 历史再追加 `-DBMS_DIAG_TRACE_ENABLE=1`，需要栈水位再追加
+`-DBMS_STACK_MONITOR_ENABLE=1`，需要 RAM 运行日志再追加
+`-DBMS_DEBUG_LOG_ENABLE=1 -DBMS_DEBUG_LOG_LEVEL=4`。每次都先执行 `link/resources`；完整诊断
+组合可能使 D008 超过 APP slot，不能绕过资源门禁生成或发送 OTA 镜像。
 
 `link` 只生成 ELF/MAP/LST，不生成 BIN。本次未生成镜像或烧录。
 等级 1=ERROR、2=WARN、3=INFO、4=DEBUG，包含低于等于配置值的等级。
@@ -114,11 +121,25 @@ MOS 请求/缓存不是物理 Gate 反馈，日志不声称闭环硬件成功。
 
 ## 本次验证与资源
 
-2026-10-14 的服务诊断与产品能力源码裁剪未执行编译、链接或资源测量；以下数字均为各自注明的
-历史固定提交证据，不能当作当前源码的 Flash/RAM 结果。当前资源结论必须以后续四产品
-`link`/`resources` 输出为准。
+2026-10-14 以 `aa9203ed` 后的当前 dirty 源码执行四产品 `sources --check`、默认 development
+`link/resources` 及显式 `BMS_SERVICE_DIAG_ENABLE=1` 的 `link/resources`；均为零编译错误、零警告，
+MAP 的 SRAM 与物理 slot 门禁通过。dirty 来源包括当前 D008 20S LFP 源码配置和本次未提交修改；
+以下是 ELF/MAP 投影，不是 BIN，也不代替干净提交或实板证据。
 
-2026-10-05：四产品 sources 顺序校验；日志关闭/DEBUG全模块共 8 次 TC32 链接，全部零错误、零警告；
+| 产品 | 默认 Flash / 余量 | service-only Flash / 余量 | 默认 RAM 跨度 / 栈预算后余量 |
+|---|---:|---:|---:|
+| D008 20S LFP | 118740 / 8236 | 125924 / 1052 | 22932 / 6764 |
+| D011 | 115908 / 11068 | 123476 / 3500 | 22532 / 7164 |
+| D013 | 112468 / 14508 | 120036 / 6940 | 22440 / 7256 |
+| D014 | 114916 / 12060 | 122484 / 4492 | 22528 / 7168 |
+
+用户原完整诊断 development 镜像为 127684 B，超过 126976 B APP slot 708 B；默认关闭后 D008
+投影为 118740 B，回收 8944 B。service-only 仍在物理 slot 内，但四产品均低于 8 KiB 发布余量；
+仅用于有明确问题的临时维护构建。完整 trace/stack 组合继续受资源门禁约束。本轮未生成新 BIN、
+未烧录、未 OTA、未做实板验证。
+
+以下为历史固定提交证据，不能替代上述当前结果。2026-10-05：四产品 sources 顺序校验；
+日志关闭/DEBUG全模块共 8 次 TC32 链接，全部零错误、零警告；
 8 份 MAP 的 SRAM 和槽位边界检查通过。下表为开发配置、默认 D008 profile 的链接投影字节数，非 BIN。
 
 | 产品 | 关闭/DEBUG Flash投影 | 关闭/DEBUG Flash余量 | 关闭/DEBUG RAM跨度 | 关闭/DEBUG 栈预算后余量 |

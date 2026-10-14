@@ -66,6 +66,7 @@ void sh3673510_bms_afe_set_output_enabled(uint8_t);
 uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *);
 /* 读取成功但等待转换完成，不计入新样本资格。 */
 uint8_t sh3673510_bms_afe_sample_pending(void);
+#if BMS_SERVICE_DIAG_ENABLE
 /* 取得 FET 请求、控制和保护阻断诊断。 */
 uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *, uint8_t *, uint8_t *, uint8_t *);
 typedef struct {
@@ -76,6 +77,7 @@ typedef struct {
 } sh3673510_fet_diag_detail_t;
 /* 取得 FET 仲裁的详细诊断字段。 */
 uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detail);
+#endif
 /* 取得均衡和温度策略需要的后端快照。 */
 uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *);
 /* 返回后端可确认的充电源存在状态。 */

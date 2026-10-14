@@ -8,6 +8,36 @@ def check_bms_diag_host_check():
     import re
 
     def main():
+        run_c(r'''
+            #include <assert.h>
+            #include <stdint.h>
+            #include "bms_diag.h"
+            #if BMS_SERVICE_DIAG_ENABLE || BMS_DIAG_TRACE_ENABLE || BMS_STACK_MONITOR_ENABLE
+            #error "ordinary development diagnostics must default off"
+            #endif
+            static uint16_t word(const uint8_t *p)
+            { return (uint16_t)(((uint16_t)p[0] << 8) | p[1]); }
+            int main(void) {
+                uint8_t bytes[250];
+                bms_diag_init();
+                assert(BMS_DIAG_CAPABILITIES == 0u);
+                assert(bms_diag_read(BMS_DIAG_BASE, 24u, bytes));
+                assert(word(bytes) == 0x4447u && word(bytes + 2u) == 1u);
+                assert(word(bytes + 4u) == 0u);
+                assert(bms_diag_read(BMS_DIAG_TRACE_BASE, 120u, bytes));
+                for (unsigned i = 0u; i < 240u; ++i) assert(bytes[i] == 0u);
+                assert(bms_diag_read(BMS_DIAG_SLEEP_BASE, BMS_DIAG_SLEEP_WORDS, bytes));
+                assert(word(bytes) == 0x534cu && word(bytes + 2u) == 1u);
+                assert(bms_diag_read(BMS_DIAG_MOS_BASE, 16u, bytes));
+                assert(word(bytes) == 0x4d48u && word(bytes + 4u) == 0u);
+                assert(bms_diag_read(BMS_DIAG_AFE_FAILURE_BASE, 16u, bytes));
+                assert(word(bytes) == 0x4146u && word(bytes + 4u) == 0u);
+                assert(!bms_diag_read(BMS_DIAG_END - 1u, 2u, bytes));
+                assert(!bms_diag_read(BMS_DIAG_BASE, 126u, bytes));
+                assert(!bms_diag_read(BMS_DIAG_BASE, 1u, 0));
+                return 0;
+            }
+        ''', ['bms/core/bms_diag.c'], [], name='bms-diag-defaults')
         source=read('bms/core/modbus_rtu.c')
         ingress='\n'.join(function(source, signature) for signature in (
             'static int modbus_finish_response(', 'static int modbus_read_holding(',
@@ -16,9 +46,13 @@ def check_bms_diag_host_check():
         constants='\n'.join(re.findall(r'^#define (?:BMS_PARAM_REG_\w+|BMS_MOS_CONTROL_(?:BASE|COUNT))[^\n]*',
                                       read('bms/core/bms_parameter_access.h') + '\n' + source, re.M))
         fixture=read('tests/fixtures/bms_diag.c').replace('/* MODBUS */',constants+'\n'+ingress)
-        for defines in ([], ['-DBMS_DEBUG_LOG_ENABLE=1', '-DBMS_DEBUG_LOG_LEVEL=4'],
-                        ['-DBMS_DIAG_TRACE_ENABLE=0'],
-                        ['-DBMS_DIAG_TRACE_ENABLE=0', '-DBMS_DEBUG_LOG_ENABLE=1', '-DBMS_DEBUG_LOG_LEVEL=4']):
+        for defines in (
+                ['-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_DIAG_TRACE_ENABLE=1'],
+                ['-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_DIAG_TRACE_ENABLE=1',
+                 '-DBMS_DEBUG_LOG_ENABLE=1', '-DBMS_DEBUG_LOG_LEVEL=4'],
+                ['-DBMS_SERVICE_DIAG_ENABLE=1'],
+                ['-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_DEBUG_LOG_ENABLE=1',
+                 '-DBMS_DEBUG_LOG_LEVEL=4']):
             run_c(fixture, ['bms/core/bms_diag.c','bms/core/bms_debug_log.c'],
                   ['-Wno-unused-parameter','-I',str(ROOT/'tests/fixtures/d014_safety_loop/include'),*defines],
                   name='bms-diag')
@@ -116,4 +150,5 @@ if __name__ == "__main__":
     check_runtime_debug_log_host_check()
     from validation_support import read, run_c, ROOT
     run_c(read('tests/fixtures/runtime_diag.c'), ['bms/platform/telink/bms_runtime_diag.c'],
-          ['-I',str(ROOT/'tests/fixtures/d014_safety_loop/include')], name='runtime-diag')
+          ['-I',str(ROOT/'tests/fixtures/d014_safety_loop/include'),
+           '-DBMS_SERVICE_DIAG_ENABLE=1'], name='runtime-diag')
