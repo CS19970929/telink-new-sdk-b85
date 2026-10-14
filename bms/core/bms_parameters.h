@@ -3,12 +3,15 @@
 #define BMS_PARAMETERS_H_
 
 #include "bms_protection_params.h"
+#include "bms_diag_config.h"
 
 /* 一次完成 Config/State/Event 初始化；仅安全配置失败保持输出阻断。 */
 void bms_parameters_init(void);
 /* 候选校验和持久保存成功后才发布，不清除失败的启动门禁。 */
 uint8_t bms_protection_params_commit(const bms_protection_params_t *candidate);
 /* 刷新运行参数和启动门禁诊断。 */
+#if BMS_SERVICE_DIAG_ENABLE
 void bms_parameters_diag_poll(void);
+#endif
 uint8_t bms_parameters_reload_configuration(void);
 #endif

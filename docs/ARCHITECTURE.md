@@ -14,7 +14,7 @@ app / feature → bms_afe.h → bms_afe_guard → bms_afe_driver.h
 Config / State / Event → storage_record → Telink Flash 平台
 ```
 
-每个固件只链接一个后端，无运行时 factory/ops 表。业务调用公共 AFE API；guard、后端及受控诊断使用 driver 边界。GPIO、tick、UART/BLE、Flash 仍按 Telink SDK 实现。
+每个固件只链接一个后端，无运行时 factory/ops 表。业务调用公共 AFE API；guard、后端及受控诊断使用 driver 边界。GPIO、UART/BLE、Flash 仍按 Telink SDK 实现；公共业务的 32K 时间由 `bms_time_now_32k()` 提供，诊断不拥有安全计时源。
 
 SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH 恢复证据与采样资格](SH_RECOVERY_AND_FRESHNESS.md)。充电器查询与 feature 快照均只读已验证缓存，guard 继续拥有输出资格和 watchdog 静默。
 
@@ -27,11 +27,13 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | AFE requested/effective、apply-state | `bms_afe_hw_profile.c`，独立授权/提交接口 | apply/readback 失败回滚；回滚失败 CONFIG_INCONSISTENT |
 | 三等级软件故障 | `bms_sw_protection.c` 私有故障字；SOC Low 在 `bms_soc.c` | 仅在报告边界合并硬件故障，SW 阻断查询只读私有来源 |
 | AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | watchdog bus silence、重配、三次合格样本；失效不能以旧样本恢复 |
+| AFE 实际 FET 回读及有效性 | backend 经 `bms_afe_publish_fet_status()` 发布，`bms_afe_guard.c` 保存 | 命令变化、通信失效、输出撤销后立即作废；标准协议不依赖开发诊断缓存，也不把寄存器状态宣称为实测 Gate |
 | 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
-| heater/balance 策略 | `bms/app/bms_features.c` | 产品能力、温度、可信采样及故障互锁 |
+| heater/balance 策略 | `bms/app/bms_features.c` | 产品头用 `BMS_FEATURE_*_SUPPORTED` 编译期裁剪；保留产品的温度、可信采样及故障互锁 |
 | SOC estimate/display/OCV/循环 SOH | `bms_soc.c`，应用输入推进 | 首轮建立基准、重复应用时间不积分、无效/GAP 不补算；有效缓存可积分，新测量确认独立 |
 | SOC/放电累计/循环持久值 | `bms_state_store.c`；提交 cache 与待保存副本分离 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立执行标记 |
 | 采样到期标志 / 休眠计时与提交状态 | `app.c` 持有采样标志；`app_power.c` 持有 PM 状态并只读该标志 | 回调只置位；已提交保护性深睡、ACC 休眠/关机先执行保持动作，不再进入业务调度 |
+| 32K 业务时间 | `bms_time_now_32k()` 的 Telink 平台实现 | 自然回绕；guard/feature/debug 可读取，关闭诊断不能改变保护计时 |
 | 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | 前者 Flash checkpoint，后者仅 RAM；均有丢失窗口 |
 
 2026-10-11 的职责收口见 [全模块审查与简化](SIMPLIFICATION_20261011.md)：软件保护初始化由 guard
@@ -53,7 +55,7 @@ AFE 事务：授权 → 校验完整候选 → 保存 → apply → requested/ef
 
 `main_loop()` 四产品共用任务顺序，GPIO 初始化和 D008 总线调度保留原时点；PM 状态机由 `bms/app/app_power.c` 持有。`app_init()` 一次性提交同口 CHG/DSG 请求；`bms_afe_sample()` 在采样、软件保护和 feature 之后、SOC 之前重新仲裁输出，应用不再每帧重复提交固定请求。最终输出还取决于参数/启动授权、guard 通信资格、feature、软件阻断、AFE 硬件锁存。`bms_afe_set_output_enabled(1)` 只表达允许申请，并非直接强制导通。
 
-DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH 保留芯片自己的锁存清除与恢复状态机。SPI/I2C 断线时通过同一总线发 OFF 只是 best effort，最终关断仍需实测硬件 watchdog/Gate。诊断的 requested、command cache、AFE status 不可合并为“已测 MOS 导通”。
+DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH 保留芯片自己的锁存清除与恢复状态机。SPI/I2C 断线时通过同一总线发 OFF 只是 best effort，最终关断仍需实测硬件 watchdog/Gate。guard 保存的 AFE status、诊断的 requested/command cache 都不可合并为“已测 MOS 导通”。
 
 参数/启动资格由 guard 直接检查；feature 的双向断线阻断已删除，加热仍可阻断充电方向。功能间影响的保留依据及策略候选见 [功能耦合审查](FUNCTION_COUPLING_REVIEW.md)。
 

@@ -6,6 +6,7 @@
 #ifndef BMS_DIAG_H_
 #define BMS_DIAG_H_
 #include <stdint.h>
+#include "bms_diag_config.h"
 
 /* schema 1，仅主循环使用；无 ISR 生产者，读取路径无 I/O。 */
 #ifndef BMS_DIAG_BUILD_ID
@@ -50,30 +51,6 @@ enum {
     DIAG_AFE_FAIL_FET_WRITE=17, DIAG_AFE_FAIL_FLAG_CLEAR_HOLD=18,
     DIAG_AFE_FAIL_SLEEP=19, DIAG_AFE_FAIL_OUTPUT_DISABLE=20
 };
-/* 仅复制故障现场，无额外 AFE I/O；flag2 bit8=读取有效，bit9=IDLE，bit10=SLEEP。 */
-void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
-    uint32_t vadc_age_32k, uint32_t cadc_age_32k, uint32_t sample_elapsed_32k,
-    uint32_t crc_errors, uint32_t retries);
-
-/*
- * 开发默认保留轨迹；生产关闭以节省 1536 字节 RAM，
- * 能力位和既有只读窗口随之报告无轨迹。
- */
-#ifndef BMS_DIAG_TRACE_ENABLE
-#if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
-#define BMS_DIAG_TRACE_ENABLE 0
-#else
-#define BMS_DIAG_TRACE_ENABLE 1
-#endif
-#endif
-#if (BMS_DIAG_TRACE_ENABLE != 0) && (BMS_DIAG_TRACE_ENABLE != 1)
-#error "BMS_DIAG_TRACE_ENABLE must be 0 or 1"
-#endif
-
-#if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD && BMS_DIAG_TRACE_ENABLE
-#error "Production firmware must disable BMS_DIAG_TRACE_ENABLE"
-#endif
-
 #define BMS_DIAG_CAP_BOOT       0x0001u
 #define BMS_DIAG_CAP_TRACE      0x0002u
 #define BMS_DIAG_CAP_STORAGE    0x0004u
@@ -83,10 +60,14 @@ void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
 #define BMS_DIAG_CAP_SLEEP      0x0040u
 #define BMS_DIAG_CAP_MOS_HISTORY 0x0080u
 /* 能力位 0x0100 已撤销，保留不复用。 */
+#if BMS_SERVICE_DIAG_ENABLE
 #define BMS_DIAG_CAPABILITIES   (BMS_DIAG_CAP_BOOT | (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_TRACE : 0u) | \
                                  BMS_DIAG_CAP_STORAGE | BMS_DIAG_CAP_MOS | \
                                  BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME | BMS_DIAG_CAP_SLEEP | \
                                  (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_MOS_HISTORY : 0u))
+#else
+#define BMS_DIAG_CAPABILITIES   0u
+#endif
 
 #define BMS_DIAG_RUNTIME_VERSION 3u
 #define BMS_DIAG_RUNTIME_OFFSET  192u
@@ -158,9 +139,6 @@ enum { DIAG_UPGRADE_STARTED=1, DIAG_UPGRADE_CONFIG_LOAD=2,
     DIAG_UPGRADE_STATE=6, DIAG_UPGRADE_EVENT=7, DIAG_UPGRADE_OK=8 };
 enum { DIAG_UPGRADE_BAD_SW=1u, DIAG_UPGRADE_BAD_AFE=2u,
     DIAG_UPGRADE_BAD_SOC=4u, DIAG_UPGRADE_BAD_CAPACITY=8u };
-/* 记录持久参数升级与迁移诊断。 */
-void bms_diag_upgrade(uint16_t stage, uint16_t invalid_mask);
-
 enum { DIAG_BLOCK_PARAMS=1u, DIAG_BLOCK_UPGRADE=2u, DIAG_BLOCK_OUTPUT=4u,
     DIAG_BLOCK_COMM=8u, DIAG_BLOCK_SW=16u, DIAG_BLOCK_HW=32u,
     /* 原 bit 6 已撤销，后续原因位编号保持。 */
@@ -191,13 +169,18 @@ enum { DIAG_SLEEP_BLOCK_OTA=1u, DIAG_SLEEP_BLOCK_FLASH=2u,
     DIAG_SLEEP_BLOCK_WAKE_PAD=64u, DIAG_SLEEP_BLOCK_SAMPLE=128u,
     DIAG_SLEEP_BLOCK_STORAGE=256u, DIAG_SLEEP_BLOCK_AFE=512u,
     DIAG_SLEEP_BLOCK_BLE_CONTROL=1024u };
+#if BMS_SERVICE_DIAG_ENABLE
+/* 仅复制故障现场，无额外 AFE I/O；flag2 bit8=读取有效，bit9=IDLE，bit10=SLEEP。 */
+void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
+    uint32_t vadc_age_32k, uint32_t cadc_age_32k, uint32_t sample_elapsed_32k,
+    uint32_t crc_errors, uint32_t retries);
+/* 记录持久参数升级与迁移诊断。 */
+void bms_diag_upgrade(uint16_t stage, uint16_t invalid_mask);
 /* 由原电源路径发布，只记录已有计数，不推进计时或访问硬件。 */
 void bms_diag_sleep(uint8_t reason, uint32_t block_mask, uint32_t elapsed_ms,
                     uint32_t delay_ms, uint32_t retry_ms, uint8_t suspend_allowed);
 /* 已完成前置动作，即将调用 SDK 深睡或切断供电；不是实测入睡证明。 */
 void bms_diag_sleep_committed(void);
-/* 取得存储诊断使用的系统时间戳。 */
-uint32_t bms_diag_tick(void);
 /* 初始化诊断窗口和启动快照。 */
 void bms_diag_init(void);
 /* 冻结启动快照，防止运行阶段覆盖启动证据。 */
@@ -245,10 +228,6 @@ void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
                          uint16_t suspend_current_threshold_ma);
 /* 发布各级保护故障位快照。 */
 void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3);
-/* 判断请求寄存器范围是否与诊断窗口重叠。 */
-int bms_diag_overlaps(uint16_t start, uint16_t count);
-/* 从 RAM 诊断快照读取指定寄存器范围。 */
-int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes);
 
 enum {
     DIAG_GUARD_OUTPUT_ENABLED=1u, DIAG_GUARD_COMM_INHIBIT=2u,
@@ -276,5 +255,45 @@ enum {
 void bms_diag_set_build_flags(uint16_t);
 /* 记录启动门禁最终结果。 */
 void bms_diag_set_boot_result(uint16_t, uint16_t);
+#else
+/*
+ * 量产关闭后，生产者在调用点完全消失；只读兼容窗口仍由 bms_diag.c 响应，
+ * capability=0，旧地址不复用也不访问 AFE/Flash。
+ */
+#define bms_diag_afe_failure(...)       ((void)0)
+#define bms_diag_upgrade(...)           ((void)0)
+#define bms_diag_sleep(...)             ((void)0)
+#define bms_diag_sleep_committed(...)   ((void)0)
+#define bms_diag_init(...)              ((void)0)
+#define bms_diag_freeze_boot(...)       ((void)0)
+#define bms_diag_trace(...)             ((void)0)
+#define bms_diag_boot_word(...)         ((void)0)
+#define bms_diag_boot_u32(...)          ((void)0)
+#define bms_diag_attempt(...)           ((void)0)
+#define bms_diag_result(...)            ((void)0)
+#define bms_diag_storage_error(...)     ((void)0)
+#define bms_diag_params(...)            ((void)0)
+#define bms_diag_mos(...)               ((void)0)
+#define bms_diag_command(...)           ((void)0)
+#define bms_diag_driver(...)            ((void)0)
+#define bms_diag_mos_capture(...)       ((void)0)
+#define bms_diag_mos_raw_status(...)    ((void)0)
+#define bms_diag_backend(...)           ((void)0)
+#define bms_diag_cached_word(...)       (0u)
+#define bms_diag_counter(...)           ((void)0)
+#define bms_diag_runtime_sample(...)    ((void)0)
+#define bms_diag_runtime_soc(...)       ((void)0)
+#define bms_diag_runtime_pm(...)        ((void)0)
+#define bms_diag_runtime_faults(...)    ((void)0)
+#define bms_diag_poll_runtime(...)      ((void)0)
+#define bms_diag_backend_details(...)   ((void)0)
+#define bms_diag_set_build_flags(...)   ((void)0)
+#define bms_diag_set_boot_result(...)   ((void)0)
+#endif
+
+/* 判断请求寄存器范围是否与诊断窗口重叠。 */
+int bms_diag_overlaps(uint16_t start, uint16_t count);
+/* 从完整快照或量产兼容桩读取指定寄存器范围。 */
+int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes);
 
 #endif

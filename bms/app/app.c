@@ -240,9 +240,11 @@ static void app_sample_task(void)
     valid = bms_afe_get_aux_measurements(&m);
     app_update_soc_from_sample(valid, valid ? m.current_ma : 0);
 
+#if BMS_SERVICE_DIAG_ENABLE
     bms_diag_poll_runtime(valid, valid ? m.raw_current_ma : 0,
                           valid ? m.current_ma : 0,
                           valid ? m.sample_tick_32k : pm_get_32k_tick());
+#endif
 
     /* 即使 BLE 广播间隔为 800 ms，也保持固定采样节拍。 */
     if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
@@ -310,6 +312,7 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma)
 void app_init(void)
 {
 	{
+#if BMS_SERVICE_DIAG_ENABLE
 		bms_diag_init();
 		bms_storage_platform_diag_boot();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -322,6 +325,7 @@ void app_init(void)
                                  (SH3673510_HW_PROTECT_ENABLE ? 2u : 0u) |
                                  (BMS_PRODUCTION_BUILD ? 4u : 0u) |
                                  (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
+#endif
 #endif
 		board_init();
 		bms_parameters_init();
@@ -362,6 +366,7 @@ void app_init(void)
 
 	bms_product_info_refresh();
 	bms_afe_set_output_enabled(1u);
+#if BMS_SERVICE_DIAG_ENABLE
     bms_diag_set_boot_result(
         g_bms_system_status.bits.afe1_status ? DIAG_OK : DIAG_INVALID,
         bms_protection_params_valid() ? DIAG_OK : DIAG_INVALID);
@@ -369,4 +374,5 @@ void app_init(void)
     bms_storage_platform_diag_poll();
     bms_afe_diag_poll();
     bms_diag_freeze_boot();
+#endif
 }

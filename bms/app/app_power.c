@@ -632,9 +632,11 @@ uint8_t app_power_prepare_loop(void)
         app_acc_sleep_hold();
         return 1u;
     }
+#if BMS_SERVICE_DIAG_ENABLE
     bms_parameters_diag_poll();
     bms_storage_platform_diag_poll();
     bms_afe_diag_poll();
+#endif
 #endif
     return 0u;
 }

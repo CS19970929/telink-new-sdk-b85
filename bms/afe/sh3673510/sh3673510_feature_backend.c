@@ -4,14 +4,17 @@
  * bms/afe/sh3673510/sh3673510_feature_backend.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_driver.h"
+#include "bms_product.h"
 #include "bms_state.h"
 #include "bms_diag.h"
+#include "bms_time.h"
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"
 #include "sh3673520.h"
 #include "sh3673520_reg.h"
 #include <string.h>
 
+#if BMS_FEATURE_BALANCE_SUPPORTED
 #define SH_FEATURE_BALANCE_REFRESH_TICKS (20000u * 32u) /* 20 秒，短于既有硬件超时。 */
 static uint32_t s_balance_requested;
 static uint32_t s_balance_refresh_tick;
@@ -41,7 +44,7 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
     if (!sh_read_balance_mask(&actual)) return 0u;
 
     if (cell_mask == 0u) {
-        s_balance_refresh_tick = bms_diag_tick();
+        s_balance_refresh_tick = bms_time_now_32k();
         if (actual != 0u && !sh3673510_control_set_balance(0u)) return 0u;
         if (!sh_read_balance_mask(&actual) || actual != 0u) return 0u;
         s_balance_requested = 0u;
@@ -49,10 +52,10 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
     }
 
     if (actual != cell_mask || cell_mask != s_balance_requested ||
-        (uint32_t)(bms_diag_tick() - s_balance_refresh_tick) >= SH_FEATURE_BALANCE_REFRESH_TICKS) {
+        (uint32_t)(bms_time_now_32k() - s_balance_refresh_tick) >= SH_FEATURE_BALANCE_REFRESH_TICKS) {
         if (!sh3673510_control_set_balance(cell_mask)) return 0u;
         if (!sh_read_balance_mask(&actual) || actual != cell_mask) return 0u;
-        s_balance_refresh_tick = bms_diag_tick();
+        s_balance_refresh_tick = bms_time_now_32k();
     }
     s_balance_requested = cell_mask;
     return 1u;
@@ -63,3 +66,4 @@ uint8_t sh3673510_backend_get_balance_mask(uint32_t *cell_mask)
 {
     return sh_read_balance_mask(cell_mask);
 }
+#endif

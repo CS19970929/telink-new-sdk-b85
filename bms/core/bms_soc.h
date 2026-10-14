@@ -95,7 +95,9 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config);
 /* 独立 SOC profile 保存成功后刷新运行曲线，不重复写 CFG2。 */
 uint8_t bms_soc_profile_reload(void);
 /* 取得 SOC 运行诊断快照。 */
+#if BMS_SERVICE_DIAG_ENABLE
 void bms_soc_get_diag(bms_soc_diag_t *diag);
+#endif
 
 /*
  * 应用每 200 ms 提交最新有效电流，按实际应用间隔积分。

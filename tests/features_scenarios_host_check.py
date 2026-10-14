@@ -6,6 +6,9 @@ from validation_support import read, profile_prefix, without_includes, function,
 
 product = os.environ.get('BMS_PRODUCT', 'd014')
 code = profile_prefix(product)
+# 此 fixture 专测公共状态机全部分支；产品不支持能力的量产裁剪由产品/源码契约单独检查。
+code += '\n#undef BMS_FEATURE_HEATER_SUPPORTED\n#define BMS_FEATURE_HEATER_SUPPORTED 1u\n'
+code += '#undef BMS_FEATURE_BALANCE_SUPPORTED\n#define BMS_FEATURE_BALANCE_SUPPORTED 1u\n'
 code += '\n#include "bms_features.h"\n#include "bms_board.h"\n#include "bms_error.h"\n#include "bms_state.h"\n#include "bms_sw_protection.h"\n#include "bms_diag.h"\n#include "bms_debug_log.h"\n'
 code += re.search(r'typedef struct\s*\{.*?\} bms_user_params_t;', read('bms/core/bms_config_store.h'), re.S).group()
 board = selected_source('bms/platform/telink/bms_board.c', product)

@@ -87,7 +87,7 @@ static int erase(void*c,u32 a,u32 n){(void)c;++erases;++sector_erases[a/4096u];a
 static const storage_port_t port={0,4096,4,255,begin,end,read_flash,program,erase};
 const storage_port_t*bms_storage_platform_port(void){return &port;}
 int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=16*4096;}else if(d==BMS_STORAGE_DOMAIN_SLEEP_CONFIG){r->base=28*4096;r->size=2*4096;}else return 0;return 1;}
-uint32_t bms_diag_tick(void){return now;}
+uint32_t bms_time_now_32k(void){return now;}
 /* PRODUCTION */
 static void reboot(void){
  bms_diag_init();region_ok=1;read_ok=1;erase_ok=1;config_read_fail=0;

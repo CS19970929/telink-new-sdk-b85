@@ -12,7 +12,8 @@ static int requested_fail_at = -1, effective_fail_at = -1;
 static u16 effective_base = 0x2000u;
 static uint32_t corpus = 2166136261u;
 static u8 remote_allowed_mask=3u,requested_charge=1u,requested_discharge=1u;
-uint32_t bms_diag_tick(void) { return 123u; }
+static u8 fet_driver=3u,fet_driver_valid=1u;
+uint32_t bms_time_now_32k(void) { return 123u; }
 uint8_t bms_afe_get_remote_allowed_mask(void) { return remote_allowed_mask; }
 uint8_t bms_afe_set_channel_allowed(uint8_t channel,uint8_t allowed)
 {
@@ -22,6 +23,7 @@ uint8_t bms_afe_set_channel_allowed(uint8_t channel,uint8_t allowed)
     return 1u;
 }
 void bms_afe_get_requested_fets(uint8_t*c,uint8_t*d){*c=requested_charge;*d=requested_discharge;}
+uint8_t bms_afe_get_fet_status(uint8_t *bits){*bits=fet_driver;return fet_driver_valid;}
 uint16_t bms_afe_get_guard_diagnostic_bits(void){return DIAG_GUARD_OUTPUT_ENABLED|DIAG_GUARD_SAMPLES_QUALIFIED;}
 
 /* Register-owner spies: controlled reads; unexpected writes abort. */
@@ -166,7 +168,7 @@ int main(void)
     assert(read_address_supported(BMS_MOS_CONTROL_BASE));
     assert(read_address_supported(BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT-1u));
     assert(!read_address_supported(BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT));
-    bms_diag_driver(3u,1u);
+    fet_driver=3u;fet_driver_valid=1u;
     { const u16 mos[]={BMS_MOS_CONTROL_MAGIC,1u,1u,1u,3u,1u,
         DIAG_GUARD_OUTPUT_ENABLED|DIAG_GUARD_SAMPLES_QUALIFIED,3u};
       expect_read(1u,BMS_MOS_CONTROL_BASE,8u,mos,0u); }

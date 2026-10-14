@@ -8,6 +8,7 @@
 #include "bms_features.h"
 #include <string.h>
 
+#if BMS_SERVICE_DIAG_ENABLE
 /* 从选定后端刷新诊断，遵守总线静默门禁。 */
 void bms_afe_diag_poll(void)
 {
@@ -22,6 +23,7 @@ void bms_afe_diag_poll(void)
     memset(words, 0, sizeof(words));
     /* 两个驱动查询函数只读 RAM 缓存，不在静默总线上发事务。 */
     (void)sh3673510_bms_afe_get_fet_diagnostics(&command, &command_valid, &driver, &driver_valid);
+    driver_valid = bms_afe_get_fet_status(&driver);
     (void)sh3673510_bms_afe_get_fet_diag_detail(&detail);
     bms_afe_get_requested_fets(&c, &d);
     if (!(params & 1u)) common |= DIAG_BLOCK_PARAMS;
@@ -51,3 +53,4 @@ void bms_afe_diag_poll(void)
     bms_diag_backend_details(words);
     bms_diag_mos_capture();
 }
+#endif

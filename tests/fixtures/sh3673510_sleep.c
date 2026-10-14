@@ -21,7 +21,7 @@ static unsigned command_fail_at;
 static uint8_t control_wake_active, heater_on, physical_sleep, last_c, last_d;
 static uint8_t configure_ok, protection_ok;
 static u32 fake_tick;
-uint32_t bms_diag_tick(void) { return fake_tick; }
+uint32_t bms_time_now_32k(void) { return fake_tick; }
 static uint8_t io_ok(void) { ++bus_calls; return bus_calls != command_fail_at; }
 static uint8_t sh3673510_board_wake_active(void) { return control_wake_active; }
 static uint8_t sh3673510_control_set_balance(uint16_t mask) {

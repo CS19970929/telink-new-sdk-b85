@@ -161,6 +161,7 @@ static void note_comm_error(uint16_t stage)
 
     bms_sw_protection_reset_current_recovery();
     s_snapshot_valid = 0u;
+    bms_afe_publish_fet_status(0u, 0u);
     s_detection_initialized = 0u;
     s_load_removed = s_charger_removed = s_charger_known = 0u;
     s_vadc_seen = s_cadc_seen = 0u;
@@ -273,6 +274,7 @@ static uint8_t sh3510_apply_requested_fets(void)
         s_last_discharge_command == discharge_on)
         return 1u;
 
+    bms_afe_publish_fet_status(0u, 0u);
     if (!sh3673510_control_set_fets(charge_on, discharge_on))
     {
         note_comm_error(DIAG_AFE_FAIL_FET_WRITE);
@@ -852,6 +854,9 @@ static uint8_t publish_measurements(void)
     if (!s_afe_reconfigure_required &&
         !sh3510_update_protection(&status)) return 0u;
     s_snapshot_valid = 1u;
+    bms_afe_publish_fet_status(
+        (uint8_t)((g_bms_system_status.bits.charge_mos_status ? 1u : 0u) |
+                  (g_bms_system_status.bits.discharge_mos_status ? 2u : 0u)), 1u);
     return 1u;
 }
 
@@ -957,14 +962,17 @@ void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
 }
 
 /* 主循环只读 RAM 查询；有效性与数据属于最近一次接受的帧。 */
+#if BMS_FEATURE_HEATER_SUPPORTED
 uint8_t sh3673510_backend_get_charge_source_present(uint8_t *present)
 {
     if (present == 0 || !s_snapshot_valid || !s_charger_known) return 0u;
     *present = s_charger_present;
     return 1u;
 }
+#endif
 
 /* 取得均衡和温度策略需要的后端快照。 */
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
 uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
     if (out == 0) return 0u;
@@ -983,6 +991,7 @@ uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 #endif
     return 1u;
 }
+#endif
 
 /* 取得后端辅助测量与有效性。 */
 uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)

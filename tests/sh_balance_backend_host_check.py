@@ -16,7 +16,7 @@ static uint32_t tick;
 static uint8_t registers[256], fail_write;
 static unsigned balance_writes;
 bms_report_t g_bms_report;
-uint32_t bms_diag_tick(void) { return tick; }
+uint32_t bms_time_now_32k(void) { return tick; }
 uint8_t SH3673520_IsReady(void) { return 1; }
 uint8_t sh3673510_control_set_balance(uint32_t mask) {
     ++balance_writes;

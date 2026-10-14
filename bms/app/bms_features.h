@@ -10,6 +10,19 @@
 #include "bms_afe.h"
 #include "bms_timing.h"
 
+#ifndef BMS_FEATURE_HEATER_SUPPORTED
+#error "Product must define BMS_FEATURE_HEATER_SUPPORTED"
+#endif
+#ifndef BMS_FEATURE_BALANCE_SUPPORTED
+#error "Product must define BMS_FEATURE_BALANCE_SUPPORTED"
+#endif
+#if (BMS_FEATURE_HEATER_SUPPORTED != 0u) && (BMS_FEATURE_HEATER_SUPPORTED != 1u)
+#error "BMS_FEATURE_HEATER_SUPPORTED must be 0 or 1"
+#endif
+#if (BMS_FEATURE_BALANCE_SUPPORTED != 0u) && (BMS_FEATURE_BALANCE_SUPPORTED != 1u)
+#error "BMS_FEATURE_BALANCE_SUPPORTED must be 0 or 1"
+#endif
+
 /* 仅新鲜合格样本推进功能资格；按应用名义节拍换算，等待转换只会延长确认。 */
 #define BMS_FEATURE_SERVICE_PERIOD_MS BMS_SAMPLE_PERIOD_MS
 

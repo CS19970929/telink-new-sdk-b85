@@ -13,6 +13,7 @@
 #include "bms_state.h"
 #include "bms_parameters.h"
 
+#if BMS_SERVICE_DIAG_ENABLE
 /* 从应用与后端缓存汇总运行诊断，不额外采样 AFE。 */
 void bms_diag_poll_runtime(uint8_t valid, int32_t raw_current_ma,
                            int32_t current_ma, uint32_t tick_32k)
@@ -33,3 +34,4 @@ void bms_diag_poll_runtime(uint8_t valid, int32_t raw_current_ma,
     bms_afe_diag_poll();
 #endif
 }
+#endif

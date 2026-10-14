@@ -39,7 +39,7 @@ def check_runtime_debug_log_host_check():
     #include <stdint.h>
     #include <assert.h>
     static uint32_t tick;
-    uint32_t bms_diag_tick(void) { return tick; }
+    uint32_t bms_time_now_32k(void) { return tick; }
     /* Include the implementation to seed a u32 wrap without billions of writes. */
     #include "bms_debug_log.c"
     static uint16_t word(const uint8_t *p) { return (uint16_t)((p[0]<<8)|p[1]); }

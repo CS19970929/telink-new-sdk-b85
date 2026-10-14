@@ -17,6 +17,8 @@ static void SOC_Result_Pass(void);
 #include "bms_diag.h"
 #include <string.h>
 
+#define BMS_SOC_DIAG_STATE_ENABLE (BMS_SERVICE_DIAG_ENABLE || BMS_SOC_BOARD_TEST_ENABLE)
+
 #define VCELLMAX g_soc_input.cell_max_mv
 #define VCELLMIN g_soc_input.cell_min_mv
 
@@ -108,6 +110,7 @@ typedef struct
     uint8_t endpoint_state;
     uint8_t endpoint_event_flags;
 
+#if BMS_SOC_DIAG_STATE_ENABLE
     uint8_t last_sample_state;
     uint8_t last_integral_direction;
     uint8_t last_soc_action;
@@ -117,6 +120,7 @@ typedef struct
     uint8_t last_decision_detail;
     uint32_t last_sample_elapsed_32k;
     uint32_t last_integral_delta_as10;
+#endif
 } soc_runtime_t;
 
 bms_soc_state_t g_bms_soc;
@@ -158,6 +162,7 @@ static uint8_t soc_profile_load_persisted(void);
 static void soc_invalidate_sample_interval(void);
 
 /* 记录 SOC 输入样本资格与时序诊断。 */
+#if BMS_SOC_DIAG_STATE_ENABLE
 static void soc_diag_note_sample(uint8_t state, soc_integral_dir_t dir,
                                  uint32_t elapsed_32k)
 {
@@ -183,6 +188,10 @@ static void soc_diag_note_action(uint8_t action, uint8_t before,
     g_soc_runtime.last_soc_target = target;
     g_soc_runtime.last_decision_detail = detail;
 }
+#else
+#define soc_diag_note_sample(...) ((void)0)
+#define soc_diag_note_action(...) ((void)0)
+#endif
 
 /* 根据循环次数估算 SOH。 */
 uint8_t bms_soh_from_cycle(uint16_t cycle)
@@ -360,6 +369,7 @@ static void soc_profile_refresh(void)
 }
 
 /* 取得 SOC 运行诊断快照。 */
+#if BMS_SERVICE_DIAG_ENABLE
 void bms_soc_get_diag(bms_soc_diag_t *diag)
 {
     uint32_t rest_s;
@@ -412,6 +422,7 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->last_sample_elapsed_32k = g_soc_runtime.last_sample_elapsed_32k;
     diag->last_integral_delta_as10 = g_soc_runtime.last_integral_delta_as10;
 }
+#endif
 
 /* 将百分比限制到合法范围。 */
 static uint8_t soc_limit_percent_u32(uint32_t value)
@@ -626,7 +637,9 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
     uint8_t old_soc;
     uint8_t new_soc;
     old_soc = get_soc_real();
+#if BMS_SOC_DIAG_STATE_ENABLE
     g_soc_runtime.last_integral_delta_as10 = delta;
+#endif
     soc_diag_note_action(BMS_SOC_ACTION_INTEGRATE, old_soc, old_soc, 0u);
     if (delta == 0u) return;
 
@@ -657,7 +670,9 @@ static void soc_apply_integral_delta(soc_integral_dir_t dir, uint32_t delta)
             soc_note_discharge_soc_drop(old_soc, new_soc);
         }
     }
+#if BMS_SOC_DIAG_STATE_ENABLE
     g_soc_runtime.last_soc_after = get_soc_real();
+#endif
 }
 
 /* 更新真实 SOC 并同步容量边界。 */
@@ -1431,7 +1446,9 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
 
     if (dir != previous_dir)
     {
+#if BMS_SOC_DIAG_STATE_ENABLE
         g_soc_runtime.last_sample_state = BMS_SOC_SAMPLE_DIRECTION_CHANGE;
+#endif
         /* 跨电流状态转换的时间段不能证明连续静置或连续满/空锚点条件。 */
         soc_reset_ocv_tracking();
         soc_reset_voltage_confirmation();

@@ -22,7 +22,7 @@ bms_protection_params_t g_bms_protection_params;
 
 uint8_t bms_protection_params_valid(void) { return 1u; }
 uint8_t bms_features_charge_direction_blocked(void) { return 0u; }
-void bms_diag_driver(uint8_t flags,uint8_t valid) { (void)flags; (void)valid; }
+void bms_afe_publish_fet_status(uint8_t flags,uint8_t valid) { (void)flags; (void)valid; }
 void bms_diag_command(uint8_t command,uint8_t valid) { (void)command; (void)valid; }
 void DVC1124_UpdataAfeConfig(void) {}
 uint8_t DVC1124_GetWriteAddress(void) { return 0x40u; }

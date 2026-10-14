@@ -10,6 +10,8 @@
 
 /* 后端 FET 写入也使用公共门禁的三帧新样本资格。 */
 uint8_t bms_afe_samples_qualified(void);
+/* 后端把最新实际 FET 回读发布给公共状态所有者；无效时 bits 被忽略。 */
+void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid);
 
 /*
  * AFE 方向状态要求临时开通的同口 FET：bit0=充电 MOS，bit1=放电 MOS。

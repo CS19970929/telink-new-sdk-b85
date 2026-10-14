@@ -7,6 +7,7 @@
 #define BMS_AFE_H_
 #include <stdint.h>
 #include "bms_afe_backend.h"
+#include "bms_diag_config.h"
 /* 初始化 guard 与选定后端，输出仍受采样资格约束。 */
 void bms_afe_init(void);
 /* 通过安全门禁采样并更新恢复资格及输出授权。 */
@@ -21,6 +22,8 @@ void bms_afe_invalidate_configuration(void);
 uint8_t bms_afe_set_fets(uint8_t charge_on, uint8_t discharge_on);
 /* 读取应用侧保存的充放电请求。 */
 void bms_afe_get_requested_fets(uint8_t *charge_on, uint8_t *discharge_on);
+/* 读取最近一次 AFE 实际 FET 回读；返回 0 表示状态未知。 */
+uint8_t bms_afe_get_fet_status(uint8_t *driver_bits);
 /*
  * RAM 远程许可：channel 0=充电、1=放电；允许不绕过保护，禁止不请求休眠。
  * 用户禁止意图持续保留；AFE 确认反向电流期间只临时开通对应 MOS，方向消失后恢复关闭。
@@ -92,7 +95,9 @@ uint8_t bms_afe_set_balance_mask(uint32_t cell_mask);
 uint8_t bms_afe_get_balance_mask(uint32_t *cell_mask);
 /* 取得输出禁止、通信隔离和恢复阶段诊断位。 */
 uint16_t bms_afe_get_guard_diagnostic_bits(void);
-/* 从选定后端刷新诊断，遵守总线静默门禁。 */
+#if BMS_SERVICE_DIAG_ENABLE
+/* 从选定后端刷新开发诊断，遵守总线静默门禁。 */
 void bms_afe_diag_poll(void);
+#endif
 
 #endif

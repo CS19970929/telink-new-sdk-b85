@@ -337,6 +337,8 @@ static u16 read_reg(u16 reg)
 {
     if (reg >= BMS_MOS_CONTROL_BASE && reg < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT) {
         uint8_t c, d;
+        uint8_t driver = 0u;
+        uint8_t driver_valid = bms_afe_get_fet_status(&driver);
         uint16_t guard = bms_afe_get_guard_diagnostic_bits();
         bms_afe_get_requested_fets(&c, &d);
         switch (reg-BMS_MOS_CONTROL_BASE) {
@@ -344,8 +346,8 @@ static u16 read_reg(u16 reg)
         case 1: return 1u;
         case 2: return bms_afe_get_remote_allowed_mask() & 1u;
         case 3: return (bms_afe_get_remote_allowed_mask() >> 1) & 1u;
-        case 4: return bms_diag_cached_word(132u) & 3u;
-        case 5: return (bms_diag_cached_word(133u) &&
+        case 4: return driver;
+        case 5: return (driver_valid &&
             (guard & DIAG_GUARD_SAMPLES_QUALIFIED)) ? 1u : 0u;
         case 6: return guard;
         case 7: return (uint16_t)(c | (d << 1));

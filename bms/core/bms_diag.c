@@ -5,10 +5,13 @@
  */
 #include "bms_debug_log.h"
 #include "bms_diag.h"
+#include "bms_time.h"
 #if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
 #include "bms_soc.h"
 #endif
 #include <string.h>
+
+#if BMS_SERVICE_DIAG_ENABLE
 
 /* 诊断窗口 RAM 快照；只有主循环生产者更新，读协议不能触发 AFE/Flash 动作。 */
 static uint16_t s_words[256];
@@ -66,7 +69,7 @@ void bms_diag_trace(uint16_t event, uint32_t arg0, uint32_t arg1)
             event == DIAG_EV_PM_STATE ? BMS_LOG_POWER : BMS_LOG_SYSTEM, event, arg0, arg1);
 #if BMS_DIAG_TRACE_ENABLE
     uint16_t *p = s_trace[s_next];
-    put32(p, ++s_trace_sequence); put32(p + 2, bms_diag_tick());
+    put32(p, ++s_trace_sequence); put32(p + 2, bms_time_now_32k());
     p[4] = event; p[5] = 0u; put32(p + 6, arg0); put32(p + 8, arg1);
     p[10] = 0u; p[11] = 0u;
     s_next = (uint16_t)((s_next + 1u) % BMS_DIAG_TRACE_COUNT);
@@ -97,7 +100,7 @@ void bms_diag_init(void)
     memset(s_afe_failure_latest, 0, sizeof(s_afe_failure_latest));
     memset(s_afe_failure_live, 0, sizeof(s_afe_failure_live));
     memset(s_afe_failure_history, 0, sizeof(s_afe_failure_history));
-    s_mos_boot_tick = bms_diag_tick();
+    s_mos_boot_tick = bms_time_now_32k();
 #endif
     s_sequence = 0u; s_frozen = 0u;
     /* 已删除模式的 wire slot 225 保持初始化零，无运行写入口。 */
@@ -154,7 +157,7 @@ void bms_diag_result(uint8_t domain, uint16_t result)
         if (result == DIAG_DEFAULTS) s_words[offset + 7u] = 1u;
         else if (result != DIAG_OK && s_words[offset + 5u] == 0u) {
             s_words[offset + 5u] = result;
-            put32(&s_words[offset + 8u], bms_diag_tick());
+            put32(&s_words[offset + 8u], bms_time_now_32k());
         }
     }
     s_words[180u + domain] = result;
@@ -201,7 +204,7 @@ void bms_diag_driver(uint8_t flags, uint8_t valid)
     if ((s_words[132] & 3u) != (flags & 3u) || s_words[133] != valid)
         bms_diag_trace(DIAG_EV_DRIVER, flags & 3u, valid);
     s_words[132] = flags; s_words[133] = valid;
-    put32(&s_words[140], bms_diag_tick()); changed();
+    put32(&s_words[140], bms_time_now_32k()); changed();
 }
 
 void bms_diag_mos_raw_status(uint16_t raw_status)
@@ -225,7 +228,7 @@ void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
     /* 同一主循环中采样失败后关命令也可能失败；先保留首因，不能被补救失败覆盖。 */
     if (get32(s_afe_failure_latest+2) != get32(s_afe_failure_live+2)) return;
     put32(s_afe_failure_latest+2, get32(s_afe_failure_latest+2)+1u);
-    put32(s_afe_failure_latest+4, bms_diag_tick());
+    put32(s_afe_failure_latest+4, bms_time_now_32k());
     s_afe_failure_latest[6] = stage;
     s_afe_failure_latest[7] = (uint16_t)io_error;
     s_afe_failure_latest[8] = flag2;
@@ -266,7 +269,7 @@ void bms_diag_mos_capture(void)
     if (s_words[14] == 0x3510u && ((now[31] ^ s_mos_live[31]) & 0x37u)) dirty = 1u;
     if (get32(s_afe_failure_latest+2) != get32(s_afe_failure_live+2)) dirty = 1u;
     if (!dirty) return;
-    put32(now, ++s_mos_sequence); put32(now+2, bms_diag_tick());
+    put32(now, ++s_mos_sequence); put32(now+2, bms_time_now_32k());
     put32(now+20, get32(s_words+196)); put32(now+22, get32(s_words+198));
     now[27] = s_words[14];
     /* 独立保留前一状态，最旧条被覆盖时仍能识别本条边沿。 */
@@ -440,7 +443,7 @@ void bms_diag_sleep(uint8_t reason, uint32_t block_mask, uint32_t elapsed_ms,
     put32(&s_sleep_words[10], delay_ms);
     put32(&s_sleep_words[12], remaining_ms);
     put32(&s_sleep_words[14], retry_ms);
-    put32(&s_sleep_words[16], bms_diag_tick());
+    put32(&s_sleep_words[16], bms_time_now_32k());
 }
 
 void bms_diag_sleep_committed(void)
@@ -450,7 +453,7 @@ void bms_diag_sleep_committed(void)
     put32(&s_sleep_words[12], 0u);
     put32(&s_sleep_words[6], 0u);
     put32(&s_sleep_words[14], 0u);
-    put32(&s_sleep_words[16], bms_diag_tick());
+    put32(&s_sleep_words[16], bms_time_now_32k());
 }
 
 /* 判断请求寄存器范围是否与诊断窗口重叠。 */
@@ -472,7 +475,7 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
 {
     uint16_t i;
     uint32_t end = (uint32_t)start + count;
-    uint32_t tick = bms_diag_tick();
+    uint32_t tick = bms_time_now_32k();
 #if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
     if (bytes && count && count <= 125u && start >= 0x3800u && end <= 0x3940u) {
         for (i=0u; i<count; ++i) {
@@ -605,3 +608,98 @@ void bms_diag_backend_details(const uint16_t *words)
     for (i=0u; i<11u; ++i) dirty |= update16((uint16_t)(142u+i), words[i]);
     if (dirty) changed();
 }
+
+#else /* BMS_SERVICE_DIAG_ENABLE */
+
+/*
+ * 量产仅保留地址占用与 capability=0 的兼容响应。这里没有运行快照、
+ * Trace、SOC/MOS 历史，也不读取 AFE、Flash 或系统时钟。
+ */
+int bms_diag_overlaps(uint16_t start, uint16_t count)
+{
+    uint32_t end = (uint32_t)start + count;
+    return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+        (start < 0x3940u && end > 0x3800u) ||
+#endif
+        (start < 0x3630u && end > 0x3600u) ||
+        (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
+        (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE) ||
+        (start < BMS_DIAG_AFE_FAILURE_END && end > BMS_DIAG_AFE_FAILURE_BASE));
+}
+
+static uint16_t compatibility_word(uint16_t base, uint16_t offset)
+{
+    if (base == BMS_DIAG_BASE) {
+        if (offset == 0u) return 0x4447u;
+        if (offset == 1u) return 1u;
+        if (offset == 2u) return 0u;
+        if (offset == 13u) {
+            uint16_t flags = BMS_DIAG_BUILD_DIRTY ? 8u : 0u;
+#if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
+            flags |= 4u;
+#endif
+            return flags;
+        }
+        if (offset == 22u) return (uint16_t)BMS_DIAG_BUILD_ID;
+        if (offset == 23u) return (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
+    } else if (base == BMS_DIAG_SLEEP_BASE) {
+        if (offset == 0u) return 0x534Cu;
+        if (offset == 1u) return 1u;
+    } else if (base == BMS_DIAG_MOS_BASE) {
+        if (offset == 0u) return 0x4D48u;
+        if (offset == 1u) return 1u;
+        if (offset == 3u) return BMS_DIAG_MOS_RECORD_COUNT;
+        if (offset == 4u) return BMS_DIAG_MOS_RECORD_WORDS;
+        if (offset == 12u) return (uint16_t)BMS_DIAG_BUILD_ID;
+        if (offset == 13u) return (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
+    } else if (base == BMS_DIAG_AFE_FAILURE_BASE) {
+        if (offset == 0u) return 0x4146u;
+        if (offset == 1u) return 1u;
+        if (offset == 3u) return BMS_DIAG_MOS_RECORD_COUNT;
+        if (offset == 4u) return BMS_DIAG_AFE_FAILURE_WORDS;
+        if (offset == 10u) return (uint16_t)BMS_DIAG_BUILD_ID;
+        if (offset == 11u) return (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
+        if (offset == 15u) return 32u;
+    }
+    return 0u;
+}
+
+int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
+{
+    uint16_t i;
+    uint16_t base;
+    uint32_t end = (uint32_t)start + count;
+
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+    if (bytes && count && count <= 125u && start >= 0x3800u && end <= 0x3940u) {
+        for (i = 0u; i < count; ++i) {
+            uint16_t value = bms_soc_board_test_word((uint16_t)(start - 0x3800u + i));
+            bytes[2u*i] = (uint8_t)(value >> 8);
+            bytes[2u*i+1u] = (uint8_t)value;
+        }
+        return 1;
+    }
+#endif
+    if (!bytes || !count || count > 125u) return 0;
+    if (start >= BMS_DIAG_BASE && end <= BMS_DIAG_END &&
+        !(start < BMS_DIAG_TRACE_BASE && end > BMS_DIAG_TRACE_BASE))
+        base = BMS_DIAG_BASE;
+    else if (start >= BMS_DIAG_SLEEP_BASE && end <= BMS_DIAG_SLEEP_END)
+        base = BMS_DIAG_SLEEP_BASE;
+    else if (start >= BMS_DIAG_MOS_BASE && end <= BMS_DIAG_MOS_END)
+        base = BMS_DIAG_MOS_BASE;
+    else if (start >= BMS_DIAG_AFE_FAILURE_BASE && end <= BMS_DIAG_AFE_FAILURE_END)
+        base = BMS_DIAG_AFE_FAILURE_BASE;
+    else
+        return 0;
+
+    for (i = 0u; i < count; ++i) {
+        uint16_t word = compatibility_word(base, (uint16_t)(start - base + i));
+        bytes[2u*i] = (uint8_t)(word >> 8);
+        bytes[2u*i+1u] = (uint8_t)word;
+    }
+    return 1;
+}
+
+#endif /* BMS_SERVICE_DIAG_ENABLE */

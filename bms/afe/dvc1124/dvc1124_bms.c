@@ -393,6 +393,7 @@ static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
      * 只进行一次组合 R81 写入，不在 AUTO_DIODE 前先切换硬关闭。
      * DVC1124_WriteRegisterSafe() 保留其它字段并校验手册规定的可写位。
      */
+    bms_afe_publish_fet_status(0u, 0u);
     ok = DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
     bms_diag_command(target, ok);
     return ok;
@@ -464,7 +465,7 @@ void DVC1124_BmsApp_AFEGet(void)
 #if DVC1124_HW_PROTECT_ENABLE
         (void)dvc_clear_recovered_hw_latches(0u, 0u, 0u, 0u);
 #endif
-        bms_diag_driver(0u, 0u); return;
+        bms_afe_publish_fet_status(0u, 0u); return;
     }
 
 #if DVC1124_HW_PROTECT_ENABLE

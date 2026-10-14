@@ -9,6 +9,7 @@
 #include "bms_error.h"
 #include "bms_sw_protection.h"
 #include "bms_parameters.h"
+#include "bms_time.h"
 #include <string.h>
 
 #define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u
@@ -38,6 +39,8 @@ typedef struct
     uint8_t comm_failures;
     uint8_t bus_silenced;
     uint8_t test_shutdown_hold;
+    uint8_t fet_driver_bits;
+    uint8_t fet_driver_valid;
     uint32_t failsafe_start_tick_32k;
 } bms_afe_guard_state_t;
 
@@ -77,10 +80,16 @@ uint8_t bms_afe_bus_access_allowed(void)
 #define AFE_DIRECTION_ALLOW() dvc1124_backend_get_direction_allow_mask()
 #define AFE_OUTPUT(e) dvc1124_backend_set_output_enabled((e))
 #define AFE_AUX(m) dvc1124_backend_get_aux_measurements((m))
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
 #define AFE_FEATURE(s) dvc1124_backend_get_feature_snapshot((s))
+#endif
+#if BMS_FEATURE_HEATER_SUPPORTED
 #define AFE_CHARGER(p) dvc1124_backend_get_charge_source_present((p))
+#endif
+#if BMS_FEATURE_BALANCE_SUPPORTED
 #define AFE_BAL_SET(m) dvc1124_backend_set_balance_mask((m))
 #define AFE_BAL_GET(m) dvc1124_backend_get_balance_mask((m))
+#endif
 #else
 #define AFE_INIT() sh3673510_bms_afe_init()
 #define AFE_SAMPLE() sh3673510_bms_afe_sample()
@@ -91,10 +100,21 @@ uint8_t bms_afe_bus_access_allowed(void)
 #define AFE_DIRECTION_ALLOW() sh3673510_bms_afe_get_direction_allow_mask()
 #define AFE_OUTPUT(e) sh3673510_bms_afe_set_output_enabled((e))
 #define AFE_AUX(m) sh3673510_bms_afe_get_aux_measurements((m))
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
 #define AFE_FEATURE(s) sh3673510_backend_get_feature_snapshot((s))
+#endif
+#if BMS_FEATURE_HEATER_SUPPORTED
 #define AFE_CHARGER(p) sh3673510_backend_get_charge_source_present((p))
+#endif
+#if BMS_FEATURE_BALANCE_SUPPORTED
 #define AFE_BAL_SET(m) sh3673510_backend_set_balance_mask((m))
 #define AFE_BAL_GET(m) sh3673510_backend_get_balance_mask((m))
+#endif
+#endif
+
+#if !BMS_FEATURE_BALANCE_SUPPORTED
+#define AFE_BAL_SET(m) ((m) == 0u ? 1u : 0u)
+#define AFE_BAL_GET(m) ((*(m) = 0u), 1u)
 #endif
 
 /* 设置本地输出禁止状态，撤销驱动授权。 */
@@ -103,6 +123,7 @@ static void inhibit_local(void)
     s_guard.comm_fault_latched = 1u;
     s_guard.comm_inhibit = 1u;
     s_guard.valid_snapshot_streak = 0u;
+    bms_afe_publish_fet_status(0u, 0u);
     bms_features_stop();
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
 }
@@ -125,7 +146,7 @@ static void enter_failsafe_wait(void)
 {
     inhibit_local();
     s_guard.bus_silenced = 1u;
-    s_guard.failsafe_start_tick_32k = bms_diag_tick();
+    s_guard.failsafe_start_tick_32k = bms_time_now_32k();
     s_guard.comm_failures = 0u;
 }
 
@@ -135,7 +156,7 @@ static uint8_t service_failsafe_wait(void)
     if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) return 0u;
 
     /* 硬件看门狗计时期间绝不进行 AFE I2C/SPI 访问。 */
-    if ((uint32_t)(bms_diag_tick() - s_guard.failsafe_start_tick_32k) <
+    if ((uint32_t)(bms_time_now_32k() - s_guard.failsafe_start_tick_32k) <
         BMS_AFE_FAILSAFE_WAIT_MS * 32u)
     {
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
@@ -351,7 +372,7 @@ uint8_t bms_afe_set_channel_allowed(uint8_t channel, uint8_t allowed)
     else s_remote_off_mask |= bit;
     if (s_remote_off_mask == old_mask) return 1u;
     /* 命令已变化但尚未获得新回读，不能继续发布旧 driver 状态。 */
-    bms_diag_driver(0u, 0u);
+    bms_afe_publish_fet_status(0u, 0u);
     /* 静默阶段只记意图，不访问总线；AFE 恢复后继续执行关闭。 */
     if (!apply_requested()) {
         /* 开启许可失败时恢复原来的关闭许可；关闭失败仍保留 fail-safe 意图。 */
@@ -370,6 +391,22 @@ void bms_afe_get_requested_fets(uint8_t *charge_on, uint8_t *discharge_on)
 {
     if (charge_on != 0) *charge_on = s_guard.requested_charge_on;
     if (discharge_on != 0) *discharge_on = s_guard.requested_discharge_on;
+}
+
+/* 后端发布最新实际 FET 回读，诊断只是该业务状态的可选镜像。 */
+void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid)
+{
+    s_guard.fet_driver_bits = valid ? (driver_bits & 3u) : 0u;
+    s_guard.fet_driver_valid = valid ? 1u : 0u;
+    bms_diag_driver(s_guard.fet_driver_bits, s_guard.fet_driver_valid);
+}
+
+/* 标准控制窗口读取业务状态，不依赖开发诊断缓存。 */
+uint8_t bms_afe_get_fet_status(uint8_t *driver_bits)
+{
+    if (driver_bits == 0) return 0u;
+    *driver_bits = s_guard.fet_driver_bits;
+    return s_guard.fet_driver_valid;
 }
 
 /* 取得输出禁止、通信隔离和恢复阶段诊断位。 */
@@ -397,6 +434,7 @@ void bms_afe_set_output_enabled(uint8_t e)
     {
         /* 关闭输出不代表电压测量或采样线故障。 */
         bms_features_stop();
+        bms_afe_publish_fet_status(0u, 0u);
         if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) best_effort_shutdown();
         return;
     }
@@ -420,35 +458,54 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 /* 取得公共功能所需的后端采样快照。 */
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s)
 {
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     if (!s || !runtime_access_allowed()) return 0u;
     return AFE_FEATURE(s);
+#else
+    if (s) memset(s, 0, sizeof(*s));
+    return 0u;
+#endif
 }
 
 /* 取得后端可验证的充电源存在状态。 */
 uint8_t bms_afe_get_charge_source_present(uint8_t *p)
 {
+#if BMS_FEATURE_HEATER_SUPPORTED
     if (!p || !runtime_access_allowed()) return 0u;
     return AFE_CHARGER(p);
+#else
+    if (p) *p = 0u;
+    return 0u;
+#endif
 }
 
 /* 门禁允许时更新有效通道均衡请求。 */
 uint8_t bms_afe_set_balance_mask(uint32_t m)
 {
+#if BMS_FEATURE_BALANCE_SUPPORTED
     if (!runtime_access_allowed())
         return (m == 0u) ? 1u : 0u;
     return AFE_BAL_SET(m);
+#else
+    return (m == 0u) ? 1u : 0u;
+#endif
 }
 
 /* 读取当前后端均衡状态掩码。 */
 uint8_t bms_afe_get_balance_mask(uint32_t *m)
 {
     if (!m) return 0u;
+#if BMS_FEATURE_BALANCE_SUPPORTED
     if (!runtime_access_allowed())
     {
         *m = 0u;
         return 0u;
     }
     return AFE_BAL_GET(m);
+#else
+    *m = 0u;
+    return 1u;
+#endif
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -511,7 +568,7 @@ uint8_t bms_afe_test_wake(void)
 
 #endif
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+#if BMS_SERVICE_DIAG_ENABLE && (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
 /* 从选定后端刷新诊断，遵守总线静默门禁。 */
 void bms_afe_diag_poll(void)
 {
@@ -529,7 +586,7 @@ void bms_afe_diag_poll(void)
     if (s_remote_off_mask & 2u) d |= DIAG_BLOCK_REMOTE;
     bms_diag_mos((uint16_t)(s_guard.requested_charge_on | (s_guard.requested_discharge_on << 1)), c | common, d | common);
     if (common & (DIAG_BLOCK_COMM | DIAG_BLOCK_SHUTDOWN)) {
-        bms_diag_driver(0u, 0u);
+        bms_afe_publish_fet_status(0u, 0u);
         bms_diag_command((uint8_t)bms_diag_cached_word(130u), 0u);
     }
     bms_diag_mos_capture();

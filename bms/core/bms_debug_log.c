@@ -11,6 +11,7 @@
  */
 #include "bms_debug_log.h"
 #include "bms_diag.h"
+#include "bms_time.h"
 #if BMS_DEBUG_LOG_ENABLE
 #include <string.h>
 
@@ -36,7 +37,7 @@ void bms_debug_log_init(void)
     s_next_sequence = 0u;
     s_overwritten = 0u;
     s_count = 0u;
-    s_boot_tick = bms_diag_tick();
+    s_boot_tick = bms_time_now_32k();
 }
 
 /* 按等级和模块筛选后写入一条结构化运行日志。 */
@@ -48,7 +49,7 @@ void bms_debug_log_write(uint8_t level, uint8_t module, uint16_t event,
         !(BMS_DEBUG_LOG_MODULE_MASK & (1u << module))) return;
     record = s_records[s_next_sequence % BMS_DEBUG_LOG_CAPACITY];
     put32(record, s_next_sequence);
-    put32(record + 2, bms_diag_tick());
+    put32(record + 2, bms_time_now_32k());
     record[4] = (uint16_t)(((uint16_t)level << 8) | module);
     record[5] = event;
     put32(record + 6, arg0);

@@ -32,7 +32,9 @@ void bms_diag_afe_failure(uint16_t stage,int16_t error,uint16_t flag2,
 }
 /* 本夹具验证采样/恢复；MOS 原始状态的诊断存储由独立 diag 回归覆盖。 */
 void bms_diag_mos_raw_status(uint16_t raw_status) { (void)raw_status; }
-void bms_diag_driver(uint8_t charge_on, uint8_t discharge_on) { (void)charge_on; (void)discharge_on; }
+#ifndef GUARD_TEST
+void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid) { (void)driver_bits; (void)valid; }
+#endif
 static sh3673510_control_status_t device;
 static unsigned clear_calls;
 static uint8_t clear_ok = 1, command_c, command_d;
@@ -88,7 +90,7 @@ void bms_sw_protection_clear(void) {}
 void bms_sw_protection_record_fault_edges(void) {}
 static int32_t bms_config_calibrate_current(int32_t ma) { return ma; }
 static uint32_t pm_get_32k_tick(void) { return now; }
-uint32_t bms_diag_tick(void) { return now; }
+uint32_t bms_time_now_32k(void) { return now; }
 uint16_t bms_lookup_u16(const uint16_t *p, uint16_t n, uint16_t x) { (void)p; (void)n; (void)x; return 650; }
 uint8_t sh3673510_control_init(void) { load_mode = 0; return 1; }
 uint8_t sh3673510_control_ready(void) { return 1; }

@@ -106,7 +106,9 @@ uint8_t bms_parameters_reload_configuration(void)
 }
 
 /* 刷新业务参数与启动门禁诊断快照。 */
+#if BMS_SERVICE_DIAG_ENABLE
 void bms_parameters_diag_poll(void)
 {
     bms_diag_params(s_protection_params_valid, s_storage_startup_valid);
 }
+#endif

@@ -6,6 +6,7 @@
 #define BMS_STORAGE_PLATFORM_H_
 
 #include "storage_port.h"
+#include "bms_diag_config.h"
 
 /* 业务 checkpoint 与平台写失败共用的有限重试间隔，单位 32K tick。 */
 #define BMS_STORAGE_RETRY_INTERVAL_32K (5u * 32000u)
@@ -33,11 +34,13 @@ typedef struct {
     uint32_t max_erase_ticks_32k;
 } bms_storage_diagnostics_t;
 /* 发布启动阶段的存储分区与操作诊断。 */
+#if BMS_SERVICE_DIAG_ENABLE
 void bms_storage_platform_diag_boot(void);
 /* 刷新运行阶段的存储诊断字段。 */
 void bms_storage_platform_diag_poll(void);
 /* 取得 Flash 操作结果及耗时诊断快照。 */
 void bms_storage_platform_get_diagnostics(bms_storage_diagnostics_t *out);
+#endif
 /* 取得 Telink 存储端口操作集合。 */
 const storage_port_t *bms_storage_platform_port(void);
 /* 取得指定持久域的 Flash 区域配置。 */

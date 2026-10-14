@@ -4,6 +4,8 @@
  */
 #include "bms_stack_monitor.h"
 
+#if BMS_STACK_MONITOR_ENABLE
+
 /* 链接器符号界定内存区域，不代表单个 C 对象。 */
 extern uint32_t _bms_main_stack_bottom_[], __SRAM_SIZE[];
 extern uint32_t bms_irq_stack_bottom[], bms_irq_stack_top[];
@@ -46,3 +48,4 @@ void bms_stack_monitor_poll(void)
         ((uintptr_t)bms_irq_stack_top - (uintptr_t)bms_irq_stack_bottom) / 4u,
         &s_irq_cursor, &g_bms_stack_watermark.irq_free_min_bytes, 2u);
 }
+#endif

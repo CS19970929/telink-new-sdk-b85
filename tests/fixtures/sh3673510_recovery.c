@@ -16,6 +16,7 @@ static unsigned failures, clears, writes;
 static uint8_t guard_qualified = 1;
 static uint32_t pm_get_32k_tick(void) { return 0u; }
 static uint8_t bms_afe_samples_qualified(void) { return guard_qualified; }
+static void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid) { (void)driver_bits; (void)valid; }
 static uint8_t clear_ok, write_ok, init_ok, actual_c, actual_d;
 static uint8_t bms_error_get(unsigned e) { return errors[e]; }
 static void bms_error_raise(unsigned e) { errors[e] = 1; }

@@ -20,7 +20,7 @@ static void flash_write_page(u32 a,int n,u8*b){(void)b;assert(n>0 && (a%256)+(u3
 static void flash_erase_sector(u32 a){assert(a%4096==0);++erase_calls;tick+=16000;}
 static int flash_store_verify_bytes(u32 a,const u8*b,u32 n){(void)a;(void)b;(void)n;return verify_ok;}
 static int flash_store_verify_erased(u32 a,u32 n){(void)a;(void)n;return verify_ok;}
-uint32_t bms_diag_tick(void){return tick;}
+uint32_t bms_time_now_32k(void){return tick;}
 /* PRODUCTION */
 int main(void){
  bms_diag_init();

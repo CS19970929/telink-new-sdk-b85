@@ -16,21 +16,27 @@
 #include "bms_afe_backend.h"
 
 extern u8 ota_is_working;
+#if BMS_SERVICE_DIAG_ENABLE
 static bms_storage_diagnostics_t s_flash_diag;
+#endif
 static u32 s_flash_failure_tick_32k;
 static u8 s_flash_failed;
 
 /* 取得 Flash 操作结果及耗时诊断快照。 */
+#if BMS_SERVICE_DIAG_ENABLE
 void bms_storage_platform_get_diagnostics(bms_storage_diagnostics_t *out)
 {
     if (out != 0) *out = s_flash_diag;
 }
+#endif
 
 /* 记录写后或擦后验证结果。 */
 static int bms_storage_verify_result(int ok)
 {
     if (!ok) {
+#if BMS_SERVICE_DIAG_ENABLE
         if (s_flash_diag.verify_failures != 0xFFFFFFFFu) ++s_flash_diag.verify_failures;
+#endif
         s_flash_failed = 1u;
         s_flash_failure_tick_32k = pm_get_32k_tick();
     }
@@ -51,7 +57,9 @@ static int bms_storage_telink_begin(void *ctx)
         if (!ota_is_working && !app_flash_lock_restore_enabled()) reason = DIAG_LOCK;
 #endif
         bms_diag_storage_error(reason, 0u);
+#if BMS_SERVICE_DIAG_ENABLE
         if (s_flash_diag.deferred_writes != 0xFFFFFFFFu) ++s_flash_diag.deferred_writes;
+#endif
         return 0;
     }
     s_flash_failed = 0u;
@@ -83,9 +91,13 @@ static int bms_storage_telink_program(void *ctx,
     uint32_t write_addr = addr;
     const uint8_t *write_buf = buf;
     uint32_t write_len = len;
+#if BMS_SERVICE_DIAG_ENABLE
     u32 started = pm_get_32k_tick(), elapsed;
+#endif
     int ok;
+#if BMS_SERVICE_DIAG_ENABLE
     if (s_flash_diag.program_calls != 0xFFFFFFFFu) ++s_flash_diag.program_calls;
+#endif
 
     (void)ctx;
     while (write_len != 0u) {
@@ -98,8 +110,10 @@ static int bms_storage_telink_program(void *ctx,
         write_len -= chunk;
     }
     ok = flash_store_verify_bytes((u32)addr, (const u8 *)buf, (u32)len);
+#if BMS_SERVICE_DIAG_ENABLE
     elapsed = (u32)(pm_get_32k_tick() - started);
     if (elapsed > s_flash_diag.max_program_ticks_32k) s_flash_diag.max_program_ticks_32k = elapsed;
+#endif
     if (!ok) bms_diag_storage_error(DIAG_PROGRAM_VERIFY, addr);
     return bms_storage_verify_result(ok);
 }
@@ -107,17 +121,23 @@ static int bms_storage_telink_program(void *ctx,
 /* 按擦除粒度擦除 Flash 并记录结果。 */
 static int bms_storage_telink_erase(void *ctx, uint32_t addr, uint32_t len)
 {
+#if BMS_SERVICE_DIAG_ENABLE
     u32 started, elapsed;
+#endif
     int ok;
     (void)ctx;
     if ((len != FLASH_SECTOR_SIZE) || ((addr % FLASH_SECTOR_SIZE) != 0u)) return 0;
+#if BMS_SERVICE_DIAG_ENABLE
     started = pm_get_32k_tick();
     if (s_flash_diag.erase_calls != 0xFFFFFFFFu) ++s_flash_diag.erase_calls;
+#endif
     flash_erase_sector((u32)addr);
     ok = flash_store_verify_erased((u32)addr, FLASH_SECTOR_SIZE);
     if (!ok) bms_diag_storage_error(DIAG_ERASE_VERIFY, addr);
+#if BMS_SERVICE_DIAG_ENABLE
     elapsed = (u32)(pm_get_32k_tick() - started);
     if (elapsed > s_flash_diag.max_erase_ticks_32k) s_flash_diag.max_erase_ticks_32k = elapsed;
+#endif
     return bms_storage_verify_result(ok);
 }
 
@@ -173,9 +193,8 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
     return 1;
 }
 
-/* 取得存储诊断使用的系统时间戳。 */
-uint32_t bms_diag_tick(void) { return pm_get_32k_tick(); }
 /* 发布启动阶段的存储分区与操作诊断。 */
+#if BMS_SERVICE_DIAG_ENABLE
 void bms_storage_platform_diag_boot(void)
 {
     bms_diag_boot_word(14u, bms_afe_hw_profile_expected_model());
@@ -209,3 +228,4 @@ void bms_storage_platform_diag_poll(void)
     bms_diag_counter(4u, s_flash_diag.max_program_ticks_32k);
     bms_diag_counter(5u, s_flash_diag.max_erase_ticks_32k);
 }
+#endif

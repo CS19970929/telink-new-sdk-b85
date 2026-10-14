@@ -4,7 +4,12 @@
 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 维护。
 四产品共享 `bms/core/bms_debug_log.c`，产品 sources.txt 引用同一文件。
 
-诊断 ring trace 与运行日志是两个开关：开发 `BMS_DIAG_TRACE_ENABLE=1`，production 固定为 0；`BMS_DEBUG_LOG_ENABLE` 仍默认 0、production 禁止开启。关闭 trace 保留 boot/AFE/MOS/storage/fault 快照，原 trace 窗口读零，能力位关闭。DVC raw register window 同样仅开发启用，production 不编译且读保留窗口返回 `0xFFFF`；raw 写入始终拒绝。
+运行服务诊断、诊断 ring trace 与运行日志是三层开关。开发默认
+`BMS_SERVICE_DIAG_ENABLE=1`、`BMS_DIAG_TRACE_ENABLE=1`；production 强制两者为 0。
+`BMS_DEBUG_LOG_ENABLE` 仍默认 0，production 也禁止开启。量产关闭服务诊断后，不再维护
+boot/AFE/MOS/storage/fault/SOC/休眠快照及栈水位扫描；既有只读地址仍保留，返回 magic/schema、
+build 标识和 `capability=0`，其余字段为 0，不访问 AFE、Flash 或系统时钟。DVC raw register
+window 同样仅开发启用，production 不编译且读保留窗口返回 `0xFFFF`；raw 写入始终拒绝。
 
 ## 使用
 
@@ -25,7 +30,9 @@ INFO 适合观察状态变化；DEBUG 另外记录周期采样、SOC 决策/积�
 模块、等级均在编译时筛选；关闭/过滤记录时不计算记录参数。
 
 量产必须去掉 EXTRA_DEFINES 中的调试开关，并使用仓库既有 `--production` 门禁。
-同时指定 `BMS_PRODUCTION_BUILD=1` 与 `BMS_DEBUG_LOG_ENABLE=1` 将编译报错。
+同时指定 `BMS_PRODUCTION_BUILD=1` 与 `BMS_DEBUG_LOG_ENABLE=1`、
+`BMS_SERVICE_DIAG_ENABLE=1`、`BMS_DIAG_TRACE_ENABLE=1` 或
+`BMS_STACK_MONITOR_ENABLE=1` 均会编译报错。
 关闭后无日志环形缓存和日志写入函数；保留只读能力窗口，供上位机显示“日志已关闭”。
 量产门禁还要求干净提交、D008 明确 profile 和不少于 8 KiB 的 Flash 余量，关闭日志本身不等于通过所有发布条件。
 
@@ -37,6 +44,9 @@ INFO 适合观察状态变化；DEBUG 另外记录周期采样、SOC 决策/积�
 ## 与协议、低功耗和 Flash 的关系
 
 这是 RAM 运行日志，与 `bms_event_log` 的 Flash 历史事件独立，不改变持久布局、参数版本或历史事件策略。
+`bms_event_log` 是业务故障历史，不受服务诊断开关裁剪。
+业务计时统一由 `bms_time_now_32k()` 提供；AFE guard 的 watchdog 静默计时不依赖诊断模块。
+标准 MOS 控制窗口读取 guard 保存的最新 AFE 实际回读及有效性，不读取诊断缓存。
 记录固定二进制字段，固件无 printf、动态内存、字符串格式化、额外 DMA 发送或等待。
 主循环拥有记录缓存；SDK suspend exit 回调的日志部分仅递增一个 volatile 32-bit 计数，主循环每秒汇总；SH 同一回调还交付 UART 唤醒状态，UART/DMA 恢复和帧处理仍在主循环。
 UART IRQ 中不记录日志。BLE 接收入口延续 SDK 主循环分发路径。
@@ -103,6 +113,10 @@ MOS 请求/缓存不是物理 Gate 反馈，日志不声称闭环硬件成功。
 日志并非永久完整轨迹，也不逐字节记录 AFE 寄存器传输。
 
 ## 本次验证与资源
+
+2026-10-14 的服务诊断与产品能力源码裁剪未执行编译、链接或资源测量；以下数字均为各自注明的
+历史固定提交证据，不能当作当前源码的 Flash/RAM 结果。当前资源结论必须以后续四产品
+`link`/`resources` 输出为准。
 
 2026-10-05：四产品 sources 顺序校验；日志关闭/DEBUG全模块共 8 次 TC32 链接，全部零错误、零警告；
 8 份 MAP 的 SRAM 和槽位边界检查通过。下表为开发配置、默认 D008 profile 的链接投影字节数，非 BIN。

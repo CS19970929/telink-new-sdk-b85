@@ -5,6 +5,7 @@
 #ifndef BMS_STACK_MONITOR_H_
 #define BMS_STACK_MONITOR_H_
 #include <stdint.h>
+#include "bms_diag_config.h"
 #define BMS_STACK_PAINT 0xA5A5A5A5u
 /*
  * 填涂字节数是实际观测值，非形式化最坏界限；IRQ 预留独立。
@@ -19,5 +20,9 @@ typedef struct {
 } bms_stack_watermark_t;
 extern volatile bms_stack_watermark_t g_bms_stack_watermark;
 /* 在主循环中有界扫描栈水位并发布观测值。 */
+#if BMS_STACK_MONITOR_ENABLE
 void bms_stack_monitor_poll(void);
+#else
+static inline void bms_stack_monitor_poll(void) { }
+#endif
 #endif

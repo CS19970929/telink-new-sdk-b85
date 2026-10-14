@@ -10,7 +10,7 @@ static unsigned fuse_count;
 static uint8_t fuse_request;
 static uint32_t balance, balance_dropped_mask;
 static uint32_t test_tick;
-uint32_t bms_diag_tick(void){return test_tick;}
+uint32_t bms_time_now_32k(void){return test_tick;}
 int bms_config_get_user(bms_user_params_t *p){*p=user;return 1;}
 uint8_t bms_protection_params_valid(void){return params_valid;}
 void bms_board_features_init(uint8_t fired){fuse_request=fired;}

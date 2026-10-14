@@ -4,6 +4,7 @@
  * bms/afe/dvc1124/dvc1124.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
+#include "bms_afe_driver.h"
 #include "dvc1124.h"
 #include "bms_config_store.h"
 
@@ -1604,7 +1605,7 @@ void DVC1124_App_AFEGet(void)
     g_bms_system_status.bits.discharge_mos_status =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_DSGF_MASK) ? 1u : 0u;
 
-    bms_diag_driver(data[DVC1124_REG_CC2_L_FLAGS], 1u);
+    bms_afe_publish_fet_status(data[DVC1124_REG_CC2_L_FLAGS], 1u);
 
     /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */
     if (!dvc_refresh_balance_state())

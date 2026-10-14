@@ -16,18 +16,24 @@
 #define BMS_BALANCE_TRUST_CONFIRM_SAMPLES \
     ((BMS_BALANCE_TRUST_CONFIRM_MS + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) / BMS_FEATURE_SERVICE_PERIOD_MS)
 
+#if BMS_FEATURE_HEATER_SUPPORTED
 typedef enum {
     BMS_HEATER_IDLE = 0u,
     BMS_HEATER_ARMING = 1u,
     BMS_HEATER_ACTIVE = 2u
 } bms_heater_state_t;
+#endif
 
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
 typedef struct {
+#if BMS_FEATURE_HEATER_SUPPORTED
     uint8_t heater_on;
     uint8_t heater_fuse_fired;
     bms_heater_state_t heater_state;
     uint16_t heater_off_hot_samples;
+#endif
 
+#if BMS_FEATURE_BALANCE_SUPPORTED
     uint8_t balance_active;
     uint8_t balance_temperature_paused; /* 仅温度回落确认可解除，AFE 重初始化不清除。 */
     uint8_t balance_off_pending; /* 必须确认关闭后才能重新选择通道。 */
@@ -35,6 +41,7 @@ typedef struct {
     uint8_t balance_prev_cell_count;
     uint16_t balance_prev_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
     uint32_t balance_requested_mask;
+#endif
 } bms_feature_state_t;
 
 /*
@@ -42,15 +49,19 @@ typedef struct {
  * 产品能力由配置提供。
  */
 static bms_feature_state_t s_feature;
+#endif
 
 /* 对外状态的均衡掩码只在此处解码；回读结果与应用请求仍分别保存。 */
+#if BMS_FEATURE_BALANCE_SUPPORTED
 static uint32_t reported_balance_mask(void)
 {
     return ((uint32_t)g_bms_report.balance_bits_high << 16) |
            g_bms_report.balance_bits_low;
 }
+#endif
 
 /* 更新加热请求并驱动支持的板级输出。 */
+#if BMS_FEATURE_HEATER_SUPPORTED
 static void set_heater(uint8_t on)
 {
     on = (on && bms_board_heater_supported()) ? 1u : 0u;
@@ -267,8 +278,10 @@ static void service_heater(const bms_afe_feature_snapshot_t *s,
 
     set_heater(1u);
 }
+#endif
 
 /* 发布均衡通道和工作状态到公共报告。 */
+#if BMS_FEATURE_BALANCE_SUPPORTED
 static void publish_balance(uint32_t mask)
 {
     g_bms_report.balance_bits_low = (uint16_t)(mask & 0xFFFFu);
@@ -531,7 +544,9 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
                         config != 0 && config->balance_enable &&
                         bms_board_balance_supported() &&
                         balance_voltage_trusted() &&
+#if BMS_FEATURE_HEATER_SUPPORTED
                         (s_feature.heater_state == BMS_HEATER_IDLE) &&
+#endif
                         g_bms_report.discharge_current_a10 == 0u &&
                         temperature_safe &&
                         !balance_hard_fault());
@@ -549,30 +564,40 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
         if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
     }
 }
+#endif
 
 /* 复位加热和均衡的运行资格。 */
 void bms_features_init(void)
 {
     /* AFE 重初始化只撤销运行资格；保留熔断、温度暂停和未确认关闭状态。 */
+#if BMS_FEATURE_HEATER_SUPPORTED
     s_feature.heater_on = 0u;
     /* 不可逆动作在本次 MCU 启动中锁存，AFE 重初始化不能重新授权。 */
     s_feature.heater_state = BMS_HEATER_IDLE;
     s_feature.heater_off_hot_samples = 0u;
+#endif
+#if BMS_FEATURE_BALANCE_SUPPORTED
     s_feature.balance_active = 0u;
     /* 温度暂停和未确认关闭状态保留，不能用重初始化绕过恢复条件。 */
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
     s_feature.balance_requested_mask = 0u;
+#endif
     /* prev_cell_count 为零时不读旧数组；完整有效帧才建立新基线。 */
+#if BMS_FEATURE_HEATER_SUPPORTED
     bms_board_features_init(s_feature.heater_fuse_fired);
     bms_board_heater_set(0u);
     g_bms_system_status.bits.heater_status = 0u;
+#endif
+#if BMS_FEATURE_BALANCE_SUPPORTED
     publish_balance(0u);
+#endif
 }
 
 /* 成功取得的栈上快照只在本次同步调用中使用，内部 helper 不重复判空/判有效。 */
 void bms_features_service(void)
 {
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     bms_afe_feature_snapshot_t s;
     bms_user_params_t config;
     const bms_user_params_t *user;
@@ -584,16 +609,26 @@ void bms_features_service(void)
     }
 
     user = bms_config_get_user(&config) ? &config : 0;
+#if BMS_FEATURE_BALANCE_SUPPORTED
     update_balance_voltage_trust(&s);
+#endif
+#if BMS_FEATURE_HEATER_SUPPORTED
     service_heater(&s, user);
+#endif
+#if BMS_FEATURE_BALANCE_SUPPORTED
     service_balance(&s, user);
+#endif
+#endif
 }
 
 /* 主动关闭输出和 AFE 失效均撤销加热、均衡资格，硬件关闭仍需确认。 */
 void bms_features_stop(void)
 {
+#if BMS_FEATURE_HEATER_SUPPORTED
     heater_idle();
     s_feature.heater_off_hot_samples = 0u;
+#endif
+#if BMS_FEATURE_BALANCE_SUPPORTED
     s_feature.balance_requested_mask = 0u;
     s_feature.balance_active = 0u;
     s_feature.balance_off_pending = 1u;
@@ -608,14 +643,21 @@ void bms_features_stop(void)
         if (!bms_error_get(BMS_ERROR_BALANCE))
             bms_error_raise(BMS_ERROR_BALANCE);
     }
+#endif
 
+#if BMS_FEATURE_HEATER_SUPPORTED
     if (s_feature.heater_fuse_fired && !bms_error_get(BMS_ERROR_HEAT))
         bms_error_raise(BMS_ERROR_HEAT);
+#endif
 }
 
 /* 查询充电方向相关的公共功能阻断。 */
 uint8_t bms_features_charge_direction_blocked(void)
 {
+#if BMS_FEATURE_HEATER_SUPPORTED
     return (s_feature.heater_state == BMS_HEATER_ARMING ||
             s_feature.heater_state == BMS_HEATER_ACTIVE) ? 1u : 0u;
+#else
+    return 0u;
+#endif
 }

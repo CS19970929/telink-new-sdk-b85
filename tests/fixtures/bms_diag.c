@@ -23,7 +23,7 @@ typedef struct {u16 cell_ovp_first_mv;u16 rest[64];} bms_protection_params_t;
 typedef struct {u16 words[BMS_AFE_HW_PROFILE_WORD_COUNT];} bms_afe_hw_profile_t;
 static bms_protection_params_t g_bms_protection_params;
 static u32 tick, reads,writes;
-u32 bms_diag_tick(void){return tick;}
+u32 bms_time_now_32k(void){return tick;}
 static u16 u16be(const u8*p){return (u16)(((u16)p[0]<<8)|p[1]);}
 static void put_u16be(u8*p,u16 v){p[0]=(u8)(v>>8);p[1]=(u8)v;}
 static u16 mb_crc16(const u8*p,u32 n){u16 crc=0xffff;for(u32 i=0;i<n;i++){crc^=p[i];for(int k=0;k<8;k++)crc=(u16)((crc>>1)^((crc&1)?0xa001:0));}return crc;}

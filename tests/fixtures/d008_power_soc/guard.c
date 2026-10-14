@@ -41,7 +41,7 @@ static int dvc1124_backend_enter_shutdown(void){shutdown_calls++;return shutdown
 struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bits;}g_bms_system_status;
 
 static uint32_t guard_tick;
-uint32_t bms_diag_tick(void){return guard_tick;}
+uint32_t bms_time_now_32k(void){return guard_tick;}
 uint8_t bms_afe_enter_shutdown(void);
 /* PRODUCTION_SOURCE */
 static void reset(void){
@@ -134,7 +134,7 @@ int main(void){
  assert(bms_diag_cached_word(128)==3 && bms_diag_cached_word(129)==0);
  assert(bms_diag_cached_word(136)==(DIAG_BLOCK_PARAMS|DIAG_BLOCK_UPGRADE|DIAG_BLOCK_HW));
  assert(bms_diag_cached_word(138)==(DIAG_BLOCK_PARAMS|DIAG_BLOCK_UPGRADE|DIAG_BLOCK_SW));
- bms_diag_params(1,1);bms_diag_backend(0,0);bms_diag_driver(0,1);bms_afe_diag_poll();
+ bms_diag_params(1,1);bms_diag_backend(0,0);bms_afe_publish_fet_status(0,1);bms_afe_diag_poll();
  assert(bms_diag_cached_word(129)==3 && bms_diag_cached_word(132)==0 && bms_diag_cached_word(133)==1);
  s_guard.comm_inhibit=1;bms_afe_diag_poll();assert(bms_diag_cached_word(133)==0);
  puts("PASS MOS diagnostics: simultaneous independent reasons, requested ON/driver OFF, invalid feedback");
