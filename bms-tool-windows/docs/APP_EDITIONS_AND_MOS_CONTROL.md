@@ -31,7 +31,7 @@
 
 ## MOS 控制语义
 
-共享 `BmsClient.MosControl.cs` 供 Android、Windows 客户版和 Windows 内部版使用。客户端先读取 `0x2F10..0x2F17` 的 magic/version，再只写目标通道的 `0x2F12` 或 `0x2F13`，随后重新读取并核对许可。旧固件返回非法地址时只禁用按钮。
+共享 `BmsClient.MosControl.cs` 供 Android、Windows 客户版和 Windows 内部版使用。客户端先读取 `0x2F10..0x2F17` 的 magic/version，再只写目标通道的 `0x2F12` 或 `0x2F13`，随后重新读取并核对许可。Windows 主页根据该标准窗口的 `0x2F14/0x2F15` 显示 MOS 灯，不让可选诊断页的无效状态覆盖有效反馈；系统状态行按新增控制内容自动增高，避免许可文字和两个控制按钮被裁掉。旧固件返回非法地址时只禁用按钮。
 
 按钮使用“禁止充电/放电 MOS”和“允许充电/放电 MOS”。“允许”只解除用户关闭许可，不强制 MOS 开启；保护、通信、采样资格、产品策略和 AFE hardware protection 继续拥有最终控制权。界面不会把实时状态位或寄存器报告描述成物理 Gate/Vgs 证据。
 

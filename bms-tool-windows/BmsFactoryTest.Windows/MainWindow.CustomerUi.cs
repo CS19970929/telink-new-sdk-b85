@@ -178,11 +178,14 @@ public partial class MainWindow
     private void UpdateCustomerSystemLamps()
     {
         string mos = MosStateText.Text ?? string.Empty;
+        MosControlState? control = _mosControlState;
         bool mosUnknown = _bms is null || _customerLastDataUtc == DateTime.MinValue ||
             DateTime.UtcNow - _customerLastDataUtc > TimeSpan.FromSeconds(5) ||
-            (_mosAuto.IsChecked == true && _mosDriverInvalid);
-        SetLamp(CustomerChargeMosLamp, CustomerChargeMosText, mosUnknown ? null : TryGetSwitchState(mos, "充电 MOS"));
-        SetLamp(CustomerDischargeMosLamp, CustomerDischargeMosText, mosUnknown ? null : TryGetSwitchState(mos, "放电 MOS"));
+            (control is not null ? !control.DriverStateValid : _mosAuto.IsChecked == true && _mosDriverInvalid);
+        SetLamp(CustomerChargeMosLamp, CustomerChargeMosText, mosUnknown ? null :
+            control is { DriverStateValid: true } ? control.ChargeDriverOn : TryGetSwitchState(mos, "充电 MOS"));
+        SetLamp(CustomerDischargeMosLamp, CustomerDischargeMosText, mosUnknown ? null :
+            control is { DriverStateValid: true } ? control.DischargeDriverOn : TryGetSwitchState(mos, "放电 MOS"));
 
         string system = SystemStateText.Text ?? string.Empty;
         SetLamp(CustomerHeatLamp, CustomerHeatText, TryGetSwitchState(system, "加热"));

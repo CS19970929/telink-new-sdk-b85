@@ -69,6 +69,14 @@ public partial class MainWindow
             foreach (UIElement child in grid.Children) Grid.SetRow(child, 0);
         }
 
+        /* 主页原系统状态行固定为 132 px；加入状态文字和按钮后会被裁掉。 */
+        if (grid.Parent is GroupBox group && group.Parent is Grid host)
+        {
+            int row = Grid.GetRow(group);
+            if (row >= 0 && row < host.RowDefinitions.Count)
+                host.RowDefinitions[row].Height = GridLength.Auto;
+        }
+
         _chargeMosControlButton.Click += async (_, _) => await ChangeMosAllowedAsync(true);
         _dischargeMosControlButton.Click += async (_, _) => await ChangeMosAllowedAsync(false);
         _chargeMosControlButton.ToolTip = "设置充电 MOS 用户许可；放电期间固件可能安全临时开启，放电结束后自动恢复关闭。";
@@ -145,6 +153,10 @@ public partial class MainWindow
         _dischargeMosControlButton.Content = state.DischargeAllowed ? "禁止放电 MOS" : "允许放电 MOS";
         _chargeMosControlButton.IsEnabled = !_mosControlBusy && _bms is not null && !_otaRunning;
         _dischargeMosControlButton.IsEnabled = !_mosControlBusy && _bms is not null && !_otaRunning;
+        SetLamp(CustomerChargeMosLamp, CustomerChargeMosText,
+            state.DriverStateValid ? state.ChargeDriverOn : null);
+        SetLamp(CustomerDischargeMosLamp, CustomerDischargeMosText,
+            state.DriverStateValid ? state.DischargeDriverOn : null);
     }
 
     private static void SetMosChannelControlState(TextBlock target, bool allowed,
@@ -236,5 +248,7 @@ public partial class MainWindow
         _dischargeMosControlState.FontWeight = FontWeights.Normal;
         _chargeMosControlButton.IsEnabled = false;
         _dischargeMosControlButton.IsEnabled = false;
+        SetLamp(CustomerChargeMosLamp, CustomerChargeMosText, null);
+        SetLamp(CustomerDischargeMosLamp, CustomerDischargeMosText, null);
     }
 }
