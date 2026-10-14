@@ -158,7 +158,7 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp verif
 | 构建模式 | 开发 / 生产；生产仍须满足干净提交、产品批准和资源门禁 |
 | 串数 | 可编辑：D008 LFP 为 4～24 串，NMC 为 4～23 串；SH3673510 为 4～10 串、SH3673520 为 4～20 串 |
 | 电池类型 | 四产品均可选磷酸铁锂或 4.20 V 三元锂；D008 切到 NMC 时串数上限自动降至 23 |
-| 默认容量 | Ah，步进 0.1 Ah；未改时读取产品头文件，后续记住本机选择 |
+| 默认容量 | Ah，步进 0.1 Ah；首次读取各产品 `dXXX_protection_config.h`，后续记住本机选择 |
 | OTA 后更新所选组 | 软件保护、AFE 硬件保护、容量/加热/均衡、SOC 配置四个勾选；全不选保留，勾选组恢复本次固件默认 |
 | 更换电池：重置 SOC / 循环 | 单独选择 SOC_STATE；恢复源码初始 SOC、放电累计和循环，不代表真实电量已校准 |
 | 更新标识 | 工具自动生成并编入 BIN；界面无需编号，不读取客户旧编号 |
@@ -177,7 +177,19 @@ Sender 默认位置为 `%USERPROFILE%/Documents/CodexOutputs/telink-new-sdk-b85/
 
 D008 窗口使用独立的 `custom` 编译 profile，旧三个 profile 保留兼容。现有 D008 16/24S LFP 生产签核范围保持；20S NMC 仍需要原专项批准，其余新组合仅开放开发构建，生产需另行源码签核。SH 产品仍受原生产批准门限制；菜单不自动提交、不批准、不降级为开发模式。已有源码脏修改也会阻止生产构建。镜像及 manifest 不提交 Git。
 
-快捷键目标名称保持不变，仓库提供 [快捷键示例](../.vscode/keybindings.example.json)。若界面仍是旧版，关闭旧窗口并重新按快捷键，必要时执行 `Developer: Reload Window`。此入口需要 Windows PowerShell 5.1 / WinForms 和原 TC32 / Python 环境。2026-10-10 本次参数组窗口未运行；此前旧窗口启动/控件读取不作为本版本验证。本次未执行 host、固件编译、镜像生成或 OTA。
+快捷键目标名称保持不变，仓库提供 [快捷键示例](../.vscode/keybindings.example.json)。若界面仍是旧版，关闭旧窗口并重新按快捷键，必要时执行 `Developer: Reload Window`。此入口需要 Windows PowerShell 5.1 / WinForms 和原 TC32 / Python 环境。
+
+### 2026-10-14 菜单默认容量读取修复与验证
+
+`81d64ba2` 将容量集中到四产品独立参数文件后，菜单仍仅在 `bms_product.h` 中查找该宏，导致四产品都报“无法读取默认容量”。菜单现从各产品 `dXXX_protection_config.h` 读取容量；AFE、串数和电池类型仍读取原板级/装配入口，本机保存的选择继续生效。
+
+本轮在 `81d64ba2` 加修复工作树上验证，未生成固件 BIN 或执行 OTA：
+
+- 工具单测 59 项通过；真实 WinForms 窗口分别覆盖源码默认与本机保存配置，两轮各遍历全部 185 种合法板型/AFE/串数/类型组合。检查容量上下界、改容量仅联动 BUSINESS、改拓扑/类型联动四组、SOC_STATE 不自动勾选、取消与编译/发送参数交接。最后 Python 调用使用测试替身，未编译镜像或连接手机。
+- TC32 预处理分别验证 185 种合法装配的实际产品头文件，并检查全部 32 种 OTA 更新组组合。它只证明配置宏传递和编译期边界，不等同于 185 次完整固件链接。
+- 四产品 `sources --check`、开发 `link`、`resources` 全部通过。完整软件回归执行 124 组，89 组通过、35 组失败，不能标记全量通过。
+
+未关闭的失败包括 SOC 常量迁移后的旧文本断言、默认装配/AFE 期望不一致，以及 DVC/SH、诊断和 Modbus host 夹具缺少当前依赖。原始结果、逐项失败日志与资源报告保存在 `%USERPROFILE%/Documents/CodexOutputs/bms-build-menu/20261014/full-validation/`，配置矩阵在相邻的 `configuration-matrix.json`。本次修复只改菜单容量读取和对应回归，不调整保护参数、生产批准或固件业务逻辑，也不据此宣称实板/OTA 验收通过。
 
 ## 7. 常见失败
 

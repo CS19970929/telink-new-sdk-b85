@@ -28,7 +28,9 @@ if ($PlanOnly -and -not $Target) { throw 'PlanOnly requires an explicit Target.'
 function Get-TargetDefaults([string]$id) {
     $product = $id.Split('-')[0]
     $header = Get-Content (Join-Path $repositoryRoot "bms/products/$product/bms_product.h") -Raw
-    if ($header -notmatch '(?m)^\s*#define\s+BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH\s+(\d+)') {
+    # 容量已集中到各产品独立参数文件；板级头文件仍提供串数和类型。
+    $parameters = Get-Content (Join-Path $repositoryRoot "bms/products/$product/${product}_protection_config.h") -Raw
+    if ($parameters -notmatch '(?m)^\s*#define\s+BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH\s+(\d+)') {
         throw "无法读取 $product 默认容量。"
     }
     $capacity = [int]$Matches[1]

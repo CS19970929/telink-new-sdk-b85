@@ -473,6 +473,89 @@ class BuildOptionsTests(unittest.TestCase):
         self.assertEqual(bms.build_options.normalize({'update_groups': ['sw'], 'update_id': token}, 'd014', None)['update_id'], token)
 
 
+@unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
+class PickerDefaultsTests(unittest.TestCase):
+    def read_defaults(self, root):
+        script = REPO_ROOT / 'bms_tools/select_firmware_build.ps1'
+        source = r'''
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$ErrorActionPreference = 'Stop'
+$repositoryRoot = '__ROOT__'
+$tokens = $null
+$errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile('__SCRIPT__', [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw ($errors | Out-String) }
+$functions = $ast.FindAll({param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-TargetDefaults'
+}, $true)
+. ([scriptblock]::Create($functions[0].Extent.Text))
+$result = @{}
+foreach ($id in @('d008', 'd011', 'd013', 'd014')) { $result[$id] = Get-TargetDefaults $id }
+$result | ConvertTo-Json -Depth 4 -Compress
+'''.replace('__ROOT__', str(root).replace("'", "''")).replace('__SCRIPT__', str(script).replace("'", "''"))
+        result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', source],
+                                capture_output=True, encoding='utf-8', errors='replace', timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_current_four_product_defaults_are_readable(self):
+        defaults = self.read_defaults(REPO_ROOT)
+        self.assertEqual(set(defaults), {'d008', 'd011', 'd013', 'd014'})
+        for product, values in defaults.items():
+            with self.subTest(product=product):
+                self.assertTrue(1 <= values['Capacity0p1Ah'] <= 6553)
+                self.assertTrue(4 <= values['Cells'] <= 24)
+                self.assertIn(values['Chemistry'], ('lfp', 'nmc'))
+                self.assertIn(values['AfeModel'], ('dvc1124', 'sh3673510', 'sh3673520'))
+
+    def test_real_window_controls_defaults_saved_settings_and_command_handoff(self):
+        fixture = REPO_ROOT / 'tests/fixtures/build_menu_ui.ps1'
+        for scenario in ('defaults', 'saved'):
+            with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as tmp:
+                result = subprocess.run(['powershell.exe', '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass',
+                                         '-File', str(fixture), '-RepositoryRoot', str(REPO_ROOT),
+                                         '-SettingsRoot', tmp, '-Scenario', scenario],
+                                        capture_output=True, encoding='utf-8', errors='replace', timeout=30)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                if 'UI_SKIP:' in result.stdout:
+                    self.skipTest('真实 WinForms 窗口需要交互桌面会话')
+                self.assertNotIn('UI_FAIL:', result.stdout, result.stdout + result.stderr)
+                reports = [json.loads(line[10:]) for line in result.stdout.splitlines() if line.startswith('UI_RESULT:')]
+                self.assertEqual(len(reports), 1, result.stdout + result.stderr)
+                self.assertEqual(reports[0]['Configurations'], 185)
+                calls = [json.loads(line[5:]) for line in result.stdout.splitlines() if line.startswith('CALL:')]
+                if scenario == 'defaults':
+                    self.assertEqual(calls, [])
+                else:
+                    self.assertEqual(len(calls), 2)
+                    self.assertEqual(calls[0][1:15], ['--target', 'd014', '--mode', 'development',
+                        '--afe-model', 'sh3673520', '--chemistry', 'nmc', '--cell-count', '19',
+                        '--capacity-0p1ah', '400', '--update-groups', 'sw'])
+                    self.assertEqual(calls[0][-2:], ['--build-only', '--rebuild'])
+                    self.assertEqual(calls[1], calls[0][:-2] + ['--send-only'])
+
+    def test_capacity_comes_from_each_dedicated_config_not_the_old_product_header(self):
+        import re
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            shutil.copytree(REPO_ROOT / 'bms/products', root / 'bms/products')
+            expected = {}
+            for index, product in enumerate(('d008', 'd011', 'd013', 'd014')):
+                expected[product] = 731 + index
+                config = root / f'bms/products/{product}/{product}_protection_config.h'
+                text, count = re.subn(r'(#define\s+BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH\s+)\d+u',
+                                     lambda match: match[1] + str(expected[product]) + 'u',
+                                     config.read_text(encoding='utf-8'))
+                self.assertEqual(count, 1)
+                config.write_text(text, encoding='utf-8')
+                header = root / f'bms/products/{product}/bms_product.h'
+                with header.open('a', encoding='utf-8') as stream:
+                    stream.write('\n#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 999u\n')
+            defaults = self.read_defaults(root)
+            self.assertEqual({product: values['Capacity0p1Ah'] for product, values in defaults.items()}, expected)
+
+
 class AndroidOtaWorkflowTests(unittest.TestCase):
     def create_files(self, root, target, mode='production', options=None):
         product, profile = android_ota.TARGETS[target]
