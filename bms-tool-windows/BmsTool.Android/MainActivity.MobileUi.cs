@@ -1,4 +1,5 @@
 using Android.Content;
+using Android.Content.PM;
 using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
@@ -15,7 +16,7 @@ public sealed partial class MainActivity
     private const string Ink = "#172D3A", Muted = "#647784", Accent = "#126B66", Canvas = "#F3F6F8";
     private TextView? _socValue, _workState, _voltageValue, _currentValue, _capacityValue, _temperatureValue;
     private TextView? _freshnessView, _pageTitle;
-    private LinearLayout? _cellGrid, _softwarePanel, _hardwarePanel;
+    private LinearLayout? _cellGrid, _softwarePanel, _hardwarePanel, _serviceActions;
     private Button? _softwareTab, _hardwareTab, _saveSoftwareButton, _saveHardwareButton;
     private readonly HashSet<Button> _connectionRequiredButtons = new();
     private readonly Queue<string> _visibleLogLines = new();
@@ -186,17 +187,13 @@ public sealed partial class MainActivity
     private View BuildMobileProtectionPage()
     {
         var root = Page();
-        if (!AppEdition.IsInternal)
-        {
-            root.AddView(Note("服务模式仅在本次连接有效；所有写入仍逐项确认并读回。模式开关不等于身份认证。"));
-            root.AddView(ActionButton("业务参数与 SOC 校正  ›", () => { ShowPage(BusinessPage); return Task.CompletedTask; }, false));
-        }
+        root.AddView(ActionButton("‹ 返回设备", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
+        root.AddView(Note("整页均可上下滚动。切换页签只改变当前显示的保护组，不会写入设备。"));
         var tabs = Row();
         _softwareTab = MobileButton("软件保护");
         _hardwareTab = MobileButton("硬件保护");
         AddEqual(tabs, _softwareTab); AddEqual(tabs, _hardwareTab);
         root.AddView(tabs);
-        var host = new FrameLayout(this);
         _softwarePanel = Page();
         _softwarePanel.AddView(Note("先读取设备参数，再展开需要调整的保护组。保存后自动读回核对。"));
         _softwarePanel.AddView(ActionButton("读取软件保护", ReadProtectionAsync));
@@ -204,8 +201,7 @@ public sealed partial class MainActivity
         _softwarePanel.AddView(_protectionStatus);
         _protectionRows = new LinearLayout(this) { Orientation = Orientation.Vertical };
         _softwarePanel.AddView(_protectionRows);
-        var softwareScroll = new ScrollView(this); softwareScroll.AddView(_softwarePanel);
-        host.AddView(softwareScroll);
+        root.AddView(_softwarePanel);
         _hardwarePanel = Page();
         _hardwarePanel.AddView(Note("设定值是保存的参数，生效值是硬件量化后的结果。两者可能不同。"));
         _hardwarePanel.AddView(ActionButton("读取硬件保护", ReadAfeAsync));
@@ -213,16 +209,14 @@ public sealed partial class MainActivity
         _hardwarePanel.AddView(_afeStatus);
         _afeRows = new LinearLayout(this) { Orientation = Orientation.Vertical };
         _hardwarePanel.AddView(_afeRows);
-        var hardwareScroll = new ScrollView(this); hardwareScroll.AddView(_hardwarePanel);
-        host.AddView(hardwareScroll);
-        root.AddView(host, new LinearLayout.LayoutParams(-1, 0, 1));
+        root.AddView(_hardwarePanel);
         _saveSoftwareButton = ActionButton("保存修改 · 0 项", SaveProtectionAsync);
         _saveHardwareButton = ActionButton("保存修改 · 0 项", SaveAfeAsync);
         root.AddView(_saveSoftwareButton); root.AddView(_saveHardwareButton);
         void Select(bool hardware)
         {
-            softwareScroll.Visibility = hardware ? ViewStates.Gone : ViewStates.Visible;
-            hardwareScroll.Visibility = hardware ? ViewStates.Visible : ViewStates.Gone;
+            _softwarePanel.Visibility = hardware ? ViewStates.Gone : ViewStates.Visible;
+            _hardwarePanel.Visibility = hardware ? ViewStates.Visible : ViewStates.Gone;
             _saveSoftwareButton.Visibility = hardware ? ViewStates.Gone : ViewStates.Visible;
             _saveHardwareButton.Visibility = hardware ? ViewStates.Visible : ViewStates.Gone;
             StyleSelection(_softwareTab, !hardware); StyleSelection(_hardwareTab, hardware);
@@ -230,8 +224,7 @@ public sealed partial class MainActivity
         _softwareTab.Click += (_, _) => Select(false);
         _hardwareTab.Click += (_, _) => Select(true);
         Select(false);
-        _pages.Add(root);
-        return root;
+        return Wrap(root);
     }
 
     private View BuildMobileLogPage()
@@ -290,19 +283,13 @@ public sealed partial class MainActivity
     private View BuildMobileDevicePage()
     {
         var page = Page();
-        page.AddView(SectionTitle("连接电池"));
-        page.AddView(Note("扫描附近设备，点击设备名称即可连接。"));
-        page.AddView(ActionButton("扫描附近的电池", ScanAsync, false));
-        _scanResults = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        page.AddView(_scanResults);
-        var manual = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        _macInput = LabeledInput(manual, "设备 MAC", "");
-        _connectButton = ActionButton("连接指定设备", ConnectSelectedAsync, false);
-        manual.AddView(_connectButton);
-        AddFold(page, "手动连接 / 上次设备", manual);
+        page.AddView(SectionTitle("当前设备"));
+        _identityView = DataBlock("尚未连接设备");
+        _identityView.SetTextIsSelectable(true);
+        page.AddView(_identityView);
         _disconnectButton = ActionButton("断开连接", DisposeConnectionAsync);
         page.AddView(_disconnectButton);
-        page.AddView(SectionTitle("设备设置"));
+        page.AddView(SectionTitle("服务与设备设置"));
         if (AppEdition.IsInternal)
         {
             page.AddView(ActionButton("业务参数与 SOC 校正  ›", () => { ShowPage(BusinessPage); return Task.CompletedTask; }, false));
@@ -315,12 +302,26 @@ public sealed partial class MainActivity
             page.AddView(_serviceModeButton);
             _serviceModeStatus = Note("普通模式 · 保护参数与校正入口已收起");
             page.AddView(_serviceModeStatus);
+            _serviceActions = Page();
+            _serviceActions.AddView(ActionButton("业务参数、SOC 与电池类型  ›", () => { ShowPage(BusinessPage); return Task.CompletedTask; }, false));
+            _serviceActions.AddView(ActionButton("软件 / 硬件保护参数  ›", () => { ShowPage(ProtectionPage); return Task.CompletedTask; }, false));
+            _serviceActions.Visibility = ViewStates.Gone;
+            page.AddView(_serviceActions);
         }
-        page.AddView(SectionTitle("设备信息"));
-        _identityView = DataBlock("连接后显示设备名称、型号与版本");
-        _identityView.SetTextIsSelectable(true);
-        page.AddView(_identityView);
-        page.AddView(Note($"{AppEdition.DisplayName} 0.7.0"));
+        var connection = Page();
+        connection.AddView(Note("扫描附近设备，点击设备名称即可连接；当前连接不会因展开此区域而断开。"));
+        connection.AddView(ActionButton("扫描附近的电池", ScanAsync, false));
+        _scanResults = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        connection.AddView(_scanResults);
+        var manual = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        _macInput = LabeledInput(manual, "设备 MAC", "");
+        _connectButton = ActionButton("连接指定设备", ConnectSelectedAsync, false);
+        manual.AddView(_connectButton);
+        AddFold(connection, "手动连接 / 上次设备", manual);
+        AddFold(page, "连接其他电池", connection);
+        page.AddView(SectionTitle("应用信息"));
+        string appVersion = PackageManager?.GetPackageInfo(PackageName!, PackageInfoFlags.MetaData)?.VersionName ?? "unknown";
+        page.AddView(Note($"{AppEdition.DisplayName} {appVersion}\nApp Commit {BuildIdentity.Display}"));
         return Wrap(page);
     }
 

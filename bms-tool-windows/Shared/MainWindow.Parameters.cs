@@ -43,6 +43,8 @@ public partial class MainWindow
             if(dialog.ShowDialog(this)==true)try{D008Parameters.Export(dialog.FileName,_parameterCapture);_parameterStatus.Text="参数包已导出";}catch(Exception e){ShowError("导出失败",e);}
             return Task.CompletedTask;
         });
+        AddBatteryTypeControls(root);
+        AddSocProfileControls(root);
         Field("额定容量 / Ah",_parameterCapacity);
         Button("保存额定容量",()=>ParameterRunAsync((c,t)=>c.WriteD008VerifiedAsync(0x2318,new[]{D008Parameters.Capacity(_parameterCapacity.Text)},false,t)));
         root.Children.Add(new TextBlock{Text="容量单位为 Ah；保存后请以设备读回结果为准。",TextWrapping=TextWrapping.Wrap});
@@ -115,7 +117,7 @@ public partial class MainWindow
         MainTabs.Items.Add(new TabItem{Header="业务参数",Content=new ScrollViewer{Content=root,VerticalScrollBarVisibility=ScrollBarVisibility.Auto}});
         var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
         timer.Tick+=async(_,_)=>{
-            if(_bms is null){_parameterProbedClient=null;_parameterCapture=null;_parameterStatus.Text="未连接";_parameterBusinessReadback.Text="设备当前加热/均衡参数：未连接，旧读数不代表当前设备";UpdateBusinessParameterControls();return;}
+            if(_bms is null){_batteryTypeStatus.Text="电池类型：未连接，旧读数不代表当前设备";_parameterProbedClient=null;_parameterCapture=null;_parameterStatus.Text="未连接";_parameterBusinessReadback.Text="设备当前加热/均衡参数：未连接，旧读数不代表当前设备";UpdateBusinessParameterControls();return;}
             if(!ReferenceEquals(_bms,_parameterProbedClient) && !_parameterBusy && !_diagBusy && !_otaRunning && !_eventLogReadInProgress && !_shBusy && !ShFactoryBusy())await ParameterRunAsync(null);
         };
         timer.Start();Closed+=(_,_)=>timer.Stop();

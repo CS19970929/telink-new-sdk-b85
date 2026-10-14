@@ -126,13 +126,17 @@ public sealed partial class MainActivity
         _connectedMac = null;
         _mosControlState = null;
         _mosControlCapabilityChecked = false;
+        _socProfile = null;
+        RunOnUiThread(() => { if (_socProfileStatus is not null) _socProfileStatus.Text = "未连接，旧读数不代表当前设备"; });
         if (!AppEdition.IsInternal)
         {
             _serviceMode = false;
             RunOnUiThread(() =>
             {
+                if (_batteryTypeStatus is not null) _batteryTypeStatus.Text = "未连接，旧读数不代表当前设备";
                 if (_serviceModeButton is not null) _serviceModeButton.Text = "进入服务设置";
                 if (_serviceModeStatus is not null) _serviceModeStatus.Text = "普通模式 · 保护参数与校正入口已收起";
+                if (_serviceActions is not null) _serviceActions.Visibility = ViewStates.Gone;
                 if (_pages.Count > ProtectionPage && _pages[ProtectionPage].Visibility == ViewStates.Visible) ShowPage(DevicePage);
             });
         }
@@ -872,16 +876,22 @@ public sealed partial class MainActivity
             _serviceMode = false;
             _serviceModeButton!.Text = "进入服务设置";
             _serviceModeStatus!.Text = "普通模式 · 保护参数与校正入口已收起";
+            _serviceActions!.Visibility = ViewStates.Gone;
             SetStatus("已退出服务模式");
             ShowPage(DevicePage);
             return;
         }
-        if (!await ConfirmAsync("进入服务设置",
-            "服务设置允许修改软件保护、硬件保护、SOC 和业务参数。所有写入仍会再次确认并读回。\n\n此开关只是操作模式，不是人员身份认证。是否进入？")) return;
+        var expectedClient = _client;
+        if (expectedClient is null) { SetStatus("请先连接设备", true); return; }
+        string? password = await PromptServicePasswordAsync();
+        if (password is null) return;
+        if (!BmsServiceAccess.PasswordValid(password)) { SetStatus("服务密码错误", true); return; }
+        if (!ReferenceEquals(expectedClient, _client)) { SetStatus("连接已改变，请重新验证服务权限", true); return; }
         _serviceMode = true;
         _serviceModeButton!.Text = "退出服务设置";
-        _serviceModeStatus!.Text = "服务模式 · 断开设备后自动退出";
-        ShowPage(ProtectionPage);
+        _serviceModeStatus!.Text = "服务模式已开启 · 请选择要配置的项目；断开后自动退出";
+        _serviceActions!.Visibility = ViewStates.Visible;
+        SetStatus("服务模式已开启，请选择配置项目");
     }
 
     private bool EnsureServiceAccess(string operation)

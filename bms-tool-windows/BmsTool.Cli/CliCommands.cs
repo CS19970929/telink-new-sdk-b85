@@ -23,6 +23,7 @@ internal static class CliCommands
 @"bms-cli - BMS command-line tool for humans, scripts and AI agents
 
 Usage:
+  bms-cli version [--json]
   bms-cli capabilities [--json]
   bms-cli scan [--scan-seconds 4] [--json]
   bms-cli capture (--mac MAC | --serial COMx) --output DIRECTORY

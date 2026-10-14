@@ -1,0 +1,25 @@
+<Project>
+  <!-- 每个可执行程序集记录实际构建源码；脏工作树显式标记，避免把 HEAD 冒充成可复现版本。 -->
+  <Target Name="AddBmsGitIdentity" BeforeTargets="CoreCompile">
+    <Exec Command="git -C &quot;$(MSBuildThisFileDirectory)..&quot; rev-parse --short=12 HEAD"
+          ConsoleToMSBuild="true" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="BmsGitCommitOutput" />
+    </Exec>
+    <Exec Command="git -C &quot;$(MSBuildThisFileDirectory)..&quot; status --porcelain --untracked-files=normal -- bms-tool-windows"
+          ConsoleToMSBuild="true" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="BmsGitStatusOutput" />
+    </Exec>
+    <PropertyGroup>
+      <BmsGitCommit>@(BmsGitCommitOutput)</BmsGitCommit>
+      <BmsGitCommit Condition="'$(BmsGitCommit)' == ''">unknown</BmsGitCommit>
+      <BmsGitDirtySuffix Condition="'@(BmsGitStatusOutput)' != ''">-dirty</BmsGitDirtySuffix>
+    </PropertyGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <WriteLinesToFile File="$(IntermediateOutputPath)BmsGitIdentity.g.cs"
+      Lines="using System.Reflection%3B [assembly: AssemblyMetadata(&quot;BmsGitCommit&quot;, &quot;$(BmsGitCommit)$(BmsGitDirtySuffix)&quot;)]"
+      Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)BmsGitIdentity.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -74,6 +74,13 @@ public sealed partial class MainActivity
     {
         LinearLayout page = Page();
         page.AddView(ActionButton("‹ 返回设备", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
+        page.AddView(SectionTitle("整套电池类型切换"));
+        _batteryTypeStatus = Note("请确认实际电芯类型，并先断开充电器和负载。");
+        page.AddView(_batteryTypeStatus);
+        page.AddView(ActionButton("读取当前电池类型", ReadBatteryTypeFromUiAsync));
+        page.AddView(ActionButton("一键切换磷酸铁锂", () => SwitchBatteryTypeFromUiAsync(1)));
+        page.AddView(ActionButton("一键切换三元锂", () => SwitchBatteryTypeFromUiAsync(2)));
+        BuildSocProfileControls(page);
         page.AddView(SectionTitle("SOC 校正"));
         page.AddView(Note("输入目标电量百分比，保存后读取设备确认。"));
         _socInput = LabeledInput(page, "目标 SOC / %", "");

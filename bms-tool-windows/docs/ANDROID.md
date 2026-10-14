@@ -208,7 +208,7 @@ dotnet build .\BmsTool.Android\BmsTool.Android.csproj -c Release
 
 ## 2026-10-13 两版 UI 与独立 MOS 控制源码
 
-当前源码版本为 `0.7.0` / versionCode `12`。默认 `BmsAppEdition=Internal` 保持原 `com.cs.bmstool.android` 测试包；`BmsAppEdition=Customer` 生成可并存的 `com.cs.bmsbattery` 客户包。完整取舍见 [两版 App 与 MOS 控制](APP_EDITIONS_AND_MOS_CONTROL.md)。
+当前源码版本为 `0.8.0` / versionCode `14`。默认 `BmsAppEdition=Internal` 保持原 `com.cs.bmstool.android` 测试包；`BmsAppEdition=Customer` 生成可并存的 `com.cs.bmsbattery` 客户包。设备页显示构建源码 commit，脏工作树追加 `-dirty`。完整取舍见 [两版 App 与 MOS 控制](APP_EDITIONS_AND_MOS_CONTROL.md)。
 
 客户版四个主入口为“电池 / 单体 / 记录 / 设备”，日常首页突出 SOC、总压、电流、容量、温度、充放电 MOS 和告警。软件/硬件保护、SOC 与业务参数通过本次连接有效的服务设置进入；测试版保留保护、日志、诊断、OTA、长期监控和原始寄存器等工程功能。
 

@@ -18,8 +18,17 @@ internal static class Program
         try
         {
             options = CliOptions.Parse(args);
+            if (options.Command == "version" || options.Has("version"))
+            {
+                var versionReporter = new CliReporter(options.Json, options.Verbose);
+                versionReporter.Success("version", new { appCommit = BmsTool.Windows.BuildIdentity.Display });
+                if (!options.Json)
+                    Console.WriteLine($"bms-cli · App Commit {BmsTool.Windows.BuildIdentity.Display}");
+                return ExitCodes.Success;
+            }
             if (options.Command is "help" or "--help" or "-h" || options.Has("help"))
             {
+                Console.WriteLine($"App Commit {BmsTool.Windows.BuildIdentity.Display}");
                 Console.WriteLine(CliCommands.HelpText);
                 return ExitCodes.Success;
             }
