@@ -35,7 +35,7 @@ public sealed partial class BmsClient
     private const ushort SocProfilePersisted = 0x2EE4;
     private const ushort SocProfileGeneration = 0x2EE5;
     private const ushort SocProfileCommand = 0x2EF8;
-    private const ushort SocProfileStageBase = 0x2F00;
+    private const ushort SocProfileStageBase = 0x2F20;
     private const int SocProfileWords = 50;
 
     public async Task<SocProfileParameters> ReadSocProfileAsync(CancellationToken ct = default)
