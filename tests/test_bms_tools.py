@@ -278,7 +278,10 @@ class OutputPathTests(unittest.TestCase):
             if profile:
                 argv += ["--d008-profile", profile]
             module = importlib.util.module_from_spec(SPEC)
-            with mock.patch.object(sys, "argv", argv):
+            # 本用例只验证输出路径隔离，不应受当前源码 OTA 内容摘要约束。
+            with mock.patch.object(sys, "argv", argv), \
+                 mock.patch.object(bms.build_options, "verify_source",
+                                   side_effect=bms.build_options.read_source):
                 SPEC.loader.exec_module(module)
             self.assertEqual(module.FIRMWARE_DIR.parent.name,
                              module.build_options.variant('production', product, profile,

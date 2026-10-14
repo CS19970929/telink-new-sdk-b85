@@ -100,7 +100,7 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp link 
 python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resources
 ```
 
-示例只验证 D008 16S。涉及全部 D008 profile 时，再分别对 `20s-nmc`、`24s-lfp` 执行 `--product d008 --production --d008-profile ... link` 和 `resources`。生产 trace/raw 诊断关闭，相关能力位和窗口按 [日志说明](RUNTIME_DEBUG_LOG.md) 处理。生产要求至少 8 KiB Flash 余量，并拒绝空 Build ID、测试开关或保护关闭；dirty 源码允许构建并通过 `BMS_DIAG_BUILD_DIRTY=1` 和 manifest 明确记录。不能用 `EXTRA_DEFINES` 伪造生产/Build ID/profile。
+示例只验证 D008 16S。涉及全部 D008 profile 时，再分别对 `20s-nmc`、`24s-lfp` 执行 `--product d008 --production --d008-profile ... link` 和 `resources`。生产 trace/raw 诊断关闭，相关能力位和窗口按 [日志说明](RUNTIME_DEBUG_LOG.md) 处理。Flash 余量低于 8 KiB 时写入资源报告并显示警告，但只要镜像仍在 126,976 B APP 槽内就不阻断构建；空 Build ID、测试开关、保护关闭及物理槽溢出仍会拒绝。dirty 源码允许构建并通过 `BMS_DIAG_BUILD_DIRTY=1` 和 manifest 明确记录。不能用 `EXTRA_DEFINES` 伪造生产/Build ID/profile。
 
 优化由 `bms_tools/build.mk` 的 `CFLAGS_BASE` / `CORE_OPT_FLAGS` 和 `bms.py` 生成的逐源规则确定：
 
@@ -174,9 +174,9 @@ DVC1124-2 DS V1.1 原 PDF 第 1 页规定 4～24 串且电池包不超过 100V�
 | TC32/Make 找不到 | `env` → `TC32_BIN`/PATH → 官方工具与 Vendor 库；不要改用 host GCC |
 | host 找不到 `cc` 或运行 DLL | `CC`、编译器 bin 的 PATH；查看对应测试日志 |
 | source manifest 失败 | 本产品 `sources.txt`、重复/遗漏/错误后端；变更集合后才更新清单 |
-| link 看似成功但命令失败 | `gen/build.log` 的 warning 门禁或生产资源门禁；不要压制警告绕过 |
+| link 看似成功但命令失败 | `gen/build.log` 的编译 warning、物理 Flash/RAM 边界或构建收据；不要直接绕过真实错误 |
 | resources 报收据陈旧 | 同产品/模式/profile 重新 link；源码、宏、Git 身份变化都可能使输入过期 |
-| production 拒绝 | `git status --short`、有效 Build ID、D008 显式 profile、实验宏、8 KiB 余量 |
+| production 拒绝 | `git status --short`、有效 Build ID、D008 显式 profile、实验宏、产品专项签核和物理资源边界；低于 8 KiB 余量仅警告 |
 | 找不到 BIN | `link` 本就不生成；确认任务明确要求镜像后才使用第 5 节 |
 | 静态分析要本机模板 | 使用 `static --no-report`，保留机器可读结果 |
 

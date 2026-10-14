@@ -99,7 +99,7 @@ def check_resource_safety_host_check():
     """Execute stack scan and resource rejection contracts without target hardware."""
     from pathlib import Path
     from project_paths import Sources, host_includes, selected_source
-    import sys, tempfile, subprocess, os, shlex, re
+    import sys, tempfile, subprocess, os, shlex, re, json
     from unittest import mock
     ROOT=Path(__file__).resolve().parents[1]
     APP = Sources(ROOT)
@@ -138,7 +138,7 @@ def check_resource_safety_host_check():
         p=d/'stack.c';p.write_text(src);exe=d/'stack.exe'
         subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-variable',str(p),'-o',str(exe)],check=True)
         subprocess.run([str(exe)],check=True)
-        def case(ram=0x846000,sram=0x848000,raw=0x1a008,image=0x1a014,missing=False,ok=False,production=False):
+        def case(ram=0x846000,sram=0x848000,raw=0x1a008,image=0x1a014,missing=False,ok=False,production=False,warning=False):
             (d/'fw.map').write_text('0x%08x PROVIDE (_ram_use_end_, .)\n'%ram + ('' if missing else '0x%08x PROVIDE (_bin_size_, expr)\n'%raw))
             (d/'fw.lst').write_text('%08x g *ABS* 00000000 __SRAM_SIZE\n'%sram)
             (d/'fw.bin').write_bytes(bytes(image))
@@ -146,17 +146,20 @@ def check_resource_safety_host_check():
                 try: bms.cmd_map(bms.argparse.Namespace())
                 except SystemExit:
                     assert not ok
-                else: assert ok
+                else:
+                    assert ok
+                    report=json.loads((d/'resources.json').read_text())
+                    assert ("Flash free below 8 KiB: review feature budget" in report['warnings'])==warning
         case(ok=True) # real checker alignment, not simply raw+4
         case(raw=0x1cff0,image=0x1cff4,production=True,ok=True)
-        case(raw=0x1d000,image=0x1d004,production=True) # below hard 8 KiB release reserve
+        case(raw=0x1d000,image=0x1d004,production=True,ok=True,warning=True) # below 8 KiB is visible but not a release blocker
         case(sram=0x850000)
         case(ram=0x848000-3072)
         case(ram=0x83fffc)
         case(missing=True)
         case(raw=0x1f000,image=0x1f004) # CRC crosses 124 KiB slot
         case(image=0x1a00c) # stale/mismatched BIN
-    print('PASS bounded main/IRQ scan, sticky canary, minimum retention and resource hard gates')
+    print('PASS bounded main/IRQ scan, sticky canary, physical resource gates and Flash reserve warning')
 
 if __name__ == "__main__":
     check_compile_receipt_check()
