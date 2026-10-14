@@ -156,6 +156,7 @@ def check_sh_protective_sleep():
         'static u8 app_sh_other_wakeup_levels(', 'static void app_sh_set_other_wakeup(',
         'u8 app_power_boot_sleep_hold(',
         'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
+        'static void app_prepare_deep_sleep(',
         'static void app_enter_protective_sleep(', 'static u8 app_command_sleep_poll(',
         'static void app_select_protective_sleep(', 'static u8 app_protective_sleep_poll(',
         'uint8_t app_power_prepare_loop('))

@@ -26,7 +26,8 @@
 - [ ] 分别签核实际使用的 16S LFP / 20S NMC / 24S LFP；NMC 保护默认与 profile 的差异必须处理。
 - [ ] SCD 已按产品确认默认开启 200 A / 请求 256 µs（名义量化延时 249.92 µs，整数读回 250 µs）；实测短路动作、Gate/Vgs、MOS SOA、持续短路/恢复及 OTA/回退。签核固定 WDT/body-diode/AUTO_DIODE 的动作与裕量。
 - [ ] 同口单侧保护后反向续流，不出现周期性关断；真实 I2C dead-bus 的自主关 MOS。
-- [ ] PC4 整机断电与 PA0/ACC 保电 deep sleep 分别验证保存失败、AFE shutdown 失败及重复唤醒。
+- [ ] PC4 MCU供电断开与 PA0/ACC 保电 deep sleep 分别验证保存失败、AFE shutdown失败及重复唤醒；不能仅凭PC4低断言整板全部器件断电。
+- [ ] 按 [休眠梳理](SLEEP_LOGIC_REVIEW.md) 测D008 ACC OFF到物理深睡的时间：持续一线通/UART/BLE、OTA/Flash不可写及保存/AFE/BLE失败均不能造成循环等待；单次收尾、PC4高、PA0低唤醒与启动输出资格分别留证。
 - [ ] 一线通持续接入且开关ON时经BLE下发关机；应答空闲即执行，卡住时等待不超过500ms加主循环/前置事务时间；并发OTA及保存/AFE失败仍拉低PC4。实测MCU供电、MOS/Gate和复电，不能只用上位机断连判定休眠。
 - [ ] heater 在充电会话下的 ARMING/ACTIVE、拔充电器空载/反供；加热与均衡互锁。
 

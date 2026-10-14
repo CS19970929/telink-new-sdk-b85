@@ -99,3 +99,5 @@ D008 SIF 由主循环显式编码到两个缓冲区，IRQ 只领取完成包和�
 固定板级配置放产品目录，芯片寄存器/量化/恢复留后端，Flash/UART/BLE/中断留平台；不复制公共 `.c`。软件采样与 PM 时序变化要核对 watchdog、通信事务和主循环阻塞。SH 由 UART 所有者确认 30 秒静默后允许普通 Suspend，并用 RX PAD 唤醒；开关、命令及[低压/AFE 异常保护性深睡](LOW_POWER_POLICY.md) 提交后不受业务状态阻止，详见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。
 
 持久化使用 [STORAGE](STORAGE.md) 与 [OTA_PARAMETERS](OTA_PARAMETERS.md) 的 schema/镜像更新选择规则。根 CMake 只是可移植子集，SOC、参数、语义存储和 Modbus 仍有平台依赖，不声称已完成 STM32 移植。
+
+2026-10-14：D008 ACC也使用锁存后一次收尾的强制深睡，移除通信/存储/AFE成功门禁与5秒退避，保持PC4高与PA0唤醒。公共收尾为 `app_prepare_deep_sleep()`；普通Suspend资格独立。完整入口、优先级、PC4与AFE/MCU唤醒边界见 [休眠梳理](SLEEP_LOGIC_REVIEW.md)，本次未执行测试或编译。

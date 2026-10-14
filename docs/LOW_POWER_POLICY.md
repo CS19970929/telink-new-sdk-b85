@@ -2,6 +2,8 @@
 
 适用 D008 / D011 / D013 / D014。状态和计时只由 `bms/app/app_power.c` 持有。
 
+2026-10-14：D008 ACC OFF 也改为强制深睡，移除 OTA/Flash/总线空闲、BLE断开、保存/AFE/BLE成功门禁和5秒失败退避。保留 PC4 高和 PA0 低电平唤醒；先锁存，调用 `app_prepare_deep_sleep()` 一次收尾，失败不回到业务。命令/保护性动作继续拉低 PC4。完整入口、时序、通信与唤醒说明见 [休眠梳理](SLEEP_LOGIC_REVIEW.md)。本次只审查源码、原厂相关PDF页和差异，未运行测试/编译或生成BIN。
+
 2026-10-13：当前策略改为两档可配置电压/延时及固定 AFE 异常30分钟，另外增加过放未恢复固定 180 秒。配置、协议、默认值及独立持久化见 [休眠配置](SLEEP_CONFIGURATION.md)。下述旧日期段落为历史依据，不替代本次未执行的验证。
 
 2026-10-13 命令关机修正：用户确认 D008 开关 ON 时接有一线通设备，关闭开关才停止通信。
@@ -9,8 +11,8 @@
 一直拒绝执行。现四产品命令由 `app_command_sleep_poll()` 持有，UART/BLE 应答空闲即执行，
 等待上限沿用 SH 的 500 ms；到期后不受一线通、OTA、Flash、保存或 AFE/BLE 控制失败阻止，
 复用 `app_enter_protective_sleep()`。低压、过放及 AFE 异常到期仍直接提交，不等待命令应答。
-已提交状态共用一个所有者，主循环只保持，不重复保存/访问 AFE。普通 Suspend 与 D008 ACC
-的资格和唤醒策略保持。500 ms 仅为应答等待上限，执行仍需当前主循环调度和有界前置事务时间。
+已提交状态共用一个所有者，主循环只保持，不重复保存/访问 AFE。当时普通 Suspend 与 D008 ACC
+的资格和唤醒策略保持；ACC资格已由2026-10-14上述策略替代。500 ms 仅为应答等待上限，执行仍需当前主循环调度和有界前置事务时间。
 本轮同步 D008 真实 PM 入口场景：持续一线通、OTA/Flash、保存/AFE/BLE 失败、BLE/UART
 卡住的 499/500 ms 边界、tick 回绕、提前排空及单次保存。仅完成源码/调用链/差异审查；
 未执行 host、目标编译、实板或 OTA，未生成 BIN。上位机命令地址与参数协议不变。
@@ -85,10 +87,10 @@ RM V1.2 PDF 第 7 页 CST；PC4 供电控制见 HS-D008-24S100A-V1 原理图第 
 覆盖最终拉低 PC4、保存/AFE 失败仍断电、外部供电保持及 ACC 不断电，但未执行；
 未编译、生成 BIN 或连接实板。下述历史验证不覆盖本次断电策略改动。
 
-D008 ACC 保留原门禁。四产品命令请求复用本页强制入口，应答等待最长 500 ms；SH 开关 OFF
-立即请求（`BMS_PRODUCT_SWITCH_SLEEP_ENABLE=1`）。普通 Suspend 使用原有门禁，SH 串口
+D008 ACC与SH开关OFF均直接锁存深睡（`BMS_PRODUCT_SWITCH_SLEEP_ENABLE=1`），不受通信和收尾失败拒绝。
+四产品命令请求复用本页强制入口，应答等待最长 500 ms。普通 Suspend 使用原有门禁，SH 串口
 静默 30 秒及 RX 唤醒策略详见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。
-[实时诊断](SLEEP_STATUS.md) 中命令及保护性原因的阻止位和失败退避为零，`COMMITTED` 只代表已提交动作。
+[实时诊断](SLEEP_STATUS.md) 中开关、命令及保护性原因的阻止位和失败退避为零，`COMMITTED` 只代表已提交动作。
 
 原资料依据：DVC1124-2 RM V1.2 PDF 第 7 页 CST sleep/shutdown；SH36735XX V1.0A
 PDF 第 10 页 SLEEP/NORMAL 和唤醒。见 [AFE资料指南](AFE_REFERENCE_GUIDE.md)。

@@ -461,7 +461,7 @@ uint8_t bms_afe_enter_shutdown(void)
     inhibit_local();
     /*
      * 必须传播每个关闭/回读失败，由调用方决定后续动作；
-     * ACC路径保留失败重试，命令及保护性休眠失败后仍执行MCU断电。
+     * ACC、命令及保护性休眠在失败后仍由 PM 完成 MCU 深睡或断电。
      */
     if (!AFE_BAL_SET(0u) || !AFE_FETS(0u, 0u))
     {

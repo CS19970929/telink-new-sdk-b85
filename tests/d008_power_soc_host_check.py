@@ -65,9 +65,9 @@ def main():
             'power': protective_sleep_state() + '\n'.join(function('app_power.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',
                 'static uint8_t app_current_prevents_suspend(',
-                'static u32 app_sleep_retry_ms(', 'static void app_publish_sleep(',
                 'static u32 app_pm_elapsed_limit(',
                 'static void app_protective_sleep_hold(',
+                'static void app_prepare_deep_sleep(',
                 'static void app_enter_protective_sleep(', 'static u8 app_command_sleep_poll(',
                 'static void app_select_protective_sleep(', 'static u8 app_protective_sleep_poll(',
                 'static void app_dvc_publish_sleep(',

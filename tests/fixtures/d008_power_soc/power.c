@@ -10,7 +10,6 @@ typedef int GPIO_PinTypeDef;
 #define APP_PM_TICKS_PER_SEC 32000u
 /* CURRENT_FLOOR */
 /* SUSPEND_CURRENT_LIMIT */
-#define APP_POWER_OFF_RETRY_SECONDS 5u
 #define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
 #define BMS_SAMPLE_MAX_POLL_GAP_32K (400u * 32u)
 #define BMS_BOARD_MCU_LDO_PIN 4
@@ -28,8 +27,7 @@ typedef int GPIO_PinTypeDef;
 #define BLC_ADV_ENABLE 1
 #define BLC_ADV_DISABLE 0
 #define HCI_ERR_REMOTE_USER_TERM_CONN 19
-static u8 s_acc_sleep_committed,s_acc_retry_ready,s_acc_disconnect_sent;
-static u32 s_acc_retry_tick;
+static u8 s_acc_sleep_committed;
 static int acc_high,ldo_high,acc_wake,load_wake,deep_calls,timer_hold_calls,reboot_calls,disconnect_calls,adv_enabled=1;
 static int acc_low_during_shutdown,acc_low_during_sleep,ble_control_ok=1;
 static int gpio_read(int pin){assert(pin==BMS_BOARD_ACC_PIN||pin==BMS_BOARD_LOAD_DETECT_PIN);return pin==BMS_BOARD_ACC_PIN?acc_high:0;}
@@ -39,6 +37,8 @@ static int cpu_sleep_wakeup(int mode,int src,u32 tick);
 static int bls_ll_terminateConnection(int reason){assert(reason==HCI_ERR_REMOTE_USER_TERM_CONN);disconnect_calls++;return ble_control_ok?BLE_SUCCESS:1;}
 static int bls_ll_setAdvEnable(int en){adv_enabled=en;return ble_control_ok?BLE_SUCCESS:1;}
 #define BUS_STATE_OWC_IDLE 0
+#define BUS_STATE_OWC_TX 1
+#define BUS_STATE_UART_MODBUS 2
 #define SUSPEND_ADV 1
 #define SUSPEND_CONN 2
 #define SUSPEND_DISABLE 0
@@ -73,8 +73,6 @@ static int uart_tx_is_busy(void){return uart_busy;}
 static u8 modbus_uart_tx_active(void){return modbus_tx_busy;}
 static bms_afe_aux_measurements_t measurement;
 static bool s_low_power_mode;
-static u32 s_sleep_failure_mask;
-static u8 s_sleep_report_reason;
 static u8 observed_sleep_reason;
 static u32 observed_sleep_block, observed_sleep_elapsed, observed_sleep_delay, observed_sleep_retry;
 void bms_diag_sleep(u8 reason,u32 block,u32 elapsed_ms,u32 delay_ms,u32 retry_ms,u8 allowed){
@@ -133,10 +131,9 @@ static void reset(void){
  diag_poll_calls=0;
  acc_high=acc_wake=load_wake=deep_calls=timer_hold_calls=reboot_calls=disconnect_calls=0;ldo_high=adv_enabled=1;
  acc_low_during_shutdown=acc_low_during_sleep=0;
- s_acc_sleep_committed=s_acc_retry_ready=s_acc_disconnect_sent=0;
+ s_acc_sleep_committed=0;
  deepsleep_en=false;ble_tx_pending=uart_busy=modbus_tx_busy=0;ble_control_ok=1;
  s_command_seen=0;s_command_tick=0;
- s_sleep_failure_mask=s_sleep_report_reason=0;
  memset(&s_protective_sleep,0,sizeof(s_protective_sleep));
  sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
  g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
@@ -159,24 +156,35 @@ static void test_acc_sleep(void){
  return;
 #endif
  assert(s_acc_sleep_committed&&deep_calls==1&&!cut_calls&&ldo_high&&!adv_enabled);
- assert(seq[0]==1&&seq[1]==2&&seq[2]==3&&seq[3]==4);
+ assert(seq_len==5&&seq[0]==3&&seq[1]==1&&seq[2]==2&&seq[3]==4&&seq[4]==5);
  int saved=seq_len;app_acc_sleep_hold();assert(seq_len==saved&&deep_calls==2);
  acc_high=0;app_acc_sleep_hold();assert(reboot_calls==1&&seq_len==saved);
- reset();acc_high=1;ota_is_working=1;assert(!app_enter_acc_sleep()&&!seq_len);
- ota_is_working=0;flash_ready=0;assert(!app_enter_acc_sleep()&&!seq_len);
- flash_ready=1;bus_busy=1;assert(!app_enter_acc_sleep()&&!seq_len);
- bus_busy=0;device_in_connection_state=1;ble_tx_pending=1;
- assert(!app_enter_acc_sleep()&&!disconnect_calls);
- ble_tx_pending=0;assert(!app_enter_acc_sleep()&&disconnect_calls==1);
- assert(!app_enter_acc_sleep()&&disconnect_calls==1&&!seq_len);
- device_in_connection_state=0;assert(app_enter_acc_sleep()&&deep_calls==1&&!cut_calls);
- reset();acc_high=1;storage_ok=0;assert(!app_enter_acc_sleep()&&!deep_calls);
- saved=seq_len;assert(!app_enter_acc_sleep()&&seq_len==saved);
- now+=APP_POWER_OFF_RETRY_SECONDS*APP_PM_TICKS_PER_SEC;storage_ok=1;shutdown_ok=0;
- assert(!app_enter_acc_sleep()&&!s_acc_sleep_committed&&adv_enabled&&!cut_calls);
- now+=APP_POWER_OFF_RETRY_SECONDS*APP_PM_TICKS_PER_SEC;shutdown_ok=1;
- assert(app_enter_acc_sleep()&&deep_calls==1);
- reset();acc_high=1;event_ok=0;assert(!app_enter_acc_sleep()&&!deep_calls&&seq_len==2);
+ /* 真实 PM 入口：持续总线/收发、OTA、Flash及各项失败均不得拒绝开关深睡。 */
+ for(int bus_state=BUS_STATE_OWC_TX;bus_state<=BUS_STATE_UART_MODBUS;bus_state++)
+ for(int failure=0;failure<10;failure++){
+  reset();acc_high=1;device_in_connection_state=1;bus_busy=bus_state;
+  ble_tx_pending=uart_busy=modbus_tx_busy=1;
+  if(failure==1)ota_is_working=1;
+  if(failure==2)flash_ready=0;
+  if(failure==3)storage_ok=0;
+  if(failure==4)event_ok=0;
+  if(failure==5)shutdown_ok=0;
+  if(failure==6)ble_control_ok=0;
+  if(failure==7){valid=0;s_sample_due=1;measurement.current_ma=INT32_MAX;}
+  if(failure==8)measurement.current_ma=INT32_MAX;
+  if(failure==9)measurement.current_ma=INT32_MIN;
+  app_power_process(&s_sample_due);
+  assert(s_acc_sleep_committed&&deep_calls==1&&!cut_calls&&ldo_high&&!output_enabled);
+  assert(observed_sleep_reason==DIAG_SLEEP_REASON_ACC&&!observed_sleep_block&&!observed_sleep_retry);
+  assert(afe_shutdown_calls==1&&disconnect_calls==1&&seq[0]==3);
+  if(failure==1||failure==2)assert(seq_len==3&&seq[1]==4&&seq[2]==5);
+  else assert(seq_len==5&&seq[1]==1&&seq[2]==2&&seq[3]==4&&seq[4]==5);
+  saved=seq_len;
+  assert(app_power_prepare_loop()&&app_power_prepare_loop());
+  assert(deep_calls==3&&afe_shutdown_calls==1&&seq_len==saved&&!diag_poll_calls);
+ }
+ /* ON时不提交；临睡前/SDK返回时ON都走完整重启，不恢复旧AFE业务状态。 */
+ reset();assert(!app_enter_acc_sleep()&&!seq_len);
  reset();acc_high=1;acc_low_during_shutdown=1;
  assert(app_enter_acc_sleep()&&reboot_calls==1&&!deep_calls&&!cut_calls);
  reset();acc_high=1;acc_low_during_sleep=1;
@@ -184,7 +192,7 @@ static void test_acc_sleep(void){
  reset();now=UINT32_MAX-100;acc_high=1;assert(app_acc_sleep_requested());
  now+=200u;assert(app_acc_sleep_requested());
  reset();acc_high=1;deepsleep_en=true;app_power_process(&s_sample_due);assert(cut_calls==1&&!deep_calls);
- puts("PASS ACC: immediate request/configuration, keep LDO high, PAD low wake, persistence/OTA/bus/BLE deferral, failures/retry, low race reboot, command priority");
+ puts("PASS ACC: immediate commit/configuration, PC4 high, PA0 wake, traffic/failure overrides, one-shot cleanup, ON race reboot, command priority");
 }
 static void test_low_voltage_sample_wait(void){
  reset();g_bms_report.cell_min_mv=2700;
@@ -350,5 +358,5 @@ int main(void){
  app_power_process(&s_sample_due);assert(!cut_calls);
  ble_tx_pending=0;bus_busy=1;app_power_process(&s_sample_due);assert(cut_calls==1);
  puts("PASS commanded shutdown: OWC/OTA/Flash/failure override, bounded BLE/UART reply, tick wrap, one-shot PC4 cut");
- puts("PASS PM: ordinary suspend/ACC gates retained; protective and command requests cannot be blocked");
+ puts("PASS PM: ordinary suspend gates retained; ACC/protective/command requests cannot be blocked");
 }
