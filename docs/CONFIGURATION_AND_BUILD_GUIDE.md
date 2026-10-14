@@ -45,7 +45,7 @@
 
 - **D011 / D013 / D014：** 窗口可选 SH3673510（4～10 串）或 SH3673520（4～20 串），均支持 LFP/NMC；`BMS_BUILD_AFE_MODEL` 选择实装型号，通过 `BMS_BUILD_CELL_COUNT` 覆盖串数。未覆盖时仍分别为 10/10/8 串及 LFP。不得把共用驱动的 20 串容量视为 3510 实装能力。
 - **D008：** 窗口写回源码默认 profile；非固定装配写入 CUSTOM（4）及 D008_CUSTOM_CELL_COUNT / D008_CUSTOM_CHEMISTRY。LFP 可选 4～24 串；4.20V NMC 因 100V 电池包上限限制为 4～23 串。旧 `16s-lfp` / `20s-nmc` / `24s-lfp` 及数字 ID 1/2/3 保留；旧 profile 不接受与身份矛盾的串数或类型覆盖。
-- AFE 型号、串数/类型同时进入工具校验、编译期检查、输入收据和 manifest，目录包含实际串数/类型。AFE 支持范围不代表板级接线已验证；改变串数须处理未使用采样引脚并回读确认。开发可配置不扩大既有生产签核范围。
+- AFE 型号、串数/类型同时进入工具校验、编译期检查、输入收据和 manifest，目录包含实际串数/类型。D008 已保存到源码且通过芯片范围、100 V、类型一致性及保护参数检查的装配可生成生产镜像，不再逐一维护固定装配白名单。AFE 支持范围不代表板级接线已验证；改变串数仍须处理未使用采样引脚并回读确认。
 
 共享参数表只有编译期常量，没有新增运行时状态或调度逻辑。默认值如下，均为 mV；软件一级、二级、三级分别列出：
 
@@ -142,7 +142,7 @@ try {
 
 SH AFE 电压默认由电池类型表提供，其他 `SH3673510_HW_DEFAULT_*` 保持原 SH/产品配置；已保存的 AFE profile 仅在 BIN 选中 AFE 更新时恢复默认，运行时与软件参数独立。D014 默认 OCD1 requested=10 A，但 667 µΩ 下 effective=15 A；相同 requested 不代表不同产品的动作电流相同。编译/host 之后仍需 requested/effective/readback 与 MOS 波形验证。
 
-D008 三个装配 profile 的 SCD 默认开启：200 A、请求延时 256 µs，200 µΩ 下对应 40 mV，硬件量化后名义延时 249.92 µs（整数读回 250 µs）。已有设备恢复这组默认须明确选中 AFE 更新，详见 [OTA 参数更新](OTA_PARAMETERS.md)。`20s-nmc` 已联动上述 NMC 电压保护、均衡和 SOC 默认；profile 选择及开发默认不代表 NMC 产品签核，现有生产批准门禁不变。
+D008 的 SCD 默认开启：200 A、请求延时 256 µs，200 µΩ 下对应 40 mV，硬件量化后名义延时 249.92 µs（整数读回 250 µs）。已有设备恢复这组默认须明确选中 AFE 更新，详见 [OTA 参数更新](OTA_PARAMETERS.md)。固定 profile 和 CUSTOM 均使用按化学体系选择的电压保护、均衡和 SOC 默认；合法源码配置可以生成生产镜像，但 profile 选择、编译成功或镜像生成不代表该装配已经完成参数或实板验收。
 
 相关入口：`core_contract_check.py`、`sw_temperature_groups_host_check.py`、`d014_configuration_contract_check.py`、`afe_hw_transaction_host_check.py`、`d014_defaults_host_check.py`。产品选择方法见构建指南；保护配置必须按批准值和边界向量验收。
 

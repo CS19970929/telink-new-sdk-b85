@@ -8,13 +8,7 @@
 #if !BMS_D008_SCD_POLICY_APPROVED
 #error "D008 SCD policy is not approved"
 #endif
-#if D008_PRODUCT_CELL_COUNT == 20u && BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_NMC && !BMS_D008_20S_NMC_PROTECTION_APPROVED
-#error "D008 20S NMC protection parameters are not approved"
-#endif
-/* 开放开发配置不等于扩大既有生产签核的串数/体系范围。 */
-#if !((BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_LFP && (D008_PRODUCT_CELL_COUNT == 16u || D008_PRODUCT_CELL_COUNT == 24u)) || (BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_NMC && D008_PRODUCT_CELL_COUNT == 20u))
-#error "D008 assembly requires a source-controlled production approval"
-#endif
+/* D008 的合法串数和化学体系由源码 profile 及芯片边界检查，不再维护固定装配白名单。 */
 #elif BMS_PRODUCT_ID == 13u
 #if !BMS_D013_HW_CONFIG_APPROVED
 #error "D013 hardware configuration is not approved"

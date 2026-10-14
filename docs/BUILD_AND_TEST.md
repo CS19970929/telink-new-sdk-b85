@@ -115,9 +115,9 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resou
 
 `release` / `build` / `rebuild` / `objcopy` / **`check-fw`** 会生成或重新生成 BIN；`ci` 串联镜像流水线，也不是无镜像测试入口。`map`/`manifest`/`verify` 属于已有 BIN 的验收链，日常 ELF 使用 `resources`。
 
-生产镜像先要求各产品 `BMS_PRODUCT_RELEASE_APPROVED=1`，再检查专项签核：D008 全部 profile 要求 `BMS_D008_SCD_POLICY_APPROVED=1`；20S NMC 还要求 `BMS_D008_20S_NMC_PROTECTION_APPROVED=1`；D013 要求 `BMS_D013_HW_CONFIG_APPROVED=1`。2026-10-08 用户明确要求修改门禁并编译 D008 16S BIN，已将 D008 整体批准和现有 SCD 策略批准置 1，用于授权镜像生成；没有据此补写参数或实板验收通过结论，仍按 [硬件验收](HARDWARE_VALIDATION.md) 独立记录。D008 20S NMC 专项及 D011/D013/D014 批准保持 0。批准值不能由 `EXTRA_DEFINES` 覆盖；正式归档建议受控提交，但 dirty 状态不阻止构建或发送。`link/resources` 允许检查未签核工程配置，不构成发布签核。
+生产镜像先要求各产品 `BMS_PRODUCT_RELEASE_APPROVED=1`，再检查专项签核：D008 要求 `BMS_D008_SCD_POLICY_APPROVED=1`；D013 要求 `BMS_D013_HW_CONFIG_APPROVED=1`。D008 不再维护固定串数/化学体系生产白名单；窗口保存到源码且通过 `d008_product_profile.h` 芯片范围、100 V、类型一致性及保护参数检查的装配均可生成生产镜像。2026-10-08 用户明确要求修改门禁并编译 D008 16S BIN，已将 D008 整体批准和现有 SCD 策略批准置 1；这不代表任一装配已完成实板验收，仍按 [硬件验收](HARDWARE_VALIDATION.md) 独立记录。批准值不能由 `EXTRA_DEFINES` 覆盖；正式归档建议受控提交，但 dirty 状态不阻止构建或发送。`link/resources` 允许检查未签核工程配置，不构成发布签核。
 
-本次只生成 D008 16S LFP，使用单产品命令；`--all-products` 仍会被其他产品的批准门拦截：
+D008 16S LFP 的单产品构建示例如下；`--all-products` 仍可能被其他产品的批准门拦截：
 
 ```powershell
 python bms_tools/bms.py --product d008 --production --d008-profile 16s-lfp release --jobs 4

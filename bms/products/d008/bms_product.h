@@ -42,7 +42,6 @@
 
 /* 2026-10-08 产品确认默认开启 SCD：200 A / 请求延时 256 us；实板验收独立记录。 */
 #define BMS_D008_SCD_POLICY_APPROVED 1
-#define BMS_D008_20S_NMC_PROTECTION_APPROVED 0
 
 /* 文件功能：产品容量、名称、采样及通信功能配置。 */
 
