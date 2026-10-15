@@ -65,6 +65,19 @@ public sealed record CurrentCalibrationPolicy(int SampleCount = 20, int TimeoutS
         result.Validate();
         return result;
     }
+    public CurrentCalibrationCoefficients CalculateZeroOnly(CurrentCalibrationSamples zero,
+        CurrentCalibrationCoefficients original)
+    {
+        Validate();
+        original.Validate();
+        if (double.IsNaN(zero.MeanMa) || double.IsInfinity(zero.MeanMa) || Math.Abs(zero.MeanMa) > ZeroMaxAbsMa)
+            throw new ArgumentException("零点残差超出采集范围，请确认实际电流为零。");
+        // 零点校准不能重新计算增益，也不能将合法旧增益限制到两点候选范围。
+        var result = new CurrentCalibrationCoefficients(
+            checked((int)Math.Round(zero.MeanMa, MidpointRounding.AwayFromZero)), original.GainPpm);
+        result.Validate();
+        return result;
+    }
 }
 
 public sealed class CurrentCalibrationSession
@@ -81,17 +94,19 @@ public sealed class CurrentCalibrationSession
     public CurrentCalibrationSamples? Loaded { get; set; }
     public CurrentCalibrationCoefficients? Candidate { get; set; }
     public int ReferenceMa { get; set; }
+    public bool ZeroOnly { get; set; }
     public bool WriteAttempted { get; internal set; }
     public bool Closed { get; internal set; }
     public string Outcome { get; set; } = "尚未保存";
     public string Report => string.Join(Environment.NewLine, new[] {
-        "BMS 两点电流校准记录（保存读回不等于精度验收）",
+        "BMS 电流校准记录（保存读回不等于精度验收）",
+        "方式: " + (ZeroOnly ? "仅校准零点，保留原增益" : "两点校准"),
         "UTC: " + StartedUtc.ToString("O", CultureInfo.InvariantCulture),
         "上位机: " + BuildIdentity.Display,
         $"设备: SN={Identity.Serial}; MAC={Identity.Mac}; HW={Identity.Hardware}; SW={Identity.Software}",
         $"原参数: offset_ma={Original.OffsetMa}; gain_ppm={Original.GainPpm}",
         "零点: " + Describe(Zero), "加载点: " + Describe(Loaded),
-        $"外部实测参考: {ReferenceMa} mA（正放电、负充电）",
+        ZeroOnly ? "外部参考: 确认实际电流为零，无加载点" : $"外部实测参考: {ReferenceMa} mA（正放电、负充电）",
         Candidate is null ? "候选: 无" : $"候选: offset_ma={Candidate.OffsetMa}; gain_ppm={Candidate.GainPpm}",
         "结果: " + Outcome
     });
@@ -107,7 +122,7 @@ public sealed partial class BmsClient
         var header = await ReadRegistersAsync(0x2E00, 3, ct);
         if (header.Length != 3 || header[0] != D008Parameters.Magic ||
             !D008Parameters.SupportsProtocol(header[1]) || (header[2] & LinearCurrentCalibrationCapability) == 0)
-            throw new NotSupportedException("当前固件未声明支持持久零点两点校准；请使用配套固件。未发送参数写入。");
+            throw new NotSupportedException("当前固件未声明支持持久电流校准；请使用配套固件。未发送参数写入。");
     }
     public async Task<CurrentCalibrationSession> BeginCurrentCalibrationAsync(CancellationToken ct)
     {
@@ -165,6 +180,8 @@ public sealed partial class BmsClient
         CurrentCalibrationCoefficients candidate, CancellationToken ct)
     {
         candidate.Validate();
+        if (session.ZeroOnly && candidate.GainPpm != session.Original.GainPpm)
+            throw new ArgumentException("仅校准零点必须保留设备原增益，未发送写命令。");
         await CheckCurrentCalibrationAsync(session, ct);
         var before = await ReadRegistersAsync(0x2E28, 7, ct);
         if (before[4] != 1) throw new IOException("保存前采样失效，未发送写命令。");

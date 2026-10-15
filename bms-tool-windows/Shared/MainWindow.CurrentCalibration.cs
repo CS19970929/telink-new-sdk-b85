@@ -11,10 +11,11 @@ namespace BmsTool.Windows;
 public partial class MainWindow
 {
     private readonly TextBlock _currentCalibrationStatus = new()
-    { Text = "校准需配套固件和外部电流表。先采零点，再采一个稳定电流点。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) };
+    { Text = "先采零点：可仅保存零点、保留原增益，也可继续采电流点做两点校准。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) };
     private readonly TextBox _currentCalibrationReference = new() { Width = 160, Margin = new Thickness(4) };
     private readonly ComboBox _currentCalibrationDirection = new() { Width = 100, Margin = new Thickness(4) };
     private readonly Button _currentCalibrationZero = new() { Content = "① 采集零点" };
+    private readonly Button _currentCalibrationZeroSave = new() { Content = "仅保存零点（保留增益）" };
     private readonly Button _currentCalibrationLoad = new() { Content = "② 采集电流点" };
     private readonly Button _currentCalibrationSave = new() { Content = "③ 保存校准" };
     private readonly Button _currentCalibrationCancel = new() { Content = "取消" };
@@ -27,7 +28,7 @@ public partial class MainWindow
 
     private void AddCurrentCalibrationControls(StackPanel root)
     {
-        root.Children.Add(new TextBlock { Text = "电流两点校准", FontWeight = FontWeights.Bold, Margin = new Thickness(4,12,4,4) });
+        root.Children.Add(new TextBlock { Text = "电流校准", FontWeight = FontWeights.Bold, Margin = new Thickness(4,12,4,4) });
         root.Children.Add(new TextBlock { Text = "零点：断开充电器和负载，确认电流表为零。加载点：在产品允许范围内接稳定电流，输入电流表实测值，不能输入设备设定值。采集期间不要重启。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
         root.Children.Add(_currentCalibrationStatus);
         _currentCalibrationDirection.Items.Add("放电"); _currentCalibrationDirection.Items.Add("充电");
@@ -37,13 +38,14 @@ public partial class MainWindow
         input.Children.Add(new TextBlock { Text = "电流表实测 / A", VerticalAlignment = VerticalAlignment.Center });
         input.Children.Add(_currentCalibrationReference); root.Children.Add(input);
         var buttons = new WrapPanel();
-        foreach (var button in new[] { _currentCalibrationZero, _currentCalibrationLoad, _currentCalibrationSave,
+        foreach (var button in new[] { _currentCalibrationZero, _currentCalibrationZeroSave, _currentCalibrationLoad, _currentCalibrationSave,
             _currentCalibrationCancel, _currentCalibrationRestore })
         { button.Margin = new Thickness(4); button.Padding = new Thickness(8,4,8,4); buttons.Children.Add(button); }
         root.Children.Add(buttons);
         var export = new Button { Content = "导出校准记录", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(4) };
         export.Click += (_,_) => ExportCurrentCalibration(); root.Children.Add(export);
         _currentCalibrationZero.Click += async (_,_) => await StartCurrentCalibrationAsync();
+        _currentCalibrationZeroSave.Click += async (_,_) => await CommitCurrentCalibrationAsync(true);
         _currentCalibrationLoad.Click += async (_,_) => await CaptureLoadedCurrentAsync();
         _currentCalibrationSave.Click += async (_,_) => await CommitCurrentCalibrationAsync();
         _currentCalibrationRestore.Click += async (_,_) => await RestoreCurrentCalibrationAsync();
@@ -114,7 +116,7 @@ public partial class MainWindow
             _currentCalibrationSession = _currentCalibrationRecord = session;
             session.Zero = await client.CollectCurrentCalibrationAsync(session, true, CurrentCalibrationPolicy.Default,
                 (done,total) => _currentCalibrationStatus.Text = $"采集零点 {done}/{total}…", ct);
-            _currentCalibrationStatus.Text = $"零点已采集。选择充电或放电，输入电流表实测值，再采集电流点。SN：{session.Identity.Serial}";
+            _currentCalibrationStatus.Text = $"零点已采集，尚未保存。保持实际电流为零，可点击“仅保存零点（保留增益）”；也可接入稳定电流继续两点校准。SN：{session.Identity.Serial}";
         });
     }
     private int CurrentCalibrationReferenceMa()
@@ -147,16 +149,26 @@ public partial class MainWindow
 #endif
         });
     }
-    private async Task CommitCurrentCalibrationAsync()
+    private async Task CommitCurrentCalibrationAsync(bool zeroOnly = false)
     {
         var session = _currentCalibrationSession;
-        if (session?.Candidate is null || _currentCalibrationBusy || !CurrentCalibrationAllowed()) return;
+        if (session is null || _currentCalibrationBusy || !CurrentCalibrationAllowed()) return;
+        if (zeroOnly && (session.Zero is null || session.Loaded is not null)) return;
+        if (!zeroOnly && session.Candidate is null) return;
         await RunCurrentCalibrationStepAsync(async ct => {
-            if (CurrentCalibrationReferenceMa() != session.ReferenceMa) throw new IOException("参考值已改变，请重新采集。");
+            if (zeroOnly)
+            {
+                session.ZeroOnly = true;
+                // 用户可能已接入负载；保存前重新采集，不能把先前零点视为当前仍无电流的证明。
+                session.Zero = await session.Client.CollectCurrentCalibrationAsync(session, true, CurrentCalibrationPolicy.Default,
+                    (done,total) => _currentCalibrationStatus.Text = $"保存前检查零点 {done}/{total}…请保持实际电流为零。", ct);
+                session.Candidate = CurrentCalibrationPolicy.Default.CalculateZeroOnly(session.Zero, session.Original);
+            }
+            else if (CurrentCalibrationReferenceMa() != session.ReferenceMa) throw new IOException("参考值已改变，请重新采集。");
             session.Outcome = "开始保存；若中断须重新读取确认，不能盲目重写";
-            int final = await session.Client.SaveCurrentCalibrationAsync(session, session.Candidate, ct);
-            session.Outcome = $"参数保存、读回及新样本公式核对完成；当前电流 {final} mA。多点、温升和重新上电精度尚待验证。";
-            _currentCalibrationStatus.Text = $"已保存并读回，当前电流 {Math.Abs(final)/1000d:F3} A。请另行检查小电流、相反方向及重新上电后的结果。";
+            int final = await session.Client.SaveCurrentCalibrationAsync(session, session.Candidate!, ct);
+            session.Outcome = (zeroOnly ? "仅零点已保存，原增益未修改；" : "两点参数已保存；") + $"参数读回及新样本公式核对完成；当前电流 {final} mA。多点、温升和重新上电精度尚待验证。";
+            _currentCalibrationStatus.Text = (zeroOnly ? "零点已保存并读回，原增益保持不变。" : "两点校准已保存并读回。") + $"当前电流 {Math.Abs(final)/1000d:F3} A。请另行检查小电流、相反方向及重新上电后的结果。";
             await FinishCurrentCalibrationAsync();
         });
     }
@@ -222,6 +234,7 @@ public partial class MainWindow
     {
         bool active = _currentCalibrationOwner is not null, ready = !_currentCalibrationBusy && !_currentCalibrationFinishing && !_currentCalibrationWindowClosed;
         _currentCalibrationZero.IsEnabled = ready && !active && _bms is not null && !_parameterBusy && !_diagBusy;
+        _currentCalibrationZeroSave.IsEnabled = ready && _currentCalibrationSession?.Zero is not null && _currentCalibrationSession.Loaded is null;
         _currentCalibrationLoad.IsEnabled = ready && _currentCalibrationSession?.Zero is not null;
         _currentCalibrationSave.IsEnabled = ready && _currentCalibrationSession?.Candidate is not null;
         _currentCalibrationCancel.IsEnabled = active;
