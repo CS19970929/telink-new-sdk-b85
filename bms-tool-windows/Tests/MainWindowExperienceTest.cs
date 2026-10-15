@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using BmsTool.Windows;
 
 // 离屏验证主窗口交互与小屏布局，不显示窗口、不扫描或连接设备。
@@ -49,6 +50,25 @@ static class MainWindowExperienceTest
               realtimeScroller.HorizontalScrollBarVisibility == ScrollBarVisibility.Auto &&
               realtimeScroller.VerticalScrollBarVisibility == ScrollBarVisibility.Auto,
             "实时监控页在小窗口下可滚动访问完整内容");
+        var realtimeContent = realtimeScroller?.Content as FrameworkElement;
+        Binding? widthBinding = realtimeContent is null
+            ? null
+            : BindingOperations.GetBinding(realtimeContent, FrameworkElement.WidthProperty);
+        Check(realtimeContent is not null &&
+              widthBinding?.ElementName == "RealtimeScrollViewer" &&
+              widthBinding.Path?.Path == "ViewportWidth" &&
+              realtimeContent.Margin == new Thickness(0),
+            "实时监控页按可视区宽度排版，宽屏不会被电芯列表横向撑开");
+        var root = (FrameworkElement)window.Content;
+        foreach (var size in new[] { new Size(1180, 760), new Size(1920, 1000) })
+        {
+            Arrange(root, size);
+            Check(realtimeScroller!.ScrollableWidth < 1,
+                $"实时监控页在 {size.Width:0}x{size.Height:0} 下无横向溢出");
+        }
+        Arrange(root, new Size(900, 600));
+        Check(realtimeScroller!.ScrollableWidth > 1,
+            "实时监控页仅在小于设计宽度时提供横向滚动");
         foreach (string name in new[] { "CustomerAlarm1Text", "CustomerAlarm2Text", "CustomerAlarm3Text" })
         {
             var alarm = (TextBlock)window.FindName(name);
@@ -88,6 +108,14 @@ static class MainWindowExperienceTest
              current is not null;
              current = LogicalTreeHelper.GetParent(current))
             yield return current;
+    }
+
+    private static void Arrange(FrameworkElement element, Size size)
+    {
+        element.InvalidateMeasure();
+        element.Measure(size);
+        element.Arrange(new Rect(size));
+        element.UpdateLayout();
     }
 
     private static IEnumerable<string> VisibleText(DependencyObject root)
