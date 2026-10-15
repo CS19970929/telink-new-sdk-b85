@@ -96,7 +96,31 @@ public sealed class CurrentCalibrationSession
     public int ReferenceMa { get; set; }
     public bool ZeroOnly { get; set; }
     public bool WriteAttempted { get; internal set; }
+    public bool SaveVerified { get; internal set; }
+    public bool ConnectionLost { get; internal set; }
     public bool Closed { get; internal set; }
+    private uint? _lastSampleTick;
+    private long _lastSampleObservedAt;
+    internal uint ObserveSample(ushort[] words)
+    {
+        if (words.Length != 7 || words[4] != 1) throw new IOException("电流采样失效，请重新读取设备状态。");
+        uint tick = D008Parameters.U32(words, 5);
+        long now = Stopwatch.GetTimestamp();
+        if (_lastSampleTick is uint previous)
+        {
+            double elapsedTicks = (now - _lastSampleObservedAt) * (32000d / Stopwatch.Frequency);
+            // 缓存允许两秒差异，并留 5% 时钟裕量；使用单调时钟，不受 PC 校时影响。
+            double tolerance = 64000d + elapsedTicks * 0.05;
+            uint delta = unchecked(tick - previous);
+            if (delta > elapsedTicks + tolerance || delta + tolerance < elapsedTicks)
+            {
+                ConnectionLost = true;
+                throw new IOException("设备采样时钟不连续，可能已重新上电；旧候选和恢复备份已失效，请重新采集。");
+            }
+        }
+        if (_lastSampleTick != tick) { _lastSampleTick = tick; _lastSampleObservedAt = now; }
+        return tick;
+    }
     public string Outcome { get; set; } = "尚未保存";
     public string Report => string.Join(Environment.NewLine, new[] {
         "BMS 电流校准记录（保存读回不等于精度验收）",
@@ -108,6 +132,7 @@ public sealed class CurrentCalibrationSession
         "零点: " + Describe(Zero), "加载点: " + Describe(Loaded),
         ZeroOnly ? "外部参考: 确认实际电流为零，无加载点" : $"外部实测参考: {ReferenceMa} mA（正放电、负充电）",
         Candidate is null ? "候选: 无" : $"候选: offset_ma={Candidate.OffsetMa}; gain_ppm={Candidate.GainPpm}",
+        $"写入已尝试: {WriteAttempted}; 保存核对完成: {SaveVerified}; 连接/时钟失效: {ConnectionLost}",
         "结果: " + Outcome
     });
     private static string Describe(CurrentCalibrationSamples? value) => value is null ? "未采集" :
@@ -130,16 +155,46 @@ public sealed partial class BmsClient
         var identity = await ReadIdentityAsync(ct);
         var original = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
         var access = await OpenAfeHardwareAccessAsync(ct);
-        return new CurrentCalibrationSession(this, identity, original, access);
+        var session = new CurrentCalibrationSession(this, identity, original, access);
+        try { await VerifyCurrentCalibrationContinuityAsync(session, ct); return session; }
+        catch { await EndCurrentCalibrationAsync(session); throw; }
+    }
+    private void RequireCurrentCalibrationConnection(CurrentCalibrationSession session)
+    {
+        if (!ReferenceEquals(session.Client, this)) throw new IOException("校准会话不属于当前连接。");
+        if (!_transport.IsConnected) session.ConnectionLost = true;
+        if (session.ConnectionLost) throw new IOException("校准连接已失效，禁止继续使用旧候选或恢复备份。");
+    }
+    private async Task HeartbeatCurrentCalibrationAsync(CurrentCalibrationSession session, CancellationToken ct)
+    {
+        RequireCurrentCalibrationConnection(session);
+        try { await AfeHardwareHeartbeatAsync(session.Access.Token, ct); }
+        catch (IOException) { session.ConnectionLost = true; throw; }
+        catch (TimeoutException) { session.ConnectionLost = true; throw; }
+        catch (ObjectDisposedException) { session.ConnectionLost = true; throw; }
+    }
+    public async Task VerifyCurrentCalibrationContinuityAsync(CurrentCalibrationSession session, CancellationToken ct)
+    {
+        // 已正常关闭授权的保存记录仍可校验时钟，但不能再用于原 token 的写入。
+        await ReadCurrentCalibrationSampleAsync(session, ct);
+    }
+    private async Task<ushort[]> ReadCurrentCalibrationSampleAsync(CurrentCalibrationSession session, CancellationToken ct)
+    {
+        RequireCurrentCalibrationConnection(session);
+        var words = await ReadRegistersAsync(0x2E28, 7, ct);
+        RequireCurrentCalibrationConnection(session);
+        session.ObserveSample(words);
+        return words;
     }
     public async Task CheckCurrentCalibrationAsync(CurrentCalibrationSession session, CancellationToken ct)
     {
         if (session.Closed || !ReferenceEquals(session.Client, this)) throw new IOException("校准会话已失效。");
         // 沿用 RAM 授权 token：MCU 重启、其他会话接管或超时后，不重新 OPEN 冒充原会话。
-        await AfeHardwareHeartbeatAsync(session.Access.Token, ct);
+        await HeartbeatCurrentCalibrationAsync(session, ct);
         await RequireLinearCurrentCalibrationAsync(ct);
         var current = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
         if (current != session.Original) throw new IOException("采集期间设备校准参数已变化，请重新采集。");
+        await VerifyCurrentCalibrationContinuityAsync(session, ct);
     }
     public async Task<CurrentCalibrationSamples> CollectCurrentCalibrationAsync(CurrentCalibrationSession session,
         bool zero, CurrentCalibrationPolicy policy, Action<int, int>? progress, CancellationToken ct)
@@ -152,8 +207,7 @@ public sealed partial class BmsClient
         while (values.Count < policy.SampleCount && timer.Elapsed < TimeSpan.FromSeconds(policy.TimeoutSeconds))
         {
             ct.ThrowIfCancellationRequested();
-            var words = await ReadRegistersAsync(0x2E28, 7, ct);
-            if (words.Length != 7 || words[4] != 1) throw new IOException("电流采样失效，候选已取消；请检查设备状态后重新开始。");
+            var words = await ReadCurrentCalibrationSampleAsync(session, ct);
             uint tick = D008Parameters.U32(words, 5);
             if (last is uint previous)
             {
@@ -183,26 +237,27 @@ public sealed partial class BmsClient
         if (session.ZeroOnly && candidate.GainPpm != session.Original.GainPpm)
             throw new ArgumentException("仅校准零点必须保留设备原增益，未发送写命令。");
         await CheckCurrentCalibrationAsync(session, ct);
-        var before = await ReadRegistersAsync(0x2E28, 7, ct);
-        if (before[4] != 1) throw new IOException("保存前采样失效，未发送写命令。");
+        await ReadCurrentCalibrationSampleAsync(session, ct);
+        ct.ThrowIfCancellationRequested();
         session.WriteAttempted = true;
         await WriteRegistersAsync(0x2E24, candidate.Words, ct);
         var actual = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
         if (actual != candidate) throw new IOException("校准写入后读回不一致，请重新读取；不要盲目重复写入。");
-        await AfeHardwareHeartbeatAsync(session.Access.Token, ct);
+        await HeartbeatCurrentCalibrationAsync(session, ct);
         // 以写入/读回之后的缓存为界；写命令前取得的 tick 不能排除途中产生的旧系数帧。
-        var fence = await ReadRegistersAsync(0x2E28, 7, ct);
+        var fence = await ReadCurrentCalibrationSampleAsync(session, ct);
         uint fenceTick = D008Parameters.U32(fence, 5);
         var timer = Stopwatch.StartNew();
         while (timer.Elapsed < TimeSpan.FromSeconds(3))
         {
-            var sample = await ReadRegistersAsync(0x2E28, 7, ct);
+            var sample = await ReadCurrentCalibrationSampleAsync(session, ct);
             if (sample[4] == 1 && D008Parameters.U32(sample, 5) != fenceTick)
             {
                 int finalMa = D008Parameters.I32(sample, 2);
                 if (finalMa != candidate.ApplyMilliampere(D008Parameters.I32(sample, 0)))
                     throw new IOException("新样本与保存的校准公式不一致，请检查固件；禁止盲目重写。");
-                await AfeHardwareHeartbeatAsync(session.Access.Token, ct);
+                await HeartbeatCurrentCalibrationAsync(session, ct);
+                session.SaveVerified = true;
                 return finalMa;
             }
             await Task.Delay(100, ct);
@@ -213,6 +268,8 @@ public sealed partial class BmsClient
     {
         if (session.Closed) return;
         session.Closed = true;
+        if (!_transport.IsConnected) session.ConnectionLost = true;
+        if (session.ConnectionLost) return; // 不向断线/重启后的设备发送旧 token 的 CLOSE。
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         try { await TryCloseAfeHardwareAccessAsync(session.Access.Token, timeout.Token); }
         catch (ObjectDisposedException) { /* 连接已释放，RAM 会话由设备超时清除。 */ }

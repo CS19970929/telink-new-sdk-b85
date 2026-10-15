@@ -117,10 +117,12 @@ public partial class MainWindow
 
     private async void ReadAfeHardware_Click(object sender, RoutedEventArgs e)
     {
+        if (_currentCalibrationOwner is not null) return;
         try
         {
             _pollTimer.Stop();
             await WaitForCommunicationIdleAsync();
+            if (_currentCalibrationOwner is not null) return;
             BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接BMS。");
             _afeHardwareStatus!.Text = "正在读取 requested / metadata / effective...";
 
@@ -144,6 +146,7 @@ public partial class MainWindow
 
     private async void ApplyAfeHardware_Click(object sender, RoutedEventArgs e)
     {
+        if (_currentCalibrationOwner is not null) return;
         try
         {
             _afeHardwareGrid?.CommitEdit(DataGridEditingUnit.Cell, true);
@@ -172,6 +175,7 @@ public partial class MainWindow
 
             _pollTimer.Stop();
             await WaitForCommunicationIdleAsync();
+            if (_currentCalibrationOwner is not null) return;
             BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接BMS。");
             var client = new AfeHardwareClient(bms);
             _afeHardwareStatus!.Text = "正在执行AFE硬件参数原子事务...";

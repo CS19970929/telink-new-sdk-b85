@@ -1,6 +1,6 @@
 # Windows 上位机
 
-客户版与内部版共用[电流两点校准向导及客户操作说明](docs/CURRENT_CALIBRATION.md)。需配套声明 `0x0400` 能力的固件；本轮仅源码审查，未生成新版 EXE。
+客户版与内部版共用[仅零点/两点电流校准向导及客户操作说明](docs/CURRENT_CALIBRATION.md)。需配套声明 `0x0400` 能力的固件；实际编译版本和验证范围见发布包 manifest.json 与 test-results.json。
 
 本目录是 BMS 仓库中的独立 Windows 项目区，与固件源码并列维护。
 

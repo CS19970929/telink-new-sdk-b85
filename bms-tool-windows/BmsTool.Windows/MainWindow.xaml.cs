@@ -266,6 +266,7 @@ public partial class MainWindow : Window
 
     private async Task DisposeBmsAsync()
     {
+        InvalidateCurrentCalibrationConnection();
         ResetMosControlUi();
         _mosCts?.Cancel();
         NoteMosGap("设备断开或重连");

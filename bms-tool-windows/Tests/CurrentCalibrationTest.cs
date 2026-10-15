@@ -38,10 +38,16 @@ internal static class CurrentCalibrationTest
             session.Candidate = candidate;
             Check(candidate.OffsetMa == 230 && candidate.GainPpm == gains[i], "Zero must use raw mA and preserve gain");
             int current = await client.SaveCurrentCalibrationAsync(session, candidate, CancellationToken.None);
-            Check(current == 0 && transport.Writes == 1, "One grouped write and fresh formula validation");
+            Check(current == 0 && transport.Writes == 1 && session.SaveVerified, "One grouped write and fresh formula validation");
             Check(transport.LastWritten!.Skip(2).SequenceEqual(session.Original.Words.Skip(2)), "Gain words must remain identical");
             Check(session.Report.Contains("仅校准零点") && session.Report.Contains("无加载点"), "Zero-only record");
             await client.EndCurrentCalibrationAsync(session);
+            transport.Reboot();
+            await Reject<IOException>(() => client.VerifyCurrentCalibrationContinuityAsync(session, CancellationToken.None));
+            Check(session.ConnectionLost && transport.Writes == 1, "Reboot must invalidate the old restore record without writing");
+            var restarted = await client.BeginCurrentCalibrationAsync(CancellationToken.None);
+            Check(restarted.Original == candidate, "Fresh session must read preserved coefficients after peer reboot");
+            await client.EndCurrentCalibrationAsync(restarted);
         }
         var original = new CurrentCalibrationCoefficients(999, 1234567);
         var zero = new CurrentCalibrationSamples(-230.5, -231, -230, 0, 1, DateTimeOffset.UtcNow);
@@ -73,12 +79,49 @@ internal static class CurrentCalibrationTest
         Check(blocked.Writes == 0, "Cancellation before write");
         blocked.MismatchReadback = true;
         await Reject<IOException>(() => blockedClient.SaveCurrentCalibrationAsync(active, valid, CancellationToken.None));
-        Check(blocked.Writes == 1 && active.WriteAttempted, "Unknown write result must not retry");
+        Check(blocked.Writes == 1 && active.WriteAttempted && !active.SaveVerified, "Unknown write result must not retry");
         await blockedClient.EndCurrentCalibrationAsync(active);
         var old = new CalibrationTransport("D008", 1000000) { Capability = false };
         await using var oldClient = new BmsClient(old);
         await Reject<NotSupportedException>(() => oldClient.BeginCurrentCalibrationAsync(CancellationToken.None));
         Check(old.Writes == 0, "Legacy capability refusal");
+        foreach (string product in products)
+        {
+            var peer = new CalibrationTransport(product, 1234567);
+            await using var client = new BmsClient(peer);
+            var session = await client.BeginCurrentCalibrationAsync(CancellationToken.None);
+            var candidate = new CurrentCalibrationCoefficients(230, 1100000);
+            await client.SaveCurrentCalibrationAsync(session, candidate, CancellationToken.None);
+            Check(peer.Parameters == candidate && session.SaveVerified, "Two-point save may update gain on every product");
+            await client.EndCurrentCalibrationAsync(session);
+            peer.IsConnected = false;
+            await Reject<IOException>(() => client.VerifyCurrentCalibrationContinuityAsync(session, CancellationToken.None));
+            peer.IsConnected = true;
+            await Reject<IOException>(() => client.VerifyCurrentCalibrationContinuityAsync(session, CancellationToken.None));
+            Check(session.ConnectionLost && peer.Writes == 1, "Disconnected record cannot revive on the same client");
+        }
+        var interrupted = new CalibrationTransport("D008", 1234567);
+        await using var interruptedClient = new BmsClient(interrupted);
+        var interruptedSession = await interruptedClient.BeginCurrentCalibrationAsync(CancellationToken.None);
+        using (var cancel = new CancellationTokenSource())
+        {
+            interrupted.AfterWrite = cancel.Cancel;
+            await Reject<OperationCanceledException>(() => interruptedClient.SaveCurrentCalibrationAsync(interruptedSession, valid, cancel.Token));
+            Check(interrupted.Parameters == valid && interrupted.Writes == 1 && interruptedSession.WriteAttempted && !interruptedSession.SaveVerified,
+                "Cancel after write does not undo committed coefficients or claim verified success");
+        }
+        interrupted.AfterWrite = null;
+        await interruptedClient.EndCurrentCalibrationAsync(interruptedSession);
+        var wrapped = new CalibrationTransport("D014", 1000000) { Tick = uint.MaxValue - 511 };
+        await using var wrappedClient = new BmsClient(wrapped);
+        var wrappedSession = await wrappedClient.BeginCurrentCalibrationAsync(CancellationToken.None);
+        await wrappedClient.VerifyCurrentCalibrationContinuityAsync(wrappedSession, CancellationToken.None);
+        Check(!wrappedSession.ConnectionLost, "Natural sample tick wrap must be accepted");
+        wrapped.Reboot();
+        int closes = wrapped.Closes;
+        await Reject<IOException>(() => wrappedClient.CheckCurrentCalibrationAsync(wrappedSession, CancellationToken.None));
+        await wrappedClient.EndCurrentCalibrationAsync(wrappedSession);
+        Check(wrapped.Closes == closes, "Old token CLOSE must not be sent after restart/auth invalidation");
     }
 
     private static void CheckWindow()
@@ -96,6 +139,8 @@ internal static class CurrentCalibrationTest
         var client = new BmsClient(transport);
         var session = client.BeginCurrentCalibrationAsync(CancellationToken.None).GetAwaiter().GetResult();
         Set("_bms", client); Set("_currentCalibrationOwner", client); Set("_currentCalibrationSession", session);
+        Set("_currentCalibrationRecord", session);
+        Set("_currentCalibrationCts", new CancellationTokenSource());
         session.Zero = new CurrentCalibrationSamples(230, 230, 230, 0, 1, DateTimeOffset.UtcNow);
         Update();
         Check(save.IsEnabled && !((Button)Field("_currentCalibrationSave")).IsEnabled, "Zero-only save needs no loaded point");
@@ -105,6 +150,13 @@ internal static class CurrentCalibrationTest
         Check(!save.IsEnabled && ((Button)Field("_currentCalibrationSave")).IsEnabled, "Loaded candidate uses the existing two-point save");
         Set("_currentCalibrationBusy", true); Update();
         Check(!save.IsEnabled && !((Button)Field("_currentCalibrationSave")).IsEnabled, "No concurrent save");
+        Set("_currentCalibrationBusy", false);
+        var cancelMethod = typeof(MainWindow).GetMethod("CancelCurrentCalibrationAsync", flags)!;
+        ((Task)cancelMethod.Invoke(window, new object[] { "test cancel" })!).GetAwaiter().GetResult();
+        Check(session.Closed && transport.Writes == 0 && session.Outcome.Contains("尚未发送"), "Idle cancellation closes authorization and records no write");
+        string cancelledText = ((TextBlock)Field("_currentCalibrationStatus")).Text;
+        ((Task)cancelMethod.Invoke(window, new object[] { "queued cancel" })!).GetAwaiter().GetResult();
+        Check(((TextBlock)Field("_currentCalibrationStatus")).Text == cancelledText, "Queued cancellation must not overwrite a finished outcome");
         Set("_currentCalibrationSession", null); Set("_currentCalibrationOwner", null); Set("_bms", null);
         client.EndCurrentCalibrationAsync(session).GetAwaiter().GetResult();
         client.DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -118,20 +170,25 @@ internal sealed class CalibrationTransport : IBmsTransport
     public CalibrationTransport(string product, uint gain) { Product = product; Parameters = new(17, gain); }
     private string Product { get; }
     public CurrentCalibrationCoefficients Parameters { get; set; }
-    public bool IsConnected => true;
+    public bool IsConnected { get; set; } = true;
     public bool RequiresSerialWakeup => false;
     public string DiscoveryDescription => "in-memory calibration test";
     public event Action<ReadOnlyMemory<byte>>? DataReceived;
     public event Action<string>? ConnectionProgress { add { } remove { } }
     public bool Capability = true, InvalidSample, MismatchReadback;
     public int RawMa = 230, Writes;
+    public int Closes;
+    public Action? AfterWrite;
     public ushort[]? LastWritten;
-    private uint _tick;
+    public uint Tick;
+    private ushort _generation, _token;
+    public void Reboot() { Tick = 0; _generation = 0; _token = 0; }
     public Task ReconnectAsync(CancellationToken ct = default) => Task.CompletedTask;
     public ValueTask DisposeAsync() => default;
     public Task WriteAsync(ReadOnlyMemory<byte> memory, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        if (!IsConnected) throw new IOException("test link disconnected");
         var request = memory.ToArray();
         ModbusRtu.ValidateFrame(request);
         byte[] body;
@@ -145,9 +202,9 @@ internal sealed class CalibrationTransport : IBmsTransport
                 words = (MismatchReadback && Writes != 0 ? Parameters with { GainPpm = Parameters.GainPpm + 1 } : Parameters).Words;
             else if (address == 0x2e28)
             {
-                _tick += 256;
+                Tick += 256;
                 int final = Parameters.ApplyMilliampere(RawMa);
-                words = new ushort[] { (ushort)RawMa, (ushort)((uint)RawMa >> 16), (ushort)final, (ushort)((uint)final >> 16), InvalidSample ? (ushort)0 : (ushort)1, (ushort)_tick, (ushort)(_tick >> 16) };
+                words = new ushort[] { (ushort)RawMa, (ushort)((uint)RawMa >> 16), (ushort)final, (ushort)((uint)final >> 16), InvalidSample ? (ushort)0 : (ushort)1, (ushort)Tick, (ushort)(Tick >> 16) };
             }
             else if (address is BmsRegisters.Hardware or BmsRegisters.Serial or BmsRegisters.Software)
             {
@@ -163,13 +220,22 @@ internal sealed class CalibrationTransport : IBmsTransport
                 throw new Exception("Unexpected calibration write layout");
             LastWritten = Enumerable.Range(0, 4).Select(i => BinaryPrimitives.ReadUInt16BigEndian(request.AsSpan(7 + 2 * i, 2))).ToArray();
             Parameters = CurrentCalibrationCoefficients.Decode(LastWritten); Writes++;
+            AfterWrite?.Invoke();
             body = request.Take(6).ToArray();
         }
         else if (request[1] == 0x42)
         {
             byte command = request[2];
-            body = command == 1 ? new byte[] { 1, 0x42, 1, 0, 0x12, 0x34, 0, 60, 2, 0x35, 0x10 } :
-                command == 2 ? new byte[] { 1, 0x42, 2, 0, 0x12, 0x34, 0, 60 } : new byte[] { 1, 0x42, command, 0 };
+            if (command == 1)
+            {
+                _token = ++_generation;
+                body = new byte[] { 1, 0x42, 1, 0, (byte)(_token >> 8), (byte)_token, 0, 60, 2, 0x35, 0x10 };
+            }
+            else if (_token == 0 || BinaryPrimitives.ReadUInt16BigEndian(request.AsSpan(3, 2)) != _token)
+                body = new byte[] { 1, 0x42, command, 2 };
+            else if (command == 2)
+                body = new byte[] { 1, 0x42, 2, 0, (byte)(_token >> 8), (byte)_token, 0, 60 };
+            else { _token = 0; Closes++; body = new byte[] { 1, 0x42, command, 0 }; }
         }
         else throw new Exception("Unexpected request");
         DataReceived?.Invoke(ModbusRtu.Frame(body));

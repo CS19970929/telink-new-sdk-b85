@@ -49,10 +49,7 @@ public partial class MainWindow
         _currentCalibrationLoad.Click += async (_,_) => await CaptureLoadedCurrentAsync();
         _currentCalibrationSave.Click += async (_,_) => await CommitCurrentCalibrationAsync();
         _currentCalibrationRestore.Click += async (_,_) => await RestoreCurrentCalibrationAsync();
-        _currentCalibrationCancel.Click += async (_,_) => {
-            _currentCalibrationCts?.Cancel();
-            if (!_currentCalibrationBusy) { _currentCalibrationStatus.Text = "校准已取消，未保存的候选作废。"; await FinishCurrentCalibrationAsync(); }
-        };
+        _currentCalibrationCancel.Click += async (_,_) => await CancelCurrentCalibrationAsync("用户取消校准");
         void Changed()
         {
             if (_currentCalibrationSession is not { } session || _currentCalibrationBusy) return;
@@ -65,15 +62,17 @@ public partial class MainWindow
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += async (_,_) => {
             if (_currentCalibrationFinishing) return;
-            if (_currentCalibrationOwner is not null && (!ReferenceEquals(_bms, _currentCalibrationOwner) || _autoReconnectRunning || _currentCalibrationWindowClosed))
+            if (_currentCalibrationOwner is not null && (!ReferenceEquals(_bms, _currentCalibrationOwner) ||
+                _autoReconnectRunning || _currentCalibrationWindowClosed || _bmsTransport?.IsConnected == false ||
+                _currentCalibrationSession?.ConnectionLost == true))
             {
-                _currentCalibrationCts?.Cancel();
-                if (!_currentCalibrationBusy) { _currentCalibrationStatus.Text = "连接已改变，候选作废，请重新采集。"; await FinishCurrentCalibrationAsync(); }
+                InvalidateCurrentCalibrationConnection();
+                await CancelCurrentCalibrationAsync("连接或设备时钟已改变，旧候选和恢复备份作废");
             }
             else if (_currentCalibrationSession is { } session && !_currentCalibrationBusy)
             {
                 if (_currentCalibrationCts?.IsCancellationRequested == true)
-                { _currentCalibrationStatus.Text = "校准已超时，请重新开始。"; await FinishCurrentCalibrationAsync(); }
+                    await CancelCurrentCalibrationAsync("校准已超时，请重新开始");
                 else if (DateTime.UtcNow >= _currentCalibrationHeartbeatUtc)
                     await RunCurrentCalibrationStepAsync(async ct => await session.Client.CheckCurrentCalibrationAsync(session, ct));
             }
@@ -91,20 +90,48 @@ public partial class MainWindow
 #endif
         return true;
     }
+    private void InvalidateCurrentCalibrationConnection()
+    {
+        if (_currentCalibrationRecord is { } record) record.ConnectionLost = true;
+        if (_currentCalibrationSession is { } session) session.ConnectionLost = true;
+        _currentCalibrationCts?.Cancel();
+        UpdateCurrentCalibrationControls();
+    }
+    private async Task CancelCurrentCalibrationAsync(string reason)
+    {
+        if (_currentCalibrationOwner is null || _currentCalibrationFinishing) return;
+        _currentCalibrationCts?.Cancel();
+        var session = _currentCalibrationSession;
+        string result = reason + (session?.SaveVerified == true ? "；保存已核对完成，取消不会撤销已保存参数。" :
+            session?.WriteAttempted == true ? "；可能已写入，请重新读取确认，不要重复保存。" : "；尚未发送校准写入，参数未因本次采集改变。");
+        _currentCalibrationStatus.Text = result;
+        if (_currentCalibrationRecord is { } record) record.Outcome += "\n" + result;
+        UpdateCurrentCalibrationControls();
+        if (!_currentCalibrationBusy) await FinishCurrentCalibrationAsync();
+    }
     private async Task<bool> AcquireCurrentCalibrationAsync()
     {
         if (!CurrentCalibrationAllowed()) return false;
         var client = _bms;
-        if (client is null || _currentCalibrationWindowClosed || _parameterBusy || _diagBusy || _eventLogReadInProgress ||
+        if (client is null || _currentCalibrationWindowClosed || _currentCalibrationFinishing || _currentCalibrationOwner is not null ||
+            _parameterBusy || _diagBusy || _eventLogReadInProgress || _bmsTransport?.IsConnected == false ||
             _otaRunning || _shBusy || ShFactoryBusy() || _autoReconnectRunning || _mosControlBusy)
         { _currentCalibrationStatus.Text = "请连接设备并等待其他操作结束。"; return false; }
         _currentCalibrationOwner = client;
-        _currentCalibrationCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+        var acquisition = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+        _currentCalibrationCts = acquisition;
         _parameterBusy = true; _diagBusy = true; _eventLogReadInProgress = true;
-        _pollTimer.Stop(); UpdateBusinessParameterControls(); ApplyMosControlState(_mosControlState);
+        _pollTimer.Stop(); UpdateBusinessParameterControls(); ApplyMosControlState(_mosControlState); UpdateCurrentCalibrationControls();
         try { await WaitForCommunicationIdleAsync(); }
-        catch (Exception ex) { _currentCalibrationStatus.Text = "无法开始校准：" + ex.Message; await FinishCurrentCalibrationAsync(); return false; }
-        if (!ReferenceEquals(client, _bms)) { await FinishCurrentCalibrationAsync(); return false; }
+        catch (Exception ex) {
+            if (ReferenceEquals(acquisition, _currentCalibrationCts)) {
+                _currentCalibrationStatus.Text = "无法开始校准：" + ex.Message; await FinishCurrentCalibrationAsync();
+            }
+            return false;
+        }
+        if (!ReferenceEquals(acquisition, _currentCalibrationCts)) return false;
+        if (acquisition.IsCancellationRequested || _currentCalibrationWindowClosed || !ReferenceEquals(client, _bms))
+        { await FinishCurrentCalibrationAsync(); return false; }
         return true;
     }
     private async Task StartCurrentCalibrationAsync()
@@ -175,11 +202,18 @@ public partial class MainWindow
     private async Task RestoreCurrentCalibrationAsync()
     {
         var previous = _currentCalibrationRecord;
-        if (previous?.Candidate is null || !previous.WriteAttempted || !ReferenceEquals(previous.Client, _bms)) return;
+        if (previous?.Candidate is null || !previous.WriteAttempted || previous.ConnectionLost || !ReferenceEquals(previous.Client, _bms)) return;
         if (!await AcquireCurrentCalibrationAsync()) return;
         await RunCurrentCalibrationStepAsync(async ct => {
+            await previous.Client.VerifyCurrentCalibrationContinuityAsync(previous, ct);
             var session = await previous.Client.BeginCurrentCalibrationAsync(ct);
             _currentCalibrationSession = session;
+            // RAM 授权代次在 MCU 复位后从 1 开始。拒绝代次跳变和回绕，不能仅凭相同 SN/参数恢复旧备份。
+            if (previous.Access.Token == ushort.MaxValue || session.Access.Token != previous.Access.Token + 1)
+            {
+                previous.ConnectionLost = true;
+                throw new IOException("授权代次已变化，设备可能重新上电或被其他工具操作；旧恢复备份已失效。");
+            }
             if (session.Identity != previous.Identity ||
                 (session.Original != previous.Candidate && session.Original != previous.Original))
                 throw new IOException("设备身份或校准参数已改变，未恢复旧值；请重新读取核对。");
@@ -207,7 +241,9 @@ public partial class MainWindow
         catch (Exception ex)
         {
             string result = "本次未完成：" + ex.Message;
-            if (_currentCalibrationSession?.WriteAttempted == true) result += "；可能已写入，请重新读取确认。";
+            if (_currentCalibrationSession?.SaveVerified == true) result += "；保存已核对完成，不能据此认定参数已撤销。";
+            else if (_currentCalibrationSession?.WriteAttempted == true) result += "；可能已写入，请重新读取确认。";
+            else result += "；尚未发送本次校准写入。";
             if (_currentCalibrationRecord is { } record) record.Outcome += "\n" + result;
             _currentCalibrationStatus.Text = result;
             await FinishCurrentCalibrationAsync();
@@ -226,6 +262,8 @@ public partial class MainWindow
             _currentCalibrationCts?.Dispose(); _currentCalibrationCts = null; _currentCalibrationOwner = null;
             _parameterBusy = false; _diagBusy = false; _eventLogReadInProgress = false;
             _currentCalibrationFinishing = false;
+            _parameterCapture = null; _parameterProbedClient = null;
+            _parameterBusinessReadback.Text = "校准流程已结束，请重新读取设备参数确认。";
             UpdateBusinessParameterControls(); ApplyMosControlState(_mosControlState);
             if (!_currentCalibrationWindowClosed) StartAutomaticRefresh();
         }
@@ -233,14 +271,16 @@ public partial class MainWindow
     private void UpdateCurrentCalibrationControls()
     {
         bool active = _currentCalibrationOwner is not null, ready = !_currentCalibrationBusy && !_currentCalibrationFinishing && !_currentCalibrationWindowClosed;
+        bool sessionReady = ready && active && ReferenceEquals(_currentCalibrationOwner, _bms) &&
+            _currentCalibrationCts?.IsCancellationRequested == false && _currentCalibrationSession is { Closed: false, ConnectionLost: false };
         _currentCalibrationZero.IsEnabled = ready && !active && _bms is not null && !_parameterBusy && !_diagBusy;
-        _currentCalibrationZeroSave.IsEnabled = ready && _currentCalibrationSession?.Zero is not null && _currentCalibrationSession.Loaded is null;
-        _currentCalibrationLoad.IsEnabled = ready && _currentCalibrationSession?.Zero is not null;
-        _currentCalibrationSave.IsEnabled = ready && _currentCalibrationSession?.Candidate is not null;
-        _currentCalibrationCancel.IsEnabled = active;
+        _currentCalibrationZeroSave.IsEnabled = sessionReady && _currentCalibrationSession?.Zero is not null && _currentCalibrationSession.Loaded is null;
+        _currentCalibrationLoad.IsEnabled = sessionReady && _currentCalibrationSession?.Zero is not null;
+        _currentCalibrationSave.IsEnabled = sessionReady && _currentCalibrationSession?.Candidate is not null;
+        _currentCalibrationCancel.IsEnabled = active && !_currentCalibrationFinishing && _currentCalibrationCts?.IsCancellationRequested == false;
         _currentCalibrationReference.IsEnabled = ready && active;
         _currentCalibrationDirection.IsEnabled = ready && active;
-        _currentCalibrationRestore.IsEnabled = ready && !active && _currentCalibrationRecord?.WriteAttempted == true &&
+        _currentCalibrationRestore.IsEnabled = ready && !active && _currentCalibrationRecord is { WriteAttempted: true, ConnectionLost: false } &&
             ReferenceEquals(_currentCalibrationRecord.Client, _bms);
     }
     private void ExportCurrentCalibration()
