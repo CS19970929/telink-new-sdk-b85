@@ -82,6 +82,15 @@ static volatile u8 s_uart_activity, s_uart_suspending, s_uart_resume_pending;
 static volatile u8 s_uart_wake_discard;
 static u8 s_uart_idle_ready;
 static u32 s_uart_last_activity_32k, s_uart_last_edge_tick;
+
+/* 强制 DeepSleep 不保留通信唤醒；关闭数字输入，避免未供电隔离器经 IO 反向取电。 */
+static void modbus_uart_float_comm_pin(GPIO_PinTypeDef pin)
+{
+    gpio_set_func(pin, AS_GPIO);
+    gpio_set_input_en(pin, 0);
+    gpio_set_output_en(pin, 0);
+    gpio_setup_up_down_resistor(pin, PM_PIN_UP_DOWN_FLOAT);
+}
 #endif
 
 #if BMS_PRODUCT_RS485_ENABLE
@@ -408,6 +417,53 @@ void modbus_uart_disable(void)
     uart_ndma_clear_rx_index();
     s_rx_ready = 0u;
     s_rx_pkt.dma_len = 0u;
+}
+#endif
+
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+/*
+ * SH 强制 DeepSleep 会关闭通信隔离器电源。先停止 UART/DMA，再释放与隔离器相连的
+ * PC2/PC3/PD3，避免 SDK uart_gpio_set() 配置的 10 kOhm 上拉继续向掉电通信域供电。
+ * PA1 保持低电平，使 RS485 DE 在 CMNT_EN 拉低前始终处于接收/禁发状态。
+ */
+void modbus_uart_prepare_deep_sleep(void)
+{
+    u8 irq_state = irq_disable();
+
+    gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 0);
+    cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
+    reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
+
+#if BMS_PRODUCT_RS485_ENABLE
+    modbus_rs485_receive_mode();
+#endif
+    uart_dma_enable(0, 0);
+    uart_irq_enable(0, 0);
+    dma_chn_irq_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 0);
+    dma_chn_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 0);
+    dma_chn_irq_status_clr(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX);
+    uart_reset();
+    uart_ndma_clear_tx_index();
+    uart_ndma_clear_rx_index();
+
+    s_rx_ready = 0u;
+    s_rx_pkt.dma_len = 0u;
+    s_uart_activity = 0u;
+    s_uart_suspending = 0u;
+    s_uart_resume_pending = 0u;
+    s_uart_wake_discard = 0u;
+    s_uart_idle_ready = 0u;
+#if BMS_PRODUCT_RS485_ENABLE
+    s_rs485_tx_active = 0u;
+    s_rs485_tx_dma_done = 0u;
+    s_rs485_tx_uart_done = 0u;
+#endif
+
+    modbus_uart_float_comm_pin(BMS_BOARD_SCI1_TX_PIN);
+    modbus_uart_float_comm_pin(BMS_BOARD_SCI1_RX_PIN);
+    modbus_uart_float_comm_pin(BMS_BOARD_CMNT_WK_PIN);
+
+    irq_restore(irq_state);
 }
 #endif
 

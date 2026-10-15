@@ -22,6 +22,8 @@ void modbus_uart_init(void);
 /* D008 复用所有者在临界区调用：检查可释放条件，或停用 UART/DMA。 */
 u8 modbus_uart_bus_idle(void);
 void modbus_uart_disable(void);
+/* SH 强制 DeepSleep：停止 UART/DMA，并释放通信域 GPIO 的上下拉和数字驱动。 */
+void modbus_uart_prepare_deep_sleep(void);
 /* 处理 UART DMA 中断，仅交付状态和清除标志。 */
 void modbus_uart_irq_proc(void);     // 放到 DMA IRQ 里调用
 /* RX 缓冲区在 main_loop_modbus 重新启用 DMA 前保持稳定。 */

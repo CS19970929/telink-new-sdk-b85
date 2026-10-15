@@ -52,6 +52,7 @@ static void gpio_set_func(int pin,int func) { (void)pin; assert(func==AS_GPIO); 
 static void gpio_set_input_en(int pin,int en) { (void)pin;(void)en; }
 static void gpio_set_output_en(int pin,int en) { (void)pin;(void)en; }
 static u32 now, saves, events, afe_calls, output_calls, sleep_calls, pad_calls;
+static u32 comm_sleep_calls;
 static u8 reason;
 static int pins[6], levels[6], enabled[6];
 static int board_switch_is_on(void) { return !pins[0]; }
@@ -60,6 +61,7 @@ static int modbus_uart_tx_active(void) { return tx_busy; }
 static int blc_ll_getTxFifoNumber(void) { return ble_pending; }
 static int modbus_uart_suspend_ready(void) { return uart_ready; }
 static void modbus_uart_suspend_enter(void) { ++uart_entered; }
+static void modbus_uart_prepare_deep_sleep(void) { ++comm_sleep_calls; }
 static void gpio_en_interrupt_risc0(int pin,int en) { assert(pin==5&&!en); }
 static u32 pm_get_32k_tick(void) { return now; }
 static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m) { *m=measurement; return valid; }
@@ -111,7 +113,7 @@ static void reset(void) {
     deepsleep_en=0; tx_busy=ble_pending=uart_ready=uart_entered=0;
     now=measurement.sample_tick_32k=100u; measurement.current_ma=0;
     valid=flash_ready=1; afe_error=ota_is_working=device_in_connection_state=0;
-    saves=events=afe_calls=output_calls=sleep_calls=pad_calls=0;
+    saves=events=afe_calls=output_calls=sleep_calls=pad_calls=comm_sleep_calls=0;
     g_bms_report.cell_min_mv=3300u; reason=0u;
     pins[0]=0; pins[1]=1; pins[2]=pins[3]=0; /* 全部原有效电平，包括 ON/ALARM/RESET */
     memset(enabled,0,sizeof(enabled));
@@ -143,10 +145,10 @@ int main(void) {
     assert(!fixture_sleep_poll(1800, &sleep_status));
     g_bms_report.cell_min_mv=2500;
     assert(fixture_sleep_poll(1800, &sleep_status)); /* 2500 mV 与 2600 mV 同属下档，保留累计时间 */
-    assert(sleep_calls==1&&saves==1&&events==1&&afe_calls==1&&output_calls==1);
+    assert(sleep_calls==1&&saves==1&&events==1&&afe_calls==1&&output_calls==1&&comm_sleep_calls==1);
     assert(s_protective_sleep.committed&&s_low_power_mode);
     pins[1]=0; assert(app_power_prepare_loop());
-    assert(sleep_calls==2&&saves==1&&events==1&&afe_calls==1&&output_calls==1);
+    assert(sleep_calls==2&&saves==1&&events==1&&afe_calls==1&&output_calls==1&&comm_sleep_calls==1);
     reset(); ota_is_working=1; flash_ready=0; valid=0;
     assert(!fixture_sleep_poll(1799, &sleep_status)); assert(fixture_sleep_poll(1, &sleep_status));
     assert(reason==DIAG_SLEEP_REASON_AFE&&sleep_calls==1&&!saves&&!events);
@@ -194,7 +196,7 @@ int main(void) {
     reset(); pins[0]=1; tx_busy=ble_pending=ota_is_working=device_in_connection_state=1;
     flash_ready=0;
 #if BMS_PRODUCT_SWITCH_SLEEP_ENABLE
-    assert(app_sh_explicit_sleep_poll()&&sleep_calls==1&&!saves&&afe_calls==1);
+    assert(app_sh_explicit_sleep_poll()&&sleep_calls==1&&!saves&&afe_calls==1&&comm_sleep_calls==1);
     assert(reason==DIAG_SLEEP_REASON_SWITCH);
     assert(app_power_before_suspend());
     assert(app_power_prepare_loop()&&sleep_calls==2&&afe_calls==1);
@@ -212,7 +214,7 @@ int main(void) {
     ota_is_working=1; flash_ready=0;
     assert(!app_sh_explicit_sleep_poll()); now+=15999;
     assert(!app_sh_explicit_sleep_poll()); now++;
-    assert(app_sh_explicit_sleep_poll()&&sleep_calls==1&&!saves);
+    assert(app_sh_explicit_sleep_poll()&&sleep_calls==1&&!saves&&comm_sleep_calls==1);
     /* 命令ON入睡，OFF只在业务初始化前重新深睡，ON才放行正常启动。 */
     reset(); deepsleep_en=1; assert(app_sh_explicit_sleep_poll());
     assert((retained_analog&APP_SH_SWITCH_WAKE_MASK)==APP_SH_SWITCH_WAKE_TAG);
@@ -234,6 +236,7 @@ int main(void) {
     /* SDK临睡检查再次检查UART资格；普通开关ON不阻止Suspend。 */
     reset(); s_low_power_mode=1; assert(!app_power_before_suspend());
     uart_ready=1; assert(app_power_before_suspend()&&uart_entered==1);
+    assert(!comm_sleep_calls); /* 普通 Suspend 保留 UART 唤醒，不释放通信域 GPIO。 */
     for(int pin=0;pin<4;pin++) assert(enabled[pin]&&levels[pin]!=pins[pin]);
     s_low_power_mode=0; assert(!app_power_before_suspend());
     puts("PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap");

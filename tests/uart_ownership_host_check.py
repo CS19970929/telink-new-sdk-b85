@@ -9,6 +9,7 @@ PREFIX = r'''
 #include <string.h>
 #include <assert.h>
 typedef uint8_t u8; typedef uint32_t u32;
+typedef int GPIO_PinTypeDef;
 #define _attribute_data_retention_
 #define BMS_LOG(...) do {} while(0)
 #define FLD_DMA_CHN_UART_RX 1
@@ -29,16 +30,18 @@ static void gpio_set_interrupt_risc0(int pin,int polarity){assert(polarity==POL_
 static void cpu_set_gpio_wakeup(int pin,int level,int en){(void)pin;assert(level==Level_Low);rx_pad_enabled=en;}
 static void clear_gpio_irq(void){reg_irq_src&=~FLD_IRQ_GPIO_RISC0_EN;}
 #define AS_GPIO 1
+#define PM_PIN_UP_DOWN_FLOAT 0
 #define PARITY_NONE 0
 #define STOP_BIT_ONE 1
 #define MODBUS_RTU_FRAME_CAPACITY 268
-static u32 now; static int busy,de,channels,irqsrc,resets,sends;
+static u32 now; static int busy,de,channels,irqsrc,resets,sends,float_pins;
 static u32 clock_time(void){return now;}
 static int clock_time_exceed(u32 t,u32 us){return (u32)(now-t)>us*16u;}
 static void gpio_write(int p,int v){(void)p;de=v;}
 static void gpio_set_func(int p,int v){(void)p;(void)v;}
 static void gpio_set_input_en(int p,int v){(void)p;(void)v;}
 static void gpio_set_output_en(int p,int v){(void)p;(void)v;}
+static void gpio_setup_up_down_resistor(int p,int v){assert(v==PM_PIN_UP_DOWN_FLOAT);float_pins|=1<<p;}
 static void uart_gpio_set(int a,int b){(void)a;(void)b;}
 static int uart_tx_is_busy(void){return busy;}
 static void uart_reset(void){busy=0;++resets;}
@@ -105,6 +108,18 @@ static void check_suspend(void){
  modbus_uart_suspend_enter();rx_edge();modbus_uart_suspend_exit(WAKEUP_STATUS_TIMER);
  main_loop_modbus();assert(s_uart_wake_discard&&!modbus_uart_suspend_ready());
 }
+static void check_forced_deep_sleep(void){
+ float_pins=0;channels=0;modbus_uart_init();
+ modbus_uart_prepare_deep_sleep();
+ assert(!channels&&!rx_edge_enabled&&!rx_pad_enabled);
+ assert((float_pins&((1<<BMS_BOARD_SCI1_TX_PIN)|(1<<BMS_BOARD_SCI1_RX_PIN)|
+                     (1<<BMS_BOARD_CMNT_WK_PIN)))==
+        ((1<<BMS_BOARD_SCI1_TX_PIN)|(1<<BMS_BOARD_SCI1_RX_PIN)|
+         (1<<BMS_BOARD_CMNT_WK_PIN)));
+#if BMS_PRODUCT_RS485_ENABLE
+ assert(!de&&!s_rs485_tx_active);
+#endif
+}
 #endif
 int main(void){
  u8*p,*saved;u32 n;u8 data[268];memset(data,0x55,sizeof(data));
@@ -151,6 +166,7 @@ int main(void){
 #endif
  #if TEST_SH_UART
  check_suspend();
+ check_forced_deep_sleep();
  #endif
  return 0;
 }
@@ -168,7 +184,8 @@ for product in products:
                '#define BMS_DEBUG_LOG_ENABLE 0\n#define CLOCK_SYS_CLOCK_HZ 16000000u\n'
                '#define BMS_BOARD_OWC_TX_PIN 1\n#define BMS_BOARD_OWC_RX_PIN 2\n'
                '#define BMS_BOARD_RS485_EN_PIN 3\n'
-               '#define BMS_BOARD_SCI1_TX_PIN 1\n#define BMS_BOARD_SCI1_RX_PIN 2\n') % (product in ('d011', 'd014'))
+               '#define BMS_BOARD_SCI1_TX_PIN 1\n#define BMS_BOARD_SCI1_RX_PIN 2\n'
+               '#define BMS_BOARD_CMNT_WK_PIN 4\n') % (product in ('d011', 'd014'))
     with tempfile.TemporaryDirectory(prefix='uart-ownership-') as folder:
         c = Path(folder) / 'check.c'; exe = Path(folder) / 'check.exe'
         product_header = (ROOT / 'bms/products' / product / 'bms_product.h').read_text(encoding='utf8')

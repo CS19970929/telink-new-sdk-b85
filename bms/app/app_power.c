@@ -264,6 +264,10 @@ static void app_prepare_deep_sleep(void)
     (void)bls_ll_setAdvEnable(BLC_ADV_DISABLE);
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
     bls_pm_setAppWakeupLowPower(0u, 0u);
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    /* 强制 DeepSleep 不使用通信唤醒；释放 UART/隔离器引脚后再关闭 CMNT_EN。 */
+    modbus_uart_prepare_deep_sleep();
+#endif
     s_low_power_mode = true;
 }
 

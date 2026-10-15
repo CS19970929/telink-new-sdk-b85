@@ -19,11 +19,14 @@
 `app_protective_sleep_poll()` 持有，最终调用同一个 `app_enter_protective_sleep()`。
 
 提交后撤销输出授权，经过 guard 尝试 AFE Sleep；允许写 Flash 且未 OTA 时，State/Event
-各尝试保存一次。随后停广告、停应用定时唤醒、关闭 CMNT_EN 并执行 MCU deep sleep。
+各尝试保存一次。随后停广告、停应用定时唤醒；强制 DeepSleep 还会停止 UART/DMA/RISC0，
+保持 PA1 为 RS485 接收/禁发低电平，将 PC2/TX、PC3/RX、PD3/CMNT_WK 设为无上下拉高阻，
+再关闭 CMNT_EN 并执行 MCU deep sleep。这避免通信隔离器掉电后，UART 运行态上下拉通过
+IO 反向取电。普通 Suspend 不执行这组 GPIO 释放，仍保留 UART 唤醒能力。
 AFE、存储、BLE 控制失败不撤销请求；watchdog 总线静默期间不能绕过 guard 访问 SPI。
 OTA 可被中断，未保存的状态可能丢失，这属于强制深睡的明确取舍。
 
-UART RX 的 PAD 唤醒与 RISC0 中断在深睡保持入口关闭，持续串口不能取消深睡。
+UART RX 的 PAD 唤醒与 RISC0 中断在强制深睡入口关闭，持续串口不能取消深睡。
 INT_WK、ALARM、RESET 的 PAD 唤醒继续等待输入变化。开关按“OFF保持休眠，ON恢复工作”处理：
 
 - 入睡时开关 OFF：直接设 PA0 低电平（ON）唤醒。
@@ -86,7 +89,9 @@ AFE 依据 SH36735XX CV1.0A 原 PDF 第 10 页，见 [AFE资料指南](AFE_REFER
 
 ## 验证边界
 
-本次完成源码、SDK 接口/库调用、异常路径与差异审查；同步了现有 host 场景，
+2026-10-15 针对 D014 直接强制休眠约 300 uA、命令休眠后再拨 OFF 约 50 uA 的现象，
+源码将两条路径统一到同一组通信域关断动作，并同步了 host 场景断言。已完成源码、
+SDK 接口/库调用、异常路径与差异审查；
 未执行编译、host 回归、资源检查或生成 BIN。后续按授权执行 `sh_power_host_check.py`、
 `uart_ownership_host_check.py`、`sh3673510_comm_mode_check.py` 及公共改动四产品检查。
 
