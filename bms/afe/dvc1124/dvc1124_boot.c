@@ -115,9 +115,9 @@ void dvc1124_backend_init(void)
     DVC1124_UpdataAfeConfig();
 
     /*
-     * 仅启动时的电流零点学习留在初始化内。底层先独立关闭并校验全部 DVC 功率输出，
-     * 执行 CAMZ，再用两个样本学习 RAM 残差偏置。失败不阻断启动，
-     * 持久化工厂 offset/gain 仍有效。
+     * 底层关闭并校验全部 DVC 功率输出，执行 CAMZ，再检查两个新鲜 CC2 样本。
+     * 不学习第二套软件零点；客户 offset/gain 在保存、复位及重启后都按原公式应用。
+     * 检查失败沿原路径回退，不能新增永久 MOS 锁定。
      */
     (void)DVC1124_BootCurrentZeroCalibrate();
 }

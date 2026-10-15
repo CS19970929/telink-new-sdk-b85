@@ -66,6 +66,8 @@ python bms_tools/bms.py --product d014 resources
 
 ## 专题与调试
 
+四产品共用两点电流校准、D008 持久零点、协议/Flash兼容和客户步骤见 [电流校准说明](docs/CURRENT_CALIBRATION.md)。本轮仅源码审查，未编译或实板验收。
+
 | 文档 | 内容 |
 |---|---|
 | [2026-10-10 最小优化记录](docs/OPTIMIZATION_20261010.md) | 独立提交、状态所有权、验证范围与未决实板边界 |

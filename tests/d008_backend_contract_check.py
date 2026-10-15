@@ -339,8 +339,10 @@ def check_d008_boot_zero_current_contract_check():
     assert driver.count("!dvc_boot_zero_wait_fresh_cc2()") == 2
     assert "DVC1124_FET_PDSGC_MASK" in driver and "DVC1124_FET_PCHGC_MASK" in driver
     assert "DVC1124_CC2_DSGF_MASK" in driver and "DVC1124_CC2_CHGF_MASK" in driver
-    assert "factory_current_ma = bms_config_calibrate_current(current_ma);" in driver
-    assert "current_ma = dvc_apply_boot_zero(factory_current_ma);" in driver
+    assert "current_ma = bms_config_calibrate_current(current_ma);" in driver
+    assert "dvc_apply_boot_zero" not in driver
+    assert "s_boot_zero.learned_offset_ma = 0;" in driver
+    assert "memset(&s_boot_zero, 0, sizeof(s_boot_zero));" in driver
     assert "#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u" in conf
 
     init_pos = backend.index("DVC1124_UpdataAfeConfig();")
@@ -351,7 +353,7 @@ def check_d008_boot_zero_current_contract_check():
     assert "bms_config_set_user" not in zero_fn
     assert "storage_record_save" not in zero_fn
 
-    print("PASS D008 boot zero-current calibration is init-only, FET-safe, RAM-only, deadband-preserving")
+    print("PASS D008 retains boot FET/CAMZ/fresh CC2 checks and one persisted software zero")
 
 if __name__ == "__main__":
     check_dvc1124_config_quick_check()

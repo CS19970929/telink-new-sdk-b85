@@ -78,7 +78,7 @@ typedef struct
 {
     dvc1124_boot_zero_status_t status;
     uint8_t sample_count;
-    int32_t learned_offset_ma;      /* 持久化 offset/gain 校准后的残差。 */
+    int32_t learned_offset_ma;      /* 旧诊断槽保留为零；不再叠加 RAM 软件零点。 */
     int32_t raw_sample1_ma;         /* 持久化工厂校准之前的值。 */
     int32_t raw_sample2_ma;
     int32_t calibrated_sample1_ma;  /* 已应用持久化 offset/gain。 */
@@ -154,7 +154,7 @@ uint8_t DVC1124_GetCoreOtEventLatched(void);
 uint8_t DVC1124_ClearAlarmFlags(uint8_t flag_mask);
 /* 发起 DVC 电流 ADC 校准。 */
 uint8_t DVC1124_StartCadcCalibration(void);
-/* 启动阶段确认 FET 关闭后采集残余电流并校准零点。 */
+/* 启动 FET/CAMZ/新 CC2 检查，不修改或覆盖持久化软件零点。 */
 uint8_t DVC1124_BootCurrentZeroCalibrate(void);
 /*
  * 读取副作用依据 V1.2 手册：0x01 的 VADF/CC1F/CC2F 为 RC，读字节会消耗标志；

@@ -91,7 +91,7 @@ u16 bms_parameter_read(u16 r)
     if (r == BMS_PARAM_REG_MAGIC) return BMS_PARAMETER_INTERFACE_MAGIC;
     if (r == BMS_PARAM_REG_VERSION) return 2u;
     if (r == BMS_PARAM_REG_CAPABILITIES) return 0x00FFu | BMS_PARAM_CAP_CHEMISTRY_SWITCH |
-        BMS_PARAM_CAP_SOC_PROFILE; /*
+        BMS_PARAM_CAP_SOC_PROFILE | BMS_PARAM_CAP_CURRENT_CALIBRATION_LINEAR; /*
      * 容量、SN、加热、校准、重置、State 同步、均衡及两档休眠。
      */
     if (r >= BMS_PARAM_REG_CHEMISTRY_BASE && r <= BMS_PARAM_REG_CHEMISTRY_LAST) {

@@ -34,7 +34,6 @@ static uint16_t dvc_be16(const uint8_t *p) { return ((uint16_t)p[0]<<8)|p[1]; }
 static int32_t dvc_sign_extend20(uint32_t x) { return (x&0x80000u)?(int32_t)(x|0xfff00000u):(int32_t)x; }
 static int32_t dvc_cc2_to_raw_current_ma(int32_t x) { return x; }
 static int32_t bms_config_calibrate_current(int32_t x) { return x; }
-static int32_t dvc_apply_boot_zero(int32_t x) { return x; }
 static void dvc_publish_current_report(int32_t x) { (void)x; }
 static uint16_t dvc_correct_cell_mv(uint16_t x,uint32_t cm) { (void)cm; return x; }
 static uint8_t dvc_refresh_balance_state(void) { return 1u; }

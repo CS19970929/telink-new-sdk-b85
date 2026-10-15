@@ -270,13 +270,6 @@ static int32_t dvc_cc2_to_raw_current_ma(int32_t cc2)
     return current_num / ((int32_t)s_cfg.shunt_uohm * 2);
 }
 
-/* 将启动零点偏移应用到电流读数。 */
-static int32_t dvc_apply_boot_zero(int32_t calibrated_ma)
-{
-    if (s_boot_zero.status != DVC1124_BOOT_ZERO_VALID) return calibrated_ma;
-    return calibrated_ma - s_boot_zero.learned_offset_ma;
-}
-
 /* 发布启动零点校准结果和诊断计数。 */
 #if BMS_SERVICE_DIAG_ENABLE
 static void dvc_boot_zero_publish_diag(void)
@@ -399,11 +392,10 @@ static uint8_t dvc_boot_zero_read_sample(int32_t *raw_ma,
     return 1u;
 }
 
-/* 启动阶段确认 FET 关闭后采集残余电流并校准零点。 */
+/* 保留 FET 关闭、CAMZ 和新 CC2 检查；软件零点只由持久化 offset 拥有。 */
 uint8_t DVC1124_BootCurrentZeroCalibrate(void)
 {
     dvc1124_boot_zero_status_t failure = DVC1124_BOOT_ZERO_SAMPLE_IO_ERROR;
-    int32_t sum;
     uint32_t spread;
 
     if (s_boot_zero.status != DVC1124_BOOT_ZERO_NOT_ATTEMPTED)
@@ -472,8 +464,8 @@ uint8_t DVC1124_BootCurrentZeroCalibrate(void)
         return 0u;
     }
 
-    sum = s_boot_zero.calibrated_sample1_ma + s_boot_zero.calibrated_sample2_ma;
-    s_boot_zero.learned_offset_ma = (sum >= 0) ? ((sum + 1) / 2) : ((sum - 1) / 2);
+    /* 旧诊断槽保留为零，不能再次扣除残差而抵消客户保存的 offset。 */
+    s_boot_zero.learned_offset_ma = 0;
     s_boot_zero.status = DVC1124_BOOT_ZERO_VALID;
     dvc_boot_zero_publish_diag();
     return 1u;
@@ -1343,6 +1335,7 @@ void DVC1124_AFE_Reset(void)
     (void)DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u); /* 配置值：CST=1101。 */
     dvc_delay_ms(DVC1124_RESET_SETTLE_MS);
     memset(&s_snapshot, 0, sizeof(s_snapshot));
+    memset(&s_boot_zero, 0, sizeof(s_boot_zero));
     memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
     s_balance_requested_mask = 0u;
     s_balance_suspended = 0u;
@@ -1427,21 +1420,19 @@ static void dvc_publish_current_report(int32_t current_ma)
     else g_bms_report.discharge_current_a10 = (uint16_t)a10;
 }
 
-/* 新 CC2 才推进电流时间；校准、启动零偏及 0.1A 报告死区保持原顺序。 */
+/* 新 CC2 才推进时间；持久 offset/gain 是唯一软件校准，报告死区保持。 */
 static void dvc_publish_current_measurement(const uint8_t *data, uint32_t now)
 {
     uint32_t raw20;
     int32_t cc2;
     int32_t current_ma;
-    int32_t factory_current_ma;
     raw20 = ((uint32_t)data[DVC1124_REG_CC2_H] << 12) |
             ((uint32_t)data[DVC1124_REG_CC2_M] << 4) |
             ((uint32_t)data[DVC1124_REG_CC2_L_FLAGS] >> 4);
     cc2 = dvc_sign_extend20(raw20);
     current_ma = dvc_cc2_to_raw_current_ma(cc2);
     s_snapshot.raw_current_ma = current_ma;
-    factory_current_ma = bms_config_calibrate_current(current_ma);
-    current_ma = dvc_apply_boot_zero(factory_current_ma);
+    current_ma = bms_config_calibrate_current(current_ma);
     s_snapshot.current_ma = current_ma;
 
     dvc_publish_current_report(current_ma);
