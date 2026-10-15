@@ -15,7 +15,6 @@ public partial class MainWindow
     {
         var group = new GroupBox { Header="SOC / OCV 算法参数", Margin=new Thickness(4,12,4,4), Padding=new Thickness(8) };
         var panel = new StackPanel(); group.Content=panel; root.Children.Add(group);
-        panel.Children.Add(new TextBlock { Text="读取设备当前完整 profile；保存使用分段暂存、带密码的一次性提交和完整读回。OCV 每行填写 mV=SOC%。", TextWrapping=TextWrapping.Wrap });
         void Button(string label, Func<Task> action)
         {
             var b=new Button{Content=label,Margin=new Thickness(4),Padding=new Thickness(10,4,10,4),HorizontalAlignment=HorizontalAlignment.Left};
@@ -40,7 +39,7 @@ public partial class MainWindow
         Field("fullDelta","满电最大压差 / mV");Field("terminalDelta","末端最大压差 / mV");
         Field("terminalStart","末端起始偏移 / mV");Field("terminalL1","末端 L1 偏移 / mV");
         Field("terminalL2","末端 L2 偏移 / mV");Field("terminalL3","末端 L3 偏移 / mV");
-        panel.Children.Add(new TextBlock{Text="OCV 点 / 每行 mV=SOC%",Margin=new Thickness(4)});panel.Children.Add(_socOcvPoints);
+        panel.Children.Add(new TextBlock{Text="OCV 点 / mV=SOC%",Margin=new Thickness(4)});panel.Children.Add(_socOcvPoints);
         Button("保存 SOC / OCV 参数并核对",()=>{
             if(MessageBox.Show(this,"这会改变 SOC 估算、静置校正和端点判断。请确认 OCV 数据来自对应电芯验证，是否继续？","保存 SOC / OCV",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return Task.CompletedTask;
             return ParameterRunAsync(async(c,t)=>{SocProfileParameters candidate=ReadSocProfileEditor();_socProfile=await c.SaveSocProfileAsync(candidate,BmsServiceAccess.DefaultPassword,t);ShowSocProfile(_socProfile);},refresh:false);

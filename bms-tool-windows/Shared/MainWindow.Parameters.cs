@@ -13,11 +13,11 @@ public partial class MainWindow
     private readonly TextBlock _parameterStatus=new(){TextWrapping=TextWrapping.Wrap,Margin=new Thickness(6)};
     private readonly TextBox _parameterCapacity=new(),_parameterSoc=new(),_parameterCycle=new(),_parameterSn=new();
     private readonly TextBox _parameterHeatStart=new(),_parameterHeatStop=new();
-    private readonly CheckBox _parameterHeatEnable=new(){Content="启用加热（仍受原有安全条件约束）"};
+    private readonly CheckBox _parameterHeatEnable=new(){Content="启用加热"};
     private readonly TextBox _parameterBalanceStart=new(),_parameterBalanceDeltaStart=new(),_parameterBalanceDeltaStop=new();
-    private readonly TextBlock _parameterBalancePermission=new(){Text="均衡许可：尚未读取",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(4)};
+    private readonly TextBlock _parameterBalancePermission=new(){Text="均衡：未读取",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(4)};
     private readonly Button _parameterHeatSave=new(),_parameterBalanceSave=new(),_parameterBalanceDisable=new(),_parameterBalanceAllow=new();
-    private readonly TextBlock _parameterBusinessReadback=new(){Text="设备当前加热/均衡参数：尚未读取",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(6)};
+    private readonly TextBlock _parameterBusinessReadback=new(){Text="设备参数：未读取",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(6)};
 #if BMS_FACTORY_APP
     private readonly TextBox _parameterOffset=new(),_parameterGain=new(),_parameterReference=new(){Text="0"};
 #endif
@@ -25,7 +25,6 @@ public partial class MainWindow
     private void AddParameterTab()
     {
         var root=new StackPanel{Margin=new Thickness(14)};
-        root.Children.Add(new TextBlock{Text="业务参数 · 读取的是设备当前保存值。下方输入框用于编辑，点击保存后写入设备并读回核对。旧固件仅开放其声明支持的功能。",TextWrapping=TextWrapping.Wrap});
         root.Children.Add(_parameterStatus);
         void Button(string label,Func<Task> action) {
             var button=new Button{Content=label,Margin=new Thickness(4),Padding=new Thickness(10,4,10,4),HorizontalAlignment=HorizontalAlignment.Left};
@@ -47,7 +46,6 @@ public partial class MainWindow
         AddSocProfileControls(root);
         Field("额定容量 / Ah",_parameterCapacity);
         Button("保存额定容量",()=>ParameterRunAsync((c,t)=>c.WriteD008VerifiedAsync(0x2318,new[]{D008Parameters.Capacity(_parameterCapacity.Text)},false,t)));
-        root.Children.Add(new TextBlock{Text="容量单位为 Ah；保存后请以设备读回结果为准。",TextWrapping=TextWrapping.Wrap});
         Field("当前 SOC / %",_parameterSoc);
         Button("设置并保存 SOC",()=>ParameterRunAsync((c,t)=>{
             ushort value=ushort.Parse(_parameterSoc.Text);if(value>100)throw new ArgumentException("SOC 必须为 0～100");
@@ -55,12 +53,11 @@ public partial class MainWindow
         }));
         Field("循环次数",_parameterCycle);
         Button("保存循环次数",()=>ParameterRunAsync((c,t)=>c.WriteD008VerifiedAsync(0x2319,new[]{ushort.Parse(_parameterCycle.Text)},false,t)));
-        Field("设备 SN（ASCII，最多32字符）",_parameterSn);
+        Field("设备 SN / ASCII 32字符",_parameterSn);
 #if BMS_FACTORY_APP
         Button("保存 SN",()=>ParameterRunAsync((c,t)=>c.WriteD008SerialAsync(_parameterSn.Text,t)));
 #else
         _parameterSn.IsReadOnly=true;
-        root.Children.Add(new TextBlock{Text="SN 为工厂身份字段；客户版只读，写入请使用内部完整测试版。",TextWrapping=TextWrapping.Wrap});
 #endif
         root.Children.Add(_parameterBusinessReadback);
         root.Children.Add(new TextBlock{Text="加热参数",FontWeight=FontWeights.Bold,Margin=new Thickness(4,12,4,4)});
@@ -71,25 +68,23 @@ public partial class MainWindow
             button.HorizontalAlignment=HorizontalAlignment.Left;button.IsEnabled=false;
             button.Click+=async(_,_)=>await action();root.Children.Add(button);
         }
-        SaveButton(_parameterHeatSave,"保存整组加热参数并读回",()=>ParameterRunAsync((c,t)=>
+        SaveButton(_parameterHeatSave,"保存加热参数",()=>ParameterRunAsync((c,t)=>
             c.WriteD008VerifiedAsync(D008Parameters.HeaterBase,D008Parameters.Heater(
                 _parameterHeatEnable.IsChecked==true,_parameterHeatStart.Text,_parameterHeatStop.Text),false,t)));
         root.Children.Add(new TextBlock{Text="均衡参数",FontWeight=FontWeights.Bold,Margin=new Thickness(4,12,4,4)});
         root.Children.Add(_parameterBalancePermission);
-        SaveButton(_parameterBalanceDisable,"永久禁止均衡（保存到设备）",()=>ParameterRunAsync((c,t)=>c.SetD008BalanceAllowedAsync(false,t)));
-        SaveButton(_parameterBalanceAllow,"允许自动均衡（满足条件才均衡）",()=>ParameterRunAsync((c,t)=>c.SetD008BalanceAllowedAsync(true,t)));
-        root.Children.Add(new TextBlock{Text="禁止后掉电、重启仍保持；允许只恢复自动检测，不强制任何一串均衡。需配套本次 BMS 固件，业务默认恢复及 OTA 业务更新才能继续保留许可。以下保存阈值不会改变许可。",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(4)});
+        SaveButton(_parameterBalanceDisable,"禁止均衡",()=>ParameterRunAsync((c,t)=>c.SetD008BalanceAllowedAsync(false,t)));
+        SaveButton(_parameterBalanceAllow,"允许均衡",()=>ParameterRunAsync((c,t)=>c.SetD008BalanceAllowedAsync(true,t)));
         Field("均衡起始单体电压 / mV",_parameterBalanceStart);
         Field("均衡启动压差 / mV",_parameterBalanceDeltaStart);
         Field("均衡停止压差 / mV",_parameterBalanceDeltaStop);
-        root.Children.Add(new TextBlock{Text="压差相对有效最低单体计算。未开启串达到启动压差才启动；已开启串降至停止压差才关闭。最新固件有限额选串的切换回差为启动压差减停止压差。最大均衡串数及温度暂停宏由固件配置，本接口不能读写。",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(4)});
-        SaveButton(_parameterBalanceSave,"保存均衡阈值并读回（保留许可）",()=>ParameterRunAsync((c,t)=>
+        SaveButton(_parameterBalanceSave,"保存均衡参数",()=>ParameterRunAsync((c,t)=>
             c.WriteD008BalanceThresholdsAsync(_parameterBalanceStart.Text,
                 _parameterBalanceDeltaStart.Text,_parameterBalanceDeltaStop.Text,t)));
         AddSleepParameterControls(root,Field,SaveButton);
         UpdateBusinessParameterControls();
 #if BMS_FACTORY_APP
-        root.Children.Add(new TextBlock{Text="工厂电流校准：保存时使用 AFE 授权会话。放电为正、充电为负，单位 mA。零点采集前须确认无实际电流；已知电流由外部仪表提供。先计算候选，再单独保存。硬件 AFE 保护量化不受软件校准替代。",TextWrapping=TextWrapping.Wrap});
+        root.Children.Add(new TextBlock{Text="电流校准",FontWeight=FontWeights.Bold,Margin=new Thickness(4,12,4,4),ToolTip="放电为正、充电为负，单位 mA。零点采集前确认无实际电流；参考电流使用外部仪表。"});
         Field("零点偏移 / mA",_parameterOffset);Field("增益 / ppm（1000000=1倍）",_parameterGain);Field("外部参考电流 / mA",_parameterReference);
         Button("采集10个新鲜样本，生成零点候选",()=>ParameterRunAsync(async(c,t)=>{
             var sample=await c.ReadD008CalibrationSamplesAsync(t);
@@ -113,11 +108,13 @@ public partial class MainWindow
                 if(MessageBox.Show(this,"仅恢复"+g.Name+"，不会清除 SN、校准或日志。是否继续？","恢复分组默认",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return Task.CompletedTask;
                 return ParameterRunAsync((c,t)=>c.ResetD008GroupAsync(g.Id,t));
             });
-        root.Children.Add(_parameterReadback);
+#if BMS_FACTORY_APP
+        root.Children.Add(new Expander{Header="原始读回",Content=_parameterReadback,Margin=new Thickness(4)});
+#endif
         MainTabs.Items.Add(new TabItem{Header="业务参数",Content=new ScrollViewer{Content=root,VerticalScrollBarVisibility=ScrollBarVisibility.Auto}});
         var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
         timer.Tick+=async(_,_)=>{
-            if(_bms is null){_batteryTypeStatus.Text="电池类型：未连接，旧读数不代表当前设备";_parameterProbedClient=null;_parameterCapture=null;_parameterStatus.Text="未连接";_parameterBusinessReadback.Text="设备当前加热/均衡参数：未连接，旧读数不代表当前设备";UpdateBusinessParameterControls();return;}
+            if(_bms is null){_batteryTypeStatus.Text="电池类型：未连接";_parameterProbedClient=null;_parameterCapture=null;_parameterStatus.Text="未连接";_parameterBusinessReadback.Text="设备参数：未连接";UpdateBusinessParameterControls();return;}
             if(!ReferenceEquals(_bms,_parameterProbedClient) && !_parameterBusy && !_diagBusy && !_otaRunning && !_eventLogReadInProgress && !_shBusy && !ShFactoryBusy())await ParameterRunAsync(null);
         };
         timer.Start();Closed+=(_,_)=>timer.Stop();
@@ -147,7 +144,7 @@ public partial class MainWindow
             }
         } catch(Exception ex){
             _parameterCapture=null;_parameterProbedClient=null;
-            _parameterBusinessReadback.Text="设备当前加热/均衡参数：本次操作失败，尚未重新确认";
+            _parameterBusinessReadback.Text="设备参数：读取失败";
             _parameterStatus.Text="参数操作失败："+ex.Message+"；请重新读取确认设备状态";
         }
         finally{_parameterBusy=false;_diagBusy=false;_eventLogReadInProgress=false;UpdateBusinessParameterControls();StartAutomaticRefresh();}
@@ -156,12 +153,12 @@ public partial class MainWindow
     {
         _parameterCapacity.Clear();_parameterSoc.Clear();_parameterCycle.Clear();_parameterSn.Clear();
         _parameterHeatStart.Clear();_parameterHeatStop.Clear();_parameterHeatEnable.IsChecked=false;
-        _parameterBalanceStart.Clear();_parameterBalanceDeltaStart.Clear();_parameterBalanceDeltaStop.Clear();_parameterBalancePermission.Text="均衡许可：本次尚未确认";
+        _parameterBalanceStart.Clear();_parameterBalanceDeltaStart.Clear();_parameterBalanceDeltaStop.Clear();_parameterBalancePermission.Text="均衡：未确认";
 #if BMS_FACTORY_APP
         _parameterOffset.Clear();_parameterGain.Clear();
 #endif
         _parameterStatus.Text=c.Status+"；"+string.Join("；",c.Errors);
-        var business=new List<string>{"设备当前保存值 · 读取时间 "+c.CapturedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")};
+        var business=new List<string>{"设备值 "+c.CapturedUtc.ToLocalTime().ToString("HH:mm:ss")};
         if(c.Blocks.TryGetValue("Heater",out var heat)) {
             try {
                 D008Parameters.ValidateHeater(heat);
@@ -173,10 +170,10 @@ public partial class MainWindow
         if(c.Blocks.TryGetValue("Balance",out var bal)) {
             try {
                 D008Parameters.ValidateBalance(bal);
-                _parameterBalancePermission.Text=bal[0]!=0?"均衡许可：允许自动检测（不代表正在均衡）":"均衡许可：永久禁止（设备已保存）";
+                _parameterBalancePermission.Text=bal[0]!=0?"均衡：允许":"均衡：禁止";
                 _parameterBalanceStart.Text=bal[1].ToString();
                 _parameterBalanceDeltaStart.Text=bal[2].ToString();_parameterBalanceDeltaStop.Text=bal[3].ToString();
-                business.Add($"均衡：{(bal[0]!=0?"允许自动检测":"永久禁止")}，起始 {bal[1]} mV，启动压差 {bal[2]} mV，停止压差 {bal[3]} mV；最新固件切换回差 {bal[2]-bal[3]} mV");
+                business.Add($"均衡：{(bal[0]!=0?"允许":"禁止")}，{bal[1]} / {bal[2]} / {bal[3]} mV");
             } catch(ArgumentException){business.Add("均衡：读回值无效，禁止写入");}
         } else business.Add("均衡：设备未支持或本次读取失败，禁止写入");
         ShowSleepParameters(c,business);
@@ -199,7 +196,7 @@ public partial class MainWindow
         bool heaterReady=Ready("Heater",D008Parameters.ValidateHeater),balanceReady=Ready("Balance",D008Parameters.ValidateBalance);
         foreach(var control in new Control[]{_parameterHeatEnable,_parameterHeatStart,_parameterHeatStop,_parameterHeatSave})control.IsEnabled=heaterReady;
         foreach(var control in new Control[]{_parameterBalanceStart,_parameterBalanceDeltaStart,_parameterBalanceDeltaStop,_parameterBalanceSave,_parameterBalanceDisable,_parameterBalanceAllow})control.IsEnabled=balanceReady;
-        if(!balanceReady && !_parameterBusy)_parameterBalancePermission.Text="均衡许可：尚未确认或设备不支持，请重新读取";
+        if(!balanceReady && !_parameterBusy)_parameterBalancePermission.Text="均衡：未确认";
         UpdateSleepParameterControls();
     }
 }

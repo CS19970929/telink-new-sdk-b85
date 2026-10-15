@@ -12,8 +12,8 @@ public partial class MainWindow
 
     private void AddBatteryTypeControls(StackPanel root)
     {
-        root.Children.Add(new TextBlock { Text = "整套电池类型切换", FontWeight = FontWeights.Bold, Margin = new Thickness(4,12,4,4) });
-        root.Children.Add(new TextBlock { Text = "请先断开充电器和负载。切换将恢复该类型的软件/硬件保护、均衡和 SOC/OCV 默认；保留容量、均衡许可、实测校准及历史状态。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
+        root.Children.Add(new TextBlock { Text = "整套电池类型切换", FontWeight = FontWeights.Bold,
+            Margin = new Thickness(4,12,4,4), ToolTip = "切换前断开充电器和负载；操作会恢复对应类型的保护、均衡和 SOC/OCV 默认。" });
         root.Children.Add(_batteryTypeStatus);
         var read = new Button { Content = "读取当前电池类型", Margin = new Thickness(4) };
         read.Click += async (_,_) => await ParameterRunAsync(async (client,ct) => {

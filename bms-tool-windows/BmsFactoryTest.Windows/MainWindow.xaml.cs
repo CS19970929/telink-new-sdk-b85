@@ -1079,8 +1079,11 @@ public partial class MainWindow : Window
         if (_deviceMap.TryGetValue(device.Address, out var old))
         {
             int index = _devices.IndexOf(old);
+            bool wasSelected = DeviceList.SelectedItem is DiscoveredDevice selected &&
+                               selected.Address == device.Address;
             _deviceMap[device.Address] = device;
             if (index >= 0) _devices[index] = device;
+            if (wasSelected) DeviceList.SelectedItem = device;
         }
         else
         {

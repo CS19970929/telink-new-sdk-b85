@@ -33,9 +33,9 @@ static class BusinessParametersUiTest
         Load(capture);
         Check(Field<Button>("_parameterBalanceSave").IsEnabled && Field<Button>("_parameterHeatSave").IsEnabled,"支持且读回有效后启用两组保存");
         Check(Field<Button>("_parameterBalanceDisable").IsEnabled && Field<Button>("_parameterBalanceAllow").IsEnabled,"明确提供禁止和允许两个入口");
-        Check(Field<TextBlock>("_parameterBalancePermission").Text.Contains("允许自动检测"),"允许不显示为正在均衡");
+        Check(Field<TextBlock>("_parameterBalancePermission").Text=="均衡：允许","简洁显示均衡许可");
         capture.Blocks["Balance"][0]=0;Load(capture);
-        Check(Field<TextBlock>("_parameterBalancePermission").Text.Contains("永久禁止"),"显示设备已保存的禁止许可");
+        Check(Field<TextBlock>("_parameterBalancePermission").Text=="均衡：禁止","简洁显示设备禁止许可");
         Check(Field<Button>("_parameterBalanceSave").IsEnabled,"禁止时仍可保存阈值");
         capture.Blocks["Balance"][0]=1;Load(capture);
         type.GetField("_parameterBusy",Private)!.SetValue(window,true);Call("UpdateBusinessParameterControls");
@@ -44,7 +44,7 @@ static class BusinessParametersUiTest
         Check(Field<TextBox>("_parameterBalanceDeltaStart").Text=="30" && Field<TextBox>("_parameterBalanceDeltaStop").Text=="15","显示设备实际 30/15 参数");
         Check(Field<TextBox>("_parameterHeatStart").Text=="-5" && Field<TextBox>("_parameterHeatStop").Text=="5","温度单位解码");
         string actual=Field<TextBlock>("_parameterBusinessReadback").Text;
-        Check(actual.Contains("停止压差 15 mV") && actual.Contains("切换回差 15 mV"),"实际值说明包含停止及切换回差");
+        Check(actual.Contains("均衡：允许，3300 / 30 / 15 mV"),"设备读回区简洁显示完整均衡参数");
         Field<TextBox>("_parameterBalanceDeltaStop").Text="3";
         Check(Field<TextBlock>("_parameterBusinessReadback").Text==actual,"编辑候选不能冒充设备读回");
         Load(capture);

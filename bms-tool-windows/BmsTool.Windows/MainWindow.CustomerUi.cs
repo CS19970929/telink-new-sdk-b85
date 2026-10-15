@@ -188,14 +188,6 @@ public partial class MainWindow
             control is { DriverStateValid: true } ? control.DischargeDriverOn : TryGetSwitchState(mos, "放电 MOS"));
 
         string system = SystemStateText.Text ?? string.Empty;
-        SetLamp(CustomerHeatLamp, CustomerHeatText, TryGetSwitchState(system, "加热"));
-        SetLamp(CustomerCoolLamp, CustomerCoolText, TryGetSwitchState(system, "制冷"));
-
-        bool? balancing = null;
-        if (Regex.IsMatch(system, @"均衡：\s*进行中")) balancing = true;
-        else if (Regex.IsMatch(system, @"均衡：\s*未进行")) balancing = false;
-        SetLamp(CustomerBalanceLamp, CustomerBalanceText, balancing);
-
         string afe = ExtractValue(system, @"AFE：([^\r\n]+)", "—");
         string systemState = ExtractValue(system, @"系统：([^\r\n]+)", "—");
         CustomerSystemMonitorText.Text = $"AFE：{afe}    系统：{systemState}";

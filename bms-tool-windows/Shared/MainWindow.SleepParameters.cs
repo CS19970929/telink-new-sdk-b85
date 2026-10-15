@@ -11,13 +11,12 @@ public partial class MainWindow
     private void AddSleepParameterControls(StackPanel root,Action<string,Control> field,
         Action<Button,string,Func<Task>> saveButton)
     {
-        root.Children.Add(new TextBlock{Text="自动休眠设置",FontWeight=FontWeights.Bold,Margin=new Thickness(4,12,4,4)});
+        root.Children.Add(new TextBlock{Text="自动休眠设置",FontWeight=FontWeights.Bold,Margin=new Thickness(4,12,4,4),
+            ToolTip="一级、二级条件独立计时并取最先到期项；过放未恢复固定 3 分钟。"});
         field("一级休眠电压 / mV",_sleepLowMv);
         field("一级休眠延时 / 分钟",_sleepLowMinutes);
         field("二级休眠电压 / mV",_sleepNormalMv);
         field("二级休眠延时 / 分钟",_sleepNormalMinutes);
-        root.Children.Add(new TextBlock{Text="最低单体低于一级休眠电压时开始低压计时；低于二级休眠电压且没有可靠充电时，开始未充电计时。条件有效恢复才清零，无新鲜数据保持已确认条件。多个条件取最先到期项；D008 到期关闭 MCU 供电。",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(4)});
-        root.Children.Add(new TextBlock{Text="过放未恢复：固定 3 分钟。三级单体或总压欠压保护持续未恢复时独立计时，上位机不能修改；其它条件可更早触发关机。",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(4)});
         saveButton(_sleepSave,"保存休眠设置并读回",()=>ParameterRunAsync((client,ct)=>
             client.WriteD008VerifiedAsync(BmsSleepParameters.Base,BmsSleepParameters.Build(
                 _sleepLowMv.Text,_sleepLowMinutes.Text,_sleepNormalMv.Text,_sleepNormalMinutes.Text),false,ct)));
