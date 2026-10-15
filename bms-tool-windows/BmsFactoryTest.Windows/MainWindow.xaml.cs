@@ -390,7 +390,7 @@ public partial class MainWindow : Window
 
     private void StartAutomaticRefresh()
     {
-        if (_bms is not null && !_otaRunning)
+        if (_bms is not null && !_otaRunning && !_parameterBusy)
             _pollTimer.Start();
     }
 
@@ -579,7 +579,7 @@ public partial class MainWindow : Window
 
     private async Task PollTickAsync()
     {
-        if (_polling || _otaRunning || _autoReconnectRunning || _shBusy) return;
+        if (_polling || _otaRunning || _autoReconnectRunning || _shBusy || _parameterBusy) return;
 
         if (_bms is null)
         {

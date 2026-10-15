@@ -18,9 +18,6 @@ public partial class MainWindow
     private readonly TextBlock _parameterBalancePermission=new(){Text="均衡：未读取",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(4)};
     private readonly Button _parameterHeatSave=new(),_parameterBalanceSave=new(),_parameterBalanceDisable=new(),_parameterBalanceAllow=new();
     private readonly TextBlock _parameterBusinessReadback=new(){Text="设备参数：未读取",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(6)};
-#if BMS_FACTORY_APP
-    private readonly TextBox _parameterOffset=new(),_parameterGain=new(),_parameterReference=new(){Text="0"};
-#endif
     private readonly TextBox _parameterReadback=new(){IsReadOnly=true,AcceptsReturn=true,TextWrapping=TextWrapping.Wrap,MinHeight=150};
     private void AddParameterTab()
     {
@@ -83,26 +80,7 @@ public partial class MainWindow
                 _parameterBalanceDeltaStart.Text,_parameterBalanceDeltaStop.Text,t)));
         AddSleepParameterControls(root,Field,SaveButton);
         UpdateBusinessParameterControls();
-#if BMS_FACTORY_APP
-        root.Children.Add(new TextBlock{Text="电流校准",FontWeight=FontWeights.Bold,Margin=new Thickness(4,12,4,4),ToolTip="放电为正、充电为负，单位 mA。零点采集前确认无实际电流；参考电流使用外部仪表。"});
-        Field("零点偏移 / mA",_parameterOffset);Field("增益 / ppm（1000000=1倍）",_parameterGain);Field("外部参考电流 / mA",_parameterReference);
-        Button("采集10个新鲜样本，生成零点候选",()=>ParameterRunAsync(async(c,t)=>{
-            var sample=await c.ReadD008CalibrationSamplesAsync(t);
-            _parameterOffset.Text=Math.Round(sample.Mean).ToString(CultureInfo.CurrentCulture);
-            _parameterStatus.Text=$"零点候选 {sample.Mean:F1} mA，范围 {sample.Min}～{sample.Max}；尚未保存";
-        },refresh:false));
-        Button("采集10个新鲜样本，计算增益候选",()=>ParameterRunAsync(async(c,t)=>{
-            var sample=await c.ReadD008CalibrationSamplesAsync(t);
-            _parameterGain.Text=D008Parameters.Gain(sample.Mean,int.Parse(_parameterOffset.Text),int.Parse(_parameterReference.Text)).ToString();
-            _parameterStatus.Text=$"原始均值 {sample.Mean:F1} mA，范围 {sample.Min}～{sample.Max}；增益候选尚未保存";
-        },refresh:false));
-        Button("保存电流校准并读回",()=>ParameterRunAsync((c,t)=>{
-            int offset=int.Parse(_parameterOffset.Text);uint gain=uint.Parse(_parameterGain.Text);
-            if(offset is <-1000000 or >1000000 || gain is <100000 or >10000000)throw new ArgumentException("校准系数超出协议范围");
-            return c.WriteD008VerifiedAsync(0x2E24,D008Parameters.Calibration(offset,gain),true,t);
-        }));
-        Button("恢复电流校准为零偏移、1倍增益",()=>ParameterRunAsync((c,t)=>c.WriteD008VerifiedAsync(0x2E24,D008Parameters.Calibration(0,1000000),true,t)));
-#endif
+        AddCurrentCalibrationControls(root);
         foreach(var g in new[]{(Id:(ushort)1,Name:"软件保护"),(Id:(ushort)2,Name:"AFE 硬件保护"),(Id:(ushort)3,Name:"业务参数（容量、加热及均衡）")})
             Button("恢复默认："+g.Name,()=>{
                 if(MessageBox.Show(this,"仅恢复"+g.Name+"，不会清除 SN、校准或日志。是否继续？","恢复分组默认",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return Task.CompletedTask;
@@ -154,9 +132,6 @@ public partial class MainWindow
         _parameterCapacity.Clear();_parameterSoc.Clear();_parameterCycle.Clear();_parameterSn.Clear();
         _parameterHeatStart.Clear();_parameterHeatStop.Clear();_parameterHeatEnable.IsChecked=false;
         _parameterBalanceStart.Clear();_parameterBalanceDeltaStart.Clear();_parameterBalanceDeltaStop.Clear();_parameterBalancePermission.Text="均衡：未确认";
-#if BMS_FACTORY_APP
-        _parameterOffset.Clear();_parameterGain.Clear();
-#endif
         _parameterStatus.Text=c.Status+"；"+string.Join("；",c.Errors);
         var business=new List<string>{"设备值 "+c.CapturedUtc.ToLocalTime().ToString("HH:mm:ss")};
         if(c.Blocks.TryGetValue("Heater",out var heat)) {
@@ -181,9 +156,6 @@ public partial class MainWindow
         if(c.Blocks.TryGetValue("Capacity",out var cap)){_parameterCapacity.Text=(cap[0]/10m).ToString();_parameterCycle.Text=cap[1].ToString();}
         if(c.Blocks.TryGetValue("SOC",out var soc))_parameterSoc.Text=soc[0].ToString();
         if(c.Blocks.TryGetValue("Serial",out var sn))_parameterSn.Text=D008Parameters.Serial(sn);
-#if BMS_FACTORY_APP
-        if(c.Blocks.TryGetValue("Calibration",out var cal)){_parameterOffset.Text=D008Parameters.I32(cal,0).ToString();_parameterGain.Text=D008Parameters.U32(cal,2).ToString();}
-#endif
         _parameterReadback.Text=string.Join(Environment.NewLine,c.Blocks.Select(b=>b.Key+": "+string.Join(" ",b.Value.Select(v=>v.ToString("X4")))));
     }
     private void UpdateBusinessParameterControls()

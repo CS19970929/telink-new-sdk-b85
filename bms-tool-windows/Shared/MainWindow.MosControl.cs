@@ -73,8 +73,8 @@ public partial class MainWindow
 
         _chargeMosControlButton.Content = state.ChargeAllowed ? "禁止充电 MOS" : "允许充电 MOS";
         _dischargeMosControlButton.Content = state.DischargeAllowed ? "禁止放电 MOS" : "允许放电 MOS";
-        _chargeMosControlButton.IsEnabled = !_mosControlBusy && _bms is not null && !_otaRunning;
-        _dischargeMosControlButton.IsEnabled = !_mosControlBusy && _bms is not null && !_otaRunning;
+        _chargeMosControlButton.IsEnabled = !_mosControlBusy && _bms is not null && !_otaRunning && !_parameterBusy;
+        _dischargeMosControlButton.IsEnabled = !_mosControlBusy && _bms is not null && !_otaRunning && !_parameterBusy;
         SetLamp(CustomerChargeMosLamp, CustomerChargeMosText,
             state.DriverStateValid ? state.ChargeDriverOn : null);
         SetLamp(CustomerDischargeMosLamp, CustomerDischargeMosText,
@@ -85,7 +85,7 @@ public partial class MainWindow
     {
         MosControlState? current = _mosControlState;
         BmsClient? client = _bms;
-        if (current is null || client is null || _mosControlBusy || _otaRunning) return;
+        if (current is null || client is null || _mosControlBusy || _otaRunning || _parameterBusy) return;
         bool allowed = chargeChannel ? current.ChargeAllowed : current.DischargeAllowed;
         string channel = chargeChannel ? "充电" : "放电";
         string action = allowed ? "禁止" : "允许";
@@ -99,6 +99,7 @@ public partial class MainWindow
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
 
+        if (_parameterBusy || !ReferenceEquals(client, _bms)) return;
         _mosControlBusy = true;
         ApplyMosControlState(current);
         try

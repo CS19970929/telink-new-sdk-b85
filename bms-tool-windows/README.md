@@ -1,5 +1,7 @@
 # Windows 上位机
 
+客户版与内部版共用[电流两点校准向导及客户操作说明](docs/CURRENT_CALIBRATION.md)。需配套声明 `0x0400` 能力的固件；本轮仅源码审查，未生成新版 EXE。
+
 本目录是 BMS 仓库中的独立 Windows 项目区，与固件源码并列维护。
 
 客户版与内部版提供[一线通监控](docs/OWC_MONITOR.md)，通过 Comm Tool 采集 A1.3.3 公开字段，支持 PC 快照 v1/v2。
