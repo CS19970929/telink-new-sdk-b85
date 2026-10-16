@@ -421,7 +421,7 @@ def check_bms_diag_contract_check():
                       "bms_diag_boot_word(15u, 0x8251u)", "BMS_DIAG_BUILD_ID"):
             require(source, token, "bms_diag.c")
         for token in ("bms_diag_init();", "bms_diag_freeze_boot();",
-                      "bms_diag_poll_runtime("):
+                      "app_diag_poll_runtime("):
             require(app, token, "app.c")
         require(modbus, "bms_diag_read(reg, qty, &rsp[3])", "modbus_rtu.c")
         if modbus.count("bms_diag_overlaps") < 3:

@@ -55,7 +55,7 @@ def check_sh3673510_sample_schedule_host_check():
     static void app_update_soc_from_sample(u8 v, int32_t c) {
         ++soc_calls; last_valid=v; last_current=c;
     }
-    static void bms_diag_poll_runtime(u8 v, int32_t raw, int32_t c, u32 t) {
+    static void app_diag_poll_runtime(u8 v, int32_t raw, int32_t c, u32 t) {
         (void)v; (void)c; (void)t; (void)raw; ++diag_calls;
     }
     /* PRODUCTION */

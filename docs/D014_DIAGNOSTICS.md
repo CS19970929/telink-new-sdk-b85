@@ -1,6 +1,6 @@
 # D014 上位机诊断协议适配
 
-当前固件入口为 `bms/core/bms_diag.c`、`bms/platform/telink/bms_runtime_diag.c` 和 SH 诊断后端。下文现场记录为固定旧版本历史；CLI 示例需按交接的上位机版本 `--help` 核对，不作为本次已连接设备的证据。
+当前固件入口为 `bms/core/bms_diag.c`、`bms/app/app.c` 和 SH 诊断后端。下文现场记录为固定旧版本历史；CLI 示例需按交接的上位机版本 `--help` 核对，不作为本次已连接设备的证据。
 
 D014 在 `0x2A00..0x2DFF` 提供与统一上位机兼容的只读 Diagnostics schema 1：
 

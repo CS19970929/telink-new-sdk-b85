@@ -1,8 +1,9 @@
-/* 生产 Telink runtime TU：只替换诊断接收端，检查本帧参数与后端调用资格。 */
+/* 生产 app 私有诊断函数：只替换诊断接收端，检查本帧参数与后端调用资格。 */
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include "bms_diag.h"
+#include "bms_debug_log.h"
 #include "bms_afe.h"
 #include "bms_parameters.h"
 #include "bms_soc.h"
@@ -32,12 +33,13 @@ void bms_diag_runtime_faults(uint16_t first,uint16_t second,uint16_t third) { as
 void bms_storage_platform_diag_poll(void) { ++storage; }
 void bms_parameters_diag_poll(void) { ++parameters; }
 void bms_afe_diag_poll(void) { ++afe; }
+/* PRODUCTION */
 int main(void) {
     g_bms_report.fault_first.all=1;g_bms_report.fault_second.all=2;g_bms_report.fault_third.all=4;
     expected_valid=1;expected_raw=-123;expected_current=-120;expected_tick=UINT32_MAX-10u;
-    bms_diag_poll_runtime(expected_valid,expected_raw,expected_current,expected_tick);
+    app_diag_poll_runtime(expected_valid,expected_raw,expected_current,expected_tick);
     expected_valid=0;expected_raw=expected_current=0;expected_tick=5;
-    bms_diag_poll_runtime(expected_valid,expected_raw,expected_current,expected_tick);
+    app_diag_poll_runtime(expected_valid,expected_raw,expected_current,expected_tick);
     assert(samples==2 && soc_reads==2 && faults==2 && aux_reads==0);
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     assert(storage==0 && parameters==0 && afe==0);

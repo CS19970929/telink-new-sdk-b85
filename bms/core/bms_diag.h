@@ -237,9 +237,6 @@ void bms_diag_runtime_pm(uint8_t suspend_allowed, uint32_t block_mask,
 /* 发布各级保护故障位快照。 */
 void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3);
 
-/* 从应用与后端缓存汇总运行诊断，不额外采样 AFE。 */
-void bms_diag_poll_runtime(uint8_t valid, int32_t raw_current_ma,
-                           int32_t current_ma, uint32_t sample_tick_32k);
 /* 发布后端配置、控制与恢复的详细诊断。 */
 void bms_diag_backend_details(const uint16_t *words);
 enum {
@@ -288,7 +285,6 @@ void bms_diag_set_boot_result(uint16_t, uint16_t);
 #define bms_diag_runtime_soc(...)       ((void)0)
 #define bms_diag_runtime_pm(...)        ((void)0)
 #define bms_diag_runtime_faults(...)    ((void)0)
-#define bms_diag_poll_runtime(...)      ((void)0)
 #define bms_diag_backend_details(...)   ((void)0)
 #define bms_diag_set_build_flags(...)   ((void)0)
 #define bms_diag_set_boot_result(...)   ((void)0)

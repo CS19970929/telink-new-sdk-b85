@@ -226,6 +226,29 @@ _attribute_no_inline_ void main_loop(void)
 #endif
 }
 
+#if BMS_SERVICE_DIAG_ENABLE
+/* 从应用与后端缓存汇总运行诊断，不额外采样 AFE。 */
+static void app_diag_poll_runtime(uint8_t valid, int32_t raw_current_ma,
+                                  int32_t current_ma, uint32_t tick_32k)
+{
+    bms_soc_diag_t soc;
+    bms_diag_runtime_sample(valid,raw_current_ma,current_ma,tick_32k,bms_afe_current_recovery_pending());
+    BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_AFE, BMS_LOG_CELL_RANGE,
+            ((uint32_t)g_bms_report.cell_min_mv << 16) | g_bms_report.cell_max_mv,
+            ((uint32_t)g_bms_report.cell_min_index << 16) | g_bms_report.cell_max_index);
+    bms_soc_get_diag(&soc);
+    bms_diag_runtime_soc(&soc);
+    bms_diag_runtime_faults(g_bms_report.fault_first.all,
+        g_bms_report.fault_second.all,g_bms_report.fault_third.all);
+#if BMS_AFE_BACKEND != BMS_AFE_BACKEND_DVC1124
+    /* DVC 在主循环停机分支之前刷新，保留原诊断时点与总线静默资格。 */
+    bms_storage_platform_diag_poll();
+    bms_parameters_diag_poll();
+    bms_afe_diag_poll();
+#endif
+}
+#endif
+
 /* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
 static void app_sample_task(void)
 {
@@ -241,7 +264,7 @@ static void app_sample_task(void)
     app_update_soc_from_sample(valid, valid ? m.current_ma : 0);
 
 #if BMS_SERVICE_DIAG_ENABLE
-    bms_diag_poll_runtime(valid, valid ? m.raw_current_ma : 0,
+    app_diag_poll_runtime(valid, valid ? m.raw_current_ma : 0,
                           valid ? m.current_ma : 0,
                           valid ? m.sample_tick_32k : pm_get_32k_tick());
 #endif
