@@ -304,21 +304,9 @@ static uint8_t apply_balance_mask(uint32_t desired)
         return 0u;
     }
 
-    if (!bms_afe_get_balance_mask(&actual))
-    {
-        if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
-        s_feature.balance_off_pending = 1u;
-        return 0u;
-    }
-
-    publish_balance(actual);
-    if (actual != desired)
-    {
-        /* 上报实际回读；不把总线应答成功当作全部通道已应用。 */
-        if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
-        s_feature.balance_off_pending = 1u;
-        return 0u;
-    }
+    /* AFE set 返回成功已经包含实际寄存器回读匹配。
+     * 总线静默和未确认的 OFF 均返回失败；不再进行第二次同值回读。 */
+    publish_balance(desired);
     if (desired == 0u) s_feature.balance_off_pending = 0u;
     bms_error_clear(BMS_ERROR_BALANCE);
     return 1u;
