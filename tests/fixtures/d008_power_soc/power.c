@@ -133,7 +133,7 @@ static void reset(void){
  s_acc_sleep_committed=0;
  deepsleep_en=false;ble_tx_pending=uart_busy=modbus_tx_busy=0;ble_control_ok=1;
  s_command_seen=0;s_command_tick=0;
- memset(&s_protective_sleep,0,sizeof(s_protective_sleep));
+ memset(&s_protective_sleep,0,sizeof(s_protective_sleep));s_protective_sleep_committed=0u;
  sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
  g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
  g_bms_report.pack_voltage_10mv=3300;afe_error=0;output_enabled=1;
@@ -204,7 +204,7 @@ static void test_low_voltage_sample_wait(void){
   if(seconds==3600){assert(cut_calls==1&&timer_hold_calls==0&&!deep_calls&&!output_enabled);break;}
   now+=12801u;elapsed=0;app_power_process(&s_sample_due);
   /* 无新鲜样本时诊断可能优先显示 AFE 倒计时；低压计时所有者必须保持。 */
-  assert(s_protective_sleep.voltage_conditions==(APP_VOLTAGE_LOW_ACTIVE|APP_VOLTAGE_NORMAL_ACTIVE)&&s_protective_sleep.low_voltage_seconds==seconds);
+  assert(s_protective_sleep.voltage_conditions==(BMS_SLEEP_VOLTAGE_LOW_ACTIVE|BMS_SLEEP_VOLTAGE_NORMAL_ACTIVE)&&s_protective_sleep.low_voltage_seconds==seconds);
   assert(mask==SUSPEND_DISABLE&&!deep_calls);
  }
  /* 无效缓存的“恢复电压”不能清零；有效恢复和不同延时区才可以。 */
@@ -215,10 +215,10 @@ static void test_low_voltage_sample_wait(void){
  assert(!s_protective_sleep.low_voltage_seconds&&!s_protective_sleep.voltage_conditions);
  g_bms_report.cell_min_mv=2700;elapsed=100;app_power_process(&s_sample_due);
  g_bms_report.cell_min_mv=2900;elapsed=0;app_power_process(&s_sample_due);
- assert(s_protective_sleep.voltage_conditions==APP_VOLTAGE_NORMAL_ACTIVE&&!s_protective_sleep.low_voltage_seconds);
+ assert(s_protective_sleep.voltage_conditions==BMS_SLEEP_VOLTAGE_NORMAL_ACTIVE&&!s_protective_sleep.low_voltage_seconds);
  /* 小电流偏移处于 SOC 不可靠区，不能冒充可靠充电取消 24 小时计时。 */
  measurement.current_ma=-90;elapsed=5;app_power_process(&s_sample_due);
- assert(s_protective_sleep.voltage_conditions==APP_VOLTAGE_NORMAL_ACTIVE&&s_protective_sleep.normal_voltage_seconds==105u);
+ assert(s_protective_sleep.voltage_conditions==BMS_SLEEP_VOLTAGE_NORMAL_ACTIVE&&s_protective_sleep.normal_voltage_seconds==105u);
  measurement.current_ma=-200;app_power_process(&s_sample_due);
  assert(s_protective_sleep.normal_voltage_seconds==110u);
  assert(observed_voltage_seconds==110u);
@@ -249,7 +249,7 @@ static void test_protective_low_voltage_shutdown(void){
   reset();storage_ok=failure!=0;event_ok=failure!=1;shutdown_ok=failure!=2;
   g_bms_report.cell_min_mv=2700;elapsed=BMS_SLEEP_LOW_SECONDS;
   app_power_process(&s_sample_due);
-  assert(cut_calls==1&&!ldo_high&&!deep_calls&&timer_hold_calls==0&&s_protective_sleep.committed);
+  assert(cut_calls==1&&!ldo_high&&!deep_calls&&timer_hold_calls==0&&s_protective_sleep_committed);
   assert(afe_shutdown_calls==1&&seq_len==5&&seq[seq_len-1]==5);
  }
  puts("PASS D008 low-voltage power-off: all voltage regions, save/AFE failures still cut PC4, external supply hold never repeats AFE/Flash/cut or enables PAD wake");
@@ -307,13 +307,13 @@ int main(void){
  reset();now+=12801;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
  reset();ota_is_working=device_in_connection_state=bus_busy=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;
  elapsed=3600;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
- assert(cut_calls==1&&!deep_calls&&timer_hold_calls==0&&s_protective_sleep.committed&&!output_enabled);
+ assert(cut_calls==1&&!deep_calls&&timer_hold_calls==0&&s_protective_sleep_committed&&!output_enabled);
  assert(afe_shutdown_calls==1); /* shutdown 失败不能阻止低压断电。 */
  assert(seq_len==3&&seq[0]==3&&seq[1]==4&&seq[2]==5); /* OTA/Flash skip saves; AFE failure cannot block */
  int saved=seq_len;app_power_process(&s_sample_due);assert(timer_hold_calls==0&&cut_calls==1&&seq_len==saved);
  reset();valid=0;elapsed=900;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
  assert(!cut_calls&&!timer_hold_calls&&observed_sleep_reason==DIAG_SLEEP_REASON_AFE);
- app_power_process(&s_sample_due);assert(cut_calls==1&&timer_hold_calls==0&&!deep_calls&&s_protective_sleep.committed);
+ app_power_process(&s_sample_due);assert(cut_calls==1&&timer_hold_calls==0&&!deep_calls&&s_protective_sleep_committed);
  assert(afe_shutdown_calls==1); /* AFE 异常入口也请求 Shutdown。 */
  reset();g_bms_report.cell_min_mv=2400;afe_error=1;elapsed=900;app_power_process(&s_sample_due);
  g_bms_report.cell_min_mv=2770;app_power_process(&s_sample_due);
@@ -330,7 +330,7 @@ int main(void){
   if(failure==6)ble_control_ok=0;
   if(failure==7)valid=0;
   app_power_process(&s_sample_due);
-  assert(cut_calls==1&&s_protective_sleep.committed&&!output_enabled&&!deep_calls);
+  assert(cut_calls==1&&s_protective_sleep_committed&&!output_enabled&&!deep_calls);
   assert(observed_sleep_reason==DIAG_SLEEP_REASON_COMMAND&&!observed_sleep_block&&!observed_sleep_retry);
   assert(afe_shutdown_calls==1);
   assert(seq[0]==3&&seq[seq_len-1]==5); /* AFE先尝试，PC4断电最后执行。 */
@@ -351,7 +351,7 @@ int main(void){
   now+=499u*32u;app_power_process(&s_sample_due);assert(!cut_calls&&!seq_len);
   assert(observed_sleep_elapsed==499u&&!observed_sleep_block);
   now+=32u;app_power_process(&s_sample_due);
-  assert(cut_calls==1&&s_protective_sleep.committed&&seq_len==3);
+  assert(cut_calls==1&&s_protective_sleep_committed&&seq_len==3);
  }
  /* 应答提前发完时立即关机，无需等满500ms或关闭开关。 */
  reset();deepsleep_en=true;device_in_connection_state=1;ble_tx_pending=1;

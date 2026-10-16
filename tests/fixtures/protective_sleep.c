@@ -105,7 +105,7 @@ static u8 fixture_sleep_poll(u32 seconds, app_sleep_status_t *status)
 }
 static app_sleep_status_t sleep_status;
 static void reset(void) {
-    memset(&s_protective_sleep,0,sizeof(s_protective_sleep));
+    memset(&s_protective_sleep,0,sizeof(s_protective_sleep));s_protective_sleep_committed=0u;
  sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
  g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
  g_bms_report.pack_voltage_10mv=3300;
@@ -146,7 +146,7 @@ int main(void) {
     g_bms_report.cell_min_mv=2500;
     assert(fixture_sleep_poll(1800, &sleep_status)); /* 2500 mV 与 2600 mV 同属下档，保留累计时间 */
     assert(sleep_calls==1&&saves==1&&events==1&&afe_calls==1&&output_calls==1&&comm_sleep_calls==1);
-    assert(s_protective_sleep.committed&&s_low_power_mode);
+    assert(s_protective_sleep_committed&&s_low_power_mode);
     pins[1]=0; assert(app_power_prepare_loop());
     assert(sleep_calls==2&&saves==1&&events==1&&afe_calls==1&&output_calls==1&&comm_sleep_calls==1);
     reset(); ota_is_working=1; flash_ready=0; valid=0;

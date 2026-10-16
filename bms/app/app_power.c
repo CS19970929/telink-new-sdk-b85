@@ -67,31 +67,22 @@ static bool s_low_power_mode;
 uint8_t deepsleep_en;
 
 /* 四产品保护性休眠共用计时；到期后锁存，不再回到通信/采样业务。 */
-#define APP_OVERDISCHARGE_SLEEP_SECONDS 180u
 /* 命令应答只作有界等待，不能成为强制休眠的永久门禁。 */
 #define APP_COMMAND_REPLY_32K (APP_PM_TICKS_PER_SEC / 2u)
-#define APP_VOLTAGE_LOW_ACTIVE 0x01u
-#define APP_VOLTAGE_NORMAL_ACTIVE 0x02u
 static u8 s_command_seen;
 static u32 s_command_tick;
 /* 普通 Suspend 与低压可靠充电分别拥有阈值，不随 SOC 电流死区调整。 */
 #define APP_SUSPEND_EXIT_CURRENT_MA ((int32_t)200)
-#define APP_SLEEP_CHARGE_CURRENT_MA ((int32_t)200)
-/* 本轮推导结果仅用于决策/诊断，不作为跨轮状态保留。 */
-typedef struct {
-    u32 elapsed_ms;
-    u32 delay_ms;
-    u8 reason;
-} app_sleep_status_t;
-typedef struct {
-    u32 low_voltage_seconds;
-    u32 normal_voltage_seconds;
-    u32 afe_error_seconds;
-    u32 overdischarge_seconds;
-    u8 overdischarge_active;
-    u8 voltage_conditions; /* 两档独立条件；失效样本保留最后已确认条件。 */
-    u8 committed;
-} app_protective_sleep_t;
+/* 策略时间由 Core 推进；提交标志只由应用一次性硬件收尾拥有。 */
+typedef bms_sleep_status_t app_sleep_status_t;
+typedef bms_sleep_policy_t app_protective_sleep_t;
+static u8 s_protective_sleep_committed;
+typedef char sleep_reason_matches_diag[
+    ((int)BMS_SLEEP_REASON_NONE == (int)DIAG_SLEEP_REASON_NONE &&
+     (int)BMS_SLEEP_REASON_LOW == (int)DIAG_SLEEP_REASON_LOW &&
+     (int)BMS_SLEEP_REASON_NORMAL == (int)DIAG_SLEEP_REASON_NORMAL &&
+     (int)BMS_SLEEP_REASON_AFE == (int)DIAG_SLEEP_REASON_AFE &&
+     (int)BMS_SLEEP_REASON_OVERDISCHARGE == (int)DIAG_SLEEP_REASON_OVERDISCHARGE) ? 1 : -1];
 static app_protective_sleep_t s_protective_sleep;
 
 /* 普通 suspend 只接受新鲜缓存；低压计时不能用此门禁失败推断电压已恢复。 */
@@ -150,13 +141,6 @@ static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 	elapsed_sec = elapsed_tick_32k / APP_PM_TICKS_PER_SEC + total_tick_32k / APP_PM_TICKS_PER_SEC;
 	ctx->pending_tick_32k = total_tick_32k % APP_PM_TICKS_PER_SEC;
 	return elapsed_sec;
-}
-
-/* 限制休眠时间累计值，避免异常跨度影响策略。 */
-static u32 app_pm_elapsed_limit(u32 elapsed, u32 increment, u32 limit)
-{
-    if (elapsed >= limit || increment >= limit - elapsed) return limit;
-    return elapsed + increment;
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
@@ -275,7 +259,7 @@ static void app_prepare_deep_sleep(void)
 /* 命令及到期保护性休眠不受通信、OTA、保存或 AFE 命令成功与否阻断。 */
 static void app_enter_protective_sleep(void)
 {
-    s_protective_sleep.committed = 1u;
+    s_protective_sleep_committed = 1u;
     app_prepare_deep_sleep();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     bms_diag_sleep_committed();
@@ -293,7 +277,7 @@ static u8 app_command_sleep_poll(void)
     u32 now = pm_get_32k_tick();
     u32 elapsed;
     if (!deepsleep_en) return 0u;
-    if (s_protective_sleep.committed) return 1u;
+    if (s_protective_sleep_committed) return 1u;
     if (!s_command_seen) { s_command_seen = 1u; s_command_tick = now; }
     elapsed = (u32)(now - s_command_tick);
     bms_diag_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, elapsed / 32u,
@@ -309,79 +293,28 @@ static u8 app_command_sleep_poll(void)
     return 1u;
 }
 
-/* 选最先到期的条件；所有乘法都在配置上限 65535 分钟以内。 */
-static void app_select_protective_sleep(app_sleep_status_t *status, u8 reason,
-                                        u32 elapsed_seconds, u32 delay_seconds)
-{
-    u32 elapsed_ms = elapsed_seconds * 1000u;
-    u32 delay_ms = delay_seconds * 1000u;
-    if (status->reason == DIAG_SLEEP_REASON_NONE ||
-        delay_ms - elapsed_ms <= status->delay_ms - status->elapsed_ms) {
-        status->reason = reason;
-        status->elapsed_ms = elapsed_ms;
-        status->delay_ms = delay_ms;
-    }
-}
-
 /* 两档低压、AFE 异常和过放分别计时；无新鲜数据不能证明已恢复。 */
 static u8 app_protective_sleep_poll(u32 elapsed_sec,
                                     const bms_afe_aux_measurements_t *m, u8 valid,
                                     app_sleep_status_t *status)
 {
     bms_sleep_config_t config;
-    u8 conditions = s_protective_sleep.voltage_conditions;
-    u8 afe_fault = !valid || bms_error_get(BMS_ERROR_AFE1);
-    u32 low_delay, normal_delay, afe_delay;
-    if (s_protective_sleep.committed) {
+    bms_sleep_input_t input;
+    if (s_protective_sleep_committed) {
         app_protective_sleep_hold();
         return 1u;
     }
     bms_sleep_config_get(&config);
-    low_delay = (u32)config.low_delay_minutes * 60u;
-    normal_delay = (u32)config.normal_delay_minutes * 60u;
-    afe_delay = BMS_SLEEP_AFE_FIXED_MINUTES * 60u;
-    memset(status, 0, sizeof(*status));
-    if (valid) {
-        conditions = 0u;
-        if (g_bms_report.cell_min_mv < config.low_cell_mv)
-            conditions |= APP_VOLTAGE_LOW_ACTIVE;
-        if (g_bms_report.cell_min_mv < config.normal_cell_mv &&
-            m->current_ma >= -APP_SLEEP_CHARGE_CURRENT_MA)
-            conditions |= APP_VOLTAGE_NORMAL_ACTIVE;
-    }
-    /* 下档不排除充电，上档只在无可靠充电时累计；保持原有两条件资格。 */
-    s_protective_sleep.voltage_conditions = conditions;
-    s_protective_sleep.low_voltage_seconds = (conditions & APP_VOLTAGE_LOW_ACTIVE) ?
-        app_pm_elapsed_limit(s_protective_sleep.low_voltage_seconds, elapsed_sec, low_delay) : 0u;
-    s_protective_sleep.normal_voltage_seconds = (conditions & APP_VOLTAGE_NORMAL_ACTIVE) ?
-        app_pm_elapsed_limit(s_protective_sleep.normal_voltage_seconds, elapsed_sec,
-                             normal_delay) : 0u;
-    s_protective_sleep.afe_error_seconds = afe_fault ?
-        app_pm_elapsed_limit(s_protective_sleep.afe_error_seconds, elapsed_sec,
-                             afe_delay) : 0u;
-    /* fault_third 已合并软件/AFE 欠压。通信恢复重初始化不能冒充电池恢复。 */
-    if (g_bms_report.fault_third.bits.cell_uvp || g_bms_report.fault_third.bits.pack_uvp)
-        s_protective_sleep.overdischarge_active = 1u;
-    else if (valid && !afe_fault &&
-             g_bms_report.cell_min_mv >= g_bms_protection_params.cell_uvp_recover_mv &&
-             g_bms_report.pack_voltage_10mv >= g_bms_protection_params.pack_uvp_recover_10mv)
-        s_protective_sleep.overdischarge_active = 0u;
-    s_protective_sleep.overdischarge_seconds = s_protective_sleep.overdischarge_active ?
-        app_pm_elapsed_limit(s_protective_sleep.overdischarge_seconds, elapsed_sec,
-                             APP_OVERDISCHARGE_SLEEP_SECONDS) : 0u;
-
-    if ((conditions & APP_VOLTAGE_LOW_ACTIVE))
-        app_select_protective_sleep(status, DIAG_SLEEP_REASON_LOW,
-            s_protective_sleep.low_voltage_seconds, low_delay);
-    if ((conditions & APP_VOLTAGE_NORMAL_ACTIVE))
-        app_select_protective_sleep(status, DIAG_SLEEP_REASON_NORMAL,
-            s_protective_sleep.normal_voltage_seconds, normal_delay);
-    if (afe_fault)
-        app_select_protective_sleep(status, DIAG_SLEEP_REASON_AFE,
-            s_protective_sleep.afe_error_seconds, afe_delay);
-    if (s_protective_sleep.overdischarge_active)
-        app_select_protective_sleep(status, DIAG_SLEEP_REASON_OVERDISCHARGE,
-            s_protective_sleep.overdischarge_seconds, APP_OVERDISCHARGE_SLEEP_SECONDS);
+    input.valid = valid;
+    input.afe_fault = bms_error_get(BMS_ERROR_AFE1);
+    input.current_ma = valid ? m->current_ma : 0;
+    input.cell_min_mv = g_bms_report.cell_min_mv;
+    input.pack_voltage_10mv = g_bms_report.pack_voltage_10mv;
+    input.cell_uvp_recover_mv = g_bms_protection_params.cell_uvp_recover_mv;
+    input.pack_uvp_recover_10mv = g_bms_protection_params.pack_uvp_recover_10mv;
+    input.overdischarge_fault = g_bms_report.fault_third.bits.cell_uvp ||
+                               g_bms_report.fault_third.bits.pack_uvp;
+    bms_sleep_policy_step(&s_protective_sleep, &config, &input, elapsed_sec, status);
     if (status->reason != DIAG_SLEEP_REASON_NONE)
         bms_diag_sleep(status->reason, 0u, status->elapsed_ms,
                         status->delay_ms, 0u, 0u);
@@ -473,7 +406,7 @@ static u8 app_sh_explicit_sleep_poll(void)
 /* SDK 最后一道普通 Suspend 检查；直接深睡已提交时绝不被此回调否决。 */
 int app_power_before_suspend(void)
 {
-    if (s_protective_sleep.committed) return 1;
+    if (s_protective_sleep_committed) return 1;
     if (!s_low_power_mode || !modbus_uart_suspend_ready()) return 0;
     /* 当前稳定电平不拒绝普通 Suspend；变化仍唤醒，200ms采样定时器保留。 */
 #if BMS_PRODUCT_SWITCH_ENABLE
@@ -522,8 +455,8 @@ void app_power_process(const volatile uint8_t *sample_due)
     if (app_protective_sleep_poll(elapsed_sec, &m, valid, &protective)) return;
 #if BMS_SERVICE_DIAG_ENABLE
     /* 诊断沿用原 2=下档、3=上档编码；业务只保存两项独立资格位。 */
-    region = (s_protective_sleep.voltage_conditions & APP_VOLTAGE_LOW_ACTIVE) ? 2u :
-        ((s_protective_sleep.voltage_conditions & APP_VOLTAGE_NORMAL_ACTIVE) ? 3u : 0u);
+    region = (s_protective_sleep.voltage_conditions & BMS_SLEEP_VOLTAGE_LOW_ACTIVE) ? 2u :
+        ((s_protective_sleep.voltage_conditions & BMS_SLEEP_VOLTAGE_NORMAL_ACTIVE) ? 3u : 0u);
     voltage_seconds = (region == 3u) ? s_protective_sleep.normal_voltage_seconds :
         s_protective_sleep.low_voltage_seconds;
 #endif
@@ -640,7 +573,7 @@ void app_power_process(const volatile uint8_t *sample_due)
 /* 保护性深睡保持动作优先；保留 ACC/关机保持与正常 DVC 外围诊断时点。 */
 uint8_t app_power_prepare_loop(void)
 {
-    if (s_protective_sleep.committed) {
+    if (s_protective_sleep_committed) {
         app_protective_sleep_hold();
         return 1u;
     }

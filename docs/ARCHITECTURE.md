@@ -16,6 +16,14 @@ Config / State / Event → storage_record → Telink Flash 平台
 
 每个固件只链接一个后端，无运行时 factory/ops 表。业务调用公共 AFE API；guard、后端及受控诊断使用 driver 边界。GPIO、UART/BLE、Flash 仍按 Telink SDK 实现；公共业务的 32K 时间由 `bms_time_now_32k()` 提供，诊断不拥有安全计时源。
 
+保护性休眠的低压/AFE/过放计时和选择集中在 `bms_sleep_config.c` 的
+`bms_sleep_policy_step()`：输入为已验证快照、配置和业务秒数，输出为原因与剩余期限，
+不访问外设或执行休眠。Application 唯一拥有已提交标志，并执行原 BLE/Flash/AFE 收尾及
+板级 GPIO、Sleep/Wakeup。名称的 BLE 广播应用位于既有 `app_ble.c`。
+PC CMake 使用实际 Core TU 验证这些接口，无 SDK include 路径。旧
+`bms_state_store.c` 的 SDK 时间引用、AFE 板级 GPIO/I2C 和 Telink 普通 Suspend
+仍是后续 MCU 移植需要适配的具体位置；不宣称整个源码树已经脱离 SDK。
+
 SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH 恢复证据与采样资格](SH_RECOVERY_AND_FRESHNESS.md)。充电器查询与 feature 快照均只读已验证缓存，guard 继续拥有输出资格和 watchdog 静默。
 
 ## 2. 谁能修改什么

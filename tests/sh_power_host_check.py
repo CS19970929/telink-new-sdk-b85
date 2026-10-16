@@ -111,7 +111,7 @@ def check_sh3673510_sleep_host_check():
 
     def function(file, name):
         source = (APP / file).read_text(encoding='utf-8')
-        match = re.search(r'(?m)^(?:static )?(?:void|int|uint8_t|u32) ' + name + r'\(', source)
+        match = re.search(r'(?m)^(?:static )?(?:void|int|uint8_t|uint32_t|u32) ' + name + r'\(', source)
         assert match, name
         return extract_function(source, match.group(0))
 
@@ -126,7 +126,7 @@ def check_sh3673510_sleep_host_check():
         function('bms_afe_guard.c', 'enter_failsafe_wait'),
         function('bms_afe_guard.c', 'note_invalid'),
         function('bms_afe_guard.c', 'bms_afe_sleep'),
-        function('app_power.c', 'app_pm_elapsed_limit'),
+        function('bms_sleep_config.c', 'sleep_elapsed_limit'),
     ])
     fixture = '#define BMS_AFE_BACKEND 2\n#define BMS_AFE_BACKEND_DVC1124 1\n' + (ROOT / 'tests/fixtures/sh3673510_sleep.c').read_text(encoding='utf-8')
     with tempfile.TemporaryDirectory(prefix='sh3510-sleep-') as tmp:
@@ -148,18 +148,20 @@ def check_sh_protective_sleep():
     startup = (root / 'bms/platform/telink/main.c').read_text(encoding='utf-8')
     assert startup.index('clock_init(SYS_CLK_TYPE)') < startup.index('while (app_power_boot_sleep_hold())')
     assert startup.index('while (app_power_boot_sleep_hold())') < startup.index('wd_start()') < startup.index('user_init_normal()')
-    start = source.index('#define APP_OVERDISCHARGE_SLEEP_SECONDS')
+    start = source.index('#define APP_COMMAND_REPLY_32K')
     end = source.index('static app_protective_sleep_t s_protective_sleep;', start)
     body = source[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n'
+    policy = (root / 'bms/core/bms_sleep_config.c').read_text()
+    body += policy[policy.index('static uint32_t sleep_elapsed_limit('):]
     body += '\n'.join(function(source, signature) for signature in (
         'static uint8_t app_get_fresh_measurements(',
-        'static u32 app_pm_take_elapsed_seconds(', 'static u32 app_pm_elapsed_limit(',
+        'static u32 app_pm_take_elapsed_seconds(',
         'static u8 app_sh_other_wakeup_levels(', 'static void app_sh_set_other_wakeup(',
         'u8 app_power_boot_sleep_hold(',
         'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
         'static void app_prepare_deep_sleep(',
         'static void app_enter_protective_sleep(', 'static u8 app_command_sleep_poll(',
-        'static void app_select_protective_sleep(', 'static u8 app_protective_sleep_poll(',
+        'static u8 app_protective_sleep_poll(',
         'uint8_t app_power_prepare_loop('))
     # 保留策略宏分支，分别覆盖开启/关闭；其他函数使用实际SH预处理分支。
     raw = (root / 'bms/app/app_power.c').read_text(encoding='utf-8')

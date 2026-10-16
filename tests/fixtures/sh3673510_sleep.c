@@ -115,12 +115,12 @@ int main(void) {
     CHECK(!sh3673510_control_wake() && s_afe_sleeping);
     protection_ok = 1; CHECK(sh3673510_control_wake() && !s_afe_sleeping);
 
-    CHECK(app_pm_elapsed_limit(3599, 1, 3600) == 3600);
-    CHECK(app_pm_elapsed_limit(3600, UINT32_MAX, 3600) == 3600);
-    CHECK(app_pm_elapsed_limit(0, UINT32_MAX, 3600) == 3600);
-    CHECK(app_pm_elapsed_limit(7, 12, 3600) == 19);
-    CHECK(app_pm_elapsed_limit(UINT32_MAX - 1, 1, UINT32_MAX) == UINT32_MAX);
-    CHECK(app_pm_elapsed_limit(0, 0, 0) == 0);
+    CHECK(sleep_elapsed_limit(3599, 1, 3600) == 3600);
+    CHECK(sleep_elapsed_limit(3600, UINT32_MAX, 3600) == 3600);
+    CHECK(sleep_elapsed_limit(0, UINT32_MAX, 3600) == 3600);
+    CHECK(sleep_elapsed_limit(7, 12, 3600) == 19);
+    CHECK(sleep_elapsed_limit(UINT32_MAX - 1, 1, UINT32_MAX) == UINT32_MAX);
+    CHECK(sleep_elapsed_limit(0, 0, 0) == 0);
     printf("SH sleep: %u assertions, %u failures\n", assertions, failures);
     return failures ? 1 : 0;
 }

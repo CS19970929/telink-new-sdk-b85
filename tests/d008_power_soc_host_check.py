@@ -34,9 +34,11 @@ def function(name, signature):
 
 def protective_sleep_state():
     text = (MOD / 'app_power.c').read_text()
-    start = text.index('#define APP_OVERDISCHARGE_SLEEP_SECONDS')
+    start = text.index('#define APP_COMMAND_REPLY_32K')
     end = text.index('static app_protective_sleep_t s_protective_sleep;', start)
-    return text[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n'
+    policy = (MOD / 'bms_sleep_config.c').read_text()
+    policy = policy[policy.index('static uint32_t sleep_elapsed_limit('):]
+    return text[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n' + policy
 
 
 def main():
@@ -70,11 +72,10 @@ def main():
             'power': protective_sleep_state() + '\n'.join(function('app_power.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',
                 'static uint8_t app_current_prevents_suspend(',
-                'static u32 app_pm_elapsed_limit(',
                 'static void app_protective_sleep_hold(',
                 'static void app_prepare_deep_sleep(',
                 'static void app_enter_protective_sleep(', 'static u8 app_command_sleep_poll(',
-                'static void app_select_protective_sleep(', 'static u8 app_protective_sleep_poll(',
+                'static u8 app_protective_sleep_poll(',
                 'static void app_dvc_publish_sleep(',
                 'static void app_acc_sleep_hold(',
                 'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void app_power_process(',
