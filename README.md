@@ -66,7 +66,9 @@ python bms_tools/bms.py --product d014 resources
 
 ## 专题与调试
 
-本轮独立分支的架构、审查和验证证据见 [2026-10-16 深度减法重构](docs/DEEP_SIMPLIFICATION_20261016.md)。
+本轮独立分支的架构与交付见 [2026-10-16 深度减法重构](docs/DEEP_SIMPLIFICATION_20261016.md)，
+完整条目见 [文件、函数与状态审计](docs/DEEP_SIMPLIFICATION_20261016_AUDIT.json)，
+结果和追溯见 [最终验证收据摘要](docs/DEEP_SIMPLIFICATION_20261016_EVIDENCE.json)。
 
 四产品共用两点电流校准、D008 持久零点、协议/Flash兼容和客户步骤见 [电流校准说明](docs/CURRENT_CALIBRATION.md)。本轮仅源码审查，未编译或实板验收。
 
