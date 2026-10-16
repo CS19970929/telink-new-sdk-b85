@@ -1105,9 +1105,11 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
     read_ok = sh_read_balance_mask(&actual);
 
     if (cell_mask == 0u) {
-        /* 首读失败仍尽力关闭；写成功不能代替确认已关闭。 */
-        if ((!read_ok || actual != 0u) && !sh3673510_control_set_balance(0u)) return 0u;
-        if (!sh_read_balance_mask(&actual) || actual != 0u) return 0u;
+        /* 已回读确认为 OFF 时无须再读；首次读取失败仍尽力写 OFF 并再次确认。 */
+        if (!read_ok || actual != 0u) {
+            if (!sh3673510_control_set_balance(0u)) return 0u;
+            if (!sh_read_balance_mask(&actual) || actual != 0u) return 0u;
+        }
         s_balance_refresh_tick = bms_time_now_32k();
         return 1u;
     }

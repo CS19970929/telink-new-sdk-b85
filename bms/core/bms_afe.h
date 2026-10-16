@@ -89,7 +89,7 @@ typedef struct {
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
 /* 取得后端可验证的充电源存在状态。 */
 uint8_t bms_afe_get_charge_source_present(uint8_t *present);
-/* 门禁允许时更新有效通道均衡请求。 */
+/* 有均衡能力时返回 1 代表实际硬件掩码已回读确认等于请求；总线静默返回 0。 */
 uint8_t bms_afe_set_balance_mask(uint32_t cell_mask);
 /* 读取当前后端均衡状态掩码。 */
 uint8_t bms_afe_get_balance_mask(uint32_t *cell_mask);
