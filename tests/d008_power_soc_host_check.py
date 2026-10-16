@@ -28,7 +28,7 @@ def function(name, signature):
     if signature == 'static int app_acc_sleep_requested(':
         text = (MOD / name).read_text()  # 保留策略宏以覆盖开启/关闭。
     else:
-        text = selected_source(MOD / name) if name in ('app.c', 'app_power.c') else (MOD / name).read_text()
+        text = selected_source(MOD / name, defines=('-DBMS_SERVICE_DIAG_ENABLE=1',)) if name in ('app.c', 'app_power.c') else (MOD / name).read_text()
     return extract_function(text, signature)
 
 
