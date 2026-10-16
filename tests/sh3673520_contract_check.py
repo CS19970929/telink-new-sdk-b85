@@ -308,10 +308,9 @@ static int test_frames_and_retry(void)
 {
     uint8_t value;
     uint8_t read_value = 0xA6u;
-    sh3673520_comm_stats_t stats;
+    sh3673520_comm_stats_t stats, before;
 
     mock_clear();
-    SH3673520_ClearCommStats();
 
     script_read(SH3673520_REG_BSTATUS1, &read_value, 1u, 0);
     CHECK(SH3673520_ReadReg(SH3673520_REG_BSTATUS1, &value) == SH3673520_OK,
@@ -332,14 +331,14 @@ static int test_frames_and_retry(void)
     CHECK(g_mismatch == 0, "reset frame encoding");
 
     mock_clear();
-    SH3673520_ClearCommStats();
+    SH3673520_GetCommStats(&before);
     script_read(SH3673520_REG_BSTATUS2, &read_value, 1u, 1);
     script_read(SH3673520_REG_BSTATUS2, &read_value, 1u, 0);
     CHECK(SH3673520_ReadReg(SH3673520_REG_BSTATUS2, &value) == SH3673520_OK,
           "CRC retry recovers");
     SH3673520_GetCommStats(&stats);
-    CHECK(stats.crc_error_count == 1u, "CRC error statistic");
-    CHECK(stats.retry_count == 1u, "retry statistic");
+    CHECK(stats.crc_error_count == before.crc_error_count + 1u, "CRC error statistic");
+    CHECK(stats.retry_count == before.retry_count + 1u, "retry statistic");
     CHECK(stats.consecutive_failures == 0u, "failure streak cleared");
 
     CHECK(SH3673520_ReadRegs(0x3Fu, &value, 1u) ==
@@ -370,7 +369,6 @@ static int test_init_and_measurements(void)
     uint8_t status[2];
 
     mock_clear();
-    SH3673520_ClearCommStats();
 
     script_reset();
     script_read(SH3673520_REG_BSTATUS1, status_pair, 2u, 0);
@@ -379,7 +377,6 @@ static int test_init_and_measurements(void)
     script_read(SH3673520_REG_SCONF5, &sconf5_on, 1u, 0);
 
     CHECK(SH3673520_Init() == SH3673520_OK, "initialization sequence");
-    CHECK(SH3673520_IsReady() != 0u, "ready state");
     CHECK(g_mismatch == 0, "init frame/order contract");
     CHECK(g_transaction == g_script_count, "init transaction count");
 

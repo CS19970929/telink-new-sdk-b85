@@ -624,12 +624,6 @@ sh3673520_status_t SH3673520_Init(void)
     return SH3673520_OK;
 }
 
-/* 查询 SH 驱动初始化就绪状态。 */
-uint8_t SH3673520_IsReady(void)
-{
-    return s_ready;
-}
-
 /* 将两个原始字节解码为 16 位有符号值。 */
 int32_t SH3673520_DecodeSigned16(uint8_t high, uint8_t low)
 {
@@ -825,17 +819,4 @@ void SH3673520_GetCommStats(sh3673520_comm_stats_t *stats)
     if (stats != NULL) {
         *stats = s_comm_stats;
     }
-}
-
-/* 清零通信统计计数。 */
-void SH3673520_ClearCommStats(void)
-{
-    s_comm_stats.spi_error_count = 0u;
-    s_comm_stats.crc_error_count = 0u;
-    s_comm_stats.timeout_count = 0u;
-    s_comm_stats.protocol_error_count = 0u;
-    s_comm_stats.retry_count = 0u;
-    s_comm_stats.successful_transactions = 0u;
-    s_comm_stats.consecutive_failures = 0u;
-    s_comm_stats.last_error = SH3673520_OK;
 }

@@ -56,8 +56,6 @@ sh3673520_status_t SH3673520_Init(void);
 sh3673520_status_t SH3673520_Reset(void);
 /* 读取芯片状态寄存器，检查通信是否可达。 */
 sh3673520_status_t SH3673520_Probe(void);
-/* 查询 SH 驱动初始化就绪状态。 */
-uint8_t SH3673520_IsReady(void);
 
 /* 读取单个 AFE 寄存器。 */
 sh3673520_status_t SH3673520_ReadReg(uint8_t reg, uint8_t *value);
@@ -103,7 +101,5 @@ sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw,
 
 /* 取得驱动通信统计快照。 */
 void SH3673520_GetCommStats(sh3673520_comm_stats_t *stats);
-/* 清零通信统计计数。 */
-void SH3673520_ClearCommStats(void);
 
 #endif /* SH3673520_H */
