@@ -484,8 +484,8 @@ uint8_t bms_afe_get_charge_source_present(uint8_t *p)
 uint8_t bms_afe_set_balance_mask(uint32_t m)
 {
 #if BMS_FEATURE_BALANCE_SUPPORTED
-    if (!runtime_access_allowed())
-        return (m == 0u) ? 1u : 0u;
+    /* 即使请求 OFF，总线无法访问也不能声称已经物理确认关闭。 */
+    if (!runtime_access_allowed()) return 0u;
     return AFE_BAL_SET(m);
 #else
     return (m == 0u) ? 1u : 0u;

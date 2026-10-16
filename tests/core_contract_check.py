@@ -161,6 +161,8 @@ def check_common_feature_policy_contract_check():
     assert "bms_features_charge_direction_blocked()" in text("sh3673510_bms.c")
     assert "bms_features_service();" in guard_c and "bms_features_stop();" in guard_c
     for symbol in ("bms_afe_get_feature_snapshot","bms_afe_get_charge_source_present","bms_afe_set_balance_mask","bms_afe_get_balance_mask"): assert symbol in afe_h
+    balance_set=guard_c.split("uint8_t bms_afe_set_balance_mask",1)[1].split("uint8_t bms_afe_get_balance_mask",1)[0]
+    assert "if (!runtime_access_allowed()) return 0u;" in balance_set
 
     # Communication-loss fail-safe contract. SH36735xx WDT is ~32 s in the
     # production profile, so the common guard must leave the SPI bus silent for a
