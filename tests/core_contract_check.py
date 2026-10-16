@@ -214,14 +214,15 @@ def check_common_feature_policy_contract_check():
     assert "comm_fault_latched" in guard_c
     assert "else if (s_guard.comm_fault_latched)" in guard_c
 
-    sh=text("sh3673510_feature_backend.c")
+    sh=text("sh3673510_bms.c")
     for token in (
         "SH_FEATURE_BALANCE_REFRESH_TICKS (20000u * 32u)","sh_read_balance_mask"
     ): assert token in sh, token
     for token in ("SH3673520_REG_VCHGRH", "SH3510_CHARGER_ON_MV", "SH3510_CHARGER_OFF_MV",
                   "sample_release_evidence", "sh3673510_backend_get_charge_source_present"):
         assert token in sh_bms, token
-    assert "sh3673510_backend_get_charge_source_present" not in sh
+    from validation_support import function
+    assert "SH3673520_ReadRegs" not in function(sh, "uint8_t sh3673510_backend_get_feature_snapshot(")
 
     for token in ("balance_enable","balance_start_mv","balance_start_delta_mv","balance_stop_delta_mv"):
         assert token in config_h and token in config_c and token in features_c

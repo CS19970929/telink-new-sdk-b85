@@ -14,6 +14,7 @@
 #include "bms_soc.h"
 #include "bms_error.h"
 #include "bms_diag.h"
+#include "bms_time.h"
 #include "bms_config_store.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"
@@ -96,7 +97,6 @@ static uint32_t s_cadc_tick;
 /* 本次采样现场；失败时先复制，再清除恢复资格。协议读取不消费 FLAG2。 */
 static uint32_t s_sample_attempt_tick;
 static uint16_t s_sample_attempt_flag2;
-static uint16_t s_sample_failure_stage;
 
 
 /* 复位转换时间与完成标志，要求重新采集有效 AFE 样本。 */
@@ -640,13 +640,6 @@ static uint8_t sample_release_evidence(const sh3673510_control_status_t *s)
     return 1u;
 }
 
-/* 完整读取后按 ADC 完成标志发布；状态位每次读取，未完成转换不推进测量时间。 */
-static uint8_t sample_failed(uint16_t stage)
-{
-    s_sample_failure_stage = stage;
-    return 0u;
-}
-
 /* 仅向正常电压缓存发布已完成的 VADC，未接串仍编码为 61001。 */
 static void sh3510_publish_voltage(const int32_t *cell, int32_t pack_mv)
 {
@@ -755,7 +748,7 @@ static void sh3510_publish_temperatures(const int32_t *external_raw)
 }
 
 /* 测量发布之后评估软件保护及硬件恢复，保持原物理证据、清标志和失败阶段。 */
-static uint8_t sh3510_update_protection(const sh3673510_control_status_t *status)
+static uint16_t sh3510_update_protection(const sh3673510_control_status_t *status)
 {
     bms_sw_protection_inputs_t sw;
     memset(&sw, 0, sizeof(sw));
@@ -788,15 +781,15 @@ static uint8_t sh3510_update_protection(const sh3673510_control_status_t *status
         s_hw_recovery_count[HW_REC_OCD1] = s_hw_recovery_count[HW_REC_OCD2] = 0u;
     if (!s_charger_removed && !sw.charge_recovery_immediate)
         s_hw_recovery_count[HW_REC_OCC] = 0u;
-    if (!service_short_recovery(status)) return sample_failed(DIAG_AFE_FAIL_SHORT_RECOVERY);
-    if (!s_sample_pending && !service_hw_flag_recovery(status)) return sample_failed(DIAG_AFE_FAIL_FLAG_RECOVERY);
+    if (!service_short_recovery(status)) return DIAG_AFE_FAIL_SHORT_RECOVERY;
+    if (!s_sample_pending && !service_hw_flag_recovery(status)) return DIAG_AFE_FAIL_FLAG_RECOVERY;
 #endif
     bms_sw_protection_record_fault_edges();
-    return 1u;
+    return DIAG_AFE_FAIL_NONE;
 }
 
 /* 完整读取和资格确认后按原顺序发布测量，再评估保护；失败交回采样入口。 */
-static uint8_t publish_measurements(void)
+static uint16_t publish_measurements(void)
 {
     int32_t cell[SH3673510_BOARD_CELL_COUNT];
     int32_t pack_mv;
@@ -808,45 +801,45 @@ static uint8_t publish_measurements(void)
     uint32_t now;
 
 
-    if (!sh3673510_control_wake()) return sample_failed(DIAG_AFE_FAIL_WAKE);
+    if (!sh3673510_control_wake()) return DIAG_AFE_FAIL_WAKE;
     if (s_sampling_restart) restart_sampling();
     /*
      * 先读取读清除就绪标志，再读相应数据。后续转换可能替换寄存器，
      * 但不能把旧值标为新样本。
      */
-    if (!sh3673510_control_read_status(&status)) return sample_failed(DIAG_AFE_FAIL_STATUS);
+    if (!sh3673510_control_read_status(&status)) return DIAG_AFE_FAIL_STATUS;
     /* 同时保留本次模式，避免把 IDLE 的4秒 CADC 周期误分析为 normal 的250ms。 */
     s_sample_attempt_flag2 = (uint16_t)(0x100u | status.flag2 |
         ((uint16_t)(status.bstatus2 & (SH3673520_BSTATUS2_IDLE_MASK |
                                      SH3673520_BSTATUS2_SLEEP_MASK)) << 5));
-    if (SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CELL_READ);
-    if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_PACK_READ);
-    if (SH3673520_ReadCurrent(&cadc_raw) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CURRENT_READ);
-    if (SH3673520_ReadTemperatures(external_raw) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_TEMP_READ);
+    if (SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return DIAG_AFE_FAIL_CELL_READ;
+    if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return DIAG_AFE_FAIL_PACK_READ;
+    if (SH3673520_ReadCurrent(&cadc_raw) != SH3673520_OK) return DIAG_AFE_FAIL_CURRENT_READ;
+    if (SH3673520_ReadTemperatures(external_raw) != SH3673520_OK) return DIAG_AFE_FAIL_TEMP_READ;
     if (SH3673520_CurrentRawToMilliAmp(cadc_raw,
-        SH3673510_BOARD_SHUNT_UOHM, &current_ma) != SH3673520_OK) return sample_failed(DIAG_AFE_FAIL_CURRENT_CONVERT);
+        SH3673510_BOARD_SHUNT_UOHM, &current_ma) != SH3673520_OK) return DIAG_AFE_FAIL_CURRENT_CONVERT;
 
     /* 修改共享报告前先拒绝整个无效帧。 */
     for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i)
-        if (cell[i] < 0L || cell[i] > 65535L) return sample_failed(DIAG_AFE_FAIL_CELL_RANGE);
+        if (cell[i] < 0L || cell[i] > 65535L) return DIAG_AFE_FAIL_CELL_RANGE;
     now = pm_get_32k_tick();
     if (status.flag2 & SH3673520_FLAG2_VADC_MASK) { s_vadc_seen = 1u; s_vadc_tick = now; }
     if (status.flag2 & SH3673520_FLAG2_CADC_MASK) { s_cadc_seen = 1u; s_cadc_tick = now; }
     if ((uint32_t)(now - s_vadc_tick) > SH3510_ADC_MAX_AGE_32K)
-        return sample_failed(DIAG_AFE_FAIL_VADC_AGE);
+        return DIAG_AFE_FAIL_VADC_AGE;
     if ((uint32_t)(now - s_cadc_tick) > SH3510_ADC_MAX_AGE_32K)
-        return sample_failed(DIAG_AFE_FAIL_CADC_AGE);
+        return DIAG_AFE_FAIL_CADC_AGE;
     s_sample_pending = ((status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) !=
                        (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ? 1u : 0u;
     publish_hw_status(&status);
-    if (s_afe_reconfigure_required) return 1u;
-    if (!sample_release_evidence(&status)) return sample_failed(DIAG_AFE_FAIL_RELEASE_READ);
+    if (s_afe_reconfigure_required) return DIAG_AFE_FAIL_NONE;
+    if (!sample_release_evidence(&status)) return DIAG_AFE_FAIL_RELEASE_READ;
     if ((uint32_t)(now - s_sampling_start_tick) >= SH3510_TEMP_STARTUP_32K)
         s_temperature_started = 1u;
     if (!s_vadc_seen || !s_cadc_seen || !s_temperature_started ||
         (!s_snapshot_valid && s_sample_pending)) {
         s_sample_pending = 1u;
-        return 1u;
+        return DIAG_AFE_FAIL_NONE;
     }
 
     if (status.flag2 & SH3673520_FLAG2_VADC_MASK)
@@ -856,13 +849,15 @@ static uint8_t publish_measurements(void)
     if (status.flag2 & SH3673520_FLAG2_VADC_MASK)
         sh3510_publish_temperatures(external_raw);
 
-    if (!s_afe_reconfigure_required &&
-        !sh3510_update_protection(&status)) return 0u;
+    {
+        uint16_t failure = sh3510_update_protection(&status);
+        if (failure != DIAG_AFE_FAIL_NONE) return failure;
+    }
     s_snapshot_valid = 1u;
     bms_afe_publish_fet_status(
         (uint8_t)((g_bms_system_status.bits.charge_mos_status ? 1u : 0u) |
                   (g_bms_system_status.bits.discharge_mos_status ? 2u : 0u)), 1u);
-    return 1u;
+    return DIAG_AFE_FAIL_NONE;
 }
 
 /* 初始化选定 AFE 后端并应用产品配置。 */
@@ -905,16 +900,16 @@ void sh3673510_bms_afe_init(void)
 /* 采集 AFE 测量和状态，并更新样本有效性。 */
 void sh3673510_bms_afe_sample(void)
 {
+    uint16_t failure;
     s_sample_pending = 0u;
     s_sample_attempt_tick = pm_get_32k_tick();
     s_sample_attempt_flag2 = 0u;
-    s_sample_failure_stage = DIAG_AFE_FAIL_NONE;
     sh3673510_board_force_heater_fuse_safe();
     if (s_flag_clear_failed) { note_comm_error(DIAG_AFE_FAIL_FLAG_CLEAR_HOLD); return; }
-    if (!publish_measurements()) {
+    failure = publish_measurements();
+    if (failure != DIAG_AFE_FAIL_NONE) {
         /* 公共 bms_afe_guard 管理关闭请求、WDT 静默和有界重初始化。 */
-        s_snapshot_valid = 0u;
-        note_comm_error(s_sample_failure_stage);
+        note_comm_error(failure);
         return;
     }
 
@@ -1110,3 +1105,49 @@ uint8_t sh3673510_bms_afe_sleep(void)
     }
     return 1u;
 }
+
+#if BMS_FEATURE_BALANCE_SUPPORTED
+#define SH_FEATURE_VALID_CELL_MASK ((1uL << SH3673510_BOARD_CELL_COUNT) - 1uL)
+#define SH_FEATURE_BALANCE_REFRESH_TICKS (20000u * 32u) /* 20 秒，短于既有硬件超时。 */
+static uint32_t s_balance_refresh_tick;
+
+/* 读取 SH 硬件当前均衡通道掩码。 */
+static uint8_t sh_read_balance_mask(uint32_t *mask)
+{
+    uint8_t data[3];
+    if (mask == 0) return 0u;
+    if (SH3673520_ReadRegs(SH3673520_REG_BALANCEH, data, 3u) != SH3673520_OK) return 0u;
+    *mask = ((((uint32_t)data[0] & 0x0Fu) << 16) |
+             ((uint32_t)data[1] << 8) | data[2]) & SH_FEATURE_VALID_CELL_MASK;
+    return 1u;
+}
+
+/* 设置有效通道范围内的后端均衡掩码。 */
+uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
+{
+    uint32_t actual;
+    cell_mask &= SH_FEATURE_VALID_CELL_MASK;
+    if (!sh_read_balance_mask(&actual)) return 0u;
+
+    if (cell_mask == 0u) {
+        s_balance_refresh_tick = bms_time_now_32k();
+        if (actual != 0u && !sh3673510_control_set_balance(0u)) return 0u;
+        if (!sh_read_balance_mask(&actual) || actual != 0u) return 0u;
+        return 1u;
+    }
+
+    if (actual != cell_mask ||
+        (uint32_t)(bms_time_now_32k() - s_balance_refresh_tick) >= SH_FEATURE_BALANCE_REFRESH_TICKS) {
+        if (!sh3673510_control_set_balance(cell_mask)) return 0u;
+        if (!sh_read_balance_mask(&actual) || actual != cell_mask) return 0u;
+        s_balance_refresh_tick = bms_time_now_32k();
+    }
+    return 1u;
+}
+
+/* 取得后端缓存或回读的均衡状态掩码。 */
+uint8_t sh3673510_backend_get_balance_mask(uint32_t *cell_mask)
+{
+    return sh_read_balance_mask(cell_mask);
+}
+#endif

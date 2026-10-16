@@ -362,7 +362,7 @@ for forbidden in ("apply_heater();", "apply_balance();",
 # Realtime battery temperature extrema must be refreshed from TS1/TS2 on every
 # valid sample. MOS/heater temperatures remain independently reported.
 publish_start = bms.find("static void sh3510_publish_temperatures")
-publish_end = bms.find("static uint8_t sh3510_update_protection", publish_start)
+publish_end = bms.find("static uint16_t sh3510_update_protection", publish_start)
 if publish_start < 0 or publish_end <= publish_start:
     raise AssertionError("missing temperature publication")
 publish_text = bms[publish_start:publish_end]

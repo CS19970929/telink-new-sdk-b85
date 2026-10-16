@@ -11,7 +11,7 @@ SOURCES = [
 ] + ['bms/app/bms_features.c', 'bms/platform/telink/bms_board.c'] + [
     'bms/afe/sh3673510/' + name + '.c' for name in (
         'sh3673510_bms', 'sh3673510_control', 'sh3673510_ntc',
-        'sh3673510_feature_backend', 'sh3673520')
+        'sh3673520')
 ]
 def main():
     compiled = set(read('bms/products/d014/sources.txt').splitlines())

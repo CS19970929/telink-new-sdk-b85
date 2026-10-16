@@ -38,7 +38,8 @@ sh3673520_status_t SH3673520_WriteReg(uint8_t reg,uint8_t value) {
     registers[reg]=value;return SH3673520_OK;
 }
 '''
-code += without_includes(read('bms/afe/sh3673510/sh3673510_feature_backend.c'))
+source = read('bms/afe/sh3673510/sh3673510_bms.c')
+code += source[source.index('#if BMS_FEATURE_BALANCE_SUPPORTED\n#define SH_FEATURE_VALID_CELL_MASK'):]
 code += r'''
 #if BMS_FEATURE_BALANCE_SUPPORTED
 int main(void) {

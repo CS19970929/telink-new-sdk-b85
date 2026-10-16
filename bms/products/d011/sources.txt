@@ -44,7 +44,6 @@ bms/core/bms_parameters.c
 bms/afe/sh3673510/sh3673510_bms.c
 bms/afe/sh3673510/sh3673510_control.c
 bms/afe/sh3673510/sh3673510_ntc.c
-bms/afe/sh3673510/sh3673510_feature_backend.c
 bms/afe/sh3673510/sh3673520.c
 bms/afe/sh3673510/sh3673520_port.c
 bms/core/storage_record.c

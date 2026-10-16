@@ -82,8 +82,6 @@ void bms_features_init(void) {}
 void bms_features_service(void) {}
 void bms_features_stop(void) {}
 uint8_t bms_protection_params_valid(void) { return 1; }
-uint8_t sh3673510_backend_set_balance_mask(uint32_t m) { (void)m;return 1; }
-uint8_t sh3673510_backend_get_balance_mask(uint32_t *m) { *m=0;return 1; }
 #endif
 uint8_t bms_sw_protection_charge_blocked(void) { return 0; }
 uint8_t bms_sw_protection_discharge_blocked(void) { return 0; }
@@ -126,7 +124,11 @@ sh3673520_status_t SH3673520_ReadCurrent(int32_t *v) { *v=0; return read_ok()?SH
 sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,uint32_t shunt,int32_t *v) { (void)raw;(void)shunt;*v=-public_current_ma; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
 sh3673520_status_t SH3673520_ReadTemperatures(int32_t *t) { for(uint8_t i=0;i<4;++i)t[i]=(i==invalid_ntc)?0:10000; return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
 sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw,uint32_t *v) { *v=(uint32_t)raw; return raw?SH3673520_OK:SH3673520_ERR_RANGE; }
-sh3673520_status_t SH3673520_ReadRegs(uint8_t reg,uint8_t *v,sh3673520_size_t n) { assert(reg==SH3673520_REG_VCHGRH && n==2);++cplus_reads;v[0]=(uint8_t)(cplus_raw>>8);v[1]=(uint8_t)cplus_raw;return read_ok()?SH3673520_OK:SH3673520_ERR_SPI; }
+sh3673520_status_t SH3673520_ReadRegs(uint8_t reg,uint8_t *v,sh3673520_size_t n) {
+    /* 恢复场景不申请均衡；真实后端的关闭回读仍经过设备端口。 */
+    if(reg==SH3673520_REG_BALANCEH) { assert(n==3);memset(v,0,n);return SH3673520_OK; }
+    assert(reg==SH3673520_REG_VCHGRH && n==2);++cplus_reads;v[0]=(uint8_t)(cplus_raw>>8);v[1]=(uint8_t)cplus_raw;return read_ok()?SH3673520_OK:SH3673520_ERR_SPI;
+}
 
 /* PRODUCTION */
 #ifdef GUARD_TEST

@@ -112,7 +112,7 @@ def check_sh3673510_board_host_check():
     start = app.index('static void board_init(void)')
     board = app[start:app.index('\n}\n', start) + 3]
     source = selected_source(APP / 'sh3673510_bms.c')
-    start = source.index('    memset(&sw, 0, sizeof(sw));', source.index('static uint8_t sh3510_update_protection('))
+    start = source.index('    memset(&sw, 0, sizeof(sw));', source.index('static uint16_t sh3510_update_protection('))
     end = source.index('    bms_sw_protection_update(&sw);', start)
     mapping = source[start:end]
     expected = 1  # D011/D013/D014 均将 TS4 作为必需 MOS NTC。
