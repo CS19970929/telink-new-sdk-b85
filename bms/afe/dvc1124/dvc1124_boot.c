@@ -12,10 +12,6 @@
 #include "bms_soc.h"
 #include <string.h>
 
-/* 应用 D008 编译期板级配置，并通过公共 AFE profile 初始化硬件保护。 */
-static uint8_t s_project_config_pending = 1u;
-/* 最新新鲜 CC2 方向所要求的临时开管；缓存等待不改变，重初始化清除。 */
-static uint8_t s_direction_allow_mask;
 
 /*
  * DVC1124-2 shutdown 的 I2C 唤醒要求：SCL 高于 SDA 至少 2 V 且持续超过 50 us。
@@ -93,24 +89,16 @@ uint8_t dvc1124_backend_enter_shutdown(void)
     return DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u);
 }
 
-/* 先唤醒 shutdown 状态再复位配置 DVC。 */
-static void dvc_project_reset_with_shutdown_wake(void)
+/* 初始化选定 AFE 后端并应用产品配置。 */
+void dvc1124_backend_init(void)
 {
     dvc_project_enable_afe_interface();
     dvc_project_i2c_wake_pulse();
     DVC1124_AFE_Reset();
-}
-
-/* 初始化选定 AFE 后端并应用产品配置。 */
-void dvc1124_backend_init(void)
-{
-    s_project_config_pending = 1u;
-    s_direction_allow_mask = 0u;
-    dvc_project_reset_with_shutdown_wake();
 
     /*
      * dvc1124.c 应用安全基线和持久化硬件保护配置；
-     * 下面的首个有效样本进一步落实编译期产品策略中的全部固定运行字段。
+     * 同一次初始化完成全部固定运行字段；正常采样不再配置或复位芯片。
      */
     DVC1124_UpdataAfeConfig();
 
@@ -120,57 +108,4 @@ void dvc1124_backend_init(void)
      * 检查失败沿原路径回退，不能新增永久 MOS 锁定。
      */
     (void)DVC1124_BootCurrentZeroCalibrate();
-}
-
-/* 采集 AFE 测量和状态，并更新样本有效性。 */
-void dvc1124_backend_sample(void)
-{
-    dvc1124_snapshot_t snapshot;
-
-    DVC1124_BmsApp_AFEGet();
-
-    DVC1124_GetSnapshot(&snapshot);
-    if (!snapshot.valid)
-    {
-        s_direction_allow_mask = 0u;
-    }
-    else if (snapshot.current_fresh)
-    {
-        if (snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
-            s_direction_allow_mask = BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK;
-        else if (snapshot.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
-            s_direction_allow_mask = BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK;
-        else
-            s_direction_allow_mask = 0u;
-    }
-
-    if (!s_project_config_pending) return;
-
-    if (!snapshot.valid) return;
-
-    if (DVC1124_ApplyProjectOperatingConfig())
-    {
-        s_project_config_pending = 0u;
-        return;
-    }
-
-    /*
-     * 固定产品配置未完整应用时不得解除通信禁止。复位会使快照失效，
-     * 公共门禁保持禁止并沿正常重初始化路径重试；重复 shutdown 唤醒脉冲，
-     * 也覆盖 AFE 自行进入 shutdown 的情况。
-     */
-    dvc_project_reset_with_shutdown_wake();
-}
-
-/* 读取由最新有效 CC2 方向确认的临时开管掩码；不访问 I2C。 */
-uint8_t dvc1124_backend_get_direction_allow_mask(void)
-{
-    return s_direction_allow_mask;
-}
-
-/* 应用独立 AFE 硬件保护配置并返回结果。 */
-uint8_t dvc1124_backend_apply_protection_config(void)
-{
-    /* 只有保护参数归运行时/Flash 状态管理。 */
-    return DVC1124_ApplyProtectionConfig();
 }

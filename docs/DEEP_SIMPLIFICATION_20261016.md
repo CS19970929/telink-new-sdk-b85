@@ -49,7 +49,8 @@ SH 三产品数据来自 clean 原始起点，资源比较须标明这一证据�
 | 0 | `06dd68b8` | 验证入口、诊断夹具及工程 profile | 0 | 0 | 原失败项针对性复测、55 项工具单测；六配置 ELF/MAP |
 | 1 | `caba4286` | DVC 功能并入后端、删除转发和无入口休眠取消 | 5 | 0 | 12 组相关检查及修复后两项 contract；四产品源码/生产链接和资源 |
 | 1 补充 | `d9468667` | D008 恢复夹具改用合并后的公开 FET 事务 | 0 | 0 | `d008_recovery_host_check` 的 HW=0/1 及电压恢复通过 |
-| 2 | 本提交 | SH NTC 有效性与加热命令状态去重 | 0 | 2 项 | 15 组 feature/SH/温度检查；四产品源码、生产 ELF/MAP 和资源 |
+| 2 | `e49142af` | SH NTC 有效性与加热命令状态去重 | 0 | 2 项 | 15 组 feature/SH/温度检查；四产品源码、生产 ELF/MAP 和资源 |
+| 3 | 本提交 | DVC 初始化与采样分离，删除复位重试和重复快照 | 4 | 2 | D008 30 组；16S LFP/20S NMC/24S LFP 生产 ELF/MAP 和资源 |
 
 第 1 轮删除 `dvc1124_feature_backend.c`，温度角色和有效性共用后端现有实现，
 删除 `dvc_ntc_valid`、`dvc_temp`；共口 MOS 事务直接作为 `dvc1124_backend_set_fets`，
@@ -62,6 +63,15 @@ SH 三产品数据来自 clean 原始起点，资源比较须标明这一证据�
 删除 `s_feature.heater_on`，唯一成功设置入口仍是 `set_heater()`，读取其已经发布的
 `g_bms_system_status.bits.heater_status`。删除两项存储（四元素数组加一个字节字段），
 不是移动到新结构。实际 RAM 差值以最终 MAP 为准。
+
+第 3 轮：固定运行配置与硬件保护在一次初始化内完成，全部成功才清 `s_need_config`。
+失败后的正常采样只返回无效，交 guard 的两次失败及 5 秒 watchdog 静默处理；
+采样不再配置或发 shutdown-wake/reset。新增固定配置失败注入，以及 100 次采样不重配断言。
+合并 `DVC1124_BmsApp_AFEGet` 与 `dvc1124_backend_sample`，每轮保护只取一次快照；
+方向直接读取唯一 CC2 缓存，删除 `s_direction_allow_mask` 和 `s_project_config_pending`。
+保护配置和输出授权直接由驱动实现后端契约，删除两层纯转发；初始化内联原来的
+`dvc_project_reset_with_shutdown_wake` 单次包装。初始化仍保留有界唤醒等待、配置验证及
+两次 270 ms 启动电流检查，未把这些硬件阶段伪装成完全非阻塞；实板 BLE 时序仍待验收。
 
 本报告随实现逐轮补充。软件验证不代替实板 MOS Gate、保护波形、低功耗电流、
 唤醒、Flash 掉电和客户 OTA 验收。本轮不生成正式 BIN、不烧录、不执行 OTA。

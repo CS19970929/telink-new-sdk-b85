@@ -18,7 +18,7 @@ def check_d008_current_recovery_host_check():
     fixture = (ROOT / 'tests/fixtures/d008_current_recovery.c').read_text()
     code = fixture.replace('/* PRODUCTION */', state + function('dvc_recover_current_faults') + function('dvc1124_backend_set_fets'))
     # Failed samples must break PB1 qualification, before returning from acquisition.
-    acquisition = s[s.index('void DVC1124_BmsApp_AFEGet('):]
+    acquisition = s[s.index('void dvc1124_backend_sample('):]
     assert acquisition.index('dvc_observe_current_recovery(&snapshot') < acquisition.index('if (!snapshot.valid)')
     assert 'if (dvc1124_backend_sample_pending()) return;' not in acquisition
     assert s.index('bms_sw_protection_update_groups(&sw') < s.index('alarm = dvc_recover_current_faults(&snapshot')

@@ -52,7 +52,9 @@ code += '\n' + function(source, 'static uint8_t dvc_apply_basic_config(')
 code += '\n' + function(source, 'static uint8_t DVC1124_SetShortCircuitProtection(')
 code += r'''
 static uint8_t s_need_config;
-static unsigned profile_applies;
+static unsigned profile_applies, operating_applies;
+static uint8_t operating_ok=1;
+uint8_t DVC1124_ApplyProjectOperatingConfig(void) { ++operating_applies; return operating_ok; }
 static uint8_t DVC1124_SetCellCount(uint8_t n) { (void)n; s_need_config=1; return 1; }
 static uint8_t DVC1124_AFE_IsReady(void) { return 0; }
 static uint8_t dvc_apply_protection_from_params(void) {
@@ -68,7 +70,7 @@ static void reset(void) {
     regs[0] = 0x25; /* 现场SCD，加上其它锁存，禁止顺手清空。 */
     regs[0x62] = 0x40; regs[0x63] = 0;
     operations = fail_from = sc_disables = stuck_fet = hold_scd = 0;
-    profile_applies=0; s_need_config=1;
+    profile_applies=operating_applies=0; operating_ok=1; s_need_config=1;
 }
 int main(void) {
     reset(); assert(dvc_apply_basic_config());
@@ -95,7 +97,9 @@ int main(void) {
         assert(!(regs[0x51]&0x6f));
     }
     reset(); DVC1124_UpdataAfeConfig();
-    assert(!s_need_config && profile_applies==1 && regs[0]==0x24);
+    assert(!s_need_config && profile_applies==1 && operating_applies==1 && regs[0]==0x24);
+    reset(); operating_ok=0; DVC1124_UpdataAfeConfig();
+    assert(s_need_config && profile_applies==1 && operating_applies==1);
     reset(); regs[6]=1; stuck_fet=1; DVC1124_UpdataAfeConfig();
     assert(s_need_config && !profile_applies && !sc_disables);
     reset(); hold_scd=1; DVC1124_UpdataAfeConfig();

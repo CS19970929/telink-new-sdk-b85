@@ -33,7 +33,8 @@ static uint8_t auto_cc2_event;
 static struct {uint16_t charge_current_a10,discharge_current_a10,cell_voltage_mv[32],pack_voltage_10mv,cell_max_mv,cell_min_mv,cell_delta_mv,cell_max_index,cell_min_index,temperature_x10[5],temperature_max_x10,temperature_min_x10,balance_bits_low,balance_bits_high;
  struct {struct {uint8_t charge_ocp,discharge_ocp;}bits;}fault_third;}g_bms_report;
 static struct {struct {uint8_t charge_mos_status,discharge_mos_status;}bits;}g_bms_system_status;
-void DVC1124_UpdataAfeConfig(void){}
+static unsigned configuration_calls;
+void DVC1124_UpdataAfeConfig(void){++configuration_calls;}
 uint8_t DVC1124_GetWriteAddress(void){return 0x40;}
 static void dvc_note_comm_result(uint8_t x){(void)x;}
 static uint16_t dvc_be16(const uint8_t *x){return ((uint16_t)x[0]<<8)|x[1];}
@@ -121,6 +122,10 @@ int main(void){
  }
  reset();g_bms_report.balance_bits_low=5;balance_read_ok=0;acquire(100,0x50);
  assert(g_bms_report.balance_bits_low==5);balance_read_ok=1;
+ s_need_config=1;configuration_calls=0;
+ for(unsigned i=0;i<100;++i)acquire(6400u*i,0x50u);
+ assert(!s_snapshot.valid && !configuration_calls);
+ s_need_config=0;
  puts("PASS DVC ADC完成事件、异步通道、RC/CRC重试、R1与R6分离、缓存到期与tick回绕");return 0;
 }
 '''

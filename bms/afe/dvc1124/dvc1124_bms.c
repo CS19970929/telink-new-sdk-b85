@@ -450,7 +450,7 @@ uint8_t dvc1124_backend_set_fets(uint8_t charge_on,
 }
 
 /* 采样后发布测量、合并保护并更新 DVC FET 仲裁。 */
-void DVC1124_BmsApp_AFEGet(void)
+void dvc1124_backend_sample(void)
 {
     dvc1124_snapshot_t snapshot;
     bms_sw_protection_inputs_t sw;
@@ -533,12 +533,6 @@ void DVC1124_BmsApp_AFEGet(void)
      * 本次采样后由 bms_afe_guard 立即仲裁 FET，保留通信与断线硬阻断语义；
      * 本函数仅更新故障状态。
      */
-}
-
-/* 设置后端输出授权，禁止绕过公共安全门禁。 */
-void dvc1124_backend_set_output_enabled(uint8_t enabled)
-{
-    DVC1124_SetOutputEnabled(enabled);
 }
 
 /* 取得后端辅助测量与有效性。 */

@@ -50,7 +50,7 @@ def check_d008_20s_profile_contract_check():
     assert 'DVC1124_DEFAULT_DSG_MASK_POLICY' in store
     assert 'DVC1124_DEFAULT_CHG_MASK_POLICY' in store
     assert 'DVC1124_ApplyProjectOperatingConfig()' in store
-    assert 's_project_config_pending = 1u' in store
+    assert 's_project_config_pending' not in store
     assert 'DVC1124_CFG_ERR_READ_ONLY' in service
     assert 'DVC1124_ConfigStoreSave' not in service
 
@@ -201,7 +201,7 @@ def check_d008_framework_contract_check():
 
         def test_common_port_policy_uses_auto_diode_without_off_pulse(self):
             policy = self.dvc_bms.split("uint8_t dvc1124_backend_set_fets", 1)[1]
-            policy = policy.split("void DVC1124_BmsApp_AFEGet", 1)[0]
+            policy = policy.split("void dvc1124_backend_sample", 1)[0]
             self.assertIn("DVC1124_FET_DRIVE_AUTO_DIODE", policy)
             self.assertIn("dvc_set_fet_modes_if_changed", policy)
             self.assertNotIn("DVC1124_SetMosState", policy)
@@ -225,7 +225,7 @@ def check_d008_framework_contract_check():
             self.assertIn("gpio_write(BMS_BOARD_HEATER_FUSE_PIN, 0);", self.app)
 
         def test_dvc_is_single_temperature_owner_for_protection_and_reporting(self):
-            sample = self.dvc_bms.split("void DVC1124_BmsApp_AFEGet", 1)[1]
+            sample = self.dvc_bms.split("void dvc1124_backend_sample", 1)[1]
             sample = sample.split("uint8_t dvc1124_backend_set_fets", 1)[0]
             self.assertIn("dvc_get_battery_temperature_range", sample)
             self.assertIn("DVC1124_DEFAULT_MOS_NTC_GP", sample)
@@ -254,7 +254,7 @@ def check_d008_framework_contract_check():
             self.assertIn("DVC1124_REG_CHG_MASK, 0xFFu", block)
 
         def test_sw_off_clears_software_managed_fault_state(self):
-            sample = self.dvc_bms.split("void DVC1124_BmsApp_AFEGet", 1)[1]
+            sample = self.dvc_bms.split("void dvc1124_backend_sample", 1)[1]
             sample = sample.split("uint8_t dvc1124_backend_set_fets", 1)[0]
             self.assertIn("DVC1124_SW_TEMP_PROTECT_ENABLE", sample)
             self.assertIn("bms_sw_protection_update_groups(&sw, DVC1124_SW_PROTECT_ENABLE,", sample)
@@ -276,7 +276,7 @@ def check_d008_framework_contract_check():
         def test_fixed_config_is_reapplied_after_afe_reset(self):
             self.assertIn("DVC1124_AFE_Reset();", self.fixed_backend)
             self.assertIn("DVC1124_UpdataAfeConfig();", self.fixed_backend)
-            self.assertIn("s_project_config_pending", self.fixed_backend)
+            self.assertNotIn("s_project_config_pending", self.fixed_backend)
             self.assertIn("DVC1124_ApplyProjectOperatingConfig()", self.fixed_backend)
 
         def test_fixed_semantic_window_is_diagnostic_only(self):
@@ -307,7 +307,7 @@ def check_d008_framework_contract_check():
             self.assertIn("bms_afe_hw_profile_get", self.hw_profile)
             self.assertIn("dvc1124_backend_apply_protection_config", self.fixed_backend)
             fn = self.fixed_backend.split("uint8_t dvc1124_backend_apply_protection_config", 1)[1]
-            self.assertIn("DVC1124_ApplyProtectionConfig()", fn)
+            self.assertIn("dvc_apply_protection_from_params()", fn)
 
         def test_product_profile_still_selects_physical_cell_count_and_soc_identity(self):
             self.assertEqual(macro_literal(self.product, "D008_PRODUCT_PROFILE_24S_LFP"), 1)

@@ -139,7 +139,6 @@ uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len);
 /* 校验范围后写入 DVC 寄存器。 */
 uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len);
 /* 设置 DVC 输出授权并同步 MOS 控制。 */
-void DVC1124_SetOutputEnabled(uint8_t enabled);
 /* 设置 DVC 均衡请求掩码并同步硬件。 */
 uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask);
 /* 推进均衡服务并刷新通道状态。 */
@@ -226,13 +225,11 @@ uint8_t DVC1124_ApplyProjectOperatingConfig(void);
 /* DVC 后端入口；应用代码使用 bms_afe.h。 */
 void DVC1124_App_AFEGet(void);
 /* 采样后发布测量、合并保护并更新 DVC FET 仲裁。 */
-void DVC1124_BmsApp_AFEGet(void);
 /* 复位 DVC AFE 并重建驱动状态。 */
 void DVC1124_AFE_Reset(void);
 /* 按当前参数更新 DVC AFE 配置。 */
 void DVC1124_UpdataAfeConfig(void);
 /* 应用并验证 DVC 硬件保护参数。 */
-uint8_t DVC1124_ApplyProtectionConfig(void);
 
 #ifdef __cplusplus
 }
