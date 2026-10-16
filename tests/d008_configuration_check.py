@@ -200,7 +200,7 @@ def check_d008_framework_contract_check():
             self.assertNotRegex(self.dvc_bms, r"(?:charge|discharge)_mos_status\s*=")
 
         def test_common_port_policy_uses_auto_diode_without_off_pulse(self):
-            policy = self.dvc_bms.split("static uint8_t dvc_apply_common_port_fet_state", 1)[1]
+            policy = self.dvc_bms.split("uint8_t dvc1124_backend_set_fets", 1)[1]
             policy = policy.split("void DVC1124_BmsApp_AFEGet", 1)[0]
             self.assertIn("DVC1124_FET_DRIVE_AUTO_DIODE", policy)
             self.assertIn("dvc_set_fet_modes_if_changed", policy)

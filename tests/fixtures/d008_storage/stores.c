@@ -672,9 +672,9 @@ static void test_event_semantics(void){
  fresh();memset(&sample,0,sizeof(sample));sample.cbc_err=1;bms_event_log_poll_1s(&sample);
  sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);pos=g_bms_event_log.write_pos;
  sample.cbc_err=0;bms_event_log_poll_1s(&sample);assert(pos==g_bms_event_log.write_pos);
- assert(bms_event_log_note_sleep());bms_event_log_cancel_sleep();
+ assert(bms_event_log_note_sleep());
  assert(bms_event_log_note_sleep());assert((bms_event_log_read_reg(0)>>8)==BMS_SLEEP);
- assert(g_bms_event_log.write_pos==pos+2u);
+ assert(g_bms_event_log.write_pos==pos+1u);
  fresh();memset(&sample,0,sizeof(sample));sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
  reboot();assert(bms_event_log_init());assert(bms_event_log_read_reg(0)==0);
  fresh();memset(&sample,0,sizeof(sample));

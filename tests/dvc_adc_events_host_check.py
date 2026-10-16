@@ -155,7 +155,7 @@ int main(void){
 run_c(balance_fixture,name='dvc-balance-failures')
 
 # 后端请求缓存相同但回读缺位/多位时，仍需重发，不能等到续期才纠正。
-backend = read('bms/afe/dvc1124/dvc1124_feature_backend.c')
+backend = read('bms/afe/dvc1124/dvc1124_bms.c')
 backend_fixture = r'''
 #include <stdint.h>
 #include <assert.h>

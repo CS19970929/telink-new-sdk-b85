@@ -79,13 +79,6 @@ static void end_write(const storage_record_store_t *s)
     if (s->port->end != 0) s->port->end(s->port->ctx);
 }
 
-/* 检查端口与范围后读取存储字节。 */
-static int read_bytes(const storage_record_store_t *s, uint32_t addr,
-                      uint8_t *buf, uint32_t len)
-{
-    return s->port->read(s->port->ctx, addr, buf, len);
-}
-
 /* 检查端口与范围后编程存储字节。 */
 static int program_bytes(const storage_record_store_t *s, uint32_t addr,
                          const uint8_t *buf, uint32_t len)
@@ -138,7 +131,7 @@ static int is_erased(const storage_record_store_t *s, uint32_t addr, uint32_t le
     uint32_t n;
     while (len != 0u) {
         n = (len > IO_CHUNK) ? IO_CHUNK : len;
-        if (!read_bytes(s, addr, buf, n)) return -1;
+        if (!s->port->read(s->port->ctx, addr, buf, n)) return -1;
         for (i = 0u; i < n; ++i) if (buf[i] != s->port->erased_value) return 0;
         addr += n;
         len -= n;
@@ -178,7 +171,7 @@ static int flash_payload_crc(const storage_record_store_t *s, uint32_t addr,
     addr += OFF_PAYLOAD;
     while (remain != 0u) {
         n = (remain > IO_CHUNK) ? IO_CHUNK : remain;
-        if (!read_bytes(s, addr, buf, n)) return 0;
+        if (!s->port->read(s->port->ctx, addr, buf, n)) return 0;
         crc = crc_update(crc, buf, n);
         addr += n;
         remain -= n;
@@ -260,7 +253,7 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
     for (sec = 0u; sec < s->sector_count; ++sec) {
         for (slot = 0u; slot < s->slots_per_sector; ++slot) {
             addr = slot_addr(s, sec, slot);
-            if (!read_bytes(s, addr, h, sizeof(h))) goto io_error;
+            if (!s->port->read(s->port->ctx, addr, h, sizeof(h))) goto io_error;
             valid = valid_record(s, addr, h, &seq);
             if (valid < 0) goto io_error;
             if (valid && (!found || sequence_newer(seq, best_seq))) {
@@ -286,7 +279,7 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
         s->has_latest = 0u;
         return 0;
     }
-    if (!read_bytes(s, best_addr + OFF_PAYLOAD, payload, s->payload_size)) goto io_error;
+    if (!s->port->read(s->port->ctx, best_addr + OFF_PAYLOAD, payload, s->payload_size)) goto io_error;
     s->latest_addr = best_addr;
     s->next_sequence = best_seq + 1u;
     if (s->next_sequence == 0u) s->next_sequence = 1u;

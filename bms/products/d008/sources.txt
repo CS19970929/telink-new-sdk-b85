@@ -41,7 +41,6 @@ bms/afe/dvc1124/dvc1124.c
 bms/afe/dvc1124/dvc1124_bms.c
 bms/afe/dvc1124/dvc1124_config_service.c
 bms/afe/dvc1124/dvc1124_boot.c
-bms/afe/dvc1124/dvc1124_feature_backend.c
 bms/afe/dvc1124/dvc1124_special.c
 bms/platform/telink/main.c
 bms/platform/telink/bms_stack_monitor.c

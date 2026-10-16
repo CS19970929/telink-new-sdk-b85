@@ -4,7 +4,7 @@ from validation_support import read, function, run_c, evidence
 
 driver = read('bms/afe/dvc1124/dvc1124.c')
 backend = read('bms/afe/dvc1124/dvc1124_bms.c')
-feature = read('bms/afe/dvc1124/dvc1124_feature_backend.c')
+feature = read('bms/afe/dvc1124/dvc1124_bms.c')
 constants = '\n'.join(re.findall(
     r'^#define DVC_(?:TEMP_TABLE_LEN|NTC_MIN_RES_OHM|NTC_MAX_RES_OHM)\s+[^\n]+',
     driver, re.M))
@@ -27,10 +27,8 @@ for signature in ('static uint16_t dvc_get_configured_temperature(',
                   'static uint8_t dvc_charge_blocked(',
                   'static uint8_t dvc_discharge_blocked(',
                   'static uint8_t dvc_set_fet_modes_if_changed(',
-                  'static uint8_t dvc_apply_common_port_fet_state('):
+                  'uint8_t dvc1124_backend_set_fets('):
     production += function(backend, signature) + '\n'
-production += function(feature, 'static uint8_t dvc_ntc_valid(') + '\n'
-production += function(feature, 'static uint16_t dvc_temp(') + '\n'
 production += function(feature, 'uint8_t dvc1124_backend_get_feature_snapshot(') + '\n'
 # 原始采集层不能独立清除公共 NTC 错误；公共保护统一读取两个电池探头和 MOS 探头。
 for signature in ('void DVC1124_App_AFEGet(',

@@ -400,7 +400,7 @@ static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
 }
 
 /* 按共口保护与方向条件应用充放电 FET 状态。 */
-static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
+uint8_t dvc1124_backend_set_fets(uint8_t charge_on,
                                               uint8_t discharge_on)
 {
     uint8_t charge_blocked = dvc_charge_blocked();
@@ -444,7 +444,9 @@ static uint8_t dvc_apply_common_port_fet_state(uint8_t charge_on,
             discharge_mode = DVC1124_FET_DRIVE_ON;
     }
 
-    return dvc_set_fet_modes_if_changed(charge_mode, discharge_mode);
+    if (dvc_set_fet_modes_if_changed(charge_mode, discharge_mode)) return 1u;
+    bms_error_raise(BMS_ERROR_AFE1);
+    return 0u;
 }
 
 /* 采样后发布测量、合并保护并更新 DVC FET 仲裁。 */
@@ -533,15 +535,6 @@ void DVC1124_BmsApp_AFEGet(void)
      */
 }
 
-/* 设置后端充放电 MOS 请求并进行保护仲裁。 */
-uint8_t dvc1124_backend_set_fets(uint8_t charge_on, uint8_t discharge_on)
-{
-    if (dvc_apply_common_port_fet_state(charge_on, discharge_on)) return 1u;
-
-    bms_error_raise(BMS_ERROR_AFE1);
-    return 0u;
-}
-
 /* 设置后端输出授权，禁止绕过公共安全门禁。 */
 void dvc1124_backend_set_output_enabled(uint8_t enabled)
 {
@@ -581,4 +574,90 @@ uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measure
     measurements->current_ma = snapshot.current_ma;
     measurements->sample_tick_32k = snapshot.sample_tick_32k;
     return 1u;
+}
+
+static uint32_t s_balance_request;
+
+/* 把驱动均衡状态转换为公共报告掩码。 */
+static uint32_t dvc_balance_report_mask(void)
+{
+    return ((uint32_t)(g_bms_report.balance_bits_high & 0x00FFu) << 16) |
+           g_bms_report.balance_bits_low;
+}
+
+/* 取得均衡和温度策略需要的后端快照。 */
+uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
+{
+    dvc1124_snapshot_t s;
+    dvc1124_config_t cfg;
+    uint16_t bat1;
+    uint16_t bat2;
+
+    if (out == 0) return 0u;
+    memset(out, 0, sizeof(*out));
+    DVC1124_GetSnapshot(&s);
+    if (!s.valid) return 0u;
+    DVC1124_GetConfig(&cfg);
+
+    out->cell_count = cfg.cell_count;
+
+    /* HS-D008 温度职责：GP1 加热 MOS，GP2/GP3 电池，GP4 功率 MOS。 */
+    if (dvc_configured_ntc_valid(&s, DVC1124_DEFAULT_BATTERY_NTC_GP) &&
+        dvc_configured_ntc_valid(&s, DVC1124_DEFAULT_BATTERY_NTC2_GP))
+    {
+        bat1 = dvc_get_configured_temperature(DVC1124_DEFAULT_BATTERY_NTC_GP);
+        bat2 = dvc_get_configured_temperature(DVC1124_DEFAULT_BATTERY_NTC2_GP);
+        out->battery_temp_valid = 1u;
+        out->battery_temp_min_x10 = (bat1 <= bat2) ? bat1 : bat2;
+        out->battery_temp_max_x10 = (bat1 >= bat2) ? bat1 : bat2;
+    }
+
+    if (dvc_configured_ntc_valid(&s, DVC1124_DEFAULT_HEATER_NTC_GP))
+    {
+        out->heater_temp_valid = 1u;
+        out->heater_temp_x10 = dvc_get_configured_temperature(DVC1124_DEFAULT_HEATER_NTC_GP);
+    }
+
+    if (dvc_configured_ntc_valid(&s, DVC1124_DEFAULT_MOS_NTC_GP))
+    {
+        out->mos_temp_valid = 1u;
+        out->mos_temp_x10 = dvc_get_configured_temperature(DVC1124_DEFAULT_MOS_NTC_GP);
+    }
+    return 1u;
+}
+
+/* 返回后端可确认的充电源存在状态。 */
+uint8_t dvc1124_backend_get_charge_source_present(uint8_t *present)
+{
+    /*
+     * 尚无批准的充电器存在信号。PB1 是负载检测；独立产品策略确认前，
+     * 板级回退也返回不存在。
+     */
+    if (present != 0) *present = 0u;
+    return 0u;
+}
+
+/* 设置有效通道范围内的后端均衡掩码。 */
+uint8_t dvc1124_backend_set_balance_mask(uint32_t cell_mask)
+{
+    uint32_t valid_mask;
+    uint32_t actual;
+    dvc1124_config_t cfg;
+
+    DVC1124_GetConfig(&cfg);
+    valid_mask = (cfg.cell_count >= 24u) ? 0x00FFFFFFu : ((1uL << cfg.cell_count) - 1uL);
+    cell_mask &= valid_mask;
+    actual = dvc_balance_report_mask() & valid_mask;
+    /* 任一通道与请求不符就重发，包括残留非零位和部分通道提前关闭。 */
+    if (cell_mask != s_balance_request || actual != cell_mask) {
+        if (!DVC1124_SetBalanceMask(cell_mask)) return 0u;
+        s_balance_request = cell_mask;
+    }
+    return DVC1124_BalanceService(cell_mask ? 1u : 0u);
+}
+
+/* 取得后端缓存或回读的均衡状态掩码。 */
+uint8_t dvc1124_backend_get_balance_mask(uint32_t *cell_mask)
+{
+    return DVC1124_GetBalanceMask(cell_mask);
 }

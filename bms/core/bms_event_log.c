@@ -245,7 +245,7 @@ int bms_event_log_note_sleep(void)
 {
     if (!bms_event_log_init()) return 0;
     bms_event_log_advance_time();
-    /* 保存失败的同一次尝试不重复追加；物理转换中止由 cancel_sleep 结束。 */
+    /* 保存失败的同一次尝试不重复追加；已提交的保护性休眠不再取消。 */
     if (!g_bms_event_log.event_latched[BMS_SLEEP]) {
         bms_event_log_append(BMS_SLEEP);
         g_bms_event_log.event_latched[BMS_SLEEP] = 1u;
@@ -289,12 +289,6 @@ u16 bms_event_log_read_reg(u16 reg)
     if (idx >= BMS_EVENT_LOG_ENTRY_COUNT) idx = (u16)(idx - BMS_EVENT_LOG_ENTRY_COUNT);
     return (u16)(((u16)g_bms_event_log.records[idx][0] << 8) |
                  g_bms_event_log.records[idx][1]);
-}
-
-/* 结束未真正进入 PM 的尝试；已保存的记录仍表示进入休眠的尝试。 */
-void bms_event_log_cancel_sleep(void)
-{
-    g_bms_event_log.event_latched[BMS_SLEEP] = 0u;
 }
 
 /* 读取历史事件的重复次数信息。 */

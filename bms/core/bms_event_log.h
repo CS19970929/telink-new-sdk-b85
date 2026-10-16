@@ -58,8 +58,6 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample);
 u16 bms_event_log_read_repeat(u16 reg);
 /* 读取历史事件窗口中的一个协议寄存器。 */
 u16 bms_event_log_read_reg(u16 reg);
-/* PM/shutdown 转换中止后允许下一次尝试追加记录。 */
-void bms_event_log_cancel_sleep(void);
 
 #ifdef __cplusplus
 }
