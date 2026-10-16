@@ -68,9 +68,7 @@ static uint8_t s_i2c_raw[DVC_I2C_RAW_MAX];
 static uint8_t s_bus_initialized;
 static uint8_t s_need_config = 1u;
 static uint8_t s_output_enabled;
-static uint32_t s_balance_requested_mask;
 static uint32_t s_balance_last_refresh_tick;
-static uint8_t s_balance_suspended;
 /* DS V1.1 p13：CC2 256ms，VADC最长223ms；512ms是项目活性上限。 */
 #define DVC_ADC_MAX_AGE_TICKS (512u * 32u)
 #define DVC_NTC_VALID_SAMPLES 3u
@@ -1233,49 +1231,31 @@ static uint8_t dvc_write_balance_hw(uint32_t cell_mask)
     return dvc_refresh_balance_state();
 }
 
-/* 设置 DVC 均衡请求掩码并同步硬件。 */
-uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask)
+/* 请求由公共策略拥有；驱动只保存成功续期时间和实际回读。
+ * 同样请求无需镜像缓存，回读不符或到期才写，OFF 也须成功确认。 */
+uint8_t dvc1124_backend_set_balance_mask(uint32_t cell_mask)
 {
-    s_balance_requested_mask = cell_mask & dvc_valid_cell_mask();
-    if (s_balance_requested_mask == 0u)
-    {
-        s_balance_suspended = 0u;
-        s_balance_last_refresh_tick = clock_time();
-        return dvc_write_balance_hw(0u);
-    }
-
-    /*
-     * 非零请求只表示待授权，不立即通电；
-     * 仅在充电和故障条件允许时由 BMS 服务应用或续期。
-     */
-    s_balance_suspended = 1u;
-    return dvc_refresh_balance_state();
-}
-
-/* 推进均衡服务并刷新通道状态。 */
-uint8_t DVC1124_BalanceService(uint8_t allow_refresh)
-{
-    if (s_balance_requested_mask == 0u)
-        return dvc_refresh_balance_state();
-    if (!allow_refresh) {
-        if (!s_balance_suspended) {
-            if (!dvc_write_balance_hw(0u)) return 0u;
-            s_balance_suspended = 1u;
-        }
-        return dvc_refresh_balance_state();
-    }
-    if (s_balance_suspended ||
-        clock_time_exceed(s_balance_last_refresh_tick, DVC_BALANCE_REFRESH_INTERVAL_US)) {
-        if (!dvc_write_balance_hw(s_balance_requested_mask)) return 0u;
-        s_balance_suspended = 0u;
+    uint32_t actual;
+    cell_mask &= dvc_valid_cell_mask();
+    if (!dvc_refresh_balance_state()) {
+        /* 读失败不能阻止尝试关闭；非零请求则禁止凭缓存通电。 */
+        if (cell_mask || !dvc_write_balance_hw(0u)) return 0u;
         s_balance_last_refresh_tick = clock_time();
         return 1u;
     }
-    return dvc_refresh_balance_state();
+    actual = ((uint32_t)g_bms_report.balance_bits_high << 16) |
+             g_bms_report.balance_bits_low;
+    if (actual != cell_mask ||
+        (cell_mask && clock_time_exceed(s_balance_last_refresh_tick,
+                                       DVC_BALANCE_REFRESH_INTERVAL_US))) {
+        if (!dvc_write_balance_hw(cell_mask)) return 0u;
+        s_balance_last_refresh_tick = clock_time();
+    }
+    return 1u;
 }
 
 /* 只有成功回读才能向调用者提供有效均衡状态。 */
-uint8_t DVC1124_GetBalanceMask(uint32_t *cell_mask)
+uint8_t dvc1124_backend_get_balance_mask(uint32_t *cell_mask)
 {
     if (cell_mask == 0 || !dvc_refresh_balance_state()) return 0u;
     *cell_mask = ((uint32_t)g_bms_report.balance_bits_high << 16) |
@@ -1337,8 +1317,6 @@ void DVC1124_AFE_Reset(void)
     memset(&s_snapshot, 0, sizeof(s_snapshot));
     memset(&s_boot_zero, 0, sizeof(s_boot_zero));
     memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
-    s_balance_requested_mask = 0u;
-    s_balance_suspended = 0u;
     s_balance_last_refresh_tick = clock_time();
     s_pending_adc_events = 0u;
     s_voltage_seen = s_current_seen = s_sample_pending = 0u;

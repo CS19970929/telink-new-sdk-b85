@@ -570,15 +570,6 @@ uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measure
     return 1u;
 }
 
-static uint32_t s_balance_request;
-
-/* 把驱动均衡状态转换为公共报告掩码。 */
-static uint32_t dvc_balance_report_mask(void)
-{
-    return ((uint32_t)(g_bms_report.balance_bits_high & 0x00FFu) << 16) |
-           g_bms_report.balance_bits_low;
-}
-
 /* 取得均衡和温度策略需要的后端快照。 */
 uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
@@ -629,29 +620,4 @@ uint8_t dvc1124_backend_get_charge_source_present(uint8_t *present)
      */
     if (present != 0) *present = 0u;
     return 0u;
-}
-
-/* 设置有效通道范围内的后端均衡掩码。 */
-uint8_t dvc1124_backend_set_balance_mask(uint32_t cell_mask)
-{
-    uint32_t valid_mask;
-    uint32_t actual;
-    dvc1124_config_t cfg;
-
-    DVC1124_GetConfig(&cfg);
-    valid_mask = (cfg.cell_count >= 24u) ? 0x00FFFFFFu : ((1uL << cfg.cell_count) - 1uL);
-    cell_mask &= valid_mask;
-    actual = dvc_balance_report_mask() & valid_mask;
-    /* 任一通道与请求不符就重发，包括残留非零位和部分通道提前关闭。 */
-    if (cell_mask != s_balance_request || actual != cell_mask) {
-        if (!DVC1124_SetBalanceMask(cell_mask)) return 0u;
-        s_balance_request = cell_mask;
-    }
-    return DVC1124_BalanceService(cell_mask ? 1u : 0u);
-}
-
-/* 取得后端缓存或回读的均衡状态掩码。 */
-uint8_t dvc1124_backend_get_balance_mask(uint32_t *cell_mask)
-{
-    return DVC1124_GetBalanceMask(cell_mask);
 }

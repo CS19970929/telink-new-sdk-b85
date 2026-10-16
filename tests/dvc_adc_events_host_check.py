@@ -132,65 +132,51 @@ int main(void){
 out=run_c(code,flags=['-DBMS_SERVICE_DIAG_ENABLE=1'],name='dvc-adc-events')
 evidence({'domain':'adc_events','trace':out.strip(),'boundary':'实际CRC/ReadRegisters/App_AFEGet函数体；I2C peer非芯片仿真，外围换算替身；512ms为项目活性约束'})
 
-# 均衡命令失败必须返回失败；只验证寄存器服务结果，不代替物理均衡电流。
+# 同一真实事务验证回读、命令失败、续期、OFF、有效串和tick回绕。
 balance_fixture = r'''
 #include <stdint.h>
 #include <assert.h>
 #define DVC_BALANCE_REFRESH_INTERVAL_US 100u
-static uint32_t s_balance_requested_mask=5u,s_balance_last_refresh_tick;
-static uint8_t s_balance_suspended=1u;
-static int read_ok=1,write_ok=0;
-static uint8_t dvc_refresh_balance_state(void){return read_ok;}
-static uint8_t dvc_write_balance_hw(uint32_t mask){(void)mask;return write_ok;}
-static unsigned clock_time(void){return 200u;}
-static int clock_time_exceed(unsigned tick,unsigned us){return 200u-tick>us;}
+static uint32_t s_balance_last_refresh_tick,now,hw;
+static struct {uint16_t balance_bits_low,balance_bits_high;} g_bms_report;
+static unsigned writes,reads;
+static uint8_t cells=24,read_ok=1,write_ok=1;
+static uint32_t dvc_valid_cell_mask(void){return (1u<<cells)-1u;}
+static uint8_t dvc_refresh_balance_state(void){
+ ++reads;if(!read_ok)return 0;
+ g_bms_report.balance_bits_low=(uint16_t)(hw&dvc_valid_cell_mask());
+ g_bms_report.balance_bits_high=(uint16_t)((hw&dvc_valid_cell_mask())>>16);return 1;
+}
+static uint8_t dvc_write_balance_hw(uint32_t mask){++writes;if(!write_ok)return 0;hw=mask;return dvc_refresh_balance_state();}
+static uint32_t clock_time(void){return now;}
+static int clock_time_exceed(uint32_t tick,uint32_t us){return (uint32_t)(now-tick)>us;}
 '''
-balance_fixture += function(s,'uint8_t DVC1124_BalanceService(')
+balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'uint8_t dvc1124_backend_set_balance_mask(')
+balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'uint8_t dvc1124_backend_get_balance_mask(')
 balance_fixture += r'''
 int main(void){
- assert(!DVC1124_BalanceService(1) && s_balance_suspended);
- write_ok=1;assert(DVC1124_BalanceService(1) && !s_balance_suspended);
- write_ok=0;assert(!DVC1124_BalanceService(0) && !s_balance_suspended);
- write_ok=1;assert(DVC1124_BalanceService(0) && s_balance_suspended);
- read_ok=0;assert(!DVC1124_BalanceService(0));
- s_balance_requested_mask=0;assert(!DVC1124_BalanceService(1));
+ uint32_t mask=123u;
+ assert(!dvc1124_backend_get_balance_mask(0)&&reads==0);
+ assert(dvc1124_backend_set_balance_mask(0)&&writes==0);
+ now=5;assert(dvc1124_backend_set_balance_mask(0x810001u)&&writes==1);
+ assert(dvc1124_backend_get_balance_mask(&mask)&&mask==0x810001u);
+ assert(dvc1124_backend_set_balance_mask(mask)&&writes==1);
+ hw=0x010001u;assert(dvc1124_backend_set_balance_mask(mask)&&writes==2); /* 缺位 */
+ now+=100;assert(dvc1124_backend_set_balance_mask(mask)&&writes==2); /* 原严格 > */
+ now++;assert(dvc1124_backend_set_balance_mask(mask)&&writes==3); /* 到期 */
+ write_ok=0;assert(!dvc1124_backend_set_balance_mask(0)&&hw==mask);
+ assert(s_balance_last_refresh_tick==now);
+ write_ok=1;assert(dvc1124_backend_set_balance_mask(0)&&!hw&&writes==5);
+ hw=2;assert(dvc1124_backend_set_balance_mask(0)&&!hw&&writes==6); /* OFF残留 */
+ read_ok=0;mask=123;assert(!dvc1124_backend_set_balance_mask(1)&&writes==6);
+ assert(!dvc1124_backend_get_balance_mask(&mask)&&mask==123);
+ hw=2;assert(!dvc1124_backend_set_balance_mask(0)&&!hw&&writes==7); /* 读失败仍尝试OFF，失败不确认 */
+ read_ok=1;cells=16;assert(dvc1124_backend_set_balance_mask(0xff010001u)&&hw==1u);
+ now=UINT32_MAX-50u;hw=0;assert(dvc1124_backend_set_balance_mask(5));
+ now=49;assert(dvc1124_backend_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
+ now=50;write_ok=0;assert(!dvc1124_backend_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
+ write_ok=1;assert(dvc1124_backend_set_balance_mask(5)&&s_balance_last_refresh_tick==50);
  return 0;
 }
 '''
-run_c(balance_fixture,name='dvc-balance-failures')
-
-# 后端请求缓存相同但回读缺位/多位时，仍需重发，不能等到续期才纠正。
-backend = read('bms/afe/dvc1124/dvc1124_bms.c')
-backend_fixture = r'''
-#include <stdint.h>
-#include <assert.h>
-typedef struct { uint8_t cell_count; } dvc1124_config_t;
-static struct { uint16_t balance_bits_low, balance_bits_high; } g_bms_report;
-static uint32_t s_balance_request;
-static unsigned writes;
-static int write_ok=1;
-static void DVC1124_GetConfig(dvc1124_config_t *cfg){cfg->cell_count=24;}
-static uint8_t DVC1124_SetBalanceMask(uint32_t mask){
-    ++writes;if(!write_ok)return 0;
-    g_bms_report.balance_bits_low=(uint16_t)mask;
-    g_bms_report.balance_bits_high=(uint16_t)(mask>>16);return 1;
-}
-static uint8_t DVC1124_BalanceService(uint8_t allow){(void)allow;return 1;}
-'''
-backend_fixture += function(backend,'static uint32_t dvc_balance_report_mask(')
-backend_fixture += function(backend,'uint8_t dvc1124_backend_set_balance_mask(')
-backend_fixture += r'''
-int main(void){
- assert(dvc1124_backend_set_balance_mask(0x810001u) && writes==1);
- assert(dvc1124_backend_set_balance_mask(0x810001u) && writes==1);
- g_bms_report.balance_bits_high=1; /* 第24串异常关闭，其余仍开启。 */
- assert(dvc1124_backend_set_balance_mask(0x810001u) && writes==2);
- assert(dvc1124_backend_set_balance_mask(0u) && writes==3);
- g_bms_report.balance_bits_low=2; /* OFF 请求相同，但硬件残留通道。 */
- assert(dvc1124_backend_set_balance_mask(0u) && writes==4 && !g_bms_report.balance_bits_low);
- write_ok=0;assert(!dvc1124_backend_set_balance_mask(1u) && !s_balance_request);
- write_ok=1;assert(dvc1124_backend_set_balance_mask(1u) && s_balance_request==1u);
- return 0;
-}
-'''
-run_c(backend_fixture,name='dvc-balance-readback-mismatch')
+run_c(balance_fixture,name='dvc-balance-transaction')

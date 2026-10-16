@@ -57,7 +57,7 @@ def check_d008_20s_profile_contract_check():
 
     # Balancing is armed by request and renewed below the ~60s hardware auto-clear.
     assert '#define DVC_BALANCE_REFRESH_INTERVAL_US 45000000u' in dvc
-    assert 'DVC1124_BalanceService' in dvc
+    assert 'dvc1124_backend_set_balance_mask' in dvc
 
     print('D008 20S/product safety completion contract: PASS')
 
@@ -355,7 +355,7 @@ def check_d008_framework_contract_check():
             self.assertIn("apply_balance_mask(0u)", self.features)
             self.assertIn("balance_voltage_trusted", self.features)
             self.assertNotIn("cell_delta_first_mv", self.features)
-            self.assertIn("DVC1124_BalanceService", self.dvc)
+            self.assertIn("dvc1124_backend_set_balance_mask", self.dvc)
 
         def test_source_order_still_contains_backend_lifecycle_unit(self):
             order = (ROOT / "bms/products/d008/sources.txt").read_text(encoding="utf-8")

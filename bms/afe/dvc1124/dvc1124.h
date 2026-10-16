@@ -138,12 +138,6 @@ uint8_t DVC1124_GetWriteAddress(void);
 uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len);
 /* 校验范围后写入 DVC 寄存器。 */
 uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len);
-/* 设置 DVC 输出授权并同步 MOS 控制。 */
-/* 设置 DVC 均衡请求掩码并同步硬件。 */
-uint8_t DVC1124_SetBalanceMask(uint32_t cell_mask);
-/* 推进均衡服务并刷新通道状态。 */
-uint8_t DVC1124_BalanceService(uint8_t allow_refresh);
-uint8_t DVC1124_GetBalanceMask(uint32_t *cell_mask);
 /* 校验并设置核心过温阈值编码。 */
 uint8_t DVC1124_SetCoreOtThresholdCode(uint8_t threshold_code);
 /* 读取核心过温事件锁存状态。 */
