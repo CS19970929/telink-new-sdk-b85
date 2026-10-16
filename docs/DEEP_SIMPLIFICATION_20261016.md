@@ -48,13 +48,20 @@ SH 三产品数据来自 clean 原始起点，资源比较须标明这一证据�
 |---|---|---|---:|---:|---|
 | 0 | `06dd68b8` | 验证入口、诊断夹具及工程 profile | 0 | 0 | 原失败项针对性复测、55 项工具单测；六配置 ELF/MAP |
 | 1 | `caba4286` | DVC 功能并入后端、删除转发和无入口休眠取消 | 5 | 0 | 12 组相关检查及修复后两项 contract；四产品源码/生产链接和资源 |
-| 1 补充 | 本提交 | D008 恢复夹具改用合并后的公开 FET 事务 | 0 | 0 | `d008_recovery_host_check` 的 HW=0/1 及电压恢复通过 |
+| 1 补充 | `d9468667` | D008 恢复夹具改用合并后的公开 FET 事务 | 0 | 0 | `d008_recovery_host_check` 的 HW=0/1 及电压恢复通过 |
+| 2 | 本提交 | SH NTC 有效性与加热命令状态去重 | 0 | 2 项 | 15 组 feature/SH/温度检查；四产品源码、生产 ELF/MAP 和资源 |
 
 第 1 轮删除 `dvc1124_feature_backend.c`，温度角色和有效性共用后端现有实现，
 删除 `dvc_ntc_valid`、`dvc_temp`；共口 MOS 事务直接作为 `dvc1124_backend_set_fets`，
 删除 `dvc_apply_common_port_fet_state` 转发层。删除 `storage_record::read_bytes` 的纯转发，
 存储读错误仍由原调用方处理。已提交保护性休眠没有取消入口，删除无生产消费者的
 `bms_event_log_cancel_sleep`，重复休眠仍只记录一次；持久重复次数和 payload 不变。
+
+第 2 轮删除 `s_ntc_valid[4]`：原转换范围为 500..300000 Ω，0 从不代表有效值，
+因此有效性直接由经过范围校验的 `s_ntc_ohm[]` 得到；-40°C 的温度编码 0 不参与判断。
+删除 `s_feature.heater_on`，唯一成功设置入口仍是 `set_heater()`，读取其已经发布的
+`g_bms_system_status.bits.heater_status`。删除两项存储（四元素数组加一个字节字段），
+不是移动到新结构。实际 RAM 差值以最终 MAP 为准。
 
 本报告随实现逐轮补充。软件验证不代替实板 MOS Gate、保护波形、低功耗电流、
 唤醒、Flash 掉电和客户 OTA 验收。本轮不生成正式 BIN、不烧录、不执行 OTA。

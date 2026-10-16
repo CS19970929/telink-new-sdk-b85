@@ -139,7 +139,7 @@ def check_sh3673510_board_host_check():
     ''' + board + r'''
     #define MOS_TEMP1 3
     static struct {uint16_t temperature_x10[4];} g_bms_report;
-    static uint8_t s_ntc_valid[4];
+    static uint32_t s_ntc_ohm[4];
     static uint8_t s_sample_pending, s_charger_removed, s_load_removed;
     static uint8_t sh3510_fresh_charging(void){return 0;}
     static uint8_t sh3510_fresh_discharging(void){return 0;}
@@ -158,7 +158,7 @@ def check_sh3673510_board_host_check():
      assert(input[GPIO_PD3]==1 && output[GPIO_PD3]==0);
      assert(SH3673510_BOARD_MOS_NTC_INDEX==3u);
      for(int valid=0;valid<=1;++valid){
-      s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX]=valid;
+      s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX]=valid?10000u:0u;
       g_bms_report.temperature_x10[MOS_TEMP1]=1350;
       bms_sw_protection_inputs_t in=sample();
       assert(in.battery_temp_valid && in.battery_temp_min==650);

@@ -27,7 +27,6 @@ typedef enum {
 #if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
 typedef struct {
 #if BMS_FEATURE_HEATER_SUPPORTED
-    uint8_t heater_on;
     uint8_t heater_fuse_fired;
     bms_heater_state_t heater_state;
     uint16_t heater_off_hot_samples;
@@ -66,7 +65,6 @@ static void set_heater(uint8_t on)
 {
     on = (on && bms_board_heater_supported()) ? 1u : 0u;
     bms_board_heater_set(on);
-    s_feature.heater_on = on;
     g_bms_system_status.bits.heater_status = on;
 }
 
@@ -144,7 +142,7 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
         return 1u;
     }
 
-    if (s_feature.heater_on)
+    if (g_bms_system_status.bits.heater_status)
     {
         s_feature.heater_off_hot_samples = 0u;
         set_heater(0u);
@@ -571,7 +569,6 @@ void bms_features_init(void)
 {
     /* AFE 重初始化只撤销运行资格；保留熔断、温度暂停和未确认关闭状态。 */
 #if BMS_FEATURE_HEATER_SUPPORTED
-    s_feature.heater_on = 0u;
     /* 不可逆动作在本次 MCU 启动中锁存，AFE 重初始化不能重新授权。 */
     s_feature.heater_state = BMS_HEATER_IDLE;
     s_feature.heater_off_hot_samples = 0u;

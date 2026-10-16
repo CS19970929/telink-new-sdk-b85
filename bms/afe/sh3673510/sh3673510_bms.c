@@ -51,8 +51,8 @@ typedef enum {
 } sh3510_hw_recovery_id_t;
 
 static bms_afe_aux_measurements_t s_aux;
+/* 只有 500..300000 ohm 的有效测量才写入；0 唯一表示无效，不另存有效性副本。 */
 static uint32_t s_ntc_ohm[4];
-static uint8_t s_ntc_valid[4];
 static uint8_t s_output_enabled;
 static uint8_t s_snapshot_valid;
 static uint8_t s_hw_afe_error;
@@ -202,8 +202,8 @@ static uint8_t battery_temperature_snapshot(uint16_t *bat_min,
     uint16_t t1;
     uint16_t t2;
     if (bat_min == 0 || bat_max == 0) return 0u;
-    if (!s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] ||
-        !s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX]) return 0u;
+    if (!(s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] != 0u) ||
+        !(s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] != 0u)) return 0u;
     t1 = g_bms_report.temperature_x10[AFE1_TEMP1];
     t2 = g_bms_report.temperature_x10[AFE1_TEMP2];
     *bat_min = (t1 < t2) ? t1 : t2;
@@ -696,26 +696,25 @@ static void sh3510_publish_temperatures(const int32_t *external_raw)
     uint16_t bat_temp_min = 0u, bat_temp_max = 0u;
     uint8_t i;
     s_mos_ntc_raw = (int16_t)external_raw[SH3673510_BOARD_MOS_NTC_INDEX];
-    memset(s_ntc_valid, 0, sizeof(s_ntc_valid));
     memset(s_ntc_ohm, 0, sizeof(s_ntc_ohm));
     for (i = 0u; i < 4u; ++i) {
         uint32_t r;
         if (SH3673520_NtcRawToOhm(external_raw[i], &r) == SH3673520_OK &&
-            r >= 500u && r <= 300000u) { s_ntc_valid[i] = 1u; s_ntc_ohm[i] = r; }
+            r >= 500u && r <= 300000u) { s_ntc_ohm[i] = r; }
     }
     g_bms_report.temperature_x10[AFE1_TEMP1] =
-        s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX]) : 0u;
+        (s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] != 0u) ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX]) : 0u;
     g_bms_report.temperature_x10[AFE1_TEMP2] =
-        s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) : 0u;
+        (s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] != 0u) ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) : 0u;
 #if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
     g_bms_report.temperature_x10[AFE1_TEMP3] =
-        s_ntc_valid[SH3673510_BOARD_HEATER_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_HEATER_NTC_INDEX]) : 0u;
+        (s_ntc_ohm[SH3673510_BOARD_HEATER_NTC_INDEX] != 0u) ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_HEATER_NTC_INDEX]) : 0u;
 #else
     g_bms_report.temperature_x10[AFE1_TEMP3] = 0u;
 #endif
 #if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
     g_bms_report.temperature_x10[MOS_TEMP1] =
-        s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX]) : 0u;
+        (s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] != 0u) ? ntc_temp(s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX]) : 0u;
 #else
     g_bms_report.temperature_x10[MOS_TEMP1] = 0u;
 #endif
@@ -735,18 +734,18 @@ static void sh3510_publish_temperatures(const int32_t *external_raw)
     /* 报告温度只由本次 AFE 采样发布，应用层不再二次查表覆盖。 */
     g_bms_report.temperature_x10[ENV_TEMP3] = g_bms_report.temperature_max_x10;
 
-    if (s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX] &&
-        s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX])
+    if ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] != 0u) &&
+        (s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] != 0u))
         s_aux.battery_ntc_100ohm =
             ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] < s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) ?
              s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] : s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) / 100u;
-    else if (s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX])
+    else if ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] != 0u))
         s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] / 100u;
-    else if (s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX])
+    else if ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] != 0u))
         s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] / 100u;
     else s_aux.battery_ntc_100ohm = 0u;
 #if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
-    s_aux.mos_ntc_100ohm = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ?
+    s_aux.mos_ntc_100ohm = (s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] != 0u) ?
         s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] / 100u : 0u;
 #else
     s_aux.mos_ntc_100ohm = 0u;
@@ -770,7 +769,7 @@ static uint8_t sh3510_update_protection(const sh3673510_control_status_t *status
     sw.battery_temp_valid = battery_temperature_snapshot(&sw.battery_temp_min,
                                                           &sw.battery_temp_max);
 #if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
-    sw.mos_temp_valid = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX] ? 1u : 0u;
+    sw.mos_temp_valid = (s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] != 0u) ? 1u : 0u;
     if (sw.mos_temp_valid)
         sw.mos_temp = g_bms_report.temperature_x10[MOS_TEMP1];
 #else
@@ -988,11 +987,11 @@ uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
     out->battery_temp_valid = battery_temperature_snapshot(&out->battery_temp_min_x10,
                                                             &out->battery_temp_max_x10);
 #if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
-    out->heater_temp_valid = s_ntc_valid[SH3673510_BOARD_HEATER_NTC_INDEX];
+    out->heater_temp_valid = (s_ntc_ohm[SH3673510_BOARD_HEATER_NTC_INDEX] != 0u);
     out->heater_temp_x10 = g_bms_report.temperature_x10[AFE1_TEMP3];
 #endif
 #if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
-    out->mos_temp_valid = s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX];
+    out->mos_temp_valid = (s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] != 0u);
     out->mos_temp_x10 = g_bms_report.temperature_x10[MOS_TEMP1];
 #endif
     return 1u;
@@ -1063,13 +1062,13 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
     if (bms_error_get(BMS_ERROR_TEMP_BREAK)) detail->backend_state |= DIAG_SH_TEMP_BREAK;
     if (bms_error_get(BMS_ERROR_AFE1)) detail->backend_state |= DIAG_SH_AFE_ERROR;
     if (bms_error_get(BMS_ERROR_SPI)) detail->backend_state |= DIAG_SH_SPI_ERROR;
-    if (s_ntc_valid[SH3673510_BOARD_BAT_NTC1_INDEX])
+    if ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] != 0u))
         detail->sensor_state |= DIAG_SH_TS1_VALID;
-    if (s_ntc_valid[SH3673510_BOARD_BAT_NTC2_INDEX])
+    if ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] != 0u))
         detail->sensor_state |= DIAG_SH_TS2_VALID;
 #if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
     detail->sensor_state |= DIAG_SH_MOS_NTC_SUPPORTED;
-    if (s_ntc_valid[SH3673510_BOARD_MOS_NTC_INDEX])
+    if ((s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] != 0u))
         detail->sensor_state |= DIAG_SH_MOS_NTC_VALID;
 #endif
 
