@@ -37,6 +37,9 @@
 
 #define BTNAME_SUFFIX_MAX_LEN   (BTNAME_TOTAL_MAX_LEN - BTNAME_PREFIX_LEN)
 
+/* 平台实现：应用已校验名称到广播与设备名，不访问持久参数。 */
+void btname_platform_apply(const char *name);
+
 /* 加载名称后缀并构造应用 BLE 名称。 */
 void btname_init(void);
 /* 取得当前 BLE 名称及其长度信息。 */

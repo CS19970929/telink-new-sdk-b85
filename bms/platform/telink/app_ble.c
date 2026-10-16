@@ -39,6 +39,34 @@
 #include "bms_storage_platform.h"
 #include "bms_parameters.h"
 #include <string.h>
+#include "btname_modbus.h"
+
+extern u8 my_devName[BTNAME_TOTAL_MAX_LEN];
+
+/* 名称应用是平台 BLE 事务；Core 只校验和提交名称。 */
+void btname_platform_apply(const char *name)
+{
+    uint8_t scanrsp[31];
+    uint8_t j = 0;
+    uint8_t nlen = 0;
+
+    bls_ll_setAdvEnable(0);
+
+    while (nlen < BTNAME_TOTAL_MAX_LEN && name[nlen] != '\0') nlen++;
+
+    scanrsp[j++] = (uint8_t)(1u + nlen);
+    scanrsp[j++] = 0x09;
+    memcpy(&scanrsp[j], name, nlen);
+    j += nlen;
+
+    bls_ll_setScanRspData(scanrsp, j);
+    memcpy(my_devName, name, nlen);
+    if (nlen < BTNAME_TOTAL_MAX_LEN) {
+        my_devName[nlen] = '\0';
+    }
+
+    bls_ll_setAdvEnable(1);
+}
 
 static void task_connect(u8 e, u8 *p, int n);
 static void task_terminate(u8 e, u8 *p, int n);

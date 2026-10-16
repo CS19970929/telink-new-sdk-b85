@@ -24,6 +24,8 @@ def run(source, defines=()):
 def name_test():
     source = (ROOT / 'bms/core/btname_modbus.c').read_text(encoding='utf-8')
     source = re.sub(r'^#include[^\n]*', '', source, flags=re.M)
+    platform = function((ROOT / 'bms/platform/telink/app_ble.c').read_text(encoding='utf-8'),
+                        'void btname_platform_apply(')
     header = (ROOT / 'bms/core/btname_modbus.h').read_text(encoding='utf-8')
     prefix = r'''
 #include <assert.h>
@@ -68,7 +70,7 @@ int main(void){
 }
 '''
     for backend in (1, 2):
-        run(header + prefix + source + tail, [f'-DBMS_AFE_BACKEND={backend}'])
+        run(header + prefix + platform + source + tail, [f'-DBMS_AFE_BACKEND={backend}'])
 
 
 def filter_test():

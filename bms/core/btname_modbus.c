@@ -8,9 +8,6 @@
 #include "bms_error.h"
 #include "bms_config_store.h"
 #include <string.h>
-#include "tl_common.h"
-#include "drivers.h"
-#include "stack/ble/ble.h"
 
 /* Vendor common/string.h 提供 memcpy，但无有界字符串 API。 */
 /* 在指定长度内比较名称字符串。 */
@@ -35,33 +32,6 @@ static char *m_strncpy(char *dst, const char *src, unsigned n)
 }
 
 static char g_name[BTNAME_TOTAL_MAX_LEN + 1] = BTNAME_PREFIX "DEFAULT";
-
-extern u8 my_devName[BTNAME_TOTAL_MAX_LEN];
-
-/* 将当前名称更新到 BLE 广播相关数据。 */
-static void btname_ble_apply(const char *name)
-{
-    uint8_t scanrsp[31];
-    uint8_t j = 0;
-    uint8_t nlen = 0;
-
-    bls_ll_setAdvEnable(0);
-
-    while (nlen < BTNAME_TOTAL_MAX_LEN && name[nlen] != '\0') nlen++;
-
-    scanrsp[j++] = (uint8_t)(1u + nlen);
-    scanrsp[j++] = 0x09;
-    memcpy(&scanrsp[j], name, nlen);
-    j += nlen;
-
-    bls_ll_setScanRspData(scanrsp, j);
-    memcpy(my_devName, name, nlen);
-    if (nlen < BTNAME_TOTAL_MAX_LEN) {
-        my_devName[nlen] = '\0';
-    }
-
-    bls_ll_setAdvEnable(1);
-}
 
 /* 将产品前缀与合法后缀组合成完整 BLE 名称。 */
 static void build_full_name_from_suffix(const char *suffix, char out[BTNAME_TOTAL_MAX_LEN + 1])
@@ -119,7 +89,7 @@ void btname_init(void)
     }
 
     build_full_name_from_suffix(suffix, g_name);
-    btname_ble_apply(g_name);
+    btname_platform_apply(g_name);
 }
 
 /* 取得当前 BLE 名称及其长度信息。 */
@@ -170,6 +140,6 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
 
     m_strncpy(g_name, new_full, BTNAME_TOTAL_MAX_LEN);
     g_name[BTNAME_TOTAL_MAX_LEN] = '\0';
-    btname_ble_apply(g_name);
+    btname_platform_apply(g_name);
     return 1;
 }
