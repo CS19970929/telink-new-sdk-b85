@@ -1498,15 +1498,19 @@ static void dvc_publish_temperature_measurement(const uint8_t *data)
     {
         uint16_t tmax = 0u;
         uint16_t tmin = 0xFFFFu;
+        uint8_t have_valid = 0u;
         for (i = 0u; i < 5u; ++i)
         {
             uint16_t t = g_bms_report.temperature_x10[i];
-            if (t == 0u) continue;
+            /* 温度编码 0 也可能是有效 -40℃；NTC 资格取电阻，芯片温度取原始转换码。 */
+            if (i < 4u && s_snapshot.ntc_res_ohm[i] == 0u) continue;
+            if (i == 4u && dvc_be16(&data[DVC1124_REG_VCT_H]) == 0u) continue;
             if (t > tmax) tmax = t;
             if (t < tmin) tmin = t;
+            have_valid = 1u;
         }
-        g_bms_report.temperature_max_x10 = tmax;
-        g_bms_report.temperature_min_x10 = (tmin == 0xFFFFu) ? 0u : tmin;
+        g_bms_report.temperature_max_x10 = have_valid ? tmax : 0u;
+        g_bms_report.temperature_min_x10 = have_valid ? tmin : 0u;
     }
 }
 

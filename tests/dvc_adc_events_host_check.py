@@ -44,7 +44,8 @@ static int32_t bms_config_calibrate_current(int32_t x){return x;}
 static void dvc_publish_current_report(int32_t x){(void)x;}
 static uint16_t dvc_correct_cell_mv(uint16_t x,uint32_t cm){(void)cm;return x;}
 static uint8_t dvc_ntc_resistance(uint16_t gp,uint16_t v,uint16_t rpu,uint32_t*r){(void)gp;(void)v;(void)rpu;*r=10000;return 1;}
-static uint16_t dvc_ntc_temp_report(uint32_t r){(void)r;return 650;}
+static uint16_t ntc_encoded_temp=650u;
+static uint16_t dvc_ntc_temp_report(uint32_t r){(void)r;return ntc_encoded_temp;}
 static void bms_error_raise(uint32_t x){(void)x;}
 void bms_afe_publish_fet_status(uint8_t x,uint8_t y){(void)x;(void)y;}
 void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
@@ -122,6 +123,14 @@ int main(void){
  }
  reset();g_bms_report.balance_bits_low=5;balance_read_ok=0;acquire(100,0x50);
  assert(g_bms_report.balance_bits_low==5);balance_read_ok=1;
+ /* 编码0可代表有效 -40.0C，不应被全局温度极值汇总跳过。 */
+ reset();ntc_encoded_temp=0u;
+ registers[DVC1124_REG_VCT_H]=0x03u;
+ registers[DVC1124_REG_VCT_H+1]=0xe8u; /* 有效die原始码1000，编码136。 */
+ acquire(100u,0x50u);acquire(6500u,0x50u);acquire(12900u,0x50u);
+ assert(s_snapshot.ntc_res_ohm[0]!=0u && g_bms_report.temperature_x10[0]==0u);
+ assert(g_bms_report.temperature_min_x10==0u && g_bms_report.temperature_max_x10==136u);
+ ntc_encoded_temp=650u;
  s_need_config=1;configuration_calls=0;
  for(unsigned i=0;i<100;++i)acquire(6400u*i,0x50u);
  assert(!s_snapshot.valid && !configuration_calls);
