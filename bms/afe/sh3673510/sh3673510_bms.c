@@ -1100,15 +1100,18 @@ static uint8_t sh_read_balance_mask(uint32_t *mask)
 uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
 {
     uint32_t actual;
+    uint8_t read_ok;
     cell_mask &= SH_FEATURE_VALID_CELL_MASK;
-    if (!sh_read_balance_mask(&actual)) return 0u;
+    read_ok = sh_read_balance_mask(&actual);
 
     if (cell_mask == 0u) {
-        s_balance_refresh_tick = bms_time_now_32k();
-        if (actual != 0u && !sh3673510_control_set_balance(0u)) return 0u;
+        /* 首读失败仍尽力关闭；写成功不能代替确认已关闭。 */
+        if ((!read_ok || actual != 0u) && !sh3673510_control_set_balance(0u)) return 0u;
         if (!sh_read_balance_mask(&actual) || actual != 0u) return 0u;
+        s_balance_refresh_tick = bms_time_now_32k();
         return 1u;
     }
+    if (!read_ok) return 0u;
 
     if (actual != cell_mask ||
         (uint32_t)(bms_time_now_32k() - s_balance_refresh_tick) >= SH_FEATURE_BALANCE_REFRESH_TICKS) {

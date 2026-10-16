@@ -59,7 +59,8 @@ SH 三产品数据来自 clean 原始起点，资源比较须标明这一证据�
 | 7 均衡 | `d3dbec29` | DVC 直接均衡事务，删除两份请求和暂停状态 | 4 | 3 | 八组相关检查；D008 16S LFP 生产 ELF/MAP 和资源 |
 | 8 Core | `2c96d60b` | 标准 C 类型边界、公共 32K 时钟和无 SDK 授权事务 | 0 | 0 | 21 组相关检查；无 SDK CMake/CTest 四项；四产品生产 ELF/MAP |
 | 8 BLE | `c15522c3` | 名称应用事务移至现有 BLE 平台文件 | 0 | 0 | 九组相关检查；四产品生产 ELF/MAP |
-| 8 API | 本提交 | 删除 SH 无生产消费者的 ready 查询和统计清零 API | 2 | 0 | 八组相关检查；四产品生产 ELF/MAP |
+| 8 API | `41dfac6d` | 删除 SH 无生产消费者的 ready 查询和统计清零 API | 2 | 0 | 八组相关检查；四产品生产 ELF/MAP |
+| 9 审查修复 | 本提交 | 恢复 SH 首次读失败后的均衡 OFF 尝试及确认 | 0 | 0 | 新注入先复现 D011/D014 失败；修复后十组及四产品生产 ELF/MAP 通过 |
 
 第 1 轮删除 `dvc1124_feature_backend.c`，温度角色和有效性共用后端现有实现，
 删除 `dvc_ntc_valid`、`dvc_temp`；共口 MOS 事务直接作为 `dvc1124_backend_set_fets`，

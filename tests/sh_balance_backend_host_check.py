@@ -13,7 +13,7 @@ code = profile_prefix(os.environ.get('BMS_PRODUCT', 'd011')) + r'''
 #include "sh3673520.h"
 #include "sh3673520_reg.h"
 static uint32_t tick;
-static uint8_t registers[256], fail_write;
+static uint8_t registers[256], fail_write, fail_reads;
 static unsigned balance_writes;
 bms_report_t g_bms_report;
 uint32_t bms_time_now_32k(void) { return tick; }
@@ -30,6 +30,7 @@ sh3673520_status_t SH3673520_ReadReg(uint8_t reg,uint8_t *out) {
     return SH3673520_OK;
 }
 sh3673520_status_t SH3673520_ReadRegs(uint8_t reg,uint8_t *out,sh3673520_size_t count) {
+    if(fail_reads){--fail_reads;return SH3673520_ERR_SPI;}
     memcpy(out,registers+reg,count);return SH3673520_OK;
 }
 sh3673520_status_t SH3673520_WriteReg(uint8_t reg,uint8_t value) {
@@ -55,6 +56,19 @@ int main(void) {
     registers[SH3673520_REG_BALANCEH+2]=0;
     assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==5u);
     assert(sh3673510_backend_set_balance_mask(0u)); assert(balance_writes==6u);
+    /* 读取失败不能阻止最后一次OFF尝试，但没有确认就不能发布成功。 */
+    registers[SH3673520_REG_BALANCEH+2]=1u;
+    fail_reads=1u;
+    assert(sh3673510_backend_set_balance_mask(0u) && balance_writes==7u);
+    assert(!registers[SH3673520_REG_BALANCEH+2]);
+    registers[SH3673520_REG_BALANCEH+2]=1u;
+    tick++; fail_reads=2u;
+    assert(!sh3673510_backend_set_balance_mask(0u) && balance_writes==8u);
+    assert(s_balance_refresh_tick!=tick && !registers[SH3673520_REG_BALANCEH+2]);
+    fail_reads=1u; fail_write=1u;
+    assert(!sh3673510_backend_set_balance_mask(0u) && balance_writes==9u);
+    fail_write=0u; fail_reads=1u;
+    assert(!sh3673510_backend_set_balance_mask(1u) && balance_writes==9u);
     puts("PASS SH balance: refresh, tick wrap, failed write, readback and hardware timeout");
     return 0;
 }
