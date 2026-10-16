@@ -356,13 +356,13 @@ def check_soc_contract_check():
             self.assertIn("300u, 200u, 150u, 50u", PROFILE)
 
         def test_upward_calibration_requires_confirmed_charging_full_anchor(self):
-            start = C.index("static uint8_t soc_apply_full_anchor(void)")
-            end = C.index("static uint8_t soc_apply_forced_empty_anchor(void)", start)
+            start = C.index("static uint8_t soc_apply_full_anchor(const bms_soc_sample_t *sample)")
+            end = C.index("static uint8_t soc_apply_forced_empty_anchor(const bms_soc_sample_t *sample)", start)
             full_fn = C[start:end]
-            self.assertIn("(VCELLMAX >= full_mv) && (VCELLMIN >= full_min)", full_fn)
-            self.assertIn("(g_soc_input.cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG()", full_fn)
-            self.assertIn("if (voltage_ready && g_soc_input.third_cell_ovp)", full_fn)
-            self.assertNotIn("if (isCHG() && g_soc_input.third_cell_ovp)", full_fn)
+            self.assertIn("(sample->cell_max_mv >= full_mv) && (sample->cell_min_mv >= full_min)", full_fn)
+            self.assertIn("(sample->cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG()", full_fn)
+            self.assertIn("if (voltage_ready && sample->third_cell_ovp)", full_fn)
+            self.assertNotIn("if (isCHG() && sample->third_cell_ovp)", full_fn)
             self.assertNotIn("&& !isDSG()", full_fn)
 
         def test_soc_low_faults_are_implemented_without_mos_policy(self):

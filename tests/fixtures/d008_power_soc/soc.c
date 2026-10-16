@@ -40,6 +40,8 @@ static int config_store_write_ok=1;
 static uint32_t tick;
 static uint32_t pm_get_32k_tick(void) {return tick;}
 /* PRODUCTION_SOURCE */
+/* 私有策略测试的输入由夹具拥有；生产不保存本帧副本。 */
+static bms_soc_sample_t g_soc_input;
 static uint8_t display_soc(void) { bms_soc_diag_t diag; bms_soc_get_diag(&diag); return diag.soc_display; }
 
 static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
@@ -445,7 +447,7 @@ int main(int argc,char **argv){
    case 4:g_soc_input.current_fault=1;break;
    default:g_soc_input.pack_fault=1;break;
   }
-  for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor();
+  for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor(&g_soc_input);
   assert(get_soc_real()==60 && !g_soc_runtime.empty_lock_ticks);
  }
  /* 应用实际读取路径：加热命令和均衡回读都不再阻止静置空电锚定。 */
