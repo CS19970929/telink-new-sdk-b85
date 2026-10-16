@@ -64,7 +64,7 @@ typedef struct
 	u8 ready;
 } app_pm_elapsed_ctx_t;
 static bool s_low_power_mode;
-bool deepsleep_en = false;
+uint8_t deepsleep_en;
 
 /* 四产品保护性休眠共用计时；到期后锁存，不再回到通信/采样业务。 */
 #define APP_OVERDISCHARGE_SLEEP_SECONDS 180u

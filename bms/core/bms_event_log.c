@@ -10,7 +10,7 @@
 #include "bms_error.h"
 #include "bms_storage_platform.h"
 #include "storage_record.h"
-#include "drivers.h"
+#include "bms_time.h"
 #include "bms_product.h"
 #include "bms_afe_backend.h"
 #include <string.h>
@@ -60,7 +60,7 @@ static u16 bms_event_log_get_u16le(const u8 *buf)
 static void bms_event_log_clear_runtime_flags(void)
 {
     memset(g_bms_event_log.event_latched, 0, sizeof(g_bms_event_log.event_latched));
-    g_bms_event_log.clock_tick_32k = pm_get_32k_tick();
+    g_bms_event_log.clock_tick_32k = bms_time_now_32k();
     g_bms_event_log.clock_fraction_32k = 0u;
     g_bms_event_log.merge_ready = 0u;
     g_bms_event_log.interval_s = 0u;
@@ -69,7 +69,7 @@ static void bms_event_log_clear_runtime_flags(void)
 /* 按实际 32K 差值累计；每次调用间隔须短于约 37 小时的 tick 回绕周期。 */
 static void bms_event_log_advance_time(void)
 {
-    u32 now = pm_get_32k_tick();
+    u32 now = bms_time_now_32k();
     u32 delta = now - g_bms_event_log.clock_tick_32k;
     u32 seconds = delta / 32000u;
     u32 fraction = delta % 32000u + g_bms_event_log.clock_fraction_32k;
@@ -128,7 +128,7 @@ static int bms_event_log_decode(const u8 payload[BMS_EVENT_PAYLOAD_BYTES])
 static int bms_event_log_write_snapshot(void)
 {
     u8 payload[BMS_EVENT_PAYLOAD_BYTES];
-    u32 now = pm_get_32k_tick();
+    u32 now = bms_time_now_32k();
     if (!g_bms_event_log.ready) return 0;
     if (g_bms_event_log.last_failed &&
         (u32)(now - g_bms_event_log.last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) return 0;
@@ -207,7 +207,7 @@ int bms_event_log_init(void)
     if (g_bms_event_log.ready) return 1;
     bms_diag_attempt(BMS_STORAGE_DOMAIN_EVENT);
     if (g_bms_event_log.last_failed &&
-        (u32)(pm_get_32k_tick() - g_bms_event_log.last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_BACKOFF); return 0; }
+        (u32)(bms_time_now_32k() - g_bms_event_log.last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_BACKOFF); return 0; }
     port = bms_storage_platform_port();
     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_PORT); return 0; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region)) { return 0; }
@@ -224,7 +224,7 @@ int bms_event_log_init(void)
     if (!loaded) {
         if (!bms_event_log_write_snapshot()) { g_bms_event_log.ready = 0u; bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_SAVE); return 0; }
     }
-    g_bms_event_log.last_attempt_32k = pm_get_32k_tick();
+    g_bms_event_log.last_attempt_32k = bms_time_now_32k();
     bms_event_log_clear_runtime_flags();
     bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_OK);
     return 1;
@@ -274,7 +274,7 @@ void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
     bms_event_log_track_edge(sample->afe1_err, AFE1_ERR);
     bms_event_log_track_edge(sample->cbc_err, CBC_ERR);
     if (g_bms_event_log.dirty &&
-        (u32)(pm_get_32k_tick() - g_bms_event_log.last_attempt_32k) >=
+        (u32)(bms_time_now_32k() - g_bms_event_log.last_attempt_32k) >=
         (g_bms_event_log.last_failed ? BMS_STORAGE_RETRY_INTERVAL_32K : BMS_EVENT_SAVE_INTERVAL_32K))
         (void)bms_event_log_write_snapshot();
 }

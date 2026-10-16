@@ -6,7 +6,7 @@
 #ifndef BMS_AFE_HW_PROFILE_H_
 #define BMS_AFE_HW_PROFILE_H_
 
-#include "tl_common.h"
+#include "bms_types.h"
 #include "bms_parameters.h"
 
 #define BMS_AFE_HW_PROFILE_SCHEMA_VERSION 1u

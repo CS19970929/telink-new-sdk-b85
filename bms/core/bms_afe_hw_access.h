@@ -6,7 +6,7 @@
 #ifndef BMS_AFE_HW_ACCESS_H_
 #define BMS_AFE_HW_ACCESS_H_
 
-#include "tl_common.h"
+#include "bms_types.h"
 
 #define BMS_AFE_HW_ACCESS_MODBUS_FUNC       0x42u
 #define BMS_AFE_HW_ACCESS_UNLOCK_MAGIC      0x41464548UL /* 标识字符串：AFEH。 */

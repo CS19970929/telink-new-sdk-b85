@@ -6,7 +6,7 @@
 #include "modbus_rtu.c"
 
 bms_protection_params_t g_bms_protection_params;
-bool deepsleep_en;
+uint8_t deepsleep_en;
 static unsigned requested_reads, effective_reads, event_reads, frames;
 static int requested_fail_at = -1, effective_fail_at = -1;
 static u16 effective_base = 0x2000u;

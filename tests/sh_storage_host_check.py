@@ -20,7 +20,7 @@ def check_sh_event_checkpoint_host_check():
     static u32 tick, saves, blocked;
     static int save_ok=1;
     static u8 durable[404];
-    static u32 pm_get_32k_tick(void){return tick;}
+    static u32 bms_time_now_32k(void){return tick;}
     static void bms_error_raise(int e){(void)e;}
     static void bms_diag_attempt(int d){(void)d;}
     static void bms_diag_result(int d,int e){(void)d;(void)e;}

@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "tl_common.h"
+#include "bms_types.h"
 
 #ifdef __cplusplus
 extern "C" {

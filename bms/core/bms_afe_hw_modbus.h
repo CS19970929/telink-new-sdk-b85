@@ -6,7 +6,7 @@
 #ifndef BMS_AFE_HW_MODBUS_H_
 #define BMS_AFE_HW_MODBUS_H_
 
-#include "tl_common.h"
+#include "bms_types.h"
 #include "bms_afe_hw_profile.h"
 
 /* 0x2500..0x2522 为请求/持久化的 35-word 配置。 */

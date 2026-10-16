@@ -3,7 +3,7 @@
  * bms/core/bms_parameter_access.h；实际编译归属见各产品 sources.txt。
  */
 #pragma once
-#include "common/types.h"
+#include "bms_types.h"
 /*
  * 公共参数协议 v2 保留原 D008 接口 magic；这是接口签名，不是产品 ID。
  * 帧长保持不超过 20 字节。

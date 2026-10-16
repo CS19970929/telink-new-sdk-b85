@@ -8,9 +8,6 @@
 #include "bms_product.h"
 #include "bms_afe_backend.h"
 #include "modbus_rtu.h"
-#include "app_config.h"
-#include "tl_common.h"
-#include "drivers.h"
 #include "bms_afe.h"
 #include "bms_error.h"
 #include "bms_state.h"
@@ -29,14 +26,13 @@
 #include "bms_parameters.h"
 #include "bms_soc.h"
 #include "bms_event_log.h"
-#include "app.h"
 #include "app_power.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124_config_service.h"
 #endif
 
-#include "stack/ble/ble.h"
 #include "btname_modbus.h"
+#include <string.h>
 
 #define MB_ADDR 0x01
 
@@ -457,7 +453,7 @@ static u8 write_reg(u16 reg, u16 val)
         u8 bytes[2]={(u8)(val>>8),(u8)val};
         return bms_parameter_write(reg,1u,bytes);
     }
-    if (reg==0x1102u && val==0x0Au) { deepsleep_en=true; return 0u; }
+    if (reg==0x1102u && val==0x0Au) { deepsleep_en=1u; return 0u; }
     return MB_EX_ILLEGAL_ADDRESS;
 }
 

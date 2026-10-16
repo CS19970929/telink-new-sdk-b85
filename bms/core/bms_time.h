@@ -7,7 +7,7 @@
 
 #include <stdint.h>
 
-/* 返回 SDK 32K 时钟的 32 位自然回绕值。 */
+/* 返回平台 32000 Hz 业务时钟的 32 位自然回绕值。 */
 uint32_t bms_time_now_32k(void);
 
 #endif /* BMS_TIME_H_ */
