@@ -89,6 +89,14 @@ const storage_port_t*bms_storage_platform_port(void){return &port;}
 int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=16*4096;}else if(d==BMS_STORAGE_DOMAIN_SLEEP_CONFIG){r->base=28*4096;r->size=2*4096;}else return 0;return 1;}
 uint32_t bms_time_now_32k(void){return now;}
 /* PRODUCTION */
+/* 夹具直接观察真实持久重复次数，不为测试保留生产API。 */
+static u16 fixture_event_repeat(u16 reg)
+{
+    u16 idx;
+    if (reg >= BMS_EVENT_LOG_ENTRY_COUNT || !g_bms_event_log.ready) return 0u;
+    idx = (u16)((g_bms_event_log.write_pos + BMS_EVENT_LOG_ENTRY_COUNT - 1u - reg) % BMS_EVENT_LOG_ENTRY_COUNT);
+    return g_bms_event_log.repeats[idx];
+}
 static void reboot(void){
  bms_diag_init();region_ok=1;read_ok=1;erase_ok=1;config_read_fail=0;
  g_bms_config_ready=0;g_bms_state_ready=0;
@@ -289,7 +297,7 @@ static void test_state(void){
 static void test_events(void){
  fresh();bms_event_log_sample_t sample={0};sample.vcell_ovp=1;
  u32 count=programs;bms_event_log_poll_1s(&sample);sample.vcell_ovp=0;bms_event_log_poll_1s(&sample);sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
- assert(programs==count && bms_event_log_read_repeat(0)==2);
+ assert(programs==count && fixture_event_repeat(0)==2);
  now=60*32000;cut=0;bms_event_log_poll_1s(&sample);count=programs;
  bms_event_log_poll_1s(&sample);assert(programs==count && g_bms_event_log.dirty);
  assert(!bms_event_log_note_sleep());now+=5*32000;cut=-1;assert(bms_event_log_note_sleep());reboot();assert(bms_event_log_init());assert((bms_event_log_read_reg(0)>>8)==BMS_SLEEP);
@@ -647,7 +655,7 @@ static void test_storage_reliability(void){
  for(unsigned domain=0;domain<3;++domain){
   fresh();reboot();read_ok=0;before_program=programs;before_erase=erases;
   assert(!bms_config_get_user(&(bms_user_params_t){0}));
-  assert(bms_event_log_read_reg(0)==0 && bms_event_log_read_repeat(0)==0);
+  assert(bms_event_log_read_reg(0)==0 && fixture_event_repeat(0)==0);
   if(domain==0)assert(!bms_config_store_init());
   if(domain==1)assert(!bms_state_store_init());
   if(domain==2)assert(!bms_event_log_init());
@@ -665,7 +673,7 @@ static void test_event_semantics(void){
  sample.vcell_ovp=0;now=60u*32000u;bms_event_log_poll_1s(&sample);
  assert(!g_bms_event_log.dirty);u16 pos=g_bms_event_log.write_pos;
  sample.vcell_ovp=1;now=61u*32000u;bms_event_log_poll_1s(&sample);
- assert(pos==g_bms_event_log.write_pos && bms_event_log_read_repeat(0)==2 && g_bms_event_log.dirty);
+ assert(pos==g_bms_event_log.write_pos && fixture_event_repeat(0)==2 && g_bms_event_log.dirty);
  fresh();memset(&sample,0,sizeof(sample));bms_event_log_note_startup();
  now=3700u*32000u;sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
  assert(bms_event_log_read_reg(0)==((VCELL_OVP<<8)|2u));

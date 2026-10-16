@@ -54,8 +54,6 @@ void bms_event_log_note_startup(void);
 int bms_event_log_note_sleep(void);
 /* 按秒检测事件变化并按策略保存检查点。 */
 void bms_event_log_poll_1s(const bms_event_log_sample_t *sample);
-/* 读取历史事件的重复次数信息。 */
-u16 bms_event_log_read_repeat(u16 reg);
 /* 读取历史事件窗口中的一个协议寄存器。 */
 u16 bms_event_log_read_reg(u16 reg);
 

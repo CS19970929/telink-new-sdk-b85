@@ -290,12 +290,3 @@ u16 bms_event_log_read_reg(u16 reg)
     return (u16)(((u16)g_bms_event_log.records[idx][0] << 8) |
                  g_bms_event_log.records[idx][1]);
 }
-
-/* 读取历史事件的重复次数信息。 */
-u16 bms_event_log_read_repeat(u16 reg)
-{
-    u16 idx;
-    if (reg >= BMS_EVENT_LOG_ENTRY_COUNT || !g_bms_event_log.ready) return 0u;
-    idx = (u16)((g_bms_event_log.write_pos + BMS_EVENT_LOG_ENTRY_COUNT - 1u - reg) % BMS_EVENT_LOG_ENTRY_COUNT);
-    return g_bms_event_log.repeats[idx];
-}
