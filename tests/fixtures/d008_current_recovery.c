@@ -4,6 +4,8 @@
 #define GPIO_PB1 1u /* host 输入编号；GPIO 电平由下面的夹具提供。 */
 #include "dvc1124.h"
 #include "bms_diag.h"
+#include "bms_error.h"
+void bms_error_raise(bms_error_id_t error) { assert(error == BMS_ERROR_AFE1); }
 static struct { struct { struct { uint8_t charge_ocp, discharge_ocp; } bits; } fault_third; } g_bms_report;
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 static int32_t current_ma;
@@ -36,7 +38,7 @@ static void reset(void) { memset(&s_current_recovery,0,sizeof(s_current_recovery
 int main(void) {
     /* 零流/关闭 MOS 不等于负载移除；只接受新鲜的可靠反向电流。 */
     reset(); step(100,0,1,0,1); assert(s_current_recovery.discharge);
-    dvc_apply_common_port_fet_state(1,1);
+    dvc1124_backend_set_fets(1,1);
     assert(chg_mode==DVC1124_FET_DRIVE_ON && dsg_mode==DVC1124_FET_DRIVE_AUTO_DIODE);
     step(6500,0,0,0,0);step(12900,0,0,0,0);assert(s_current_recovery.discharge);
     current_ma=-200;step(19300,0,0,0,0);assert(s_current_recovery.discharge);

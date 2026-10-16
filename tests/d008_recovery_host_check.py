@@ -12,11 +12,11 @@ def check_d008_current_recovery_host_check():
     MOD = Sources(ROOT)
     s = (MOD / 'dvc1124_bms.c').read_text(encoding='utf-8')
     def function(name):
-        return extract_function(s, 'static uint8_t ' + name + '(')
+        return extract_function(s, 'uint8_t ' + name + '(')
 
     state = '#include "bms_timing.h"\n' + s[s.index('#define DVC_LOAD_RELEASE_CONFIRM_TICKS'):s.index('static uint16_t dvc_get_configured_temperature')]
     fixture = (ROOT / 'tests/fixtures/d008_current_recovery.c').read_text()
-    code = fixture.replace('/* PRODUCTION */', state + function('dvc_recover_current_faults') + function('dvc_apply_common_port_fet_state'))
+    code = fixture.replace('/* PRODUCTION */', state + function('dvc_recover_current_faults') + function('dvc1124_backend_set_fets'))
     # Failed samples must break PB1 qualification, before returning from acquisition.
     acquisition = s[s.index('void DVC1124_BmsApp_AFEGet('):]
     assert acquisition.index('dvc_observe_current_recovery(&snapshot') < acquisition.index('if (!snapshot.valid)')
