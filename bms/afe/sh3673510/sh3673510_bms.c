@@ -54,11 +54,8 @@ typedef enum {
 static bms_afe_aux_measurements_t s_aux;
 /* 只有 500..300000 ohm 的有效测量才写入；0 唯一表示无效，不另存有效性副本。 */
 static uint32_t s_ntc_ohm[4];
-static uint8_t s_output_enabled;
 static uint8_t s_snapshot_valid;
 static uint8_t s_hw_afe_error;
-static uint8_t s_requested_charge_on;
-static uint8_t s_requested_discharge_on;
 /* 短路硬件锁定；恢复依赖物理条件与 AFE 状态，不能由关 MOS 后零电流直接清除。 */
 static uint8_t s_short_latched;
 static uint8_t s_short_clear_pending;
@@ -232,12 +229,13 @@ static uint8_t discharge_blocked(void)
 /* 检查 AFE 就绪、通信与输出相关状态。 */
 static uint8_t sh3510_outputs_healthy(void)
 {
-    return (s_snapshot_valid && bms_afe_samples_qualified() && !s_hw_afe_error &&
+    return (s_snapshot_valid && !s_hw_afe_error &&
             !bms_error_get(BMS_ERROR_AFE1) && !bms_error_get(BMS_ERROR_SPI)) ? 1u : 0u;
 }
 
 /* 合并输出授权和阻断条件后应用 MOS 请求。 */
-static uint8_t sh3510_apply_requested_fets(void)
+uint8_t sh3673510_bms_afe_set_fets(uint8_t requested_charge_on,
+                                   uint8_t requested_discharge_on)
 {
     uint8_t charge_on = 0u;
     uint8_t discharge_on = 0u;
@@ -249,10 +247,10 @@ static uint8_t sh3510_apply_requested_fets(void)
     charge_inhibit = charge_blocked();
     discharge_inhibit = discharge_blocked();
 
-    if (s_output_enabled && sh3510_outputs_healthy())
+    if (sh3510_outputs_healthy())
     {
-        charge_on = s_requested_charge_on ? 1u : 0u;
-        discharge_on = s_requested_discharge_on ? 1u : 0u;
+        charge_on = requested_charge_on ? 1u : 0u;
+        discharge_on = requested_discharge_on ? 1u : 0u;
 
         /*
          * 同口反向恢复：充电保护可关闭 CHG，但确认 DSGING 后须允许重新开启 CHG，
@@ -273,8 +271,8 @@ static uint8_t sh3510_apply_requested_fets(void)
      * 重复软件写入会对抗该硬件行为。
      */
     /* 公共 guard 只按 BSTATUS2 方向临时提升用户关闭；其它显式 OFF 不在后端提升。 */
-    if (!s_requested_charge_on) charge_on = 0u;
-    if (!s_requested_discharge_on) discharge_on = 0u;
+    if (!requested_charge_on) charge_on = 0u;
+    if (!requested_discharge_on) discharge_on = 0u;
     if (s_fet_command_valid &&
         s_last_charge_command == charge_on &&
         s_last_discharge_command == discharge_on)
@@ -869,8 +867,6 @@ void sh3673510_bms_afe_init(void)
         g_bms_report.cell_voltage_mv[i] = SH3510_MISSING_CELL_MV;
     memset(&s_aux, 0, sizeof(s_aux));
     s_hw_afe_error = 0u;
-    s_requested_charge_on = 0u;
-    s_requested_discharge_on = 0u;
 
     s_snapshot_valid = 0u;
     s_detection_initialized = 0u;
@@ -935,30 +931,6 @@ uint8_t sh3673510_bms_afe_apply_protection_config(void)
     if (!sh3673510_control_apply_protection()) { note_comm_error(DIAG_AFE_FAIL_PROFILE); return 0u; }
     memset(s_hw_recovery_count, 0, sizeof(s_hw_recovery_count));
     return 1u;
-}
-
-/* 设置后端充放电 MOS 请求并进行保护仲裁。 */
-uint8_t sh3673510_bms_afe_set_fets(uint8_t requested_charge_on,
-                                   uint8_t requested_discharge_on)
-{
-    s_requested_charge_on = requested_charge_on ? 1u : 0u;
-    s_requested_discharge_on = requested_discharge_on ? 1u : 0u;
-    return sh3510_apply_requested_fets();
-}
-
-/* 设置后端输出授权，禁止绕过公共安全门禁。 */
-void sh3673510_bms_afe_set_output_enabled(uint8_t enabled)
-{
-    s_output_enabled = enabled ? 1u : 0u;
-    if (!s_output_enabled) {
-        s_fet_command_valid = 0u;
-        if (sh3673510_control_ready()) {
-            (void)sh3673510_control_set_balance(0u);
-            if (!sh3673510_control_set_fets(0u, 0u)) note_comm_error(DIAG_AFE_FAIL_OUTPUT_DISABLE);
-        }
-    } else if (s_snapshot_valid) {
-        (void)sh3510_apply_requested_fets();
-    }
 }
 
 /* 主循环只读 RAM 查询；有效性与数据属于最近一次接受的帧。 */
@@ -1037,6 +1009,8 @@ uint8_t sh3673510_bms_afe_get_fet_diagnostics(uint8_t *command_bits,
 uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detail)
 {
     uint32_t common = 0u;
+    uint16_t guard = bms_afe_get_guard_diagnostic_bits();
+    uint8_t output_enabled = (guard & DIAG_GUARD_OUTPUT_ENABLED) ? 1u : 0u;
     if (detail == 0) return 0u;
     memset(detail, 0, sizeof(*detail));
     detail->flag1 = s_flag1;
@@ -1046,9 +1020,9 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
     detail->mos_ntc_ohm = s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX];
     detail->mos_temp_x10 = g_bms_report.temperature_x10[MOS_TEMP1];
 
-    if (s_output_enabled) detail->backend_state |= DIAG_SH_OUTPUT_ENABLED;
+    if (output_enabled) detail->backend_state |= DIAG_SH_OUTPUT_ENABLED;
     if (s_snapshot_valid) detail->backend_state |= DIAG_SH_SNAPSHOT_VALID;
-    if (!bms_afe_samples_qualified()) detail->backend_state |= DIAG_SH_OUTPUT_INHIBIT;
+    if (!(guard & DIAG_GUARD_SAMPLES_QUALIFIED)) detail->backend_state |= DIAG_SH_OUTPUT_INHIBIT;
     if (s_hw_afe_error) detail->backend_state |= DIAG_SH_E2P_ERROR;
     if (s_hw_charge_protect) detail->backend_state |= DIAG_SH_CHARGE_HW_BLOCK;
     if (s_hw_discharge_protect) detail->backend_state |= DIAG_SH_DISCHARGE_HW_BLOCK;
@@ -1067,8 +1041,8 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
         detail->sensor_state |= DIAG_SH_MOS_NTC_VALID;
 #endif
 
-    if (!s_output_enabled) common |= DIAG_BLOCK_OUTPUT;
-    if (!s_snapshot_valid || !bms_afe_samples_qualified() || s_hw_afe_error ||
+    if (!output_enabled) common |= DIAG_BLOCK_OUTPUT;
+    if (!s_snapshot_valid || !(guard & DIAG_GUARD_SAMPLES_QUALIFIED) || s_hw_afe_error ||
         s_afe_reconfigure_required || bms_error_get(BMS_ERROR_AFE1) ||
         bms_error_get(BMS_ERROR_SPI)) common |= DIAG_BLOCK_COMM;
     if (bms_error_get(BMS_ERROR_TEMP_BREAK)) common |= DIAG_BLOCK_TEMP;

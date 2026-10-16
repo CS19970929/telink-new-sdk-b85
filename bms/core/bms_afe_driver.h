@@ -8,7 +8,7 @@
 /* 驱动私有声明供门禁、所选后端和只读诊断使用；应用使用 bms_afe.h，不能绕过通信门禁。 */
 #include "bms_afe.h"
 
-/* 后端 FET 写入也使用公共门禁的三帧新样本资格。 */
+/* 三帧资格只由 guard 所有；后端接收已裁定请求并继续执行芯片保护。 */
 uint8_t bms_afe_samples_qualified(void);
 /* 后端把最新实际 FET 回读发布给公共状态所有者；无效时 bits 被忽略。 */
 void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid);
@@ -60,8 +60,6 @@ uint8_t sh3673510_bms_afe_apply_protection_config(void);
 uint8_t sh3673510_bms_afe_set_fets(uint8_t,uint8_t);
 /* 读取由最新有效 BSTATUS2 方向位确认的临时开管掩码。 */
 uint8_t sh3673510_bms_afe_get_direction_allow_mask(void);
-/* 设置后端输出授权，禁止绕过公共安全门禁。 */
-void sh3673510_bms_afe_set_output_enabled(uint8_t);
 /* 取得后端辅助测量与有效性。 */
 uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *);
 /* 读取成功但等待转换完成，不计入新样本资格。 */

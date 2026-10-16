@@ -184,8 +184,8 @@ require(cfg, "#define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u")
 require(bms, "sh3673510_control_set_balance")
 require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
 require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
-require(bms, "bms_afe_samples_qualified()")
-require(bms, "s_requested_charge_on")
+require(text("bms_afe_guard.c"), "!bms_afe_samples_qualified()")
+require(bms, "requested_charge_on")
 require(bms, "service_hw_flag_recovery")
 require(bms, "hw_recovery_stable")
 require(bms, "merge_hw_protection_faults")
@@ -205,12 +205,12 @@ require(bms, "g_bms_report.temperature_max_x10 = bat_temp_max;")
 # 共用 MOS 请求的实际 CHG/DSG 输出由 bms_simplification_host_check 执行验证。
 if "dsg_target = d011_switch_is_on()" in app:
     raise AssertionError("D011 common-port DSG must not be gated by PA0/SW1")
-fet_start = bms.find("static uint8_t sh3510_apply_requested_fets")
+fet_start = bms.find("uint8_t sh3673510_bms_afe_set_fets")
 fet_end = bms.find("static void publish_hw_status", fet_start)
 if fet_start < 0 or fet_end <= fet_start:
     raise AssertionError("missing FET arbitration function")
 fet_text = bms[fet_start:fet_end]
-require(fet_text, "discharge_on = s_requested_discharge_on ? 1u : 0u;")
+require(fet_text, "discharge_on = requested_discharge_on ? 1u : 0u;")
 require(fet_text, "SH3673520_BSTATUS2_DSGING_MASK")
 require(fet_text, "SH3673520_BSTATUS2_CHGING_MASK")
 require(fet_text, "s_fet_command_valid")
@@ -259,7 +259,7 @@ short_text = bms[short_start:short_end]
 if "discharge_current_a10" in short_text:
     raise AssertionError("short-circuit recovery must not use discharge current as load-release proof")
 require(bms, "service_short_recovery")
-require(bms, "bms_afe_samples_qualified()")
+require(text("bms_afe_guard.c"), "!bms_afe_samples_qualified()")
 require(control, "sh3673510_control_get_protection_actual")
 require(hw_profile, "sense_uv > 80000u")
 require(hw_profile, "sense_uv > 160000u")
@@ -282,8 +282,6 @@ require_count(control_h, "sh3673510_board_force_heater_fuse_safe(void);")
 require_count((ROOT / "bms/core/bms_afe_guard.c").read_text(encoding="utf-8"), "#define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u")
 require_count(bms, "#define SH3510_SHORT_RELEASE_SAMPLES    10u")
 for symbol in (
-    "static uint8_t s_requested_charge_on;",
-    "static uint8_t s_requested_discharge_on;",
     "static uint8_t s_short_latched;",
     "static uint8_t s_short_clear_pending;",
     "static uint16_t s_short_release_count;",
@@ -355,7 +353,7 @@ if sample_start < 0 or sample_end <= sample_start:
     raise AssertionError("missing SH sample function")
 sample_text = bms[sample_start:sample_end]
 for forbidden in ("apply_heater();", "apply_balance();",
-                  "sh3510_apply_requested_fets();", "sh3673510_control_init()"):
+                  "sh3673510_bms_afe_set_fets(", "sh3673510_control_init()"):
     if forbidden in sample_text:
         raise AssertionError(f"SH sample bypasses common owner: {forbidden}")
 

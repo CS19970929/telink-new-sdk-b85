@@ -237,7 +237,7 @@ def check_common_feature_policy_contract_check():
     assert "SH3673520_BSTATUS2_CHGING_MASK" in sh_bms
     assert "s_fet_command_valid" in sh_bms
     # 相同有效 FET 命令必须在再次写硬件之前返回，避免干扰自主保护。
-    fets = sh_bms.split("static uint8_t sh3510_apply_requested_fets", 1)[1].split(
+    fets = sh_bms.split("uint8_t sh3673510_bms_afe_set_fets", 1)[1].split(
         "static void publish_hw_status", 1)[0]
     cached = fets.split("if (s_fet_command_valid &&", 1)[1].split(
         "if (!sh3673510_control_set_fets", 1)[0]

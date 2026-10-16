@@ -206,9 +206,9 @@ def check_sh3673510_d014_integration_check():
     require(bms, "service_hw_flag_recovery")
     require(bms, "service_short_recovery")
     require(bms, "service_afe_reconfiguration")
-    require(bms, "bms_afe_samples_qualified()")
-    require(bms, "s_requested_charge_on")
-    require(bms, "s_requested_discharge_on")
+    require((ROOT / "bms/core/bms_afe_guard.c").read_text(encoding="utf-8"), "!bms_afe_samples_qualified()")
+    require(bms, "requested_charge_on")
+    require(bms, "requested_discharge_on")
 
     print("HS-D014 SH3673510 integration contract: PASS")
 

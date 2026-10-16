@@ -47,7 +47,18 @@ static uint8_t sh3673510_control_clear_flag2(uint8_t mask) { (void)mask; return 
 static void sh3673510_board_force_heater_fuse_safe(void) {}
 static uint8_t sh3673510_control_sleep(void) { return 1; }
 
+/* 本夹具提供已裁定请求；真实 guard 三帧/远程许可由联合生产 TU 场景验证。 */
+static uint8_t test_output_enabled, test_requested_charge_on, test_requested_discharge_on;
 /* PRODUCTION */
+static uint8_t apply_granted_fets(void) {
+    uint8_t allowed = test_output_enabled && guard_qualified;
+    return sh3673510_bms_afe_set_fets(allowed ? test_requested_charge_on : 0u,
+                                     allowed ? test_requested_discharge_on : 0u);
+}
+static void set_test_output_enabled(uint8_t enabled) {
+    test_output_enabled = enabled;
+    (void)apply_granted_fets();
+}
 
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); ++failures; } } while (0)
 static void reset(void) {
@@ -56,10 +67,10 @@ static void reset(void) {
     s_short_latched = s_short_clear_pending = 0;
     s_short_release_count = 0;
     s_hw_charge_protect = s_hw_discharge_protect = s_hw_afe_error = 0;
-    s_snapshot_valid = s_output_enabled = 1;
+    s_snapshot_valid = test_output_enabled = 1;
     s_afe_reconfigure_required = 0; guard_qualified = 1;
     s_fet_command_valid = 0;
-    s_requested_charge_on = s_requested_discharge_on = 1;
+    test_requested_charge_on = test_requested_discharge_on = 1;
     s_bstatus2 = 0;
     s_aux.current_ma=0;s_sample_pending=0;
     clears = writes = 0;
@@ -145,25 +156,25 @@ static void fet_cache(void) {
     unsigned before;
     reset();
     guard_qualified = 0;
-    CHECK(sh3510_apply_requested_fets()); CHECK(!actual_c && !actual_d);
+    CHECK(apply_granted_fets()); CHECK(!actual_c && !actual_d);
     guard_qualified = 1;
-    CHECK(sh3510_apply_requested_fets()); CHECK(actual_c && actual_d);
+    CHECK(apply_granted_fets()); CHECK(actual_c && actual_d);
     before = writes;
-    CHECK(sh3510_apply_requested_fets()); CHECK(writes == before);
-    sh3673510_bms_afe_set_output_enabled(0);
+    CHECK(apply_granted_fets()); CHECK(writes == before);
+    set_test_output_enabled(0);
     CHECK(!actual_c && !actual_d);
-    sh3673510_bms_afe_set_output_enabled(1);
+    set_test_output_enabled(1);
     CHECK(actual_c && actual_d);
 
-    reset(); CHECK(sh3510_apply_requested_fets());
+    reset(); CHECK(apply_granted_fets());
     s_afe_reconfigure_required = 1;
     CHECK(service_afe_reconfiguration());
     CHECK(!s_fet_command_valid);
     /* Emulate subsequent fresh-snapshot qualification by the sample owner. */
     s_snapshot_valid = 1; guard_qualified = 1;
-    CHECK(sh3510_apply_requested_fets()); CHECK(actual_c && actual_d);
+    CHECK(apply_granted_fets()); CHECK(actual_c && actual_d);
     write_ok = 0;
-    sh3673510_bms_afe_set_output_enabled(0);
+    set_test_output_enabled(0);
     CHECK(!s_fet_command_valid && !s_snapshot_valid);
 }
 int main(void) {

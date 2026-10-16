@@ -76,7 +76,7 @@ uint8_t bms_error_get(bms_error_id_t id) { return errors[id]; }
 void bms_error_raise(bms_error_id_t id) { errors[id] = 1; }
 void bms_error_clear(bms_error_id_t id) { errors[id] = 0; }
 #ifndef GUARD_TEST
-uint8_t bms_afe_samples_qualified(void) { return 1; }
+uint16_t bms_afe_get_guard_diagnostic_bits(void) { return DIAG_GUARD_OUTPUT_ENABLED | DIAG_GUARD_SAMPLES_QUALIFIED; }
 #else
 void bms_features_init(void) {}
 void bms_features_service(void) {}
@@ -182,7 +182,6 @@ int main(void) {
 #endif
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     sh3673510_bms_afe_init();
-    sh3673510_bms_afe_set_output_enabled(1u);
     for(unsigned i=0;i<8;++i)sample();
     assert(sh3673510_bms_afe_get_aux_measurements(&aux));
     assert(command_c==1u && command_d==1u);
@@ -264,7 +263,6 @@ int main(void) {
     sample();
     assert(bms_error_get(BMS_ERROR_AFE1)); /* Bounded waiting, even if all reads ACK. */
     sh3673510_bms_afe_init();
-    sh3673510_bms_afe_set_output_enabled(1);
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     device.flag1=SH3673520_FLAG1_OCC_MASK;
     for(unsigned i=0;i<20;++i) sample();

@@ -98,7 +98,7 @@ uint8_t bms_afe_bus_access_allowed(void)
 #define AFE_APPLY() sh3673510_bms_afe_apply_protection_config()
 #define AFE_FETS(c,d) sh3673510_bms_afe_set_fets((c),(d))
 #define AFE_DIRECTION_ALLOW() sh3673510_bms_afe_get_direction_allow_mask()
-#define AFE_OUTPUT(e) sh3673510_bms_afe_set_output_enabled((e))
+#define AFE_OUTPUT(e) ((void)(e)) /* SH 没有第二份授权；最终请求在公共门禁裁定。 */
 #define AFE_AUX(m) sh3673510_bms_afe_get_aux_measurements((m))
 #if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
 #define AFE_FEATURE(s) sh3673510_backend_get_feature_snapshot((s))
@@ -203,7 +203,8 @@ static uint8_t apply_requested(void)
     if ((s_remote_off_mask & BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK) &&
         !(direction_allow_mask & BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK)) d = 0u;
     /* 参数资格直接由输出门禁消费，不借业务功能代为阻断。 */
-    if (!s_guard.output_enabled || !bms_protection_params_valid())
+    if (!s_guard.output_enabled || !bms_protection_params_valid() ||
+        !bms_afe_samples_qualified())
     {
         c = 0u;
         d = 0u;
