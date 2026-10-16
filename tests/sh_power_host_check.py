@@ -14,7 +14,7 @@ def check_sh3673510_sample_schedule_host_check():
 
     ROOT = Path(__file__).resolve().parents[1]
     APP = Sources(ROOT)
-    source = selected_source(APP / 'app.c')
+    source = selected_source(APP / 'app.c', defines=('-DBMS_SERVICE_DIAG_ENABLE=1',))
 
 
     def function(name):
@@ -27,6 +27,7 @@ def check_sh3673510_sample_schedule_host_check():
     period = (APP/'bms_timing.h').read_text() + '\n' + re.search(
         r'(?m)^#define APP_SAMPLE_PERIOD_US[^\n]*', (APP/'app.h').read_text()).group()
     code = r'''
+    #define BMS_SERVICE_DIAG_ENABLE 1
     #include <stdint.h>
     #include <stdio.h>
     typedef uint8_t u8;
@@ -169,7 +170,7 @@ def check_sh_protective_sleep():
     fixture = (root / 'tests/fixtures/protective_sleep.c').read_text(encoding='utf-8')
     for enabled in (1, 0):
         run_c('#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE %du\n' % enabled +
-              fixture.replace('/* PRODUCTION */', body), name='sh-protective-sleep')
+              fixture.replace('/* PRODUCTION */', body), flags=('-DBMS_SERVICE_DIAG_ENABLE=1',), name='sh-protective-sleep')
 
 def check_sh_suspend_current_gates():
     """运行真实 SH 普通 suspend 入口；串口静默资格与其他安全条件独立。"""
@@ -178,7 +179,7 @@ def check_sh_suspend_current_gates():
     from project_paths import selected_source
     from validation_support import function, run_c
     root = Path(__file__).resolve().parents[1]
-    source = selected_source(root / 'bms/app/app_power.c')
+    source = selected_source(root / 'bms/app/app_power.c', defines=('-DBMS_SERVICE_DIAG_ENABLE=1',))
     defines = re.search(r'^#define APP_SUSPEND_EXIT_CURRENT_MA[^\n]*', source, re.M).group()
     defines += '\n' + re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                                (root / 'bms/core/bms_soc.h').read_text(), re.M).group()
@@ -261,7 +262,7 @@ def check_sh_suspend_current_gates():
     }
     '''
     run_c(defines + '\n' + fixture.replace('/* PRODUCTION */', body),
-          flags=('-Wno-unused-function',), name='sh-suspend-current')
+          flags=('-DBMS_SERVICE_DIAG_ENABLE=1','-Wno-unused-function',), name='sh-suspend-current')
 
 if __name__ == "__main__":
     check_sh3673510_sample_schedule_host_check()

@@ -104,6 +104,6 @@ int main(void) {
     return 0;
 }
 '''
-out = run_c(code, name='dvc-startup-protection')
+out = run_c(code, flags=['-DBMS_SERVICE_DIAG_ENABLE=1'], name='dvc-startup-protection')
 evidence({'product': 'd008', 'trace': out.strip(),
           'boundary': '真实基础配置、寄存器验证及SCD编码函数与RAM I2C模型；不证明比较器或物理Gate'})

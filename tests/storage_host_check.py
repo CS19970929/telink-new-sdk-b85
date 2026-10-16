@@ -27,7 +27,7 @@ def main():
     fixture=(ROOT/'tests/fixtures/d008_storage/stores.c').read_text()
     code=fixture.replace('/* PARAMETER_PROTOCOL */',source('bms_parameter_access.h')+'\n'+source('bms_parameter_access.c')).replace('/* MACROS */',macros).replace('/* TYPES */',param[a:b]+'\n'+headers).replace('/* PRODUCTION */',units)
     sources=[str((MOD/n).relative_to(ROOT)) for n in ('storage_record.c','bms_diag.c')]
-    flags=['-Wno-unused-function','-include',str(MOD/'bms_diag.h')]
+    flags=['-DBMS_SERVICE_DIAG_ENABLE=1','-Wno-unused-function','-include',str(MOD/'bms_diag.h')]
     run_c(code,sources=sources,flags=flags,name='semantic_stores')
     # 模拟 TC32 的 packed 结构布局；x86 允许非对齐访问，夹具显式检查生产对象地址。
     run_c(code,sources=sources,flags=[*flags,'-fpack-struct','-fshort-enums',
@@ -44,5 +44,5 @@ def main():
     platform=platform.replace('/* MACROS */',macros).replace('/* TYPES */',source('bms_storage_platform.h'))
     unit=source('bms_storage_platform_telink.c').split('const storage_port_t *bms_storage_platform_port(void)')[0]
     run_c(platform.replace('/* PRODUCTION */',unit),sources=[sources[1]],
-          flags=['-Wno-unused-function','-include',str(MOD/'storage_port.h'),*flags[1:]],name='storage_platform')
+          flags=['-DBMS_SERVICE_DIAG_ENABLE=1','-Wno-unused-function','-include',str(MOD/'storage_port.h'),*flags[2:]],name='storage_platform')
 if __name__=='__main__': main()

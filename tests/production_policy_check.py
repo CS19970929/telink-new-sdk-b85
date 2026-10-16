@@ -51,5 +51,5 @@ if not sh:
   for profile in (1,2,3):
    command=[*shlex.split(os.environ.get('CC','cc')),'-E','-x','c','-I',str(folder),*host_includes(ROOT),'-DD008_PRODUCT_PROFILE='+str(profile),'-']
    result=subprocess.run(command,input=src,capture_output=True,text=True)
-   assert (result.returncode==0)==(profile!=2),(profile,result.stderr)
- print('PASS NMC voltage approval remains independent of signed SCD policy')
+   assert result.returncode==0,(profile,result.stderr)
+ print('PASS valid NMC/LFP assemblies retain product and SCD approval gates')

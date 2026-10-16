@@ -175,7 +175,9 @@ int main(void) {
 #elif defined(ATOMIC_TEST)
 int main(void) {
     bms_afe_aux_measurements_t aux;
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     bms_afe_feature_snapshot_t snap;
+#endif
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     sh3673510_bms_afe_init();
     sh3673510_bms_afe_set_output_enabled(1u);
@@ -187,7 +189,10 @@ int main(void) {
 #else
     assert(cplus_reads==0u && read_stage==7u);
     uint8_t present;
+    (void)present;
+#if BMS_FEATURE_HEATER_SUPPORTED
     assert(!sh3673510_backend_get_charge_source_present(&present));
+#endif
     /* 独立软件保护所有者已锁存 OCC 时，同样必须重新读取 C+。 */
     g_bms_report.fault_third.bits.charge_ocp=1u;
     sample(); assert(cplus_reads==1u);
@@ -202,12 +207,15 @@ int main(void) {
         const uint16_t expected[]={0,DIAG_AFE_FAIL_WAKE,DIAG_AFE_FAIL_STATUS,
             DIAG_AFE_FAIL_CELL_READ,DIAG_AFE_FAIL_PACK_READ,DIAG_AFE_FAIL_CURRENT_READ,
             DIAG_AFE_FAIL_TEMP_READ,DIAG_AFE_FAIL_CURRENT_CONVERT,DIAG_AFE_FAIL_RELEASE_READ};
+        if(failure_step!=expected[f]) fprintf(stderr,"failure stage f=%u expected=%u actual=%u\n",f,expected[f],failure_step);
         assert(failure_step==expected[f]);
         if(f>2u) assert(failure_flag2 & 0x200u);
         device.bstatus2=0u;
         assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
         assert(!sh3673510_backend_get_feature_snapshot(&snap));
+#endif
     }
     /* 硬件 OCC 需要的 C+ 读取失败仍使整帧失效并关闭两路 MOS。 */
     fail_stage=0;sample();sample();
@@ -227,14 +235,20 @@ int main(void) {
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
     }
     bad_cell=-1;sample();sample();
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     unsigned reads=read_stage;
     assert(sh3673510_backend_get_feature_snapshot(&snap) && snap.battery_temp_valid);
     assert(read_stage==reads && snap.cell_count==SH3673510_BOARD_CELL_COUNT);
+#endif
     for(unsigned i=SH3673510_BOARD_CELL_COUNT;i<32;++i)assert(g_bms_report.cell_voltage_mv[i]==61001);
     invalid_ntc=SH3673510_BOARD_BAT_NTC1_INDEX;sample();
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     assert(sh3673510_backend_get_feature_snapshot(&snap) && !snap.battery_temp_valid);
+#endif
     device.flag1=SH3673520_FLAG1_RST1_MASK;sample();
+#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     assert(!sh3673510_backend_get_feature_snapshot(&snap));
+#endif
     puts("Required read/cell failures remain atomic; healthy heater-free products skip unused C+ reads");
     return 0;
 }
@@ -258,7 +272,10 @@ int main(void) {
     cplus_raw=384;sample();assert(clear_calls==0); /* Hysteresis is not removal. */
     cplus_raw=0xffff;sample();assert(clear_calls==0); /* Invalid ADC is not zero. */
     uint8_t present;
+    (void)present;
+#if BMS_FEATURE_HEATER_SUPPORTED
     assert(!sh3673510_backend_get_charge_source_present(&present));
+#endif
     cplus_raw=0;
     sample();
     assert(clear_calls==1); /* A settled C+ low sample permits recovery. */
@@ -277,7 +294,10 @@ int main(void) {
     /* Simultaneous SC/OCC: finish LOAD recovery before obtaining C+ evidence. */
     device.flag1=SH3673520_FLAG1_SC_MASK|SH3673520_FLAG1_OCC_MASK;
     before=clear_calls;sample();
+    (void)present;
+#if BMS_FEATURE_HEATER_SUPPORTED
     assert(!sh3673510_backend_get_charge_source_present(&present));
+#endif
     for(unsigned i=0;i<10;++i)sample();
     assert(clear_calls==before+1 && device.flag1==SH3673520_FLAG1_OCC_MASK);
     sample();assert(load_mode==1 && command_c==0); /* SC readback confirmation */

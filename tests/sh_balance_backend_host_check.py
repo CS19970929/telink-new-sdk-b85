@@ -40,6 +40,7 @@ sh3673520_status_t SH3673520_WriteReg(uint8_t reg,uint8_t value) {
 '''
 code += without_includes(read('bms/afe/sh3673510/sh3673510_feature_backend.c'))
 code += r'''
+#if BMS_FEATURE_BALANCE_SUPPORTED
 int main(void) {
     tick=UINT32_MAX-32000u;
     assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==1u);
@@ -58,6 +59,7 @@ int main(void) {
     return 0;
 }
 '''
+code += '\n#else\nint main(void) { puts("PASS product disables balance; no backend operation compiled"); return 0; }\n#endif\n'
 out = run_c(code, name='sh-balance')
 evidence({'domain': 'balance', 'observations': out.strip(),
           'boundary': '真实 SH 均衡函数；寄存器 peer 为替身，物理均衡电流未验证'})

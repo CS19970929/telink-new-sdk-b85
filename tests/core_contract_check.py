@@ -443,4 +443,4 @@ if __name__ == "__main__":
     check_bms_diag_contract_check()
     from validation_support import read, run_c, ROOT
     run_c(read('tests/fixtures/parameters_startup.c'), ['bms/core/bms_parameters.c'],
-          ['-I',str(ROOT/'tests/fixtures/d014_safety_loop/include')], name='parameters-startup')
+          ['-DBMS_SERVICE_DIAG_ENABLE=1','-I',str(ROOT/'tests/fixtures/d014_safety_loop/include')], name='parameters-startup')

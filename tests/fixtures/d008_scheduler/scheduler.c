@@ -1,3 +1,4 @@
+#define BMS_SERVICE_DIAG_ENABLE 1
 #include <stdint.h>
 #include <assert.h>
 #include <string.h>

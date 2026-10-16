@@ -3,6 +3,7 @@
 #include <string.h>
 #include "sh3673520_reg.h"
 #include "bms_diag.h"
+static void bms_afe_publish_fet_status(uint8_t bits, uint8_t valid) { (void)bits; (void)valid; }
 typedef uint8_t u8;
 typedef uint32_t u32;
 enum { SH3673520_OK, SH3673520_ERR_SPI };

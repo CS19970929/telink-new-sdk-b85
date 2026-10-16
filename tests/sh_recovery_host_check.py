@@ -78,7 +78,7 @@ def check_sh_recovery_evidence_host_check(defines=None):
         for product in products:
             if product not in ('d011', 'd013', 'd014'):
                 raise ValueError('SH 回归不适用于 ' + product)
-            source = selected_source(ROOT / 'bms/afe/sh3673510/sh3673510_bms.c', product)
+            source = selected_source(ROOT / 'bms/afe/sh3673510/sh3673510_bms.c', product, defines=('-DBMS_SERVICE_DIAG_ENABLE=1',))
             guard = selected_source(ROOT / 'bms/core/bms_afe_guard.c', product)
             code = fixture.replace('/* PRODUCTION */', source).replace('/* GUARD */', guard)
             control = selected_source(ROOT / 'bms/afe/sh3673510/sh3673510_control.c', product)

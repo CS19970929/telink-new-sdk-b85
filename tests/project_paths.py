@@ -33,7 +33,7 @@ def host_includes(root, product=None):
           root/"tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common"]
     return [part for directory in dirs for part in ("-I",str(directory))]
 
-def selected_source(path, product=None):
+def selected_source(path, product=None, defines=()):
     """Read only this unit's actual TC32-preprocessed branch, outside the repository."""
     import subprocess,re,shutil,shlex
     product=product or os.environ.get("BMS_PRODUCT", "d014")
@@ -41,7 +41,7 @@ def selected_source(path, product=None):
     target_cc=Path(os.environ.get("TC32_CC", "C:/TelinkIoTStudio/opt/tc32/bin/tc32-elf-gcc.exe"))
     compiler=[str(target_cc)] if target_cc.is_file() else shlex.split(os.environ.get("CC",shutil.which("gcc") or "cc"))
     result=subprocess.run([*compiler,"-E","-dD","-fdirectives-only",
-        "-D__PROJECT_8258_BLE_SAMPLE__=1","-DCHIP_TYPE=CHIP_TYPE_825x",*host_includes(root,product),
+        "-D__PROJECT_8258_BLE_SAMPLE__=1","-DCHIP_TYPE=CHIP_TYPE_825x",*defines,*host_includes(root,product),
         "-I",str(root/"tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common"),str(path)],
         capture_output=True,check=True)
     active=False;out=[];target=path.resolve().as_posix().casefold()

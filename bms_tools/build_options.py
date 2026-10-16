@@ -206,14 +206,15 @@ def parameter_inputs_hash(root: Path, product: str, options: dict, replacements=
 
 
 def verify_source(root: Path, product: str, profile: str | None = None) -> dict:
-    options = read_source(root, product, profile)
+    # 固定标识绑定源码装配；工程 ELF 的 profile 覆盖不能改变该绑定。
+    options = read_source(root, product)
     parameters = _text(root / f"bms/products/{product}/{product}_protection_config.h")
     saved = _macro(parameters, "BMS_OTA_UPDATE_CONTENT_SHA256", r'"[0-9a-f]{64}"').strip('"')
     if options.get("update_groups") and saved != parameter_inputs_hash(root, product, options):
         raise ValueError("参数更新内容与固定标识不匹配；请保存新参数更新包，不能直接重编。")
     if options.get("update_groups"):
         _verify_identifier_history(root, product, options["update_id"], saved)
-    return options
+    return read_source(root, product, profile) if profile is not None else options
 
 
 def _verify_identifier_history(root: Path, product: str, identifier: str, digest: str) -> None:

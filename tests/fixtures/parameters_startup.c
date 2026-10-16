@@ -1,3 +1,4 @@
+#define BMS_SERVICE_DIAG_ENABLE 1
 /* 生产参数 TU，替换域 I/O：验证调用顺序、单次域初始化和失败门禁。 */
 #include <assert.h>
 #include <stdio.h>

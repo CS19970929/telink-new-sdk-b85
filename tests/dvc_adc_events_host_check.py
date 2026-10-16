@@ -40,7 +40,6 @@ static uint16_t dvc_be16(const uint8_t *x){return ((uint16_t)x[0]<<8)|x[1];}
 static int32_t dvc_sign_extend20(uint32_t x){return (x&0x80000)?(int32_t)(x|0xfff00000):(int32_t)x;}
 static int32_t dvc_cc2_to_raw_current_ma(int32_t x){return x;}
 static int32_t bms_config_calibrate_current(int32_t x){return x;}
-static int32_t dvc_apply_boot_zero(int32_t x){return x;}
 static void dvc_publish_current_report(int32_t x){(void)x;}
 static uint16_t dvc_correct_cell_mv(uint16_t x,uint32_t cm){(void)cm;return x;}
 static uint8_t dvc_ntc_resistance(uint16_t gp,uint16_t v,uint16_t rpu,uint32_t*r){(void)gp;(void)v;(void)rpu;*r=10000;return 1;}

@@ -26,7 +26,7 @@ def check_d008_current_recovery_host_check():
         c = Path(tmp) / 'check.c'; c.write_text(code)
         for hw in (0,1):
             exe = Path(tmp) / ('check%d.exe' % hw)
-            subprocess.run([os.environ.get('CC','cc'), '-std=c99', '-Wall', '-Wextra', '-Werror',
+            subprocess.run([os.environ.get('CC','cc'), '-std=c99','-DBMS_SERVICE_DIAG_ENABLE=1', '-Wall', '-Wextra', '-Werror',
                             '-Wno-unused-function', '-DDVC1124_HW_PROTECT_ENABLE=%d' % hw,
                             *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
             subprocess.run([str(exe)], check=True)
@@ -129,7 +129,7 @@ def check_d008_voltage_recovery_host_check():
         c = Path(tmp) / 'check.c'
         exe = Path(tmp) / 'check.exe'
         c.write_text(fixture.replace('/* PRODUCTION */', production), encoding='utf-8')
-        subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra', '-Werror',
+        subprocess.run([os.environ.get('CC', 'cc'), '-std=c99','-DBMS_SERVICE_DIAG_ENABLE=1', '-Wall', '-Wextra', '-Werror',
                         *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
         subprocess.run([str(exe)], check=True)
     print('D008 COV/CUV valid-sample continuity, wrap and fault injection: PASS')

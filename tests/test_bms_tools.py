@@ -503,6 +503,20 @@ def commit_configuration(root):
 
 
 class SourceConfigurationTests(unittest.TestCase):
+    def test_engineering_profile_validates_the_saved_source_package(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            copy_configuration(root)
+            saved = bms.build_options.save_source(root, 'd008', {'update_groups': ['sw']})
+            for profile, cells in (('16s-lfp', 16), ('20s-nmc', 20), ('24s-lfp', 24)):
+                selected = bms.build_options.verify_source(root, 'd008', profile)
+                self.assertEqual(selected['cell_count'], cells)
+                self.assertEqual(selected['update_id'], saved['configuration']['update_id'])
+            path = root/'bms/products/d008/d008_protection_config.h'
+            path.write_text(path.read_text(encoding='utf-8') + '\n/* 摘要故障注入 */\n', encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, '不匹配'):
+                bms.build_options.verify_source(root, 'd008', '16s-lfp')
+
     def test_manual_group_selection_can_be_saved_before_an_identifier_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

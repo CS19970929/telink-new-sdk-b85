@@ -108,7 +108,7 @@ def check_resource_safety_host_check():
     with tempfile.TemporaryDirectory(prefix='bms-resource-test-') as tmp:
         d=Path(tmp)
         header=(APP/'bms_stack_monitor.h').read_text()
-        src=(APP/'bms_stack_monitor.c').read_text().split('void bms_stack_monitor_poll(void)')[0]
+        src=selected_source(APP/'bms_stack_monitor.c', defines=('-DBMS_STACK_MONITOR_ENABLE=1',)).split('void bms_stack_monitor_poll(void)')[0]
         src=re.sub(r'^#include[^\n]*','',src,flags=re.M)
         src=header+src+r"""
     #include <assert.h>
@@ -136,7 +136,7 @@ def check_resource_safety_host_check():
     }
     """
         p=d/'stack.c';p.write_text(src);exe=d/'stack.exe'
-        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-variable',str(p),'-o',str(exe)],check=True)
+        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-variable','-DBMS_STACK_MONITOR_ENABLE=1',*host_includes(ROOT),str(p),'-o',str(exe)],check=True)
         subprocess.run([str(exe)],check=True)
         def case(ram=0x846000,sram=0x848000,raw=0x1a008,image=0x1a014,missing=False,ok=False,production=False,warning=False):
             (d/'fw.map').write_text('0x%08x PROVIDE (_ram_use_end_, .)\n'%ram + ('' if missing else '0x%08x PROVIDE (_bin_size_, expr)\n'%raw))

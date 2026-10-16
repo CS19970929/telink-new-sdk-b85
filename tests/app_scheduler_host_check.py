@@ -56,8 +56,8 @@ def check_app_scheduler_host_check():
 
 
     def main():
-        app = selected_source(MOD / "app.c")
-        power = selected_source(MOD / "app_power.c")
+        app = selected_source(MOD / "app.c", defines=("-DBMS_SERVICE_DIAG_ENABLE=1",))
+        power = selected_source(MOD / "app_power.c", defines=("-DBMS_SERVICE_DIAG_ENABLE=1",))
         # Exercise the actual event deadline gate, stub only event payload collection.
         event = function(app, "static void app_event_log_1s_task(")
         event = event[event.index("    _attribute_data_retention_"):event.index("\tmemset(&sample")]

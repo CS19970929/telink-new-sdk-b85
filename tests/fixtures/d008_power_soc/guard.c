@@ -6,6 +6,8 @@
 typedef uint8_t u8; typedef uint16_t u16;
 #define BMS_AFE_BACKEND 1
 #define BMS_AFE_BACKEND_DVC1124 1
+#define BMS_FEATURE_HEATER_SUPPORTED 1
+#define BMS_FEATURE_BALANCE_SUPPORTED 1
 #define BMS_ERROR_AFE1 1
 #define BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK 1u
 #define BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK 2u
@@ -43,6 +45,7 @@ struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bi
 static uint32_t guard_tick;
 uint32_t bms_time_now_32k(void){return guard_tick;}
 uint8_t bms_afe_enter_shutdown(void);
+void bms_afe_publish_fet_status(uint8_t bits, uint8_t valid);
 /* PRODUCTION_SOURCE */
 static void reset(void){
  params_valid=1u;direction_allow_mask=0u;

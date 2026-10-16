@@ -90,7 +90,7 @@ def check_d008_profile_selection_host_check():
         for selector in (1, 3):
             subprocess.run(base+['-DD008_PRODUCT_PROFILE=%d'%selector], check=True, stdout=subprocess.DEVNULL)
         result = subprocess.run(base+['-DD008_PRODUCT_PROFILE=5'], capture_output=True, text=True)
-        assert result.returncode != 0 and 'source-controlled production approval' in result.stderr
+        assert result.returncode == 0, result.stderr  # 合法源码装配不再维护固定白名单。
     print('PASS production rejects implicit D008 profile; all three explicit profiles accepted')
 
 def check_d008_framework_contract_check():

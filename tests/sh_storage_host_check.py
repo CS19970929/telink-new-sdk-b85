@@ -68,7 +68,7 @@ def check_sh_event_checkpoint_host_check():
     code=code.replace('/* TYPES */',source('bms_storage_platform.h')+source('bms_event_log.h')).replace('/* PRODUCTION */',source('bms_event_log.c'))
     with tempfile.TemporaryDirectory(prefix='sh-event-') as d:
      p=Path(d)/'event.c';p.write_text(code);exe=Path(d)/'event.exe'
-     subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror',*host_includes(ROOT),str(p),'-o',str(exe)],check=True)
+     subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-DBMS_SERVICE_DIAG_ENABLE=1','-Wall','-Wextra','-Werror',*host_includes(ROOT),str(p),'-o',str(exe)],check=True)
      subprocess.run([str(exe)],check=True)
     print('PASS event storm batching, pending retention, retry/wrap, idempotent init, sleep cancellation and pending retry')
 
@@ -87,7 +87,7 @@ def check_sh_storage_platform_host_check():
     fixture=fixture.replace('/* PRODUCTION */',unit)
     with tempfile.TemporaryDirectory(prefix='sh-platform-') as d:
      p=Path(d)/'platform.c';p.write_text(fixture);exe=Path(d)/'platform.exe'
-     subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-function','-include',str(APP/'storage_port.h'),'-include',str(APP/'bms_diag.h'),str(p),'-o',str(exe)],check=True)
+     subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-DBMS_SERVICE_DIAG_ENABLE=1','-Wall','-Wextra','-Werror','-Wno-unused-function','-include',str(APP/'storage_port.h'),'-include',str(APP/'bms_diag.h'),str(p),'-o',str(exe)],check=True)
      subprocess.run([str(exe)],check=True)
 
 if __name__ == "__main__":

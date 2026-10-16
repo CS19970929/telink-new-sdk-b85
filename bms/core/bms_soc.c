@@ -1052,6 +1052,7 @@ static uint8_t soc_apply_full_anchor(void)
     /* 单串过压仍执行保护，但不代表整包满电；满锚点也须满足最小电压和压差。 */
     if (voltage_ready && g_soc_input.third_cell_ovp) {
         before = get_soc_real();
+        (void)before; /* 诊断关闭时该记录参数不产生消费者。 */
         if (get_soc_real() != SOC_PERCENT_MAX) {
             soc_apply_real_value(SOC_PERCENT_MAX, 0u);
             soc_reset_integral_accumulator();
@@ -1174,6 +1175,7 @@ static uint8_t soc_apply_idle_empty_anchor(void)
     if (g_soc_runtime.empty_adjust_ticks < SOC_EMPTY_SYNC_STEP_TICKS) return 0u;
     g_soc_runtime.empty_adjust_ticks = 0u;
     before = get_soc_real();
+    (void)before; /* 诊断关闭时该记录参数不产生消费者。 */
     if (soc_step_down_to(0u)) {
         if (get_soc_real() == 0u && !g_soc_runtime.empty_anchor_latched) {
             g_soc_runtime.empty_anchor_latched = 1u;

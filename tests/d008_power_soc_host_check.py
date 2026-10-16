@@ -101,7 +101,7 @@ def main():
             executable.parent.mkdir(parents=True, exist_ok=True)
             subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
                 '-DBMS_PRODUCT_SWITCH_SLEEP_ENABLE=1',
-                '-std=c99', '-DBMS_HOST_TEST=1', '-Wall', '-Wextra', '-Werror',
+                '-std=c99', '-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_HOST_TEST=1', '-Wall', '-Wextra', '-Werror',
                 '-Wno-unused-function', '-Wno-unused-parameter',
                 str(path), '-I', str(ROOT/'bms/core'), *([*host_includes(ROOT),'-include',str(MOD/'bms_diag.h'),str(MOD/'bms_diag.c')] if name=='guard' else []), '-o', str(executable)], check=True)
             if args.compile_soc_executable is not None:
@@ -110,7 +110,7 @@ def main():
             subprocess.run([str(executable)], check=True)
             if name == 'power':
                 subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
-                    '-std=c99', '-DBMS_HOST_TEST=1', '-DBMS_PRODUCT_SWITCH_SLEEP_ENABLE=0',
+                    '-std=c99', '-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_HOST_TEST=1', '-DBMS_PRODUCT_SWITCH_SLEEP_ENABLE=0',
                     '-Wall', '-Wextra', '-Werror', '-Wno-unused-function', '-Wno-unused-parameter',
                     str(path), '-I', str(ROOT/'bms/core'), '-o', str(executable)], check=True)
                 subprocess.run([str(executable)], check=True)
