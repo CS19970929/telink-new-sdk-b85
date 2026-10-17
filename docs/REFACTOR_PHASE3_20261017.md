@@ -92,3 +92,59 @@ D008 使用源码 custom 20S LFP；另保存 D008/D014 服务诊断开发配置�
 `%LOCALAPPDATA%/CodexTemp/telink-refactor/20261017-four-steps/`。
 本轮不执行镜像、烧录、OTA 或硬件操作；host/ELF/MAP 不替代均衡电流/关闭、
 Gate/WDT、Flash 掉电、低功耗及唤醒验收。
+
+## 终态验收：固定源码 4b2f44f
+
+基线 `d7deee93` 与终态 `4b2f44fc22e65cdf278b13dc5e80c05ed9f035fc`
+均为干净源码。以下资源收据固定到该终态，后续文档提交没有改变编译输入。
+
+- 38 个不同 product/check 组合通过，不含重复执行及三种 SOC 宏子场景的重复计数。
+  范围包括 SOC、DVC ADC/均衡/寄存器/固定策略/NTC/启动保护、四产品 feature、
+  存储/Flash、core contract、诊断、Modbus、SH 方向及 D008 配置；不是全量回归。
+- 四产品七天 SOC CSV 各为 10081 行，前后逐字节一致，SHA-256 均为
+  `e040f614d41b8106f4c1d02363c4b8c02b7f937fe68ebb4be8ee60ebb41f3827`。
+  每产品 off/service/board 共同业务输出为 91201 行，互相一致；D008 也与修改前一致，
+  SHA-256 为 `b45a608cfe56c38b4bf4bc8ecba961e43f260841ec6afcb12ba48b80640b09f7`。
+- 四产品 `sources --check`、development/production `link/resources` 通过；
+  另检查 D008/D014 服务诊断 development，共 10 份终态 ELF/resource 收据。
+  编译 0 error/0 warning；全部 `dirty=false`、`image_generated=false`，输出无 BIN。
+- Standards 和 Spec 两条独立只读复核均为 0 项未解决发现；额外复核用户授权的 D008
+  保参修改也无新增项。审查者没有代跑测试；测试及资源结果以本轮工具输出为准。
+
+### 实际资源
+
+单位 B。D008 为源码 custom 20S LFP，D011/D013 为 10S LFP，D014 为 8S LFP。
+优化设置未改：开发 core -O2，生产 core -Os，AFE/app/平台仍 -O2。
+
+| 模式/产品 | Flash 基线→终态 | 变化 | RAM 地址跨度基线→终态 | 变化 | Flash 余量 |
+|---|---:|---:|---:|---:|---:|
+| development D008 | 118868→116996 | -1872 | 22884→22856 | -28 | 9980 |
+| development D011 | 116452→115220 | -1232 | 22464→22420 | -44 | 11756 |
+| development D013 | 113076→111860 | -1216 | 22380→22336 | -44 | 15116 |
+| development D014 | 115540→114308 | -1232 | 22460→22416 | -44 | 12668 |
+| production D008 | 114228→112516 | -1712 | 22884→22856 | -28 | 14460 |
+| production D011 | 111732→110548 | -1184 | 22208→22164 | -44 | 16428 |
+| production D013 | 108340→107156 | -1184 | 22124→22080 | -44 | 19820 |
+| production D014 | 110804→109604 | -1200 | 22204→22160 | -44 | 17372 |
+| service-diag D008 | 126244→125732 | -512 | 23484→23484 | 0 | 1244 |
+| service-diag D014 | 123252→123348 | +96 | 23060→23044 | -16 | 3628 |
+
+D008 对比包含用户授权的 OTA 五组全选→保参策略，不能将全部收益归因于四项重构。
+普通开发与生产四产品均超过 8 KiB 余量；两种服务诊断组合仍低于 8 KiB，只是开发
+链接证据。D014 服务诊断 Flash 增加 96 B，不能声称所有配置都缩小。
+RAM 地址跨度包括 ramcode/对齐/IRQ 等，不是峰值栈或实际运行 RAM 水位。
+TC32 nm 另证实普通 D014 `g_soc_runtime` 从 66 B 变为 38 B，显示镜像及 ETA
+reset/update 符号不再进入该 ELF；这是独立的成员/符号证据，不与 RAM 跨度混算。
+
+### 提交、交付与未验证项
+
+四项分别为 `b0bee34b`、`e09f7565`、`a33afb33`、`c6e68e73`；用户授权的 D008
+保参策略另为 `4b2f44f`。全部中文提交，仅包含本次文件，没有推送。
+
+正式树外证据：[目录及哈希清单](<C:/Users/Administrator/Documents/CodexOutputs/telink-new-sdk-b85/refactor-phase3-20261017-4b2f44f/CHECKSUMS.sha256>)。
+其中保存 20 份基线/终态资源收据、ELF/MAP/LST、输入指纹、日志、SOC CSV、
+故障注入失败/成功证据、复现脚本、源码差异及身份说明；没有对象缓存或 BIN。
+
+未执行完整 host 回归、ASan/UBSan、Cppcheck、其他 D008 装配/profile、实板均衡电流/关闭、
+物理 Gate/持续 SC-OCD-OCC/WDT、Flash 掉电、睡眠电流/唤醒、最坏执行时间及设备 OTA 验收。
+独立板测宏的 host 通过不等于实际板测；保护 GPIO、唤醒源与物理恢复未作为本轮修复结论。
