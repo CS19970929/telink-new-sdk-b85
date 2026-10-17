@@ -138,13 +138,15 @@ sh3673520_status_t SH3673520_ReadRegs(uint8_t reg,uint8_t *v,sh3673520_size_t n)
 /* GUARD */
 #endif
 
+static bms_afe_sample_result_t last_sample_result;
 static void sample(void) {
     now += 6400;
     read_stage=0;
 #ifdef GUARD_TEST
-    if (bms_afe_sample().status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs();
+    last_sample_result = bms_afe_sample();
+    if (last_sample_result.status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs();
 #else
-    bms_afe_driver_sample();
+    last_sample_result = bms_afe_driver_sample();
     bms_afe_driver_set_fets(1,1);
 #endif
 }
@@ -187,6 +189,7 @@ int main(void) {
     bms_afe_driver_init();
     for(unsigned i=0;i<8;++i)sample();
     assert(bms_afe_driver_get_aux_measurements(&aux));
+    assert(last_sample_result.status==BMS_AFE_SAMPLE_OK && last_sample_result.confirm_sample);
     assert(command_c==1u && command_d==1u);
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
     assert(cplus_reads>0u && read_stage==8u); /* D011 加热仍需充电器证据。 */
@@ -208,6 +211,7 @@ int main(void) {
         fail_stage=0;sample();sample();
         device.bstatus2=SH3673520_BSTATUS2_IDLE_MASK;
         fail_stage=f;sample();
+        assert(last_sample_result.status==BMS_AFE_SAMPLE_ERROR && !last_sample_result.confirm_sample);
         const uint16_t expected[]={0,DIAG_AFE_FAIL_WAKE,DIAG_AFE_FAIL_STATUS,
             DIAG_AFE_FAIL_CELL_READ,DIAG_AFE_FAIL_PACK_READ,DIAG_AFE_FAIL_CURRENT_READ,
             DIAG_AFE_FAIL_TEMP_READ,DIAG_AFE_FAIL_CURRENT_CONVERT,DIAG_AFE_FAIL_RELEASE_READ};
@@ -261,6 +265,7 @@ int main(void) {
     bms_afe_aux_measurements_t aux, previous;
     bms_afe_driver_init();
     sample(); sample();
+    assert(last_sample_result.status==BMS_AFE_SAMPLE_NOT_READY && !last_sample_result.confirm_sample);
     assert(!bms_afe_driver_get_aux_measurements(&aux));
     assert(!bms_error_get(BMS_ERROR_AFE1)); /* Waiting for first conversion is normal. */
     sample();
@@ -331,7 +336,9 @@ int main(void) {
     sample(); sample();
     assert(bms_afe_driver_get_aux_measurements(&aux));
     assert(aux.sample_tick_32k==previous.sample_tick_32k);
+    assert(last_sample_result.status==BMS_AFE_SAMPLE_OK && !last_sample_result.confirm_sample);
     sample(); assert(!bms_afe_driver_get_aux_measurements(&aux));
+    assert(last_sample_result.status==BMS_AFE_SAMPLE_ERROR && !last_sample_result.confirm_sample);
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     for(unsigned i=0;i<8;++i) sample();
     mode_ok=0;sample();assert(!bms_afe_driver_get_aux_measurements(&aux));
@@ -367,6 +374,7 @@ int main(void) {
     /* AFE 自复位成功重配也必须撤销旧三帧资格；等待不累加通信失败。 */
     device.flag1=SH3673520_FLAG1_RST1_MASK;
     sample();assert(!bms_afe_samples_qualified() && !s_guard.comm_failures);
+    assert(last_sample_result.status==BMS_AFE_SAMPLE_NOT_READY && !last_sample_result.confirm_sample);
     assert(command_c==0 && command_d==0);
     for(unsigned i=0;i<8;++i){sample();assert(!bms_afe_samples_qualified());}
     sample();assert(bms_afe_samples_qualified() && command_c==1 && command_d==1);

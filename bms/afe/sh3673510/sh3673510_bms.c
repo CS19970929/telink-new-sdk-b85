@@ -87,7 +87,6 @@ static uint8_t s_load_removed;
 static uint8_t s_charger_removed;
 static uint8_t s_charger_known;
 static uint8_t s_charger_present;
-static uint8_t s_confirm_sample;
 static uint8_t s_sampling_restart;
 static uint8_t s_vadc_seen;
 static uint8_t s_cadc_seen;
@@ -113,7 +112,6 @@ static void restart_sampling(void)
     s_vadc_ms = s_cadc_ms = s_sampling_started_ms;
     s_vadc_seen = s_cadc_seen = 0u;
     s_snapshot_valid = 0u;
-    s_confirm_sample = 0u;
     s_sampling_restart = 0u;
 }
 
@@ -167,7 +165,6 @@ static void note_comm_error(uint16_t stage)
     s_detection_initialized = 0u;
     s_load_removed = s_charger_removed = s_charger_known = 0u;
     s_vadc_seen = s_cadc_seen = 0u;
-    s_confirm_sample = 0u;
     /* 恢复要求连续有效样本，不能跨通信间断累计；保留故障锁存，仅作废恢复资格。 */
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
@@ -361,17 +358,6 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
         if (!bms_error_get(BMS_ERROR_CBC_DSG)) bms_error_raise(BMS_ERROR_CBC_DSG);
     }
 #endif
-}
-
-/* 立即恢复只接受本次完整新样本中超过死区的真实电流。 */
-static uint8_t sh3510_fresh_charging(void)
-{
-    return s_confirm_sample && s_aux.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
-}
-
-static uint8_t sh3510_fresh_discharging(void)
-{
-    return s_confirm_sample && s_aux.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
 }
 
 #if SH3673510_HW_PROTECT_ENABLE
@@ -726,14 +712,17 @@ static void sh3510_publish_temperatures(const int32_t *external_raw)
 }
 
 /* 测量发布之后评估软件保护及硬件恢复，保持原物理证据、清标志和失败阶段。 */
-static uint16_t sh3510_update_protection(const sh3673510_control_status_t *status)
+static uint16_t sh3510_update_protection(const sh3673510_control_status_t *status,
+                                         uint8_t confirm_sample)
 {
     bms_sw_protection_inputs_t sw;
     memset(&sw, 0, sizeof(sw));
     sw.current_recovery_requires_evidence = 1u;
-    sw.current_recovery_sample_fresh = s_confirm_sample;
-    sw.charge_recovery_immediate = sh3510_fresh_discharging();
-    sw.discharge_recovery_immediate = sh3510_fresh_charging();
+    sw.current_recovery_sample_fresh = confirm_sample;
+    sw.charge_recovery_immediate = confirm_sample &&
+        s_aux.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+    sw.discharge_recovery_immediate = confirm_sample &&
+        s_aux.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
     sw.charge_recovery_allowed = s_charger_removed || sw.charge_recovery_immediate;
     sw.discharge_recovery_allowed = s_load_removed || sw.discharge_recovery_immediate;
     sw.mos_temp_required = SH3673510_PRODUCT_MOS_NTC_SUPPORTED;
@@ -761,14 +750,14 @@ static uint16_t sh3510_update_protection(const sh3673510_control_status_t *statu
     if (!s_charger_removed && !sw.charge_recovery_immediate)
         s_hw_recovery_count[HW_REC_OCC] = 0u;
     if (!service_short_recovery(status, sw.discharge_recovery_immediate)) return DIAG_AFE_FAIL_SHORT_RECOVERY;
-    if (s_confirm_sample && !service_hw_flag_recovery(status, &sw)) return DIAG_AFE_FAIL_FLAG_RECOVERY;
+    if (confirm_sample && !service_hw_flag_recovery(status, &sw)) return DIAG_AFE_FAIL_FLAG_RECOVERY;
 #endif
     bms_sw_protection_record_fault_edges();
     return DIAG_AFE_FAIL_NONE;
 }
 
 /* 完整读取和资格确认后按原顺序发布测量，再评估保护；失败交回采样入口。 */
-static uint16_t publish_measurements(void)
+static uint16_t publish_measurements(uint8_t *confirmed)
 {
     int32_t cell[SH3673510_BOARD_CELL_COUNT];
     int32_t pack_mv;
@@ -816,8 +805,6 @@ static uint16_t publish_measurements(void)
         return DIAG_AFE_FAIL_VADC_AGE;
     if ((uint32_t)(now - s_cadc_ms) > SH3510_ADC_MAX_AGE_MS)
         return DIAG_AFE_FAIL_CADC_AGE;
-    s_confirm_sample = ((status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ==
-                       (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ? 1u : 0u;
     publish_hw_status(&status);
     if (s_afe_reconfigure_required) return DIAG_AFE_FAIL_NONE;
     if (!sample_release_evidence(&status)) return DIAG_AFE_FAIL_RELEASE_READ;
@@ -830,13 +817,17 @@ static uint16_t publish_measurements(void)
         sh3510_publish_current(current_ma, now);
     if (!s_vadc_seen || !s_cadc_seen ||
         (uint32_t)(now - s_sampling_started_ms) <= SH3510_TEMP_STARTUP_MS) {
-        s_confirm_sample = 0u;
         return DIAG_AFE_FAIL_NONE;
     }
 
     {
-        uint16_t failure = sh3510_update_protection(&status);
+        /* FLAG2 只由本次状态读取消费；证据不保存到跨轮状态。 */
+        uint8_t confirm_sample =
+            ((status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ==
+             (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ? 1u : 0u;
+        uint16_t failure = sh3510_update_protection(&status, confirm_sample);
         if (failure != DIAG_AFE_FAIL_NONE) return failure;
+        *confirmed = confirm_sample;
     }
     s_snapshot_valid = 1u;
     bms_afe_publish_fet_status(
@@ -885,12 +876,11 @@ bms_afe_sample_result_t bms_afe_driver_sample(void)
 {
     uint16_t failure;
     bms_afe_sample_result_t result = { BMS_AFE_SAMPLE_ERROR, 0u };
-    s_confirm_sample = 0u;
     s_sample_attempt_tick = pm_get_32k_tick();
     s_sample_attempt_flag2 = 0u;
     sh3673510_board_force_heater_fuse_safe();
     if (s_flag_clear_failed) { note_comm_error(DIAG_AFE_FAIL_FLAG_CLEAR_HOLD); return result; }
-    failure = publish_measurements();
+    failure = publish_measurements(&result.confirm_sample);
     if (failure != DIAG_AFE_FAIL_NONE) {
         note_comm_error(failure);
         return result;
@@ -902,7 +892,6 @@ bms_afe_sample_result_t bms_afe_driver_sample(void)
     }
     note_comm_ok();
     result.status = s_snapshot_valid ? BMS_AFE_SAMPLE_OK : BMS_AFE_SAMPLE_NOT_READY;
-    result.confirm_sample = s_snapshot_valid ? s_confirm_sample : 0u;
     return result;
 }
 

@@ -140,9 +140,9 @@ def check_sh3673510_board_host_check():
     #define MOS_TEMP1 3
     static struct {uint16_t temperature_x10[4];} g_bms_report;
     static uint32_t s_ntc_ohm[4];
-    static uint8_t s_confirm_sample, s_charger_removed, s_load_removed;
-    static uint8_t sh3510_fresh_charging(void){return 0;}
-    static uint8_t sh3510_fresh_discharging(void){return 0;}
+    static uint8_t confirm_sample, s_charger_removed, s_load_removed;
+    static struct { int32_t current_ma; } s_aux;
+    #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
     static uint8_t battery_temperature_snapshot(uint16_t *low,uint16_t *high){*low=*high=650;return 1;}
     static bms_sw_protection_inputs_t sample(void){bms_sw_protection_inputs_t sw;
     ''' + mapping + r'''

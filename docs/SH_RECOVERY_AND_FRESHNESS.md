@@ -1,5 +1,7 @@
 # SH3673510 恢复证据与采样资格
 
+当前补充：SH 的确认事件由本轮 FLAG2 和有效采样在栈上产生，成功后直接返回；不再保存 s_confirm_sample。跨轮 ADC 活性、恢复计数和锁存仍各自保留。见 [主链重构记录](MAIN_CHAIN_REFACTOR_20261017.md)。
+
 ## 当前实现：2026-10-17
 
 采样结果为 OK / NOT_READY / ERROR。OK 包括建立且未过期的缓存，NOT_READY 只用于初始化或重配置后的有界等待；ERROR 进入原故障隔离链。新 ADC 转换与普通业务调度分离：后端独占 read-clear 标志，返回 confirm_sample 供 Guard 三次资格、均衡可信度、加热启动及熔断确认使用，缓存轮次不增加这些计数。

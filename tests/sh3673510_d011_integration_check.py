@@ -338,8 +338,8 @@ for needle in (
 ):
     require(hw_text, needle)
 for needle in ("sw.discharge_recovery_allowed = s_load_removed || sw.discharge_recovery_immediate",
-               "sw.discharge_recovery_immediate = sh3510_fresh_charging()",
-               "sw.charge_recovery_immediate = sh3510_fresh_discharging()",
+               "sw.discharge_recovery_immediate = confirm_sample &&",
+               "sw.charge_recovery_immediate = confirm_sample &&",
                "sw.battery_temp_valid = battery_temperature_snapshot"):
     require(bms, needle)
 if "fault_third" in hw_text:

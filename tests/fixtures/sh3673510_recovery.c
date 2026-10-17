@@ -15,7 +15,11 @@ static struct { struct { uint8_t afe1_status, charge_mos_status, discharge_mos_s
 static uint8_t errors[4];
 static unsigned failures, clears, writes;
 static uint8_t guard_qualified = 1;
+/* 短路 helper 只消费证据；方向生成由完整公共采样场景覆盖。 */
+static uint8_t test_confirm_sample;
 static uint32_t bms_time_ms(void) { return 0u; }
+static uint32_t bms_time_now_32k(void) { return 0u; }
+static uint32_t pm_get_32k_tick(void) { return 0u; }
 static uint8_t bms_afe_samples_qualified(void) { return guard_qualified; }
 static void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid) { (void)driver_bits; (void)valid; }
 static uint8_t clear_ok, write_ok, init_ok, actual_c, actual_d;
@@ -72,7 +76,7 @@ static void reset(void) {
     s_fet_command_valid = 0;
     test_requested_charge_on = test_requested_discharge_on = 1;
     s_bstatus2 = 0;
-    s_aux.current_ma=0;s_confirm_sample=1;
+    s_aux.current_ma=0;test_confirm_sample=1;
     clears = writes = 0;
     clear_ok = write_ok = init_ok = 1;
 }
@@ -83,7 +87,8 @@ static void sample(uint8_t sc, uint8_t removed) {
     s_load_removed = removed; /* Evidence input; mode/timing has a public-path test. */
     publish_hw_status(&status);
 #if SH3673510_HW_PROTECT_ENABLE
-    service_short_recovery(&status, sh3510_fresh_charging());
+    service_short_recovery(&status, test_confirm_sample &&
+        s_aux.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA);
 #endif
 }
 static void short_recovery(void) {
@@ -100,8 +105,8 @@ static void short_recovery(void) {
     CHECK(!s_short_latched && !errors[BMS_ERROR_DSG_SHORT]);
 
     reset();s_aux.current_ma=-200;sample(1,0);CHECK(clears==0);
-    s_aux.current_ma=-201;s_confirm_sample=0;sample(1,0);CHECK(clears==0);
-    s_confirm_sample=1;sample(1,0);CHECK(clears==1 && s_short_clear_pending);
+    s_aux.current_ma=-201;test_confirm_sample=0;sample(1,0);CHECK(clears==0);
+    test_confirm_sample=1;sample(1,0);CHECK(clears==1 && s_short_clear_pending);
     sample(0,0);CHECK(!s_short_latched); /* 反向充电不等待10次LOADOFF。 */
 
     /* A failed clear must not release the latch; later readback is mandatory. */
