@@ -10,6 +10,8 @@ uint8_t deepsleep_en;
 static unsigned requested_reads, effective_reads, event_reads, frames;
 static unsigned parameter_reads;
 static u8 parameter_mixed;
+static bms_user_params_t identity_user;
+static int identity_user_ok=1;
 static int requested_fail_at = -1, effective_fail_at = -1;
 static u16 effective_base = 0x2000u;
 static uint32_t corpus = 2166136261u;
@@ -53,7 +55,7 @@ int bms_parameter_read_block(u16 r,u16 n,u8 *d) {
     for(unsigned i=0;i<n;++i){u16 v=(u16)((r+i)^0x55aau);d[i*2u]=(u8)(v>>8);d[i*2u+1u]=(u8)v;}
     return 1;
 }
-int bms_config_get_user(bms_user_params_t *u) { memset(u,0,sizeof(*u)); return 1; }
+int bms_config_get_user(bms_user_params_t *u) { *u=identity_user; return identity_user_ok; }
 void bms_config_store_get_default_protect(bms_protection_params_t *p) { (void)p; abort(); }
 int bms_config_store_get_system(bms_config_system_params_t *p) { (void)p; abort(); }
 void bms_config_store_get_chemistry_protect(u8 chemistry, bms_protection_params_t *p) { (void)chemistry; (void)p; abort(); }
@@ -146,10 +148,39 @@ static void expect_write_single(u8 addr,u16 reg,u16 value,u8 exception)
     assert(wire_crc(rsp,length)==0u);
 }
 
+static void check_product_identity(void)
+{
+    /* 独立构造原 3 个 32-byte 窗口；完整 SN、短 SN、空值和读取失败。 */
+    u8 expected[96];
+    u16 words[48];
+    for (unsigned pass=0u; pass<4u; ++pass) {
+        memset(&identity_user,0,sizeof(identity_user));
+        identity_user_ok=pass!=3u;
+        if (pass==1u) memcpy(identity_user.serial,"0123456789abcdefghijklmnopqrstuv",32u);
+        if (pass>=2u) memcpy(identity_user.serial,"NEW-SN",7u);
+        memset(expected,0,sizeof(expected));
+        memcpy(expected,BMS_PRODUCT_DEFAULT_SERIAL,
+               sizeof(BMS_PRODUCT_DEFAULT_SERIAL)>32u?32u:sizeof(BMS_PRODUCT_DEFAULT_SERIAL));
+        if (identity_user_ok && identity_user.serial[0]) memcpy(expected,identity_user.serial,32u);
+        memcpy(expected+32u,BMS_PRODUCT_HW_VERSION,
+               sizeof(BMS_PRODUCT_HW_VERSION)>32u?32u:sizeof(BMS_PRODUCT_HW_VERSION));
+        memcpy(expected+64u,BMS_PRODUCT_SW_VERSION,
+               sizeof(BMS_PRODUCT_SW_VERSION)>32u?32u:sizeof(BMS_PRODUCT_SW_VERSION));
+        for (unsigned i=0u; i<48u; ++i) words[i]=(u16)(((u16)expected[i*2u]<<8)|expected[i*2u+1u]);
+        bms_product_info_refresh();
+        expect_read(1u,PROD_SN_REG_BASE,48u,words,0u);
+        expect_read(1u,PROD_HW_VER_REG_BASE,16u,words+16u,0u);
+        expect_read(1u,PROD_SW_VER_REG_BASE,16u,words+32u,0u);
+        expect_read(1u,PROD_SW_VER_REG_BASE+15u,2u,words,2u);
+    }
+    memset(&identity_user,0,sizeof(identity_user));identity_user_ok=1;
+}
+
 int main(void)
 {
     u16 words[125]={0};
     bms_diag_init(); bms_debug_log_init();
+    check_product_identity();
     for(unsigned i=0;i<16u;++i)words[i]=(u16)((0x2e00u+i)^0x55aau);
     parameter_reads=0u;expect_read(1u,0x2e00u,16u,words,0u);assert(parameter_reads==1u);
     parameter_reads=0u;expect_read(1u,0x2e0fu,2u,words,2u);assert(!parameter_reads);

@@ -101,14 +101,7 @@ typedef char bms_service_password_must_fit_frame[
 
 #define PRODUCT_ID_LENGTH_MAX 32
 
-typedef struct {
-    u8 BMS_SerialNumber[PRODUCT_ID_LENGTH_MAX];
-    u8 BMS_HardWareVersion[PRODUCT_ID_LENGTH_MAX];
-    u8 BMS_SoftWareVersion[PRODUCT_ID_LENGTH_MAX];
-} bms_product_info_t;
-
-
-/* 从 Config SN 和编译身份刷新协议 RAM 缓存，不写 Flash。 */
+/* 从 Config SN 和编译默认刷新序列号 RAM 缓存，不写 Flash。 */
 void bms_product_info_refresh(void);
 
 /* 检查业务参数地址是否允许读取。 */

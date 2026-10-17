@@ -226,17 +226,18 @@ static void test_config_schema(void){
  fresh();malformed=g_bms_config;malformed.system.soc_profile_id=0x100u;
  assert(bms_config_save_cache(&malformed));reboot();assert(bms_config_store_init());
  assert(!bms_config_store_get_soc(&soc) && !bms_config_store_validate_startup());
- /* 两个接口读取同一选型；保存失败不能发布任何一组的新值。 */
+ /* 系统入口保存选型，SOC getter 读取同一来源；失败不能发布新值。 */
  fresh();bms_config_system_params_t selection=g_bms_config.system;
  selection.battery_chemistry=2u;selection.soc_profile_id=2u;
  assert(bms_config_store_set_system(&selection));assert(bms_config_store_get_soc(&soc));
  assert(soc.chemistry==2u && soc.profile_id==2u);
- soc.chemistry=1u;soc.profile_id=1u;cut=0;
- assert(!bms_config_store_set_soc(&soc));assert(bms_config_store_get_soc(&soc));
+ selection.battery_chemistry=1u;selection.soc_profile_id=1u;cut=0;
+ assert(!bms_config_store_set_system(&selection));assert(bms_config_store_get_soc(&soc));
  assert(soc.chemistry==2u && soc.profile_id==2u);
- cut=-1;soc.chemistry=1u;soc.profile_id=1u;
- assert(bms_config_store_set_soc(&soc));assert(bms_config_store_get_system(&selection));
+ cut=-1;
+ assert(bms_config_store_set_system(&selection));assert(bms_config_store_get_system(&selection));
  assert(selection.battery_chemistry==1u && selection.soc_profile_id==1u);
+ assert(bms_config_store_get_soc(&soc) && soc.chemistry==1u && soc.profile_id==1u);
  fresh(); bms_config_system_params_t cap=g_bms_config.system;
  cap.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH+1u;assert(!bms_config_store_set_system(&cap));
  assert(g_bms_config.system.capacity_factory==1000);

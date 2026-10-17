@@ -83,7 +83,7 @@ static u16 read_afe_actual_reg(u16 reg);
 /* 校验地址及取值后写入一个协议寄存器。 */
 static u8 write_reg(u16 reg, u16 val);
 
-static bms_product_info_t s_product_info;
+static u8 s_serial_number[PRODUCT_ID_LENGTH_MAX];
 
 /* 判断地址是否属于请求硬件保护配置窗口。 */
 static int afe_hw_profile_is_requested_reg(u16 reg)
@@ -777,43 +777,35 @@ static u16 read_ascii_string_reg(const u8 *str, u16 max_len, u16 reg_offset)
 static u16 read_production_info_reg(u16 reg)
 {
     if (reg >= PROD_SN_REG_BASE && reg < (PROD_SN_REG_BASE + PROD_SN_REG_COUNT))
-        return read_ascii_string_reg(s_product_info.BMS_SerialNumber,
+        return read_ascii_string_reg(s_serial_number,
                                      PRODUCT_ID_LENGTH_MAX,
                                      (u16)(reg - PROD_SN_REG_BASE));
 
     if (reg >= PROD_HW_VER_REG_BASE && reg < (PROD_HW_VER_REG_BASE + PROD_HW_VER_REG_COUNT))
-        return read_ascii_string_reg(s_product_info.BMS_HardWareVersion,
-                                     PRODUCT_ID_LENGTH_MAX,
+        return read_ascii_string_reg((const u8 *)BMS_PRODUCT_HW_VERSION,
+                                     sizeof(BMS_PRODUCT_HW_VERSION),
                                      (u16)(reg - PROD_HW_VER_REG_BASE));
 
     if (reg >= PROD_SW_VER_REG_BASE && reg < (PROD_SW_VER_REG_BASE + PROD_SW_VER_REG_COUNT))
-        return read_ascii_string_reg(s_product_info.BMS_SoftWareVersion,
-                                     PRODUCT_ID_LENGTH_MAX,
+        return read_ascii_string_reg((const u8 *)BMS_PRODUCT_SW_VERSION,
+                                     sizeof(BMS_PRODUCT_SW_VERSION),
                                      (u16)(reg - PROD_SW_VER_REG_BASE));
 
     return 0u;
 }
 
-/* 从 Config SN 和编译身份刷新协议 RAM 缓存，不写 Flash。 */
+/* 固定版本直接读编译字符串；只有可写 SN 保留 32-byte 协议缓存。 */
 void bms_product_info_refresh(void)
 {
     bms_user_params_t user;
-    uint8_t hardwareCount = sizeof(BMS_PRODUCT_HW_VERSION) > PRODUCT_ID_LENGTH_MAX
-                              ? PRODUCT_ID_LENGTH_MAX
-                              : sizeof(BMS_PRODUCT_HW_VERSION);
-    uint8_t softwareCount = sizeof(BMS_PRODUCT_SW_VERSION) > PRODUCT_ID_LENGTH_MAX
-                              ? PRODUCT_ID_LENGTH_MAX
-                              : sizeof(BMS_PRODUCT_SW_VERSION);
     uint8_t serialNumberCount = sizeof(BMS_PRODUCT_DEFAULT_SERIAL) > PRODUCT_ID_LENGTH_MAX
                                   ? PRODUCT_ID_LENGTH_MAX
                                   : sizeof(BMS_PRODUCT_DEFAULT_SERIAL);
 
-    memset(&s_product_info, 0, sizeof(bms_product_info_t));
-    memcpy(&s_product_info.BMS_HardWareVersion[0], BMS_PRODUCT_HW_VERSION, hardwareCount);
-    memcpy(&s_product_info.BMS_SoftWareVersion[0], BMS_PRODUCT_SW_VERSION, softwareCount);
-    memcpy(&s_product_info.BMS_SerialNumber[0], BMS_PRODUCT_DEFAULT_SERIAL, serialNumberCount);
+    memset(s_serial_number, 0, sizeof(s_serial_number));
+    memcpy(s_serial_number, BMS_PRODUCT_DEFAULT_SERIAL, serialNumberCount);
     if (bms_config_get_user(&user) && user.serial[0])
-        memcpy(s_product_info.BMS_SerialNumber,user.serial,sizeof(user.serial));
+        memcpy(s_serial_number,user.serial,sizeof(user.serial));
 }
 
 /* 按类别恢复软件业务参数并提交存储。 */

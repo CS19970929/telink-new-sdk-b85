@@ -54,8 +54,6 @@ int bms_config_store_init(void);
 int bms_config_store_validate_startup(void);
 /* 取得缓存的SOC 算法配置。 */
 int bms_config_store_get_soc(bms_soc_config_t *config);
-/* 校验并保存SOC 算法配置，按保存结果更新缓存。 */
-int bms_config_store_set_soc(const bms_soc_config_t *config);
 /* 取得缓存的软件保护配置。 */
 int bms_config_store_get_protect(bms_protection_params_t *protect);
 /* 校验并保存软件保护配置，按保存结果更新缓存。 */

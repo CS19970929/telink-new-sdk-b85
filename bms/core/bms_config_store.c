@@ -715,21 +715,6 @@ int bms_config_store_get_soc(bms_soc_config_t *config)
     return bms_soc_config_valid(config);
 }
 
-/* 校验并保存SOC 算法配置，按保存结果更新缓存。 */
-int bms_config_store_set_soc(const bms_soc_config_t *config)
-{
-    bms_config_cache_t next;
-    if (!bms_soc_config_valid(config) || !bms_config_ensure_ready()) return 0;
-    next = g_bms_config;
-    next.soc.current_deadband_ma = config->current_deadband_ma;
-    next.soc.ocv_rest_prepare_s = config->ocv_rest_prepare_s;
-    next.soc.ocv_error_band_percent = config->ocv_error_band_percent;
-    next.system.battery_chemistry = config->chemistry;
-    next.system.soc_profile_id = config->profile_id;
-    /* 编码后的完整记录统一去重；保存失败仍保留原已提交缓存。 */
-    return bms_config_save_cache(&next);
-}
-
 /* 构造用户业务参数默认值。 */
 static void bms_config_user_defaults(bms_user_params_t *v)
 {

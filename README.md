@@ -20,6 +20,8 @@ D008 无放电启动 SCD、CBC 与三级放电过流的现场定位及配置顺�
 
 有效保护配置、SOC 表示、参数块读取及 SH 恢复证据复用见 [2026-10-17 后续四项简化](docs/REFACTOR_PHASE4_20261017.md)。
 
+冗余接口、版本缓存、AFE 请求读取与 SOC 提交的后续简化见 [2026-10-17 三项优化记录](docs/REFACTOR_PHASE5_20261017.md)。
+
 **新员工从 [交接与上手指南](docs/ONBOARDING.md) 开始。** 本 README 优先列出当前系统；固定提交报告与 generated evidence 见末尾历史入口。
 
 AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边界见 [AFE修复记录](docs/AFE_AUDIT_REMEDIATION.md)。
