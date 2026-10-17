@@ -33,7 +33,6 @@ typedef struct {
 #endif
 
 #if BMS_FEATURE_BALANCE_SUPPORTED
-    uint8_t balance_active;
     uint8_t balance_temperature_paused; /* 仅温度回落确认可解除，AFE 重初始化不清除。 */
     uint8_t balance_off_pending; /* 必须确认关闭后才能重新选择通道。 */
     uint16_t balance_trust_samples;
@@ -377,7 +376,6 @@ static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s, ui
     if (!balance_sample_plausible(s))
     {
         s_feature.balance_trust_samples = 0u;
-        s_feature.balance_active = 0u;
         return;
     }
 
@@ -456,7 +454,8 @@ static uint8_t balance_hard_fault(void)
 static uint32_t select_balance_mask(const bms_afe_feature_snapshot_t *s,
                                     const bms_user_params_t *config)
 {
-    uint32_t active = s_feature.balance_active ? reported_balance_mask() : 0u;
+    /* 仅在信任资格成立且没有待确认OFF时进入；回读就是唯一活动通道来源。 */
+    uint32_t active = reported_balance_mask();
     uint32_t candidates = 0u;
     uint8_t i;
     for (i = 0u; i < s->cell_count; ++i)
@@ -540,11 +539,8 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
 
     if (allowed) desired = select_balance_mask(s, config);
 
-    if (apply_balance_mask(desired))
-        s_feature.balance_active = desired ? 1u : 0u;
-    else
+    if (!apply_balance_mask(desired))
     {
-        s_feature.balance_active = 0u;
         /* 非零应用失败后仅追加一次关闭尝试；关闭未确认时以后只重试 OFF。
          * 受 guard 总线静默约束，不在这里重初始化 AFE，也不忙等。 */
         if (desired != 0u) (void)apply_balance_mask(0u);
@@ -563,7 +559,6 @@ void bms_features_init(void)
     s_feature.heater_off_hot_samples = 0u;
 #endif
 #if BMS_FEATURE_BALANCE_SUPPORTED
-    s_feature.balance_active = 0u;
     /* 温度暂停和未确认关闭状态保留，不能用重初始化绕过恢复条件。 */
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
@@ -617,7 +612,6 @@ void bms_features_stop(void)
 #endif
 #if BMS_FEATURE_BALANCE_SUPPORTED
     s_feature.balance_requested_mask = 0u;
-    s_feature.balance_active = 0u;
     s_feature.balance_off_pending = 1u;
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;

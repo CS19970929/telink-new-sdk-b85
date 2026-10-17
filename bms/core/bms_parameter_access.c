@@ -83,9 +83,9 @@ typedef struct {
     bms_config_system_params_t system;
     bms_afe_aux_measurements_t sample;
     bms_sleep_config_t sleep;
-    bms_soc_profile_config_t profile;
+    const bms_soc_profile_config_t *profile;
     u8 user_loaded, user_valid, system_loaded, system_valid;
-    u8 sample_loaded, sample_valid, sleep_loaded, profile_loaded;
+    u8 sample_loaded, sample_valid, sleep_loaded;
 } parameter_read_snapshot_t;
 
 static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
@@ -93,7 +93,7 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
     const bms_user_params_t *v = &s->user;
     const bms_config_system_params_t *system = &s->system;
     const bms_afe_aux_measurements_t *sample = &s->sample;
-    const bms_soc_profile_config_t *profile = &s->profile;
+    const bms_soc_profile_config_t *profile = s->profile;
     u16 sleep_word;
     if (r >= BMS_PARAM_REG_UPDATE_REVISION_BASE && r < BMS_PARAM_REG_UPDATE_REVISION_BASE + BMS_UPDATE_GROUP_COUNT)
         return bms_update_revision((bms_update_group_t)(r - BMS_PARAM_REG_UPDATE_REVISION_BASE));
@@ -108,10 +108,7 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
         if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 1u) return BMS_CHEMISTRY_SWITCH_VERSION;
         if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 4u) return s_chemistry_status;
         if (r >= BMS_PARAM_REG_CHEMISTRY_BASE + 5u) {
-            if (!s->profile_loaded) {
-                bms_config_get_soc_profile(&s->profile);
-                s->profile_loaded = 1u;
-            }
+            if (!profile) return 0u;
             if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 5u) return profile->current_deadband_ma;
             if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 6u) return profile->ocv_rest_prepare_s;
             return profile->ocv_error_band_percent;
@@ -130,10 +127,6 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
         if (r == BMS_PARAM_REG_SOC_PROFILE_PERSISTED) return bms_config_soc_profile_is_persisted();
         if (r == BMS_PARAM_REG_SOC_PROFILE_GENERATION) return s_soc_profile_generation;
         if (r == BMS_PARAM_REG_SOC_PROFILE_STAGE_STATUS) return s_soc_profile_stage_status;
-        if (!s->profile_loaded) {
-            bms_config_get_soc_profile(&s->profile);
-            s->profile_loaded = 1u;
-        }
         return bms_soc_profile_word(profile,
             (u16)(r - BMS_PARAM_REG_SOC_PROFILE_BASE - 2u));
     }
@@ -222,6 +215,8 @@ int bms_parameter_read_block(u16 reg, u16 qty, u8 *data)
     for (i = 0u; i < qty; ++i)
         if (!bms_parameter_readable((u16)(reg + i))) return 0;
     memset(&snapshot, 0, sizeof(snapshot));
+    /* Config仅在主循环提交；本次同步编码不修改它，无需复制100字节曲线。 */
+    snapshot.profile = bms_config_current_soc_profile();
     for (i = 0u; i < qty; ++i) {
         u16 value = parameter_read_word((u16)(reg + i), &snapshot);
         data[i * 2u] = (u8)(value >> 8);

@@ -80,6 +80,7 @@ void bms_config_store_get_default_protect(bms_protection_params_t *protect);
 void bms_config_store_get_chemistry_protect(u8 chemistry, bms_protection_params_t *protect);
 int bms_config_store_switch_chemistry(u8 chemistry);
 
+/* 主循环只读RAM视图，地址稳定；提交替换内容，跨提交的运行资格须核对generation。 */
 const bms_soc_profile_config_t *bms_config_current_soc_profile(void);
 void bms_config_get_soc_profile(bms_soc_profile_config_t *config);
 int bms_config_set_soc_profile(const bms_soc_profile_config_t *config);

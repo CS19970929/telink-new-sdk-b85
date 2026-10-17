@@ -20,7 +20,7 @@ prefix = r'''
 static u16 s_sequence=123u,s_result=4u,s_sn_generation=5u,s_soc_profile_generation=6u;
 static u16 s_chemistry_status=2u,s_soc_profile_stage_status=1u;
 static unsigned user_calls,system_calls,profile_calls,sample_calls,sleep_calls;
-static u8 user_ok=1u,system_ok=1u,sample_ok=1u;
+static u8 user_ok=1u,system_ok=1u,sample_ok=1u,profile_ok=1u;
 static bms_soc_profile_config_t active_profile;
 static u32 now=0x100u, sample_tick=0xfffffff0u;
 bms_soc_state_t g_bms_soc;
@@ -33,9 +33,9 @@ int bms_config_get_user(bms_user_params_t *v) {
 int bms_config_store_get_system(bms_config_system_params_t *v) {
     ++system_calls;memset(v,0,sizeof(*v));v->battery_chemistry=2u;v->soc_profile_id=2u;v->capacity_factory=1234u;return system_ok;
 }
-void bms_config_get_soc_profile(bms_soc_profile_config_t *v) { ++profile_calls;*v=active_profile; }
+const bms_soc_profile_config_t *bms_config_current_soc_profile(void) { ++profile_calls;return profile_ok?&active_profile:0; }
 u16 bms_soc_profile_word(const bms_soc_profile_config_t *v,u16 offset) {
-    u16 word=0u;if(offset<50u)memcpy(&word,(const u8*)v+offset*2u,2u);return word;
+    u16 word=0u;if(v && offset<50u)memcpy(&word,(const u8*)v+offset*2u,2u);return word;
 }
 u8 bms_config_soc_profile_is_persisted(void) { return 1u; }
 u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *v) {
@@ -62,6 +62,9 @@ int main(void) {
     check(BMS_PARAM_REG_SOC_PROFILE_BASE+2u,50u,expected);assert(profile_calls==1u);
     /* 现有 Windows/Android 7-word 分段，末段为 1 word。 */
     for(unsigned i=0;i<50u;i+=7u){unsigned n=50u-i<7u?50u-i:7u;check((u16)(BMS_PARAM_REG_SOC_PROFILE_BASE+2u+i),(u16)n,expected+i);assert(profile_calls==1u);}
+    profile_ok=0u;memset(expected,0,sizeof(expected));
+    check(BMS_PARAM_REG_SOC_PROFILE_BASE+2u,50u,expected);
+    check(BMS_PARAM_REG_CHEMISTRY_BASE+5u,3u,expected);profile_ok=1u;
     const char *serial="0123456789abcdefghijklmnopqrstuv";
     for(unsigned i=0;i<16u;++i)expected[i]=(u16)(((u16)(u8)serial[i*2u]<<8)|(u8)serial[i*2u+1u]);
     check(BMS_PARAM_REG_SN_BASE,16u,expected);assert(user_calls==1u);

@@ -148,7 +148,7 @@ int main(void)
     reset();g_bms_report.cell_voltage_mv[1]=3450;step(5);
     balance_dropped_mask=2u;balance_off_fail=1u;step(1);
     assert(balance==(bms_board_balance_supported()?1u:0u));
-    assert(!s_feature.balance_active); /* 应用资格失败。 */
+    if(bms_board_balance_supported()) assert(s_feature.balance_off_pending); /* 应用失败只能重试OFF。 */
     assert((reported_balance_mask()!=0u)==bms_board_balance_supported()); /* 对外报告仍保留实际残留均衡。 */
     if(bms_board_balance_supported()) {
         unsigned on_calls=balance_on_calls;
