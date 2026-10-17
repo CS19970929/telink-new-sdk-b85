@@ -28,7 +28,6 @@ void DVC1124_UpdataAfeConfig(void) {}
 uint8_t DVC1124_GetWriteAddress(void) { return 0x40u; }
 void DVC1124_GetSnapshot(dvc1124_snapshot_t *s) { *s=s_snapshot; }
 void DVC1124_GetConfig(dvc1124_config_t *c) { *c=s_cfg; }
-static uint32_t pm_get_32k_tick(void) { return now; }
 static uint32_t time_last_raw,time_ms,time_fraction;
 uint32_t bms_time_ms(void){uint32_t delta=now-time_last_raw;time_last_raw=now;time_fraction+=delta%32u;time_ms+=delta/32u+time_fraction/32u;time_fraction%=32u;return time_ms;}
 uint32_t bms_time_now_32k(void){return now;}
@@ -210,7 +209,7 @@ int main(void)
     step(0x10u,25600u); assert(!s_snapshot.valid && !s_snapshot.ntc_res_ohm[1]);
     qualify();
     step(0x10u,512u*32u); assert(s_snapshot.valid); check_open();
-    step(0x10u,1u); assert(!s_snapshot.valid && !s_snapshot.ntc_res_ohm[1]);
+    step(0x10u,32u); assert(!s_snapshot.valid && !s_snapshot.ntc_res_ohm[1]);
     qualify();
     /* 未完成恢复的两次好样本不能跨过长空档凑成第三次。 */
     put16(DVC1124_REG_GP2_H,18000u); step(0x50u,6400u); check_closed();

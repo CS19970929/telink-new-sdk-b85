@@ -56,7 +56,7 @@ def check_d008_20s_profile_contract_check():
 
 
     # Balancing is armed by request and renewed below the ~60s hardware auto-clear.
-    assert '#define DVC_BALANCE_REFRESH_INTERVAL_MS 45000000u' in dvc
+    assert '#define DVC_BALANCE_REFRESH_INTERVAL_MS 45000u' in dvc
     assert 'bms_afe_driver_set_balance_mask' in dvc
 
     print('D008 20S/product safety completion contract: PASS')
@@ -153,7 +153,7 @@ def check_d008_framework_contract_check():
             self.assertIn("5000u, 0u, 1u", self.fixed_backend)
             self.assertIn("s_guard.comm_inhibit = 1u;", self.guard)
             self.assertIn("s_guard.bus_silenced = 1u;", self.guard)
-            self.assertIn("if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;", self.guard)
+            self.assertIn("if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;", self.guard)
             self.assertIn("if (s_guard.comm_failures == 0u) best_effort_shutdown();", self.guard)
             self.assertIn("bms_afe_driver_init();", self.guard)
             self.assertNotIn("BMS_AFE_REINIT_TRIGGER", self.guard)
@@ -167,7 +167,7 @@ def check_d008_framework_contract_check():
                 "test_shutdown_hold",
                 "bms_afe_sleep",
                 "bms_afe_test_wake",
-                "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;",
+                "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;",
                 "bms_afe_driver_sleep()",
                 "bms_afe_driver_init();",
                 "s_guard.valid_snapshot_streak = 0u;",

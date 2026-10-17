@@ -51,7 +51,6 @@ static void bms_error_raise(uint32_t x){(void)x;}
 void bms_afe_publish_fet_status(uint8_t x,uint8_t y){(void)x;(void)y;}
 void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
 uint8_t DVC1124_ClearAlarmFlags(uint8_t m){registers[0]&=(uint8_t)~m;return 1;}
-static uint32_t pm_get_32k_tick(void){return now;}
 static uint32_t time_last_raw,time_ms,time_fraction;
 uint32_t bms_time_ms(void){uint32_t delta=now-time_last_raw;time_last_raw=now;time_fraction+=delta%32u;time_ms+=delta/32u+time_fraction/32u;time_fraction%=32u;return time_ms;}
 uint32_t bms_time_now_32k(void){return now;}
@@ -179,7 +178,6 @@ static uint8_t DVC1124_WriteRegisters(uint8_t reg,const uint8_t *data,uint8_t le
 }
 static void dvc_delay_ms(uint16_t ms){assert(ms==1u);++delays;}
 static uint32_t bms_time_ms(void){return now;}
-static int clock_time_exceed(uint32_t tick,uint32_t us){return (uint32_t)(now-tick)>us;}
 '''
 balance_fixture += re.search(r'^#define DVC1124_I2C_RETRY_COUNT[^\n]*',read('bms/products/d008/dvc1124_product_defaults.h'),re.M).group(0)+'\n'
 balance_fixture += function(s,'static uint8_t dvc_write_verified_block(')

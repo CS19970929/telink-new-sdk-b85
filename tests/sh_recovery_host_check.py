@@ -35,7 +35,7 @@ def check_sh3673510_recovery_host_check():
         'bms_afe_driver_sleep',
     ))
     fixture = (ROOT / 'tests/fixtures/sh3673510_recovery.c').read_text(encoding='utf-8')
-    code = fixture.replace('/* PRODUCTION */', state + functions)
+    code = '#include "bms_timing.h"\n' + fixture.replace('/* PRODUCTION */', state + functions)
     failed_modes = []
     with tempfile.TemporaryDirectory(prefix='sh3510-recovery-') as tmp:
         c = Path(tmp) / 'check.c'

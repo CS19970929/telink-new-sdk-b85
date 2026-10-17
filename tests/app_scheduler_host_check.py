@@ -55,32 +55,31 @@ def check_app_scheduler_host_check():
 
 
 
-    def main():
-        app = selected_source(MOD / "app.c", defines=("-DBMS_SERVICE_DIAG_ENABLE=1",))
-        power = selected_source(MOD / "app_power.c", defines=("-DBMS_SERVICE_DIAG_ENABLE=1",))
-        # Exercise the actual event deadline gate, stub only event payload collection.
-        event = function(app, "static void app_storage_1s_task(")
-        event = event[event.index("    _attribute_data_retention_"):event.index("\tmemset(&sample")]
-        checkpoint = re.search(r"bms_state_store_poll\([^;]+;",function(app,"static void app_storage_1s_task(")).group(0)
-        scheduler = "\n".join([
-            function(power, "uint8_t app_power_prepare_loop("),
-            function(app, "static void app_sample_task("),
-            "static void app_storage_1s_task(void){\n" + event + "note('E');" + checkpoint + "}",
-            function(app, "_attribute_no_inline_ void main_loop("),
-        ])
-        with tempfile.TemporaryDirectory(prefix="d008-scheduler-") as folder:
-            for name, production in (("scheduler", scheduler),):
-                fixture = (ROOT / "tests/fixtures/d008_scheduler" / (name + ".c")).read_text()
-                path = Path(folder) / (name + ".c")
-                path.write_text(fixture.replace("/* PRODUCTION_SOURCE */", production))
-                exe = Path(folder) / (name + ".exe")
-                subprocess.run(shlex.split(os.environ.get("CC", "cc")) + [
-                    "-std=c99", "-Wall", "-Wextra", "-Werror", str(path), "-o", str(exe)], check=True)
-                subprocess.run([str(exe)], check=True)
-        print("PASS scheduler order, deadlines, wrap, overrun, callback, invalid sample, shutdown; aging/reentry")
+    app = selected_source(MOD / "app.c", defines=("-DBMS_SERVICE_DIAG_ENABLE=1",))
+    power = selected_source(MOD / "app_power.c", defines=("-DBMS_SERVICE_DIAG_ENABLE=1",))
+    # Exercise the actual event deadline gate, stub only event payload collection.
+    event = function(app, "static void app_storage_1s_task(")
+    event = event[event.index("    _attribute_data_retention_"):event.index("\tmemset(&sample")]
+    checkpoint = re.search(r"bms_state_store_poll\([^;]+;",function(app,"static void app_storage_1s_task(")).group(0)
+    scheduler = "\n".join([
+        function(power, "uint8_t app_power_prepare_loop("),
+        function(app, "static void app_sample_task("),
+        "static void app_storage_1s_task(void){\n" + event + "note('E');" + checkpoint + "}",
+        function(app, "_attribute_no_inline_ void main_loop("),
+    ])
+    with tempfile.TemporaryDirectory(prefix="d008-scheduler-") as folder:
+        for name, production in (("scheduler", scheduler),):
+            fixture = (ROOT / "tests/fixtures/d008_scheduler" / (name + ".c")).read_text()
+            path = Path(folder) / (name + ".c")
+            path.write_text(fixture.replace("/* PRODUCTION_SOURCE */", production))
+            exe = Path(folder) / (name + ".exe")
+            subprocess.run(shlex.split(os.environ.get("CC", "cc")) + [
+                "-std=c99", "-Wall", "-Wextra", "-Werror", str(path), "-o", str(exe)], check=True)
+            subprocess.run([str(exe)], check=True)
+    print("PASS scheduler order, deadlines, wrap, overrun, callback, invalid sample, shutdown; aging/reentry")
 
 
-    def check_time_ms_host_check():
+def check_time_ms_host_check():
     from validation_support import read, run_c
     import re
     source = re.sub(r'^#include[^\n]*', '', read('bms/platform/telink/bms_time.c'), flags=re.M)
@@ -109,9 +108,6 @@ int main(void){
 '''
     run_c(code, name='time-ms')
 
-
-if __name__ == "__main__":
-        main()
 
 if __name__ == "__main__":
     check_app_recovery_wakeup_host_check()

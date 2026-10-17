@@ -348,9 +348,9 @@ int main(void){
   ble_tx_pending=pending==0;uart_busy=pending==1;modbus_tx_busy=pending==2;
   app_power_process(&s_sample_due);assert(!cut_calls&&!seq_len);
   assert(observed_sleep_reason==DIAG_SLEEP_REASON_COMMAND&&observed_sleep_delay==500u);
-  now+=499u*32u;app_power_process(&s_sample_due);assert(!cut_calls&&!seq_len);
+  now+=499u;app_power_process(&s_sample_due);assert(!cut_calls&&!seq_len);
   assert(observed_sleep_elapsed==499u&&!observed_sleep_block);
-  now+=32u;app_power_process(&s_sample_due);
+  now+=1u;app_power_process(&s_sample_due);
   assert(cut_calls==1&&s_protective_sleep_committed&&seq_len==3);
  }
  /* 应答提前发完时立即关机，无需等满500ms或关闭开关。 */

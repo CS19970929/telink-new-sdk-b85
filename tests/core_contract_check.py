@@ -172,7 +172,7 @@ def check_common_feature_policy_contract_check():
     assert "BMS_AFE_BACKEND" not in guard_c
     assert "dvc1124" not in guard_c and "sh3673510" not in guard_c
     assert "35000u, 1u, 0u" in text("sh3673510_bms.c")
-    assert "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;" in guard_c
+    assert "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;" in guard_c
     # 校验静默等待分支在任何总线动作之前返回，不依赖注释语言。
     wait = guard_c.split("static uint8_t service_failsafe_wait", 1)[1].split(
         "static uint8_t apply_requested", 1)[0]

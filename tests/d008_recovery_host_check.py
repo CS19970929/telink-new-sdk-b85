@@ -69,51 +69,55 @@ def check_d008_voltage_recovery_host_check():
         for(gap=1;gap<11;++gap) {
             dvc_clear_recovered_hw_latches(0,0,0,0);
             before=writes;
-            for(i=0;i<gap;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+            for(i=0;i<gap;++i) { tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
             dvc_clear_recovered_hw_latches(0,0,0,0);
-            for(i=0;i<10;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+            for(i=0;i<10;++i) { tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
             assert(writes==before);
-            tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
+            tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); /* 严格毫秒边界。 */
+        tick++; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
         }
         dvc_clear_recovered_hw_latches(0,0,0,0); before=writes;
-        for(i=0;i<10;++i) { tick+=6400; dvc_clear_recovered_hw_latches(alarm,1,1,tick); }
-        tick+=32000; /* sleep/reinit gap even without an explicitly invalid sample */
+        for(i=0;i<10;++i) { tick+=200; dvc_clear_recovered_hw_latches(alarm,1,1,tick); }
+        tick+=1000; /* sleep/reinit gap even without an explicitly invalid sample */
         assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm && writes==before);
-        for(i=0;i<9;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
-        tick+=6400; clear_ok=0; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm);
-        clear_ok=1; read_ok=0; tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm);
-        read_ok=1; profile_ok=0; tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm);
+        for(i=0;i<9;++i) { tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+        tick+=200; clear_ok=0; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm);
+        clear_ok=1; read_ok=0; tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm);
+        read_ok=1; profile_ok=0; tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm);
         profile_ok=1; before=writes;
-        for(i=0;i<10;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+        for(i=0;i<10;++i) { tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
         assert(writes==before);
-        tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
+        tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); /* 严格毫秒边界。 */
+        tick++; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
 
         /* 转换完成与轮询不同步：等待和轻微调度延迟不能丢失资格。 */
         dvc_clear_recovered_hw_latches(0,0,0,0); before=writes;
         for(i=0;i<11;++i) {
             uint8_t fresh=(i%4u!=3u);
-            tick+=6410;
+            tick+=201;
             assert(dvc_clear_recovered_hw_latches(alarm,1,fresh,tick)==(i==10u ? 0u : alarm));
             assert(writes==before+(i==10u ? 1u : 0u));
         }
 
         /* 已满足时间时，仍必须等新的正常电压确认，缓存不能清锁存。 */
         dvc_clear_recovered_hw_latches(0,0,0,0); before=writes;
-        for(i=0;i<10;++i) { tick+=6400; dvc_clear_recovered_hw_latches(alarm,1,1,tick); }
-        tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,0,tick)==alarm && writes==before);
+        for(i=0;i<10;++i) { tick+=200; dvc_clear_recovered_hw_latches(alarm,1,1,tick); }
+        tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,0,tick)==alarm && writes==before);
         /* 无效/诊断采样即使没有新电压，也必须清零已有资格。 */
-        tick+=6400; dvc_clear_recovered_hw_latches(alarm,0,0,tick);
-        for(i=0;i<10;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+        tick+=200; dvc_clear_recovered_hw_latches(alarm,0,0,tick);
+        for(i=0;i<10;++i) { tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
         assert(writes==before);
-        tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
+        tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); /* 严格毫秒边界。 */
+        tick++; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
 
         /* 告警已消失时，即使本轮没有新电压，也不能保留旧恢复资格。 */
         dvc_clear_recovered_hw_latches(0,0,0,0); before=writes;
-        for(i=0;i<10;++i) { tick+=6400; dvc_clear_recovered_hw_latches(alarm,1,1,tick); }
-        tick+=6400; dvc_clear_recovered_hw_latches(0,1,0,tick);
-        for(i=0;i<10;++i) { tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
+        for(i=0;i<10;++i) { tick+=200; dvc_clear_recovered_hw_latches(alarm,1,1,tick); }
+        tick+=200; dvc_clear_recovered_hw_latches(0,1,0,tick);
+        for(i=0;i<10;++i) { tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); }
         assert(writes==before);
-        tick+=6400; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
+        tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==alarm); /* 严格毫秒边界。 */
+        tick++; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick)==0);
         return 0;
     }
     '''

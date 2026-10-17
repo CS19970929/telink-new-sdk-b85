@@ -59,7 +59,7 @@ def check_sh_event_checkpoint_host_check():
      bms_event_log_note_sleep();assert(saves==5); /* 已提交休眠只记录一次。 */
      sample.vbus_ovp=1;bms_event_log_poll_1s(&sample);save_ok=0;
      pos=g_bms_event_log.write_pos;
-     tick=UINT32_MAX-2u*1000u;g_bms_event_log.last_attempt_32k=tick;
+     tick=UINT32_MAX-2u*1000u;g_bms_event_log.last_attempt_ms=tick;
      tick+=60u*1000u;save_ok=1;bms_event_log_poll_1s(&sample);assert(!g_bms_event_log.dirty);
      assert(pos==g_bms_event_log.write_pos);
      return 0;
