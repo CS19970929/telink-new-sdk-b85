@@ -45,6 +45,7 @@ int main(void) {
     static const u16 needed[]={2,3,5,5,4,6,6,6,6};
     sh3673510_control_status_t status;memset(&status,0,sizeof(status));
     assert(HW_REC_COUNT==9u);
+    status.flag2=SH3673520_FLAG2_VADC_MASK;
     requested.cov_recover_mv=4000u;requested.cuv_recover_mv=2800u;
     requested.ocd_recover_a10=requested.occ_recover_a10=10u;
     requested.cov_recover_ms=400u;requested.cuv_recover_ms=600u;
@@ -67,6 +68,23 @@ int main(void) {
         }
         assert(cleared1==c1&&cleared2==c2);
     }
+    /* 只有新 CADC 时，仅电流恢复计数推进；不能给电压/温度重复计数。 */
+    memset(s_hw_recovery_count,0,sizeof(s_hw_recovery_count));
+    status.flag2 &= (uint8_t)~SH3673520_FLAG2_VADC_MASK;
+    for(unsigned n=0;n<6u;++n) {
+        bms_sw_protection_inputs_t v=evidence(1u);trace_reset();
+        assert(service_hw_flag_recovery(&status,&v));
+        assert(!s_hw_recovery_count[HW_REC_OV]&&!s_hw_recovery_count[HW_REC_UV]);
+        for(unsigned id=5u;id<9u;++id)assert(!s_hw_recovery_count[id]);
+        assert(!cleared2);
+    }
+    assert(s_hw_recovery_count[HW_REC_OCD1]==5u);
+    assert(s_hw_recovery_count[HW_REC_OCC]==4u);
+    status.flag2 |= SH3673520_FLAG2_VADC_MASK;
+    for(unsigned n=0;n<6u;++n) {
+        bms_sw_protection_inputs_t v=evidence(1u);
+        assert(service_hw_flag_recovery(&status,&v));
+    }
     /* 一个方向危险只撤销自己的两个计数，温度和另一方向保持独立。 */
     g_bms_report.discharge_current_a10=101u;
     bms_sw_protection_inputs_t v=evidence(1u);assert(service_hw_flag_recovery(&status,&v));
@@ -82,7 +100,7 @@ int main(void) {
     v=evidence(1u);trace_reset();assert(service_hw_flag_recovery(&status,&v));assert(cleared1==status.flag1);
     s_aux.current_ma=-200;v=evidence(1u);trace_reset();assert(service_hw_flag_recovery(&status,&v));assert(!flag1_calls);
     /* FLAG1 失败时不得继续 FLAG2；FLAG2 失败同样向上传递。 */
-    status.flag1=SH3673520_FLAG1_WK_MASK;status.flag2=SH3673520_FLAG2_WDT_MASK;
+    status.flag1=SH3673520_FLAG1_WK_MASK;status.flag2=SH3673520_FLAG2_WDT_MASK|SH3673520_FLAG2_VADC_MASK;
     for(unsigned fail=1;fail<=2u;++fail) {
         clear_ok=(uint8_t)fail;s_flag_clear_failed=0u;trace_reset();
         assert(!service_hw_flag_recovery(&status,&v));assert(s_flag_clear_failed);

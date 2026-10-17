@@ -461,28 +461,56 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s,
     ocd_recover_10ms = (u16)((hw.ocd_recover_ms + 5u) / 10u);
     temp_recover_10ms = (u16)((hw.temp_recover_ms + 5u) / 10u);
 
-    /*
-     * 复位/唤醒事件用于诊断；此处不清 RST1/RST2，
-     * 这些状态由service_afe_reconfiguration() 管理。
-     */
-    c1 |= (uint8_t)(s->flag1 & SH3673520_FLAG1_WK_MASK);
-    if (s->flag2 & SH3673520_FLAG2_WDT_MASK) c2 |= SH3673520_FLAG2_WDT_MASK;
+    /* CADC 已在入口确认；电压/温度恢复仍要求本轮 VADC 完成。 */
+    if (s->flag2 & SH3673520_FLAG2_VADC_MASK) {
+        /*
+         * 复位/唤醒事件用于诊断；此处不清 RST1/RST2，
+         * 这些状态由service_afe_reconfiguration() 管理。
+         */
+        c1 |= (uint8_t)(s->flag1 & SH3673520_FLAG1_WK_MASK);
+        if (s->flag2 & SH3673520_FLAG2_WDT_MASK) c2 |= SH3673520_FLAG2_WDT_MASK;
 
-    if (s->flag1 & SH3673520_FLAG1_OV_MASK) {
-        if (hw_recovery_stable(HW_REC_OV,
-                actual_ok &&
-                g_bms_report.cell_max_mv <= hw.cov_recover_mv &&
-                g_bms_report.cell_max_mv < actual.ov_mv,
-                (u16)((hw.cov_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OV_MASK;
-    } else s_hw_recovery_count[HW_REC_OV] = 0u;
+        if (s->flag1 & SH3673520_FLAG1_OV_MASK) {
+            if (hw_recovery_stable(HW_REC_OV,
+                    actual_ok &&
+                    g_bms_report.cell_max_mv <= hw.cov_recover_mv &&
+                    g_bms_report.cell_max_mv < actual.ov_mv,
+                    (u16)((hw.cov_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OV_MASK;
+        } else s_hw_recovery_count[HW_REC_OV] = 0u;
 
-    if (s->flag1 & SH3673520_FLAG1_UV_MASK) {
-        if (hw_recovery_stable(HW_REC_UV,
-                actual_ok &&
-                g_bms_report.cell_min_mv >= hw.cuv_recover_mv &&
-                g_bms_report.cell_min_mv > actual.uv_mv,
-                (u16)((hw.cuv_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_UV_MASK;
-    } else s_hw_recovery_count[HW_REC_UV] = 0u;
+        if (s->flag1 & SH3673520_FLAG1_UV_MASK) {
+            if (hw_recovery_stable(HW_REC_UV,
+                    actual_ok &&
+                    g_bms_report.cell_min_mv >= hw.cuv_recover_mv &&
+                    g_bms_report.cell_min_mv > actual.uv_mv,
+                    (u16)((hw.cuv_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_UV_MASK;
+        } else s_hw_recovery_count[HW_REC_UV] = 0u;
+
+        /* SCONF6 仅为 TS1/TS2 启用硬件温度保护，因此恢复 TEMP 标志只能使用电池传感器。 */
+        if (s->flag2 & SH3673520_FLAG2_OTC_MASK) {
+            if (hw_recovery_stable(HW_REC_OTC,
+                    sample->battery_temp_valid && sample->battery_temp_max <= hw.chg_ot_recover_x10,
+                    temp_recover_10ms)) c2 |= SH3673520_FLAG2_OTC_MASK;
+        } else s_hw_recovery_count[HW_REC_OTC] = 0u;
+
+        if (s->flag2 & SH3673520_FLAG2_OTD_MASK) {
+            if (hw_recovery_stable(HW_REC_OTD,
+                    sample->battery_temp_valid && sample->battery_temp_max <= hw.dsg_ot_recover_x10,
+                    temp_recover_10ms)) c2 |= SH3673520_FLAG2_OTD_MASK;
+        } else s_hw_recovery_count[HW_REC_OTD] = 0u;
+
+        if (s->flag2 & SH3673520_FLAG2_UTC_MASK) {
+            if (hw_recovery_stable(HW_REC_UTC,
+                    sample->battery_temp_valid && sample->battery_temp_min >= hw.chg_ut_recover_x10,
+                    temp_recover_10ms)) c2 |= SH3673520_FLAG2_UTC_MASK;
+        } else s_hw_recovery_count[HW_REC_UTC] = 0u;
+
+        if (s->flag2 & SH3673520_FLAG2_UTD_MASK) {
+            if (hw_recovery_stable(HW_REC_UTD,
+                    sample->battery_temp_valid && sample->battery_temp_min >= hw.dsg_ut_recover_x10,
+                    temp_recover_10ms)) c2 |= SH3673520_FLAG2_UTD_MASK;
+        } else s_hw_recovery_count[HW_REC_UTD] = 0u;
+    }
 
     if (s->flag1 & SH3673520_FLAG1_OCD1_MASK) {
         if (sample->discharge_recovery_immediate || hw_recovery_stable(HW_REC_OCD1,
@@ -507,31 +535,6 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s,
                 g_bms_report.charge_current_a10 < actual.occ_a10,
                 (u16)((hw.occ_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_OCC_MASK;
     } else s_hw_recovery_count[HW_REC_OCC] = 0u;
-
-    /* SCONF6 仅为 TS1/TS2 启用硬件温度保护，因此恢复 TEMP 标志只能使用电池传感器。 */
-    if (s->flag2 & SH3673520_FLAG2_OTC_MASK) {
-        if (hw_recovery_stable(HW_REC_OTC,
-                sample->battery_temp_valid && sample->battery_temp_max <= hw.chg_ot_recover_x10,
-                temp_recover_10ms)) c2 |= SH3673520_FLAG2_OTC_MASK;
-    } else s_hw_recovery_count[HW_REC_OTC] = 0u;
-
-    if (s->flag2 & SH3673520_FLAG2_OTD_MASK) {
-        if (hw_recovery_stable(HW_REC_OTD,
-                sample->battery_temp_valid && sample->battery_temp_max <= hw.dsg_ot_recover_x10,
-                temp_recover_10ms)) c2 |= SH3673520_FLAG2_OTD_MASK;
-    } else s_hw_recovery_count[HW_REC_OTD] = 0u;
-
-    if (s->flag2 & SH3673520_FLAG2_UTC_MASK) {
-        if (hw_recovery_stable(HW_REC_UTC,
-                sample->battery_temp_valid && sample->battery_temp_min >= hw.chg_ut_recover_x10,
-                temp_recover_10ms)) c2 |= SH3673520_FLAG2_UTC_MASK;
-    } else s_hw_recovery_count[HW_REC_UTC] = 0u;
-
-    if (s->flag2 & SH3673520_FLAG2_UTD_MASK) {
-        if (hw_recovery_stable(HW_REC_UTD,
-                sample->battery_temp_valid && sample->battery_temp_min >= hw.dsg_ut_recover_x10,
-                temp_recover_10ms)) c2 |= SH3673520_FLAG2_UTD_MASK;
-    } else s_hw_recovery_count[HW_REC_UTD] = 0u;
 
     /* SC 独立处理：真实充电立即清除，或连续 LOADOFF 后清除。 */
     if ((c1 && !sh3673510_control_clear_flag1(c1)) ||
@@ -712,16 +715,16 @@ static void sh3510_publish_temperatures(const int32_t *external_raw)
 }
 
 /* 测量发布之后评估软件保护及硬件恢复，保持原物理证据、清标志和失败阶段。 */
-static uint16_t sh3510_update_protection(const sh3673510_control_status_t *status,
-                                         uint8_t confirm_sample)
+static uint16_t sh3510_update_protection(const sh3673510_control_status_t *status)
 {
+    uint8_t current_fresh = (status->flag2 & SH3673520_FLAG2_CADC_MASK) != 0u;
     bms_sw_protection_inputs_t sw;
     memset(&sw, 0, sizeof(sw));
     sw.current_recovery_requires_evidence = 1u;
-    sw.current_recovery_sample_fresh = confirm_sample;
-    sw.charge_recovery_immediate = confirm_sample &&
+    sw.current_recovery_sample_fresh = current_fresh;
+    sw.charge_recovery_immediate = current_fresh &&
         s_aux.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
-    sw.discharge_recovery_immediate = confirm_sample &&
+    sw.discharge_recovery_immediate = current_fresh &&
         s_aux.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
     sw.charge_recovery_allowed = s_charger_removed || sw.charge_recovery_immediate;
     sw.discharge_recovery_allowed = s_load_removed || sw.discharge_recovery_immediate;
@@ -750,7 +753,7 @@ static uint16_t sh3510_update_protection(const sh3673510_control_status_t *statu
     if (!s_charger_removed && !sw.charge_recovery_immediate)
         s_hw_recovery_count[HW_REC_OCC] = 0u;
     if (!service_short_recovery(status, sw.discharge_recovery_immediate)) return DIAG_AFE_FAIL_SHORT_RECOVERY;
-    if (confirm_sample && !service_hw_flag_recovery(status, &sw)) return DIAG_AFE_FAIL_FLAG_RECOVERY;
+    if (current_fresh && !service_hw_flag_recovery(status, &sw)) return DIAG_AFE_FAIL_FLAG_RECOVERY;
 #endif
     bms_sw_protection_record_fault_edges();
     return DIAG_AFE_FAIL_NONE;
@@ -822,12 +825,11 @@ static uint16_t publish_measurements(uint8_t *confirmed)
 
     {
         /* FLAG2 只由本次状态读取消费；证据不保存到跨轮状态。 */
-        uint8_t confirm_sample =
+        uint16_t failure = sh3510_update_protection(&status);
+        if (failure != DIAG_AFE_FAIL_NONE) return failure;
+        *confirmed =
             ((status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ==
              (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ? 1u : 0u;
-        uint16_t failure = sh3510_update_protection(&status, confirm_sample);
-        if (failure != DIAG_AFE_FAIL_NONE) return failure;
-        *confirmed = confirm_sample;
     }
     s_snapshot_valid = 1u;
     bms_afe_publish_fet_status(

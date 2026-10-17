@@ -88,7 +88,8 @@ uint8_t bms_sw_protection_charge_blocked(void) { return 0; }
 uint8_t bms_sw_protection_discharge_blocked(void) { return 0; }
 uint8_t bms_features_charge_direction_blocked(void) { return 0; }
 void bms_sw_protection_init(void) {}
-void bms_sw_protection_update(const bms_sw_protection_inputs_t *p) { (void)p; }
+static bms_sw_protection_inputs_t last_sw_sample;
+void bms_sw_protection_update(const bms_sw_protection_inputs_t *p) { last_sw_sample=*p; }
 void bms_sw_protection_reset_current_recovery(void) {}
 uint8_t bms_sw_protection_discharge_overcurrent_active(void) { return 0; }
 void bms_sw_protection_clear(void) {}
@@ -310,14 +311,23 @@ int main(void) {
     before=clear_calls;public_current_ma=-200;sample();assert(clear_calls==before);
     public_current_ma=-201;device.flag2=SH3673520_FLAG2_VADC_MASK;
     sample();assert(clear_calls==before); /* 新CADC缺失，不能使用旧电流。 */
-    device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
+    assert(!last_sw_sample.current_recovery_sample_fresh && !last_sw_sample.discharge_recovery_immediate);
+    device.flag2=SH3673520_FLAG2_CADC_MASK;
     sample();assert(clear_calls==before+1 && device.flag1==0);
+    assert(last_sample_result.status==BMS_AFE_SAMPLE_OK && !last_sample_result.confirm_sample);
+    assert(last_sw_sample.current_recovery_sample_fresh && last_sw_sample.discharge_recovery_immediate);
+    device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     sample();assert(command_d==1);
     device.flag1=SH3673520_FLAG1_SC_MASK;before=clear_calls;
+    device.flag2=SH3673520_FLAG2_CADC_MASK;
     sample();assert(clear_calls==before+1 && command_d==0);
+    device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     sample();assert(command_d==1 && !bms_error_get(BMS_ERROR_DSG_SHORT));
     device.flag1=SH3673520_FLAG1_OCC_MASK;before=clear_calls;
+    device.flag2=SH3673520_FLAG2_CADC_MASK;
     public_current_ma=201;sample();assert(clear_calls==before+1 && device.flag1==0);
+    assert(last_sw_sample.current_recovery_sample_fresh && last_sw_sample.charge_recovery_immediate);
+    device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     sample();assert(command_c==1);
     public_current_ma=0;device.bstatus2=0;sample();sample();
 
@@ -359,6 +369,9 @@ int main(void) {
     }
     device.flag2|=SH3673520_FLAG2_CADC_MASK;
     sample(); assert(!bms_afe_samples_qualified());
+    device.flag2=SH3673520_FLAG2_CADC_MASK;
+    sample(); assert(!bms_afe_samples_qualified() && !last_sample_result.confirm_sample);
+    device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     sample(); assert(bms_afe_samples_qualified());
     assert(command_c==1 && command_d==1 && bms_afe_get_aux_measurements(&aux));
     /* AFE 自复位成功重配也必须撤销旧三帧资格；等待不累加通信失败。 */

@@ -10,6 +10,7 @@ for signature in ('uint8_t bms_sw_protection_charge_blocked(', 'uint8_t bms_sw_p
                   'void bms_sw_protection_reset_current_recovery(',
                   'uint8_t bms_sw_protection_discharge_overcurrent_active('):
     fixture=fixture.replace(function(fixture,signature),'')
+fixture=fixture.replace('static bms_sw_protection_inputs_t last_sw_sample;', '')
 profile=re.search(r'typedef struct\s*\{.*?\} bms_afe_hw_profile_t;',read('bms/core/bms_afe_hw_profile.h'),re.S).group()
 fixture=fixture.replace('/* PROFILE TYPE */',profile)
 fixture=fixture.replace('/* PRODUCTION */',selected_source(ROOT/'bms/afe/sh3673510/sh3673510_bms.c'))
@@ -24,6 +25,29 @@ int main(void){
  bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
  for(unsigned i=0;i<10;i++)sample();
  assert(bms_afe_samples_qualified() && command_c && command_d);
+ /* 真实 SW/guard/backend：只有 CADC 的可靠反向电流可解除软件 OC。 */
+ g_bms_protection_params.discharge_ocp_third_a10=20;
+ g_bms_protection_params.discharge_ocp_recover_a10=5;
+ g_bms_protection_params.discharge_ocp_filter_10ms=40;
+ public_current_ma=10000;sample();sample();
+ assert(!command_d && bms_sw_protection_discharge_overcurrent_active());
+ public_current_ma=-201;device.flag2=SH3673520_FLAG2_VADC_MASK;
+ sample();assert(!command_d && bms_sw_protection_discharge_overcurrent_active());
+ device.flag2=SH3673520_FLAG2_CADC_MASK;sample();
+ assert(command_d && !bms_sw_protection_discharge_overcurrent_active());
+ assert(!last_sample_result.confirm_sample);
+ device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
+ g_bms_protection_params.charge_ocp_third_a10=20;
+ g_bms_protection_params.charge_ocp_recover_a10=5;
+ g_bms_protection_params.charge_ocp_filter_10ms=40;
+ public_current_ma=-10000;sample();sample();assert(!command_c);
+ public_current_ma=201;device.flag2=SH3673520_FLAG2_VADC_MASK;
+ sample();assert(!command_c);
+ device.flag2=SH3673520_FLAG2_CADC_MASK;sample();assert(command_c);
+ assert(!last_sample_result.confirm_sample);
+ device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
+ public_current_ma=0;sample();
+
  bms_afe_feature_snapshot_t temperature;
  assert(bms_afe_get_feature_snapshot(&temperature) && temperature.battery_temp_valid);
  bad_cell=0;bad_cell_mv=3750;
