@@ -39,13 +39,13 @@ u16 bms_soc_profile_word(const bms_soc_profile_config_t *v,u16 offset) {
 }
 u8 bms_config_soc_profile_is_persisted(void) { return 1u; }
 u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *v) {
-    ++sample_calls;v->raw_current_ma=INT32_MIN+123;v->current_ma=-1234;v->sample_tick_32k=sample_tick;return sample_ok;
+    ++sample_calls;v->raw_current_ma=INT32_MIN+123;v->current_ma=-1234;v->sample_tick_32k=sample_tick;v->sample_time_ms=sample_tick;return sample_ok;
 }
 void bms_config_get_sleep(bms_sleep_config_t *v) { ++sleep_calls;*v=(bms_sleep_config_t){2600,1,3300,2,30}; }
 void bms_sleep_config_defaults(bms_sleep_config_t *v) { ++sleep_calls;*v=(bms_sleep_config_t){2700,3,3400,4,30}; }
 u8 bms_board_heater_supported(void) { return 1u; }
 u8 get_soc_real(void) { return 57u; }
-uint32_t bms_time_now_32k(void) { return now; }
+uint32_t bms_time_ms(void) { return now; }
 '''
 tail = r'''
 static u8 data[250];
@@ -74,7 +74,7 @@ int main(void) {
         123u,0x8000u,(u16)(u32)-1234,(u16)((u32)-1234>>16),1u,0xfff0u,0xffffu};
     check(BMS_PARAM_REG_CURRENT_OFFSET_LO,11u,currents);assert(user_calls==1u&&sample_calls==1u);
     sample_ok=0u;reset();assert(bms_parameter_read_block(BMS_PARAM_REG_RAW_CURRENT_LO,7u,data));assert(!value(4));sample_ok=1u;
-    sample_tick=now-BMS_SOC_MAX_SAMPLE_GAP_32K-1u;reset();assert(bms_parameter_read_block(BMS_PARAM_REG_SAMPLE_VALID,1u,data));assert(!value(0));
+    sample_tick=now-BMS_SAMPLE_MAX_POLL_GAP_MS-1u;reset();assert(bms_parameter_read_block(BMS_PARAM_REG_SAMPLE_VALID,1u,data));assert(!value(0));
     user_ok=0u;reset();assert(bms_parameter_read_block(BMS_PARAM_REG_SN_BASE,16u,data));assert(user_calls==1u);
     for(unsigned i=0;i<16u;++i)assert(value(i)==0xffffu);
     user_ok=1u;

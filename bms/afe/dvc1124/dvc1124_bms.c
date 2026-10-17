@@ -3,6 +3,7 @@
  * 不能据此推断 D014 硬件行为。
  * bms/afe/dvc1124/dvc1124_bms.c；实际编译归属见各产品 sources.txt。
  */
+#include "bms_time.h"
 #include "bms_diag.h"
 #include "dvc1124.h"
 #include "bms_afe_driver.h"
@@ -23,9 +24,9 @@
 /*
  * D008 恢复状态在 AFE 重初始化后保留，MCU 复位后丢失。
  * 新鲜可靠反向电流立即恢复；PB1 仅在 DSGF=0、无可靠电流时去抖确认负载移除。
- * SDK 32K 时间差可安全跨回绕，关 MOS 后零电流本身不作为恢复依据。
+ * 毫秒时间差可安全跨回绕，关 MOS 后零电流本身不作为恢复依据。
  */
-#define DVC_LOAD_RELEASE_CONFIRM_TICKS (BMS_D008_LOAD_RELEASE_CONFIRM_MS * 32u)
+#define DVC_LOAD_RELEASE_CONFIRM_MS BMS_D008_LOAD_RELEASE_CONFIRM_MS
 #define DVC_OCC_ALARMS (DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)
 #define DVC_DSG_ALARMS (DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK | DVC1124_ALARM_SCD_MASK)
 static struct {
@@ -43,7 +44,7 @@ static void dvc_observe_current_recovery(const dvc1124_snapshot_t *snapshot,
                                          uint32_t poll_tick)
 {
     if (!snapshot->valid || (s_current_recovery.poll_seen &&
-        (uint32_t)(poll_tick - s_current_recovery.last_poll_tick) > BMS_SAMPLE_MAX_POLL_GAP_32K))
+        (uint32_t)(poll_tick - s_current_recovery.last_poll_tick) > BMS_SAMPLE_MAX_POLL_GAP_MS))
         s_current_recovery.load_release_pending = 0u;
     s_current_recovery.poll_seen = snapshot->valid;
     s_current_recovery.last_poll_tick = poll_tick;
@@ -65,7 +66,7 @@ static void dvc_observe_current_recovery(const dvc1124_snapshot_t *snapshot,
 static uint8_t dvc_load_removed(uint32_t now)
 {
     return s_current_recovery.load_release_pending &&
-        (uint32_t)(now - s_current_recovery.load_release_started) >= DVC_LOAD_RELEASE_CONFIRM_TICKS;
+        (uint32_t)(now - s_current_recovery.load_release_started) > DVC_LOAD_RELEASE_CONFIRM_MS;
 }
 
 /* 查询是否仍有电流保护等待物理条件恢复。 */
@@ -163,14 +164,14 @@ static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms,
         state->pending = 1u;
         state->started_tick = now;
     }
-    return ((uint32_t)(now - state->started_tick) >= (uint32_t)stable_ms * 32u) ? 1u : 0u;
+    return ((uint32_t)(now - state->started_tick) > (uint32_t)stable_ms) ? 1u : 0u;
 }
 
 /* 清除已满足恢复条件的硬件保护锁存。 */
 static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
                                              uint8_t sample_valid,
                                              uint8_t voltage_fresh,
-                                             uint32_t poll_tick_32k)
+                                             uint32_t poll_ms)
 {
     static dvc_voltage_recovery_t cov;
     static dvc_voltage_recovery_t cuv;
@@ -187,12 +188,12 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
         poll_seen = 0u;
         return alarm;
     }
-    if (poll_seen && (uint32_t)(poll_tick_32k - last_poll_tick) > BMS_SAMPLE_MAX_POLL_GAP_32K) {
+    if (poll_seen && (uint32_t)(poll_ms - last_poll_tick) > BMS_SAMPLE_MAX_POLL_GAP_MS) {
         cov.pending = 0u;
         cuv.pending = 0u;
     }
     poll_seen = 1u;
-    last_poll_tick = poll_tick_32k;
+    last_poll_tick = poll_ms;
 
     if (!(alarm & DVC1124_ALARM_COV_MASK)) cov.pending = 0u;
     if (!(alarm & DVC1124_ALARM_CUV_MASK)) cuv.pending = 0u;
@@ -202,13 +203,13 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
 
     if (alarm & DVC1124_ALARM_COV_MASK) {
         if (dvc_recovery_stable((uint8_t)(g_bms_report.cell_max_mv <= hw.cov_recover_mv),
-                                hw.cov_recover_ms, &cov, poll_tick_32k))
+                                hw.cov_recover_ms, &cov, poll_ms))
             clear_mask |= DVC1124_ALARM_COV_MASK;
     }
 
     if (alarm & DVC1124_ALARM_CUV_MASK) {
         if (dvc_recovery_stable((uint8_t)(g_bms_report.cell_min_mv >= hw.cuv_recover_mv),
-                                hw.cuv_recover_ms, &cuv, poll_tick_32k))
+                                hw.cuv_recover_ms, &cuv, poll_ms))
             clear_mask |= DVC1124_ALARM_CUV_MASK;
     }
 
@@ -444,7 +445,7 @@ bms_afe_sample_result_t bms_afe_driver_sample(void)
 
     bms_afe_sample_result_t result = DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
-    poll_tick = pm_get_32k_tick();
+    poll_tick = bms_time_ms();
     dvc_observe_current_recovery(&snapshot, poll_tick);
     if (!snapshot.valid) {
 #if DVC1124_HW_PROTECT_ENABLE
@@ -532,6 +533,7 @@ uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *measurem
 
     measurements->raw_current_ma = snapshot.raw_current_ma;
     measurements->current_ma = snapshot.current_ma;
+    measurements->sample_time_ms = snapshot.sample_time_ms;
     measurements->sample_tick_32k = snapshot.sample_tick_32k;
     return 1u;
 }

@@ -80,9 +80,40 @@ def check_app_scheduler_host_check():
         print("PASS scheduler order, deadlines, wrap, overrun, callback, invalid sample, shutdown; aging/reentry")
 
 
-    if __name__ == "__main__":
+    def check_time_ms_host_check():
+    from validation_support import read, run_c
+    import re
+    source = re.sub(r'^#include[^\n]*', '', read('bms/platform/telink/bms_time.c'), flags=re.M)
+    code = r'''
+#include <stdint.h>
+#include <assert.h>
+static uint32_t raw;
+static uint32_t pm_get_32k_tick(void){return raw;}
+''' + source + r'''
+int main(void){
+ raw=UINT32_MAX-15u;bms_time_init();assert(bms_time_ms()==0u);
+ raw+=31u;assert(bms_time_ms()==0u);raw++;assert(bms_time_ms()==1u);
+ for(unsigned i=0;i<32u;i++){raw++;(void)bms_time_ms();}assert(bms_time_ms()==2u);
+ /* 普通Suspend后保留时基；近完整原始周期不溢出分数累加。 */
+ uint32_t before=bms_time_ms();raw+=320000u;assert(bms_time_ms()-before==10000u);
+ uint64_t expected=(uint64_t)s_fraction_ticks+UINT32_MAX;
+ before=bms_time_ms();raw+=UINT32_MAX;
+ assert(bms_time_ms()-before==(uint32_t)(expected/32u));
+ s_elapsed_ms=UINT32_MAX;raw+=32u;assert(bms_time_ms()==0u);
+ bms_time_init();assert(bms_time_ms()==0u);
+ /* 毫秒边界前启动：elapsed==200不证明满200ms，必须继续等待。 */
+ raw+=31u;uint32_t start=bms_time_ms();raw+=6369u;
+ assert(bms_time_ms()-start==200u);raw+=32u;assert(bms_time_ms()-start>200u);
+ return 0;
+}
+'''
+    run_c(code, name='time-ms')
+
+
+if __name__ == "__main__":
         main()
 
 if __name__ == "__main__":
     check_app_recovery_wakeup_host_check()
     check_app_scheduler_host_check()
+    check_time_ms_host_check()

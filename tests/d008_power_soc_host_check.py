@@ -34,7 +34,7 @@ def function(name, signature):
 
 def protective_sleep_state():
     text = (MOD / 'app_power.c').read_text()
-    start = text.index('#define APP_COMMAND_REPLY_32K')
+    start = text.index('#define APP_COMMAND_REPLY_MS')
     end = text.index('static app_protective_sleep_t s_protective_sleep;', start)
     policy = (MOD / 'bms_sleep_config.c').read_text()
     policy = policy[policy.index('static uint32_t sleep_elapsed_limit('):]

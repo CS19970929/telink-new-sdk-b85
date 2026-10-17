@@ -7,11 +7,11 @@ typedef uint8_t u8;typedef uint32_t u32;
 typedef int GPIO_PinTypeDef;
 #define BMS_AFE_BACKEND 1
 #define BMS_AFE_BACKEND_DVC1124 1
-#define APP_PM_TICKS_PER_SEC 32000u
+#define APP_PM_TICKS_PER_SEC 1000u
 /* CURRENT_FLOOR */
 /* SUSPEND_CURRENT_LIMIT */
-#define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
-#define BMS_SAMPLE_MAX_POLL_GAP_32K (400u * 32u)
+#define BMS_SOC_MAX_SAMPLE_GAP_MS 400u
+#define BMS_SAMPLE_MAX_POLL_GAP_MS 400u
 #define BMS_BOARD_MCU_LDO_PIN 4
 #define BMS_BOARD_ACC_PIN 0
 #define BMS_BOARD_LOAD_DETECT_PIN 1
@@ -54,7 +54,7 @@ static int bls_ll_setAdvEnable(int en){adv_enabled=en;return ble_control_ok?BLE_
 #define DIAG_PM_BLOCK_SAMPLE_PENDING 32u
 #define DIAG_PM_BLOCK_POWER_OFF 64u
 #define DIAG_PM_BLOCK_ACC_SLEEP 128u
-typedef struct{uint32_t sample_tick_32k;int32_t current_ma;}bms_afe_aux_measurements_t;
+typedef struct{uint32_t sample_time_ms;int32_t current_ma;}bms_afe_aux_measurements_t;
 typedef struct{int unused;}app_pm_elapsed_ctx_t;
 static volatile u8 s_sample_due;
 static u32 now,elapsed;
@@ -83,7 +83,7 @@ void bms_diag_sleep(u8 reason,u32 block,u32 elapsed_ms,u32 delay_ms,u32 retry_ms
 void bms_diag_sleep_committed(void){}
 static struct{uint16_t cell_min_mv, pack_voltage_10mv; struct { struct { uint8_t cell_uvp, pack_uvp; } bits; } fault_third;}g_bms_report={.cell_min_mv=3300};
 static struct{uint8_t soc_estimate_percent,discharge_fraction_percent;uint32_t cycle_count;}g_bms_soc;
-static u32 pm_get_32k_tick(void){return now;}
+static u32 bms_time_ms(void){return now;}
 static unsigned afe_snapshot_reads;
 static int bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*m){
  ++afe_snapshot_reads;*m=measurement;return valid;
@@ -141,7 +141,7 @@ static void reset(void){
  s_sample_due=0;
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
  ota_is_working=device_in_connection_state=bus_busy=seq_len=cut_calls=0;
- now=measurement.sample_tick_32k=100;measurement.current_ma=0;elapsed=0;
+ now=measurement.sample_time_ms=100;measurement.current_ma=0;elapsed=0;
  g_bms_report.cell_min_mv=3300;afe_snapshot_reads=0;
  app_power_process(&s_sample_due);
  assert(afe_snapshot_reads==1u); /* 同一轮深睡/普通Suspend/诊断只采一份快照。 */
@@ -198,7 +198,7 @@ static void test_low_voltage_sample_wait(void){
  /* 实板 PM 轨迹：正常低压采样间反复出现 >400 ms 的旧电流缓存。
   * 每次等待都不能撤销已经确认的低压，一小时墙钟到期仍必须断电。 */
  for(unsigned seconds=1;seconds<=3600;seconds++){
-  now=seconds*32000u;measurement.sample_tick_32k=now;elapsed=1;
+  now=seconds*1000u;measurement.sample_time_ms=now;elapsed=1;
   app_power_process(&s_sample_due);
   assert(observed_sleep_elapsed==seconds*1000u);
   if(seconds==3600){assert(cut_calls==1&&timer_hold_calls==0&&!deep_calls&&!output_enabled);break;}

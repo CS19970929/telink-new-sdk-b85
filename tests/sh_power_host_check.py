@@ -155,7 +155,7 @@ def check_sh_protective_sleep():
     startup = (root / 'bms/platform/telink/main.c').read_text(encoding='utf-8')
     assert startup.index('clock_init(SYS_CLK_TYPE)') < startup.index('while (app_power_boot_sleep_hold())')
     assert startup.index('while (app_power_boot_sleep_hold())') < startup.index('wd_start()') < startup.index('user_init_normal()')
-    start = source.index('#define APP_COMMAND_REPLY_32K')
+    start = source.index('#define APP_COMMAND_REPLY_MS')
     end = source.index('static app_protective_sleep_t s_protective_sleep;', start)
     body = source[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n'
     policy = (root / 'bms/core/bms_sleep_config.c').read_text()
@@ -203,7 +203,7 @@ def check_sh_suspend_current_gates():
     #include <string.h>
     typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
     typedef struct { int unused; } app_pm_elapsed_ctx_t;
-    typedef struct { int32_t current_ma; u32 sample_tick_32k; } bms_afe_aux_measurements_t;
+    typedef struct { int32_t current_ma; u32 sample_time_ms; } bms_afe_aux_measurements_t;
     #define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
     #define BMS_SAMPLE_MAX_POLL_GAP_32K (400u * 32u)
     #define BMS_BOARD_SWITCH_PIN 0
@@ -223,7 +223,7 @@ def check_sh_suspend_current_gates():
     static int mask, observed_allowed, mask_calls;
     static u32 now=100;
     static bms_afe_aux_measurements_t measurement={0,100};
-    static u32 pm_get_32k_tick(void){return now;}
+    static u32 bms_time_ms(void){return now;}
     static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){*m=measurement;return valid;}
     static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *c){(void)c;return 0;}
     static u8 app_protective_sleep_poll(u32 seconds,
@@ -250,7 +250,7 @@ def check_sh_suspend_current_gates():
         }
         measurement.current_ma=0;
         valid=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
-        valid=1;now=measurement.sample_tick_32k+12801u;
+        valid=1;now=measurement.sample_time_ms+401u;
         app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         now=100;due=1;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         due=0;flash_locked=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
@@ -260,7 +260,7 @@ def check_sh_suspend_current_gates():
             tx_busy=(bits&4u)!=0;modbus_busy=(bits&8u)!=0;
             ota_is_working=(bits&16u)!=0;valid=(bits&32u)!=0;
             due=(bits&64u)!=0;
-            now=100u+((bits&128u)?12801u:0u);mask_calls=0;
+            now=100u+((bits&128u)?401u:0u);mask_calls=0;
             app_power_process(&due);
             int blocked=!idle_ready || !flash_locked ||
                 tx_busy || modbus_busy || ota_is_working || !valid || due || (bits&128u);

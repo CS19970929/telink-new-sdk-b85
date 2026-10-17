@@ -4,6 +4,7 @@
  * bms/platform/telink/bms_storage_platform_telink.c；
  * 实际编译归属见各产品 sources.txt。
  */
+#include "bms_time.h"
 #include "bms_diag.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_storage_platform.h"
@@ -19,7 +20,7 @@ extern u8 ota_is_working;
 #if BMS_SERVICE_DIAG_ENABLE
 static bms_storage_diagnostics_t s_flash_diag;
 #endif
-static u32 s_flash_failure_tick_32k;
+static u32 s_flash_failure_ms;
 static u8 s_flash_failed;
 
 /* 取得 Flash 操作结果及耗时诊断快照。 */
@@ -38,7 +39,7 @@ static int bms_storage_verify_result(int ok)
         if (s_flash_diag.verify_failures != 0xFFFFFFFFu) ++s_flash_diag.verify_failures;
 #endif
         s_flash_failed = 1u;
-        s_flash_failure_tick_32k = pm_get_32k_tick();
+        s_flash_failure_ms = bms_time_ms();
     }
     return ok;
 }
@@ -51,7 +52,7 @@ static int bms_storage_telink_begin(void *ctx)
 #if (APP_FLASH_PROTECTION_ENABLE)
         !app_flash_lock_restore_enabled() ||
 #endif
-        (s_flash_failed && (u32)(pm_get_32k_tick() - s_flash_failure_tick_32k) < BMS_STORAGE_RETRY_INTERVAL_32K)) {
+        (s_flash_failed && (u32)(bms_time_ms() - s_flash_failure_ms) < BMS_STORAGE_RETRY_INTERVAL_MS)) {
         uint16_t reason = ota_is_working ? DIAG_OTA : DIAG_BACKOFF;
 #if APP_FLASH_PROTECTION_ENABLE
         if (!ota_is_working && !app_flash_lock_restore_enabled()) reason = DIAG_LOCK;

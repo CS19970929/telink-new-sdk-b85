@@ -8,7 +8,7 @@
 #include "bms_afe_driver.h"
 
 /* 保持既有 watchdog 余量、保护初始化顺序和休眠后总线语义。 */
-const bms_afe_driver_policy_t bms_afe_driver_policy = { 35000u * 32u, 1u, 0u };
+const bms_afe_driver_policy_t bms_afe_driver_policy = { 35000u, 1u, 0u };
 #include "sh3673510_diag.h"
 #include "tl_common.h"
 #include "drivers.h"
@@ -33,7 +33,7 @@ const bms_afe_driver_policy_t bms_afe_driver_policy = { 35000u * 32u, 1u, 0u };
 #define SH3510_SAMPLE_MS              BMS_SAMPLE_PERIOD_MS
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 按 200 ms 节拍连续确认 LOADOFF 2 秒。 */
 #define SH3510_MISSING_CELL_MV       61001u /* D000..D01F 未用串位的协议标记。 */
-#define SH3510_DETECT_SETTLE_32K      6400u /*
+#define SH3510_DETECT_SETTLE_MS        200u /*
  * 200 ms 大于 tLOAD 65 ms 与 VADC 70 ms。
  */
 /*
@@ -42,10 +42,10 @@ const bms_afe_driver_policy_t bms_afe_driver_policy = { 35000u * 32u, 1u, 0u };
  */
 #define SH3510_CHARGER_ON_MV          2100u
 #define SH3510_CHARGER_OFF_MV          900u
-#define SH3510_ADC_MAX_AGE_32K       12800u /*
+#define SH3510_ADC_MAX_AGE_MS          400u /*
  * 400 ms 允许在 200 ms 轮询下完成 250 ms CADC。
  */
-#define SH3510_TEMP_STARTUP_32K      38400u /*
+#define SH3510_TEMP_STARTUP_MS        1200u /*
  * 1.2 秒覆盖一次完整的正常模式 0.98 秒扫描。
  */
 
@@ -82,7 +82,7 @@ static uint8_t s_last_discharge_command;
 static uint8_t s_flag_clear_failed;
 static uint8_t s_detection_initialized;
 static uint8_t s_load_detection;
-static uint32_t s_detection_tick;
+static uint32_t s_detection_ms;
 static uint8_t s_load_removed;
 static uint8_t s_charger_removed;
 static uint8_t s_charger_known;
@@ -91,9 +91,12 @@ static uint8_t s_confirm_sample;
 static uint8_t s_sampling_restart;
 static uint8_t s_vadc_seen;
 static uint8_t s_cadc_seen;
-static uint32_t s_sampling_start_tick;
-static uint32_t s_vadc_tick;
-static uint32_t s_cadc_tick;
+static uint32_t s_sampling_started_ms;
+static uint32_t s_vadc_ms;
+static uint32_t s_cadc_ms;
+#if BMS_SERVICE_DIAG_ENABLE
+static uint32_t s_vadc_raw_tick, s_cadc_raw_tick;
+#endif
 /* 本次采样现场；失败时先复制，再清除恢复资格。协议读取不消费 FLAG2。 */
 static uint32_t s_sample_attempt_tick;
 static uint16_t s_sample_attempt_flag2;
@@ -103,8 +106,11 @@ static uint16_t s_sample_attempt_flag2;
 static void restart_sampling(void)
 {
     bms_sw_protection_reset_current_recovery();
-    s_sampling_start_tick = pm_get_32k_tick();
-    s_vadc_tick = s_cadc_tick = s_sampling_start_tick;
+    s_sampling_started_ms = bms_time_ms();
+#if BMS_SERVICE_DIAG_ENABLE
+    s_vadc_raw_tick = s_cadc_raw_tick = bms_time_now_32k();
+#endif
+    s_vadc_ms = s_cadc_ms = s_sampling_started_ms;
     s_vadc_seen = s_cadc_seen = 0u;
     s_snapshot_valid = 0u;
     s_confirm_sample = 0u;
@@ -148,7 +154,7 @@ static void note_comm_error(uint16_t stage)
 #if BMS_SERVICE_DIAG_ENABLE
     bms_diag_afe_failure(stage, (int16_t)stats.last_error,
         stage < DIAG_AFE_FAIL_INIT ? s_sample_attempt_flag2 : 0u,
-        (uint32_t)(now-s_vadc_tick), (uint32_t)(now-s_cadc_tick),
+        (uint32_t)(now-s_vadc_raw_tick), (uint32_t)(now-s_cadc_raw_tick),
         stage < DIAG_AFE_FAIL_INIT ? (uint32_t)(now-s_sample_attempt_tick) : 0u,
         stats.crc_error_count, stats.retry_count);
 #else
@@ -589,18 +595,18 @@ static uint8_t sample_release_evidence(const sh3673510_control_status_t *s)
     uint8_t changed;
     int16_t raw;
     uint32_t mv;
-    uint32_t now = pm_get_32k_tick();
+    uint32_t now = bms_time_ms();
 
     s_load_removed = s_charger_removed = 0u;
     if (!sh3673510_control_set_load_detection(load, &changed)) return 0u;
     if (changed || !s_detection_initialized || s_load_detection != load) {
         s_detection_initialized = 1u;
         s_load_detection = load;
-        s_detection_tick = now;
+        s_detection_ms = now;
         s_charger_known = 0u;
         return 1u;
     }
-    if ((uint32_t)(now - s_detection_tick) < SH3510_DETECT_SETTLE_32K) return 1u;
+    if ((uint32_t)(now - s_detection_ms) <= SH3510_DETECT_SETTLE_MS) return 1u;
     if (load) {
         s_load_removed = ((s->bstatus2 & SH3673520_BSTATUS2_LOADOFF_MASK) &&
                           !(s->bstatus2 & SH3673520_BSTATUS2_LOADON_MASK)) ? 1u : 0u;
@@ -658,7 +664,8 @@ static void sh3510_publish_current(int32_t current_ma, uint32_t now)
 {
     s_aux.raw_current_ma = (current_ma == INT32_MIN) ? INT32_MAX : -current_ma;
     s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma);
-    s_aux.sample_tick_32k = now;
+    s_aux.sample_time_ms = now;
+    s_aux.sample_tick_32k = bms_time_now_32k();
 
     /* 公共 mA 正放电；无符号取绝对值覆盖 INT32_MIN，0.1A 报告饱和。 */
     {
@@ -794,12 +801,20 @@ static uint16_t publish_measurements(void)
     /* 修改共享报告前先拒绝整个无效帧。 */
     for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i)
         if (cell[i] < 0L || cell[i] > 65535L) return DIAG_AFE_FAIL_CELL_RANGE;
-    now = pm_get_32k_tick();
-    if (status.flag2 & SH3673520_FLAG2_VADC_MASK) { s_vadc_seen = 1u; s_vadc_tick = now; }
-    if (status.flag2 & SH3673520_FLAG2_CADC_MASK) { s_cadc_seen = 1u; s_cadc_tick = now; }
-    if ((uint32_t)(now - s_vadc_tick) > SH3510_ADC_MAX_AGE_32K)
+    now = bms_time_ms();
+    if (status.flag2 & SH3673520_FLAG2_VADC_MASK) { s_vadc_seen = 1u; s_vadc_ms = now;
+#if BMS_SERVICE_DIAG_ENABLE
+        s_vadc_raw_tick = bms_time_now_32k();
+#endif
+    }
+    if (status.flag2 & SH3673520_FLAG2_CADC_MASK) { s_cadc_seen = 1u; s_cadc_ms = now;
+#if BMS_SERVICE_DIAG_ENABLE
+        s_cadc_raw_tick = bms_time_now_32k();
+#endif
+    }
+    if ((uint32_t)(now - s_vadc_ms) > SH3510_ADC_MAX_AGE_MS)
         return DIAG_AFE_FAIL_VADC_AGE;
-    if ((uint32_t)(now - s_cadc_tick) > SH3510_ADC_MAX_AGE_32K)
+    if ((uint32_t)(now - s_cadc_ms) > SH3510_ADC_MAX_AGE_MS)
         return DIAG_AFE_FAIL_CADC_AGE;
     s_confirm_sample = ((status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ==
                        (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ? 1u : 0u;
@@ -814,7 +829,7 @@ static uint16_t publish_measurements(void)
     if (status.flag2 & SH3673520_FLAG2_CADC_MASK)
         sh3510_publish_current(current_ma, now);
     if (!s_vadc_seen || !s_cadc_seen ||
-        (uint32_t)(now - s_sampling_start_tick) < SH3510_TEMP_STARTUP_32K) {
+        (uint32_t)(now - s_sampling_started_ms) <= SH3510_TEMP_STARTUP_MS) {
         s_confirm_sample = 0u;
         return DIAG_AFE_FAIL_NONE;
     }
@@ -1049,8 +1064,8 @@ uint8_t bms_afe_driver_sleep(void)
 
 #if BMS_FEATURE_BALANCE_SUPPORTED
 #define SH_FEATURE_VALID_CELL_MASK ((1uL << SH3673510_BOARD_CELL_COUNT) - 1uL)
-#define SH_FEATURE_BALANCE_REFRESH_TICKS (20000u * 32u) /* 20 秒，短于既有硬件超时。 */
-static uint32_t s_balance_refresh_tick;
+#define SH_FEATURE_BALANCE_REFRESH_MS 20000u /* 20 秒，短于既有硬件超时。 */
+static uint32_t s_balance_refresh_ms;
 
 /* 读取 SH 硬件当前均衡通道掩码。 */
 static uint8_t sh_read_balance_mask(uint32_t *mask)
@@ -1077,16 +1092,16 @@ uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask)
             if (!sh3673510_control_set_balance(0u)) return 0u;
             if (!sh_read_balance_mask(&actual) || actual != 0u) return 0u;
         }
-        s_balance_refresh_tick = bms_time_now_32k();
+        s_balance_refresh_ms = bms_time_ms();
         return 1u;
     }
     if (!read_ok) return 0u;
 
     if (actual != cell_mask ||
-        (uint32_t)(bms_time_now_32k() - s_balance_refresh_tick) >= SH_FEATURE_BALANCE_REFRESH_TICKS) {
+        (uint32_t)(bms_time_ms() - s_balance_refresh_ms) >= SH_FEATURE_BALANCE_REFRESH_MS) {
         if (!sh3673510_control_set_balance(cell_mask)) return 0u;
         if (!sh_read_balance_mask(&actual) || actual != cell_mask) return 0u;
-        s_balance_refresh_tick = bms_time_now_32k();
+        s_balance_refresh_ms = bms_time_ms();
     }
     return 1u;
 }

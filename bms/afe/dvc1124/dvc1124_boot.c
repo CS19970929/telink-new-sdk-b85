@@ -6,7 +6,7 @@
 #include "bms_afe_driver.h"
 
 /* 保持既有 watchdog 余量、保护初始化顺序和休眠后总线语义。 */
-const bms_afe_driver_policy_t bms_afe_driver_policy = { 5000u * 32u, 0u, 1u };
+const bms_afe_driver_policy_t bms_afe_driver_policy = { 5000u, 0u, 1u };
 
 #include "tl_common.h"
 #include "drivers.h"

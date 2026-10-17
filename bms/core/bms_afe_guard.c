@@ -31,7 +31,7 @@ typedef struct
     uint8_t test_shutdown_hold;
     uint8_t fet_driver_bits;
     uint8_t fet_driver_valid;
-    uint32_t failsafe_start_tick_32k;
+    uint32_t failsafe_start_tick_ms;
 } bms_afe_guard_state_t;
 
 /* 输出授权与通信恢复的唯一状态；主循环更新，backend 不得绕过 guard 清除 inhibit。 */
@@ -91,7 +91,7 @@ static void enter_failsafe_wait(void)
 {
     inhibit_local();
     s_guard.bus_silenced = 1u;
-    s_guard.failsafe_start_tick_32k = bms_time_now_32k();
+    s_guard.failsafe_start_tick_ms = bms_time_ms();
     s_guard.comm_failures = 0u;
 }
 
@@ -101,8 +101,8 @@ static uint8_t service_failsafe_wait(void)
     if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) return 0u;
 
     /* 硬件看门狗计时期间绝不进行 AFE I2C/SPI 访问。 */
-    if ((uint32_t)(bms_time_now_32k() - s_guard.failsafe_start_tick_32k) <
-        bms_afe_driver_policy.failsafe_wait_32k)
+    if ((uint32_t)(bms_time_ms() - s_guard.failsafe_start_tick_ms) <=
+        bms_afe_driver_policy.failsafe_wait_ms)
     {
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
         return 1u;
@@ -463,7 +463,7 @@ uint8_t bms_afe_test_wake(void)
     s_guard.valid_snapshot_streak = 0u;
     s_guard.comm_failures = 0u;
     s_guard.bus_silenced = 0u;
-    s_guard.failsafe_start_tick_32k = 0u;
+    s_guard.failsafe_start_tick_ms = 0u;
 
     /*
      * 正常后端初始化负责完整 shutdown 唤醒/复位、持久硬件配置、编译期策略与回读；

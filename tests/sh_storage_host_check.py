@@ -20,7 +20,7 @@ def check_sh_event_checkpoint_host_check():
     static u32 tick, saves, blocked;
     static int save_ok=1;
     static u8 durable[202];
-    static u32 bms_time_now_32k(void){return tick;}
+    static u32 bms_time_ms(void){return tick;}
     static void bms_error_raise(int e){(void)e;}
     static void bms_diag_attempt(int d){(void)d;}
     static void bms_diag_result(int d,int e){(void)d;(void)e;}
@@ -44,23 +44,23 @@ def check_sh_event_checkpoint_host_check():
     int main(void){
      bms_event_log_sample_t sample={0};u16 pos;
      assert(bms_event_log_init());bms_event_log_note_startup();
-     for(tick=0;tick<60u*32000u;tick+=32000u){sample.vcell_ovp^=1;bms_event_log_poll_1s(&sample);}
+     for(tick=0;tick<60u*1000u;tick+=1000u){sample.vcell_ovp^=1;bms_event_log_poll_1s(&sample);}
      assert(saves==1 && g_bms_event_log.dirty);
      bms_event_log_poll_1s(&sample);assert(saves==2 && !g_bms_event_log.dirty);
      pos=g_bms_event_log.write_pos;assert(bms_event_log_init() && g_bms_event_log.write_pos==pos);
-     save_ok=0;sample.vcell_uvp=1;tick+=60u*32000u;bms_event_log_poll_1s(&sample);
+     save_ok=0;sample.vcell_uvp=1;tick+=60u*1000u;bms_event_log_poll_1s(&sample);
      assert(saves==3 && blocked==1 && g_bms_event_log.dirty);
      pos=g_bms_event_log.write_pos;
-     for(int i=0;i<4;++i){tick+=32000u;bms_event_log_poll_1s(&sample);}
+     for(int i=0;i<4;++i){tick+=1000u;bms_event_log_poll_1s(&sample);}
      assert(saves==3 && g_bms_event_log.write_pos==pos);
-     tick+=32000u;save_ok=1;bms_event_log_poll_1s(&sample);assert(saves==4 && !g_bms_event_log.dirty);
+     tick+=1000u;save_ok=1;bms_event_log_poll_1s(&sample);assert(saves==4 && !g_bms_event_log.dirty);
      bms_event_log_note_sleep();assert(saves==5);pos=g_bms_event_log.write_pos;
      bms_event_log_note_sleep();assert(saves==5 && pos==g_bms_event_log.write_pos);
      bms_event_log_note_sleep();assert(saves==5); /* 已提交休眠只记录一次。 */
      sample.vbus_ovp=1;bms_event_log_poll_1s(&sample);save_ok=0;
      pos=g_bms_event_log.write_pos;
-     tick=UINT32_MAX-2u*32000u;g_bms_event_log.last_attempt_32k=tick;
-     tick+=60u*32000u;save_ok=1;bms_event_log_poll_1s(&sample);assert(!g_bms_event_log.dirty);
+     tick=UINT32_MAX-2u*1000u;g_bms_event_log.last_attempt_32k=tick;
+     tick+=60u*1000u;save_ok=1;bms_event_log_poll_1s(&sample);assert(!g_bms_event_log.dirty);
      assert(pos==g_bms_event_log.write_pos);
      return 0;
     }

@@ -24,6 +24,9 @@ static u32 reg_irq_src, now_32k;
 static int rx_high=1, rx_edge_enabled, rx_pad_enabled, parsed;
 static u8 irq_enabled=1;
 static u32 pm_get_32k_tick(void){return now_32k;}
+uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=now_32k;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
+uint32_t bms_time_now_32k(void){return now_32k;}
+
 static int gpio_read(int pin){(void)pin;return rx_high;}
 static void gpio_en_interrupt_risc0(int pin,int en){(void)pin;rx_edge_enabled=en;}
 static void gpio_set_interrupt_risc0(int pin,int polarity){assert(polarity==POL_FALLING);gpio_en_interrupt_risc0(pin,1);reg_irq_src=0;}

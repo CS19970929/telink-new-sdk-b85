@@ -14,7 +14,7 @@ def check_d008_current_recovery_host_check():
     def function(name):
         return extract_function(s, 'uint8_t ' + name + '(')
 
-    state = '#include "bms_timing.h"\n' + s[s.index('#define DVC_LOAD_RELEASE_CONFIRM_TICKS'):s.index('static uint16_t dvc_get_configured_temperature')]
+    state = '#include "bms_timing.h"\n' + s[s.index('#define DVC_LOAD_RELEASE_CONFIRM_MS'):s.index('static uint16_t dvc_get_configured_temperature')]
     fixture = (ROOT / 'tests/fixtures/d008_current_recovery.c').read_text()
     code = fixture.replace('/* PRODUCTION */', state + function('dvc_recover_current_faults') + function('bms_afe_driver_set_fets'))
     # Failed samples must break PB1 qualification, before returning from acquisition.

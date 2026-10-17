@@ -8,8 +8,8 @@ feature = read('bms/afe/dvc1124/dvc1124_bms.c')
 constants = '\n'.join(re.findall(
     r'^#define DVC_(?:TEMP_TABLE_LEN|NTC_MIN_RES_OHM|NTC_MAX_RES_OHM)\s+[^\n]+',
     driver, re.M))
-state = driver[driver.index('#define DVC_ADC_MAX_AGE_TICKS'):
-               driver.index('#define DVC_BALANCE_REFRESH_INTERVAL_US')]
+state = driver[driver.index('#define DVC_ADC_MAX_AGE_MS'):
+               driver.index('#define DVC_BALANCE_REFRESH_INTERVAL_MS')]
 table_start = driver.index('static const uint16_t s_ntc_10k_table')
 table = driver[table_start:driver.index('};', table_start) + 2]
 production = constants + '\n' + table + '\n'

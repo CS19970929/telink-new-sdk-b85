@@ -181,7 +181,7 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
         }
         if (r == BMS_PARAM_REG_SAMPLE_VALID)
             return s->sample_valid &&
-                   (u32)(bms_time_now_32k() - sample->sample_tick_32k) <= BMS_SOC_MAX_SAMPLE_GAP_32K;
+                   (u32)(bms_time_ms() - sample->sample_time_ms) <= BMS_SAMPLE_MAX_POLL_GAP_MS;
         if (r == BMS_PARAM_REG_SAMPLE_TICK_LO) return (u16)sample->sample_tick_32k;
         if (r == BMS_PARAM_REG_SAMPLE_TICK_HI) return (u16)(sample->sample_tick_32k >> 16);
         if (r == BMS_PARAM_REG_RAW_CURRENT_LO) return (u16)sample->raw_current_ma;
@@ -248,7 +248,7 @@ static u8 switch_chemistry(const u8 *data, u16 qty)
     if (!bms_protection_params_valid() || !bms_afe_bus_access_allowed() ||
         !(bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) ||
         !bms_afe_get_aux_measurements(&sample) ||
-        (u32)(bms_time_now_32k() - sample.sample_tick_32k) > BMS_SOC_MAX_SAMPLE_GAP_32K ||
+        (u32)(bms_time_ms() - sample.sample_time_ms) > BMS_SAMPLE_MAX_POLL_GAP_MS ||
         !bms_soc_profile_valid(&previous_profile) ||
         sample.current_ma > (int32_t)previous_profile.current_deadband_ma ||
         sample.current_ma < -(int32_t)previous_profile.current_deadband_ma) return 4u;
@@ -278,13 +278,13 @@ static u8 soc_profile_command(const u8 *data, u16 qty)
     if (op == 1u) {
         bms_config_get_soc_profile(&s_soc_profile_stage);
         if (++s_soc_profile_generation == 0u) ++s_soc_profile_generation;
-        s_soc_profile_stage_tick = bms_time_now_32k();
+        s_soc_profile_stage_tick = bms_time_ms();
         s_soc_profile_stage_status = 1u;
         return 0u;
     }
     if (op == 2u) {
         if (s_soc_profile_stage_status != 1u || generation != s_soc_profile_generation ||
-            (u32)(bms_time_now_32k() - s_soc_profile_stage_tick) > 60u * 32000u ||
+            (u32)(bms_time_ms() - s_soc_profile_stage_tick) > 60u * 1000u ||
             !bms_soc_profile_valid(&s_soc_profile_stage)) return 3u;
         s_soc_profile_stage_status = 3u;
         if (!bms_config_set_soc_profile(&s_soc_profile_stage) || !bms_soc_profile_reload()) return 4u;
@@ -315,12 +315,12 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
         u16 offset = (u16)(r - BMS_PARAM_REG_SOC_PROFILE_STAGE_BASE);
         if (s_soc_profile_stage_status != 1u || qty > 4u ||
             (u32)offset + qty > BMS_SOC_PROFILE_WORDS ||
-            (u32)(bms_time_now_32k() - s_soc_profile_stage_tick) > 60u * 32000u)
+            (u32)(bms_time_ms() - s_soc_profile_stage_tick) > 60u * 1000u)
             return finish(3u);
         for (i = 0u; i < qty; ++i)
             (void)bms_soc_profile_set_word(&s_soc_profile_stage, (u16)(offset + i),
                                                  word(data + i * 2u));
-        s_soc_profile_stage_tick = bms_time_now_32k();
+        s_soc_profile_stage_tick = bms_time_ms();
         return finish(0u);
     }
     if (r == BMS_PARAM_REG_SLEEP_BASE) {
@@ -397,12 +397,12 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
             if (++s_sn_generation == 0u) ++s_sn_generation;
             s_sn_mask = 0u;
             s_sn_active = 1u;
-            s_sn_tick = bms_time_now_32k();
+            s_sn_tick = bms_time_ms();
             memset(s_sn_stage, 0, sizeof(s_sn_stage));
             return finish(0u);
         }
         if (!s_sn_active || value != s_sn_generation || s_sn_mask != 0xFFFFu ||
-            (u32)(bms_time_now_32k() - s_sn_tick) > 60u * 32000u)
+            (u32)(bms_time_ms() - s_sn_tick) > 60u * 1000u)
             return finish(3u);
         s_sn_active = 0u;
         memcpy(v.serial, s_sn_stage, sizeof(v.serial));
@@ -410,7 +410,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
     else if (r >= BMS_PARAM_REG_SN_STAGE_BASE && r <= BMS_PARAM_REG_SN_STAGE_LAST)
     {
         if (!bms_afe_hw_access_is_active()) return finish(2u);
-        if (!s_sn_active || (u32)(bms_time_now_32k() - s_sn_tick) > 60u * 32000u || qty > 4u ||
+        if (!s_sn_active || (u32)(bms_time_ms() - s_sn_tick) > 60u * 1000u || qty > 4u ||
             (u32)r + qty > BMS_PARAM_REG_SN_STAGE_END)
             return finish(3u);
         for (i = 0u; i < qty; ++i)

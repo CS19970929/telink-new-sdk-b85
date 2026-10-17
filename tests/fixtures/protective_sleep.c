@@ -8,9 +8,9 @@
 typedef uint8_t u8;
 typedef uint32_t u32;
 typedef int GPIO_PinTypeDef;
-#define APP_PM_TICKS_PER_SEC 32000u
-#define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
-#define BMS_SAMPLE_MAX_POLL_GAP_32K (400u * 32u)
+#define APP_PM_TICKS_PER_SEC 1000u
+#define BMS_SOC_MAX_SAMPLE_GAP_MS 400u
+#define BMS_SAMPLE_MAX_POLL_GAP_MS 400u
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 #define BMS_SLEEP_LOW_CELL_MV 2800u
 #define BMS_SLEEP_LOW_SECONDS 3600u
@@ -35,8 +35,8 @@ typedef int GPIO_PinTypeDef;
 #define HCI_ERR_REMOTE_USER_TERM_CONN 19
 #define BLC_ADV_DISABLE 0
 #define SUSPEND_DISABLE 0
-typedef struct { u32 last_tick_32k, pending_tick_32k; u8 ready; } app_pm_elapsed_ctx_t;
-typedef struct { u32 sample_tick_32k; int32_t current_ma; } bms_afe_aux_measurements_t;
+typedef struct { u32 last_tick_ms, pending_tick_ms; u8 ready; } app_pm_elapsed_ctx_t;
+typedef struct { u32 sample_time_ms; int32_t current_ma; } bms_afe_aux_measurements_t;
 static struct { uint16_t cell_min_mv, pack_voltage_10mv; struct { struct { uint8_t cell_uvp, pack_uvp; } bits; } fault_third; } g_bms_report;
 static struct { u8 soc_estimate_percent, discharge_fraction_percent; u32 cycle_count; } g_bms_soc;
 static bms_afe_aux_measurements_t measurement;
@@ -63,7 +63,7 @@ static int modbus_uart_suspend_ready(void) { return uart_ready; }
 static void modbus_uart_suspend_enter(void) { ++uart_entered; }
 static void modbus_uart_prepare_deep_sleep(void) { ++comm_sleep_calls; }
 static void gpio_en_interrupt_risc0(int pin,int en) { assert(pin==5&&!en); }
-static u32 pm_get_32k_tick(void) { return now; }
+static u32 bms_time_ms(void) { return now; }
 static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m) { *m=measurement; return valid; }
 static u8 bms_error_get(int error) { assert(error==BMS_ERROR_AFE1); return afe_error; }
 static void bms_afe_set_output_enabled(u8 en) { assert(!en); ++output_calls; }
@@ -111,7 +111,7 @@ static void reset(void) {
  g_bms_report.pack_voltage_10mv=3300;
     s_command_seen=0; retained_analog=wakeup_status=0;
     deepsleep_en=0; tx_busy=ble_pending=uart_ready=uart_entered=0;
-    now=measurement.sample_tick_32k=100u; measurement.current_ma=0;
+    now=measurement.sample_time_ms=100u; measurement.current_ma=0;
     valid=flash_ready=1; afe_error=ota_is_working=device_in_connection_state=0;
     saves=events=afe_calls=output_calls=sleep_calls=pad_calls=comm_sleep_calls=0;
     g_bms_report.cell_min_mv=3300u; reason=0u;
@@ -157,7 +157,7 @@ int main(void) {
     assert(reason==DIAG_SLEEP_REASON_AFE); /* 低压不能遮住 AFE 异常 */
     reset(); valid=0; assert(!fixture_sleep_poll(900, &sleep_status));
     valid=1; assert(!fixture_sleep_poll(1, &sleep_status)); assert(!s_protective_sleep.afe_error_seconds);
-    now+=BMS_SOC_MAX_SAMPLE_GAP_32K+1; assert(fixture_sleep_poll(1800, &sleep_status));
+    now+=BMS_SAMPLE_MAX_POLL_GAP_MS+1; assert(fixture_sleep_poll(1800, &sleep_status));
     reset(); g_bms_report.cell_min_mv=2900; measurement.current_ma=-201;
     assert(!fixture_sleep_poll(86400, &sleep_status));
     measurement.current_ma=0; assert(!fixture_sleep_poll(86399, &sleep_status));
@@ -169,11 +169,11 @@ int main(void) {
     assert(fixture_sleep_poll(1, &sleep_status)); /* 采样等待不能推迟已确认低压的一小时到期。 */
     reset(); g_bms_report.cell_min_mv=2900; measurement.current_ma=-90;
     assert(fixture_sleep_poll(86400, &sleep_status)); /* 可靠电流区外的偏移不冒充充电。 */
-    reset(); g_bms_report.cell_min_mv=2700; now=measurement.sample_tick_32k=0;
+    reset(); g_bms_report.cell_min_mv=2700; now=measurement.sample_time_ms=0;
     app_pm_elapsed_ctx_t wall_clock={0};
     assert(!fixture_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock), &sleep_status));
     for(u32 seconds=1;seconds<=3600u;++seconds) {
-        now=seconds*32000u; measurement.sample_tick_32k=now;
+        now=seconds*1000u; measurement.sample_time_ms=now;
         assert(fixture_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock), &sleep_status)==(seconds==3600u));
         assert(s_protective_sleep.low_voltage_seconds==seconds);
         if(seconds==3600u) break;
@@ -188,10 +188,10 @@ int main(void) {
         assert(fixture_sleep_poll(1800u, &sleep_status)==(step==48u));
     }
     assert(reason==DIAG_SLEEP_REASON_NORMAL);
-    reset(); app_pm_elapsed_ctx_t ctx={UINT32_MAX-15999u,16000u,1u}; now=0u;
-    assert(app_pm_take_elapsed_seconds(&ctx)==1u&&!ctx.pending_tick_32k);
-    ctx.last_tick_32k=1u;ctx.pending_tick_32k=31999u;now=0u;
-    assert(app_pm_take_elapsed_seconds(&ctx)==134218u&&ctx.pending_tick_32k==23294u);
+    reset(); app_pm_elapsed_ctx_t ctx={UINT32_MAX-499u,500u,1u}; now=0u;
+    assert(app_pm_take_elapsed_seconds(&ctx)==1u&&!ctx.pending_tick_ms);
+    ctx.last_tick_ms=1u;ctx.pending_tick_ms=999u;now=0u;
+    assert(app_pm_take_elapsed_seconds(&ctx)==4294968u&&ctx.pending_tick_ms==294u);
     /* 宏启用：OFF本次调用立即提交；关闭：仅移除开关触发。 */
     reset(); pins[0]=1; tx_busy=ble_pending=ota_is_working=device_in_connection_state=1;
     flash_ready=0;

@@ -22,7 +22,7 @@ static unsigned command_fail_at;
 static uint8_t control_wake_active, heater_on, physical_sleep, last_c, last_d;
 static uint8_t configure_ok, protection_ok;
 static u32 fake_tick;
-uint32_t bms_time_now_32k(void) { return fake_tick; }
+uint32_t bms_time_ms(void) { return fake_tick; }
 static uint8_t io_ok(void) { ++bus_calls; return bus_calls != command_fail_at; }
 static uint8_t sh3673510_board_wake_active(void) { return control_wake_active; }
 static uint8_t sh3673510_control_set_balance(uint16_t mask) {
@@ -55,7 +55,7 @@ static void bms_features_stop(void) { ++invalidations; heater_on = 0; }
 #define AFE_SLEEP() bms_afe_driver_sleep()
 #define AFE_BAL_SET(m) sh3673510_control_set_balance(m)
 #define AFE_FETS(c,d) sh3673510_control_set_fets(c,d)
-#define APP_PM_TICKS_PER_SEC 32000u
+#define APP_PM_TICKS_PER_SEC 1000u
 
 static uint8_t bms_afe_driver_set_fets(uint8_t c,uint8_t d){return sh3673510_control_set_fets(c,d);}
 /* PRODUCTION */

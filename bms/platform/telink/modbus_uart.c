@@ -3,6 +3,7 @@
  * 保留产品通信差异。
  * bms/platform/telink/modbus_uart.c；实际编译归属见各产品 sources.txt。
  */
+#include "bms_time.h"
 #include "bms_debug_log.h"
 #include "bms_afe_backend.h"
 
@@ -76,12 +77,12 @@ static mb_dma_pkt_t s_rx_pkt;
 static mb_dma_pkt_t s_tx_pkt;
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-#define MODBUS_UART_IDLE_32K (30u * 32000u)
+#define MODBUS_UART_IDLE_MS (30u * 1000u)
 #define MODBUS_UART_WAKE_GAP_US 5000u /* 大于最低9600波特的3.5字符间隔。 */
 static volatile u8 s_uart_activity, s_uart_suspending, s_uart_resume_pending;
 static volatile u8 s_uart_wake_discard;
 static u8 s_uart_idle_ready;
-static u32 s_uart_last_activity_32k, s_uart_last_edge_tick;
+static u32 s_uart_last_activity_ms, s_uart_last_edge_tick;
 
 /* 强制 DeepSleep 不保留通信唤醒；关闭数字输入，避免未供电隔离器经 IO 反向取电。 */
 static void modbus_uart_float_comm_pin(GPIO_PinTypeDef pin)
@@ -302,7 +303,7 @@ static u8 modbus_uart_service_suspend(void)
     irq_restore(irq_state);
     if (activity || !gpio_read(BMS_BOARD_SCI1_RX_PIN) ||
         uart_tx_is_busy() || modbus_uart_tx_active()) {
-        s_uart_last_activity_32k = pm_get_32k_tick();
+        s_uart_last_activity_ms = bms_time_ms();
         s_uart_last_edge_tick = clock_time();
         s_uart_idle_ready = 0u;
     }
@@ -321,7 +322,7 @@ static u8 modbus_uart_service_suspend(void)
         irq_restore(irq_state);
         return 1u;
     }
-    if ((u32)(pm_get_32k_tick() - s_uart_last_activity_32k) >= MODBUS_UART_IDLE_32K)
+    if ((u32)(bms_time_ms() - s_uart_last_activity_ms) >= MODBUS_UART_IDLE_MS)
         s_uart_idle_ready = 1u;
     return 0u;
 }
@@ -384,7 +385,7 @@ void modbus_uart_init(void)
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     s_uart_activity = s_uart_suspending = s_uart_resume_pending = s_uart_wake_discard = 0u;
     s_uart_idle_ready = 0u;
-    s_uart_last_activity_32k = pm_get_32k_tick();
+    s_uart_last_activity_ms = bms_time_ms();
     s_uart_last_edge_tick = clock_time();
     gpio_set_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, POL_FALLING);
     cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);

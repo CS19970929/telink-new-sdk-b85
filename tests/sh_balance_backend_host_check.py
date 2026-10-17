@@ -16,7 +16,7 @@ static uint32_t tick;
 static uint8_t registers[256], fail_write, fail_reads;
 static unsigned balance_writes, balance_reads;
 bms_report_t g_bms_report;
-uint32_t bms_time_now_32k(void) { return tick; }
+uint32_t bms_time_ms(void) { return tick; }
 uint8_t sh3673510_control_set_balance(uint32_t mask) {
     ++balance_writes;
     if(fail_write)return 0;
@@ -44,14 +44,14 @@ code += source[source.index('#if BMS_FEATURE_BALANCE_SUPPORTED\n#define SH_FEATU
 code += r'''
 #if BMS_FEATURE_BALANCE_SUPPORTED
 int main(void) {
-    tick=UINT32_MAX-32000u;
+    tick=UINT32_MAX-1000u;
     assert(bms_afe_driver_set_balance_mask(1u)); assert(balance_writes==1u);
     for(unsigned i=0;i<200;i++)assert(bms_afe_driver_set_balance_mask(1u));
     assert(balance_writes==1u);
-    tick+=20000u*32u-1u;
+    tick+=20000u-1u;
     assert(bms_afe_driver_set_balance_mask(1u)); assert(balance_writes==1u);
     ++tick; assert(bms_afe_driver_set_balance_mask(1u)); assert(balance_writes==2u);
-    tick+=20000u*32u; fail_write=1;
+    tick+=20000u; fail_write=1;
     assert(!bms_afe_driver_set_balance_mask(1u));
     fail_write=0; assert(bms_afe_driver_set_balance_mask(1u)); assert(balance_writes==4u);
     registers[SH3673520_REG_BALANCEH+2]=0;
@@ -70,7 +70,7 @@ int main(void) {
     registers[SH3673520_REG_BALANCEH+2]=1u;
     tick++; fail_reads=2u;
     assert(!bms_afe_driver_set_balance_mask(0u) && balance_writes==8u);
-    assert(s_balance_refresh_tick!=tick && !registers[SH3673520_REG_BALANCEH+2]);
+    assert(s_balance_refresh_ms!=tick && !registers[SH3673520_REG_BALANCEH+2]);
     fail_reads=1u; fail_write=1u;
     assert(!bms_afe_driver_set_balance_mask(0u) && balance_writes==9u);
     fail_write=0u; fail_reads=1u;

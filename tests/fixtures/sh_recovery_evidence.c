@@ -96,6 +96,8 @@ void bms_sw_protection_record_fault_edges(void) {}
 static int32_t bms_config_calibrate_current(int32_t ma) { return ma; }
 static uint32_t pm_get_32k_tick(void) { return now; }
 uint32_t bms_time_now_32k(void) { return now; }
+uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=now;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
+
 uint16_t bms_lookup_u16(const uint16_t *p, uint16_t n, uint16_t x) { (void)p; (void)n; (void)x; return 650; }
 uint8_t sh3673510_control_init(void) { load_mode = 0; return 1; }
 uint8_t sh3673510_control_ready(void) { return 1; }
@@ -378,7 +380,7 @@ int main(void) {
     now += 35000u * 32u - 1u;
     if (bms_afe_sample().status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs(); assert(!bms_afe_bus_access_allowed());
     assert(clear_calls==before);
-    ++now; bms_afe_sample(); assert(bms_afe_bus_access_allowed() && !bms_afe_samples_qualified());
+    now+=33u; bms_afe_sample(); assert(bms_afe_bus_access_allowed() && !bms_afe_samples_qualified());
     for(unsigned i=0;i<8;++i)sample();
     assert(bms_afe_samples_qualified());
     device.flag1=SH3673520_FLAG1_OCC_MASK;clear_ok=0;

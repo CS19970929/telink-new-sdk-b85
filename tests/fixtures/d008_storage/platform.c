@@ -21,6 +21,8 @@ static void flash_erase_sector(u32 a){assert(a%4096==0);++erase_calls;tick+=1600
 static int flash_store_verify_bytes(u32 a,const u8*b,u32 n){(void)a;(void)b;(void)n;return verify_ok;}
 static int flash_store_verify_erased(u32 a,u32 n){(void)a;(void)n;return verify_ok;}
 uint32_t bms_time_now_32k(void){return tick;}
+uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=tick;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
+
 /* PRODUCTION */
 int main(void){
  bms_diag_init();

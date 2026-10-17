@@ -14,7 +14,7 @@
 #include "bms_error.h"
 #include <string.h>
 
-#define BMS_STATE_SAVE_INTERVAL_32K (60u * 32000u)
+#define BMS_STATE_SAVE_INTERVAL_MS (60u * 1000u)
 
 #define BMS_STATE_RECORD_MAGIC        0x53543400u + BMS_PRODUCT_ID /*
  * 状态标识为 ST4 加产品编号。
@@ -32,7 +32,7 @@ typedef struct {
 static storage_record_store_t g_bms_state_store __attribute__((aligned(4)));
 static bms_state_persist_t g_bms_state;
 static uint8_t g_bms_state_ready;
-static uint32_t g_bms_state_last_attempt_32k;
+static uint32_t g_bms_state_last_attempt_ms;
 static uint8_t g_bms_state_last_failed;
 
 /* 将 32 位值按小端写入存储缓冲区。 */
@@ -101,15 +101,15 @@ static void bms_state_decode(bms_state_persist_t *state, const uint8_t *payload)
 static int bms_state_save(const bms_state_persist_t *next)
 {
     uint8_t payload[BMS_STATE_PAYLOAD_BYTES];
-    uint32_t now = bms_time_now_32k();
+    uint32_t now = bms_time_ms();
     /* 比较全部持久字段，避免重复编码及第二份 payload；不能比较结构体填充字节。 */
     if (g_bms_state_store.has_latest && next->soc == g_bms_state.soc &&
         next->dsg == g_bms_state.dsg && next->cycle == g_bms_state.cycle &&
         memcmp(next->ota_update_id, g_bms_state.ota_update_id, sizeof(next->ota_update_id)) == 0) return 1;
     /* 强制关机写入绕过普通间隔，但绝不绕过失败退避。 */
     if (g_bms_state_last_failed &&
-        (uint32_t)(now - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) return 0;
-    g_bms_state_last_attempt_32k = now;
+        (uint32_t)(now - g_bms_state_last_attempt_ms) < BMS_STORAGE_RETRY_INTERVAL_MS) return 0;
+    g_bms_state_last_attempt_ms = now;
     bms_state_encode(next, payload);
     if (!storage_record_save(&g_bms_state_store, payload)) {
         g_bms_state_last_failed = 1u;
@@ -131,7 +131,7 @@ int bms_state_store_init(void)
     if (g_bms_state_ready) return 1;
     bms_diag_attempt(BMS_STORAGE_DOMAIN_STATE);
     if (g_bms_state_last_failed &&
-        (uint32_t)(bms_time_now_32k() - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_BACKOFF); return 0; }
+        (uint32_t)(bms_time_ms() - g_bms_state_last_attempt_ms) < BMS_STORAGE_RETRY_INTERVAL_MS) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_BACKOFF); return 0; }
     port = bms_storage_platform_port();
     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_PORT); goto invalid; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region)) { goto invalid; }
@@ -152,13 +152,13 @@ int bms_state_store_init(void)
         bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid;
     }
     if (!bms_state_save(&next)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE); return 0; }
-    g_bms_state_last_attempt_32k = bms_time_now_32k();
+    g_bms_state_last_attempt_ms = bms_time_ms();
     g_bms_state_ready = 1u;
     bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OK);
     return 1;
 invalid:
     g_bms_state_last_failed = 1u;
-    g_bms_state_last_attempt_32k = bms_time_now_32k();
+    g_bms_state_last_attempt_ms = bms_time_ms();
     bms_error_raise(BMS_ERROR_EEPROM_STORE);
     return 0;
 }
@@ -187,8 +187,8 @@ int bms_state_store_save(uint32_t soc, uint32_t dsg, uint32_t cycle)
 /* 一秒业务节拍检查；正常 60 秒 checkpoint，失败 5 秒退避。 */
 void bms_state_store_poll(uint32_t soc, uint32_t dsg, uint32_t cycle)
 {
-    uint32_t interval = g_bms_state_last_failed ? BMS_STORAGE_RETRY_INTERVAL_32K : BMS_STATE_SAVE_INTERVAL_32K;
-    if ((uint32_t)(bms_time_now_32k() - g_bms_state_last_attempt_32k) < interval) return;
+    uint32_t interval = g_bms_state_last_failed ? BMS_STORAGE_RETRY_INTERVAL_MS : BMS_STATE_SAVE_INTERVAL_MS;
+    if ((uint32_t)(bms_time_ms() - g_bms_state_last_attempt_ms) < interval) return;
     (void)bms_state_store_save(soc, dsg, cycle);
 }
 
@@ -218,6 +218,6 @@ int bms_state_store_factory_reset(void)
     g_bms_state = next;
     g_bms_state_ready = 1u;
     g_bms_state_last_failed = 0u;
-    g_bms_state_last_attempt_32k = bms_time_now_32k();
+    g_bms_state_last_attempt_ms = bms_time_ms();
     return 1;
 }

@@ -53,6 +53,7 @@ typedef struct
     uint8_t voltage_fresh;
     uint8_t current_fresh;
     uint8_t cell_count;
+    uint32_t sample_time_ms;
     uint32_t sample_tick_32k;    /* 采样时刻，使用 SDK 32K 时钟的 32 位回绕值。 */
     int32_t raw_current_ma;     /* 软件工厂校准之前的值。 */
     int32_t current_ma;          /* 正值放电，负值充电。 */

@@ -5,7 +5,7 @@
 
 /* 固定芯片语义，不属于用户参数，也不进入业务持久记录。 */
 typedef struct {
-    uint32_t failsafe_wait_32k;
+    uint32_t failsafe_wait_ms;
     uint8_t reset_protection_before_init;
     uint8_t sleep_holds_bus;
 } bms_afe_driver_policy_t;

@@ -3,6 +3,7 @@
  * 业务处理保持在主循环。
  * bms/platform/telink/main.c；实际编译归属见各产品 sources.txt。
  */
+#include "bms_time.h"
 #include "bms_afe_backend.h"
 
 /********************************************************************************************************
@@ -90,6 +91,7 @@ _attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
 #endif
 
 	clock_init(SYS_CLK_TYPE);
+    bms_time_init();
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     /* OFF只是布防下次ON，禁止经过user_init_normal重新开启AFE/通信。
@@ -134,6 +136,7 @@ _attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
 			gpio_write(BMS_BOARD_DEBUG_LED_PIN, debug_led_level);
 		}
 #endif
+        (void)bms_time_ms();
 		main_loop();
 		bms_stack_monitor_poll();
 	}

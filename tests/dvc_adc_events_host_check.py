@@ -52,6 +52,9 @@ void bms_afe_publish_fet_status(uint8_t x,uint8_t y){(void)x;(void)y;}
 void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
 uint8_t DVC1124_ClearAlarmFlags(uint8_t m){registers[0]&=(uint8_t)~m;return 1;}
 static uint32_t pm_get_32k_tick(void){return now;}
+uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=now;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
+uint32_t bms_time_now_32k(void){return now;}
+
 uint8_t DVC1124_WriteRegisters(uint8_t r,const uint8_t *p,uint8_t n){memcpy(registers+r,p,n);return 1;}
 static uint8_t balance_read_ok=1;
 static uint8_t dvc_refresh_balance_state(void){return balance_read_ok;}
@@ -71,7 +74,7 @@ static uint8_t dvc_i2c_read_raw(uint8_t addr,uint8_t reg,uint8_t *out,uint16_t c
 }
 '''
 # 实际私有ADC状态、CRC、重试读取及测量发布函数体，换算/平台外围是显式替身。
-code+=s[s.index('#define DVC_ADC_MAX_AGE_TICKS'):s.index('#define DVC_BALANCE_REFRESH_INTERVAL_US')]
+code+=s[s.index('#define DVC_ADC_MAX_AGE_MS'):s.index('#define DVC_BALANCE_REFRESH_INTERVAL_MS')]
 code+=function(s,'static uint8_t dvc_crc8(')
 code+=function(s,'uint8_t DVC1124_ReadRegisters(')
 code+=function(s,'static uint8_t dvc_boot_zero_wait_fresh_cc2(')
@@ -80,20 +83,20 @@ code+=function(s,'static void dvc_publish_voltage_measurement(')
 code+=function(s,'static void dvc_publish_temperature_measurement(')
 code+=function(s,'bms_afe_sample_result_t DVC1124_App_AFEGet(')
 recovery=read('bms/afe/dvc1124/dvc1124_bms.c')
-code+='\n'+recovery[recovery.index('#define DVC_LOAD_RELEASE_CONFIRM_TICKS'):recovery.index('static uint16_t dvc_get_configured_temperature')]
+code+='\n'+recovery[recovery.index('#define DVC_LOAD_RELEASE_CONFIRM_MS'):recovery.index('static uint16_t dvc_get_configured_temperature')]
 code+=function(recovery,'static uint8_t dvc_recover_current_faults(')
 code+=r'''
 static bms_afe_sample_result_t result;
 static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;result=DVC1124_App_AFEGet();}
 static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));
  s_pending_adc_events=s_voltage_seen=s_current_seen=s_voltage_since_current=0;
- s_voltage_tick=s_current_tick=s_adc_wait_started=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
+ s_voltage_ms=s_current_ms=s_adc_wait_started_ms=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
 int main(void){
  reset();acquire(100,0);acquire(6500,0);assert(!s_voltage_seen && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample);
  acquire(7000,0x40);assert(s_voltage_seen && s_snapshot.voltage_fresh && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample);
  acquire(8000,0x10);assert(s_snapshot.valid && s_snapshot.current_fresh && result.confirm_sample && s_snapshot.sample_tick_32k==8000);
  acquire(9000,0);assert(s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample && s_voltage_seen && s_snapshot.sample_tick_32k==8000);
- acquire(8000+512u*32u+1u,0);assert(!s_snapshot.valid && result.status==BMS_AFE_SAMPLE_ERROR);
+ acquire(8000+512u*32u+32u,0);assert(!s_snapshot.valid && result.status==BMS_AFE_SAMPLE_ERROR);
  /* RM p8 R6 bit1；R1 CST bit1不能冒充DSGF。 */
  reset();registers[6]=2;acquire(100,0x50);assert(s_snapshot.fet_status==2 && g_bms_system_status.bits.discharge_mos_status);
  registers[6]=0;acquire(200,0x52);assert(!s_snapshot.fet_status && !g_bms_system_status.bits.discharge_mos_status);
@@ -103,7 +106,7 @@ int main(void){
  /* R1自身CRC坏，不能把未经验证的事件当作新采样。 */
  reset();corrupt_reg=1;corrupt_count=1;acquire(100,0x50);
  assert(!s_snapshot.valid && !s_voltage_seen && !s_pending_adc_events);
- reset();acquire(0xfffff000u,0x50);acquire(0xfffff000u+512u*32u+1u,0);assert(!s_snapshot.valid);
+ reset();acquire(0xfffff000u,0x50);acquire(0xfffff000u+512u*32u+32u,0);assert(!s_snapshot.valid);
  reset();registers[1]=0x10;assert(!dvc_boot_zero_wait_fresh_cc2()); /* 只有旧事件，等待后没有新转换。 */
  auto_cc2_event=1;assert(dvc_boot_zero_wait_fresh_cc2());assert(!s_pending_adc_events);auto_cc2_event=0;
  /* 新电压持续发布，零读数不再被诊断缓存替换；无效串位仍是 61001。 */
@@ -114,11 +117,11 @@ int main(void){
  for(unsigned cst=0;cst<=6;++cst)for(unsigned driver=0;driver<=1;++driver){
   reset();memset(&s_current_recovery,0,sizeof(s_current_recovery));registers[6]=driver?2:0;
   acquire(100,(uint8_t)(0x50|cst));g_bms_report.fault_third.bits.discharge_ocp=1;
-  dvc_observe_current_recovery(&s_snapshot,now);
-  dvc_recover_current_faults(&s_snapshot,0,now);
+  dvc_observe_current_recovery(&s_snapshot,bms_time_ms());
+  dvc_recover_current_faults(&s_snapshot,0,bms_time_ms());
   acquire(6500,(uint8_t)(0x50|cst));g_bms_report.fault_third.bits.discharge_ocp=0;
-  dvc_observe_current_recovery(&s_snapshot,now);
-  dvc_recover_current_faults(&s_snapshot,0,now);
+  dvc_observe_current_recovery(&s_snapshot,bms_time_ms());
+  dvc_recover_current_faults(&s_snapshot,0,bms_time_ms());
   assert(s_snapshot.status==(uint8_t)(0x50|cst));
   assert(!!(s_snapshot.fet_status&DVC1124_CC2_DSGF_MASK)==driver);
   assert(s_current_recovery.discharge); /* R1/R6 均不能让零电流解除放电故障。 */
@@ -149,9 +152,9 @@ balance_fixture = r'''
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
-#define DVC_BALANCE_REFRESH_INTERVAL_US 100u
+#define DVC_BALANCE_REFRESH_INTERVAL_MS 100u
 #define DVC1124_REG_BAL_24_17 0u
-static uint32_t s_balance_last_refresh_tick,now,hw;
+static uint32_t s_balance_last_refresh_ms,now,hw;
 static struct {uint16_t balance_bits_low,balance_bits_high;} g_bms_report;
 static unsigned writes,reads,delays;
 static uint8_t cells=24,read_ok=1,write_ok=1,stuck_xor,verify_pending;
@@ -174,7 +177,7 @@ static uint8_t DVC1124_WriteRegisters(uint8_t reg,const uint8_t *data,uint8_t le
  return 1;
 }
 static void dvc_delay_ms(uint16_t ms){assert(ms==1u);++delays;}
-static uint32_t clock_time(void){return now;}
+static uint32_t bms_time_ms(void){return now;}
 static int clock_time_exceed(uint32_t tick,uint32_t us){return (uint32_t)(now-tick)>us;}
 '''
 balance_fixture += re.search(r'^#define DVC1124_I2C_RETRY_COUNT[^\n]*',read('bms/products/d008/dvc1124_product_defaults.h'),re.M).group(0)+'\n'
@@ -200,7 +203,7 @@ int main(void){
  now+=100;expect(mask,1,1,0); /* 原严格 > */
  now++;expect(mask,1,2,1); /* 到期续期。 */
  write_ok=0;expect(0,0,1,DVC1124_I2C_RETRY_COUNT);assert(hw==mask);
- assert(s_balance_last_refresh_tick==now);
+ assert(s_balance_last_refresh_ms==now);
  write_ok=1;expect(0,1,2,1);assert(!hw);
  hw=2;expect(0,1,2,1);assert(!hw); /* OFF残留。 */
  read_ok=0;mask=123;expect(1,0,1,0); /* 读失败不能凭缓存打开。 */
@@ -209,20 +212,20 @@ int main(void){
  read_ok=1;hw=2;read_failures=1;expect(0,1,2,1); /* 首读失败仍尝试并确认 OFF。 */
  read_ok=1;cells=16;assert(bms_afe_driver_set_balance_mask(0xff010001u)&&hw==1u);
  now=UINT32_MAX-50u;hw=0;assert(bms_afe_driver_set_balance_mask(5));
- now=49;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
- now=50;write_ok=0;assert(!bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
- write_ok=1;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_tick==50);
+ now=49;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_ms==UINT32_MAX-50u);
+ now=50;write_ok=0;assert(!bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_ms==UINT32_MAX-50u);
+ write_ok=1;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_ms==50);
  /* 最终确认缺位/OFF反弹：报告实际值，失败不续期。 */
  stuck_xor=1;now=60;hw=0;
  expect(5,0,1+DVC1124_I2C_RETRY_COUNT,DVC1124_I2C_RETRY_COUNT);
- assert(g_bms_report.balance_bits_low==4u && s_balance_last_refresh_tick==50u);
+ assert(g_bms_report.balance_bits_low==4u && s_balance_last_refresh_ms==50u);
  expect(0,0,1+DVC1124_I2C_RETRY_COUNT,DVC1124_I2C_RETRY_COUNT);
- assert(g_bms_report.balance_bits_low==1u && s_balance_last_refresh_tick==50u);
+ assert(g_bms_report.balance_bits_low==1u && s_balance_last_refresh_ms==50u);
  stuck_xor=0;expect(0,1,2,1);assert(g_bms_report.balance_bits_low==0u);
  /* 屏蔽范围外串位不能掩盖原始三字节不一致。 */
  stuck_extra_bits=0x010000u;now=70;
  expect(5,0,1+DVC1124_I2C_RETRY_COUNT,DVC1124_I2C_RETRY_COUNT);
- assert(g_bms_report.balance_bits_low==5u && s_balance_last_refresh_tick==60u);
+ assert(g_bms_report.balance_bits_low==5u && s_balance_last_refresh_ms==60u);
  stuck_extra_bits=0;hw=0;write_failures=1;unsigned d=delays;
  expect(5,1,2,2);assert(delays==d+1u); /* 一次写失败后有界重试。 */
  hw=0;verify_failures=1;d=delays;expect(5,1,3,2);assert(delays==d+1u);

@@ -42,6 +42,8 @@ u32 pm_get_32k_tick(void) { return now_32k; }
 u32 clock_time(void) { return now_32k * 500u; }
 int clock_time_exceed(u32 t, u32 us) { return (u32)(clock_time()-t) > us*16u; }
 uint32_t bms_time_now_32k(void) { return now_32k; }
+uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=now_32k;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
+
 void gpio_set_func(GPIO_PinTypeDef p, unsigned v) { (void)p; (void)v; }
 void gpio_write(GPIO_PinTypeDef p, unsigned v) { (void)v; assert(p != GPIO_PB4 && p != GPIO_PB5); }
 void gpio_set_input_en(GPIO_PinTypeDef p, unsigned v) { (void)p; (void)v; }

@@ -8,8 +8,8 @@
 #include "storage_port.h"
 #include "bms_diag_config.h"
 
-/* 业务 checkpoint 与平台写失败共用的有限重试间隔，单位 32K tick。 */
-#define BMS_STORAGE_RETRY_INTERVAL_32K (5u * 32000u)
+/* 业务 checkpoint 与平台写失败共用的有限重试间隔，单位毫秒。 */
+#define BMS_STORAGE_RETRY_INTERVAL_MS (5u * 1000u)
 
 #ifdef __cplusplus
 extern "C" {

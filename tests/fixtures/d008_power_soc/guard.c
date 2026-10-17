@@ -15,7 +15,7 @@ typedef uint8_t u8; typedef uint16_t u16;
 #define BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK 2u
 typedef struct {int dummy;} bms_afe_aux_measurements_t;
 typedef struct {int dummy;} bms_afe_feature_snapshot_t;
-static const bms_afe_driver_policy_t bms_afe_driver_policy={5000u*32u,0u,1u};
+static const bms_afe_driver_policy_t bms_afe_driver_policy={5000u,0u,1u};
 static int err,cmd_c,cmd_d,apply_calls,hardware_profile,fet_fail;
 static uint8_t params_valid=1u;
 static uint8_t bms_protection_params_valid(void){return params_valid;}
@@ -45,7 +45,8 @@ static int bms_afe_driver_sleep(void){shutdown_calls++;return shutdown_ok;}
 struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bits;}g_bms_system_status;
 
 static uint32_t guard_tick;
-uint32_t bms_time_now_32k(void){return guard_tick;}
+uint32_t bms_time_ms(void){return guard_tick;}
+uint32_t bms_time_now_32k(void){return guard_tick*32u;}
 uint8_t bms_afe_sleep(void);
 void bms_afe_publish_fet_status(uint8_t bits, uint8_t valid);
 /* PRODUCTION_SOURCE */
@@ -107,12 +108,12 @@ static void test_startup_qualification(void){
  sample_cycle();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
  assert(protection_inits==init_count); /* DVC 失联恢复保持既有保护生命周期。 */
  /* Repeated failures still silence the bus for the hardware watchdog window. */
- guard_tick=UINT32_MAX-32000u;
+ guard_tick=UINT32_MAX-1000u;
  aux_ok=0;sample_cycle();sample_cycle();assert(s_guard.bus_silenced && err);
  int before=sample_calls;aux_ok=1;
  for(int i=0;i<1000;i++){sample_cycle();} assert(sample_calls==before && s_guard.bus_silenced);
- guard_tick+=5000u*32u-1u;sample_cycle();assert(sample_calls==before && s_guard.bus_silenced);
- ++guard_tick;
+ guard_tick+=5000u-1u;sample_cycle();assert(sample_calls==before && s_guard.bus_silenced);
+ guard_tick+=2u;
  sample_cycle();assert(sample_calls==before && err && s_guard.comm_inhibit);
  for(int i=0;i<2;i++){sample_cycle();assert(err && s_guard.comm_inhibit);}
  sample_cycle();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);

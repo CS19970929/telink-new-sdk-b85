@@ -7,7 +7,7 @@ typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
 #define BMS_AFE_HW_PROFILE_WORD_COUNT 35u
 #define MB_EX_ILLEGAL_VALUE 3u
 static u32 now;
-static uint32_t bms_time_now_32k(void){return now;}
+static uint32_t bms_time_ms(void){return now;}
 static u16 bms_afe_hw_profile_expected_model(void){return 0x1124;}
 /* HEADER */
 /* CRC */
@@ -49,15 +49,15 @@ int main(void){
     token=open_session();assert(chunk(token,11,11)!=0);assert(commit(token)!=0);
     token=open_session();assert(!chunk(token,0,11));assert(chunk(token,0,11)!=0);assert(commit(token)!=0);
     token=open_session();assert(chunk(token+1,0,11)!=0);assert(commit(token)!=0);
-    token=open_session();assert(!chunk(token,0,11));now+=160001u;assert(chunk(token,11,11)!=0);
+    token=open_session();assert(!chunk(token,0,11));now+=5001u;assert(chunk(token,11,11)!=0);
     token=open_session();stage(token);bms_afe_hw_access_close();assert(commit(token)!=0);
     token=open_session();stage(token);u16 newer=open_session();assert(newer!=token);assert(commit(token)!=0);
     token=open_session();frame[78]^=1;stage(token);assert(commit(token)!=0);frame[78]^=1;assert(writes==1);
     token=open_session();frame[2]=0x21;inner_crc();stage(token);assert(commit(token)!=0);assert(writes==1);
     frame[2]=0x25;inner_crc();token=open_session();stage(token);apply_error=4;assert(commit(token)==4);assert(writes==2);
     assert(commit(token)!=0 && writes==2);apply_error=0;
-    now=UINT32_MAX-100;token=open_session();stage(token);now+=160001u;assert(commit(token)!=0 && writes==2);
-    token=open_session();stage(token);now+=1920001u;assert(commit(token)!=0);
+    now=UINT32_MAX-100;token=open_session();stage(token);now+=5001u;assert(commit(token)!=0 && writes==2);
+    token=open_session();stage(token);now+=60001u;assert(commit(token)!=0);
     puts("PASS AFE fragments: <=20-byte packets, single commit, partial/duplicate/order/token/CRC/address rejection, timeout/wrap/disconnect, failed commit no replay");
     return 0;
 }

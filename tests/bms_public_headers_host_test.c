@@ -9,7 +9,7 @@
 #include "app_power.h"
 
 static uint32_t now;
-uint32_t bms_time_now_32k(void) { return now; }
+uint32_t bms_time_ms(void) { return now; }
 u16 bms_afe_hw_profile_expected_model(void) { return 0x1124u; }
 u8 bms_afe_hw_write_complete_frame(const u8 *frame, u32 length)
 {
@@ -31,9 +31,9 @@ int main(void)
     assert(bms_afe_hw_access_modbus_on_frame(request, sizeof(request), response, &length));
     assert(length == 13u && response[3] == 0u && bms_afe_hw_access_is_active());
     assert(bms_afe_hw_access_remaining_seconds() == 60u);
-    now += 32000u;
+    now += 1000u;
     assert(bms_afe_hw_access_remaining_seconds() == 59u);
-    now += 59u * 32000u;
+    now += 59u * 1000u;
     assert(bms_afe_hw_access_is_active() && !bms_afe_hw_access_remaining_seconds());
     now++;
     assert(!bms_afe_hw_access_is_active());

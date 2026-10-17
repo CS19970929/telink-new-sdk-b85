@@ -1,3 +1,4 @@
+#include "bms_time.h"
 #include "bms_config_store.h"
 /* 低功耗状态由本模块持有；采样标志由 app.c 持有，PM 仅按 volatile 语义读取。 */
 /********************************************************************************************************
@@ -56,12 +57,12 @@
 #error "BMS_PRODUCT_SWITCH_SLEEP_ENABLE must be 0 or 1"
 #endif
 
-#define APP_PM_TICKS_PER_SEC 32000u
+#define APP_PM_TICKS_PER_SEC 1000u
 
 typedef struct
 {
-	u32 last_tick_32k;
-	u32 pending_tick_32k;
+	u32 last_tick_ms;
+	u32 pending_tick_ms;
 	u8 ready;
 } app_pm_elapsed_ctx_t;
 static bool s_low_power_mode;
@@ -69,7 +70,7 @@ uint8_t deepsleep_en;
 
 /* 四产品保护性休眠共用计时；到期后锁存，不再回到通信/采样业务。 */
 /* 命令应答只作有界等待，不能成为强制休眠的永久门禁。 */
-#define APP_COMMAND_REPLY_32K (APP_PM_TICKS_PER_SEC / 2u)
+#define APP_COMMAND_REPLY_MS (APP_PM_TICKS_PER_SEC / 2u)
 static u8 s_command_seen;
 static u32 s_command_tick;
 /* 普通 Suspend 与低压可靠充电分别拥有阈值，不随 SOC 电流死区调整。 */
@@ -90,8 +91,8 @@ static app_protective_sleep_t s_protective_sleep;
 static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
 {
     if (!bms_afe_get_aux_measurements(m)) return 0u;
-    return ((u32)(pm_get_32k_tick() - m->sample_tick_32k) <=
-            BMS_SAMPLE_MAX_POLL_GAP_32K) ? 1u : 0u;
+    return ((u32)(bms_time_ms() - m->sample_time_ms) <=
+            BMS_SAMPLE_MAX_POLL_GAP_MS) ? 1u : 0u;
 }
 
 /* 普通 Suspend 只看电流是否达到活动阈值；与保护性深睡资格独立。 */
@@ -117,9 +118,9 @@ static uint8_t board_switch_is_on(void)
 /* 从低功耗时间差中消费完整秒数并保留余量。 */
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 {
-	u32 now_tick_32k;
-	u32 elapsed_tick_32k;
-	u32 total_tick_32k;
+	u32 now_tick_ms;
+	u32 elapsed_tick_ms;
+	u32 total_tick_ms;
 	u32 elapsed_sec;
 
 	if (ctx == NULL)
@@ -127,20 +128,20 @@ static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 		return 0u;
 	}
 
-	now_tick_32k = pm_get_32k_tick();
+	now_tick_ms = bms_time_ms();
 	if (!ctx->ready)
 	{
-		ctx->last_tick_32k = now_tick_32k;
+		ctx->last_tick_ms = now_tick_ms;
 		ctx->ready = 1u;
 		return 0u;
 	}
 
-	elapsed_tick_32k = now_tick_32k - ctx->last_tick_32k;
-	ctx->last_tick_32k = now_tick_32k;
+	elapsed_tick_ms = now_tick_ms - ctx->last_tick_ms;
+	ctx->last_tick_ms = now_tick_ms;
 	/* 先取余再合并，避免一次接近完整 u32 周期的跨度与余量相加溢出。 */
-	total_tick_32k = ctx->pending_tick_32k + elapsed_tick_32k % APP_PM_TICKS_PER_SEC;
-	elapsed_sec = elapsed_tick_32k / APP_PM_TICKS_PER_SEC + total_tick_32k / APP_PM_TICKS_PER_SEC;
-	ctx->pending_tick_32k = total_tick_32k % APP_PM_TICKS_PER_SEC;
+	total_tick_ms = ctx->pending_tick_ms + elapsed_tick_ms % APP_PM_TICKS_PER_SEC;
+	elapsed_sec = elapsed_tick_ms / APP_PM_TICKS_PER_SEC + total_tick_ms / APP_PM_TICKS_PER_SEC;
+	ctx->pending_tick_ms = total_tick_ms % APP_PM_TICKS_PER_SEC;
 	return elapsed_sec;
 }
 
@@ -275,16 +276,16 @@ static void app_enter_protective_sleep(void)
 /* 四产品命令均复用强制入口；一线通接入、OTA及失败不能撤销已锁存请求。 */
 static u8 app_command_sleep_poll(void)
 {
-    u32 now = pm_get_32k_tick();
+    u32 now = bms_time_ms();
     u32 elapsed;
     if (!deepsleep_en) return 0u;
     if (s_protective_sleep_committed) return 1u;
     if (!s_command_seen) { s_command_seen = 1u; s_command_tick = now; }
     elapsed = (u32)(now - s_command_tick);
-    bms_diag_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, elapsed / 32u,
-                    APP_COMMAND_REPLY_32K / 32u, 0u, 0u);
+    bms_diag_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, elapsed,
+                    APP_COMMAND_REPLY_MS, 0u, 0u);
     /* 应答空闲即执行，最长等待500ms；使用无符号时间差处理tick回绕。 */
-    if (elapsed < APP_COMMAND_REPLY_32K &&
+    if (elapsed < APP_COMMAND_REPLY_MS &&
         (uart_tx_is_busy() || modbus_uart_tx_active() ||
          (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u))) return 0u;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -561,7 +562,7 @@ void app_power_process(const volatile uint8_t *sample_due)
     /* 最终快照使用本轮Suspend决定，不沿用计时入口发布的保守值。 */
     if (deepsleep_en)
         bms_diag_sleep(DIAG_SLEEP_REASON_COMMAND, 0u,
-            (u32)(pm_get_32k_tick() - s_command_tick) / 32u, 500u, 0u, s_low_power_mode);
+            (u32)(bms_time_ms() - s_command_tick), 500u, 0u, s_low_power_mode);
     else if (protective.reason != DIAG_SLEEP_REASON_NONE)
         bms_diag_sleep(protective.reason, 0u, protective.elapsed_ms,
             protective.delay_ms, 0u, s_low_power_mode);

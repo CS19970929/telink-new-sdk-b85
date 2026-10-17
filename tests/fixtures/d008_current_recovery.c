@@ -37,50 +37,50 @@ static uint8_t step(uint32_t tick,uint8_t alarm,uint8_t driver_on,uint8_t swc,ui
 static void reset(void) { memset(&s_current_recovery,0,sizeof(s_current_recovery)); current_ma=0; pb1=0; writes=0; write_ok=read_ok=1; read_alarm=0; }
 int main(void) {
     /* 零流/关闭 MOS 不等于负载移除；只接受新鲜的可靠反向电流。 */
-    reset(); step(100,0,1,0,1); assert(s_current_recovery.discharge);
+    reset(); step(3,0,1,0,1); assert(s_current_recovery.discharge);
     bms_afe_driver_set_fets(1,1);
     assert(chg_mode==DVC1124_FET_DRIVE_ON && dsg_mode==DVC1124_FET_DRIVE_AUTO_DIODE);
-    step(6500,0,0,0,0);step(12900,0,0,0,0);assert(s_current_recovery.discharge);
-    current_ma=-200;step(19300,0,0,0,0);assert(s_current_recovery.discharge);
+    step(204,0,0,0,0);step(406,0,0,0,0);assert(s_current_recovery.discharge);
+    current_ma=-200;step(608,0,0,0,0);assert(s_current_recovery.discharge);
     dvc1124_snapshot_t cache={0};cache.valid=1;cache.current_ma=-201;
     assert(dvc_recover_current_faults(&cache,0,19400)==0 && s_current_recovery.discharge);
-    current_ma=-201;step(19500,0,0,0,0);assert(!s_current_recovery.discharge);
+    current_ma=-201;step(610,0,0,0,0);assert(!s_current_recovery.discharge);
     /* OCC 不再等待30秒；两方向证据独立。 */
-    reset();step(100,0,0,1,1);current_ma=201;step(200,0,0,0,0);
+    reset();step(3,0,0,1,1);current_ma=201;step(200,0,0,0,0);
     assert(!s_current_recovery.charge && s_current_recovery.discharge);
     current_ma=-201;step(300,0,0,0,0);assert(!bms_afe_current_recovery_pending());
     /* PB1 高且输出确实关闭，持续200ms才允许移除恢复；支持tick回绕。 */
     reset();pb1=1;step(0xfffff000u,0,0,0,1);
-    step(0xfffff000u+6399u,0,0,0,0);assert(s_current_recovery.discharge);
-    step(0xfffff000u+6400u,0,0,0,0);assert(!s_current_recovery.discharge);
-    reset();pb1=1;step(100,0,1,0,1);step(6500,0,1,0,0);
+    step(0xfffff000u+200u,0,0,0,0);assert(s_current_recovery.discharge);
+    step(0xfffff000u+201u,0,0,0,0);assert(!s_current_recovery.discharge);
+    reset();pb1=1;step(3,0,1,0,1);step(204,0,1,0,0);
     assert(s_current_recovery.discharge && !s_current_recovery.load_release_pending);
-    step(12900,0,0,0,0);pb1=0;step(16000,0,0,0,0);
-    pb1=1;step(19300,0,0,0,0);step(25699,0,0,0,0);assert(s_current_recovery.discharge);
-    step(25700,0,0,0,0);assert(!s_current_recovery.discharge);
+    step(406,0,0,0,0);pb1=0;step(500,0,0,0,0);
+    pb1=1;step(608,0,0,0,0);step(808,0,0,0,0);assert(s_current_recovery.discharge);
+    step(809,0,0,0,0);assert(!s_current_recovery.discharge);
     /* 通信失效和观察间断使 PB1 窗口作废，不能跨间断累计。 */
-    reset();pb1=1;step(100,0,0,0,1);
-    cache.valid=0;dvc_observe_current_recovery(&cache,6500);
-    step(12900,0,0,0,0);assert(s_current_recovery.discharge);
-    step(19300,0,0,0,0);assert(!s_current_recovery.discharge);
-    reset();pb1=1;step(100,0,0,0,1);step(32100,0,0,0,0);assert(s_current_recovery.discharge);
+    reset();pb1=1;step(3,0,0,0,1);
+    cache.valid=0;dvc_observe_current_recovery(&cache,204);
+    step(406,0,0,0,0);assert(s_current_recovery.discharge);
+    step(608,0,0,0,0);assert(!s_current_recovery.discharge);
+    reset();pb1=1;step(3,0,0,0,1);step(32100,0,0,0,0);assert(s_current_recovery.discharge);
     step(38500,0,0,0,0);assert(!s_current_recovery.discharge);
     /* 软件状态机仍未解除时，后端不得抢先清锁存。 */
-    reset();current_ma=-201;step(100,0,0,0,1);assert(s_current_recovery.discharge);
+    reset();current_ma=-201;step(3,0,0,0,1);assert(s_current_recovery.discharge);
     step(200,0,0,0,0);assert(!s_current_recovery.discharge);
 #if DVC1124_HW_PROTECT_ENABLE
     /* 每个放电硬保护位均可反向充电恢复，也可 PB1 移除恢复。 */
     const uint8_t faults[]={DVC1124_ALARM_OCD1_MASK,DVC1124_ALARM_OCD2_MASK,DVC1124_ALARM_SCD_MASK};
     for(unsigned i=0;i<sizeof(faults);++i) {
-        reset();step(100,faults[i],0,0,0);current_ma=-201;
+        reset();step(3,faults[i],0,0,0);current_ma=-201;
         step(200,faults[i],0,0,0);assert(!s_current_recovery.discharge && last_clear==faults[i]);
-        reset();pb1=1;step(100,faults[i],0,0,0);
-        step(6500,faults[i],0,0,0);assert(!s_current_recovery.discharge && last_clear==faults[i]);
+        reset();pb1=1;step(3,faults[i],0,0,0);
+        step(204,faults[i],0,0,0);assert(!s_current_recovery.discharge && last_clear==faults[i]);
     }
-    reset();step(100,DVC_OCC_ALARMS,0,0,0);current_ma=201;
+    reset();step(3,DVC_OCC_ALARMS,0,0,0);current_ma=201;
     step(200,DVC_OCC_ALARMS,0,0,0);assert(!s_current_recovery.charge && writes==1);
     /* I/O失败、重新置位及清除期间新故障均保持对应锁存。 */
-    reset();step(100,DVC_DSG_ALARMS,0,0,0);current_ma=-201;read_ok=0;
+    reset();step(3,DVC_DSG_ALARMS,0,0,0);current_ma=-201;read_ok=0;
     step(200,0,0,0,0);assert(s_current_recovery.discharge);
     read_ok=1;write_ok=0;step(300,0,0,0,0);assert(s_current_recovery.discharge);
     write_ok=1;read_alarm=DVC1124_ALARM_SCD_MASK;step(400,0,0,0,0);assert(s_current_recovery.discharge);
@@ -88,7 +88,7 @@ int main(void) {
     assert(!s_current_recovery.discharge && s_current_recovery.charge);
     current_ma=201;read_alarm=0;step(600,0,0,0,0);assert(!bms_afe_current_recovery_pending());
     /* AFE重配已清硬件位，但 RAM 待清位和缓存阶段的输出阻断仍保留。 */
-    reset();step(100,DVC_DSG_ALARMS,0,0,0);
+    reset();step(3,DVC_DSG_ALARMS,0,0,0);
     cache.valid=1;cache.current_fresh=0;cache.current_ma=0;
     g_bms_report.fault_third.bits.discharge_ocp=0;
     assert(dvc_recover_current_faults(&cache,0,200)==DVC_DSG_ALARMS);

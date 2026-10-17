@@ -171,12 +171,12 @@ def check_common_feature_policy_contract_check():
     assert "#define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u" in guard_c
     assert "BMS_AFE_BACKEND" not in guard_c
     assert "dvc1124" not in guard_c and "sh3673510" not in guard_c
-    assert "35000u * 32u, 1u, 0u" in text("sh3673510_bms.c")
+    assert "35000u, 1u, 0u" in text("sh3673510_bms.c")
     assert "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;" in guard_c
     # 校验静默等待分支在任何总线动作之前返回，不依赖注释语言。
     wait = guard_c.split("static uint8_t service_failsafe_wait", 1)[1].split(
         "static uint8_t apply_requested", 1)[0]
-    waiting = wait.split("bms_afe_driver_policy.failsafe_wait_32k)", 1)[1].split(
+    waiting = wait.split("bms_afe_driver_policy.failsafe_wait_ms)", 1)[1].split(
         "s_guard.bus_silenced = 0u;", 1)[0]
     assert "return 1u;" in waiting
     assert "bms_afe_driver_" not in waiting
@@ -220,7 +220,7 @@ def check_common_feature_policy_contract_check():
 
     sh=text("sh3673510_bms.c")
     for token in (
-        "SH_FEATURE_BALANCE_REFRESH_TICKS (20000u * 32u)","sh_read_balance_mask"
+        "SH_FEATURE_BALANCE_REFRESH_MS 20000u","sh_read_balance_mask"
     ): assert token in sh, token
     for token in ("SH3673520_REG_VCHGRH", "SH3510_CHARGER_ON_MV", "SH3510_CHARGER_OFF_MV",
                   "sample_release_evidence", "bms_afe_driver_get_charge_source_present"):

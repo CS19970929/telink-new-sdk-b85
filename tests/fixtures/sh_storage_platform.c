@@ -12,6 +12,9 @@ u8 ota_is_working;
 static u32 tick, page_calls, erase_calls;
 static int stack_available=1, verify_ok=1, unlocked;
 static u32 pm_get_32k_tick(void){return tick;}
+uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=tick;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
+uint32_t bms_time_now_32k(void){return tick;}
+
 static int app_flash_lock_restore_enabled(void){return stack_available;}
 static void flash_store_begin_modify(void){unlocked=1;}
 static void flash_store_end_modify(void){unlocked=0;}

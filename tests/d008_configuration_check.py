@@ -56,7 +56,7 @@ def check_d008_20s_profile_contract_check():
 
 
     # Balancing is armed by request and renewed below the ~60s hardware auto-clear.
-    assert '#define DVC_BALANCE_REFRESH_INTERVAL_US 45000000u' in dvc
+    assert '#define DVC_BALANCE_REFRESH_INTERVAL_MS 45000000u' in dvc
     assert 'bms_afe_driver_set_balance_mask' in dvc
 
     print('D008 20S/product safety completion contract: PASS')

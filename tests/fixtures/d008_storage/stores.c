@@ -62,7 +62,8 @@ static int erase(void*c,u32 a,u32 n){(void)c;++erases;++sector_erases[a/4096u];a
 static const storage_port_t port={0,4096,4,255,begin,end,read_flash,program,erase};
 const storage_port_t*bms_storage_platform_port(void){return &port;}
 int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=16*4096;}else return 0;return 1;}
-uint32_t bms_time_now_32k(void){return now;}
+uint32_t bms_time_ms(void){return now;}
+uint32_t bms_time_now_32k(void){return now*32u;}
 /* PRODUCTION */
 static void reboot(void){
  bms_diag_init();region_ok=1;read_ok=1;erase_ok=1;config_read_fail=0;
@@ -201,9 +202,9 @@ static void test_config_schema(void){
 static void test_state(void){
  fresh();
  bms_state_store_poll(61,2,3);assert(g_bms_state.soc==60);
- now=60*32000;cut=0;bms_state_store_poll(62,4,5);u32 count=programs;
+ now=60*1000;cut=0;bms_state_store_poll(62,4,5);u32 count=programs;
  for(unsigned i=0;i<100;i++)bms_state_store_poll(63,6,7);
- assert(programs==count);assert(errors);now+=5*32000;cut=-1;
+ assert(programs==count);assert(errors);now+=5*1000;cut=-1;
  bms_state_store_poll(64,8,9);assert(g_bms_state.soc==64);
  assert(bms_state_store_save(65,9,10));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65);
 
@@ -222,17 +223,17 @@ static void test_state(void){
  }
  assert(bms_state_save(&next));reboot();assert(bms_state_store_init());
  assert(g_bms_state.soc==77);
- now=UINT32_MAX-32000;g_bms_state_last_attempt_32k=now;
- bms_state_store_poll(78,0,0);now+=(60*32000);bms_state_store_poll(79,0,0);assert(g_bms_state.soc==79);
+ now=UINT32_MAX-1000;g_bms_state_last_attempt_ms=now;
+ bms_state_store_poll(78,0,0);now+=(60*1000);bms_state_store_poll(79,0,0);assert(g_bms_state.soc==79);
  puts("PASS State: coalescing, failure/backoff, compact cycle state, atomic rollback, all byte cuts, wrap");
 }
 static void test_events(void){
  fresh();bms_event_log_sample_t sample={0};sample.vcell_ovp=1;
  u32 count=programs;bms_event_log_poll_1s(&sample);sample.vcell_ovp=0;bms_event_log_poll_1s(&sample);sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
  assert(programs==count);
- now=60*32000;cut=0;bms_event_log_poll_1s(&sample);count=programs;
+ now=60*1000;cut=0;bms_event_log_poll_1s(&sample);count=programs;
  bms_event_log_poll_1s(&sample);assert(programs==count && g_bms_event_log.dirty);
- assert(!bms_event_log_note_sleep());now+=5*32000;cut=-1;assert(bms_event_log_note_sleep());reboot();assert(bms_event_log_init());assert((bms_event_log_read_reg(0)>>8)==BMS_SLEEP);
+ assert(!bms_event_log_note_sleep());now+=5*1000;cut=-1;assert(bms_event_log_note_sleep());reboot();assert(bms_event_log_init());assert((bms_event_log_read_reg(0)>>8)==BMS_SLEEP);
 
  memcpy(backup,flash,sizeof(flash));
  for(int byte=0;byte<(int)(32+((BMS_EVENT_PAYLOAD_BYTES+3u)&~3u));byte++){
@@ -288,11 +289,11 @@ static void test_config_failure_preserves_state_cache(void){
 static int access_active=1;static unsigned identity_updates,capacity_updates;
 static u8 live_soc=60;
 bms_soc_state_t g_bms_soc;
-typedef struct {int32_t raw_current_ma,current_ma;u32 sample_tick_32k;} bms_afe_aux_measurements_t;
+typedef struct {int32_t raw_current_ma,current_ma;u32 sample_time_ms,sample_tick_32k;} bms_afe_aux_measurements_t;
 static int32_t switch_current_ma;
 static u32 switch_sample_age;
 static u8 switch_apply_ok=1u;
-static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*s){memset(s,0,sizeof(*s));s->current_ma=switch_current_ma;s->sample_tick_32k=now-switch_sample_age;return 1;}
+static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*s){memset(s,0,sizeof(*s));s->current_ma=switch_current_ma;s->sample_time_ms=now-switch_sample_age;return 1;}
 static u8 bms_afe_bus_access_allowed(void){return 1u;}
 static u16 bms_afe_get_guard_diagnostic_bits(void){return DIAG_GUARD_SAMPLES_QUALIFIED;}
 u8 bms_afe_hw_profile_apply_committed(void){return switch_apply_ok;}
@@ -338,7 +339,7 @@ static void test_parameter_protocol(void){
  for(u16 i=0;i<16;i+=4)assert(bms_parameter_write(0x2e50+i,4,chunk)==0);
  assert(programs==before);assert(bms_parameter_write(0x2e40,1,commit)==0);assert(identity_updates==1);
  reboot();bms_parameters_init();assert(parameter_read_one(0x2e30)==0x534e);
- now=UINT32_MAX-100;assert(bms_parameter_write(0x2e40,1,begin)==0);now+=61u*32000u;
+ now=UINT32_MAX-100;assert(bms_parameter_write(0x2e40,1,begin)==0);now+=61u*1000u;
  assert(bms_parameter_write(0x2e50,4,chunk)==3);
  assert(bms_parameter_write(0x2e24,4,0)==3);assert(bms_parameter_write(0x2e20,0,heat)==3);
  u8 soc[]={0,88};cut=0;assert(bms_parameter_write(0x1005,1,soc)==4);assert(live_soc==60);cut=-1;
@@ -564,23 +565,23 @@ static void test_storage_reliability(void){
  unsigned slots=g_bms_state_store.slots_per_sector;
  for(unsigned i=1;i<slots;++i)assert(bms_state_store_save(i%100,0,i));
  u32 old=g_bms_state.soc,old_addr=g_bms_state_store.latest_addr;
- u32 before_erase=erases,before_program=programs;cut=0;now=60u*32000u;
- for(unsigned i=0;i<120;++i){bms_state_store_poll(77,0,77);now+=5u*32000u;}
+ u32 before_erase=erases,before_program=programs;cut=0;now=60u*1000u;
+ for(unsigned i=0;i<120;++i){bms_state_store_poll(77,0,77);now+=5u*1000u;}
  assert(erases-before_erase==1);assert(programs-before_program==3);
  assert(g_bms_state_store.latest_addr==old_addr && g_bms_state.soc==old);
  reboot();assert(bms_state_store_init());assert(g_bms_state.soc==old);
  fresh();old_addr=g_bms_state_store.latest_addr;cut=10;
- assert(!bms_state_store_save(77,0,77));cut=-1;now+=5u*32000u;before_erase=erases;
+ assert(!bms_state_store_save(77,0,77));cut=-1;now+=5u*1000u;before_erase=erases;
  assert(bms_state_store_save(78,0,78));assert(erases==before_erase);
  assert(g_bms_state_store.latest_addr==old_addr+2u*g_bms_state_store.slot_size);
  fresh();slots=g_bms_state_store.slots_per_sector;
  for(unsigned i=1;i<slots;++i)assert(bms_state_store_save(i%100,0,i));
  old_addr=g_bms_state_store.latest_addr;before_erase=erases;before_program=programs;erase_ok=0;
- for(unsigned i=0;i<120;++i){assert(!bms_state_store_save(77,0,77));now+=5u*32000u;}
+ for(unsigned i=0;i<120;++i){assert(!bms_state_store_save(77,0,77));now+=5u*1000u;}
  assert(erases-before_erase==3u && programs==before_program);
  assert(g_bms_state_store.latest_addr==old_addr);
  fresh();begin_ok=0;before_erase=erases;before_program=programs;
- for(unsigned i=0;i<120;++i){assert(!bms_state_store_save(77,0,77));now+=5u*32000u;}
+ for(unsigned i=0;i<120;++i){assert(!bms_state_store_save(77,0,77));now+=5u*1000u;}
  assert(erases==before_erase && programs==before_program && g_bms_state_store.write_failures==0u);
  begin_ok=1;assert(bms_state_store_save(77,0,77));
  for(unsigned domain=0;domain<3;++domain){
@@ -600,13 +601,13 @@ static void test_event_semantics(void){
  assert(bms_event_log_map_interval(3601u)==2u && bms_event_log_map_interval(168u*3600u)==168u);
  assert(bms_event_log_map_interval(168u*3600u+1u)==170u && bms_event_log_map_interval(UINT32_MAX)==170u);
  bms_event_log_sample_t sample={0};
- fresh();sample.vcell_ovp=1;now=59u*32000u;bms_event_log_poll_1s(&sample);
- sample.vcell_ovp=0;now=60u*32000u;bms_event_log_poll_1s(&sample);
+ fresh();sample.vcell_ovp=1;now=59u*1000u;bms_event_log_poll_1s(&sample);
+ sample.vcell_ovp=0;now=60u*1000u;bms_event_log_poll_1s(&sample);
  assert(!g_bms_event_log.dirty);u16 pos=g_bms_event_log.write_pos;
- sample.vcell_ovp=1;now=61u*32000u;bms_event_log_poll_1s(&sample);
+ sample.vcell_ovp=1;now=61u*1000u;bms_event_log_poll_1s(&sample);
  assert(pos==g_bms_event_log.write_pos && !g_bms_event_log.dirty);
  fresh();memset(&sample,0,sizeof(sample));bms_event_log_note_startup();
- now=3700u*32000u;sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
+ now=3700u*1000u;sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
  assert(bms_event_log_read_reg(0)==((VCELL_OVP<<8)|2u));
  fresh();memset(&sample,0,sizeof(sample));sample.cbc_err=1;bms_event_log_poll_1s(&sample);
  sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);pos=g_bms_event_log.write_pos;
@@ -617,8 +618,8 @@ static void test_event_semantics(void){
  fresh();memset(&sample,0,sizeof(sample));sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
  reboot();assert(bms_event_log_init());assert(bms_event_log_read_reg(0)==0);
  fresh();memset(&sample,0,sizeof(sample));
- now=UINT32_MAX-16000u;g_bms_event_log.clock_tick_32k=now;
- now+=32000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
+ now=UINT32_MAX-16000u;g_bms_event_log.clock_tick_ms=now;
+ now+=1000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
  now+=16000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
  now+=16000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==2u);
  sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);u8 payload[BMS_EVENT_PAYLOAD_BYTES];
@@ -673,7 +674,7 @@ static void test_chemistry_switch(void)
  assert(bms_parameter_write(0x2ea8u,4u,command)==3u && programs==written); /* 24S NMC 拒绝。 */
  command[1]=1u;switch_current_ma=1000;
  assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
- switch_current_ma=0;switch_sample_age=BMS_SOC_MAX_SAMPLE_GAP_32K+1u;
+ switch_current_ma=0;switch_sample_age=BMS_SAMPLE_MAX_POLL_GAP_MS+1u;
  assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
  switch_sample_age=0;
  bms_soc_profile_config_t original_profile;

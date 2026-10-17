@@ -56,7 +56,8 @@ uint8_t bms_afe_test_wake(void);
 typedef struct {
     int32_t raw_current_ma;
     int32_t current_ma; /* mA：正放电，负充电 */
-    uint32_t sample_tick_32k;
+    uint32_t sample_time_ms;
+    uint32_t sample_tick_32k; /* 对外兼容观测，不参与业务超时。 */
 } bms_afe_aux_measurements_t;
 /* 取得选定后端的辅助测量快照。 */
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *sample);
