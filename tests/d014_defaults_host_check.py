@@ -26,35 +26,35 @@ def check_sw_protection_defaults_check():
                             help='Also execute Config/State/Event/bms_parameters_init with RAM Flash')
         args = parser.parse_args()
         source = (MOD / 'bms_sw_protection.c').read_text(encoding='utf-8')
-        filters = source[source.index('typedef struct'):source.index('static bms_sw_filter_t s_filter')]
+        filters = source[source.index('typedef enum'):source.index('static uint16_t s_filter_count')]
         filters += '\n#define BMS_SW_PROTECTION_SAMPLE_MS 200u\n'
         filters += '\n'.join(function(source, signature) for signature in (
-            'static uint16_t bms_sw_filter_samples(', 'static void bms_sw_filter_reset(',
+            'static uint16_t bms_sw_filter_samples(',
             'static uint8_t bms_sw_filter_update(', 'static uint8_t bms_sw_temp_filter_update('))
         filter_tests = r'''
-        bms_sw_filter_t f = {0};
+        uint16_t count = 0; uint8_t active = 0;
         /* First/Second ignore Recover=900 while the high alarm is at 800. */
-        assert(bms_sw_filter_update(&f, 850, 800, 900, 1, BMS_SW_HIGH, 0));
+        assert((active=bms_sw_filter_update(&count,active, 850, 800, 900, 1, BMS_SW_HIGH, 0)));
         for (int i=0; i<10; ++i)
-            assert(bms_sw_filter_update(&f, 800, 800, 900, 1, BMS_SW_HIGH, 0));
-        assert(!bms_sw_filter_update(&f, 799, 800, 900, 1, BMS_SW_HIGH, 0));
-        assert(bms_sw_filter_update(&f, 430, 450, 430, 1, BMS_SW_LOW, 0));
-        assert(bms_sw_filter_update(&f, 450, 450, 430, 1, BMS_SW_LOW, 0));
-        assert(!bms_sw_filter_update(&f, 451, 450, 430, 1, BMS_SW_LOW, 0));
+            assert((active=bms_sw_filter_update(&count,active, 800, 800, 900, 1, BMS_SW_HIGH, 0)));
+        assert(!(active=bms_sw_filter_update(&count,active, 799, 800, 900, 1, BMS_SW_HIGH, 0)));
+        assert((active=bms_sw_filter_update(&count,active, 430, 450, 430, 1, BMS_SW_LOW, 0)));
+        assert((active=bms_sw_filter_update(&count,active, 450, 450, 430, 1, BMS_SW_LOW, 0)));
+        assert(!(active=bms_sw_filter_update(&count,active, 451, 450, 430, 1, BMS_SW_LOW, 0)));
         /* Third retains hysteresis and recovery filtering after current disappears. */
-        assert(!bms_sw_temp_filter_update(&f, 1, 950, 950, 900, 40, BMS_SW_HIGH, 1));
-        assert(bms_sw_temp_filter_update(&f, 1, 950, 950, 900, 40, BMS_SW_HIGH, 1));
-        assert(bms_sw_temp_filter_update(&f, 0, 925, 950, 900, 40, BMS_SW_HIGH, 1));
-        assert(bms_sw_temp_filter_update(&f, 0, 900, 950, 900, 40, BMS_SW_HIGH, 1));
-        assert(!bms_sw_temp_filter_update(&f, 0, 900, 950, 900, 40, BMS_SW_HIGH, 1));
-        assert(!bms_sw_temp_filter_update(&f, 0, 950, 950, 900, 1, BMS_SW_HIGH, 1));
-        assert(bms_sw_filter_update(&f, 400, 400, 430, 1, BMS_SW_LOW, 1));
-        assert(bms_sw_filter_update(&f, 420, 400, 430, 1, BMS_SW_LOW, 1));
-        assert(!bms_sw_filter_update(&f, 430, 400, 430, 1, BMS_SW_LOW, 1));
+        assert(!(active=bms_sw_temp_filter_update(&count,active, 1, 950, 950, 900, 40, BMS_SW_HIGH, 1)));
+        assert((active=bms_sw_temp_filter_update(&count,active, 1, 950, 950, 900, 40, BMS_SW_HIGH, 1)));
+        assert((active=bms_sw_temp_filter_update(&count,active, 0, 925, 950, 900, 40, BMS_SW_HIGH, 1)));
+        assert((active=bms_sw_temp_filter_update(&count,active, 0, 900, 950, 900, 40, BMS_SW_HIGH, 1)));
+        assert(!(active=bms_sw_temp_filter_update(&count,active, 0, 900, 950, 900, 40, BMS_SW_HIGH, 1)));
+        assert(!(active=bms_sw_temp_filter_update(&count,active, 0, 950, 950, 900, 1, BMS_SW_HIGH, 1)));
+        assert((active=bms_sw_filter_update(&count,active, 400, 400, 430, 1, BMS_SW_LOW, 1)));
+        assert((active=bms_sw_filter_update(&count,active, 420, 400, 430, 1, BMS_SW_LOW, 1)));
+        assert(!(active=bms_sw_filter_update(&count,active, 430, 400, 430, 1, BMS_SW_LOW, 1)));
         /* Disabled threshold and uint16 endpoints require no +/-1 arithmetic. */
-        assert(!bms_sw_filter_update(&f, 0, 0, 10, 1, BMS_SW_LOW, 0));
-        assert(bms_sw_filter_update(&f, 65535, 65535, 65535, 1, BMS_SW_HIGH, 0));
-        assert(!bms_sw_filter_update(&f, 65534, 65535, 65535, 1, BMS_SW_HIGH, 0));
+        assert(!(active=bms_sw_filter_update(&count,active, 0, 0, 10, 1, BMS_SW_LOW, 0)));
+        assert((active=bms_sw_filter_update(&count,active, 65535, 65535, 65535, 1, BMS_SW_HIGH, 0)));
+        assert(!(active=bms_sw_filter_update(&count,active, 65534, 65535, 65535, 1, BMS_SW_HIGH, 0)));
 
 
 

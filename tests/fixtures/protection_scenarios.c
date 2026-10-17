@@ -172,6 +172,25 @@ int main(void)
         measurement(group,400);update();expect(active(group,2),1);
         update();expect(active(group,2),1);update();expect(active(group,2),0);
     }
+    for(group=4;group<=5;group++) {
+        reset();level=2;phase="重初始化保留过流但撤销恢复累计";
+        parameter(group,2,500);parameter(group,3,400);parameter(group,4,60);
+        input.current_recovery_requires_evidence=1;
+        input.charge_recovery_allowed=input.discharge_recovery_allowed=1;
+        input.current_recovery_sample_fresh=1;
+        measurement(group,500);update();update();update();expect(active(group,2),1);
+        measurement(group,400);update();update();
+        bms_sw_protection_init();expect(active(group,2),1);
+        update();expect(active(group,2),1);update();expect(active(group,2),1);
+        update();expect(active(group,2),0);
+        phase="失去物理证据时禁用阈值仍清除软件状态";
+        measurement(group,500);update();update();update();expect(active(group,2),1);
+        input.charge_recovery_allowed=input.discharge_recovery_allowed=0;
+        input.current_recovery_sample_fresh=0;
+        parameter(group,2,0);update();expect(active(group,2),0);
+        parameter(group,2,500);update();expect(active(group,2),0);
+        update();expect(active(group,2),0);update();expect(active(group,2),1);
+    }
     printf("assertions=%u digest=%08lx\n",cases,(unsigned long)digest);
     return 0;
 }

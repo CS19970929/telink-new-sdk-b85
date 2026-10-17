@@ -17,7 +17,7 @@ def check_sw_protection_contract_check():
     for token in (
         "BMS_SW_PROTECTION_LEVEL_COUNT     3u",
         "BMS_SW_F_COUNT",
-        "uint16_t count;",
+        "static uint16_t s_filter_count",
         "fault_first",
         "fault_second",
         "fault_third",
@@ -68,8 +68,8 @@ def check_sw_protection_contract_check():
     for token in (
         "if (temperature_enabled && inputs->battery_temp_valid)",
         "if (temperature_enabled && inputs->mos_temp_required && inputs->mos_temp_valid)",
-        "bms_sw_filter_reset(&s_filter[level][BMS_SW_F_MOS_OT])",
-        "bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_OT])",
+        "s_filter_count[level][BMS_SW_F_MOS_OT] = 0u",
+        "s_filter_count[level][BMS_SW_F_CHG_OT] = 0u",
     ):
         if token not in source:
             raise AssertionError(f"independent temperature validity missing: {token}")
@@ -85,8 +85,8 @@ def check_sw_protection_contract_check():
         "static uint8_t bms_sw_temp_filter_update",
         "charge_current_present = (measurements->charge_a10 > 0u)",
         "discharge_current_present = (measurements->discharge_a10 > 0u)",
-        "if (!state->active && !trip_enabled)",
-        "state->count = 0u;",
+        "if (!active && !trip_enabled)",
+        "*count = 0u;",
         "charge_current_present, inputs->battery_temp_max",
         "charge_current_present, inputs->battery_temp_min",
         "discharge_current_present, inputs->battery_temp_max",

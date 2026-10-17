@@ -80,22 +80,21 @@ def filter_test():
 #include <assert.h>
 #include <stdio.h>
 #define BMS_SW_PROTECTION_SAMPLE_MS 200u
-typedef struct {uint16_t count;uint8_t active;} bms_sw_filter_t;
+
 typedef enum {BMS_SW_HIGH=0,BMS_SW_LOW} bms_sw_direction_t;
 '''
     funcs = '\n'.join(function(source, signature) for signature in (
         'static uint16_t bms_sw_filter_samples(',
-        'static void bms_sw_filter_reset(',
         'static uint8_t bms_sw_filter_update('))
     tail = r'''
 int main(void){
-    bms_sw_filter_t s={0}; const uint16_t trip[]={110,110,90,110,110}; unsigned i;
-    for(i=0;i<5;i++)assert(bms_sw_filter_update(&s,trip[i],100,80,60,BMS_SW_HIGH,1)==(i==4));
-    assert(bms_sw_filter_update(&s,80,100,80,60,BMS_SW_HIGH,1)==1);
-    assert(bms_sw_filter_update(&s,90,100,80,60,BMS_SW_HIGH,1)==1);
-    assert(bms_sw_filter_update(&s,80,100,80,60,BMS_SW_HIGH,1)==1);
-    assert(bms_sw_filter_update(&s,80,100,80,60,BMS_SW_HIGH,1)==1);
-    assert(bms_sw_filter_update(&s,80,100,80,60,BMS_SW_HIGH,1)==0);
+    uint16_t count=0; uint8_t active=0; const uint16_t trip[]={110,110,90,110,110}; unsigned i;
+    for(i=0;i<5;i++)assert((active=bms_sw_filter_update(&count,active,trip[i],100,80,60,BMS_SW_HIGH,1))==(i==4));
+    assert((active=bms_sw_filter_update(&count,active,80,100,80,60,BMS_SW_HIGH,1))==1);
+    assert((active=bms_sw_filter_update(&count,active,90,100,80,60,BMS_SW_HIGH,1))==1);
+    assert((active=bms_sw_filter_update(&count,active,80,100,80,60,BMS_SW_HIGH,1))==1);
+    assert((active=bms_sw_filter_update(&count,active,80,100,80,60,BMS_SW_HIGH,1))==1);
+    assert((active=bms_sw_filter_update(&count,active,80,100,80,60,BMS_SW_HIGH,1))==0);
     puts("leaky trigger/continuous recovery: PASS");return 0;
 }
 '''

@@ -19,13 +19,6 @@
 #define BMS_SW_PROTECTION_SAMPLE_MS       BMS_SAMPLE_PERIOD_MS
 #define BMS_SW_PROTECTION_LEVEL_COUNT     3u
 
-typedef struct
-{
-    /* active=0 累积触发，active=1 连续确认恢复；切换阶段时归零。 */
-    uint16_t count;
-    uint8_t active;
-} bms_sw_filter_t;
-
 typedef enum
 {
     BMS_SW_F_CELL_OV = 0,
@@ -49,8 +42,8 @@ typedef enum
     BMS_SW_LOW
 } bms_sw_direction_t;
 
-/* 各等级/项目独立持有活动状态和当前阶段计数，单位为有效样本。 */
-static bms_sw_filter_t s_filter[BMS_SW_PROTECTION_LEVEL_COUNT][BMS_SW_F_COUNT];
+/* 仅保存触发/恢复阶段的样本计数；活动状态唯一保存在 s_sw_fault。 */
+static uint16_t s_filter_count[BMS_SW_PROTECTION_LEVEL_COUNT][BMS_SW_F_COUNT];
 static bms_fault_reg_t s_prev_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
 /* 软件拥有这些位，公共报告还可包含硬件位。 */
 static bms_fault_reg_t s_sw_fault[BMS_SW_PROTECTION_LEVEL_COUNT];
@@ -103,20 +96,8 @@ static uint16_t bms_sw_filter_samples(uint16_t filter_10ms)
     return (uint16_t)samples;
 }
 
-/* 清除软件保护滤波器的计数与活动状态。 */
-/* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
-#if defined(__GNUC__)
-static void bms_sw_filter_reset(bms_sw_filter_t *state) __attribute__((noinline));
-#endif
-static void bms_sw_filter_reset(bms_sw_filter_t *state)
-{
-    if (state == 0) return;
-    state->count = 0u;
-    state->active = 0u;
-}
-
 /* 触发按超限累积、正常样本递减；恢复要求连续样本。保留既有滤波行为。 */
-static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
+static uint8_t bms_sw_filter_update(uint16_t *count, uint8_t active,
                                     uint16_t value,
                                     uint16_t trip,
                                     uint16_t recover,
@@ -128,15 +109,15 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
     uint8_t violated;
     uint8_t recovered;
 
-    if (state == 0) return 0u;
+    if (count == 0) return 0u;
     if (trip == 0u)
     {
-        bms_sw_filter_reset(state);
+        *count = 0u;
         return 0u;
     }
 
     required = bms_sw_filter_samples(filter_10ms);
-    if (state->active)
+    if (active)
     {
         if (use_recovery)
             recovered = (direction == BMS_SW_HIGH) ?
@@ -146,34 +127,36 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
                         (value < trip) : (value > trip);
         if (recovered)
         {
-            if (state->count < required) ++state->count;
-            if (state->count >= required)
-                bms_sw_filter_reset(state);
+            if (*count < required) ++*count;
+            if (*count >= required) {
+                *count = 0u;
+                active = 0u;
+            }
         }
         else
         {
-            state->count = 0u;
+            *count = 0u;
         }
-        return state->active;
+        return active;
     }
 
     violated = (direction == BMS_SW_HIGH) ?
                (value >= trip) : (value <= trip);
     if (violated)
     {
-        if (state->count < required) ++state->count;
-        if (state->count >= required)
+        if (*count < required) ++*count;
+        if (*count >= required)
         {
-            state->active = 1u;
-            state->count = 0u;
+            active = 1u;
+            *count = 0u;
         }
     }
-    else if (state->count != 0u)
+    else if (*count != 0u)
     {
         /* 保留 D011/D013 既有漏积分去抖，不因一个正常样本就清越限累计。 */
-        --state->count;
+        --*count;
     }
-    return state->active;
+    return active;
 }
 
 /*
@@ -184,7 +167,7 @@ static uint8_t bms_sw_filter_update(bms_sw_filter_t *state,
  */
 /* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
 #if defined(__GNUC__)
-static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
+static uint8_t bms_sw_temp_filter_update(uint16_t *count, uint8_t active,
                                          uint8_t trip_enabled,
                                          uint16_t value,
                                          uint16_t trip,
@@ -193,7 +176,7 @@ static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
                                          bms_sw_direction_t direction,
                                          uint8_t use_recovery) __attribute__((noinline));
 #endif
-static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
+static uint8_t bms_sw_temp_filter_update(uint16_t *count, uint8_t active,
                                          uint8_t trip_enabled,
                                          uint16_t value,
                                          uint16_t trip,
@@ -202,19 +185,19 @@ static uint8_t bms_sw_temp_filter_update(bms_sw_filter_t *state,
                                          bms_sw_direction_t direction,
                                          uint8_t use_recovery)
 {
-    if (state == 0) return 0u;
+    if (count == 0) return 0u;
 
-    if (!state->active && !trip_enabled)
+    if (!active && !trip_enabled)
     {
         /*
          * 整个触发确认期间温度和对应电流方向须同时满足，
          * 不能跨空闲或反向保留部分计数。
          */
-        state->count = 0u;
+        *count = 0u;
         return 0u;
     }
 
-    return bms_sw_filter_update(state, value, trip, recover,
+    return bms_sw_filter_update(count, active, value, trip, recover,
                                 filter_10ms, direction, use_recovery);
 }
 
@@ -300,7 +283,7 @@ uint8_t bms_sw_protection_validate_params(const bms_protection_params_t *p)
 void bms_sw_protection_clear(void)
 {
     uint8_t level;
-    memset(s_filter, 0, sizeof(s_filter));
+    memset(s_filter_count, 0, sizeof(s_filter_count));
     memset(s_sw_fault, 0, sizeof(s_sw_fault));
     for (level = 0u; level < BMS_SW_PROTECTION_LEVEL_COUNT; ++level)
         bms_sw_clear_managed_bits(bms_sw_fault_reg(level));
@@ -311,17 +294,15 @@ void bms_sw_protection_clear(void)
 void bms_sw_protection_init(void)
 {
     uint8_t charge_oc = s_current_recovery_requires_evidence &&
-                        s_filter[2][BMS_SW_F_CHG_OC].active;
+                        s_sw_fault[2].bits.charge_ocp;
     uint8_t discharge_oc = s_current_recovery_requires_evidence &&
-                           s_filter[2][BMS_SW_F_DSG_OC].active;
+                           s_sw_fault[2].bits.discharge_ocp;
     memset(s_prev_fault, 0, sizeof(s_prev_fault));
     bms_sw_protection_clear();
     /*
      * AFE 通信重初始化不能证明负载/充电器已移除；保留故障，只作废部分恢复窗口。
      * MCU 冷启动仍从零初始化 RAM 开始，此状态不持久化。
      */
-    s_filter[2][BMS_SW_F_CHG_OC].active = charge_oc;
-    s_filter[2][BMS_SW_F_DSG_OC].active = discharge_oc;
     s_sw_fault[2].bits.charge_ocp = charge_oc;
     s_sw_fault[2].bits.discharge_ocp = discharge_oc;
     bms_sw_fault_reg(2u)->all |= s_sw_fault[2].all;
@@ -331,16 +312,16 @@ void bms_sw_protection_init(void)
 void bms_sw_protection_reset_current_recovery(void)
 {
     /* 只撤销恢复证据；尚未触发时必须保留已经累计的越限样本。 */
-    if (s_filter[2][BMS_SW_F_CHG_OC].active)
-        s_filter[2][BMS_SW_F_CHG_OC].count = 0u;
-    if (s_filter[2][BMS_SW_F_DSG_OC].active)
-        s_filter[2][BMS_SW_F_DSG_OC].count = 0u;
+    if (s_sw_fault[2].bits.charge_ocp)
+        s_filter_count[2][BMS_SW_F_CHG_OC] = 0u;
+    if (s_sw_fault[2].bits.discharge_ocp)
+        s_filter_count[2][BMS_SW_F_DSG_OC] = 0u;
 }
 
 /* 查询软件放电过流三级保护是否激活。 */
 uint8_t bms_sw_protection_discharge_overcurrent_active(void)
 {
-    return s_filter[2][BMS_SW_F_DSG_OC].active;
+    return s_sw_fault[2].bits.discharge_ocp;
 }
 
 /* 按当前测量快照更新软件保护状态。 */
@@ -355,20 +336,20 @@ typedef struct {
 } bms_sw_measurements_t;
 
 /* 结合物理恢复证据推进电流保护触发与解除滤波。 */
-static uint8_t bms_sw_current_filter_update(bms_sw_filter_t *state,
+static uint8_t bms_sw_current_filter_update(uint16_t *count, uint8_t active,
     uint16_t value, uint16_t trip, uint16_t recover, uint16_t filter_10ms,
     uint8_t third, uint8_t recovery_allowed, uint8_t immediate, uint8_t fresh)
 {
-    if (third && state->active && s_current_recovery_requires_evidence && trip != 0u) {
-        if (!recovery_allowed) state->count = 0u;
+    if (third && active && s_current_recovery_requires_evidence && trip != 0u) {
+        if (!recovery_allowed) *count = 0u;
         /* 正常 CADC 等待暂停计数；观测到重接则重置。 */
         if (!recovery_allowed || !fresh) return 1u;
         if (immediate && value <= recover) {
-            bms_sw_filter_reset(state);
+            *count = 0u;
             return 0u;
         }
     }
-    return bms_sw_filter_update(state, value, trip, recover, filter_10ms,
+    return bms_sw_filter_update(count, active, value, trip, recover, filter_10ms,
                                 BMS_SW_HIGH, third);
 }
 
@@ -404,31 +385,31 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
         if (voltage_current_enabled) {
             trip = bms_sw_level_value(level, p->cell_ovp_first_mv,
                                       p->cell_ovp_second_mv, p->cell_ovp_third_mv);
-            f->bits.cell_ovp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_OV],
+            f->bits.cell_ovp = bms_sw_filter_update(&s_filter_count[level][BMS_SW_F_CELL_OV], f->bits.cell_ovp,
                 measurements->cell_max_mv, trip, p->cell_ovp_recover_mv,
                 p->cell_ovp_filter_10ms, BMS_SW_HIGH, level == 2u);
 
             trip = bms_sw_level_value(level, p->cell_uvp_first_mv,
                                       p->cell_uvp_second_mv, p->cell_uvp_third_mv);
-            f->bits.cell_uvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_CELL_UV],
+            f->bits.cell_uvp = bms_sw_filter_update(&s_filter_count[level][BMS_SW_F_CELL_UV], f->bits.cell_uvp,
                 measurements->cell_min_mv, trip, p->cell_uvp_recover_mv,
                 p->cell_uvp_filter_10ms, BMS_SW_LOW, level == 2u);
 
             trip = bms_sw_level_value(level, p->pack_ovp_first_10mv,
                                       p->pack_ovp_second_10mv, p->pack_ovp_third_10mv);
-            f->bits.pack_ovp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_OV],
+            f->bits.pack_ovp = bms_sw_filter_update(&s_filter_count[level][BMS_SW_F_PACK_OV], f->bits.pack_ovp,
                 measurements->pack_voltage_10mv, trip, p->pack_ovp_recover_10mv,
                 p->pack_ovp_filter_10ms, BMS_SW_HIGH, level == 2u);
 
             trip = bms_sw_level_value(level, p->pack_uvp_first_10mv,
                                       p->pack_uvp_second_10mv, p->pack_uvp_third_10mv);
-            f->bits.pack_uvp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_PACK_UV],
+            f->bits.pack_uvp = bms_sw_filter_update(&s_filter_count[level][BMS_SW_F_PACK_UV], f->bits.pack_uvp,
                 measurements->pack_voltage_10mv, trip, p->pack_uvp_recover_10mv,
                 p->pack_uvp_filter_10ms, BMS_SW_LOW, level == 2u);
 
             trip = bms_sw_level_value(level, p->charge_ocp_first_a10,
                                       p->charge_ocp_second_a10, p->charge_ocp_third_a10);
-            f->bits.charge_ocp = bms_sw_current_filter_update(&s_filter[level][BMS_SW_F_CHG_OC],
+            f->bits.charge_ocp = bms_sw_current_filter_update(&s_filter_count[level][BMS_SW_F_CHG_OC], f->bits.charge_ocp,
                 measurements->charge_a10, trip, p->charge_ocp_recover_a10,
                 p->charge_ocp_filter_10ms, level == 2u, inputs->charge_recovery_allowed,
                 inputs->charge_recovery_immediate,
@@ -436,7 +417,7 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
 
             trip = bms_sw_level_value(level, p->discharge_ocp_first_a10,
                                       p->discharge_ocp_second_a10, p->discharge_ocp_third_a10);
-            f->bits.discharge_ocp = bms_sw_current_filter_update(&s_filter[level][BMS_SW_F_DSG_OC],
+            f->bits.discharge_ocp = bms_sw_current_filter_update(&s_filter_count[level][BMS_SW_F_DSG_OC], f->bits.discharge_ocp,
                 measurements->discharge_a10, trip, p->discharge_ocp_recover_a10,
                 p->discharge_ocp_filter_10ms, level == 2u, inputs->discharge_recovery_allowed,
                 inputs->discharge_recovery_immediate,
@@ -445,7 +426,7 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
         } else {
             uint8_t id;
             for (id = BMS_SW_F_CELL_OV; id <= BMS_SW_F_DSG_OC; ++id)
-                bms_sw_filter_reset(&s_filter[level][id]);
+                s_filter_count[level][id] = 0u;
             f->bits.cell_ovp = f->bits.cell_uvp = 0u;
             f->bits.pack_ovp = f->bits.pack_uvp = 0u;
             f->bits.charge_ocp = f->bits.discharge_ocp = 0u;
@@ -455,25 +436,25 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
         {
             trip = bms_sw_level_value(level, p->charge_otp_first_x10,
                                       p->charge_otp_second_x10, p->charge_otp_third_x10);
-            f->bits.charge_otp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_CHG_OT],
+            f->bits.charge_otp = bms_sw_temp_filter_update(&s_filter_count[level][BMS_SW_F_CHG_OT], f->bits.charge_otp,
                 charge_current_present, inputs->battery_temp_max, trip, p->charge_otp_recover_x10,
                 p->charge_otp_filter_10ms, BMS_SW_HIGH, level == 2u);
 
             trip = bms_sw_level_value(level, p->charge_utp_first_x10,
                                       p->charge_utp_second_x10, p->charge_utp_third_x10);
-            f->bits.charge_utp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_CHG_UT],
+            f->bits.charge_utp = bms_sw_temp_filter_update(&s_filter_count[level][BMS_SW_F_CHG_UT], f->bits.charge_utp,
                 charge_current_present, inputs->battery_temp_min, trip, p->charge_utp_recover_x10,
                 p->charge_utp_filter_10ms, BMS_SW_LOW, level == 2u);
 
             trip = bms_sw_level_value(level, p->discharge_otp_first_x10,
                                       p->discharge_otp_second_x10, p->discharge_otp_third_x10);
-            f->bits.discharge_otp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_DSG_OT],
+            f->bits.discharge_otp = bms_sw_temp_filter_update(&s_filter_count[level][BMS_SW_F_DSG_OT], f->bits.discharge_otp,
                 discharge_current_present, inputs->battery_temp_max, trip, p->discharge_otp_recover_x10,
                 p->discharge_otp_filter_10ms, BMS_SW_HIGH, level == 2u);
 
             trip = bms_sw_level_value(level, p->discharge_utp_first_x10,
                                       p->discharge_utp_second_x10, p->discharge_utp_third_x10);
-            f->bits.discharge_utp = bms_sw_temp_filter_update(&s_filter[level][BMS_SW_F_DSG_UT],
+            f->bits.discharge_utp = bms_sw_temp_filter_update(&s_filter_count[level][BMS_SW_F_DSG_UT], f->bits.discharge_utp,
                 discharge_current_present, inputs->battery_temp_min, trip, p->discharge_utp_recover_x10,
                 p->discharge_utp_filter_10ms, BMS_SW_LOW, level == 2u);
         }
@@ -482,15 +463,15 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             uint8_t id;
             /* 传感器失效只撤销连续证据，不能证明已经恢复。 */
             for (id = BMS_SW_F_CHG_OT; id <= BMS_SW_F_DSG_UT; ++id) {
-                s_filter[level][id].count = 0u;
+                s_filter_count[level][id] = 0u;
             }
         }
         else
         {
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_OT]);
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_CHG_UT]);
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_DSG_OT]);
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_DSG_UT]);
+            s_filter_count[level][BMS_SW_F_CHG_OT] = 0u;
+            s_filter_count[level][BMS_SW_F_CHG_UT] = 0u;
+            s_filter_count[level][BMS_SW_F_DSG_OT] = 0u;
+            s_filter_count[level][BMS_SW_F_DSG_UT] = 0u;
             f->bits.charge_otp = 0u;
             f->bits.charge_utp = 0u;
             f->bits.discharge_otp = 0u;
@@ -501,28 +482,28 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
         {
             trip = bms_sw_level_value(level, p->mos_otp_first_x10,
                                       p->mos_otp_second_x10, p->mos_otp_third_x10);
-            f->bits.mos_otp = bms_sw_filter_update(&s_filter[level][BMS_SW_F_MOS_OT],
+            f->bits.mos_otp = bms_sw_filter_update(&s_filter_count[level][BMS_SW_F_MOS_OT], f->bits.mos_otp,
                 inputs->mos_temp, trip, p->mos_otp_recover_x10,
                 p->mos_otp_filter_10ms, BMS_SW_HIGH, level == 2u);
         }
         else if (temperature_enabled && inputs->mos_temp_required)
         {
-            s_filter[level][BMS_SW_F_MOS_OT].count = 0u;
+            s_filter_count[level][BMS_SW_F_MOS_OT] = 0u;
         }
         else
         {
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_MOS_OT]);
+            s_filter_count[level][BMS_SW_F_MOS_OT] = 0u;
             f->bits.mos_otp = 0u;
         }
 
         if (voltage_current_enabled) {
             trip = bms_sw_level_value(level, p->cell_delta_first_mv,
                                       p->cell_delta_second_mv, p->cell_delta_third_mv);
-            f->bits.cell_delta_high = bms_sw_filter_update(&s_filter[level][BMS_SW_F_VDELTA],
+            f->bits.cell_delta_high = bms_sw_filter_update(&s_filter_count[level][BMS_SW_F_VDELTA], f->bits.cell_delta_high,
                 measurements->cell_delta_mv, trip, p->cell_delta_recover_mv,
                 p->cell_delta_filter_10ms, BMS_SW_HIGH, level == 2u);
         } else if (!voltage_current_enabled) {
-            bms_sw_filter_reset(&s_filter[level][BMS_SW_F_VDELTA]);
+            s_filter_count[level][BMS_SW_F_VDELTA] = 0u;
             f->bits.cell_delta_high = 0u;
         }
         /* 兼容报告保留 SOC/其它位，后端随后合并硬件位。 */
