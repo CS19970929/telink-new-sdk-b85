@@ -533,12 +533,17 @@ static int bms_config_has_previous_format(const storage_port_t *port,
                                            storage_region_t region, u8 *payload)
 {
     storage_record_store_t previous __attribute__((aligned(4)));
+    u32 next_sector;
     if (!storage_record_open(&previous, port, region, 0x43464732u, 3u, 322u) ||
         !storage_record_load(&previous, payload) ||
         bms_config_get_u32le(payload) != BMS_PRODUCT_ID) return 0;
     g_bms_config_store.latest_addr = previous.latest_addr;
     g_bms_config_store.next_sequence = previous.next_sequence;
     g_bms_config_store.has_latest = 1u;
+    /* 两种槽长不同，不能在旧 sector 的 FF payload 中按新网格找空槽。 */
+    next_sector = ((previous.latest_addr - region.base) / port->erase_size + 1u) % previous.sector_count;
+    g_bms_config_store.write_addr = region.base + next_sector * port->erase_size;
+    g_bms_config_store.write_needs_erase = 1u;
     return 1;
 }
 

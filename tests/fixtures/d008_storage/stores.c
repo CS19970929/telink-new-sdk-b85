@@ -747,9 +747,29 @@ static void test_previous_format_defaults(void)
  puts("PASS CFG2 upgrade: defaults after verified old format, 449 cut points, old sector retained, retry and corrupt-new fail closed");
 }
 
+static void test_previous_format_slot_geometry(void)
+{
+ /* 旧 356-byte 槽与新 448-byte 槽不共用网格；旧 payload 的 FF 尾部也属于有效记录。 */
+ for(unsigned record=0u;record<44u;++record){
+  fresh();storage_record_store_t previous;u8 payload[322];
+  memset(flash,255,4u*4096u);memset(payload,255,sizeof(payload));
+  bms_config_put_u32le(payload,BMS_PRODUCT_ID);
+  assert(storage_record_open(&previous,&port,(storage_region_t){0,4u*4096u},0x43464732u,3u,322u));
+  for(unsigned i=0u;i<=record;++i)assert(storage_record_save(&previous,payload));
+  u32 old_addr=previous.latest_addr,old_sector=old_addr/4096u*4096u;
+  memcpy(backup,flash,sizeof(flash));reboot();cut=1;bms_parameters_init();
+  assert(!bms_protection_params_valid());
+  assert(!memcmp(flash+old_sector,backup+old_sector,4096u));
+  assert(storage_record_load(&previous,payload) && previous.latest_addr==old_addr);
+  cut=-1;reboot();bms_parameters_init();assert(bms_protection_params_valid());
+ }
+ puts("PASS CFG2 upgrade: all 44 legacy slot positions preserve the latest sector across interrupted conversion");
+}
+
 static void test_merged_profile(void)
 {
  test_previous_format_defaults();
+ test_previous_format_slot_geometry();
  fresh();bms_soc_profile_config_t old,next;
  bms_config_get_soc_profile(&old);next=old;
  next.current_deadband_ma=321u;++next.profile_version;
