@@ -7,6 +7,7 @@
 #define DVC1124_CONFIG_SERVICE_H_
 
 #include "tl_common.h"
+#include "bms_afe_hw_profile.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -124,6 +125,9 @@ typedef enum
 #define DVC1124_RAW_REG_COUNT                   0x0091u
 
 
+
+/* 覆盖请求 profile 中的实读字段；任一块失败时不修改 profile。 */
+u8 DVC1124_ReadProtectionEffective(bms_afe_hw_profile_t *profile);
 
 /* 读取 DVC 语义配置窗口中的指定字段。 */
 dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,

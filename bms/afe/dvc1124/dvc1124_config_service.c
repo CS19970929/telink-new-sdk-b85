@@ -52,119 +52,104 @@ static u16 dvc_cfg_current_x10_from_sense_uv(u32 sense_uv)
     return (u16)value;
 }
 
-/* 读取 DVC 当前实际生效的配置字段。 */
-static dvc1124_config_result_t dvc_cfg_read_effective(
-    dvc1124_config_field_t field,
-    u32 *value)
+/* RM V1.2 p18-20、23-24：单字段与整组回读共用物理量解码。 */
+static u16 dvc_cfg_protection_value(u8 reg, const u8 *data)
 {
-    u8 data[2];
-    u16 code12;
-
-    if (value == 0) return DVC1124_CFG_ERR_VALUE;
-
-    switch (field)
-    {
-    case DVC1124_CFG_EFF_COV_MV:
-    case DVC1124_CFG_EFF_COV_DELAY_MS:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_COV_H, data, 2u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        code12 = (u16)(((u16)data[0] << 4) | (data[1] >> 4));
-        if (field == DVC1124_CFG_EFF_COV_MV)
-            *value = code12 ? (u32)code12 + 500u : 0u;
-        else
-        {
-            static const u16 delay[16] = {
-                200u, 300u, 400u, 500u, 600u, 700u, 800u, 900u,
-                1000u, 2000u, 3000u, 4000u, 5000u, 6000u, 7000u, 8000u
-            };
-            *value = delay[data[1] & 0x0Fu];
-        }
-        return DVC1124_CFG_OK;
-
-    case DVC1124_CFG_EFF_CUV_MV:
-    case DVC1124_CFG_EFF_CUV_DELAY_MS:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_CUV_H, data, 2u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        code12 = (u16)(((u16)data[0] << 4) | (data[1] >> 4));
-        if (field == DVC1124_CFG_EFF_CUV_MV)
-            *value = code12;
-        else
-        {
-            static const u16 delay[16] = {
-                200u, 300u, 400u, 500u, 600u, 700u, 800u, 900u,
-                1000u, 2000u, 3000u, 4000u, 5000u, 6000u, 7000u, 8000u
-            };
-            *value = delay[data[1] & 0x0Fu];
-        }
-        return DVC1124_CFG_OK;
-
-    case DVC1124_CFG_EFF_OCD1_X10A:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_OCD1_THR, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = data[0]
-                     ? dvc_cfg_current_x10_from_sense_uv((u32)data[0] * 250u)
-                     : 0u;
-        return DVC1124_CFG_OK;
-    case DVC1124_CFG_EFF_OCD1_DELAY_MS:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_OCD1_DLY, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = (u16)((u16)(data[0] + 1u) * 8u);
-        return DVC1124_CFG_OK;
-    case DVC1124_CFG_EFF_OCC1_X10A:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_OCC1_THR, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = data[0]
-                     ? dvc_cfg_current_x10_from_sense_uv((u32)data[0] * 250u)
-                     : 0u;
-        return DVC1124_CFG_OK;
-    case DVC1124_CFG_EFF_OCC1_DELAY_MS:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_OCC1_DLY, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = (u16)((u16)(data[0] + 1u) * 8u);
-        return DVC1124_CFG_OK;
-
-    case DVC1124_CFG_EFF_OCD2_X10A:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_OCD2, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = (data[0] & DVC1124_OC2_ENABLE_MASK)
-                     ? dvc_cfg_current_x10_from_sense_uv(
-                           (u32)((data[0] & DVC1124_OC2_THRESHOLD_MASK) + 1u) * 4000u)
-                     : 0u;
-        return DVC1124_CFG_OK;
-    case DVC1124_CFG_EFF_OCD2_DELAY_MS:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_OCD2_DLY, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = (u16)((u16)(data[0] + 1u) * 4u);
-        return DVC1124_CFG_OK;
-    case DVC1124_CFG_EFF_OCC2_X10A:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_OCC2, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = (data[0] & DVC1124_OC2_ENABLE_MASK)
-                     ? dvc_cfg_current_x10_from_sense_uv(
-                           (u32)((data[0] & DVC1124_OC2_THRESHOLD_MASK) + 1u) * 4000u)
-                     : 0u;
-        return DVC1124_CFG_OK;
-    case DVC1124_CFG_EFF_OCC2_DELAY_MS:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_OCC2_DLY, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = (u16)((u16)(data[0] + 1u) * 4u);
-        return DVC1124_CFG_OK;
-
-    case DVC1124_CFG_EFF_SCD_MV:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_SCD, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = (data[0] & DVC1124_SCD_ENABLE_MASK)
-                     ? (u32)(data[0] & DVC1124_SCD_THRESHOLD_MASK) * 10u
-                     : 0u;
-        return DVC1124_CFG_OK;
-    case DVC1124_CFG_EFF_SCD_DELAY_US:
-        if (!DVC1124_ReadRegisters(DVC1124_REG_SCD_DLY, data, 1u))
-            return DVC1124_CFG_ERR_AFE_IO;
-        *value = ((u32)data[0] * 781u + 50u) / 100u;
-        return DVC1124_CFG_OK;
+    static const u16 voltage_delay[16] = {
+        200u, 300u, 400u, 500u, 600u, 700u, 800u, 900u,
+        1000u, 2000u, 3000u, 4000u, 5000u, 6000u, 7000u, 8000u
+    };
+    u16 code;
+    switch (reg) {
+    case DVC1124_REG_COV_H:
+    case DVC1124_REG_CUV_H:
+        code = (u16)(((u16)data[0] << 4) | (data[1] >> 4));
+        return reg == DVC1124_REG_COV_H && code ? (u16)(code + 500u) : code;
+    case DVC1124_REG_COV_L_DLY:
+    case DVC1124_REG_CUV_L_DLY:
+        return voltage_delay[data[0] & 0x0Fu];
+    case DVC1124_REG_OCD1_THR:
+    case DVC1124_REG_OCC1_THR:
+        return dvc_cfg_current_x10_from_sense_uv((u32)data[0] * 250u);
+    case DVC1124_REG_OCD1_DLY:
+    case DVC1124_REG_OCC1_DLY:
+        return (u16)((data[0] + 1u) * 8u);
+    case DVC1124_REG_OCD2:
+    case DVC1124_REG_OCC2:
+        return (data[0] & DVC1124_OC2_ENABLE_MASK) ?
+            dvc_cfg_current_x10_from_sense_uv(
+                (u32)((data[0] & DVC1124_OC2_THRESHOLD_MASK) + 1u) * 4000u) : 0u;
+    case DVC1124_REG_OCD2_DLY:
+    case DVC1124_REG_OCC2_DLY:
+        return (u16)((data[0] + 1u) * 4u);
+    case DVC1124_REG_SCD:
+        return (data[0] & DVC1124_SCD_ENABLE_MASK) ?
+            (u16)(data[0] & DVC1124_SCD_THRESHOLD_MASK) * 10u : 0u;
+    case DVC1124_REG_SCD_DLY:
+        return (u16)(((u32)data[0] * 781u + 50u) / 100u);
     default:
-        return DVC1124_CFG_ERR_ADDRESS;
+        return 0u;
     }
+}
+
+/* 旧语义窗口仍只读取该字段涉及的寄存器，不扩大 I/O 范围。 */
+static dvc1124_config_result_t dvc_cfg_read_effective(
+    dvc1124_config_field_t field, u32 *value)
+{
+    static const u8 registers[] = {
+        DVC1124_REG_COV_H, DVC1124_REG_COV_L_DLY,
+        DVC1124_REG_CUV_H, DVC1124_REG_CUV_L_DLY,
+        DVC1124_REG_OCD1_THR, DVC1124_REG_OCD1_DLY,
+        DVC1124_REG_OCC1_THR, DVC1124_REG_OCC1_DLY,
+        DVC1124_REG_OCD2, DVC1124_REG_OCD2_DLY,
+        DVC1124_REG_OCC2, DVC1124_REG_OCC2_DLY,
+        DVC1124_REG_SCD, DVC1124_REG_SCD_DLY
+    };
+    u8 data[2], reg, start, length;
+    u16 offset = (u16)field - DVC1124_CFG_EFF_COV_MV;
+    if (!value) return DVC1124_CFG_ERR_VALUE;
+    if (offset >= sizeof(registers)) return DVC1124_CFG_ERR_ADDRESS;
+    reg = registers[offset];
+    start = reg;
+    length = 1u;
+    if (reg == DVC1124_REG_COV_L_DLY || reg == DVC1124_REG_CUV_L_DLY) --start;
+    if (start == DVC1124_REG_COV_H || start == DVC1124_REG_CUV_H) length = 2u;
+    if (!DVC1124_ReadRegisters(start, data, length))
+        return DVC1124_CFG_ERR_AFE_IO;
+    *value = dvc_cfg_protection_value(reg, data + (reg - start));
+    return DVC1124_CFG_OK;
+}
+
+/* DS V1.1 p23：配置寄存器支持连续读；三个块均不包含 RC 状态。 */
+u8 DVC1124_ReadProtectionEffective(bms_afe_hw_profile_t *p)
+{
+    u8 voltage[4], oc1[4], oc2[6];
+    u8 sc;
+    if (!p || !bms_afe_bus_access_allowed()) return 0u;
+    sc = (p->enable_mask & BMS_AFE_HW_EN_SC) != 0u;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_COV_H, voltage, sizeof(voltage)) ||
+        !DVC1124_ReadRegisters(DVC1124_REG_OCD1_THR, oc1, sizeof(oc1)) ||
+        !DVC1124_ReadRegisters(DVC1124_REG_OCD2, oc2, sc ? 6u : 4u) ||
+        (sc && DVC1124_DEFAULT_SHUNT_UOHM == 0u)) return 0u;
+    /* 全部块通过底层 CRC/重试后才更新输出，失败不发布部分结果。 */
+    p->cov_mv = dvc_cfg_protection_value(DVC1124_REG_COV_H, voltage);
+    p->cov_delay_ms = dvc_cfg_protection_value(DVC1124_REG_COV_L_DLY, voltage + 1u);
+    p->cuv_mv = dvc_cfg_protection_value(DVC1124_REG_CUV_H, voltage + 2u);
+    p->cuv_delay_ms = dvc_cfg_protection_value(DVC1124_REG_CUV_L_DLY, voltage + 3u);
+    p->ocd1_a10 = dvc_cfg_protection_value(DVC1124_REG_OCD1_THR, oc1);
+    p->occ1_a10 = dvc_cfg_protection_value(DVC1124_REG_OCC1_THR, oc1 + 1u);
+    p->ocd1_delay_ms = dvc_cfg_protection_value(DVC1124_REG_OCD1_DLY, oc1 + 2u);
+    p->occ1_delay_ms = dvc_cfg_protection_value(DVC1124_REG_OCC1_DLY, oc1 + 3u);
+    p->ocd2_a10 = dvc_cfg_protection_value(DVC1124_REG_OCD2, oc2);
+    p->occ2_a10 = dvc_cfg_protection_value(DVC1124_REG_OCC2, oc2 + 1u);
+    p->ocd2_delay_ms = dvc_cfg_protection_value(DVC1124_REG_OCD2_DLY, oc2 + 2u);
+    p->occ2_delay_ms = dvc_cfg_protection_value(DVC1124_REG_OCC2_DLY, oc2 + 3u);
+    if (sc) {
+        p->sc_a10 = (u16)(((u32)dvc_cfg_protection_value(DVC1124_REG_SCD, oc2 + 4u) *
+                           10000u) / DVC1124_DEFAULT_SHUNT_UOHM);
+        p->sc_delay_us = dvc_cfg_protection_value(DVC1124_REG_SCD_DLY, oc2 + 5u);
+    }
+    return 1u;
 }
 
 /* 读取请求的独立硬件保护参数。 */

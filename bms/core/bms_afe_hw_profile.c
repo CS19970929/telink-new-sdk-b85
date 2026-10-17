@@ -395,18 +395,6 @@ static u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *p)
     return bms_config_store_set_afe_hw_profile(p) ? 1u : 0u;
 }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-/* 将 DVC 实际配置诊断值转换为协议字段。 */
-static u8 dvc_effective_u16(dvc1124_config_field_t field, u16 *out)
-{
-    u32 value;
-    if (out == 0) return 0u;
-    if (DVC1124_ConfigServiceRead(field, &value) != DVC1124_CFG_OK || value > 65535u) return 0u;
-    *out = (u16)value;
-    return 1u;
-}
-#endif
-
 /* 取得硬件实际可表示的保护值及量化状态。 */
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 {
@@ -416,25 +404,7 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     {
-        u16 sc_mv = 0u;
-        if (!dvc_effective_u16(DVC1124_CFG_EFF_COV_MV, &p->cov_mv) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_COV_DELAY_MS, &p->cov_delay_ms) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_CUV_MV, &p->cuv_mv) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_CUV_DELAY_MS, &p->cuv_delay_ms) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_OCD1_X10A, &p->ocd1_a10) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_OCD1_DELAY_MS, &p->ocd1_delay_ms) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_OCC1_X10A, &p->occ1_a10) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_OCC1_DELAY_MS, &p->occ1_delay_ms) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_OCD2_X10A, &p->ocd2_a10) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_OCD2_DELAY_MS, &p->ocd2_delay_ms) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_OCC2_X10A, &p->occ2_a10) ||
-            !dvc_effective_u16(DVC1124_CFG_EFF_OCC2_DELAY_MS, &p->occ2_delay_ms)) return 0u;
-        if (requested.enable_mask & BMS_AFE_HW_EN_SC) {
-            if (!dvc_effective_u16(DVC1124_CFG_EFF_SCD_MV, &sc_mv) ||
-                !dvc_effective_u16(DVC1124_CFG_EFF_SCD_DELAY_US, &p->sc_delay_us)) return 0u;
-            if (DVC1124_DEFAULT_SHUNT_UOHM == 0u) return 0u;
-            p->sc_a10 = (u16)(((u32)sc_mv * 10000u) / DVC1124_DEFAULT_SHUNT_UOHM);
-        }
+        if (!DVC1124_ReadProtectionEffective(p)) return 0u;
 #if !DVC1124_HW_PROTECT_ENABLE
         /*
          * 请求配置仍持久化且可读；实际生效状态须体现编译期台架隔离：

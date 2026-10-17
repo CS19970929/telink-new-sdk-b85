@@ -32,6 +32,7 @@ register('afe', ('d008',), '真实初始化/SCD配置函数与RAM I2C及关闭�
 register('afe', ('d008',), '真实温度采集/有效性/仲裁函数体与完整公共保护；RAM 寄存器非物理 Gate', 'dvc_ntc_scenarios_host_check')
 register('afe', SH, '真实均衡函数与寄存器 peer；不替代实板均衡电流', 'sh_balance_backend_host_check')
 register('afe', ('d008',), '提取函数故障注入', 'dvc_register_scenarios_host_check')
+register('afe', ('d008',), '原厂编码与逐块故障注入', 'dvc_effective_profile_host_check')
 register('protection', PRODUCTS, '完整 feature 与真实板级能力', 'features_scenarios_host_check')
 register('storage', PRODUCTS, '生产 journal/语义存储与 RAM Flash', 'flash_quick_check')
 register('protocol', PRODUCTS, '完整 Modbus 模块与真实 CRC/State/diag/logger，寄存器所有者替身；真实 parser/CRC 与寄存器替身', 'modbus_host_check')
