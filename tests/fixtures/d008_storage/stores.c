@@ -719,57 +719,75 @@ static void test_chemistry_switch(void)
  puts("PASS chemistry transaction: password, length, 24S limit, fresh idle sample, byte cuts, retained domains, apply failure inhibit");
 }
 
-static void test_previous_format_defaults(void)
+/* 恢复出厂包清空所有业务持久内容；正常固件不得把旧/损坏记录当空白。 */
+static void test_factory_reset(void)
 {
- fresh();storage_record_store_t previous;
- u8 old_payload[322];memset(old_payload,0xa5,sizeof(old_payload));
- bms_config_put_u32le(old_payload,BMS_PRODUCT_ID);
- memset(flash,255,4u*4096u);
- assert(storage_record_open(&previous,&port,(storage_region_t){0,4u*4096u},0x43464732u,3u,322u));
- assert(storage_record_save(&previous,old_payload));
+ fresh();
+ bms_config_cache_t custom=configured();
+ assert(bms_config_save_cache(&custom));
+ assert(bms_state_store_save(88u, 23u, 99u));
+ assert(bms_event_log_note_sleep());
+ assert((bms_event_log_read_reg(0u)>>8)==BMS_SLEEP);
  memcpy(backup,flash,sizeof(flash));
- for(unsigned byte=0u;byte<=448u;++byte){
-  memcpy(flash,backup,sizeof(flash));reboot();cut=(int)byte;bms_parameters_init();
-  if(byte<448u){
-   assert(!bms_protection_params_valid());
-   assert(storage_record_load(&previous,old_payload)); /* 新默认提交前保留旧有效 sector。 */
+ test_ota_mask=BMS_OTA_FACTORY_RESET_MASK;
+ /* Config pending(448B) + State(56B) + Event(236B) + Config done(448B)；
+    每个切点后重启，都必须继续执行而不能提前授权 MOS。 */
+ for(int byte=0;byte<=1188;++byte){
+  memcpy(flash,backup,sizeof(flash));reboot();cut=byte;
+  bms_parameters_init();
+  if(bms_protection_params_valid()){
+   assert(g_bms_config.system.capacity_factory==1000u);
+   assert(g_bms_state.soc==60u && g_bms_state.dsg==0u && g_bms_state.cycle==0u);
+   assert(bms_event_log_read_reg(0u)==0u);
   }
-  cut=-1;reboot();bms_parameters_init();assert(bms_protection_params_valid());
-  assert(g_bms_config_store.magic==0x43464734u && g_bms_config.soc.chemistry==BMS_PRODUCT_CHEMISTRY);
-  assert(g_bms_config.user.current_offset_ma==0 && g_bms_config.user.current_gain_ppm==1000000u);
-  assert(g_bms_config.user.serial[0]==0 && g_bms_config.sleep.low_cell_mv==2800u);
+  cut=-1;reboot();bms_parameters_init();
+  assert(bms_protection_params_valid());
+  assert(g_bms_config.system.capacity_factory==1000u);
+  assert(g_bms_config.user.current_offset_ma==0);
+  assert(g_bms_config.user.current_gain_ppm==1000000u);
+  assert(g_bms_config.user.serial[0]==0 && g_bms_config.bt_name_suffix[0]==0);
+  assert(g_bms_config.user.balance_enable==BMS_BALANCE_ENABLE_DEFAULT);
+  assert(g_bms_config.soc.chemistry==BMS_PRODUCT_CHEMISTRY);
+  assert(g_bms_config.sleep.low_cell_mv==BMS_SLEEP_LOW_CELL_MV);
+  assert(g_bms_state.soc==60u && g_bms_state.dsg==0u && g_bms_state.cycle==0u);
+  assert(bms_event_log_read_reg(0u)==0u);
+  assert(g_bms_config.ota_update_id[0]==0u);
+  assert(bms_ota_update_id_matches(g_bms_config.ota_update_id));
+  u32 written=programs;
+  reboot();bms_parameters_init();assert(bms_protection_params_valid() && programs==written);
  }
- /* 新格式 CRC 损坏时，即使还残留旧记录，也不得再次恢复默认放行。 */
- flash[g_bms_config_store.latest_addr+16u]^=1u;reboot();u32 before=programs;
- assert(!bms_config_store_init() && !bms_config_store_validate_startup() && programs==before);
- memcpy(flash,backup,sizeof(flash));flash[16u]^=1u;reboot();before=programs;
- assert(!bms_config_store_init() && programs==before);
- puts("PASS CFG2 upgrade: defaults after verified old format, 449 cut points, old sector retained, retry and corrupt-new fail closed");
-}
+ /* 同一出厂包执行后，客户在线修改不应被再次恢复默认。 */
+ assert(bms_config_save_cache(&custom));
+ assert(bms_state_store_save(79u,9u,18u));
+ reboot();bms_parameters_init();
+ assert(bms_protection_params_valid());
+ assert(g_bms_config.system.capacity_factory==1234u && g_bms_state.soc==79u);
+ /* 回到普通保参固件后，仍能读取出厂包写入的健康 CFG4。 */
+ test_ota_mask=0u;reboot();bms_parameters_init();
+ assert(bms_protection_params_valid());
+ assert(g_bms_config.system.capacity_factory==1234u && g_bms_state.soc==79u);
 
-static void test_previous_format_slot_geometry(void)
-{
- /* 旧 356-byte 槽与新 448-byte 槽不共用网格；旧 payload 的 FF 尾部也属于有效记录。 */
- for(unsigned record=0u;record<44u;++record){
-  fresh();storage_record_store_t previous;u8 payload[322];
-  memset(flash,255,4u*4096u);memset(payload,255,sizeof(payload));
-  bms_config_put_u32le(payload,BMS_PRODUCT_ID);
-  assert(storage_record_open(&previous,&port,(storage_region_t){0,4u*4096u},0x43464732u,3u,322u));
-  for(unsigned i=0u;i<=record;++i)assert(storage_record_save(&previous,payload));
-  u32 old_addr=previous.latest_addr,old_sector=old_addr/4096u*4096u;
-  memcpy(backup,flash,sizeof(flash));reboot();cut=1;bms_parameters_init();
-  assert(!bms_protection_params_valid());
-  assert(!memcmp(flash+old_sector,backup+old_sector,4096u));
-  assert(storage_record_load(&previous,payload) && previous.latest_addr==old_addr);
-  cut=-1;reboot();bms_parameters_init();assert(bms_protection_params_valid());
- }
- puts("PASS CFG2 upgrade: all 44 legacy slot positions preserve the latest sector across interrupted conversion");
+ /* 不解析 CFG2：旧数据正常启动禁止输出，明确出厂包直接恢复默认。 */
+ fresh();memset(flash,255,4u*4096u);flash[0]=0x32u;
+ reboot();u32 count=programs;bms_parameters_init();
+ assert(!bms_protection_params_valid() && programs==count);
+ test_ota_mask=BMS_OTA_FACTORY_RESET_MASK;
+ reboot();bms_parameters_init();
+ assert(bms_protection_params_valid() && g_bms_config.system.capacity_factory==1000u);
+
+ /* 出厂事务已写入 pending 但未完成 State，普通镜像不能绕过该标记。 */
+ fresh();custom=configured();assert(bms_config_save_cache(&custom));
+ test_ota_mask=BMS_OTA_FACTORY_RESET_MASK;
+ reboot();cut=448;bms_parameters_init();assert(!bms_protection_params_valid());
+ test_ota_mask=0u;reboot();bms_parameters_init();assert(!bms_protection_params_valid());
+ test_ota_mask=BMS_OTA_FACTORY_RESET_MASK;
+ reboot();bms_parameters_init();assert(bms_protection_params_valid());
+ puts("PASS factory reset: all 1189 cut points, Config/State/Event defaults, idempotence, legacy reject and pending fail-closed");
 }
 
 static void test_merged_profile(void)
 {
- test_previous_format_defaults();
- test_previous_format_slot_geometry();
+ test_factory_reset();
  fresh();bms_soc_profile_config_t old,next;
  bms_config_get_soc_profile(&old);next=old;
  next.current_deadband_ma=321u;++next.profile_version;
