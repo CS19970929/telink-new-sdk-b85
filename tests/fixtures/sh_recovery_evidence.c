@@ -182,9 +182,7 @@ int main(void) {
 #elif defined(ATOMIC_TEST)
 int main(void) {
     bms_afe_aux_measurements_t aux;
-#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     bms_afe_feature_snapshot_t snap;
-#endif
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     bms_afe_driver_init();
     for(unsigned i=0;i<8;++i)sample();
@@ -221,9 +219,7 @@ int main(void) {
         device.bstatus2=0u;
         assert(!bms_afe_driver_get_aux_measurements(&aux));
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
-#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
         assert(!bms_afe_driver_get_feature_snapshot(&snap));
-#endif
     }
     /* 硬件 OCC 需要的 C+ 读取失败仍使整帧失效并关闭两路 MOS。 */
     fail_stage=0;sample();sample();
@@ -243,20 +239,14 @@ int main(void) {
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
     }
     bad_cell=-1;sample();sample();
-#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     unsigned reads=read_stage;
     assert(bms_afe_driver_get_feature_snapshot(&snap) && snap.battery_temp_valid);
     assert(read_stage==reads && snap.cell_count==SH3673510_BOARD_CELL_COUNT);
-#endif
     for(unsigned i=SH3673510_BOARD_CELL_COUNT;i<32;++i)assert(g_bms_report.cell_voltage_mv[i]==61001);
     invalid_ntc=SH3673510_BOARD_BAT_NTC1_INDEX;sample();
-#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     assert(bms_afe_driver_get_feature_snapshot(&snap) && !snap.battery_temp_valid);
-#endif
     device.flag1=SH3673520_FLAG1_RST1_MASK;sample();
-#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     assert(!bms_afe_driver_get_feature_snapshot(&snap));
-#endif
     puts("Required read/cell failures remain atomic; healthy heater-free products skip unused C+ reads");
     return 0;
 }

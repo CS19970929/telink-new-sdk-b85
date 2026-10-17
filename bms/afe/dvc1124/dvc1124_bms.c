@@ -543,8 +543,6 @@ uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
     dvc1124_snapshot_t s;
     dvc1124_config_t cfg;
-    uint16_t bat1;
-    uint16_t bat2;
 
     if (out == 0) return 0u;
     memset(out, 0, sizeof(*out));
@@ -555,16 +553,8 @@ uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
     out->cell_count = cfg.cell_count;
 
     /* HS-D008 温度职责：GP1 加热 MOS，GP2/GP3 电池，GP4 功率 MOS。 */
-    if (dvc_configured_ntc_valid(&s, DVC1124_DEFAULT_BATTERY_NTC_GP) &&
-        dvc_configured_ntc_valid(&s, DVC1124_DEFAULT_BATTERY_NTC2_GP))
-    {
-        bat1 = dvc_get_configured_temperature(DVC1124_DEFAULT_BATTERY_NTC_GP);
-        bat2 = dvc_get_configured_temperature(DVC1124_DEFAULT_BATTERY_NTC2_GP);
-        out->battery_temp_valid = 1u;
-        out->battery_temp_min_x10 = (bat1 <= bat2) ? bat1 : bat2;
-        out->battery_temp_max_x10 = (bat1 >= bat2) ? bat1 : bat2;
-    }
-
+    out->battery_temp_valid = dvc_get_battery_temperature_range(&s,
+        &out->battery_temp_min_x10, &out->battery_temp_max_x10);
     if (dvc_configured_ntc_valid(&s, DVC1124_DEFAULT_HEATER_NTC_GP))
     {
         out->heater_temp_valid = 1u;

@@ -915,7 +915,6 @@ uint8_t bms_afe_driver_get_charge_source_present(uint8_t *present)
 #endif
 
 /* 取得均衡和温度策略需要的后端快照。 */
-#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
 uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
     if (out == 0) return 0u;
@@ -934,7 +933,6 @@ uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 #endif
     return 1u;
 }
-#endif
 
 /* 取得后端辅助测量与有效性。 */
 uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *m)

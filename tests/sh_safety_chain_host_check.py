@@ -24,6 +24,8 @@ int main(void){
  bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
  for(unsigned i=0;i<10;i++)sample();
  assert(bms_afe_samples_qualified() && command_c && command_d);
+ bms_afe_feature_snapshot_t temperature;
+ assert(bms_afe_get_feature_snapshot(&temperature) && temperature.battery_temp_valid);
  bad_cell=0;bad_cell_mv=3750;
  sample();assert(command_c && command_d);
  sample();assert(!command_c && command_d && bms_sw_protection_charge_blocked());
@@ -37,10 +39,12 @@ int main(void){
  for(unsigned i=0;i<12;i++)sample();assert(command_c && command_d);
  bad_cell=0;bad_cell_mv=3000;sample();sample();assert(command_c && !command_d);
  invalid_ntc=SH3673510_BOARD_BAT_NTC1_INDEX;sample();assert(!command_c && !command_d);
+ assert(bms_afe_get_feature_snapshot(&temperature) && !temperature.battery_temp_valid);
  invalid_ntc=-1;bad_cell=-1;
  for(unsigned i=0;i<10;i++)sample();assert(command_c && command_d);
  device.flag2=SH3673520_FLAG2_VADC_MASK;
  sample();sample();sample();assert(!command_c && !command_d && !bms_afe_samples_qualified());
+ assert(!bms_afe_get_feature_snapshot(&temperature));
  puts("PASS 实际 SH 采样/guard/SW 保护/最终 FET 命令：OV、UV、并发 SC、NTC 无效、ADC 过期、tick 回绕");return 0;
 }
 '''

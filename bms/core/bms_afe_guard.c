@@ -410,13 +410,9 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 /* 取得公共功能所需的后端采样快照。 */
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s)
 {
-#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
+    /* SOC 同样消费电池温度；测量有效性不能由加热/均衡能力裁剪。 */
     if (!s || !runtime_access_allowed()) return 0u;
     return bms_afe_driver_get_feature_snapshot(s);
-#else
-    if (s) memset(s, 0, sizeof(*s));
-    return 0u;
-#endif
 }
 
 /* 取得后端可验证的充电源存在状态。 */

@@ -159,3 +159,5 @@ python bms_tools/bms.py --product d014 resources
 - [历史协议测试向量 JSON](tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/docs/protocol_test_vectors.json)
 
 新增或删除项目文档时必须同步本 README，并检查链接。当前说明按职责维护，历史结果注明日期/提交；过时阶段报告通过 Git 历史追溯。Git 提交信息和 PR 说明使用中文。
+
+- [2026-10-17 全工程审查与分轮简化](docs/BMS_SIMPLIFICATION_REVIEW_20261017.md)
