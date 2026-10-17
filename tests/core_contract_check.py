@@ -83,8 +83,8 @@ def check_sw_protection_contract_check():
     # current dropping to zero after FET shutdown cannot immediately clear the fault.
     for token in (
         "static uint8_t bms_sw_temp_filter_update",
-        "charge_current_present = (measurements->charge_a10 > 0u)",
-        "discharge_current_present = (measurements->discharge_a10 > 0u)",
+        "charge_current_present = (measurements->charge_current_a10 > 0u)",
+        "discharge_current_present = (measurements->discharge_current_a10 > 0u)",
         "if (!active && !trip_enabled)",
         "*count = 0u;",
         "charge_current_present, inputs->battery_temp_max",

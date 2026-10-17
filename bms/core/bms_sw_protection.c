@@ -106,57 +106,36 @@ static uint8_t bms_sw_filter_update(uint16_t *count, uint8_t active,
                                     uint8_t use_recovery)
 {
     uint16_t required;
-    uint8_t violated;
-    uint8_t recovered;
+    uint8_t matched;
 
     if (count == 0) return 0u;
-    if (trip == 0u)
-    {
+    if (trip == 0u) {
         *count = 0u;
         return 0u;
     }
 
     required = bms_sw_filter_samples(filter_10ms);
-    if (active)
-    {
-        if (use_recovery)
-            recovered = (direction == BMS_SW_HIGH) ?
-                        (value <= recover) : (value >= recover);
-        else
-            recovered = (direction == BMS_SW_HIGH) ?
-                        (value < trip) : (value > trip);
-        if (recovered)
-        {
-            if (*count < required) ++*count;
-            if (*count >= required) {
-                *count = 0u;
-                active = 0u;
-            }
+    if (active) {
+        matched = use_recovery ?
+            ((direction == BMS_SW_HIGH) ? (value <= recover) : (value >= recover)) :
+            ((direction == BMS_SW_HIGH) ? (value < trip) : (value > trip));
+        if (!matched) {
+            *count = 0u; /* 恢复证据必须连续。 */
+            return 1u;
         }
-        else
-        {
-            *count = 0u;
+    } else {
+        matched = (direction == BMS_SW_HIGH) ? (value >= trip) : (value <= trip);
+        if (!matched) {
+            if (*count != 0u) --(*count); /* 触发保留原有漏积分去抖。 */
+            return 0u;
         }
-        return active;
     }
 
-    violated = (direction == BMS_SW_HIGH) ?
-               (value >= trip) : (value <= trip);
-    if (violated)
-    {
-        if (*count < required) ++*count;
-        if (*count >= required)
-        {
-            active = 1u;
-            *count = 0u;
-        }
-    }
-    else if (*count != 0u)
-    {
-        /* 保留 D011/D013 既有漏积分去抖，不因一个正常样本就清越限累计。 */
-        --*count;
-    }
-    return active;
+    /* 触发与恢复共用一次计数/状态转换；活动位仍由调用方写回私有故障字。 */
+    if (*count < required) ++(*count);
+    if (*count < required) return active;
+    *count = 0u;
+    return active ? 0u : 1u;
 }
 
 /*
@@ -330,11 +309,6 @@ void bms_sw_protection_update(const bms_sw_protection_inputs_t *inputs)
     bms_sw_protection_update_groups(inputs, 1u, 1u);
 }
 
-typedef struct {
-    uint16_t cell_max_mv, cell_min_mv, cell_delta_mv;
-    uint16_t pack_voltage_10mv, charge_a10, discharge_a10;
-} bms_sw_measurements_t;
-
 /* 结合物理恢复证据推进电流保护触发与解除滤波。 */
 static uint8_t bms_sw_current_filter_update(uint16_t *count, uint8_t active,
     uint16_t value, uint16_t trip, uint16_t recover, uint16_t filter_10ms,
@@ -353,19 +327,27 @@ static uint8_t bms_sw_current_filter_update(uint16_t *count, uint8_t active,
                                 BMS_SW_HIGH, third);
 }
 
-/* 以输入快照评估各组软件保护并更新故障状态。 */
-static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
-                            const bms_protection_params_t *p,
-                            const bms_sw_measurements_t *measurements,
-                            uint8_t voltage_current_enabled,
-                            uint8_t temperature_enabled)
+/* 主循环同步评估：测量由后端在调用前发布，ISR不修改这些字段。
+ * 本函数及其滤波/错误调用只写故障状态，不需要再复制一份测量视图。 */
+void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
+                                     uint8_t voltage_current_enabled,
+                                     uint8_t temperature_enabled)
 {
+    const bms_protection_params_t *p = &g_bms_protection_params;
+    const bms_report_t *measurements = &g_bms_report;
     uint8_t level;
     uint8_t charge_current_present;
     uint8_t discharge_current_present;
 
-    charge_current_present = (measurements->charge_a10 > 0u) ? 1u : 0u;
-    discharge_current_present = (measurements->discharge_a10 > 0u) ? 1u : 0u;
+    if (inputs == 0) return;
+    s_current_recovery_requires_evidence = inputs->current_recovery_requires_evidence;
+    if (!bms_protection_params_valid()) {
+        bms_sw_protection_clear();
+        return;
+    }
+
+    charge_current_present = (measurements->charge_current_a10 > 0u) ? 1u : 0u;
+    discharge_current_present = (measurements->discharge_current_a10 > 0u) ? 1u : 0u;
 
     /*
      * 系统仍按温度断线保持故障安全，但每个温度保护分组只使用自身传感器。
@@ -410,7 +392,7 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             trip = bms_sw_level_value(level, p->charge_ocp_first_a10,
                                       p->charge_ocp_second_a10, p->charge_ocp_third_a10);
             f->bits.charge_ocp = bms_sw_current_filter_update(&s_filter_count[level][BMS_SW_F_CHG_OC], f->bits.charge_ocp,
-                measurements->charge_a10, trip, p->charge_ocp_recover_a10,
+                measurements->charge_current_a10, trip, p->charge_ocp_recover_a10,
                 p->charge_ocp_filter_10ms, level == 2u, inputs->charge_recovery_allowed,
                 inputs->charge_recovery_immediate,
                 inputs->current_recovery_sample_fresh);
@@ -418,7 +400,7 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             trip = bms_sw_level_value(level, p->discharge_ocp_first_a10,
                                       p->discharge_ocp_second_a10, p->discharge_ocp_third_a10);
             f->bits.discharge_ocp = bms_sw_current_filter_update(&s_filter_count[level][BMS_SW_F_DSG_OC], f->bits.discharge_ocp,
-                measurements->discharge_a10, trip, p->discharge_ocp_recover_a10,
+                measurements->discharge_current_a10, trip, p->discharge_ocp_recover_a10,
                 p->discharge_ocp_filter_10ms, level == 2u, inputs->discharge_recovery_allowed,
                 inputs->discharge_recovery_immediate,
                 inputs->current_recovery_sample_fresh);
@@ -502,7 +484,7 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
             f->bits.cell_delta_high = bms_sw_filter_update(&s_filter_count[level][BMS_SW_F_VDELTA], f->bits.cell_delta_high,
                 measurements->cell_delta_mv, trip, p->cell_delta_recover_mv,
                 p->cell_delta_filter_10ms, BMS_SW_HIGH, level == 2u);
-        } else if (!voltage_current_enabled) {
+        } else {
             s_filter_count[level][BMS_SW_F_VDELTA] = 0u;
             f->bits.cell_delta_high = 0u;
         }
@@ -510,29 +492,6 @@ static void bms_sw_evaluate(const bms_sw_protection_inputs_t *inputs,
         bms_sw_clear_managed_bits(bms_sw_fault_reg(level));
         bms_sw_fault_reg(level)->all |= f->all;
     }
-}
-
-/* 主循环边界取一次测量视图，再评估只读输入；参数只由主循环候选提交所有者发布。 */
-void bms_sw_protection_update_groups(const bms_sw_protection_inputs_t *inputs,
-                                     uint8_t voltage_current_enabled,
-                                     uint8_t temperature_enabled)
-{
-    bms_sw_measurements_t measurements;
-    if (inputs == 0) return;
-    s_current_recovery_requires_evidence = inputs->current_recovery_requires_evidence;
-    if (!bms_protection_params_valid())
-    {
-        bms_sw_protection_clear();
-        return;
-    }
-    measurements.cell_max_mv = g_bms_report.cell_max_mv;
-    measurements.cell_min_mv = g_bms_report.cell_min_mv;
-    measurements.cell_delta_mv = g_bms_report.cell_delta_mv;
-    measurements.pack_voltage_10mv = g_bms_report.pack_voltage_10mv;
-    measurements.charge_a10 = g_bms_report.charge_current_a10;
-    measurements.discharge_a10 = g_bms_report.discharge_current_a10;
-    bms_sw_evaluate(inputs, &g_bms_protection_params, &measurements,
-                    voltage_current_enabled, temperature_enabled);
 }
 
 /* 持久故障历史仅记录上升沿；运行日志同时记录发生和恢复位图，避免改变原历史语义。 */

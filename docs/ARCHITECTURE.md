@@ -35,7 +35,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | 软件保护参数 `g_bms_protection_params` | `bms_parameters.c` 的 bms_parameters_init / bms_protection_params_commit；通信先构造候选 | 无效参数不授权输出；普通 bms_protection_params_commit 不解除 Config 启动失败；State/Event 故障降级报错 |
 | 持久 Config 和 OTA 执行标记 | `bms_config_store.c` 的 get/set/default/update | 参数和标记一起提交，候选成功落盘后才替换 cache |
 | AFE requested/effective、apply-state | `bms_afe_hw_profile.c`，独立授权/提交接口 | apply/readback 失败回滚；回滚失败 CONFIG_INCONSISTENT |
-| 三等级软件故障 | `bms_sw_protection.c` 私有故障字；SOC Low 在 `bms_soc.c` | 仅在报告边界合并硬件故障，SW 阻断查询只读私有来源 |
+| 三等级软件故障 | `bms_sw_protection.c` 私有故障字唯一保存活动位，滤波数组只存计数；SOC Low 在 `bms_soc.c` | 仅在报告边界合并硬件故障，SW 阻断查询只读私有来源；保护同步读取主循环发布的测量 |
 | AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | watchdog bus silence、重配、三次合格样本；失效不能以旧样本恢复 |
 | AFE 实际 FET 回读及有效性 | backend 经 `bms_afe_publish_fet_status()` 发布，`bms_afe_guard.c` 保存 | 命令变化、通信失效、输出撤销后立即作废；标准协议不依赖开发诊断缓存，也不把寄存器状态宣称为实测 Gate |
 | 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
