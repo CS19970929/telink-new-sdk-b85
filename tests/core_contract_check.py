@@ -347,10 +347,10 @@ def check_soc_contract_check():
             ocv_fn = C[C.index("static uint8_t soc_idle_ocv_tracking"):C.index("static uint16_t soc_discharge_natural_1pct_ticks")]
             self.assertNotIn("soc_step_up_to", ocv_fn)
 
-        def test_display_soc_is_separate(self):
-            self.assertIn("static uint8_t g_soc_display_soc", C)
+        def test_display_soc_has_one_owner_and_retains_step_policy(self):
+            self.assertNotIn("g_soc_display_soc", C)
             self.assertIn("SOC_DISPLAY_STEP_TICKS              SOC_TICKS_PER_SECOND", C)
-            self.assertIn("g_bms_report.soc.soc_percent = g_soc_display_soc;", C)
+            self.assertIn("g_bms_report.soc.soc_percent = soc_limit_percent_u32(soc);", C)
 
         def test_endpoints_and_lfp_terminal_knee_are_chemistry_specific(self):
             self.assertIn("g_bms_report.fault_third.bits.cell_ovp", APP)

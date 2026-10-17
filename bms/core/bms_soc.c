@@ -129,7 +129,7 @@ static int32_t g_soc_input_current_ma;
 static uint32_t g_soc_sample_tick_32k;
 static uint32_t g_soc_strategy_pending_32k;
 static uint8_t g_soc_input_valid;
-static uint8_t g_soc_display_soc = (uint8_t)BMS_STATE_DEFAULT_SOC;
+/* 显示值唯一保存在公共报告中；只有本模块初始化和步进函数写入。 */
 static uint8_t g_soc_display_step_ticks;
 static uint8_t g_soc_initialized;
 static bms_soc_config_t g_soc_config = {
@@ -378,7 +378,7 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->profile_id = g_soc_profile->profile_id;
     diag->profile_version = g_soc_profile->profile_version;
     diag->soc_estimate = g_bms_soc.soc_estimate_percent;
-    diag->soc_display = g_soc_display_soc;
+    diag->soc_display = (uint8_t)g_bms_report.soc.soc_percent;
     diag->current_deadband_ma = g_soc_config.current_deadband_ma;
     diag->ocv_state = g_soc_runtime.ocv_state;
     diag->ocv_center = g_soc_runtime.ocv_center;
@@ -474,9 +474,8 @@ uint8_t get_soc_real(void)
 /* 设置显示 SOC 并限制合法范围。 */
 static void set_dispsoc(uint8_t soc)
 {
-    g_soc_display_soc = soc_limit_percent_u32(soc);
+    g_bms_report.soc.soc_percent = soc_limit_percent_u32(soc);
     g_soc_display_step_ticks = 0u;
-    g_bms_report.soc.soc_percent = g_soc_display_soc;
 }
 
 /* 按确认节拍使显示 SOC 跟随真实 SOC。 */
@@ -484,7 +483,7 @@ static void soc_display_follow_real(void)
 {
     uint8_t real_soc = get_soc_real();
     uint8_t step_ticks = SOC_DISPLAY_STEP_TICKS;
-    if (g_soc_display_soc == real_soc) {
+    if (g_bms_report.soc.soc_percent == real_soc) {
         g_soc_display_step_ticks = 0u;
         return;
     }
@@ -499,8 +498,8 @@ static void soc_display_follow_real(void)
     if (g_soc_display_step_ticks < step_ticks) return;
     g_soc_display_step_ticks = 0u;
 
-    if (g_soc_display_soc < real_soc) g_soc_display_soc++;
-    else g_soc_display_soc--;
+    if (g_bms_report.soc.soc_percent < real_soc) g_bms_report.soc.soc_percent++;
+    else g_bms_report.soc.soc_percent--;
 }
 
 /* 取得名义容量，单位为 0.1 Ah。 */
@@ -1282,7 +1281,7 @@ static void soc_strategy_update(const bms_soc_sample_t *sample)
      */
     g_soc_runtime.endpoint_state =
         (g_soc_runtime.full_anchor_latched && get_soc_real() == SOC_PERCENT_MAX &&
-         g_soc_display_soc < SOC_PERCENT_MAX) ?
+         g_bms_report.soc.soc_percent < SOC_PERCENT_MAX) ?
         BMS_SOC_ENDPOINT_CONFIRMED_FULL : BMS_SOC_ENDPOINT_NORMAL;
     soc_update_discharge_sag_hold(dir, current_a10);
 
@@ -1360,7 +1359,6 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
 static void SOC_Result_Pass(void)
 {
     soc_display_follow_real();
-    g_bms_report.soc.soc_percent = g_soc_display_soc;
     g_bms_report.soc.soh_percent = g_bms_soc.soh;
     g_bms_report.soc.cycle_count = (uint16_t)soc_limit_cycle_u32(g_bms_soc.cycle_count);
 
@@ -1539,7 +1537,7 @@ void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_t
     if (!s_board_started) {
         if (!sample->sample_valid || !sample->voltage_valid) return;
         s_board_saved_soc=g_bms_soc;
-        s_board_saved_display=g_soc_display_soc;
+        s_board_saved_display=(uint8_t)g_bms_report.soc.soc_percent;
         s_board_started=1u;
         new_case=1u;
     } else if (s_board_case < SOC_BOARD_CASE_COUNT &&

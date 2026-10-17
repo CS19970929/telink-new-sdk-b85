@@ -27,6 +27,17 @@ ETA、OCV 展示字段和端点事件标志只在现有
 修改前保存的业务输出一致。严格编译发现关闭诊断后的局部变量无消费者，已同步裁剪；
 未降低 `-Werror`。成功日志在树外 `step1-ok/`，初次失败日志保留在 `step1/`。
 
+## 第二步：显示 SOC 单一所有者
+
+第二步将显示 SOC 唯一保存在 `g_bms_report.soc.soc_percent`，删除私有镜像和周期复制。
+`set_dispsoc()` 初始化/设置，`soc_display_follow_real()` 按原节拍修改；诊断、满充显示
+资格和板测保存均读同一字段。生产没有其它字段写入者或运行中清零报告的入口；
+启动在开放通信前完成 `soc_param_lib_init()`。报告结构、协议字段宽度不变。
+
+第二步四产品相关 SOC host 再次通过，七天 CSV、三种诊断宏共同业务轨迹及 D008
+修改前业务轨迹逐字节一致，包含满充显示到 100% 和板测状态恢复。D014 core contract
+通过；终态再按四产品执行相关 contract。成功日志在树外 `step1-step2/`。
+
 ## 验证与证据约定
 
 基线已在干净提交上完成四产品 development/production ELF/MAP/resources，
