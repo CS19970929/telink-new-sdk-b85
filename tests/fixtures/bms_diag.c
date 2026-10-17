@@ -15,6 +15,8 @@ typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define BMS_AFE_HW_ACCESS_MODBUS_FUNC 0x42u
 #define BMS_AFE_HW_REQUESTED_REG_BASE 0x2500u
 #define BMS_AFE_HW_PROFILE_WORD_COUNT 35u
+#define BMS_AFE_HW_REQUESTED_REG_COUNT 44u
+#define BMS_AFE_HW_META_VALID 0x2524u
 #define BMS_AFE_HW_EFFECTIVE_REG_BASE 0x2540u
 #define BMS_AFE_HW_EFFECTIVE_REG_COUNT BMS_AFE_HW_PROFILE_WORD_COUNT
 #define BTNAME_REG_BASE 0x100u
@@ -40,6 +42,17 @@ static int afe_hw_profile_is_reg(u16 r){return 0;}
 static int read_address_supported(u16 r){return r>=0x2100 && r<=0x2140;}
 static u8 bms_parameter_write(u16 r,u16 n,const u8*p){writes++;return 0;}
 static int btname_modbus_on_write_holding(u16 a,u16 n,const u16*p){writes++;return 1;}
+/* 真实 ingress 新增的只读依赖；保持副作用计数，不替换被测诊断逻辑。 */
+#define BMS_AFE_ACTUAL_REG_BASE 0x2180u
+#define BMS_AFE_ACTUAL_REG_COUNT 24u
+typedef struct {u16 words[24];} sh3673510_protection_actual_t;
+static int afe_hw_profile_is_requested_reg(u16 r){return r>=BMS_AFE_HW_REQUESTED_REG_BASE&&r<BMS_AFE_HW_REQUESTED_REG_BASE+BMS_AFE_HW_PROFILE_WORD_COUNT;}
+static u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t*p){reads++;memset(p,0,sizeof(*p));return 1u;}
+static u16 afe_hw_profile_read_reg(u16 r,const bms_afe_hw_profile_t*p,u8 valid){reads++;return valid?p->words[(r-BMS_AFE_HW_REQUESTED_REG_BASE)%BMS_AFE_HW_PROFILE_WORD_COUNT]:0xffffu;}
+static u8 sh3673510_control_get_protection_actual(sh3673510_protection_actual_t*p){reads++;memset(p,0,sizeof(*p));return 1u;}
+static u16 read_afe_actual_reg(u16 r,const sh3673510_protection_actual_t*p,u8 valid){reads++;return valid?p->words[r%24u]:0xffffu;}
+static int bms_parameter_readable(u16 r){(void)r;return 0;}
+static int bms_parameter_read_block(u16 r,u16 n,u8*p){(void)r;(void)n;(void)p;reads++;return 0;}
 /* MODBUS */
 static u32 request(u8*q,u8 addr,u8 f,u16 start,u16 count){
  q[0]=addr;q[1]=f;put_u16be(q+2,start);put_u16be(q+4,count);

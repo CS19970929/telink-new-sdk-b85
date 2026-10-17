@@ -274,6 +274,12 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
         }
     }
     if (!found) {
+        /* 头部为空不能证明整区为空：损坏可能只留下 payload 或扇区尾部。 */
+        if (s->load_status == STORAGE_RECORD_LOAD_EMPTY) {
+            valid = is_erased(s, s->region.base, s->region.size);
+            if (valid < 0) goto io_error;
+            if (!valid) s->load_status = STORAGE_RECORD_LOAD_CORRUPT;
+        }
         s->latest_addr = INVALID_ADDR;
         s->next_sequence = 1u;
         s->has_latest = 0u;

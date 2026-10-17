@@ -293,7 +293,7 @@ for symbol in (
     require_count(bms, symbol)
 require_count(modbus, "#define BMS_AFE_ACTUAL_REG_BASE  0x2180u")
 require_count(modbus, "#define BMS_AFE_ACTUAL_REG_COUNT 11u")
-require_count(modbus, "static u16 read_afe_actual_reg(u16 reg);")
+require_count(modbus, "static u16 read_afe_actual_reg(u16 offset, const sh3673510_protection_actual_t *actual, u8 valid);")
 
 
 # Function-level safety invariants that text-level dedupe must not destroy.

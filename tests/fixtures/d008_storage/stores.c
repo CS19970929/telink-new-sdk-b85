@@ -258,13 +258,22 @@ static void test_config_schema(void){
  /* A committed, CRC-valid payload belonging to another board is rejected. */
  u8 payload[BMS_CONFIG_PAYLOAD_BYTES];bms_config_encode(&next,payload);
  bms_config_put_u32le(payload,14u);assert(storage_record_save(&g_bms_config_store,payload));
- reboot();assert(bms_config_store_init());assert(!g_bms_config_store.has_latest);
- assert(g_bms_config.protect.cell_ovp_third_mv==0);assert(bms_config_store_validate_startup());
+ reboot();u32 written=programs;assert(!bms_config_store_init());
+ assert(!bms_config_store_validate_startup() && programs==written);
  /* Older schema/magic is never decoded into the new structure. */
  fresh();memset(flash,255,4*4096);reboot();assert(bms_config_store_init());
  g_bms_config_store.magic=0x43464731u;assert(bms_config_save_cache(&next));
- reboot();assert(bms_config_store_init());assert(!g_bms_config_store.has_latest);
- assert(g_bms_config.protect.cell_ovp_third_mv==0);
+ reboot();assert(!bms_config_store_init());
+ assert(!bms_config_store_validate_startup());
+ /* 无有效记录时，CRC 损坏和只剩 payload/尾部均不得当作出厂空白。 */
+ for(unsigned mode=0;mode<3u;++mode){
+  fresh();memset(flash,255,4u*4096u);
+  if(mode==0u)flash[32u]=0u;
+  if(mode==1u)flash[4u*4096u-1u]=0u;
+  if(mode==2u){bms_config_encode(&next,payload);assert(storage_record_save(&g_bms_config_store,payload));flash[g_bms_config_store.latest_addr+16u]^=1u;}
+  reboot();written=programs;bms_parameters_init();
+  assert(!bms_protection_params_valid() && !g_bms_config_ready && programs==written);
+ }
  puts("PASS Config: new schema, all byte cuts, atomic rollback, product isolation, old format rejection");
 }
 

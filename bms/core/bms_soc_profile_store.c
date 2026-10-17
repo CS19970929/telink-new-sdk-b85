@@ -26,13 +26,16 @@ static const bms_soc_profile_config_t *profile_for_chemistry(uint8_t chemistry)
 void bms_soc_profile_store_defaults(uint8_t chemistry, bms_soc_profile_config_t *config)
 {
     const bms_soc_profile_config_t *profile = profile_for_chemistry(chemistry);
-    if (config && profile) *config = *profile;
+    if (!config) return;
+    memset(config, 0, sizeof(*config));
+    if (profile) *config = *profile;
 }
 
 int bms_soc_profile_store_valid(const bms_soc_profile_config_t *c)
 {
     uint16_t i;
-    if (!c || !profile_for_chemistry((uint8_t)c->chemistry) ||
+    if (!c || (c->chemistry != BMS_SOC_CHEMISTRY_LFP &&
+               c->chemistry != BMS_SOC_CHEMISTRY_NMC) ||
         c->profile_id != c->chemistry || c->profile_version == 0u ||
         c->point_count < 2u || c->point_count > BMS_SOC_PROFILE_MAX_POINTS ||
         c->current_deadband_ma > 2000u ||

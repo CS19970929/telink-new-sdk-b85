@@ -569,7 +569,8 @@ int bms_config_store_init(void)
         }
         g_bms_config_needs_save = bms_config_apply_update_policy(&g_bms_config);
     } else {
-        if (g_bms_config_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
+        /* 只有整区空白才是首次制造；损坏、异型号和旧格式均不得静默恢复默认。 */
+        if (g_bms_config_store.load_status != STORAGE_RECORD_LOAD_EMPTY) {
             bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID); return 0;
         }
         g_bms_config_store.has_latest = 0u;

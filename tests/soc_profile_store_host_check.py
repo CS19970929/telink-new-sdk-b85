@@ -38,6 +38,13 @@ void bms_error_raise(bms_error_id_t id) { (void)id; }
 int main(void) {
     assert(sizeof(bms_soc_profile_config_t)==100u && BMS_SOC_PROFILE_WORDS==50u);
     assert(!bms_soc_profile_store_current());
+    bms_soc_profile_config_t invalid;
+    memset(&invalid,0xa5,sizeof(invalid));
+    bms_soc_profile_store_defaults(255u,&invalid);
+    assert(!bms_soc_profile_store_valid(&invalid));
+    bms_soc_profile_store_defaults(1u,&invalid);invalid.chemistry=257u;
+    assert(!bms_soc_profile_store_valid(&invalid));
+    assert(!bms_soc_profile_store_reset(0u) && !bms_soc_profile_store_reset(255u));
     chemistry=0u;memset(flash,255,sizeof(flash));bms_soc_profile_store_init();
     assert(!bms_soc_profile_store_current()); /* AUTO 仍走算法回退，不能使用零点曲线。 */
     for(chemistry=1u;chemistry<=2u;++chemistry) {

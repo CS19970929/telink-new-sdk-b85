@@ -102,7 +102,7 @@ SOC/循环变化由主循环汇入待保存副本，检查点到期且编码改�
 | 产品/路径 | 进入条件与动作 | 持久化/恢复 |
 |---|---|---|
 | D008 普通 suspend | OTA/Flash/总线/样本门禁通过、有效电流绝对值小于 200 mA；BLE 连接事件间也允许；应用采样唤醒约 200 ms | RAM 保留，不为每次 suspend 擦写 |
-| D008 ACC 深睡 | 休眠宏开启时ACC高立即请求；等待事务结束和 BLE 断开；关广告，AFE shutdown；PC4 保持高 | State/Event 必须保存成功；ACC 低唤醒，完整 reboot；CHG_IN 不作为该路径唤醒源 |
+| D008 ACC 深睡 | 休眠宏开启时ACC高锁存请求；一次收尾后关广告，尽力 AFE shutdown；PC4 保持高 | State/Event 各尽力保存一次，失败不取消深睡；ACC 低唤醒，完整 reboot；CHG_IN 不作为该路径唤醒源 |
 | D008 显式断电 | `0x1102=0x000A` 锁存请求，应答空闲即执行，等待最多500ms；撤销输出并尽力shutdown，最后拉低PC4 | 非OTA且Flash可写时State/Event各尝试一次，保存/AFE/BLE失败不拒绝断电；一线通接入不阻止 |
 | D008 保护性断电 | 低压/AFE条件到期；通信、OTA、Flash不阻止 | State/Event尽力保存后拉低PC4，失败不能取消断电；详见保护性休眠策略 |
 | SH 三产品深睡 | 休眠宏开启时开关OFF立即提交、低压/AFE 到期或显式命令；提交后不被 UART、OTA、Flash、AFE 失败取消 | 非 OTA 且 Flash 可写时 State/Event 各尽力保存一次；失败不重试，SDK 返回仅重试深睡 |
@@ -110,8 +110,8 @@ SOC/循环变化由主循环汇入待保存副本，检查点到期且编码改�
 
 SH 固定 UART 禁睡宏已移除。低压阈值保持，详细进入、唤醒和失败处理见
 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。AFE/State/Event 失败不会使已提交的 SH
-请求返回正常业务。D008 普通 ACC 仍要求保存成功，显式命令和保护性低压/过放/AFE 入口
-不受保存失败阻止；以 [保护性休眠](LOW_POWER_POLICY.md) 当前策略为准。
+请求返回正常业务。D008 ACC、显式命令和保护性低压/过放/AFE 入口均不受保存失败阻止；
+以 [保护性休眠](LOW_POWER_POLICY.md) 和当前 `app_prepare_deep_sleep()` 为准。
 
 ## 验证与实板边界
 
