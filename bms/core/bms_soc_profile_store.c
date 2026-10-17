@@ -17,7 +17,7 @@ static uint16_t s_generation;
 static uint8_t s_writable;
 static uint8_t s_persisted;
 
-static const soc_profile_t *profile_for_chemistry(uint8_t chemistry)
+static const bms_soc_profile_config_t *profile_for_chemistry(uint8_t chemistry)
 {
     return chemistry == BMS_SOC_CHEMISTRY_LFP ? &g_soc_profile_lfp :
         chemistry == BMS_SOC_CHEMISTRY_NMC ? &g_soc_profile_nmc : 0;
@@ -25,34 +25,8 @@ static const soc_profile_t *profile_for_chemistry(uint8_t chemistry)
 
 void bms_soc_profile_store_defaults(uint8_t chemistry, bms_soc_profile_config_t *config)
 {
-    const soc_profile_t *profile = profile_for_chemistry(chemistry);
-    uint16_t i;
-    if (!config || !profile) return;
-    memset(config, 0, sizeof(*config));
-    config->chemistry = profile->chemistry;
-    config->profile_id = profile->profile_id;
-    config->profile_version = profile->profile_version;
-    config->point_count = profile->ocv_count;
-    config->current_deadband_ma = BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT;
-    config->ocv_rest_prepare_s = BMS_SOC_OCV_REST_PREPARE_S_DEFAULT;
-    config->ocv_error_band_percent = BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT;
-    config->valid_min_mv = profile->valid_min_mv;
-    config->valid_max_mv = profile->valid_max_mv;
-    config->full_sync_mv = profile->full_sync_mv;
-    config->full_min_margin_mv = profile->full_min_margin_mv;
-    config->empty_sync_mv = profile->empty_sync_mv;
-    config->empty_max_margin_mv = profile->empty_max_margin_mv;
-    config->ocv_min_error_band_percent = profile->ocv_min_error_band_percent;
-    config->full_cell_delta_max_mv = profile->full_cell_delta_max_mv;
-    config->terminal_cell_delta_max_mv = profile->terminal_cell_delta_max_mv;
-    config->terminal_start_offset_mv = profile->terminal_start_offset_mv;
-    config->terminal_l1_offset_mv = profile->terminal_l1_offset_mv;
-    config->terminal_l2_offset_mv = profile->terminal_l2_offset_mv;
-    config->terminal_l3_offset_mv = profile->terminal_l3_offset_mv;
-    for (i = 0u; i < profile->ocv_count && i < BMS_SOC_PROFILE_MAX_POINTS; ++i) {
-        config->points[i].mv = profile->ocv[i].mv;
-        config->points[i].soc_percent = profile->ocv[i].soc;
-    }
+    const bms_soc_profile_config_t *profile = profile_for_chemistry(chemistry);
+    if (config && profile) *config = *profile;
 }
 
 int bms_soc_profile_store_valid(const bms_soc_profile_config_t *c)
@@ -163,6 +137,13 @@ void bms_soc_profile_store_init(void)
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
     }
     s_writable = 1u;
+}
+
+/* 仅存储模块可发布此对象；stage 和失败候选均不影响它。 */
+const bms_soc_profile_config_t *bms_soc_profile_store_current(void)
+{
+    /* AUTO 没有独立默认曲线，保留算法按产品/OVP 选择的回退。 */
+    return s_generation && s_config.point_count >= 2u ? &s_config : 0;
 }
 
 void bms_soc_profile_store_get(bms_soc_profile_config_t *config)

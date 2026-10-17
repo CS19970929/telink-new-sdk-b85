@@ -41,6 +41,9 @@ typedef struct {
 void bms_soc_profile_store_init(void);
 void bms_soc_profile_store_defaults(uint8_t chemistry, bms_soc_profile_config_t *config);
 int bms_soc_profile_store_valid(const bms_soc_profile_config_t *config);
+/* main-loop 同步只读视图；对象地址固定，init/set/reset 成功后内容可变。
+ * 消费者用 generation 识别发布，不持有 stage；不得跨并发写入使用。 */
+const bms_soc_profile_config_t *bms_soc_profile_store_current(void);
 void bms_soc_profile_store_get(bms_soc_profile_config_t *config);
 int bms_soc_profile_store_set(const bms_soc_profile_config_t *config);
 int bms_soc_profile_store_reset(uint8_t chemistry);

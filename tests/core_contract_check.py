@@ -300,12 +300,13 @@ def check_soc_contract_check():
         def test_dual_chemistry_profiles_are_data_not_algorithm(self):
             self.assertIn("BMS_SOC_CHEMISTRY_LFP", DEFS)
             self.assertIn("BMS_SOC_CHEMISTRY_NMC", DEFS)
-            self.assertIn("g_soc_ocv_lfp", PROFILE)
-            self.assertIn("g_soc_ocv_nmc", PROFILE)
+            self.assertIn("g_soc_profile_lfp", PROFILE)
+            self.assertIn("g_soc_profile_nmc", PROFILE)
             self.assertIn("BMS_SOC_PROFILE_GENERIC_LFP_VERSION", PROFILE)
             self.assertIn("BMS_SOC_PROFILE_GENERIC_NMC_VERSION", PROFILE)
-            self.assertNotIn("static const soc_ocv_point_t g_soc_ocv_lfp", C)
-            self.assertNotIn("static const soc_ocv_point_t g_soc_ocv_nmc", C)
+            self.assertNotIn("s_persisted_ocv", C)
+            self.assertNotIn("s_persisted_profile", C)
+            self.assertIn("bms_soc_profile_store_current()", C)
             self.assertIn("SOC_AUTO_LFP_OVP_MAX_MV              3900u", C)
 
         def test_product_chemistry_and_profile_are_config_fields(self):
@@ -316,7 +317,7 @@ def check_soc_contract_check():
             self.assertIn("system->battery_chemistry = BMS_PRODUCT_CHEMISTRY", CONFIG_C)
             self.assertIn("system->soc_profile_id = BMS_PRODUCT_SOC_PROFILE_ID", CONFIG_C)
             self.assertIn("bms_config_store_get_system", CONFIG_C)
-            self.assertIn("bms_soc_configure", C)
+            self.assertIn("bms_soc_reload_configuration", C)
             self.assertIn("bms_config_store_get_soc(&g_soc_config)", C)
             self.assertNotIn("BMS_COLD_SYSTEM_KEY_BASE", CONFIG_C)
 
@@ -330,7 +331,8 @@ def check_soc_contract_check():
             load = function(C, "void soc_param_lib_init(")
             self.assertIn("bms_config_store_get_soc(&g_soc_config)", load)
             self.assertNotIn("SOC_KV_KEY_", load)
-            self.assertIn("bms_config_store_set_soc(config)", C)
+            self.assertNotIn("bms_config_store_set_soc(", C)
+            self.assertIn("!bms_soc_config_valid(&config)", C)
 
         def test_coulomb_integration_and_deadband(self):
             # 积分时间行为由 d008_power_soc_host_check 的实际时间场景验证。
@@ -355,8 +357,11 @@ def check_soc_contract_check():
         def test_endpoints_and_lfp_terminal_knee_are_chemistry_specific(self):
             self.assertIn("g_bms_report.fault_third.bits.cell_ovp", APP)
             self.assertIn("g_bms_report.fault_third.bits.cell_uvp", APP)
-            self.assertIn("150u, 100u, 50u, 20u", PROFILE)
-            self.assertIn("300u, 200u, 150u, 50u", PROFILE)
+            for value in (".terminal_start_offset_mv = 150u", ".terminal_l1_offset_mv = 100u",
+                          ".terminal_l2_offset_mv = 50u", ".terminal_l3_offset_mv = 20u",
+                          ".terminal_start_offset_mv = 300u", ".terminal_l1_offset_mv = 200u",
+                          ".terminal_l2_offset_mv = 150u", ".terminal_l3_offset_mv = 50u"):
+                self.assertIn(value, PROFILE)
 
         def test_upward_calibration_requires_confirmed_charging_full_anchor(self):
             start = C.index("static uint8_t soc_apply_full_anchor(")

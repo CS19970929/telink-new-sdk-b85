@@ -35,7 +35,8 @@ static struct {
  bms_fault_reg_t fault_first,fault_second,fault_third;
  struct{uint16_t soc_percent,soh_percent,cycle_count,remaining_capacity_0p01ah,effective_capacity_0p01ah,nominal_capacity_0p01ah;}soc;
 }g_bms_report;
-static int config_store_write_ok=1;
+static int config_store_read_ok=1;
+static uint16_t config_store_rest_s=600u;
 /* CURRENT_FLOOR */
 static uint32_t tick;
 static uint32_t pm_get_32k_tick(void) {return tick;}
@@ -73,9 +74,9 @@ static uint32_t integrate(uint8_t chemistry,int32_t ma,uint32_t step,unsigned co
 static uint16_t lfp_mv_from_soc(double soc){
  if(soc<=0)return 2800;
  if(soc>=100)return 3500;
- for(unsigned i=1;i<sizeof(g_soc_ocv_lfp)/sizeof(g_soc_ocv_lfp[0]);i++)if(soc<=g_soc_ocv_lfp[i].soc){
-  const soc_ocv_point_t *a=&g_soc_ocv_lfp[i-1],*b=&g_soc_ocv_lfp[i];
-  double f=(soc-a->soc)/(double)(b->soc-a->soc);
+ for(unsigned i=1;i<g_soc_profile_lfp.point_count;i++)if(soc<=g_soc_profile_lfp.points[i].soc_percent){
+  const bms_soc_ocv_config_point_t *a=&g_soc_profile_lfp.points[i-1],*b=&g_soc_profile_lfp.points[i];
+  double f=(soc-a->soc_percent)/(double)(b->soc_percent-a->soc_percent);
   return (uint16_t)(a->mv+f*(b->mv-a->mv)+0.5);
  }
  return 3500;
@@ -234,9 +235,21 @@ int main(int argc,char **argv){
  assert(g_bms_report.soc.nominal_capacity_0p01ah==65530);
  assert(g_bms_soc.remaining_capacity_as10==6553u*3600u);
  stored_profile.capacity_factory=1000;
- bms_soc_config_t configured=g_soc_config;configured.ocv_rest_prepare_s=900;
- config_store_write_ok=0;assert(!bms_soc_configure(&configured));assert(g_soc_config.ocv_rest_prepare_s==600);
- config_store_write_ok=1;assert(bms_soc_configure(&configured));assert(g_soc_config.ocv_rest_prepare_s==900);
+ config_store_read_ok=0;assert(!bms_soc_reload_configuration());assert(g_soc_config.ocv_rest_prepare_s==600);
+ config_store_read_ok=1;config_store_rest_s=900;assert(bms_soc_reload_configuration());assert(g_soc_config.ocv_rest_prepare_s==900);
+ config_store_rest_s=0;assert(!bms_soc_reload_configuration());assert(g_soc_config.ocv_rest_prepare_s==900);
+ config_store_rest_s=600;
+ /* 同地址发布新曲线也必须按 generation 撤销旧静置资格，stage 不参与算法。 */
+ committed_profile=g_soc_profile_lfp;committed_generation=1u;
+ assert(bms_soc_profile_reload());assert(g_soc_profile==&committed_profile);
+ committed_profile.current_deadband_ma=321u;committed_profile.ocv_rest_prepare_s=777u;
+ committed_profile.ocv_error_band_percent=9u;committed_profile.points[8].soc_percent=56u;
+ g_soc_runtime.idle_stable_ticks=123u;++committed_generation;
+ assert(bms_soc_profile_reload());assert(!g_soc_runtime.idle_stable_ticks);
+ assert(g_soc_config.current_deadband_ma==321u && g_soc_config.ocv_rest_prepare_s==777u);
+ assert(soc_estimate_percent_from_cell_mv(3330u)==56u);
+ committed_generation=0u;soc_profile_refresh();assert(g_soc_profile==&g_soc_profile_lfp);
+ assert(!bms_soc_profile_reload());
 
  /* Host-only 64-bit oracle, including INT32_MIN and retained remainders. */
  setup(1,60,3330);

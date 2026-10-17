@@ -10,6 +10,16 @@
 
 新增 host 场景用原 RM 公式核对全部字节编码、四种 shunt（含零和饱和）、三个块逐次失败、总线静默和 35-word 未覆盖字段保持；三个 D008 profile × HW_PROTECT 0/1 均通过。相关 `dvc_register_scenarios`、`dvc1124_fixed_policy`、`dvc_startup_protection`、`afe_hw_transaction`、D008 `modbus` 共五组既有 host 入口通过；D008 development 目标链接为 0 error/0 warning。最终固定提交与四产品资源结果在完成后追加。
 
+## 2. SOC 已提交曲线只有一个所有者
+
+默认曲线、journal 与算法共用原 100-byte/50-word 配置表示，算法通过只读视图使用存储模块已提交对象，删除另一份运行 profile、15 点转换表及逐成员搬运。stage 候选仍单独保存，写入失败不发布；只读对象地址固定，generation 改变时仍撤销旧 OCV 资格。所有调用在主循环同步执行，不把该指针当作 ISR 并发快照。AUTO、类型不匹配及无可用曲线仍走原默认回退。
+
+整套 Config 已提交后的 SOC 加载入口改为 `bms_soc_reload_configuration()`，直接读取、校验并发布，不再次调用 `bms_config_store_set_soc()`。已确认旧 `bms_soc_configure()` 唯一生产调用者就是该提交后路径；线上参数写入仍经过原 journal/授权事务。
+
+四产品 SOC 长时回归、7 天 10081 行轨迹及每产品三种诊断模式的 91201 行业务轨迹均通过，16 个 CSV 与基线逐字节相同。新增同地址 generation 刷新、自定义曲线插值及读配置失败场景；真实 profile/journal TU 覆盖 LFP/NMC 各 132 个写入字节断点、候选隔离、写失败/重启保持旧曲线、100-byte little-endian payload、未使用点零值、重复保存去重、身份不匹配和读失败禁写。既有语义存储与更新后的源码契约检查通过。
+
+另从固定基线 `git show` 提取旧默认构造与旧曲线数据，与新构造在四产品分别编译，LFP/NMC 全部 100 个 payload 字节完全一致；不只比较新实现自身编码/解码往返。阶段四产品 development 链接均为 0 error/0 warning；最终提交后再执行统一链接收据。
+
 ## 验证边界
 
 本轮只执行用户授权的相关 host 回归及四产品 sources/link/resources，不生成 BIN。host 与 ELF/MAP 不能替代实板 I2C/SPI 电气、物理保护恢复、MOS Gate/Vgs、Flash 掉电、低功耗/WDT、OTA 及现有 EXE/Android 与设备联调验收。

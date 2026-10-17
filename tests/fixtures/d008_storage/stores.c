@@ -49,7 +49,7 @@ void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t*p){memset(p,0,sizeof(
 void bms_afe_hw_profile_build_chemistry_default(u8 c,bms_afe_hw_profile_t*p){bms_afe_hw_profile_build_default(p);p->cov_mv=c==1u?3750u:4200u;}
 static unsigned config_inhibited;
 void bms_afe_invalidate_configuration(void){++config_inhibited;}
-u8 bms_soc_configure(const bms_soc_config_t *p){return p!=0;}
+u8 bms_soc_reload_configuration(void){return 1u;}
 u8 bms_soc_profile_reload(void){return 1u;}
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t*p){return p && p->schema_version==1;}
 void bms_soc_get_default_config(bms_soc_config_t*c){memset(c,0,sizeof(*c));c->current_deadband_ma=200;c->ocv_rest_prepare_s=600;c->ocv_error_band_percent=5;}

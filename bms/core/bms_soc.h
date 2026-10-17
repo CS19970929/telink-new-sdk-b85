@@ -90,8 +90,8 @@ extern bms_soc_state_t g_bms_soc;
 void bms_soc_get_default_config(bms_soc_config_t *config);
 /* 校验 SOC 配置范围与化学体系标识。 */
 uint8_t bms_soc_config_valid(const bms_soc_config_t *config);
-/* 应用有效 SOC 配置并刷新曲线与容量状态。 */
-uint8_t bms_soc_configure(const bms_soc_config_t *config);
+/* 整套 Config 已提交后加载并发布运行配置；不重复保存。 */
+uint8_t bms_soc_reload_configuration(void);
 /* 独立 SOC profile 保存成功后刷新运行曲线，不重复写 CFG2。 */
 uint8_t bms_soc_profile_reload(void);
 /* 取得 SOC 运行诊断快照。 */

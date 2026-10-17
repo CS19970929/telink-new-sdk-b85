@@ -98,11 +98,9 @@ void bms_parameters_init(void)
 /* 整套 Config 已持久提交后发布运行值，不清启动门禁，也不重置任何保护故障。 */
 uint8_t bms_parameters_reload_configuration(void)
 {
-    bms_soc_config_t soc;
     if (!s_storage_startup_valid) return 0u;
     parameters_load_protection();
-    return s_protection_params_valid && bms_config_store_get_soc(&soc) &&
-        bms_soc_configure(&soc);
+    return s_protection_params_valid && bms_soc_reload_configuration();
 }
 
 /* 刷新业务参数与启动门禁诊断快照。 */

@@ -1,76 +1,44 @@
-/*
- * 文件功能：SOC 电芯化学体系/OCV 曲线和算法配置档案；用于电压估算与容量参数边界。
- * bms/core/bms_soc_profile.h；实际编译归属见各产品 sources.txt。
- */
+/* SOC 默认曲线与已提交曲线使用同一定长表示；不改变 50-word 持久/协议布局。 */
 #pragma once
-
-
 #include "bms_soc_defs.h"
 #include "bms_product.h"
+#include "bms_soc_profile_store.h"
 
-/*
- * OCV/配置数据有意独立于 SOC 算法；电芯特性应在此替换/增加数据，
- * 不重写库仑积分、置信窗口、持久化或显示行为。
- */
-typedef struct
-{
-    uint16_t mv;
-    uint8_t soc;
-} soc_ocv_point_t;
-
-typedef struct
-{
-    uint8_t profile_id;
-    uint16_t profile_version;
-    uint8_t chemistry;
-    const soc_ocv_point_t *ocv;
-    uint8_t ocv_count;
-    uint16_t valid_min_mv;
-    uint16_t valid_max_mv;
-    uint16_t full_sync_mv;
-    uint16_t full_min_margin_mv;
-    uint16_t empty_sync_mv;
-    uint16_t empty_max_margin_mv;
-    uint8_t ocv_min_error_band_percent;
-    uint16_t full_cell_delta_max_mv;
-    uint16_t terminal_cell_delta_max_mv;
-    uint16_t terminal_start_offset_mv;
-    uint16_t terminal_l1_offset_mv;
-    uint16_t terminal_l2_offset_mv;
-    uint16_t terminal_l3_offset_mv;
-} soc_profile_t;
-
-/* 通用中心曲线仅为默认，不声明电芯模型精度。 */
-static const soc_ocv_point_t g_soc_ocv_lfp[] = {
-    BMS_SOC_OCV_LFP_POINTS,
+/* 通用中心曲线仅为默认，不声明电芯模型精度。点数由实际初始化表推导。 */
+static const bms_soc_profile_config_t g_soc_profile_lfp = {
+    .chemistry = BMS_SOC_CHEMISTRY_LFP,
+    .profile_id = BMS_SOC_PROFILE_GENERIC_LFP,
+    .profile_version = BMS_SOC_PROFILE_GENERIC_LFP_VERSION,
+    .point_count = sizeof((bms_soc_ocv_config_point_t[]){BMS_SOC_OCV_LFP_POINTS}) /
+                   sizeof(bms_soc_ocv_config_point_t),
+    .current_deadband_ma = BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT,
+    .ocv_rest_prepare_s = BMS_SOC_OCV_REST_PREPARE_S_DEFAULT,
+    .ocv_error_band_percent = BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT,
+    .valid_min_mv = 2500u, .valid_max_mv = 3800u,
+    .full_sync_mv = 3500u, .full_min_margin_mv = 100u,
+    .empty_sync_mv = 3000u, .empty_max_margin_mv = 150u,
+    .ocv_min_error_band_percent = 7u, .full_cell_delta_max_mv = 80u,
+    .terminal_cell_delta_max_mv = 50u,
+    .terminal_start_offset_mv = 150u, .terminal_l1_offset_mv = 100u,
+    .terminal_l2_offset_mv = 50u, .terminal_l3_offset_mv = 20u,
+    .points = {BMS_SOC_OCV_LFP_POINTS},
 };
 
-static const soc_ocv_point_t g_soc_ocv_nmc[] = {
-    BMS_SOC_OCV_NMC_POINTS,
-};
-
-static const soc_profile_t g_soc_profile_lfp = {
-    BMS_SOC_PROFILE_GENERIC_LFP,
-    BMS_SOC_PROFILE_GENERIC_LFP_VERSION,
-    BMS_SOC_CHEMISTRY_LFP,
-    g_soc_ocv_lfp,
-    (uint8_t)(sizeof(g_soc_ocv_lfp) / sizeof(g_soc_ocv_lfp[0])),
-    2500u, 3800u,
-    3500u, 100u,
-    3000u, 150u,
-    7u, 80u, 50u,
-    150u, 100u, 50u, 20u,
-};
-
-static const soc_profile_t g_soc_profile_nmc = {
-    BMS_SOC_PROFILE_GENERIC_NMC,
-    BMS_SOC_PROFILE_GENERIC_NMC_VERSION,
-    BMS_SOC_CHEMISTRY_NMC,
-    g_soc_ocv_nmc,
-    (uint8_t)(sizeof(g_soc_ocv_nmc) / sizeof(g_soc_ocv_nmc[0])),
-    2600u, 4300u,
-    4180u, 200u,
-    3000u, 200u,
-    5u, 80u, 50u,
-    300u, 200u, 150u, 50u,
+static const bms_soc_profile_config_t g_soc_profile_nmc = {
+    .chemistry = BMS_SOC_CHEMISTRY_NMC,
+    .profile_id = BMS_SOC_PROFILE_GENERIC_NMC,
+    .profile_version = BMS_SOC_PROFILE_GENERIC_NMC_VERSION,
+    .point_count = sizeof((bms_soc_ocv_config_point_t[]){BMS_SOC_OCV_NMC_POINTS}) /
+                   sizeof(bms_soc_ocv_config_point_t),
+    .current_deadband_ma = BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT,
+    .ocv_rest_prepare_s = BMS_SOC_OCV_REST_PREPARE_S_DEFAULT,
+    .ocv_error_band_percent = BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT,
+    .valid_min_mv = 2600u, .valid_max_mv = 4300u,
+    .full_sync_mv = 4180u, .full_min_margin_mv = 200u,
+    .empty_sync_mv = 3000u, .empty_max_margin_mv = 200u,
+    .ocv_min_error_band_percent = 5u, .full_cell_delta_max_mv = 80u,
+    .terminal_cell_delta_max_mv = 50u,
+    .terminal_start_offset_mv = 300u, .terminal_l1_offset_mv = 200u,
+    .terminal_l2_offset_mv = 150u, .terminal_l3_offset_mv = 50u,
+    .points = {BMS_SOC_OCV_NMC_POINTS},
 };

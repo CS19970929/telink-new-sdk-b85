@@ -139,9 +139,7 @@ static bms_soc_config_t g_soc_config = {
     SOC_OCV_REST_PREPARE_SECONDS,
     SOC_OCV_ERROR_BAND_PERCENT,
 };
-static const soc_profile_t *g_soc_profile;
-static soc_ocv_point_t s_persisted_ocv[BMS_SOC_PROFILE_MAX_POINTS];
-static soc_profile_t s_persisted_profile;
+static const bms_soc_profile_config_t *g_soc_profile;
 static uint16_t s_persisted_generation;
 
 /* 按名义容量和循环 SOH 重算满容量。 */
@@ -152,7 +150,6 @@ static void soc_recalc_now_capacity(void);
 static void soc_reset_ocv_tracking(void);
 /* 刷新当前化学体系和 OCV 策略参数。 */
 static void soc_profile_refresh(void);
-static uint8_t soc_profile_load_persisted(void);
 /* 样本失效时撤销积分时间区间并复位相关跟踪。 */
 static void soc_invalidate_sample_interval(void);
 
@@ -241,13 +238,12 @@ uint8_t bms_soc_config_valid(const bms_soc_config_t *config)
     return 1u;
 }
 
-/* 应用有效 SOC 配置并刷新曲线与容量状态。 */
-uint8_t bms_soc_configure(const bms_soc_config_t *config)
+/* Config 已提交：只加载并发布运行配置，不再次调用持久保存。 */
+uint8_t bms_soc_reload_configuration(void)
 {
-    if (!bms_soc_config_valid(config)) return 0u;
-
-    if (!bms_config_store_set_soc(config)) return 0u;
-    g_soc_config = *config;
+    bms_soc_config_t config;
+    if (!bms_config_store_get_soc(&config) || !bms_soc_config_valid(&config)) return 0u;
+    g_soc_config = config;
     soc_invalidate_sample_interval();
     soc_profile_refresh();
     if (g_soc_initialized) {
@@ -260,14 +256,13 @@ uint8_t bms_soc_configure(const bms_soc_config_t *config)
 /* 从独立持久域刷新算法参数与曲线；保存已由调用者完成。 */
 uint8_t bms_soc_profile_reload(void)
 {
-    bms_soc_profile_config_t profile;
-    if (!soc_profile_load_persisted()) return 0u;
-    bms_soc_profile_store_get(&profile);
-    g_soc_config.chemistry = (uint8_t)profile.chemistry;
-    g_soc_config.profile_id = (uint8_t)profile.profile_id;
-    g_soc_config.current_deadband_ma = profile.current_deadband_ma;
-    g_soc_config.ocv_rest_prepare_s = profile.ocv_rest_prepare_s;
-    g_soc_config.ocv_error_band_percent = (uint8_t)profile.ocv_error_band_percent;
+    const bms_soc_profile_config_t *profile = bms_soc_profile_store_current();
+    if (!profile) return 0u;
+    g_soc_config.chemistry = (uint8_t)profile->chemistry;
+    g_soc_config.profile_id = (uint8_t)profile->profile_id;
+    g_soc_config.current_deadband_ma = profile->current_deadband_ma;
+    g_soc_config.ocv_rest_prepare_s = profile->ocv_rest_prepare_s;
+    g_soc_config.ocv_error_band_percent = (uint8_t)profile->ocv_error_band_percent;
     soc_invalidate_sample_interval();
     soc_profile_refresh();
     if (g_soc_initialized) {
@@ -278,53 +273,17 @@ uint8_t bms_soc_profile_reload(void)
 }
 
 /* 按化学体系 ID 查找 OCV 曲线配置。 */
-static const soc_profile_t *soc_profile_from_id(uint8_t profile_id)
+static const bms_soc_profile_config_t *soc_profile_from_id(uint8_t profile_id)
 {
     if (profile_id == BMS_SOC_PROFILE_GENERIC_LFP) return &g_soc_profile_lfp;
     if (profile_id == BMS_SOC_PROFILE_GENERIC_NMC) return &g_soc_profile_nmc;
     return 0;
 }
 
-/* 复制独立存储中的定长配置，避免运行算法持有可变 stage 指针。 */
-static uint8_t soc_profile_load_persisted(void)
-{
-    bms_soc_profile_config_t source;
-    uint16_t generation = bms_soc_profile_store_generation();
-    uint16_t i;
-    if (generation == s_persisted_generation) return 1u;
-    bms_soc_profile_store_get(&source);
-    if (!bms_soc_profile_store_valid(&source)) return 0u;
-    for (i = 0u; i < source.point_count; ++i) {
-        s_persisted_ocv[i].mv = source.points[i].mv;
-        s_persisted_ocv[i].soc = (uint8_t)source.points[i].soc_percent;
-    }
-    s_persisted_profile.profile_id = (uint8_t)source.profile_id;
-    s_persisted_profile.profile_version = source.profile_version;
-    s_persisted_profile.chemistry = (uint8_t)source.chemistry;
-    s_persisted_profile.ocv = s_persisted_ocv;
-    s_persisted_profile.ocv_count = (uint8_t)source.point_count;
-    s_persisted_profile.valid_min_mv = source.valid_min_mv;
-    s_persisted_profile.valid_max_mv = source.valid_max_mv;
-    s_persisted_profile.full_sync_mv = source.full_sync_mv;
-    s_persisted_profile.full_min_margin_mv = source.full_min_margin_mv;
-    s_persisted_profile.empty_sync_mv = source.empty_sync_mv;
-    s_persisted_profile.empty_max_margin_mv = source.empty_max_margin_mv;
-    s_persisted_profile.ocv_min_error_band_percent = (uint8_t)source.ocv_min_error_band_percent;
-    s_persisted_profile.full_cell_delta_max_mv = source.full_cell_delta_max_mv;
-    s_persisted_profile.terminal_cell_delta_max_mv = source.terminal_cell_delta_max_mv;
-    s_persisted_profile.terminal_start_offset_mv = source.terminal_start_offset_mv;
-    s_persisted_profile.terminal_l1_offset_mv = source.terminal_l1_offset_mv;
-    s_persisted_profile.terminal_l2_offset_mv = source.terminal_l2_offset_mv;
-    s_persisted_profile.terminal_l3_offset_mv = source.terminal_l3_offset_mv;
-    s_persisted_generation = generation;
-    g_soc_profile = 0;
-    return 1u;
-}
-
 /* 根据配置及产品条件确定使用的化学体系。 */
 static uint8_t soc_resolve_chemistry(void)
 {
-    const soc_profile_t *selected;
+    const bms_soc_profile_config_t *selected;
     uint16_t ovp;
 
     selected = soc_profile_from_id(g_soc_config.profile_id);
@@ -346,19 +305,20 @@ static uint8_t soc_resolve_chemistry(void)
 /* 刷新当前化学体系和 OCV 策略参数。 */
 static void soc_profile_refresh(void)
 {
-    const soc_profile_t *next;
-    (void)soc_profile_load_persisted();
-    next = (s_persisted_generation != 0u &&
-            s_persisted_profile.chemistry == g_soc_config.chemistry &&
-            s_persisted_profile.profile_id == g_soc_config.profile_id) ?
-        &s_persisted_profile : soc_profile_from_id(g_soc_config.profile_id);
+    const bms_soc_profile_config_t *current = bms_soc_profile_store_current();
+    uint16_t generation = bms_soc_profile_store_generation();
+    const bms_soc_profile_config_t *next =
+        (current && current->chemistry == g_soc_config.chemistry &&
+         current->profile_id == g_soc_config.profile_id) ?
+        current : soc_profile_from_id(g_soc_config.profile_id);
     if (next == 0) {
         uint8_t chemistry = soc_resolve_chemistry();
         next = (chemistry == BMS_SOC_CHEMISTRY_LFP) ?
             &g_soc_profile_lfp : &g_soc_profile_nmc;
     }
-    if (g_soc_profile != next) {
+    if (g_soc_profile != next || s_persisted_generation != generation) {
         g_soc_profile = next;
+        s_persisted_generation = generation;
         soc_reset_ocv_tracking();
     }
 }
@@ -726,19 +686,19 @@ static uint8_t soc_rest_context_valid(const bms_soc_sample_t *sample, soc_integr
 static uint8_t soc_estimate_percent_from_cell_mv(uint16_t cell_mv)
 {
     uint8_t i;
-    const soc_ocv_point_t *points = g_soc_profile->ocv;
-    uint8_t count = g_soc_profile->ocv_count;
+    const bms_soc_ocv_config_point_t *points = g_soc_profile->points;
+    uint8_t count = g_soc_profile->point_count;
 
-    if (cell_mv <= points[0].mv) return points[0].soc;
-    if (cell_mv >= points[count - 1u].mv) return points[count - 1u].soc;
+    if (cell_mv <= points[0].mv) return points[0].soc_percent;
+    if (cell_mv >= points[count - 1u].mv) return points[count - 1u].soc_percent;
 
     for (i = 1u; i < count; ++i) {
         if (cell_mv <= points[i].mv) {
-            const soc_ocv_point_t *lo = &points[i - 1u];
-            const soc_ocv_point_t *hi = &points[i];
-            uint32_t num = ((uint32_t)(cell_mv - lo->mv) * (uint32_t)(hi->soc - lo->soc)) +
+            const bms_soc_ocv_config_point_t *lo = &points[i - 1u];
+            const bms_soc_ocv_config_point_t *hi = &points[i];
+            uint32_t num = ((uint32_t)(cell_mv - lo->mv) * (uint32_t)(hi->soc_percent - lo->soc_percent)) +
                 ((uint32_t)(hi->mv - lo->mv) / 2u);
-            return (uint8_t)(lo->soc + num / (uint32_t)(hi->mv - lo->mv));
+            return (uint8_t)(lo->soc_percent + num / (uint32_t)(hi->mv - lo->mv));
         }
     }
     return SOC_PERCENT_MAX;
@@ -1322,15 +1282,12 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     soc_invalidate_sample_interval();
     (void)bms_config_store_get_soc(&g_soc_config);
     {
-        bms_soc_profile_config_t profile;
-        if (soc_profile_load_persisted()) {
-            bms_soc_profile_store_get(&profile);
-            if (profile.chemistry == g_soc_config.chemistry &&
-                profile.profile_id == g_soc_config.profile_id) {
-                g_soc_config.current_deadband_ma = profile.current_deadband_ma;
-                g_soc_config.ocv_rest_prepare_s = profile.ocv_rest_prepare_s;
-                g_soc_config.ocv_error_band_percent = (uint8_t)profile.ocv_error_band_percent;
-            }
+        const bms_soc_profile_config_t *profile = bms_soc_profile_store_current();
+        if (profile && profile->chemistry == g_soc_config.chemistry &&
+            profile->profile_id == g_soc_config.profile_id) {
+            g_soc_config.current_deadband_ma = profile->current_deadband_ma;
+            g_soc_config.ocv_rest_prepare_s = profile->ocv_rest_prepare_s;
+            g_soc_config.ocv_error_band_percent = (uint8_t)profile->ocv_error_band_percent;
         }
     }
     soc_profile_refresh();
