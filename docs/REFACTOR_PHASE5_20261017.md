@@ -30,8 +30,44 @@ set/reset 共用私有 `save_profile()`，集中编码、journal 保存、成功
 
 阶段四产品 profile/journal、语义存储及 D014 真实安全闭环共 9 组通过。profile 基线/终态四产品比较均为 `flash-stream=95b556d5`、508 次编程调用；这属于 RAM Flash 故障模型证据。
 
-## 验证边界
+## 最终提交与资源实测
 
-本轮资源基线重新链接，D008 使用源码 CUSTOM 20S LFP，D011/D013 为 10S LFP，D014 为 8S LFP；同时记录 development 与 production。基线相关 host 为 29 组、0 失败，属于限定范围验证。后续阶段及最终固定提交收据在完成后追加。
+三项实现独立提交：`e7c6a340` 删除冗余接口/版本缓存；`5b4b02ee` AFE requested/SH actual 每请求读取一次；`9437902d` SOC 共用提交步骤/单一切换备份。最终验证源码为干净提交 `9437902d8b8076716500c697643ef5bd6991d6ca`；之后仅补交本文档，不改变已验证生产源码或测试。第四项 OTA 更新执行逻辑没有修改，D008 仍为五组全保参。
+
+四产品 sources --check、development 和 production link/resources 全部通过，目标编译为 0 error/0 warning。16 份基线/终态资源报告均 `dirty=false`、`image_generated=false`，没有生成 BIN。最终相关 host 为 29 个唯一「产品×脚本入口」，0 失败：四产品 core contract、Modbus、参数块、profile/journal、语义存储、Flash quick、SOC 场景各一组，以及 D014 真实安全闭环；属于限定范围验证，不称全量回归。四产品 SOC 场景的结构化观察值与本轮基线完全一致。
+
+以下单位均为 B。Flash 是 ELF/MAP 按现有规则投影的对齐/CRC 后大小，RAM 是包括 RAM code/cache/IRQ stack 的地址跨度，不是实测栈水位。
+
+| 生产配置 | Flash 基线→本轮 | Flash 变化 | 本轮 Flash 余量 | RAM 基线→本轮 | RAM 变化 |
+|---|---:|---:|---:|---:|---:|
+| D008 CUSTOM 20S LFP | 112340→112340 | 0 | 14636 | 22772→22704 | -68 |
+| D011 10S LFP | 110148→110244 | +96 | 16732 | 22080→22016 | -64 |
+| D013 10S LFP | 106756→106868 | +112 | 20108 | 21996→21932 | -64 |
+| D014 8S LFP | 109204→109300 | +96 | 17676 | 22076→22012 | -64 |
+
+| 开发配置 | Flash 基线→本轮 | Flash 变化 | RAM 基线→本轮 | RAM 变化 |
+|---|---:|---:|---:|---:|
+| D008 CUSTOM 20S LFP | 117012→116996 | -16 | 22772→22704 | -68 |
+| D011 10S LFP | 115076→115124 | +48 | 22336→22272 | -64 |
+| D013 10S LFP | 111716→111764 | +48 | 22252→22188 | -64 |
+| D014 8S LFP | 114164→114212 | +48 | 22332→22268 | -64 |
+
+四产品生产 Flash 余量均高于 8 KiB，资源报告无告警。本轮没有使所有 Flash 大小下降：主要收益是删除接口/状态、减少复制校验、集中保存动作；SH 的小幅 Flash 增长如表保留。生产 `bms/` 源/头文件合计新增 75、删除 105，净减少 30 行，不含测试和文档；不把行数当作逻辑复杂度测量。类型切换源码少一份 100-byte 局部副本，实际峰值栈变化未测量。
+
+### 独立规范复核（Standards）
+
+硬性违规 0 项，可选建议 0 项，无阻断问题。复核确认版本窗口边界/SN 刷新、requested/SH actual 先预检再取快照、失败 VALID/未知值、SOC 保存成功后发布及 set/reset 差异保持；无额外层次。复核只读，没有代替主任务执行测试或构建。
+
+### 独立需求复核（Spec）
+
+可操作发现 0 项，无阻断项。三项独立中文提交齐全，未扩大至暂缓的 OTA 执行逻辑；静置电流门禁、旧曲线回滚、输出 inhibit、协议和持久格式保持，测试安全断言未弱化。复核只读，结论仅限固定差异 `549dc804...9437902d`。
+
+完整可追溯材料在 [树外正式证据](<C:/Users/Administrator/Documents/CodexOutputs/telink-new-sdk-b85/refactor-phase5-20261017-9437902d/>)：identity、host/target 摘要、16 套 ELF/MAP/LST 和链接收据、资源比较、协议/profile 基线比较、SOC 场景观察值比较、分阶段 host 日志、源码补丁及 CHECKSUMS.sha256。仅克隆 Git 不会取得本机证据，移交时一并复制并核对哈希。基线入口最初额外链接了 D008 16S 示例，已重新执行源码 CUSTOM 20S；正式比较及归档只选 CUSTOM 20S 的 ELF 哈希，不混用 profile。
+
+## 兼容与验证边界
+
+本轮没有改变外部协议地址、帧/CRC、字节序、缩放、未知值、CFG2/schema/Flash 布局或参数更新选择，现有 Windows/Android 上位机无需为本轮修改。依据为当前源码、基线比较和 host 协议场景，未执行实际客户端与设备互通。
+
+未执行全量 host、ASan/UBSan、Cppcheck、service-diag 构建、其它 D008 profile 的终态链接、实测栈水位、实板/电源切断/OTA；没有生成、发送或烧录固件镜像。实板待验收继续见 [硬件验证清单](HARDWARE_VALIDATION.md)。
 
 host RAM Flash、协议替身和 ELF/MAP 不替代实板 Flash 掉电、物理保护恢复、MOS Gate/Vgs、UART/BLE 电气与吞吐、WDT/低功耗/唤醒、OTA 和实际客户端联调；不据此宣称硬件验收完成。
