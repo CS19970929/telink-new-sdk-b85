@@ -10,6 +10,7 @@
 #define BMS_OTA_UPDATE_BUSINESS  0u
 #define BMS_OTA_UPDATE_SOC       0u
 #define BMS_OTA_UPDATE_SOC_STATE 0u
+#define BMS_OTA_UPDATE_FACTORY_RESET 0u /* 专用出厂包，须生成全新一次性 ID */
 #ifndef BMS_OTA_UPDATE_ID_0
 #define BMS_OTA_UPDATE_ID_0 0x0000u
 #define BMS_OTA_UPDATE_ID_1 0x0000u

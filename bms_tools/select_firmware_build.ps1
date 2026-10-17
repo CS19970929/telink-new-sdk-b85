@@ -146,7 +146,8 @@ if (-not $Target) {
         @{ Id = 'afe'; Text = 'AFE 硬件保护'; X = 286; Y = 28 },
         @{ Id = 'business'; Text = '容量 / 加热 / 均衡'; X = 14; Y = 58 },
         @{ Id = 'soc'; Text = 'SOC 配置 / 电池类型'; X = 286; Y = 58 },
-        @{ Id = 'soc_state'; Text = '更换电池：重置 SOC / 循环'; X = 14; Y = 88 }
+        @{ Id = 'soc_state'; Text = '更换电池：重置 SOC / 循环'; X = 14; Y = 88 },
+        @{ Id = 'factory_reset'; Text = '恢复出厂：Config / State / Event'; X = 286; Y = 88 }
     )
     $updateChecks = @{}
     foreach ($choice in $groupChoices) {
@@ -156,8 +157,23 @@ if (-not $Target) {
         $updateBox.Controls.Add($check)
         $updateChecks[$choice.Id] = $check
     }
+    # 恢复出厂必须独占 OTA 更新选择，防止混合更新造成语义不明。
+    $updateChecks['factory_reset'].Add_CheckedChanged({
+        if (-not $script:loadingInputs -and $updateChecks['factory_reset'].Checked) {
+            foreach ($key in @('sw', 'afe', 'business', 'soc', 'soc_state')) {
+                $updateChecks[$key].Checked = $false
+            }
+        }
+    })
+    foreach ($key in @('sw', 'afe', 'business', 'soc', 'soc_state')) {
+        $updateChecks[$key].Add_CheckedChanged({
+            if (-not $script:loadingInputs -and $this.Checked) {
+                $updateChecks['factory_reset'].Checked = $false
+            }
+        })
+    }
     $note = New-Object System.Windows.Forms.Label
-    $note.Text = "BIN 自带更新选择；无需读取客户板子编号，只执行一次。`r`n换串数或电池类型须更新四组；接线须匹配 AFE 手册。`r`n校准、SN 和事件保留；换电池可单独重置 SOC / 循环。"
+    $note.Text = "BIN 自带更新选择；无需读取客户板子编号，只执行一次。`r`n换串数或电池类型须更新四组；接线须匹配 AFE 手册。`r`n普通更新保留校准、SN、事件；恢复出厂将全部清空并重置为新固件默认。"
     $note.SetBounds(16, 318, 558, 74)
     $form.Controls.Add($note)
     $clean = New-Object System.Windows.Forms.CheckBox

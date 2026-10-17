@@ -15,7 +15,7 @@ MACROS = {
     "chemistry": "BMS_PRODUCT_CHEMISTRY",
     "capacity_0p1ah": "BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH",
 }
-UPDATE_GROUPS = {"sw": 1, "afe": 2, "business": 4, "soc": 8, "soc_state": 64}
+UPDATE_GROUPS = {"sw": 1, "afe": 2, "business": 4, "soc": 8, "soc_state": 64, "factory_reset": 512}
 OPTION_KEYS = (*MACROS, "update_groups", "update_id")
 
 
@@ -65,9 +65,11 @@ def normalize(options: dict, product: str, profile: str | None) -> dict:
                 raise ValueError("串数与 D008 装配不一致；任意配置须选择 custom。")
     groups = options.get("update_groups", [])
     if not isinstance(groups, list) or any(type(group) is not str or group not in UPDATE_GROUPS for group in groups):
-        raise ValueError("OTA 更新组必须为 sw、afe、business、soc、soc_state 的列表。")
+        raise ValueError("OTA 更新组必须为 sw、afe、business、soc、soc_state 或 factory_reset。")
     if len(groups) != len(set(groups)):
         raise ValueError("OTA 更新组不能重复。")
+    if "factory_reset" in groups and len(groups) != 1:
+        raise ValueError("恢复出厂必须单独选择，不能混合普通 OTA 更新组。")
     update_id = options.get("update_id")
     if groups:
         if not isinstance(update_id, str) or not re.fullmatch(r"0000[0-9a-f]{20}", update_id) or int(update_id, 16) == 0:
