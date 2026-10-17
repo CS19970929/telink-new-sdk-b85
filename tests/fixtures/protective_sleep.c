@@ -93,7 +93,7 @@ void bms_diag_sleep_committed(void) {}
 #include "bms_sleep_config.h"
 static bms_sleep_config_t sleep_config;
 static struct { uint16_t cell_uvp_recover_mv, pack_uvp_recover_10mv; } g_bms_protection_params={2900u,2900u};
-void bms_sleep_config_get(bms_sleep_config_t *config){*config=sleep_config;}
+void bms_config_get_sleep(bms_sleep_config_t *config){*config=sleep_config;}
 
 /* PRODUCTION */
 /* 回归场景仍按生产调用方读取一次有效快照，然后推进保护性休眠计时。 */

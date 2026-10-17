@@ -62,11 +62,11 @@ def main():
     with tempfile.TemporaryDirectory(prefix='d008-host-') as directory:
         units = {
             'soc': ('#include "' + (ROOT/'bms/core/bms_soc_eta.c').as_posix() + '"\n') + source('bms_soc_defs.h') + '\n' + product_parameters + source('bms_diag.h') + '\n' + source('bms_soc.h') + '\n' +
-                   source('bms_soc_profile_store.h') + '\n' + source('bms_soc_profile.h') + '\n' +
+                   source('bms_soc_profile.h') + '\n' + source('bms_soc_profile.c') + '\n' +
                    'static bms_soc_profile_config_t committed_profile;\n'
                    'static uint16_t committed_generation;\n'
-                   'uint16_t bms_soc_profile_store_generation(void){return committed_generation;}\n'
-                   'const bms_soc_profile_config_t *bms_soc_profile_store_current(void){return committed_generation?&committed_profile:0;}\n'
+                   'uint16_t bms_config_soc_profile_generation(void){return committed_generation;}\n'
+                   'const bms_soc_profile_config_t *bms_config_current_soc_profile(void){return committed_generation?&committed_profile:0;}\n'
                    'static int bms_config_store_get_soc(bms_soc_config_t *c){if(!config_store_read_ok)return 0;bms_soc_get_default_config(c);c->ocv_rest_prepare_s=config_store_rest_s;c->chemistry=stored_profile.battery_chemistry;c->profile_id=stored_profile.soc_profile_id;return 1;}\n' + source('bms_soc.c') + '\n' + '\n'.join(re.findall(r'^#define SOC_SAMPLE_(?:TEMP|CURRENT|PACK)_FAULT_MASK[^\n]*', (MOD/'app.c').read_text(), re.M)) + '\n' + function('app.c', 'static void app_update_soc_from_sample('),
         }
         if args.compile_soc_executable is None and not args.soc_only and args.behavior_mode is None:

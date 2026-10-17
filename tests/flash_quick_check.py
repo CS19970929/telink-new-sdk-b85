@@ -26,7 +26,7 @@ CONFIG_C = MOD / "bms_config_store.c"
 STATE_C = MOD / "bms_state_store.c"
 STATE_H = MOD / "bms_state_store.h"
 EVENT_C = MOD / "bms_event_log.c"
-SOC_PROFILE_C = MOD / "bms_soc_profile_store.c"
+SOC_PROFILE_C = MOD / "bms_soc_profile.c"
 RUNTIME_C = MOD / "bms_factory_mode.c"
 APP_C = MOD / "app.c"
 PLATFORM_APP_C = MOD / "app_ble.c"
@@ -64,14 +64,14 @@ class LayoutTests(unittest.TestCase):
 
     def regions(self, capacity):
         out = {}
-        for domain in ("EVENT", "STATE", "CONFIG", "SLEEP_CONFIG", "SOC_PROFILE"):
+        for domain in ("EVENT", "STATE", "CONFIG"):
             base = macro(self.cfg, f"FLASH_ADDR_LAYOUT_{capacity}_{domain}_BASE")
             count = macro(self.cfg, f"FLASH_ADDR_{domain}_SECTORS")
             out[domain] = (base, base + count * self.sector)
         return out
 
     def test_every_domain_has_power_loss_rotation_room(self):
-        for domain in ("EVENT", "STATE", "CONFIG", "SLEEP_CONFIG", "SOC_PROFILE"):
+        for domain in ("EVENT", "STATE", "CONFIG"):
             self.assertGreaterEqual(macro(self.cfg, f"FLASH_ADDR_{domain}_SECTORS"), 2)
 
     def test_512k_layout_is_the_reviewed_storage_v1_map(self):
@@ -79,8 +79,6 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(r["EVENT"], (0x4C000, 0x5C000))
         self.assertEqual(r["STATE"], (0x44000, 0x4C000))
         self.assertEqual(r["CONFIG"], (0x40000, 0x44000))
-        self.assertEqual(r["SLEEP_CONFIG"], (0x5C000, 0x5E000))
-        self.assertEqual(r["SOC_PROFILE"], (0x5E000, 0x60000))
 
     def test_domains_do_not_overlap(self):
         for capacity in ("512K", "1M", "2M"):
@@ -136,10 +134,10 @@ class ArchitectureTests(unittest.TestCase):
         self.assertIn("BMS_STORAGE_DOMAIN_STATE", porth)
         self.assertNotIn("BMS_STORAGE_DOMAIN_FACTORY", porth)
         self.assertIn("BMS_STORAGE_DOMAIN_EVENT", porth)
-        self.assertIn("BMS_STORAGE_DOMAIN_SOC_PROFILE", porth)
+        self.assertNotIn("BMS_STORAGE_DOMAIN_SOC_PROFILE", porth)
 
     def test_semantic_stores_share_record_engine(self):
-        for path in (CONFIG_C, STATE_C, EVENT_C, SOC_PROFILE_C):
+        for path in (CONFIG_C, STATE_C, EVENT_C):
             src = text(path)
             self.assertIn("storage_record_", src, path.name)
             for raw in ("flash_kv32", "flash_read_page", "flash_write_page", "flash_erase_sector"):

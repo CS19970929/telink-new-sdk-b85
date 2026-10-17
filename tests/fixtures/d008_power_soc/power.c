@@ -123,7 +123,7 @@ static void bms_afe_diag_poll(void){++diag_poll_calls;}
 #include "bms_sleep_config.h"
 static bms_sleep_config_t sleep_config;
 static struct { uint16_t cell_uvp_recover_mv, pack_uvp_recover_10mv; } g_bms_protection_params={2900u,2900u};
-void bms_sleep_config_get(bms_sleep_config_t *config){*config=sleep_config;}
+void bms_config_get_sleep(bms_sleep_config_t *config){*config=sleep_config;}
 
 /* PRODUCTION_SOURCE */
 static void reset(void){

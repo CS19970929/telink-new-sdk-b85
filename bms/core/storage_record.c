@@ -266,8 +266,13 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
                 for (i = 0u; i < sizeof(h); ++i)
                     if (h[i] != s->port->erased_value) blank = 0u;
                 if (!blank && get32(h + OFF_MAGIC) == s->magic &&
-                    get16(h + OFF_SCHEMA) == s->schema_version)
-                    s->load_status = STORAGE_RECORD_LOAD_CORRUPT;
+                    get16(h + OFF_SCHEMA) == s->schema_version) {
+                    if (get32(h + OFF_COMMIT0) == STORAGE_RECORD_COMMIT0 &&
+                        get32(h + OFF_COMMIT1) == STORAGE_RECORD_COMMIT1)
+                        s->load_status = STORAGE_RECORD_LOAD_CORRUPT;
+                    else if (s->load_status != STORAGE_RECORD_LOAD_CORRUPT)
+                        s->load_status = STORAGE_RECORD_LOAD_UNCOMMITTED;
+                }
                 else if (!blank && s->load_status == STORAGE_RECORD_LOAD_EMPTY)
                     s->load_status = STORAGE_RECORD_LOAD_INCOMPATIBLE;
             }

@@ -10,7 +10,6 @@ static void SOC_Result_Pass(void);
 
 #include "bms_config_store.h"
 #include "bms_soc_profile.h"
-#include "bms_soc_profile_store.h"
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_parameters.h"
@@ -256,7 +255,7 @@ uint8_t bms_soc_reload_configuration(void)
 /* 从独立持久域刷新算法参数与曲线；保存已由调用者完成。 */
 uint8_t bms_soc_profile_reload(void)
 {
-    const bms_soc_profile_config_t *profile = bms_soc_profile_store_current();
+    const bms_soc_profile_config_t *profile = bms_config_current_soc_profile();
     if (!profile) return 0u;
     g_soc_config.chemistry = (uint8_t)profile->chemistry;
     g_soc_config.profile_id = (uint8_t)profile->profile_id;
@@ -305,8 +304,8 @@ static uint8_t soc_resolve_chemistry(void)
 /* 刷新当前化学体系和 OCV 策略参数。 */
 static void soc_profile_refresh(void)
 {
-    const bms_soc_profile_config_t *current = bms_soc_profile_store_current();
-    uint16_t generation = bms_soc_profile_store_generation();
+    const bms_soc_profile_config_t *current = bms_config_current_soc_profile();
+    uint16_t generation = bms_config_soc_profile_generation();
     const bms_soc_profile_config_t *next =
         (current && current->chemistry == g_soc_config.chemistry &&
          current->profile_id == g_soc_config.profile_id) ?
@@ -1282,7 +1281,7 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     soc_invalidate_sample_interval();
     (void)bms_config_store_get_soc(&g_soc_config);
     {
-        const bms_soc_profile_config_t *profile = bms_soc_profile_store_current();
+        const bms_soc_profile_config_t *profile = bms_config_current_soc_profile();
         if (profile && profile->chemistry == g_soc_config.chemistry &&
             profile->profile_id == g_soc_config.profile_id) {
             g_soc_config.current_deadband_ma = profile->current_deadband_ma;

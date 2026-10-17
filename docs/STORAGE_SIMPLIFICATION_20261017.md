@@ -25,6 +25,28 @@ D008 ACC/保护性关机不等待 State/Event 保存成功。本轮不改变该�
 第一轮执行四产品存储、四产品 SOC profile、D011 集成共 9 组通过；诊断夹具补齐依赖后四产品 4 组通过。
 首次定向回归中的 4 个诊断编译失败日志保留在 `round1/`，修复后结果在 `round1-diag-retry/`。
 
+## 第二轮：Config 统一低频参数
+
+Config 改为 `CFG4` / schema 4 / 414-byte payload：产品 tag、65-word 软件保护、三项系统字段、
+35-word AFE 请求、BLE 后缀、业务/校准/SN、一次性 OTA 标记、完整 50-word SOC profile、四项休眠参数。
+chemistry/profile 和三个 SOC 算法阈值只持久化一次；固定 AFE 异常休眠时间不写入 Flash。
+
+删除 `bms_soc_profile_store.c/.h`，纯曲线默认、校验、word 映射放入 `bms_soc_profile.c/.h`。
+默认曲线只定义一份。`bms_sleep_config.c` 保留纯业务默认/校验/休眠策略。
+Config 是两者唯一 cache/journal owner；删除类型切换中的独立曲线提交和回滚写入，硬件应用/读回/
+失败 inhibit 与三次新样本资格保留。原两块独立分区释放，APP/OTA/SDK 及 Config/State/Event 主分区不移动。
+
+用户在实施中明确调整旧板政策：有效旧格式应整套恢复默认，而不是仅因格式不同禁止输出。
+因此仅识别当前上一版 `CFG2/schema 3/322 bytes` 的完整 CRC/commit 和同产品 tag，不迁移旧字段。
+新默认写入成功前保护旧有效 sector；中断后允许凭完整旧记录重试。已提交新格式 CRC 损坏、
+旧格式 CRC 损坏、未知格式、异产品和 I/O 失败仍不自动放行。
+恢复默认覆盖旧校准、SN、BLE 后缀、保护、曲线、休眠和业务参数，必须采用当前已签核的产品默认。
+
+第二轮已执行：四产品 `sources --check`；四产品存储与 Core contract 共 8 组通过（`round2-upgrade/`）；
+D014 联合生产 TU、四产品 Flash/参数块/曲线纯校验等 13 组通过。早期 4 个 Core 旧 schema 断言
+已修正并复验，失败收据保留。存储夹具覆盖 10000 组独立 414-byte 编码向量、曲线/休眠完整
+448-byte 写入切点、旧格式转换 449 个切点、16 种 OTA 更新组合及参数暂存不写 Flash。
+
 ## 验证证据与限制
 
 基线完整 host 回归执行 128 组，123 通过、5 失败：四产品诊断夹具编译失败及 D011 旧函数签名断言。

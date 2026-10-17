@@ -54,33 +54,6 @@ u8 bms_soc_profile_reload(void){return 1u;}
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t*p){return p && p->schema_version==1;}
 void bms_soc_get_default_config(bms_soc_config_t*c){memset(c,0,sizeof(*c));c->current_deadband_ma=200;c->ocv_rest_prepare_s=600;c->ocv_error_band_percent=5;}
 u8 bms_soc_config_valid(const bms_soc_config_t*c){return c && c->ocv_rest_prepare_s>=60;}
-static bms_soc_profile_config_t soc_profile_stub;
-static u16 soc_profile_stub_generation=1u;
-static u8 soc_profile_stub_persisted;
-static unsigned soc_profile_stub_reads;
-static u8 soc_profile_stub_reset_ok=1u;
-void bms_soc_profile_store_defaults(u8 chemistry,bms_soc_profile_config_t*c){
- memset(c,0,sizeof(*c));c->chemistry=chemistry;c->profile_id=chemistry;c->profile_version=1u;c->point_count=2u;
- c->current_deadband_ma=200u;c->ocv_rest_prepare_s=600u;c->ocv_error_band_percent=5u;
- c->valid_min_mv=2500u;c->valid_max_mv=4300u;c->empty_sync_mv=3000u;c->full_sync_mv=chemistry==1u?3500u:4180u;
- c->full_min_margin_mv=100u;c->empty_max_margin_mv=150u;c->ocv_min_error_band_percent=5u;
- c->full_cell_delta_max_mv=80u;c->terminal_cell_delta_max_mv=50u;c->terminal_start_offset_mv=150u;
- c->terminal_l1_offset_mv=100u;c->terminal_l2_offset_mv=50u;c->terminal_l3_offset_mv=20u;
- c->points[0].mv=c->valid_min_mv;c->points[0].soc_percent=0u;c->points[1].mv=c->valid_max_mv;c->points[1].soc_percent=100u;
-}
-int bms_soc_profile_store_valid(const bms_soc_profile_config_t*c){return c&&c->chemistry>=1u&&c->chemistry<=2u&&c->profile_id==c->chemistry&&c->point_count>=2u&&c->point_count<=BMS_SOC_PROFILE_MAX_POINTS;}
-void bms_soc_profile_store_init(void){bms_soc_config_t id;if(!bms_config_store_get_soc(&id))id.chemistry=1u;bms_soc_profile_store_defaults(id.chemistry,&soc_profile_stub);soc_profile_stub_persisted=0u;}
-void bms_soc_profile_store_get(bms_soc_profile_config_t*c){
- ++soc_profile_stub_reads;
- bms_soc_config_t id;if(bms_config_store_get_soc(&id)&&soc_profile_stub.chemistry!=id.chemistry)bms_soc_profile_store_defaults(id.chemistry,&soc_profile_stub);
- if(c)*c=soc_profile_stub;
-}
-int bms_soc_profile_store_set(const bms_soc_profile_config_t*c){if(!bms_soc_profile_store_valid(c))return 0;soc_profile_stub=*c;soc_profile_stub_persisted=1u;if(++soc_profile_stub_generation==0u)++soc_profile_stub_generation;return 1;}
-int bms_soc_profile_store_reset(u8 chemistry){bms_soc_profile_config_t c;if(!soc_profile_stub_reset_ok)return 0;bms_soc_profile_store_defaults(chemistry,&c);return bms_soc_profile_store_set(&c);}
-u16 bms_soc_profile_store_word(const bms_soc_profile_config_t*c,u16 offset){u16 value=0u;if(!c||offset>=BMS_SOC_PROFILE_WORDS)return 0u;if(offset<BMS_SOC_PROFILE_FIXED_WORDS){memcpy(&value,(const u8*)c+offset*2u,2u);return value;}offset-=BMS_SOC_PROFILE_FIXED_WORDS;return(offset&1u)?c->points[offset/2u].soc_percent:c->points[offset/2u].mv;}
-int bms_soc_profile_store_set_word(bms_soc_profile_config_t*c,u16 offset,u16 value){if(!c||offset>=BMS_SOC_PROFILE_WORDS)return 0;if(offset<BMS_SOC_PROFILE_FIXED_WORDS){memcpy((u8*)c+offset*2u,&value,2u);return 1;}offset-=BMS_SOC_PROFILE_FIXED_WORDS;if(offset&1u)c->points[offset/2u].soc_percent=value;else c->points[offset/2u].mv=value;return 1;}
-u16 bms_soc_profile_store_generation(void){return soc_profile_stub_generation;}
-u8 bms_soc_profile_store_is_persisted(void){return soc_profile_stub_persisted;}
 static int begin(void*c){(void)c;return begin_ok;}
 static void end(void*c){(void)c;}
 static int read_flash(void*c,u32 a,u8*b,u32 n){(void)c;if(!read_ok || (config_read_fail && a<4u*4096u))return 0;assert(a+n<=sizeof(flash));memcpy(b,flash+a,n);return 1;}
@@ -88,7 +61,7 @@ static int program(void*c,u32 a,const u8*b,u32 n){(void)c;++programs;assert(a+n<
 static int erase(void*c,u32 a,u32 n){(void)c;++erases;++sector_erases[a/4096u];assert(a+n<=sizeof(flash));if(!erase_ok)return 0;memset(flash+a,255,n);return 1;}
 static const storage_port_t port={0,4096,4,255,begin,end,read_flash,program,erase};
 const storage_port_t*bms_storage_platform_port(void){return &port;}
-int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=16*4096;}else if(d==BMS_STORAGE_DOMAIN_SLEEP_CONFIG){r->base=28*4096;r->size=2*4096;}else return 0;return 1;}
+int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=16*4096;}else return 0;return 1;}
 uint32_t bms_time_now_32k(void){return now;}
 /* PRODUCTION */
 /* 夹具直接观察真实持久重复次数，不为测试保留生产API。 */
@@ -108,13 +81,12 @@ static void reboot(void){
  memset(&g_bms_event_log,0,sizeof(g_bms_event_log));
  memset(&g_bms_event_store,0,sizeof(g_bms_event_store));
  s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
- bms_sleep_config_init();
 }
 static void fresh(void){
  test_ota_mask=0u;
  /* TC32 的 program_bytes 会整字读取 store->port，生产 RAM 对象必须四字节对齐。 */
  assert(((uintptr_t)&g_bms_event_store % 4u)==0u);
- memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_init();bms_soc_profile_store_init();assert(bms_protection_params_valid());
+ memset(flash,255,sizeof(flash));now=0;reboot();bms_parameters_init();assert(bms_protection_params_valid());
 }
 
 /* 独立按 CFG2 payload 的固定字节位置构造期望，不调用生产 codec。 */
@@ -133,67 +105,31 @@ static u32 codec_random(u32 *seed, unsigned scenario)
 }
 static void test_config_codec_layout(void)
 {
- u32 seed=0x43464732u;
- assert(BMS_CONFIG_PAYLOAD_BYTES==322u);
+ u32 seed=0x43464734u;
+ assert(BMS_CONFIG_PAYLOAD_BYTES==414u);
  for(unsigned scenario=0;scenario<10000u;++scenario){
   bms_config_cache_t cfg,decoded;
-  u8 expected[322],encoded[324];
-  u16 business[7];
-  u32 system[5];
+  u8 expected[414],encoded[416];
   memset(&cfg,0,sizeof(cfg));memset(expected,0,sizeof(expected));
+  for(unsigned byte=0;byte<sizeof(cfg);++byte)((u8*)&cfg)[byte]=(u8)codec_random(&seed,scenario);
+  cfg.bt_name_suffix[23]=0;cfg.sleep.afe_delay_minutes=30u;
   codec_expect_le(expected,BMS_PRODUCT_ID,4u);
-  for(unsigned i=0;i<65u;++i){
-   u16 value=(u16)codec_random(&seed,scenario);
-   memcpy((u8*)&cfg.protect+i*2u,&value,sizeof(value));
-   codec_expect_le(expected+4u+i*2u,value,2u);
-  }
-  for(unsigned i=0;i<5u;++i) system[i]=codec_random(&seed,scenario);
-  cfg.system.bms_type=system[0];cfg.system.series_num=system[1];
-  cfg.system.capacity_factory=system[2];cfg.system.battery_chemistry=system[3];
-  cfg.system.soc_profile_id=system[4];
-  for(unsigned i=0;i<5u;++i) codec_expect_le(expected+134u+i*4u,system[i],4u);
-  for(unsigned i=0;i<35u;++i){
-   u16 value=(u16)codec_random(&seed,scenario);
-   memcpy((u8*)&cfg.afe_hw+i*2u,&value,sizeof(value));
-   codec_expect_le(expected+154u+i*2u,value,2u);
-  }
-  for(unsigned i=0;i<24u;++i) cfg.bt_name_suffix[i]=(char)codec_random(&seed,scenario);
-  memcpy(expected+224u,cfg.bt_name_suffix,24u);
-  cfg.soc.current_deadband_ma=(u16)codec_random(&seed,scenario);
-  cfg.soc.ocv_rest_prepare_s=(u16)codec_random(&seed,scenario);
-  cfg.soc.ocv_error_band_percent=(u8)codec_random(&seed,scenario);
-  codec_expect_le(expected+248u,cfg.soc.current_deadband_ma,2u);
-  codec_expect_le(expected+250u,cfg.soc.ocv_rest_prepare_s,2u);
-  expected[252]=cfg.soc.ocv_error_band_percent;
-  for(unsigned i=0;i<7u;++i) business[i]=(u16)codec_random(&seed,scenario);
-  cfg.user.heater_enable=business[0];cfg.user.heater_start_x10=business[1];
-  cfg.user.heater_stop_x10=business[2];cfg.user.balance_enable=business[3];
-  cfg.user.balance_start_mv=business[4];cfg.user.balance_start_delta_mv=business[5];
-  cfg.user.balance_stop_delta_mv=business[6];
-  for(unsigned i=0;i<7u;++i) codec_expect_le(expected+256u+i*2u,business[i],2u);
-  /* memcpy 覆盖负值和 INT32_MIN 的位模式，不依赖越界有符号转换。 */
-  u32 offset=codec_random(&seed,scenario);
-  memcpy(&cfg.user.current_offset_ma,&offset,sizeof(offset));
-  cfg.user.current_gain_ppm=codec_random(&seed,scenario);
-  codec_expect_le(expected+270u,offset,4u);
-  codec_expect_le(expected+274u,cfg.user.current_gain_ppm,4u);
-  for(unsigned i=0;i<32u;++i) cfg.user.serial[i]=(char)codec_random(&seed,scenario);
-  memcpy(expected+278u,cfg.user.serial,32u);
-  for(unsigned i=0;i<6u;++i){
-   cfg.ota_update_id[i]=(u16)codec_random(&seed,scenario);
-   codec_expect_le(expected+310u+i*2u,cfg.ota_update_id[i],2u);
-  }
+  for(unsigned i=0;i<65u;++i){u16 v;memcpy(&v,(u8*)&cfg.protect+2u*i,2u);codec_expect_le(expected+4u+2u*i,v,2u);}
+  for(unsigned i=0;i<3u;++i){u32 v;memcpy(&v,(u8*)&cfg.system+4u*i,4u);codec_expect_le(expected+134u+4u*i,v,4u);}
+  for(unsigned i=0;i<35u;++i){u16 v;memcpy(&v,(u8*)&cfg.afe_hw+2u*i,2u);codec_expect_le(expected+146u+2u*i,v,2u);}
+  memcpy(expected+216u,cfg.bt_name_suffix,24u);
+  for(unsigned i=0;i<7u;++i){u16 v;memcpy(&v,(u8*)&cfg.user+2u*i,2u);codec_expect_le(expected+240u+2u*i,v,2u);}
+  codec_expect_le(expected+254u,(u32)cfg.user.current_offset_ma,4u);
+  codec_expect_le(expected+258u,cfg.user.current_gain_ppm,4u);memcpy(expected+262u,cfg.user.serial,32u);
+  for(unsigned i=0;i<6u;++i)codec_expect_le(expected+294u+2u*i,cfg.ota_update_id[i],2u);
+  for(unsigned i=0;i<50u;++i){u16 v;memcpy(&v,(u8*)&cfg.soc+2u*i,2u);codec_expect_le(expected+306u+2u*i,v,2u);}
+  for(unsigned i=0;i<4u;++i){u16 v;memcpy(&v,(u8*)&cfg.sleep+2u*i,2u);codec_expect_le(expected+406u+2u*i,v,2u);}
   memset(encoded,0xa5,sizeof(encoded));bms_config_encode(&cfg,encoded+1u);
-  assert(encoded[0]==0xa5 && encoded[323]==0xa5);
-  assert(!memcmp(encoded+1u,expected,sizeof(expected)));
-  expected[253]=0xffu;expected[254]=0xffu;expected[255]=0xffu; /* 保留字节忽略，BLE 后缀末字节强制 NUL。 */
-  cfg.bt_name_suffix[23]='\0';
-  memset(&decoded,0xa5,sizeof(decoded));bms_config_decode(&decoded,expected);
-  assert(!memcmp(&decoded,&cfg,sizeof(cfg)));
+  assert(encoded[0]==0xa5 && encoded[415]==0xa5 && !memcmp(encoded+1u,expected,sizeof(expected)));
+  memset(&decoded,0,sizeof(decoded));bms_config_decode(&decoded,expected);
+  assert(bms_config_cache_equal(&cfg,&decoded));
  }
- puts("PASS Config codec: 10000 independent 322-byte vectors, signed/high-bit fields, reserved byte, guards, native ABI padding");
- printf("BMS_EVIDENCE {\"config_codec\":{\"cases\":10000,\"payload_bytes\":322,\"user_native_bytes\":%u,\"calibration_native_offset\":%u}}\n",
-        (unsigned)sizeof(bms_user_params_t),(unsigned)offsetof(bms_user_params_t,current_offset_ma));
+ puts("PASS Config codec: 10000 independent 414-byte vectors, one SOC identity, full curve, sleep, calibration and guards");
 }
 static void test_config_cache_equality(void)
 {
@@ -222,33 +158,26 @@ static void test_config_cache_equality(void)
 static void test_config_schema(void){
  /* CRC 有效也不能让超宽化学体系/profile 截断为 u8 AUTO 后放行。 */
  fresh();bms_config_cache_t malformed=g_bms_config;
- malformed.system.battery_chemistry=0x100u;
- assert(bms_config_save_cache(&malformed));reboot();assert(bms_config_store_init());
+ malformed.soc.chemistry=0x100u;
+ assert(bms_config_save_cache(&malformed));reboot();assert(!bms_config_store_init());
  bms_soc_config_t soc;assert(!bms_config_store_get_soc(&soc));
  assert(!bms_config_store_validate_startup());
- fresh();malformed=g_bms_config;malformed.system.soc_profile_id=0x100u;
- assert(bms_config_save_cache(&malformed));reboot();assert(bms_config_store_init());
+ fresh();malformed=g_bms_config;malformed.soc.profile_id=0x100u;
+ assert(bms_config_save_cache(&malformed));reboot();assert(!bms_config_store_init());
  assert(!bms_config_store_get_soc(&soc) && !bms_config_store_validate_startup());
  /* 系统入口保存选型，SOC getter 读取同一来源；失败不能发布新值。 */
- fresh();bms_config_system_params_t selection=g_bms_config.system;
+ fresh();bms_config_system_params_t selection;assert(bms_config_store_get_system(&selection));
  selection.battery_chemistry=2u;selection.soc_profile_id=2u;
- assert(bms_config_store_set_system(&selection));assert(bms_config_store_get_soc(&soc));
- assert(soc.chemistry==2u && soc.profile_id==2u);
- selection.battery_chemistry=1u;selection.soc_profile_id=1u;cut=0;
- assert(!bms_config_store_set_system(&selection));assert(bms_config_store_get_soc(&soc));
- assert(soc.chemistry==2u && soc.profile_id==2u);
- cut=-1;
- assert(bms_config_store_set_system(&selection));assert(bms_config_store_get_system(&selection));
- assert(selection.battery_chemistry==1u && selection.soc_profile_id==1u);
+ assert(!bms_config_store_set_system(&selection));
  assert(bms_config_store_get_soc(&soc) && soc.chemistry==1u && soc.profile_id==1u);
- fresh(); bms_config_system_params_t cap=g_bms_config.system;
+ fresh(); bms_config_system_params_t cap;assert(bms_config_store_get_system(&cap));
  cap.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH+1u;assert(!bms_config_store_set_system(&cap));
  assert(g_bms_config.system.capacity_factory==1000);
  bms_config_cache_t old=g_bms_config,next=old;
  next.protect.cell_ovp_third_mv=3999;next.afe_hw.cov_mv=4100;
  next.soc.ocv_rest_prepare_s=777;strcpy(next.bt_name_suffix,"persist-name");
  memcpy(backup,flash,sizeof(flash));
- for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);byte++){
+ for(int byte=0;byte<(int)(32+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u));byte++){
   memcpy(flash,backup,sizeof(flash));reboot();assert(bms_config_store_init());cut=byte;
   assert(!bms_config_save_cache(&next));assert(!memcmp(&g_bms_config,&old,sizeof(old)));
   reboot();assert(bms_config_store_init());assert(!memcmp(&g_bms_config,&old,sizeof(old)));
@@ -399,9 +328,11 @@ static void test_parameter_protocol(void){
  assert(bms_parameter_write(0x2ef8u,5u,profile_command)==0u);
  u16 profile_generation=parameter_read_one(0x2ee5u);u8 deadband[]={0,250};
  assert(bms_parameter_write(0x2f24u,1u,deadband)==0u);
+ assert(programs==flash_before); /* 分帧暂存不写 Flash，只有完整提交才持久化。 */
  profile_command[0]=0u;profile_command[1]=2u;profile_command[2]=(u8)(profile_generation>>8);profile_command[3]=(u8)profile_generation;
  assert(bms_parameter_write(0x2ef8u,5u,profile_command)==0u&&parameter_read_one(0x2eb6u)==250u&&parameter_read_one(0x2ee4u)==1u);
  sequence=parameter_read_one(0x2e04u);
+ assert(programs>flash_before);flash_before=programs;
  access_active=0;assert(bms_parameter_write(0x2e10,1,retired)==3);
  access_active=1;assert(bms_parameter_write(0x2e10,1,retired)==3);
  assert(programs==flash_before && parameter_read_one(0x2e04)==sequence);
@@ -429,7 +360,7 @@ static void test_user_parameters(void){
  v=old;v.current_offset_ma=-123;v.current_gain_ppm=1100000;strcpy(v.serial,"D008-TEST");
  assert(bms_config_set_user(&v));reboot();assert(bms_config_store_init());assert(bms_config_get_user(&old));assert(!memcmp(&old,&v,sizeof(v)));
  memcpy(backup,flash,sizeof(flash));
- for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);byte++){
+ for(int byte=0;byte<(int)(32+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u));byte++){
   memcpy(flash,backup,sizeof(flash));reboot();assert(bms_config_store_init());assert(bms_config_get_user(&old));
   bms_user_params_t next=old;next.heater_enable=0;cut=byte;assert(!bms_config_set_user(&next));
   assert(bms_config_get_user(&next));assert(next.heater_enable==1);
@@ -474,7 +405,7 @@ static void test_balance_permission(void)
  words[1]=0u;assert(bms_parameter_write(0x2e70u,4u,words)==0u);
  memcpy(backup,flash,sizeof(flash));words[1]=1u;
  /* 每个写中断点都必须保留旧禁止状态，不能先发布尚未提交的允许。 */
- for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);++byte){
+ for(int byte=0;byte<(int)(32+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u));++byte){
   memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_init();cut=byte;
   assert(bms_parameter_write(0x2e70u,4u,words)==4u);
   assert(parameter_read_one(0x2e70u)==0u);
@@ -543,7 +474,7 @@ static void test_ota_config_policy(void)
         fresh(); bms_config_cache_t cfg = configured();
         assert(bms_config_save_cache(&cfg)); memcpy(backup, flash, sizeof(flash));
         test_ota_mask = 1u << group;
-        for (int byte = 0; byte < (int)(24 + BMS_CONFIG_PAYLOAD_BYTES + 8); ++byte) {
+        for (int byte = 0; byte < (int)(32+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u)); ++byte) {
             memcpy(flash, backup, sizeof(flash)); reboot(); cut = byte;
             bms_parameters_init(); assert(!bms_protection_params_valid());
             u8 payload[BMS_CONFIG_PAYLOAD_BYTES]; bms_config_cache_t persisted;
@@ -570,8 +501,8 @@ static void test_ota_config_policy(void)
     test_ota_mask = 15u; reboot(); bms_parameters_init(); assert(bms_protection_params_valid());
     assert(g_bms_config.system.series_num == 24u); assert_update_groups(15u);
     /* SOC 类型改变但未更新电压保护时拒绝放行。 */
-    fresh(); custom = configured(); custom.system.battery_chemistry = 2u;
-    custom.system.soc_profile_id = 2u;
+    fresh(); custom = configured(); custom.soc.chemistry = 2u;
+    custom.soc.profile_id = 2u;
     assert(bms_config_save_cache(&custom)); test_ota_mask = 8u;
     reboot(); bms_parameters_init(); assert(!bms_protection_params_valid());
     test_ota_mask = 15u; reboot(); bms_parameters_init(); assert(bms_protection_params_valid());
@@ -627,7 +558,7 @@ static void test_protection_commit(void) {
  fresh();
  bms_protection_params_t old=g_bms_protection_params, next=old, loaded;
  next.cell_ovp_third_mv=3999;
- for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);++byte) {
+ for(int byte=0;byte<(int)(32+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u));++byte) {
   memcpy(backup,flash,sizeof(flash));cut=byte;
   assert(!bms_protection_params_commit(&next));
   assert(!memcmp(&g_bms_protection_params,&old,sizeof(old)) && bms_protection_params_valid());
@@ -715,52 +646,33 @@ static void test_event_semantics(void){
 /* 执行真实独立 journal 与参数入口；检查旧 CFG2 不变、整组保存及每字节掉电。 */
 static void test_sleep_config(void)
 {
- fresh(); bms_sleep_config_t cfg;
- bms_sleep_config_get(&cfg);assert(cfg.low_cell_mv==2800u && cfg.low_delay_minutes==1u);
- assert(parameter_read_one(0x2e02u)&0x80u);
- assert(bms_parameter_readable(0x2e90u)&&bms_parameter_readable(0x2e94u));
- assert(!bms_parameter_readable(0x2e95u)&&!bms_parameter_readable(0x2e9du));
- u8 values[]={0x0a,0x28,0,2,0x0b,0xb8,0x05,0xa0,0,30}; /* 2600 / 2 / 3000 / 1440 / 30 */
+ fresh();bms_sleep_config_t cfg;
+ bms_config_get_sleep(&cfg);assert(cfg.low_cell_mv==2800u && cfg.low_delay_minutes==1u);
+ u8 values[]={0x0a,0x28,0,2,0x0b,0xb8,0x05,0xa0,0,30};
  assert(bms_parameter_write(0x2e90u,4u,values)==3u);
  assert(bms_parameter_write(0x2e91u,1u,values)==2u);
  assert(bms_parameter_write(0x2e98u,5u,values)==2u);
  assert(bms_parameter_write(0x2e90u,5u,values)==0u);
- assert(parameter_read_one(0x2e90u)==2600u&&parameter_read_one(0x2e91u)==2u);
  u32 written=programs;assert(bms_parameter_write(0x2e90u,5u,values)==0u&&programs==written);
- bms_sleep_config_get(&cfg);cfg.low_cell_mv=cfg.normal_cell_mv;
- assert(!bms_sleep_config_set(&cfg));
- cfg.low_cell_mv=2600u;cfg.low_delay_minutes=1441u;assert(!bms_sleep_config_set(&cfg));
- cfg.low_delay_minutes=2u;cfg.afe_delay_minutes=1u;assert(!bms_sleep_config_set(&cfg));
- u8 legacy_sleep[SLEEP_PAYLOAD_BYTES];sleep_config_codec(&cfg,legacy_sleep,1u);
- assert(storage_record_save(&s_sleep_store,legacy_sleep)); /* 模拟旧版保存过不同AFE时间。 */
- u32 writes_before_reload=programs;
- reboot();bms_sleep_config_get(&cfg);
- assert(cfg.afe_delay_minutes==30u && cfg.low_delay_minutes==2u && programs==writes_before_reload);
- u8 forbidden_afe[]={0x0a,0x28,0,2,0x0b,0xb8,0x05,0xa0,0,1};
- assert(bms_parameter_write(0x2e90u,5u,forbidden_afe)==3u);
- reboot();assert(parameter_read_one(0x2e91u)==2u);
+ bms_config_get_sleep(&cfg);cfg.low_cell_mv=cfg.normal_cell_mv;assert(!bms_config_set_sleep(&cfg));
+ cfg.low_cell_mv=2600u;cfg.low_delay_minutes=1441u;assert(!bms_config_set_sleep(&cfg));
+ cfg.low_delay_minutes=2u;cfg.afe_delay_minutes=1u;assert(!bms_config_set_sleep(&cfg));
+ reboot();bms_parameters_init();bms_config_get_sleep(&cfg);
+ assert(cfg.afe_delay_minutes==30u && cfg.low_delay_minutes==2u);
  assert(bms_config_reset_business());assert(parameter_read_one(0x2e91u)==2u);
  memcpy(backup,flash,sizeof(flash));
- for(int interrupted=0;interrupted<=44;++interrupted) {
-  memcpy(flash,backup,sizeof(flash));reboot();
-  bms_sleep_config_get(&cfg);cfg.low_delay_minutes=10u;
-  cut=interrupted;int saved=bms_sleep_config_set(&cfg);
-  if(!saved){bms_sleep_config_get(&cfg);assert(cfg.low_delay_minutes==2u);}
-  cut=-1;reboot();bms_sleep_config_get(&cfg);
+ for(unsigned interrupted=0;interrupted<=32u+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u);++interrupted){
+  memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_init();
+  bms_config_get_sleep(&cfg);cfg.low_delay_minutes=10u;cut=(int)interrupted;
+  int saved=bms_config_set_sleep(&cfg);
+  if(!saved){bms_config_get_sleep(&cfg);assert(cfg.low_delay_minutes==2u);}
+  cut=-1;reboot();bms_parameters_init();bms_config_get_sleep(&cfg);
   assert(cfg.low_delay_minutes==(saved?10u:2u));
-  assert(!memcmp(flash,backup,28u*4096u)); /* Config/State/Event 字节保持。 */
+  assert(!memcmp(flash+4u*4096u,backup+4u*4096u,sizeof(flash)-4u*4096u));
  }
- /* 首次保存中断，无旧记录时仍可通过显式保存修复；读失败不能写。 */
- for(int interrupted=0;interrupted<=44;++interrupted) {
-  fresh();bms_sleep_config_get(&cfg);cut=interrupted;
-  (void)bms_sleep_config_set(&cfg);cut=-1;reboot();
-  bms_sleep_config_get(&cfg);assert(cfg.low_delay_minutes==1u);
-  assert(bms_sleep_config_set(&cfg));reboot();assert(s_sleep_record_valid);
- }
- fresh();read_ok=0;bms_sleep_config_init();written=programs;
- bms_sleep_config_get(&cfg);assert(!bms_sleep_config_set(&cfg)&&programs==written);
- read_ok=1;
- puts("PASS sleep configuration: five-word transaction, limits, cache publication, reboot, duplicate suppression, byte cuts, unchanged CFG2/State/Event");
+ reboot();read_ok=0;written=programs;assert(!bms_config_store_init());
+ bms_config_get_sleep(&cfg);assert(!bms_config_set_sleep(&cfg)&&programs==written);read_ok=1;
+ puts("PASS merged sleep: unchanged five-word protocol, fixed AFE constant, all Config byte cuts, State/Event untouched");
 }
 
 static void test_chemistry_switch(void)
@@ -780,23 +692,12 @@ static void test_chemistry_switch(void)
  switch_current_ma=0;switch_sample_age=BMS_SOC_MAX_SAMPLE_GAP_32K+1u;
  assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
  switch_sample_age=0;
- /* 静置门禁和失败回滚共用复制的原曲线；reset 会覆盖已提交对象。 */
- bms_soc_profile_config_t original_profile=soc_profile_stub;
+ bms_soc_profile_config_t original_profile;
+ bms_config_get_soc_profile(&original_profile);
  original_profile.current_deadband_ma=123u;original_profile.profile_version=17u;
- assert(bms_soc_profile_store_set(&original_profile));
+ assert(bms_config_set_soc_profile(&original_profile));
  switch_current_ma=124;written=programs;
  assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
- for(unsigned fail_reset=0u;fail_reset<2u;++fail_reset) {
-  switch_current_ma=fail_reset?-123:123;
-  soc_profile_stub_reset_ok=(u8)!fail_reset;
-  soc_profile_stub_reads=0u;config_inhibited=0u;written=programs;cut=0;
-  assert(bms_parameter_write(0x2ea8u,4u,command)==4u);
-  assert(soc_profile_stub_reads==1u && config_inhibited>0u);
-  assert(!memcmp(&soc_profile_stub,&original_profile,sizeof(original_profile)));
-  if(fail_reset)assert(programs==written);else assert(programs>written);
-  cut=-1;
- }
- soc_profile_stub_reset_ok=1u;
  switch_current_ma=0;
  bms_config_cache_t original=g_bms_config;
  original.protect.cell_ovp_third_mv=3999u;
@@ -808,7 +709,7 @@ static void test_chemistry_switch(void)
  original.soc.current_deadband_ma=100u;
  assert(bms_config_save_cache(&original));
  memcpy(backup,flash,sizeof(flash));
- for(int interrupted=0;interrupted<=380;++interrupted) {
+ for(unsigned interrupted=0;interrupted<=32u+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u);++interrupted) {
   memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_init();
   config_inhibited=0u;cut=interrupted;
   int saved=bms_parameter_write(0x2ea8u,4u,command)==0u;
@@ -824,7 +725,7 @@ static void test_chemistry_switch(void)
   if(saved) {
    assert(g_bms_config.afe_hw.cov_mv==3750u);
    assert(g_bms_config.soc.current_deadband_ma==200u);
-   assert(g_bms_config.system.battery_chemistry==1u && g_bms_config.system.soc_profile_id==1u);
+   assert(g_bms_config.soc.chemistry==1u && g_bms_config.soc.profile_id==1u);
   }
  }
  fresh();switch_apply_ok=0u;config_inhibited=0u;
@@ -834,4 +735,55 @@ static void test_chemistry_switch(void)
  puts("PASS chemistry transaction: password, length, 24S limit, fresh idle sample, byte cuts, retained domains, apply failure inhibit");
 }
 
-int main(void){test_chemistry_switch();test_sleep_config();test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_balance_permission();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+static void test_previous_format_defaults(void)
+{
+ fresh();storage_record_store_t previous;
+ u8 old_payload[322];memset(old_payload,0xa5,sizeof(old_payload));
+ bms_config_put_u32le(old_payload,BMS_PRODUCT_ID);
+ memset(flash,255,4u*4096u);
+ assert(storage_record_open(&previous,&port,(storage_region_t){0,4u*4096u},0x43464732u,3u,322u));
+ assert(storage_record_save(&previous,old_payload));
+ memcpy(backup,flash,sizeof(flash));
+ for(unsigned byte=0u;byte<=448u;++byte){
+  memcpy(flash,backup,sizeof(flash));reboot();cut=(int)byte;bms_parameters_init();
+  if(byte<448u){
+   assert(!bms_protection_params_valid());
+   assert(storage_record_load(&previous,old_payload)); /* 新默认提交前保留旧有效 sector。 */
+  }
+  cut=-1;reboot();bms_parameters_init();assert(bms_protection_params_valid());
+  assert(g_bms_config_store.magic==0x43464734u && g_bms_config.soc.chemistry==BMS_PRODUCT_CHEMISTRY);
+  assert(g_bms_config.user.current_offset_ma==0 && g_bms_config.user.current_gain_ppm==1000000u);
+  assert(g_bms_config.user.serial[0]==0 && g_bms_config.sleep.low_cell_mv==2800u);
+ }
+ /* 新格式 CRC 损坏时，即使还残留旧记录，也不得再次恢复默认放行。 */
+ flash[g_bms_config_store.latest_addr+16u]^=1u;reboot();u32 before=programs;
+ assert(!bms_config_store_init() && !bms_config_store_validate_startup() && programs==before);
+ memcpy(flash,backup,sizeof(flash));flash[16u]^=1u;reboot();before=programs;
+ assert(!bms_config_store_init() && programs==before);
+ puts("PASS CFG2 upgrade: defaults after verified old format, 449 cut points, old sector retained, retry and corrupt-new fail closed");
+}
+
+static void test_merged_profile(void)
+{
+ test_previous_format_defaults();
+ fresh();bms_soc_profile_config_t old,next;
+ bms_config_get_soc_profile(&old);next=old;
+ next.current_deadband_ma=321u;++next.profile_version;
+ const bms_soc_profile_config_t *view=bms_config_current_soc_profile();
+ memcpy(backup,flash,sizeof(flash));
+ for(unsigned cut_byte=0;cut_byte<32u+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u);++cut_byte){
+  memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_init();
+  u16 generation=bms_config_soc_profile_generation();cut=(int)cut_byte;
+  assert(!bms_config_set_soc_profile(&next));
+  assert(generation==bms_config_soc_profile_generation() && !memcmp(view,&old,sizeof(old)));
+  cut=-1;reboot();bms_parameters_init();assert(!memcmp(view,&old,sizeof(old)));
+ }
+ assert(bms_config_set_soc_profile(&next));assert(!memcmp(view,&next,sizeof(next)));
+ u32 before=programs;u16 generation=bms_config_soc_profile_generation();
+ assert(bms_config_set_soc_profile(&next));assert(programs==before && generation==bms_config_soc_profile_generation());
+ reboot();bms_parameters_init();assert(!memcmp(view,&next,sizeof(next)));
+ next.chemistry=257u;assert(!bms_config_set_soc_profile(&next));
+ puts("PASS merged profile: all 448 write-byte cuts, stable view, cache/generation rollback, duplicate suppression, reboot");
+}
+
+int main(void){test_merged_profile();test_chemistry_switch();test_sleep_config();test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_balance_permission();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}

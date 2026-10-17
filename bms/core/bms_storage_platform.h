@@ -18,9 +18,7 @@ extern "C" {
 typedef enum {
     BMS_STORAGE_DOMAIN_CONFIG = 0,
     BMS_STORAGE_DOMAIN_STATE,
-    BMS_STORAGE_DOMAIN_SOC_PROFILE, /* 独立 SOC/OCV profile，不改变 CFG2。 */
-    BMS_STORAGE_DOMAIN_EVENT,
-    BMS_STORAGE_DOMAIN_SLEEP_CONFIG, /* 新增独立参数；不复用旧诊断槽位。 */
+    BMS_STORAGE_DOMAIN_EVENT = 3, /* 保留原诊断槽；槽 2 现在为 NOT_RUN。 */
     BMS_STORAGE_DOMAIN_COUNT
 } bms_storage_domain_t;
 

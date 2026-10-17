@@ -25,7 +25,8 @@ typedef enum {
     STORAGE_RECORD_LOAD_OK,
     STORAGE_RECORD_LOAD_INCOMPATIBLE,
     STORAGE_RECORD_LOAD_CORRUPT,
-    STORAGE_RECORD_LOAD_IO_ERROR
+    STORAGE_RECORD_LOAD_IO_ERROR,
+    STORAGE_RECORD_LOAD_UNCOMMITTED /* 有当前格式写中断残留，没有已提交的坏记录。 */
 } storage_record_load_status_t;
 
 typedef struct {

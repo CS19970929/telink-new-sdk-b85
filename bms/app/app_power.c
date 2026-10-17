@@ -1,3 +1,4 @@
+#include "bms_config_store.h"
 /* 低功耗状态由本模块持有；采样标志由 app.c 持有，PM 仅按 volatile 语义读取。 */
 /********************************************************************************************************
  * @file    app_power.c
@@ -304,7 +305,7 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec,
         app_protective_sleep_hold();
         return 1u;
     }
-    bms_sleep_config_get(&config);
+    bms_config_get_sleep(&config);
     input.valid = valid;
     input.afe_fault = bms_error_get(BMS_ERROR_AFE1);
     input.current_ma = valid ? m->current_ma : 0;

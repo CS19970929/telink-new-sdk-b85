@@ -8,7 +8,7 @@
 #include "bms_update_policy.h"
 #include "bms_config_store.h"
 #include "bms_sleep_config.h"
-#include "bms_soc_profile_store.h"
+#include "bms_soc_profile.h"
 #include "bms_state_store.h"
 #include "bms_afe_hw_access.h"
 #include "bms_features.h"
@@ -109,7 +109,7 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
         if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 4u) return s_chemistry_status;
         if (r >= BMS_PARAM_REG_CHEMISTRY_BASE + 5u) {
             if (!s->profile_loaded) {
-                bms_soc_profile_store_get(&s->profile);
+                bms_config_get_soc_profile(&s->profile);
                 s->profile_loaded = 1u;
             }
             if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 5u) return profile->current_deadband_ma;
@@ -127,14 +127,14 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
     if (r >= BMS_PARAM_REG_SOC_PROFILE_BASE && r <= BMS_PARAM_REG_SOC_PROFILE_STAGE_STATUS) {
         if (r == BMS_PARAM_REG_SOC_PROFILE_BASE) return BMS_SOC_PROFILE_INTERFACE_MAGIC;
         if (r == BMS_PARAM_REG_SOC_PROFILE_BASE + 1u) return BMS_SOC_PROFILE_INTERFACE_VERSION;
-        if (r == BMS_PARAM_REG_SOC_PROFILE_PERSISTED) return bms_soc_profile_store_is_persisted();
+        if (r == BMS_PARAM_REG_SOC_PROFILE_PERSISTED) return bms_config_soc_profile_is_persisted();
         if (r == BMS_PARAM_REG_SOC_PROFILE_GENERATION) return s_soc_profile_generation;
         if (r == BMS_PARAM_REG_SOC_PROFILE_STAGE_STATUS) return s_soc_profile_stage_status;
         if (!s->profile_loaded) {
-            bms_soc_profile_store_get(&s->profile);
+            bms_config_get_soc_profile(&s->profile);
             s->profile_loaded = 1u;
         }
-        return bms_soc_profile_store_word(profile,
+        return bms_soc_profile_word(profile,
             (u16)(r - BMS_PARAM_REG_SOC_PROFILE_BASE - 2u));
     }
     if (r == BMS_PARAM_REG_LAST_RESULT) return s_result;
@@ -157,7 +157,7 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
             if (!s->sleep_loaded) bms_sleep_config_defaults(&s->sleep);
             offset = r - BMS_PARAM_REG_SLEEP_DEFAULT_BASE;
         } else {
-            if (!s->sleep_loaded) bms_sleep_config_get(&s->sleep);
+            if (!s->sleep_loaded) bms_config_get_sleep(&s->sleep);
             offset = r - BMS_PARAM_REG_SLEEP_BASE;
         }
         s->sleep_loaded = 1u;
@@ -243,22 +243,18 @@ static u8 switch_chemistry(const u8 *data, u16 qty)
 #if BMS_PRODUCT_ID == 8u
     if (chemistry == BMS_SOC_CHEMISTRY_NMC && BMS_PRODUCT_CELL_COUNT > 23u) return 3u;
 #endif
-    /* 保留原曲线副本，既用于静置门禁，也用于 Config 保存失败后的回滚。 */
-    bms_soc_profile_store_get(&previous_profile);
+    /* 读取当前死区用于静置门禁；完整类型/曲线与保护只提交一条 Config。 */
+    bms_config_get_soc_profile(&previous_profile);
     if (!bms_protection_params_valid() || !bms_afe_bus_access_allowed() ||
         !(bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) ||
         !bms_afe_get_aux_measurements(&sample) ||
         (u32)(bms_time_now_32k() - sample.sample_tick_32k) > BMS_SOC_MAX_SAMPLE_GAP_32K ||
-        !bms_soc_profile_store_valid(&previous_profile) ||
+        !bms_soc_profile_valid(&previous_profile) ||
         sample.current_ma > (int32_t)previous_profile.current_deadband_ma ||
         sample.current_ma < -(int32_t)previous_profile.current_deadband_ma) return 4u;
     s_chemistry_status = CHEMISTRY_SWITCH_FAILED;
     bms_afe_invalidate_configuration();
-    if (!bms_soc_profile_store_reset((u8)chemistry)) return 4u;
-    if (!bms_config_store_switch_chemistry((u8)chemistry)) {
-        (void)bms_soc_profile_store_set(&previous_profile);
-        return 4u;
-    }
+    if (!bms_config_store_switch_chemistry((u8)chemistry)) return 4u;
     s_chemistry_status = CHEMISTRY_SWITCH_COMMITTED;
     if (!bms_parameters_reload_configuration() || !bms_afe_hw_profile_apply_committed()) {
         s_chemistry_status = CHEMISTRY_SWITCH_FAILED;
@@ -280,7 +276,7 @@ static u8 soc_profile_command(const u8 *data, u16 qty)
     op = word(data);
     generation = word(data + 2u);
     if (op == 1u) {
-        bms_soc_profile_store_get(&s_soc_profile_stage);
+        bms_config_get_soc_profile(&s_soc_profile_stage);
         if (++s_soc_profile_generation == 0u) ++s_soc_profile_generation;
         s_soc_profile_stage_tick = bms_time_now_32k();
         s_soc_profile_stage_status = 1u;
@@ -289,15 +285,15 @@ static u8 soc_profile_command(const u8 *data, u16 qty)
     if (op == 2u) {
         if (s_soc_profile_stage_status != 1u || generation != s_soc_profile_generation ||
             (u32)(bms_time_now_32k() - s_soc_profile_stage_tick) > 60u * 32000u ||
-            !bms_soc_profile_store_valid(&s_soc_profile_stage)) return 3u;
+            !bms_soc_profile_valid(&s_soc_profile_stage)) return 3u;
         s_soc_profile_stage_status = 3u;
-        if (!bms_soc_profile_store_set(&s_soc_profile_stage) || !bms_soc_profile_reload()) return 4u;
+        if (!bms_config_set_soc_profile(&s_soc_profile_stage) || !bms_soc_profile_reload()) return 4u;
         s_soc_profile_stage_status = 2u;
         return 0u;
     }
     if (op == 3u) {
         if (!bms_config_store_get_soc(&identity) ||
-            !bms_soc_profile_store_reset(identity.chemistry) || !bms_soc_profile_reload()) return 4u;
+            !bms_config_reset_soc_profile(identity.chemistry) || !bms_soc_profile_reload()) return 4u;
         s_soc_profile_stage_status = 0u;
         return 0u;
     }
@@ -322,7 +318,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
             (u32)(bms_time_now_32k() - s_soc_profile_stage_tick) > 60u * 32000u)
             return finish(3u);
         for (i = 0u; i < qty; ++i)
-            (void)bms_soc_profile_store_set_word(&s_soc_profile_stage, (u16)(offset + i),
+            (void)bms_soc_profile_set_word(&s_soc_profile_stage, (u16)(offset + i),
                                                  word(data + i * 2u));
         s_soc_profile_stage_tick = bms_time_now_32k();
         return finish(0u);
@@ -334,7 +330,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
             memcpy((u8 *)&sleep + i * 2u, &item, sizeof(item));
         }
         if (!bms_sleep_config_valid(&sleep)) return finish(3u);
-        return finish(bms_sleep_config_set(&sleep) ? 0u : 4u);
+        return finish(bms_config_set_sleep(&sleep) ? 0u : 4u);
     }
     if (r == BMS_PARAM_REG_SOC || r == BMS_PARAM_REG_CYCLE)
     {

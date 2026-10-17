@@ -1,44 +1,45 @@
-/* SOC 默认曲线与已提交曲线使用同一定长表示；不改变 50-word 持久/协议布局。 */
+/* SOC 曲线类型、编译默认、业务校验和协议 word 映射；持久配置由 Config 拥有。 */
 #pragma once
+#include <stdint.h>
 #include "bms_soc_defs.h"
-#include "bms_product.h"
-#include "bms_soc_profile_store.h"
+#define BMS_SOC_PROFILE_MAX_POINTS 15u
+#define BMS_SOC_PROFILE_FIXED_WORDS 20u
+#define BMS_SOC_PROFILE_WORDS \
+    (BMS_SOC_PROFILE_FIXED_WORDS + BMS_SOC_PROFILE_MAX_POINTS * 2u)
 
-/* 通用中心曲线仅为默认，不声明电芯模型精度。点数由实际初始化表推导。 */
-static const bms_soc_profile_config_t g_soc_profile_lfp = {
-    .chemistry = BMS_SOC_CHEMISTRY_LFP,
-    .profile_id = BMS_SOC_PROFILE_GENERIC_LFP,
-    .profile_version = BMS_SOC_PROFILE_GENERIC_LFP_VERSION,
-    .point_count = sizeof((bms_soc_ocv_config_point_t[]){BMS_SOC_OCV_LFP_POINTS}) /
-                   sizeof(bms_soc_ocv_config_point_t),
-    .current_deadband_ma = BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT,
-    .ocv_rest_prepare_s = BMS_SOC_OCV_REST_PREPARE_S_DEFAULT,
-    .ocv_error_band_percent = BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT,
-    .valid_min_mv = 2500u, .valid_max_mv = 3800u,
-    .full_sync_mv = 3500u, .full_min_margin_mv = 100u,
-    .empty_sync_mv = 3000u, .empty_max_margin_mv = 150u,
-    .ocv_min_error_band_percent = 7u, .full_cell_delta_max_mv = 80u,
-    .terminal_cell_delta_max_mv = 50u,
-    .terminal_start_offset_mv = 150u, .terminal_l1_offset_mv = 100u,
-    .terminal_l2_offset_mv = 50u, .terminal_l3_offset_mv = 20u,
-    .points = {BMS_SOC_OCV_LFP_POINTS},
-};
+typedef struct {
+    uint16_t mv;
+    uint16_t soc_percent;
+} bms_soc_ocv_config_point_t;
 
-static const bms_soc_profile_config_t g_soc_profile_nmc = {
-    .chemistry = BMS_SOC_CHEMISTRY_NMC,
-    .profile_id = BMS_SOC_PROFILE_GENERIC_NMC,
-    .profile_version = BMS_SOC_PROFILE_GENERIC_NMC_VERSION,
-    .point_count = sizeof((bms_soc_ocv_config_point_t[]){BMS_SOC_OCV_NMC_POINTS}) /
-                   sizeof(bms_soc_ocv_config_point_t),
-    .current_deadband_ma = BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT,
-    .ocv_rest_prepare_s = BMS_SOC_OCV_REST_PREPARE_S_DEFAULT,
-    .ocv_error_band_percent = BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT,
-    .valid_min_mv = 2600u, .valid_max_mv = 4300u,
-    .full_sync_mv = 4180u, .full_min_margin_mv = 200u,
-    .empty_sync_mv = 3000u, .empty_max_margin_mv = 200u,
-    .ocv_min_error_band_percent = 5u, .full_cell_delta_max_mv = 80u,
-    .terminal_cell_delta_max_mv = 50u,
-    .terminal_start_offset_mv = 300u, .terminal_l1_offset_mv = 200u,
-    .terminal_l2_offset_mv = 150u, .terminal_l3_offset_mv = 50u,
-    .points = {BMS_SOC_OCV_NMC_POINTS},
-};
+typedef struct {
+    uint16_t chemistry;
+    uint16_t profile_id;
+    uint16_t profile_version;
+    uint16_t point_count;
+    uint16_t current_deadband_ma;
+    uint16_t ocv_rest_prepare_s;
+    uint16_t ocv_error_band_percent;
+    uint16_t valid_min_mv;
+    uint16_t valid_max_mv;
+    uint16_t full_sync_mv;
+    uint16_t full_min_margin_mv;
+    uint16_t empty_sync_mv;
+    uint16_t empty_max_margin_mv;
+    uint16_t ocv_min_error_band_percent;
+    uint16_t full_cell_delta_max_mv;
+    uint16_t terminal_cell_delta_max_mv;
+    uint16_t terminal_start_offset_mv;
+    uint16_t terminal_l1_offset_mv;
+    uint16_t terminal_l2_offset_mv;
+    uint16_t terminal_l3_offset_mv;
+    bms_soc_ocv_config_point_t points[BMS_SOC_PROFILE_MAX_POINTS];
+} bms_soc_profile_config_t;
+
+
+extern const bms_soc_profile_config_t g_soc_profile_lfp;
+extern const bms_soc_profile_config_t g_soc_profile_nmc;
+void bms_soc_profile_defaults(uint8_t chemistry, bms_soc_profile_config_t *config);
+int bms_soc_profile_valid(const bms_soc_profile_config_t *config);
+uint16_t bms_soc_profile_word(const bms_soc_profile_config_t *config, uint16_t offset);
+int bms_soc_profile_set_word(bms_soc_profile_config_t *config, uint16_t offset, uint16_t value);

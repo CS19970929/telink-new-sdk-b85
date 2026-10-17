@@ -229,7 +229,7 @@ def check_common_feature_policy_contract_check():
 
     for token in ("balance_enable","balance_start_mv","balance_start_delta_mv","balance_stop_delta_mv"):
         assert token in config_h and token in config_c and token in features_c
-    assert "#define BMS_CONFIG_SCHEMA_VERSION        3u" in config_c
+    assert "#define BMS_CONFIG_SCHEMA_VERSION        4u" in config_c
     assert "#define BMS_CONFIG_USER_BYTES            54u" in config_c
     parameters=text("bms_parameter_access.c")
     assert "BMS_PARAM_REG_HEATER_ENABLE" in parameters and "BMS_PARAM_REG_BALANCE_ENABLE" in parameters
@@ -288,6 +288,7 @@ def check_soc_contract_check():
     APP = (MOD / "app.c").read_text(encoding="utf-8", errors="ignore")
     H = (MOD / "bms_soc.h").read_text(encoding="utf-8", errors="ignore")
     PROFILE = (MOD / "bms_soc_profile.h").read_text(encoding="utf-8", errors="ignore")
+    PROFILE += (MOD / "bms_soc_profile.c").read_text(encoding="utf-8")
     DEFS = (MOD / "bms_soc_defs.h").read_text(encoding="utf-8", errors="ignore")
     CONFIG_C = (MOD / "bms_config_store.c").read_text(encoding="utf-8", errors="ignore")
     CONFIG_H = (MOD / "bms_config_store.h").read_text(encoding="utf-8", errors="ignore")
@@ -306,16 +307,16 @@ def check_soc_contract_check():
             self.assertIn("BMS_SOC_PROFILE_GENERIC_NMC_VERSION", PROFILE)
             self.assertNotIn("s_persisted_ocv", C)
             self.assertNotIn("s_persisted_profile", C)
-            self.assertIn("bms_soc_profile_store_current()", C)
+            self.assertIn("bms_config_current_soc_profile()", C)
             self.assertIn("SOC_AUTO_LFP_OVP_MAX_MV              3900u", C)
 
         def test_product_chemistry_and_profile_are_config_fields(self):
             self.assertIn("u32 battery_chemistry", CONFIG_H)
             self.assertIn("u32 soc_profile_id", CONFIG_H)
-            self.assertIn("BMS_CONFIG_SYSTEM_WORDS          5u", CONFIG_C)
+            self.assertIn("BMS_CONFIG_SYSTEM_WORDS          3u", CONFIG_C)
             self.assertIn("bms_config_put_u32le", CONFIG_C)
-            self.assertIn("system->battery_chemistry = BMS_PRODUCT_CHEMISTRY", CONFIG_C)
-            self.assertIn("system->soc_profile_id = BMS_PRODUCT_SOC_PROFILE_ID", CONFIG_C)
+            self.assertIn("system->battery_chemistry = g_bms_config.soc.chemistry", CONFIG_C)
+            self.assertIn("system->soc_profile_id = g_bms_config.soc.profile_id", CONFIG_C)
             self.assertIn("bms_config_store_get_system", CONFIG_C)
             self.assertIn("bms_soc_reload_configuration", C)
             self.assertIn("bms_config_store_get_soc(&g_soc_config)", C)

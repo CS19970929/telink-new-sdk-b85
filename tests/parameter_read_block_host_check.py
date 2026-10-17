@@ -12,7 +12,7 @@ prefix = r'''
 #include "bms_product.h"
 #include "bms_parameter_access.h"
 #include "bms_config_store.h"
-#include "bms_soc_profile_store.h"
+#include "bms_soc_profile.h"
 #include "bms_sleep_config.h"
 #include "bms_features.h"
 #include "bms_afe.h"
@@ -33,15 +33,15 @@ int bms_config_get_user(bms_user_params_t *v) {
 int bms_config_store_get_system(bms_config_system_params_t *v) {
     ++system_calls;memset(v,0,sizeof(*v));v->battery_chemistry=2u;v->soc_profile_id=2u;v->capacity_factory=1234u;return system_ok;
 }
-void bms_soc_profile_store_get(bms_soc_profile_config_t *v) { ++profile_calls;*v=active_profile; }
-u16 bms_soc_profile_store_word(const bms_soc_profile_config_t *v,u16 offset) {
+void bms_config_get_soc_profile(bms_soc_profile_config_t *v) { ++profile_calls;*v=active_profile; }
+u16 bms_soc_profile_word(const bms_soc_profile_config_t *v,u16 offset) {
     u16 word=0u;if(offset<50u)memcpy(&word,(const u8*)v+offset*2u,2u);return word;
 }
-u8 bms_soc_profile_store_is_persisted(void) { return 1u; }
+u8 bms_config_soc_profile_is_persisted(void) { return 1u; }
 u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *v) {
     ++sample_calls;v->raw_current_ma=INT32_MIN+123;v->current_ma=-1234;v->sample_tick_32k=sample_tick;return sample_ok;
 }
-void bms_sleep_config_get(bms_sleep_config_t *v) { ++sleep_calls;*v=(bms_sleep_config_t){2600,1,3300,2,30}; }
+void bms_config_get_sleep(bms_sleep_config_t *v) { ++sleep_calls;*v=(bms_sleep_config_t){2600,1,3300,2,30}; }
 void bms_sleep_config_defaults(bms_sleep_config_t *v) { ++sleep_calls;*v=(bms_sleep_config_t){2700,3,3400,4,30}; }
 u8 bms_board_heater_supported(void) { return 1u; }
 u8 get_soc_real(void) { return 57u; }

@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-/* 独立休眠参数记录；不改变既有 CFG2 payload、地址或参数含义。 */
+/* 休眠参数与纯策略；四项可编辑参数由 Config 持久化，协议保留固定 AFE 槽。 */
 #define BMS_SLEEP_CONFIG_WORDS 5u
 #define BMS_SLEEP_AFE_FIXED_MINUTES 30u /* 固件固定策略，不允许在线修改。 */
 typedef struct {
@@ -12,12 +12,9 @@ typedef struct {
     uint16_t afe_delay_minutes; /* 保留旧记录/协议槽，读回恒为固定值。 */
 } bms_sleep_config_t;
 
-/* 只在启动加载；读取不访问 Flash，保存成功后才发布候选值。 */
-void bms_sleep_config_init(void);
+/* 默认构造和纯校验不访问 Flash。 */
 void bms_sleep_config_defaults(bms_sleep_config_t *config);
-void bms_sleep_config_get(bms_sleep_config_t *config);
 int bms_sleep_config_valid(const bms_sleep_config_t *config);
-int bms_sleep_config_set(const bms_sleep_config_t *config);
 
 /* RAM 策略与五 word 持久记录分离；以下内容不进入 Flash payload。 */
 #define BMS_SLEEP_VOLTAGE_LOW_ACTIVE 0x01u
