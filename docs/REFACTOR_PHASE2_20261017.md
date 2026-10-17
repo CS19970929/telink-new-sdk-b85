@@ -97,7 +97,8 @@ D008 114228 / 12748 B、D011 111732 / 15244 B、D013 108340 / 18636 B、D014 110
 全部满足生产 8 KiB 余量。这里只检查当前源码装配，未宣称其它 D008 profile 已验证。
 额外验证 `BMS_SERVICE_DIAG_ENABLE=1` 的 D008/D014 development ELF：Flash 为 126244 / 123252 B，
 余量 732 / 3724 B，APP 槽内但均低于 8 KiB；仅证明该开发分支可链接，不构成量产镜像。
-上述资源收据最初基于 `515c9262` 加已保存差异（dirty=1）；提交后再确认 clean 源码链接身份。
+上述资源已在 clean `3a8984d1b9941279c4dc13c01b0e506428acf33f` 上重新确认：
+四开发、四生产及两个服务诊断配置的收据均为该提交、dirty=0、image_generated=false。
 
 35 组合清单与命令以树外证据中的 `host-final/results.json` 为准。最小复现入口包括
 `tests/dvc_adc_events_host_check.py`、`tests/d008_power_soc_host_check.py`、
