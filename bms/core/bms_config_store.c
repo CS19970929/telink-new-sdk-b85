@@ -669,25 +669,12 @@ int bms_config_store_get_system(bms_config_system_params_t *system)
     return 1;
 }
 
-/* 系统选型是 SOC 的唯一来源；拒绝无法组合的化学体系/profile。 */
-static int bms_config_soc_selection_valid(const bms_config_system_params_t *system)
-{
-    /* 持久字段为 u32，必须在缩窄到 SOC 的 u8 接口之前验证完整值。 */
-    return system->battery_chemistry <= BMS_SOC_CHEMISTRY_NMC &&
-        system->soc_profile_id <= BMS_SOC_PROFILE_GENERIC_NMC &&
-        !(system->battery_chemistry == BMS_SOC_CHEMISTRY_LFP &&
-          system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_NMC) &&
-        !(system->battery_chemistry == BMS_SOC_CHEMISTRY_NMC &&
-          system->soc_profile_id == BMS_SOC_PROFILE_GENERIC_LFP);
-}
-
 /* 校验并保存系统业务配置，按保存结果更新缓存。 */
 int bms_config_store_set_system(const bms_config_system_params_t *system)
 {
     bms_config_cache_t next;
     if ((system == 0) || !bms_config_ensure_ready()) return 0;
     if (system->series_num != BMS_PRODUCT_CELL_COUNT || system->bms_type != BMS_PRODUCT_WIRE_ID) return 0;
-    if (!bms_config_soc_selection_valid(system)) return 0;
     if (system->capacity_factory == 0u || system->capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) return 0;
     /* 类型修改必须走整套保护/曲线原子切换，普通容量接口不能制造混合配置。 */
     if (system->battery_chemistry != g_bms_config.soc.chemistry ||
@@ -749,7 +736,6 @@ int bms_config_store_set_bt_name_suffix(const char *suffix)
 int bms_config_store_validate_startup(void)
 {
     uint16_t invalid = 0u;
-    bms_soc_config_t soc;
     bms_diag_upgrade(DIAG_UPGRADE_STARTED, 0u);
     if (!bms_config_ensure_ready()) return 0;
     /* 进行中记录禁止被普通回刷固件误当成安全配置放行。 */
@@ -757,7 +743,7 @@ int bms_config_store_validate_startup(void)
         !bms_config_store_factory_reset_pending()) return 0;
     if (!bms_sw_protection_validate_params(&g_bms_config.protect)) invalid |= DIAG_UPGRADE_BAD_SW;
     if (!bms_afe_hw_profile_validate(&g_bms_config.afe_hw)) invalid |= DIAG_UPGRADE_BAD_AFE;
-    if (!bms_config_store_get_soc(&soc)) invalid |= DIAG_UPGRADE_BAD_SOC;
+    if (!bms_soc_profile_valid(&g_bms_config.soc)) invalid |= DIAG_UPGRADE_BAD_SOC;
     if (!bms_config_user_valid(&g_bms_config.user) ||
         !bms_sleep_config_valid(&g_bms_config.sleep)) invalid |= DIAG_UPGRADE_BAD_SW;
     if (g_bms_config.system.series_num != BMS_PRODUCT_CELL_COUNT ||
@@ -768,19 +754,6 @@ int bms_config_store_validate_startup(void)
     if (g_bms_config_needs_save && !bms_config_save_cache(&g_bms_config)) return 0;
     bms_diag_upgrade(DIAG_UPGRADE_CONFIG_OK, 0u);
     return 1;
-}
-
-/* 取得缓存的SOC 算法配置。 */
-int bms_config_store_get_soc(bms_soc_config_t *config)
-{
-    if (config == 0 || !g_bms_config_ready) return 0;
-    if (!bms_soc_profile_valid(&g_bms_config.soc)) return 0;
-    config->chemistry = (u8)g_bms_config.soc.chemistry;
-    config->profile_id = (u8)g_bms_config.soc.profile_id;
-    config->current_deadband_ma = g_bms_config.soc.current_deadband_ma;
-    config->ocv_rest_prepare_s = g_bms_config.soc.ocv_rest_prepare_s;
-    config->ocv_error_band_percent = g_bms_config.soc.ocv_error_band_percent;
-    return bms_soc_config_valid(config);
 }
 
 /* 构造用户业务参数默认值。 */
@@ -860,8 +833,7 @@ int bms_config_reset_business(void)
     next.system.capacity_factory = BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
     bms_config_user_business_defaults(&next.user);
     next.user.balance_start_mv = BMS_BATTERY_BALANCE_START_MV_FOR(
-        next.soc.chemistry == BMS_SOC_CHEMISTRY_AUTO ?
-        BMS_PRODUCT_CHEMISTRY : next.soc.chemistry);
+        next.soc.chemistry);
     next.user.balance_start_delta_mv = BMS_BATTERY_BALANCE_START_DELTA_MV;
     next.user.balance_stop_delta_mv = BMS_BATTERY_BALANCE_STOP_DELTA_MV;
     return bms_config_save_cache(&next);

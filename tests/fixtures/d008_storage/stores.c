@@ -50,10 +50,7 @@ void bms_afe_hw_profile_build_chemistry_default(u8 c,bms_afe_hw_profile_t*p){bms
 static unsigned config_inhibited;
 void bms_afe_invalidate_configuration(void){++config_inhibited;}
 u8 bms_soc_reload_configuration(void){return 1u;}
-u8 bms_soc_profile_reload(void){return 1u;}
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t*p){return p && p->schema_version==1;}
-void bms_soc_get_default_config(bms_soc_config_t*c){memset(c,0,sizeof(*c));c->current_deadband_ma=200;c->ocv_rest_prepare_s=600;c->ocv_error_band_percent=5;}
-u8 bms_soc_config_valid(const bms_soc_config_t*c){return c && c->ocv_rest_prepare_s>=60;}
 static int begin(void*c){(void)c;return begin_ok;}
 static void end(void*c){(void)c;}
 static int read_flash(void*c,u32 a,u8*b,u32 n){(void)c;if(!read_ok || (config_read_fail && a<4u*4096u))return 0;assert(a+n<=sizeof(flash));memcpy(b,flash+a,n);return 1;}
@@ -153,16 +150,16 @@ static void test_config_schema(void){
  fresh();bms_config_cache_t malformed=g_bms_config;
  malformed.soc.chemistry=0x100u;
  assert(bms_config_save_cache(&malformed));reboot();assert(!bms_config_store_init());
- bms_soc_config_t soc;assert(!bms_config_store_get_soc(&soc));
+ assert(!bms_config_current_soc_profile());
  assert(!bms_config_store_validate_startup());
  fresh();malformed=g_bms_config;malformed.soc.profile_id=0x100u;
  assert(bms_config_save_cache(&malformed));reboot();assert(!bms_config_store_init());
- assert(!bms_config_store_get_soc(&soc) && !bms_config_store_validate_startup());
+ assert(!bms_config_current_soc_profile() && !bms_config_store_validate_startup());
  /* 系统入口保存选型，SOC getter 读取同一来源；失败不能发布新值。 */
  fresh();bms_config_system_params_t selection;assert(bms_config_store_get_system(&selection));
  selection.battery_chemistry=2u;selection.soc_profile_id=2u;
  assert(!bms_config_store_set_system(&selection));
- assert(bms_config_store_get_soc(&soc) && soc.chemistry==1u && soc.profile_id==1u);
+ assert(bms_config_current_soc_profile() && bms_config_current_soc_profile()->chemistry==1u && bms_config_current_soc_profile()->profile_id==1u);
  fresh(); bms_config_system_params_t cap;assert(bms_config_store_get_system(&cap));
  cap.capacity_factory=BMS_SOC_CAPACITY_MAX_0P1AH+1u;assert(!bms_config_store_set_system(&cap));
  assert(g_bms_config.system.capacity_factory==1000);

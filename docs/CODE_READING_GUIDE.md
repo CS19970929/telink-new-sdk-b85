@@ -48,7 +48,7 @@ main_loop → app_sample_task（约 200 ms）
 ```text
 产品/公共默认 → Config default builder
 有效 schema 4 记录 → 按 BIN 选择及一次性标记更新
-有效上一版 CFG2 → 整套新默认，校验/提交成功后取得配置资格
+非空白旧格式/损坏记录 → 普通镜像禁止输出；明确factory_reset或有线擦业务区后建立默认
 候选校验 → journal commit → 发布 RAM 值
 启动安全配置失败 → s_storage_startup_valid=0 → 输出资格不成立
 ```
@@ -72,3 +72,5 @@ main_loop → app_sample_task（约 200 ms）
 | 状态保存 | `bms_state_store.c`；SOC/放电累计/循环统一 checkpoint，老化模式已删除 |
 
 每次修改前确认：输入从哪里来、单位是什么、谁拥有状态、失败如何处理、哪些产品编译此文件。用户明确要求测试时，再选择对应 host 测试及 [构建验证](BUILD_AND_TEST.md)。本仓库采用静态对象和明确模块边界，不为简单修改引入新 manager/service 或同步副本。
+
+SOC直接只读Config内已校验的完整profile；`bms_soc_reload_configuration`是提交后的唯一刷新入口。曲线generation变化清除旧静置资格，没有五字段副本或按软件OVP推测化学体系的路径。

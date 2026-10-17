@@ -6,6 +6,8 @@ static void init_case(uint8_t chemistry, uint8_t seed)
     memset(&g_bms_system_status, 0, sizeof(g_bms_system_status));
     stored_profile.battery_chemistry = chemistry;
     stored_profile.soc_profile_id = chemistry;
+    bms_soc_profile_defaults(chemistry, &committed_profile);
+    ++committed_generation;
     g_bms_protection_params.cell_ovp_third_mv = chemistry == 1u ? 3650u : 4250u;
     g_bms_protection_params.cell_uvp_third_mv = 2500u;
     soc_param_lib_init(&state);

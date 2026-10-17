@@ -30,9 +30,6 @@ static void SOC_Result_Pass(void);
 #define SOC_DSG_INT_MAX                     (SOC_EQUIV_CYCLE_PERCENT - 1u)
 #define SOC_CYCLE_MAX                       65535u
 
-#define SOC_CURRENT_DEADBAND_MA_DEFAULT     BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT
-#define SOC_OCV_REST_PREPARE_SECONDS        BMS_SOC_OCV_REST_PREPARE_S_DEFAULT
-#define SOC_OCV_ERROR_BAND_PERCENT          BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT
 #define SOC_OCV_IDLE_SLOPE_MAX_MV           8u
 #define SOC_OCV_IDLE_CELL_DELTA_MAX_MV      100u
 #define SOC_OCV_CELL_DELTA_MAX_MV           200u
@@ -58,7 +55,6 @@ static void SOC_Result_Pass(void);
 #define SOC_DSG_CORR_SMALL_GAP_MUL           4u
 #define SOC_DSG_CORR_MID_GAP_MUL             3u
 #define SOC_DSG_CORR_LARGE_GAP_MUL           2u
-#define SOC_AUTO_LFP_OVP_MAX_MV              3900u
 #define SOC_ENDPOINT_EVENT_EARLY_UVP         0x01u
 #define SOC_ENDPOINT_EVENT_LARGE_SAG         0x02u
 #define SOC_ENDPOINT_EVENT_IMBALANCE         0x04u
@@ -134,13 +130,6 @@ static uint8_t g_soc_input_valid;
 /* 显示值唯一保存在公共报告中；只有本模块初始化和步进函数写入。 */
 static uint8_t g_soc_display_step_ticks;
 static uint8_t g_soc_initialized;
-static bms_soc_config_t g_soc_config = {
-    BMS_SOC_CHEMISTRY_AUTO,
-    BMS_SOC_PROFILE_AUTO,
-    SOC_CURRENT_DEADBAND_MA_DEFAULT,
-    SOC_OCV_REST_PREPARE_SECONDS,
-    SOC_OCV_ERROR_BAND_PERCENT,
-};
 static const bms_soc_profile_config_t *g_soc_profile;
 static uint16_t s_persisted_generation;
 
@@ -204,48 +193,10 @@ uint8_t bms_soh_from_cycle(uint16_t cycle)
     }
 }
 
-/* 构造 SOC 算法默认值与自动化学体系设置。 */
-void bms_soc_get_default_config(bms_soc_config_t *config)
-{
-    if (config == 0) return;
-    config->chemistry = BMS_SOC_CHEMISTRY_AUTO;
-    config->profile_id = BMS_SOC_PROFILE_AUTO;
-    config->current_deadband_ma = SOC_CURRENT_DEADBAND_MA_DEFAULT;
-    config->ocv_rest_prepare_s = SOC_OCV_REST_PREPARE_SECONDS;
-    config->ocv_error_band_percent = SOC_OCV_ERROR_BAND_PERCENT;
-}
-
-/* 检查 SOC 产品输入是否完整有效。 */
-static uint8_t soc_product_config_valid(uint8_t chemistry, uint8_t profile_id)
-{
-    if ((chemistry > BMS_SOC_CHEMISTRY_NMC) ||
-        (profile_id > BMS_SOC_PROFILE_GENERIC_NMC)) return 0u;
-    if ((chemistry == BMS_SOC_CHEMISTRY_LFP) &&
-        (profile_id == BMS_SOC_PROFILE_GENERIC_NMC)) return 0u;
-    if ((chemistry == BMS_SOC_CHEMISTRY_NMC) &&
-        (profile_id == BMS_SOC_PROFILE_GENERIC_LFP)) return 0u;
-    return 1u;
-}
-
-/* 校验 SOC 配置范围与化学体系标识。 */
-uint8_t bms_soc_config_valid(const bms_soc_config_t *config)
-{
-    if (config == 0) return 0u;
-    if (!soc_product_config_valid(config->chemistry, config->profile_id)) return 0u;
-    if ((config->current_deadband_ma > 2000u) ||
-        (config->ocv_rest_prepare_s < 60u) ||
-        (config->ocv_rest_prepare_s > 3600u) ||
-        (config->ocv_error_band_percent == 0u) ||
-        (config->ocv_error_band_percent > 20u)) return 0u;
-    return 1u;
-}
-
-/* Config 已提交：只加载并发布运行配置，不再次调用持久保存。 */
+/* Config 已校验并提交完整曲线；仅刷新运行资格，不再复制字段或保存。 */
 uint8_t bms_soc_reload_configuration(void)
 {
-    bms_soc_config_t config;
-    if (!bms_config_store_get_soc(&config) || !bms_soc_config_valid(&config)) return 0u;
-    g_soc_config = config;
+    if (!bms_soc_profile_valid(bms_config_current_soc_profile())) return 0u;
     soc_invalidate_sample_interval();
     soc_profile_refresh();
     if (g_soc_initialized) {
@@ -253,71 +204,17 @@ uint8_t bms_soc_reload_configuration(void)
         soc_recalc_now_capacity();
     }
     return 1u;
-}
-
-/* 从独立持久域刷新算法参数与曲线；保存已由调用者完成。 */
-uint8_t bms_soc_profile_reload(void)
-{
-    const bms_soc_profile_config_t *profile = bms_config_current_soc_profile();
-    if (!profile) return 0u;
-    g_soc_config.chemistry = (uint8_t)profile->chemistry;
-    g_soc_config.profile_id = (uint8_t)profile->profile_id;
-    g_soc_config.current_deadband_ma = profile->current_deadband_ma;
-    g_soc_config.ocv_rest_prepare_s = profile->ocv_rest_prepare_s;
-    g_soc_config.ocv_error_band_percent = (uint8_t)profile->ocv_error_band_percent;
-    soc_invalidate_sample_interval();
-    soc_profile_refresh();
-    if (g_soc_initialized) {
-        soc_recalc_full_capacity();
-        soc_recalc_now_capacity();
-    }
-    return 1u;
-}
-
-/* 按化学体系 ID 查找 OCV 曲线配置。 */
-static const bms_soc_profile_config_t *soc_profile_from_id(uint8_t profile_id)
-{
-    if (profile_id == BMS_SOC_PROFILE_GENERIC_LFP) return &g_soc_profile_lfp;
-    if (profile_id == BMS_SOC_PROFILE_GENERIC_NMC) return &g_soc_profile_nmc;
-    return 0;
-}
-
-/* 根据配置及产品条件确定使用的化学体系。 */
-static uint8_t soc_resolve_chemistry(void)
-{
-    const bms_soc_profile_config_t *selected;
-    uint16_t ovp;
-
-    selected = soc_profile_from_id(g_soc_config.profile_id);
-    if (selected != 0) return selected->chemistry;
-
-    if (g_soc_config.chemistry == BMS_SOC_CHEMISTRY_LFP ||
-        g_soc_config.chemistry == BMS_SOC_CHEMISTRY_NMC) {
-        return g_soc_config.chemistry;
-    }
-
-    /* AUTO 是明确的通用选择；D008 默认使用编译装配身份，不迁移旧 Flash。 */
-    ovp = g_bms_protection_params.cell_ovp_third_mv;
-    if ((ovp >= 3300u) && (ovp <= SOC_AUTO_LFP_OVP_MAX_MV)) return BMS_SOC_CHEMISTRY_LFP;
-    if ((ovp > SOC_AUTO_LFP_OVP_MAX_MV) && (ovp <= 4500u)) return BMS_SOC_CHEMISTRY_NMC;
-
-    return BMS_SOC_CHEMISTRY_NMC;
 }
 
 /* 刷新当前化学体系和 OCV 策略参数。 */
 static void soc_profile_refresh(void)
 {
-    const bms_soc_profile_config_t *current = bms_config_current_soc_profile();
+    const bms_soc_profile_config_t *next = bms_config_current_soc_profile();
     uint16_t generation = bms_config_soc_profile_generation();
-    const bms_soc_profile_config_t *next =
-        (current && current->chemistry == g_soc_config.chemistry &&
-         current->profile_id == g_soc_config.profile_id) ?
-        current : soc_profile_from_id(g_soc_config.profile_id);
-    if (next == 0) {
-        uint8_t chemistry = soc_resolve_chemistry();
-        next = (chemistry == BMS_SOC_CHEMISTRY_LFP) ?
-            &g_soc_profile_lfp : &g_soc_profile_nmc;
-    }
+    /* Config 不可用时仅供诊断/初始化使用产品默认；启动门禁仍禁止输出。
+     * 不根据可修改的软件过压阈值推测电池化学体系。 */
+    if (!next) next = BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_LFP ?
+        &g_soc_profile_lfp : &g_soc_profile_nmc;
     if (g_soc_profile != next || s_persisted_generation != generation) {
         g_soc_profile = next;
         s_persisted_generation = generation;
@@ -341,7 +238,7 @@ void bms_soc_get_diag(bms_soc_diag_t *diag)
     diag->profile_version = g_soc_profile->profile_version;
     diag->soc_estimate = g_bms_soc.soc_estimate_percent;
     diag->soc_display = (uint8_t)g_bms_report.soc.soc_percent;
-    diag->current_deadband_ma = g_soc_config.current_deadband_ma;
+    diag->current_deadband_ma = g_soc_profile->current_deadband_ma;
     diag->ocv_state = g_soc_runtime.ocv_state;
     diag->ocv_center = g_soc_runtime.ocv_center;
     diag->ocv_low = g_soc_runtime.ocv_low;
@@ -417,7 +314,7 @@ static soc_integral_dir_t soc_current_direction(uint16_t *magnitude_a10)
     magnitude_ma = (g_soc_input_current_ma < 0) ?
         (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
     if (magnitude_ma <= BMS_CURRENT_UNRELIABLE_MAX_MA ||
-        magnitude_ma <= g_soc_config.current_deadband_ma) return dir;
+        magnitude_ma <= g_soc_profile->current_deadband_ma) return dir;
     dir = (g_soc_input_current_ma < 0) ? SOC_INTEGRAL_DIR_CHG : SOC_INTEGRAL_DIR_DSG;
     if (magnitude_a10 != 0)
     {
@@ -699,7 +596,7 @@ static uint8_t soc_estimate_percent_from_cell_mv(uint16_t cell_mv)
 static void soc_update_ocv_band(uint16_t cell_mv)
 {
     uint8_t center = soc_estimate_percent_from_cell_mv(cell_mv);
-    uint8_t band = g_soc_config.ocv_error_band_percent;
+    uint8_t band = g_soc_profile->ocv_error_band_percent;
     if (band < g_soc_profile->ocv_min_error_band_percent)
         band = g_soc_profile->ocv_min_error_band_percent;
 #if BMS_SOC_DIAG_STATE_ENABLE
@@ -714,7 +611,7 @@ static void soc_update_ocv_band(uint16_t cell_mv)
 /* 取得 OCV 静置准备所需节拍数。 */
 static uint32_t soc_ocv_prepare_ticks(void)
 {
-    return (uint32_t)g_soc_config.ocv_rest_prepare_s * SOC_TICKS_PER_SECOND;
+    return (uint32_t)g_soc_profile->ocv_rest_prepare_s * SOC_TICKS_PER_SECOND;
 }
 
 /* 复位静置与斜率跟踪状态。 */
@@ -883,7 +780,7 @@ static void soc_eta_update(const bms_soc_sample_t *sample, soc_integral_dir_t di
     input.current_ma = g_soc_input_current_ma;
     input.remaining_as10 = g_bms_soc.remaining_capacity_as10;
     input.full_as10 = g_bms_soc.effective_capacity_as10;
-    input.deadband_ma = g_soc_config.current_deadband_ma;
+    input.deadband_ma = g_soc_profile->current_deadband_ma;
     if (input.deadband_ma < BMS_CURRENT_UNRELIABLE_MAX_MA)
         input.deadband_ma = BMS_CURRENT_UNRELIABLE_MAX_MA;
     input.direction = dir == SOC_INTEGRAL_DIR_CHG ? BMS_SOC_ETA_DIR_CHARGE :
@@ -1271,16 +1168,6 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
     bms_state_store_data_t defaults;
     memset(&g_soc_runtime, 0, sizeof(g_soc_runtime));
     soc_invalidate_sample_interval();
-    (void)bms_config_store_get_soc(&g_soc_config);
-    {
-        const bms_soc_profile_config_t *profile = bms_config_current_soc_profile();
-        if (profile && profile->chemistry == g_soc_config.chemistry &&
-            profile->profile_id == g_soc_config.profile_id) {
-            g_soc_config.current_deadband_ma = profile->current_deadband_ma;
-            g_soc_config.ocv_rest_prepare_s = profile->ocv_rest_prepare_s;
-            g_soc_config.ocv_error_band_percent = (uint8_t)profile->ocv_error_band_percent;
-        }
-    }
     soc_profile_refresh();
 
     if (soc == 0) {

@@ -64,17 +64,6 @@ typedef struct
     uint8_t third_cell_uvp;
 } bms_soc_sample_t;
 
-typedef struct
-{
-    uint8_t chemistry;                         /* 化学体系选择：AUTO/LFP/NMC。 */
-    uint8_t profile_id;                        /* 配置选择：AUTO/通用 LFP/通用 NMC。 */
-    uint16_t current_deadband_ma;       /*
-     * 不超过此值的电流忽略，D008 可信下限也生效。
-     */
-    uint16_t ocv_rest_prepare_s;               /* 允许 OCV 修正前所需的连续静置时间。 */
-    uint8_t ocv_error_band_percent;            /* OCV 中心上下的百分比点范围。 */
-} bms_soc_config_t;
-
 typedef struct {
     uint32_t nominal_capacity_as10;            /* As*10 */
     uint8_t soc_estimate_percent;              /* 估计 SOC，范围 0..100。 */
@@ -87,14 +76,8 @@ typedef struct {
 
 extern bms_soc_state_t g_bms_soc;
 
-/* 构造 SOC 算法默认值与自动化学体系设置。 */
-void bms_soc_get_default_config(bms_soc_config_t *config);
-/* 校验 SOC 配置范围与化学体系标识。 */
-uint8_t bms_soc_config_valid(const bms_soc_config_t *config);
-/* 整套 Config 已提交后加载并发布运行配置；不重复保存。 */
+/* 整套 Config 或曲线已提交后刷新运行配置；不重复保存。 */
 uint8_t bms_soc_reload_configuration(void);
-/* 独立 SOC profile 保存成功后刷新运行曲线，不重复写 CFG2。 */
-uint8_t bms_soc_profile_reload(void);
 /* 取得 SOC 运行诊断快照。 */
 #if BMS_SERVICE_DIAG_ENABLE
 void bms_soc_get_diag(bms_soc_diag_t *diag);

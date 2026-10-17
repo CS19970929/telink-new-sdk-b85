@@ -310,7 +310,7 @@ def check_soc_contract_check():
             self.assertNotIn("s_persisted_ocv", C)
             self.assertNotIn("s_persisted_profile", C)
             self.assertIn("bms_config_current_soc_profile()", C)
-            self.assertIn("SOC_AUTO_LFP_OVP_MAX_MV              3900u", C)
+            self.assertNotIn("SOC_AUTO_LFP_OVP_MAX_MV", C)
 
         def test_product_chemistry_and_profile_are_config_fields(self):
             self.assertIn("u32 battery_chemistry", CONFIG_H)
@@ -321,31 +321,31 @@ def check_soc_contract_check():
             self.assertIn("system->soc_profile_id = g_bms_config.soc.profile_id", CONFIG_C)
             self.assertIn("bms_config_store_get_system", CONFIG_C)
             self.assertIn("bms_soc_reload_configuration", C)
-            self.assertIn("bms_config_store_get_soc(&g_soc_config)", C)
+            self.assertNotIn("g_soc_config", C)
             self.assertNotIn("BMS_COLD_SYSTEM_KEY_BASE", CONFIG_C)
 
         def test_explicit_profile_wins_and_mismatches_are_rejected(self):
-            self.assertIn("soc_profile_from_id(g_soc_config.profile_id)", C)
-            self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_NMC", C)
-            self.assertIn("profile_id == BMS_SOC_PROFILE_GENERIC_LFP", C)
-            self.assertIn("soc_product_config_valid", C)
+            self.assertNotIn("soc_profile_from_id", C)
+            self.assertIn("c->profile_id != c->chemistry", PROFILE)
+            self.assertIn("BMS_PRODUCT_CHEMISTRY == BMS_SOC_CHEMISTRY_LFP", C)
+            self.assertIn("!bms_soc_profile_valid(bms_config_current_soc_profile())", C)
             # 读取当前配置域，不通过旧键值存储迁移产品身份。
             from validation_support import function
             load = function(C, "void soc_param_lib_init(")
-            self.assertIn("bms_config_store_get_soc(&g_soc_config)", load)
+            self.assertIn("soc_profile_refresh();", load)
             self.assertNotIn("SOC_KV_KEY_", load)
             self.assertNotIn("bms_config_store_set_soc(", C)
-            self.assertIn("!bms_soc_config_valid(&config)", C)
+            self.assertNotIn("bms_soc_config_t", H)
 
         def test_coulomb_integration_and_deadband(self):
             # 积分时间行为由 d008_power_soc_host_check 的实际时间场景验证。
-            self.assertIn("SOC_CURRENT_DEADBAND_MA_DEFAULT     BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT", C)
+            self.assertIn("g_soc_profile->current_deadband_ma", C)
             self.assertIn("soc_current_direction", C)
             self.assertIn("g_soc_integral_remainder", C)
 
         def test_ocv_requires_ten_minutes_and_uses_band(self):
-            self.assertIn("SOC_OCV_REST_PREPARE_SECONDS        BMS_SOC_OCV_REST_PREPARE_S_DEFAULT", C)
-            self.assertIn("SOC_OCV_ERROR_BAND_PERCENT          BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT", C)
+            self.assertIn("g_soc_profile->ocv_rest_prepare_s", C)
+            self.assertIn("g_soc_profile->ocv_error_band_percent", C)
             self.assertIn("g_soc_runtime.ocv_low", C)
             self.assertIn("g_soc_runtime.ocv_high", C)
             self.assertIn("soc_step_down_to(g_soc_runtime.ocv_high)", C)

@@ -28,7 +28,7 @@ code = r'''
 typedef enum { SOC_INTEGRAL_DIR_NONE, SOC_INTEGRAL_DIR_CHG, SOC_INTEGRAL_DIR_DSG } soc_integral_dir_t;
 static uint8_t g_soc_input_valid=1;
 static int32_t g_soc_input_current_ma;
-static struct { uint16_t current_deadband_ma; } g_soc_config={200};
+static const struct { uint16_t current_deadband_ma; } profile={200}, *g_soc_profile=&profile;
 /* PRODUCTION */
 int main(void) {
     uint16_t magnitude;

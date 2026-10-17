@@ -268,7 +268,7 @@ static u8 switch_chemistry(const u8 *data, u16 qty)
 /* SOC profile 命令使用 op、generation、完整 hs456\0，共 5 word/19-byte RTU 帧。 */
 static u8 soc_profile_command(const u8 *data, u16 qty)
 {
-    bms_soc_config_t identity;
+    const bms_soc_profile_config_t *profile;
     u16 op, generation;
     if (qty != 5u) return 3u;
     if (memcmp(data + 4u, BMS_SERVICE_DEFAULT_PASSWORD,
@@ -287,13 +287,14 @@ static u8 soc_profile_command(const u8 *data, u16 qty)
             (u32)(bms_time_ms() - s_soc_profile_stage_tick) > 60u * 1000u ||
             !bms_soc_profile_valid(&s_soc_profile_stage)) return 3u;
         s_soc_profile_stage_status = 3u;
-        if (!bms_config_set_soc_profile(&s_soc_profile_stage) || !bms_soc_profile_reload()) return 4u;
+        if (!bms_config_set_soc_profile(&s_soc_profile_stage) || !bms_soc_reload_configuration()) return 4u;
         s_soc_profile_stage_status = 2u;
         return 0u;
     }
     if (op == 3u) {
-        if (!bms_config_store_get_soc(&identity) ||
-            !bms_config_reset_soc_profile(identity.chemistry) || !bms_soc_profile_reload()) return 4u;
+        profile = bms_config_current_soc_profile();
+        if (!profile ||
+            !bms_config_reset_soc_profile((uint8_t)profile->chemistry) || !bms_soc_reload_configuration()) return 4u;
         s_soc_profile_stage_status = 0u;
         return 0u;
     }

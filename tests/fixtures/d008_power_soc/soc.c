@@ -36,7 +36,6 @@ static struct {
  struct{uint16_t soc_percent,soh_percent,cycle_count,remaining_capacity_0p01ah,effective_capacity_0p01ah,nominal_capacity_0p01ah;}soc;
 }g_bms_report;
 static int config_store_read_ok=1;
-static uint16_t config_store_rest_s=600u;
 /* CURRENT_FLOOR */
 static uint32_t tick;
 static uint32_t pm_get_32k_tick(void) {return tick;}
@@ -51,6 +50,7 @@ static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  memset(&g_bms_report,0,sizeof(g_bms_report));
  memset(&g_bms_soc,0,sizeof(g_bms_soc));
  stored_profile.battery_chemistry=chemistry;stored_profile.soc_profile_id=chemistry;
+ bms_soc_profile_defaults(chemistry,&committed_profile);++committed_generation;config_store_read_ok=1;
  g_bms_protection_params.cell_ovp_third_mv=chemistry==1?3650:4250;
  g_bms_protection_params.cell_uvp_third_mv=2500;
  g_bms_report.cell_min_mv=voltage;g_bms_report.cell_max_mv=voltage;
@@ -237,21 +237,26 @@ int main(int argc,char **argv){
  assert(g_bms_report.soc.nominal_capacity_0p01ah==65530);
  assert(g_bms_soc.remaining_capacity_as10==6553u*3600u);
  stored_profile.capacity_factory=1000;
- config_store_read_ok=0;assert(!bms_soc_reload_configuration());assert(g_soc_config.ocv_rest_prepare_s==600);
- config_store_read_ok=1;config_store_rest_s=900;assert(bms_soc_reload_configuration());assert(g_soc_config.ocv_rest_prepare_s==900);
- config_store_rest_s=0;assert(!bms_soc_reload_configuration());assert(g_soc_config.ocv_rest_prepare_s==900);
- config_store_rest_s=600;
+ /* Config 不可用/完整曲线非法时拒绝reload，不撤销现有积分区间。 */
+ g_soc_runtime.idle_stable_ticks=123u;
+ config_store_read_ok=0;assert(!bms_soc_reload_configuration());assert(g_soc_runtime.idle_stable_ticks==123u);
+ config_store_read_ok=1;committed_profile.ocv_rest_prepare_s=900u;++committed_generation;
+ assert(bms_soc_reload_configuration());assert(g_soc_profile->ocv_rest_prepare_s==900u);
+ bms_soc_profile_config_t saved_profile=committed_profile;
+ committed_profile.point_count=0u;assert(!bms_soc_reload_configuration());committed_profile=saved_profile;
+ committed_profile.chemistry=BMS_SOC_CHEMISTRY_AUTO;assert(!bms_soc_reload_configuration());committed_profile=saved_profile;
+ committed_profile.profile_id=BMS_SOC_PROFILE_GENERIC_NMC;assert(!bms_soc_reload_configuration());committed_profile=saved_profile;
  /* 同地址发布新曲线也必须按 generation 撤销旧静置资格，stage 不参与算法。 */
  committed_profile=g_soc_profile_lfp;committed_generation=1u;
- assert(bms_soc_profile_reload());assert(g_soc_profile==&committed_profile);
+ assert(bms_soc_reload_configuration());assert(g_soc_profile==&committed_profile);
  committed_profile.current_deadband_ma=321u;committed_profile.ocv_rest_prepare_s=777u;
  committed_profile.ocv_error_band_percent=9u;committed_profile.points[8].soc_percent=56u;
  g_soc_runtime.idle_stable_ticks=123u;++committed_generation;
- assert(bms_soc_profile_reload());assert(!g_soc_runtime.idle_stable_ticks);
- assert(g_soc_config.current_deadband_ma==321u && g_soc_config.ocv_rest_prepare_s==777u);
+ assert(bms_soc_reload_configuration());assert(!g_soc_runtime.idle_stable_ticks);
+ assert(g_soc_profile->current_deadband_ma==321u && g_soc_profile->ocv_rest_prepare_s==777u);
  assert(soc_estimate_percent_from_cell_mv(3330u)==56u);
- committed_generation=0u;soc_profile_refresh();assert(g_soc_profile==&g_soc_profile_lfp);
- assert(!bms_soc_profile_reload());
+ committed_generation=0u;g_bms_protection_params.cell_ovp_third_mv=4250u;soc_profile_refresh();assert(g_soc_profile==&g_soc_profile_lfp);
+ assert(!bms_soc_reload_configuration());
 
  /* Host-only 64-bit oracle, including INT32_MIN and retained remainders. */
  setup(1,60,3330);
