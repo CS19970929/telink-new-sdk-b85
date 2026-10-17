@@ -757,7 +757,11 @@ static void test_factory_reset(void)
   reboot();bms_parameters_init();assert(bms_protection_params_valid() && programs==written);
  }
  /* 同一出厂包执行后，客户在线修改不应被再次恢复默认。 */
- assert(bms_config_save_cache(&custom));
+ bms_config_system_params_t system;
+ assert(bms_config_store_get_system(&system));
+ system.capacity_factory=1234u;
+ assert(bms_config_store_set_system(&system));
+ assert(bms_ota_update_id_matches(g_bms_config.ota_update_id));
  assert(bms_state_store_save(79u,9u,18u));
  reboot();bms_parameters_init();
  assert(bms_protection_params_valid());

@@ -686,6 +686,28 @@ class SourceConfigurationTests(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
 class PickerDefaultsTests(unittest.TestCase):
+    def test_save_only_factory_reset_preserves_the_package_id_without_building(self):
+        for product in bms.build_options.PRODUCTS:
+            with self.subTest(product=product), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                copy_configuration(root)
+                command = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+                    '-File', str(root/'bms_tools/select_firmware_build.ps1'),
+                    '-SaveOnly', '-Target', product, '-UpdateGroups', 'factory_reset']
+                identifier = None
+                for _ in range(2):
+                    result = subprocess.run(command, capture_output=True,
+                        encoding='utf-8', errors='replace', timeout=30)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    saved = json.loads(result.stdout)['configuration']
+                    self.assertEqual(saved['update_groups'], ['factory_reset'])
+                    self.assertEqual(bms.build_options.verify_source(root, product), saved)
+                    if identifier is not None:
+                        self.assertEqual(saved['update_id'], identifier)
+                    identifier = saved['update_id']
+                self.assertFalse((root/'firmware').exists())
+                self.assertFalse(list(root.rglob('*.bin')))
+
     def test_plan_reads_source_and_never_builds_or_changes_files(self):
         for product in bms.build_options.PRODUCTS:
             result = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
@@ -723,7 +745,7 @@ class PickerDefaultsTests(unittest.TestCase):
                     options = bms.build_options.verify_source(root, 'd014')
                     self.assertEqual(options['capacity_0p1ah'], 400)
                     self.assertEqual(options['cell_count'], 19)
-                    self.assertEqual(options['update_groups'], list(bms.build_options.UPDATE_GROUPS))
+                    self.assertEqual(options['update_groups'], ['sw', 'afe', 'business', 'soc', 'soc_state'])
 
 
 class AndroidOtaWorkflowTests(unittest.TestCase):

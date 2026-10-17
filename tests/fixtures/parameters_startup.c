@@ -11,9 +11,24 @@
 #include "bms_diag.h"
 static char calls[32];
 static unsigned count, failed_domain;
+static unsigned factory_pending;
+enum {
+    FACTORY_STATE_FAIL = 5u,
+    FACTORY_EVENT_FAIL,
+    FACTORY_FINISH_FAIL
+};
 static uint16_t upgrade_status;
 static void note(char action) { calls[count++]=action; calls[count]=0; }
 int bms_config_store_validate_startup(void) { note('C'); return failed_domain!=1u; }
+int bms_config_store_factory_reset_pending(void) { return factory_pending!=0u; }
+int bms_state_store_factory_reset(void) { assert(factory_pending); note('R'); return failed_domain!=FACTORY_STATE_FAIL; }
+int bms_event_log_factory_reset(void) { assert(factory_pending); note('T'); return failed_domain!=FACTORY_EVENT_FAIL; }
+int bms_config_store_finish_factory_reset(void) {
+    assert(factory_pending); note('F');
+    if(failed_domain==FACTORY_FINISH_FAIL) return 0;
+    factory_pending=0u;
+    return 1;
+}
 int bms_state_store_init(void) { note('S'); return failed_domain!=2u; }
 int bms_event_log_init(void) { note('E'); return failed_domain!=3u; }
 int bms_config_store_init(void) { assert(0 && "protection loading must not retry Config initialization"); return 0; }
@@ -42,5 +57,22 @@ int main(void) {
     }
     failed_domain=0;count=0;bms_parameters_init();assert(bms_protection_params_valid());
     puts("PASS production parameter startup: every domain once despite earlier failure, Config gate sticky across commit, State/Event degraded, explicit restart");
+    /* 出厂事务的 State/Event 失败必须阻断，与普通启动的独立降级不同。 */
+    const unsigned factory_failures[] = {0u, FACTORY_STATE_FAIL, FACTORY_EVENT_FAIL, FACTORY_FINISH_FAIL};
+    for(unsigned i=0u;i<sizeof(factory_failures)/sizeof(factory_failures[0]);++i) {
+        failed_domain=factory_failures[i];factory_pending=1u;count=0u;
+        bms_parameters_init();
+        assert(!strcmp(calls,failed_domain==FACTORY_STATE_FAIL ? "CRGP" :
+                            failed_domain==FACTORY_EVENT_FAIL ? "CRTGP" : "CRTFGP"));
+        assert(bms_protection_params_valid()==(failed_domain==0u));
+        assert(factory_pending==(failed_domain!=0u));
+        if(failed_domain!=0u) {
+            assert(bms_protection_params_commit(&g_bms_protection_params));
+            assert(!bms_protection_params_valid());
+        }
+    }
+    failed_domain=0u;count=0u;bms_parameters_init();
+    assert(bms_protection_params_valid() && !factory_pending);
+    puts("PASS production factory startup: pending -> State -> Event -> done, each failure inhibits outputs, ordinary commits cannot bypass, retry completes");
     return 0;
 }

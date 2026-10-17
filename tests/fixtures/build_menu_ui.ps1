@@ -66,9 +66,11 @@ $timer.Add_Tick({
         $capacityInput = $form.Controls | Where-Object { $_.Location.X -eq 136 -and $_.Location.Y -eq 136 }
         $updateBox = $form.Controls | Where-Object { $_ -is [System.Windows.Forms.GroupBox] }
         $checks = @($updateBox.Controls | Where-Object { $_ -is [System.Windows.Forms.CheckBox] })
+        $socStateCheck = $checks | Where-Object { $_.Location.X -eq 14 -and $_.Location.Y -eq 88 }
+        $factoryResetCheck = $checks | Where-Object { $_.Location.X -eq 286 -and $_.Location.Y -eq 88 }
         $clean = $form.Controls | Where-Object { $_ -is [System.Windows.Forms.CheckBox] -and $_.Location.Y -eq 400 }
         $autoOta = $form.Controls | Where-Object { $_ -is [System.Windows.Forms.CheckBox] -and $_.Location.Y -eq 432 }
-        Assert-Menu ($productList.Items.Count -eq 4 -and $checks.Count -eq 5) 'product/update controls missing'
+        Assert-Menu ($productList.Items.Count -eq 4 -and $checks.Count -eq 6) 'product/update controls missing'
         Assert-Menu ($capacityInput.Minimum -eq 0.1 -and $capacityInput.Maximum -eq 655.3) 'capacity bounds'
         Assert-Menu ($modeList.SelectedIndex -eq $(if ($Scenario -eq 'saved') { 0 } else { 1 })) 'mode restoration'
         $configurations = 0
@@ -106,7 +108,7 @@ $timer.Add_Tick({
                         $configurations++
                     }
                     Assert-Menu (@($checks | Where-Object { $_.Checked -and $_.Location.Y -ne 88 }).Count -eq 4) "$id linked update groups"
-                    Assert-Menu (-not ($checks | Where-Object { $_.Location.Y -eq 88 }).Checked) "$id SOC_STATE unexpectedly selected"
+                    Assert-Menu (-not $socStateCheck.Checked -and -not $factoryResetCheck.Checked) "$id unrelated update group unexpectedly selected"
                 }
             }
             foreach ($capacity in @([decimal]0.1, [decimal]11.6, [decimal]655.3)) {
@@ -116,6 +118,11 @@ $timer.Add_Tick({
                 Assert-Menu (@($checks | Where-Object Checked).Count -eq 1) "$id capacity must select only BUSINESS"
                 Assert-Menu ($checks | Where-Object { $_.Location.X -eq 14 -and $_.Location.Y -eq 58 }).Checked "$id BUSINESS missing"
             }
+            foreach ($check in $checks | Where-Object { $_ -ne $factoryResetCheck }) { $check.Checked = $true }
+            $factoryResetCheck.Checked = $true
+            Assert-Menu ($factoryResetCheck.Checked -and @($checks | Where-Object Checked).Count -eq 1) "$id factory reset must clear ordinary groups"
+            $socStateCheck.Checked = $true
+            Assert-Menu (-not $factoryResetCheck.Checked -and @($checks | Where-Object Checked).Count -eq 1) "$id ordinary group must clear factory reset"
         }
         $productList.SelectedIndex = 0
         $chemistryList.SelectedIndex = 0
@@ -138,7 +145,7 @@ $timer.Add_Tick({
             $chemistryList.SelectedIndex = 1
             $cellInput.Value = 19
             $capacityInput.Value = 40
-            foreach ($check in $checks) { $check.Checked = $true }
+            foreach ($check in $checks | Where-Object { $_ -ne $factoryResetCheck }) { $check.Checked = $true }
             $clean.Checked = $true
             $autoOta.Checked = $true
             $saveButton = $form.Controls | Where-Object { $_.Text -eq '保存到源码' }

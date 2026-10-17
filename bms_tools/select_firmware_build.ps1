@@ -7,7 +7,7 @@ param(
     [ValidateSet('dvc1124', 'sh3673510', 'sh3673520')][string]$AfeModel,
     [ValidateRange(0, 24)][int]$CellCount = 0,
     [ValidateRange(0, 6553)][int]$Capacity0p1Ah = 0,
-    [ValidateSet('sw', 'afe', 'business', 'soc', 'soc_state')][string[]]$UpdateGroups = @(),
+    [ValidateSet('sw', 'afe', 'business', 'soc', 'soc_state', 'factory_reset')][string[]]$UpdateGroups = @(),
     [string]$UpdateId,
     [switch]$Rebuild,
     [switch]$PlanOnly,
