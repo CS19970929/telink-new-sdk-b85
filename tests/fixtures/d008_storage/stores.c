@@ -619,12 +619,36 @@ static void test_event_semantics(void){
  reboot();assert(bms_event_log_init());assert(bms_event_log_read_reg(0)==0);
  fresh();memset(&sample,0,sizeof(sample));
  now=UINT32_MAX-500u;g_bms_event_log.clock_tick_ms=now;
- now+=1000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
- now+=500u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
- now+=500u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==2u);
+ now+=1000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_ms==1000u);
+ now+=500u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_ms==1500u);
+ now+=500u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_ms==2000u);
  sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);u8 payload[BMS_EVENT_PAYLOAD_BYTES];
  bms_event_log_encode(payload);payload[2]=255;assert(!bms_event_log_decode(payload));
- puts("PASS events: checkpoint-independent merging, elapsed time, CBC onset only, sleep cancellation, abrupt reset window, fractional tick/wrap, semantic decode");
+ /* 原时间编码按完整秒取整：60.999s仍合并，61.000s追加。 */
+ fresh();memset(&sample,0,sizeof(sample));
+ sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);pos=g_bms_event_log.write_pos;
+ now+=60999u;sample.vcell_ovp=0;bms_event_log_poll_1s(&sample);
+ sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
+ assert(g_bms_event_log.write_pos==pos && g_bms_event_log.interval_ms==60999u);
+ ++now;sample.vcell_ovp=0;bms_event_log_poll_1s(&sample);
+ sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
+ assert(g_bms_event_log.write_pos==pos+1u && g_bms_event_log.interval_ms==0u);
+ assert(bms_event_log_read_reg(0)==((VCELL_OVP<<8)|1u));
+ /* 追加事件清除不足一秒余量；饱和及大跨度不溢出。 */
+ now+=999u;sample.vbus_ovp=1;bms_event_log_poll_1s(&sample);
+ assert(g_bms_event_log.interval_ms==0u);
+ now+=1u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_ms==1u);
+ now+=168u*3600u*1000u-1u;bms_event_log_poll_1s(&sample);
+ assert(g_bms_event_log.interval_ms==168u*3600u*1000u);
+ assert(bms_event_log_map_interval(g_bms_event_log.interval_ms/1000u)==168u);
+ now+=999u;bms_event_log_poll_1s(&sample);
+ assert(bms_event_log_map_interval(g_bms_event_log.interval_ms/1000u)==168u);
+ ++now;bms_event_log_poll_1s(&sample);
+ assert(g_bms_event_log.interval_ms==(168u*3600u+1u)*1000u);
+ assert(bms_event_log_map_interval(g_bms_event_log.interval_ms/1000u)==170u);
+ now+=UINT32_MAX;bms_event_log_poll_1s(&sample);
+ assert(g_bms_event_log.interval_ms==(168u*3600u+1u)*1000u);
+ puts("PASS events: checkpoint-independent merging, elapsed time, CBC onset only, sleep cancellation, abrupt reset window, fractional milliseconds/wrap/saturation, semantic decode");
 }
 
 

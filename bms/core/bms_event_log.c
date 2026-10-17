@@ -29,11 +29,10 @@ typedef struct {
     u8 last_failed;
     u8 dirty;
     u16 write_pos;
-    u32 interval_s;
+    u32 interval_ms;
     u8 ready;
     u8 event_latched[EVENT_NUM];
     u32 clock_tick_ms;
-    u16 clock_fraction_ms;
     u8 merge_ready;
 } bms_event_log_ctx_t;
 
@@ -59,24 +58,22 @@ static void bms_event_log_clear_runtime_flags(void)
 {
     memset(g_bms_event_log.event_latched, 0, sizeof(g_bms_event_log.event_latched));
     g_bms_event_log.clock_tick_ms = bms_time_ms();
-    g_bms_event_log.clock_fraction_ms = 0u;
     g_bms_event_log.merge_ready = 0u;
-    g_bms_event_log.interval_s = 0u;
+    g_bms_event_log.interval_ms = 0u;
 }
 
-/* 按实际 毫秒差值累计；每次调用间隔须短于约 49 天的 tick 回绕周期。 */
+/* 毫秒区间直接饱和累计，生成协议时间码时才取完整秒。
+ * 每次调用间隔须短于毫秒计数的一次回绕；不需要另一份余数状态。 */
 static void bms_event_log_advance_time(void)
 {
     u32 now = bms_time_ms();
     u32 delta = now - g_bms_event_log.clock_tick_ms;
-    u32 seconds = delta / 1000u;
-    u32 fraction = delta % 1000u + g_bms_event_log.clock_fraction_ms;
-    const u32 limit = 168u * 3600u + 1u;
+    const u32 limit_ms = (168u * 3600u + 1u) * 1000u;
     g_bms_event_log.clock_tick_ms = now;
-    seconds += fraction / 1000u;
-    g_bms_event_log.clock_fraction_ms = (u16)(fraction % 1000u);
-    if (seconds >= limit - g_bms_event_log.interval_s) g_bms_event_log.interval_s = limit;
-    else g_bms_event_log.interval_s += seconds;
+    if (delta >= limit_ms - g_bms_event_log.interval_ms)
+        g_bms_event_log.interval_ms = limit_ms;
+    else
+        g_bms_event_log.interval_ms += delta;
 }
 
 /* 仅复位 RAM 历史事件状态，不擦除持久记录。 */
@@ -152,16 +149,15 @@ static void bms_event_log_append(bms_event_log_id_t event)
     previous = pos ? (u16)(pos - 1u) : (BMS_EVENT_LOG_ENTRY_COUNT - 1u);
     if (g_bms_event_log.merge_ready && event != BMS_START_UP && event != BMS_SLEEP &&
         g_bms_event_log.records[previous][0] == (u8)event &&
-        g_bms_event_log.interval_s <= 60u) {
-        /* 相同事件在首条后的 60 秒内合并；没有消费者的隐藏计数不再触发擦写。 */
+        g_bms_event_log.interval_ms / 1000u <= 60u) {
+        /* 保留原完整秒<=60的合并边界；合并不重置区间或丢弃毫秒余量。 */
         return;
     }
     g_bms_event_log.records[pos][0] = (u8)event;
     g_bms_event_log.records[pos][1] = event == BMS_START_UP ? 0u :
-        bms_event_log_map_interval(g_bms_event_log.interval_s);
+        bms_event_log_map_interval(g_bms_event_log.interval_ms / 1000u);
     /* 直接访问 packed 字段，不能把未对齐成员地址作为普通 u32 * 传递。 */
-    if (event != BMS_START_UP) g_bms_event_log.interval_s = 0u;
-    g_bms_event_log.clock_fraction_ms = 0u;
+    g_bms_event_log.interval_ms = 0u;
     g_bms_event_log.merge_ready = (event != BMS_START_UP && event != BMS_SLEEP) ? 1u : 0u;
     g_bms_event_log.write_pos = (u16)((pos + 1u) % BMS_EVENT_LOG_ENTRY_COUNT);
     g_bms_event_log.dirty = 1u;
@@ -219,8 +215,6 @@ void bms_event_log_note_startup(void)
 {
     if (!bms_event_log_init()) return;
     bms_event_log_advance_time();
-    g_bms_event_log.interval_s = 0u;
-    g_bms_event_log.clock_fraction_ms = 0u;
     bms_event_log_append(BMS_START_UP);
 }
 

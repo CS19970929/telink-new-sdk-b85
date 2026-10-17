@@ -44,7 +44,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | SOC/放电累计/循环持久值 | `bms_state_store.c`；只持有最后已提交值，最新快照由 SOC 提供 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立执行标记 |
 | 采样到期标志 / 休眠计时与提交状态 | `app.c` 持有采样标志；`app_power.c` 持有 PM 状态并只读该标志 | 回调只置位；已提交保护性深睡、ACC 休眠/关机先执行保持动作，不再进入业务调度 |
 | 毫秒业务时间 | `bms_time_ms()` 的 Telink 平台实现，由主循环上下文消费 | 启动建基准，普通 Suspend 继续累计；原始 tick 消费间隔短于一次回绕，禁止 ISR 调用 |
-| 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | 前者 Flash checkpoint，后者仅 RAM；均有丢失窗口 |
+| 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | Event在RAM直接累计饱和毫秒区间，输出时间码才取完整秒；Flash checkpoint与运行日志RAM缓存均有丢失窗口 |
 
 2026-10-11 的职责收口见 [全模块审查与简化](SIMPLIFICATION_20261011.md)：软件保护初始化由 guard
 拥有，feature 不再初始化保护模块；加热周期由 `heater_state` 保持。2026-10-12 按用户决定，
