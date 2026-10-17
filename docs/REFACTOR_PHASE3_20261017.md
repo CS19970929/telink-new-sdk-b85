@@ -68,6 +68,21 @@ Telink 平台实现仍返回同一个 `pm_get_32k_tick()`；保存间隔、失�
 
 ## 验证与证据约定
 
+### D008 OTA 策略的用户裁决
+
+第四步修改 State 文件触发固定参数输入摘要门禁：当前工具保守包含该文件全部字节，
+D008 原来五组全选，旧摘要不能继续使用。没有绕过门禁或静默生成新执行标识。
+用户比较三种处理方式后明确选择“改为保参策略，完成四项优化”。
+
+通过 `python bms_tools/build_options.py save --product d008 --update-groups`
+保存五个更新开关、六个 ID word 和内容摘要为零；`verify` 已通过。只有
+`d008_protection_config.h` 的 OTA_SOURCE_POLICY 区域改变，保护默认、容量、20S LFP
+装配及持久格式不变。以后从该源码构建的 D008 为保参包：健康 Config/State 保留，
+空白记录使用源码默认；不消费或清除设备最后执行标识。不改变旧包自身的回刷语义。
+这是用户明确授权的策略改变，与四项纯重构分别记录；本轮仍不生成 BIN 或操作设备。
+保存后再次通过 D008 存储、默认构造/校验、产品配置和 Modbus host；去掉 OTA 区域后，
+参数头与原基线逐字节一致（统一换行后比较）。成功日志在树外 `ota-preserve/`。
+
 基线已在干净提交上完成四产品 development/production ELF/MAP/resources，
 D008 使用源码 custom 20S LFP；另保存 D008/D014 服务诊断开发配置。
 四产品基线七天 SOC CSV 及 D008 共同业务轨迹已保存。后续结果按实际执行追加，
