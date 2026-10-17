@@ -490,28 +490,15 @@ static u8 afe_hw_profile_words_equal(const bms_afe_hw_profile_t *a,
     return 1u;
 }
 
-/* 事务失败时恢复原硬件保护配置并记录回滚状态。 */
-static bms_afe_hw_error_t afe_hw_profile_rollback(const bms_afe_hw_profile_t *before)
+/* 提交和回滚都须应用硬件、核对请求字段，再取得后端有效值。 */
+static u8 afe_hw_profile_apply_verified(const bms_afe_hw_profile_t *expected)
 {
     bms_afe_hw_profile_t verify;
-    bms_afe_hw_profile_t effective;
 
-    if (before == 0 ||
-        !bms_afe_hw_profile_set(before) ||
-        !bms_afe_apply_protection_config() ||
+    if (!bms_afe_apply_protection_config() ||
         !bms_afe_hw_profile_get(&verify) ||
-        !afe_hw_profile_words_equal(before, &verify) ||
-        !bms_afe_hw_profile_get_effective(&effective))
-    {
-        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_INCONSISTENT;
-        bms_afe_invalidate_configuration();
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_ROLLBACK;
-        bms_afe_hw_access_close();
-        return (bms_afe_hw_error_t)s_afe_hw_last_error;
-    }
-
-    s_afe_hw_apply_state = BMS_AFE_HW_APPLY_ROLLBACK_OK;
-    return (bms_afe_hw_error_t)s_afe_hw_last_error;
+        !afe_hw_profile_words_equal(expected, &verify)) return 0u;
+    return bms_afe_hw_profile_get_effective(&verify);
 }
 
 /* 校验完整大端配置块，持久化、应用并回读；失败执行回滚。 */
@@ -519,8 +506,6 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
 {
     bms_afe_hw_profile_t before;
     bms_afe_hw_profile_t candidate;
-    bms_afe_hw_profile_t verify;
-    bms_afe_hw_profile_t effective;
     u16 i;
 
     if (!bms_afe_hw_access_is_active())
@@ -557,24 +542,28 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
     }
 
     bms_afe_invalidate_configuration();
-    if (!bms_afe_apply_protection_config())
+    if (afe_hw_profile_apply_verified(&candidate))
     {
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
-        return afe_hw_profile_rollback(&before);
+        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_OK;
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
+        bms_afe_hw_access_close();
+        return BMS_AFE_HW_ERROR_NONE;
     }
 
-    if (!bms_afe_hw_profile_get(&verify) ||
-        !afe_hw_profile_words_equal(&candidate, &verify) ||
-        !bms_afe_hw_profile_get_effective(&effective))
+    /* 回滚成功仍返回原提交错误，并保留写授权供调用者重试。 */
+    s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
+    if (bms_afe_hw_profile_set(&before) && afe_hw_profile_apply_verified(&before))
     {
-        s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
-        return afe_hw_profile_rollback(&before);
+        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_ROLLBACK_OK;
     }
-
-    s_afe_hw_apply_state = BMS_AFE_HW_APPLY_OK;
-    s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
-    bms_afe_hw_access_close();
-    return BMS_AFE_HW_ERROR_NONE;
+    else
+    {
+        s_afe_hw_apply_state = BMS_AFE_HW_APPLY_INCONSISTENT;
+        bms_afe_invalidate_configuration();
+        s_afe_hw_last_error = BMS_AFE_HW_ERROR_ROLLBACK;
+        bms_afe_hw_access_close();
+    }
+    return (bms_afe_hw_error_t)s_afe_hw_last_error;
 }
 
 /* 查询最近一次硬件配置应用状态。 */

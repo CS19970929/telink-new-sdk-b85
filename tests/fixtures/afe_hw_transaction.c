@@ -39,7 +39,7 @@ u8 bms_afe_hw_profile_validate_write(const bms_afe_hw_profile_t *p) {
 u8 bms_afe_apply_protection_config(void) {
     event('P'); ++apply_count; return apply_count != fail_apply;
 }
-void bms_afe_invalidate_configuration(void) {}
+void bms_afe_invalidate_configuration(void) { event('I'); }
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p) {
     event('E'); ++effective_count; *p = stored; return effective_count != fail_effective;
 }
@@ -54,22 +54,22 @@ typedef struct {
 } scenario_t;
 #define KEEP_STATE 0xffffu
 static const scenario_t scenarios[] = {
-    {0,0,0,0,0,1,1,0,35,0,0,1,1,"AGVSPGEC"},
+    {0,0,0,0,0,1,1,0,35,0,0,1,1,"AGVSIPGEC"},
     {0,0,0,0,0,0,1,1,34,2,1,KEEP_STATE,0,"A"},
     {0,0,0,0,0,1,1,1,35,3,2,KEEP_STATE,0,"A"},
     {0,0,0,0,0,1,1,0,34,3,2,KEEP_STATE,0,"A"},
     {1,0,0,0,0,1,1,0,35,4,3,KEEP_STATE,0,"AG"},
     {0,0,0,0,0,1,0,0,35,3,2,KEEP_STATE,0,"AGV"},
     {0,1,0,0,0,1,1,0,35,4,3,0,0,"AGVS"},
-    {0,0,1,0,0,1,1,0,35,4,4,2,0,"AGVSPSPGE"},
-    {2,0,0,0,0,1,1,0,35,4,4,2,0,"AGVSPGSPGE"},
-    {0,0,0,0,2,1,1,0,35,4,4,2,0,"AGVSPGSPGE"},
-    {0,0,0,1,0,1,1,0,35,4,4,2,0,"AGVSPGESPGE"},
-    {0,2,1,0,0,1,1,0,35,4,5,3,1,"AGVSPSC"},
-    {0,0,2,1,0,1,1,0,35,4,5,3,1,"AGVSPGESPC"},
-    {3,0,0,1,0,1,1,0,35,4,5,3,1,"AGVSPGESPGC"},
-    {0,0,0,1,3,1,1,0,35,4,5,3,1,"AGVSPGESPGC"},
-    {0,0,1,1,0,1,1,0,35,4,5,3,1,"AGVSPSPGEC"},
+    {0,0,1,0,0,1,1,0,35,4,4,2,0,"AGVSIPSPGE"},
+    {2,0,0,0,0,1,1,0,35,4,4,2,0,"AGVSIPGSPGE"},
+    {0,0,0,0,2,1,1,0,35,4,4,2,0,"AGVSIPGSPGE"},
+    {0,0,0,1,0,1,1,0,35,4,4,2,0,"AGVSIPGESPGE"},
+    {0,2,1,0,0,1,1,0,35,4,5,3,1,"AGVSIPSIC"},
+    {0,0,2,1,0,1,1,0,35,4,5,3,1,"AGVSIPGESPIC"},
+    {3,0,0,1,0,1,1,0,35,4,5,3,1,"AGVSIPGESPGIC"},
+    {0,0,0,1,3,1,1,0,35,4,5,3,1,"AGVSIPGESPGIC"},
+    {0,0,1,1,0,1,1,0,35,4,5,3,1,"AGVSIPSPGEIC"},
 };
 
 int main(void) {

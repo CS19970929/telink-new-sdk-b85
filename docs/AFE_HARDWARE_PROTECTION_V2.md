@@ -109,6 +109,19 @@ apply_state = CONFIG_INCONSISTENT
 
 此时工具不得显示“写入成功”。
 
+提交与回滚共用模块内的 `afe_hw_profile_apply_verified`：应用后端、读取并比较请求字段、取得有效值，任一步失败即停止。请求字段与芯片量化后的有效值仍分别核对，不比较二者逐字相等。有效值沿用各后端现有读取语义，SH 温度字段的读回限制见第4节。
+
+| 事务结果 | 状态与错误 | 写授权 |
+| --- | --- | --- |
+| 候选持久化失败 | IDLE / STORE，不应用硬件 | 保留 |
+| 候选应用及核对成功 | OK / NONE | 关闭 |
+| 候选失败、原配置回滚成功 | ROLLBACK_OK / APPLY_VERIFY，原写入仍失败 | 保留供重试，原超时规则继续生效 |
+| 原配置回滚失败 | INCONSISTENT / ROLLBACK，再次禁止输出 | 关闭 |
+
+电池类型切换已提交完整 Config 后使用 `bms_afe_hw_profile_apply_committed`，只有应用和有效值读取，不承担35-word候选的原值回滚，因此保持独立入口。普通健康采样不能解除配置不一致；完整硬件配置成功后仍须重新取得 Guard 新样本资格。
+
+本次事务整理仅完成源码和差异审查；相关故障夹具已更新，未运行测试、目标编译或实板验证。追溯见 [主链重构记录](MAIN_CHAIN_REFACTOR_20261017.md)。
+
 ## 7. 当前上位机真实能力
 
 唯一真源是 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/`：

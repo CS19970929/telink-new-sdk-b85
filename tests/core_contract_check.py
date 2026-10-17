@@ -268,7 +268,8 @@ def check_afe_hw_access_contract_check():
     assert 'bms_afe_hw_access_is_active()' in p
     assert 'BMS_AFE_HW_ERROR_AUTH' in p
     assert 'BMS_AFE_HW_APPLY_INCONSISTENT' in p
-    assert 'afe_hw_profile_rollback' in p
+    assert 'BMS_AFE_HW_APPLY_ROLLBACK_OK' in p
+    assert 'BMS_AFE_HW_ERROR_ROLLBACK' in p
     assert 'bms_afe_hw_access_close();' in p
     assert 'BMS_AFE_HW_EFFECTIVE_REG_BASE            0x2540u' in c
     assert 'BMS_AFE_HW_META_INTERFACE_VERSION        0x252Bu' in c
