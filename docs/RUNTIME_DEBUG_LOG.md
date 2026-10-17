@@ -12,6 +12,9 @@ boot/AFE/MOS/storage/fault/SOC/休眠快照及栈水位扫描；既有只读地�
 build 标识和 `capability=0`，其余字段为 0，不访问 AFE、Flash 或系统时钟。DVC raw register
 window 同样仅开发启用，production 不编译且读保留窗口返回 `0xFFFF`；raw 写入始终拒绝。
 
+SOC 的 ETA、OCV 展示字段及端点事件记录仅在服务诊断或独立 SOC 板测启用时计算；
+业务 OCV 上界、积分、满空端点和显示步进仍执行。见[四项优化记录](REFACTOR_PHASE3_20261017.md)。
+
 ## 使用
 
 默认不携带服务诊断、trace、栈扫描或运行日志。开发时按问题显式启用，避免普通开发镜像长期

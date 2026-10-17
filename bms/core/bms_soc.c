@@ -79,13 +79,8 @@ typedef struct
     uint32_t idle_stable_ticks;
     uint32_t ocv_down_ticks;
     uint16_t idle_ocv_last_mv;
-    uint16_t ocv_mv;
     uint8_t idle_ocv_mv_valid;
-    uint8_t ocv_center;
-    uint8_t ocv_low;
     uint8_t ocv_high;
-    uint8_t ocv_confidence;
-    uint8_t ocv_state;
 
     uint16_t full_lock_ticks;
     uint16_t full_adjust_ticks;
@@ -102,12 +97,17 @@ typedef struct
     uint16_t soc_low_count[3];
     uint8_t soc_low_active[3];
 
-    bms_soc_eta_t eta;
-
     uint8_t endpoint_state;
-    uint8_t endpoint_event_flags;
 
 #if BMS_SOC_DIAG_STATE_ENABLE
+    /* 仅供服务诊断/板测读取；不参与 SOC 校正或显示步进。 */
+    bms_soc_eta_t eta;
+    uint16_t ocv_mv;
+    uint8_t ocv_center;
+    uint8_t ocv_low;
+    uint8_t ocv_confidence;
+    uint8_t ocv_state;
+    uint8_t endpoint_event_flags;
     uint8_t last_sample_state;
     uint8_t last_integral_direction;
     uint8_t last_soc_action;
@@ -752,9 +752,11 @@ static void soc_update_ocv_band(uint16_t cell_mv)
     uint8_t band = g_soc_config.ocv_error_band_percent;
     if (band < g_soc_profile->ocv_min_error_band_percent)
         band = g_soc_profile->ocv_min_error_band_percent;
+#if BMS_SOC_DIAG_STATE_ENABLE
     g_soc_runtime.ocv_mv = cell_mv;
     g_soc_runtime.ocv_center = center;
     g_soc_runtime.ocv_low = (center > band) ? (uint8_t)(center - band) : 0u;
+#endif
     g_soc_runtime.ocv_high = ((uint16_t)center + band > SOC_PERCENT_MAX) ?
         SOC_PERCENT_MAX : (uint8_t)(center + band);
 }
@@ -771,11 +773,13 @@ static void soc_reset_ocv_tracking(void)
     g_soc_runtime.idle_stable_ticks = 0u;
     g_soc_runtime.ocv_down_ticks = 0u;
     g_soc_runtime.idle_ocv_mv_valid = 0u;
+#if BMS_SOC_DIAG_STATE_ENABLE
     g_soc_runtime.ocv_confidence = 0u;
     g_soc_runtime.ocv_state = BMS_SOC_OCV_WAIT_CURRENT;
     g_soc_runtime.ocv_mv = 0u;
     g_soc_runtime.ocv_center = 0u;
     g_soc_runtime.ocv_low = 0u;
+#endif
     g_soc_runtime.ocv_high = 0u;
 }
 
@@ -785,7 +789,9 @@ static uint8_t soc_idle_ocv_tracking(const bms_soc_sample_t *sample, soc_integra
     uint16_t mv;
     uint16_t diff;
     uint32_t prepare_ticks;
+#if BMS_SOC_DIAG_STATE_ENABLE
     uint32_t confidence;
+#endif
     uint8_t current_soc;
 
     if (!soc_rest_context_valid(sample, dir) ||
@@ -798,7 +804,9 @@ static uint8_t soc_idle_ocv_tracking(const bms_soc_sample_t *sample, soc_integra
     if (!g_soc_runtime.idle_ocv_mv_valid) {
         g_soc_runtime.idle_ocv_last_mv = mv;
         g_soc_runtime.idle_ocv_mv_valid = 1u;
+#if BMS_SOC_DIAG_STATE_ENABLE
         g_soc_runtime.ocv_state = BMS_SOC_OCV_PREPARE;
+#endif
         return 0u;
     }
 
@@ -807,8 +815,10 @@ static uint8_t soc_idle_ocv_tracking(const bms_soc_sample_t *sample, soc_integra
     if (diff > SOC_OCV_IDLE_SLOPE_MAX_MV) {
         g_soc_runtime.idle_stable_ticks = 0u;
         g_soc_runtime.ocv_down_ticks = 0u;
+#if BMS_SOC_DIAG_STATE_ENABLE
         g_soc_runtime.ocv_confidence = 0u;
         g_soc_runtime.ocv_state = BMS_SOC_OCV_PREPARE;
+#endif
         return 0u;
     }
 
@@ -816,17 +826,21 @@ static uint8_t soc_idle_ocv_tracking(const bms_soc_sample_t *sample, soc_integra
     if (g_soc_runtime.idle_stable_ticks < prepare_ticks)
         g_soc_runtime.idle_stable_ticks++;
 
+#if BMS_SOC_DIAG_STATE_ENABLE
     confidence = (prepare_ticks == 0u) ? 100u :
         (g_soc_runtime.idle_stable_ticks * 100u) / prepare_ticks;
     if (confidence > 100u) confidence = 100u;
     g_soc_runtime.ocv_confidence = (uint8_t)confidence;
     g_soc_runtime.ocv_state = BMS_SOC_OCV_PREPARE;
+#endif
 
     if (g_soc_runtime.idle_stable_ticks < prepare_ticks) return 0u;
 
     soc_update_ocv_band(mv);
     current_soc = get_soc_real();
+#if BMS_SOC_DIAG_STATE_ENABLE
     g_soc_runtime.ocv_state = BMS_SOC_OCV_READY;
+#endif
 
     /*
      * OCV 是置信区间，不是硬目标。正常 OCV 校正有意单向：可将高估 SOC 降至置信上界，
@@ -837,7 +851,9 @@ static uint8_t soc_idle_ocv_tracking(const bms_soc_sample_t *sample, soc_integra
         return 0u;
     }
 
+#if BMS_SOC_DIAG_STATE_ENABLE
     g_soc_runtime.ocv_state = BMS_SOC_OCV_CORRECT_DOWN;
+#endif
     if (g_soc_runtime.ocv_down_ticks < SOC_LONG_REST_DOWN_STEP_TICKS)
         g_soc_runtime.ocv_down_ticks++;
     if (g_soc_runtime.ocv_down_ticks < SOC_LONG_REST_DOWN_STEP_TICKS) return 0u;
@@ -910,6 +926,7 @@ static uint16_t soc_uvp_trip_mv(void)
 }
 
 /* 用当前有效容量、电流和方向更新剩余时间。 */
+#if BMS_SOC_DIAG_STATE_ENABLE
 static void soc_eta_update(const bms_soc_sample_t *sample, soc_integral_dir_t dir)
 {
     bms_soc_eta_input_t input;
@@ -925,6 +942,7 @@ static void soc_eta_update(const bms_soc_sample_t *sample, soc_integral_dir_t di
     input.near_full = sample->cell_max_mv + g_soc_profile->full_min_margin_mv >= g_soc_profile->full_sync_mv;
     bms_soc_eta_update(&g_soc_runtime.eta, &input);
 }
+#endif
 
 /* 查找放电末端电压对应的 SOC 约束。 */
 static uint8_t soc_terminal_lookup(const bms_soc_sample_t *sample, uint8_t *target_soc, uint8_t *sag_hold_blocks)
@@ -1096,13 +1114,16 @@ static uint8_t soc_apply_full_anchor(const bms_soc_sample_t *sample, soc_integra
 /* 在明确空电条件下执行强制空电锚定。 */
 static uint8_t soc_apply_forced_empty_anchor(const bms_soc_sample_t *sample, soc_integral_dir_t dir)
 {
+#if BMS_SOC_DIAG_STATE_ENABLE
     uint8_t before;
+#endif
     /* 欠压保护可能在充电恢复期间继续锁存，不能反复清掉已充入的容量。
      * MOS 欠压保护仍由保护模块处理；可靠充电方向只禁止 SOC 空电锚定。 */
     if (!sample->third_cell_uvp || (dir == SOC_INTEGRAL_DIR_CHG) ||
         !sample->voltage_valid ||
         sample->cell_min_mv > g_bms_protection_params.cell_uvp_third_mv) return 0u;
     /* 旧 UV 锁存不是新空电证据；电压已回升时保留充入容量，不新增方向状态。 */
+#if BMS_SOC_DIAG_STATE_ENABLE
     before = get_soc_real();
     if (before > 5u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_EARLY_UVP;
     if (before > 10u) g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_CAPACITY_MISMATCH;
@@ -1110,6 +1131,7 @@ static uint8_t soc_apply_forced_empty_anchor(const bms_soc_sample_t *sample, soc
         g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_LARGE_SAG;
     if (sample->cell_delta_mv > g_soc_profile->terminal_cell_delta_max_mv)
         g_soc_runtime.endpoint_event_flags |= SOC_ENDPOINT_EVENT_IMBALANCE;
+#endif
     if (get_soc_real() != 0u) {
         soc_apply_real_value(0u, 1u);
         soc_reset_integral_accumulator();
@@ -1270,7 +1292,9 @@ static void soc_strategy_update(const bms_soc_sample_t *sample)
         !soc_apply_discharge_terminal_tracking(sample, dir, current_a10) &&
         !soc_apply_idle_empty_anchor(sample, dir))
         (void)soc_idle_ocv_tracking(sample, dir);
+#if BMS_SOC_DIAG_STATE_ENABLE
     soc_eta_update(sample, dir);
+#endif
 }
 
 /* 更新 SOC 参数与相关容量状态。 */
@@ -1369,7 +1393,9 @@ static void soc_invalidate_sample_interval(void)
     g_soc_runtime.full_anchor_latched = 0u;
     g_soc_runtime.empty_anchor_latched = 0u;
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
+#if BMS_SOC_DIAG_STATE_ENABLE
     bms_soc_eta_reset(&g_soc_runtime.eta);
+#endif
     /* 显示跟随只累计已接受的节拍；中断积分不能反复抹掉显示进度。 */
     memset(g_soc_runtime.soc_low_count, 0, sizeof(g_soc_runtime.soc_low_count));
 }
@@ -1438,7 +1464,9 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
         /* 跨电流状态转换的时间段不能证明连续静置或连续满/空锚点条件。 */
         soc_reset_ocv_tracking();
         soc_reset_voltage_confirmation();
+#if BMS_SOC_DIAG_STATE_ENABLE
         bms_soc_eta_reset(&g_soc_runtime.eta);
+#endif
         g_soc_strategy_pending_32k = 0u;
         return;
     }

@@ -48,6 +48,8 @@ def main():
     parser.add_argument('--compile-soc-executable', type=Path,
                         help='compile the production-C replay executable and stop')
     parser.add_argument('--soc-only', action='store_true', help='仅运行公共 SOC 和所选产品 app 样本入口')
+    parser.add_argument('--behavior-mode', choices=('off', 'service', 'board'),
+                        help='以诊断关闭、服务诊断或独立板测宏运行相同业务轨迹')
     args = parser.parse_args()
     product = os.environ.get('BMS_PRODUCT', 'd008')
     product_parameters = '#define BMS_PRODUCT_ID ' + str(int(product[1:])) + 'u\n#include "' + (ROOT / 'bms/products' / product / (product + '_protection_config.h')).as_posix() + '"\n'
@@ -67,7 +69,7 @@ def main():
                    'static int bms_config_store_set_soc(const bms_soc_config_t *c){if(!config_store_write_ok)return 0;stored_profile.battery_chemistry=c->chemistry;stored_profile.soc_profile_id=c->profile_id;return 1;}\n'
                    'static int bms_config_store_get_soc(bms_soc_config_t *c){bms_soc_get_default_config(c);c->chemistry=stored_profile.battery_chemistry;c->profile_id=stored_profile.soc_profile_id;return 1;}\n' + source('bms_soc.c') + '\n' + '\n'.join(re.findall(r'^#define SOC_SAMPLE_(?:TEMP|CURRENT|PACK)_FAULT_MASK[^\n]*', (MOD/'app.c').read_text(), re.M)) + '\n' + function('app.c', 'static void app_update_soc_from_sample('),
         }
-        if args.compile_soc_executable is None and not args.soc_only:
+        if args.compile_soc_executable is None and not args.soc_only and args.behavior_mode is None:
             units.update({
             'power': protective_sleep_state() + '\n'.join(function('app_power.c', sig) for sig in (
                 'static uint8_t app_get_fresh_measurements(',
@@ -88,6 +90,13 @@ def main():
             if name == 'power':
                 code = '#include "' + (ROOT/'bms/core/bms_debug_log.h').as_posix() + '"\n' + code
             fixture = (FIX / (name + '.c')).read_text()
+            if name == 'soc' and args.behavior_mode is not None:
+                # 共用外围替身；业务轨迹不读取诊断字段。关闭时不链接 ETA，检查无残留引用。
+                fixture = fixture.split('/* PRODUCTION_SOURCE */')[0]
+                fixture = fixture.replace('#define BMS_SERVICE_DIAG_ENABLE 1', '')
+                fixture += '/* PRODUCTION_SOURCE */\n' + (FIX / 'soc_behavior.c').read_text()
+                if args.behavior_mode == 'off':
+                    code = re.sub(r'^#include "[^"\n]*/bms_soc_eta.c"\n', '', code, flags=re.M)
             if name == 'guard':
                 policy = re.search(r'typedef struct\s*\{[^}]*\} bms_afe_driver_policy_t;', (ROOT/'bms/core/bms_afe_driver.h').read_text(encoding='utf-8'), re.S).group()
                 fixture = policy + '\n' + fixture
@@ -103,14 +112,26 @@ def main():
             executable = (args.compile_soc_executable if
                           args.compile_soc_executable is not None else Path(directory) / name)
             executable.parent.mkdir(parents=True, exist_ok=True)
+            diag_flags = ['-DBMS_SERVICE_DIAG_ENABLE=1']
+            if args.behavior_mode is not None:
+                diag_flags = ['-DBMS_SERVICE_DIAG_ENABLE=' + ('1' if args.behavior_mode == 'service' else '0'),
+                              '-DBMS_SOC_BOARD_TEST_ENABLE=' + ('1' if args.behavior_mode == 'board' else '0')]
             subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
                 '-DBMS_PRODUCT_SWITCH_SLEEP_ENABLE=1',
-                '-std=c99', '-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_HOST_TEST=1', '-Wall', '-Wextra', '-Werror',
+                '-std=c99', *diag_flags, '-DBMS_HOST_TEST=1', '-Wall', '-Wextra', '-Werror',
                 '-Wno-unused-function', '-Wno-unused-parameter',
                 str(path), '-I', str(ROOT/'bms/core'), *([*host_includes(ROOT),'-include',str(MOD/'bms_diag.h'),str(MOD/'bms_diag.c')] if name=='guard' else []), '-o', str(executable)], check=True)
             if args.compile_soc_executable is not None:
                 print(f"WROTE production SOC replay executable: {executable}")
                 return
+            if args.behavior_mode is not None:
+                trajectory = subprocess.run([str(executable)], check=True, text=True,
+                                            stdout=subprocess.PIPE).stdout
+                if args.trajectory is not None:
+                    args.trajectory.parent.mkdir(parents=True, exist_ok=True)
+                    args.trajectory.write_text(trajectory)
+                print(f"PASS SOC business trajectory: {args.behavior_mode}, {len(trajectory.splitlines())} rows")
+                continue
             subprocess.run([str(executable)], check=True)
             if name == 'power':
                 subprocess.run(shlex.split(os.environ.get('CC', 'cc')) + [
@@ -125,6 +146,16 @@ def main():
                 args.trajectory.parent.mkdir(parents=True, exist_ok=True)
                 args.trajectory.write_text(trajectory)
                 print(f"WROTE SOC trajectory: {args.trajectory}")
+            if name == 'soc':
+                trajectories = []
+                for mode in ('off', 'service', 'board'):
+                    output = (args.trajectory.with_name(args.trajectory.stem + '-' + mode + '.csv')
+                              if args.trajectory is not None else Path(directory) / (mode + '.csv'))
+                    subprocess.run([os.sys.executable, str(Path(__file__).resolve()),
+                                    '--behavior-mode', mode, '--trajectory', str(output)], check=True)
+                    trajectories.append(output.read_bytes())
+                assert trajectories[0] == trajectories[1] == trajectories[2], 'diagnostic modes changed SOC business behavior'
+                print('PASS SOC diagnostic modes: identical business outputs (off/service/board)')
 
 
 if __name__ == '__main__':
