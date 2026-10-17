@@ -36,11 +36,9 @@ bms_state_store_data_t bms_state_store_get_default_data(void);
 /* 取得缓存的 SOC 和循环状态。 */
 bms_state_store_data_t bms_state_store_get(void);
 /* 保存完整状态并按结果发布缓存。 */
-int  bms_state_store_write_all(uint32_t soc, uint32_t dsg, uint32_t cycle);
+int  bms_state_store_save(uint32_t soc, uint32_t dsg, uint32_t cycle);
 /* 仅在状态变化且策略允许时提交检查点。 */
-void bms_state_store_update_and_log_if_changed(uint32_t soc, uint32_t dsg, uint32_t cycle);
-/* 更新 SOC 与循环次数状态并保存。 */
-int bms_state_store_set_soc_cycle(uint32_t soc, uint32_t dsg, uint32_t cycle);
+void bms_state_store_poll(uint32_t soc, uint32_t dsg, uint32_t cycle);
 
 #ifdef __cplusplus
 }

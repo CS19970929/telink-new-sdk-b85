@@ -69,7 +69,7 @@ static u8 bms_error_get(int error) { assert(error==BMS_ERROR_AFE1); return afe_e
 static void bms_afe_set_output_enabled(u8 en) { assert(!en); ++output_calls; }
 static u8 bms_afe_sleep(void) { ++afe_calls; return 0u; }
 static int app_flash_lock_restore_enabled(void) { return flash_ready; }
-static u8 bms_state_store_write_all(u8 s, u8 d, u32 c) { (void)s;(void)d;(void)c; ++saves; return 0u; }
+static u8 bms_state_store_save(u8 s, u8 d, u32 c) { (void)s;(void)d;(void)c; ++saves; return 0u; }
 static u8 bms_event_log_note_sleep(void) { ++events; return 0u; }
 static int bls_ll_terminateConnection(int r) { assert(r==HCI_ERR_REMOTE_USER_TERM_CONN); return -1; }
 static int bls_ll_setAdvEnable(int en) { assert(!en); return -1; }

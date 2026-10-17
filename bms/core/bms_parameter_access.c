@@ -139,7 +139,7 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
     }
     if (r == BMS_PARAM_REG_LAST_RESULT) return s_result;
     if (r == BMS_PARAM_REG_SEQUENCE) return s_sequence;
-    if (r == BMS_PARAM_REG_CONFIG_FORMAT) return 2u; /* 配置格式：CFG2 schema。 */
+    if (r == BMS_PARAM_REG_CONFIG_FORMAT) return 2u; /* 外部参数接口格式 2，与内部 journal schema 独立。 */
     if (r == BMS_PARAM_REG_SN_GENERATION) return s_sn_generation;
     if (r == BMS_PARAM_REG_RESET_POLICY) return 1u; /* 禁止旧 1102=3 重置入口。 */
     if (r == BMS_PARAM_REG_DEFAULT_CAPACITY) return BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
@@ -337,7 +337,7 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
         u16 soc = (r == BMS_PARAM_REG_SOC) ? value : get_soc_real();
         u32 cycle = (r == BMS_PARAM_REG_CYCLE) ? value : g_bms_soc.cycle_count;
         if (qty != 1u || soc > 100u) return finish(3u);
-        if (!bms_state_store_set_soc_cycle(soc, g_bms_soc.discharge_fraction_percent, cycle))
+        if (!bms_state_store_save(soc, g_bms_soc.discharge_fraction_percent, cycle))
             return finish(4u);
         g_bms_soc.cycle_count = cycle;
         set_soc_param((u8)soc);

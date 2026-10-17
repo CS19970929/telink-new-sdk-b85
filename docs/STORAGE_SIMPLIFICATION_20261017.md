@@ -61,6 +61,19 @@ Event 改为 `EV4 + product ID` / schema 4 / 202 bytes，仅保存写位置及 1
 第三轮四产品语义存储及三产品 SH checkpoint/平台共 7 组通过（`round3/`），覆盖实际时间、
 tick 回绕、checkpoint 后合并不写 Flash、236-byte 写入完整切点、失败保留、休眠尝试及协议解码。
 
+## 第四轮：State 单一持久快照及一秒检查点
+
+State 改为 `ST4 + product ID` / schema 4 / 24 bytes，仅保存 SOC、放电累计、cycle 和本域 OTA 标记。
+删除旧修订/学习槽及长期 pending 对象；当前值来自 SOC 所有者，失败后的下一次检查重新取得最新业务值。
+显式 SOC/循环设置仍先保存成功再发布算法值；休眠仍尽力一次保存，不因失败取消保护性断电/深睡。
+统一显式保存为 `bms_state_store_save()`，周期检查为 `bms_state_store_poll()`。
+后者与 Event 共用原一秒任务，正常 60 秒 checkpoint / 失败 5 秒退避及 tick 回绕规则保留。
+假电流板测只跳过正常 State checkpoint，不跳过 `app_power_process()`。
+
+第四轮四产品语义存储、Flash、Modbus 和 D014 联合生产 TU 共 13 组通过（`round4/`），
+调度夹具在适配一秒 State 调用后单独复验 1 组通过（`round4-scheduler-retry/`）。
+包含 56-byte State 写入切点、失败后 RAM/已提交值边界、OTA SOC_STATE 一次性重置及周期/休眠路径。
+
 ## 验证证据与限制
 
 基线完整 host 回归执行 128 组，123 通过、5 失败：四产品诊断夹具编译失败及 D011 旧函数签名断言。

@@ -240,7 +240,7 @@ static void app_prepare_deep_sleep(void)
     (void)bms_afe_sleep();
     /* 不在 OTA/Flash 会话内追加写入；其余情况各保存一次，失败不重试、不拒睡。 */
     if (!ota_is_working && app_flash_lock_restore_enabled()) {
-        (void)bms_state_store_write_all(g_bms_soc.soc_estimate_percent,
+        (void)bms_state_store_save(g_bms_soc.soc_estimate_percent,
                                         g_bms_soc.discharge_fraction_percent,
                                         g_bms_soc.cycle_count);
         (void)bms_event_log_note_sleep();

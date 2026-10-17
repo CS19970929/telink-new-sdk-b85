@@ -200,20 +200,19 @@ static void test_config_schema(void){
 
 static void test_state(void){
  fresh();
- bms_state_store_update_and_log_if_changed(61,2,3);assert(g_bms_state.soc==60);
- now=60*32000;cut=0;bms_state_store_update_and_log_if_changed(62,4,5);u32 count=programs;
- for(unsigned i=0;i<100;i++)bms_state_store_update_and_log_if_changed(63,6,7);
+ bms_state_store_poll(61,2,3);assert(g_bms_state.soc==60);
+ now=60*32000;cut=0;bms_state_store_poll(62,4,5);u32 count=programs;
+ for(unsigned i=0;i<100;i++)bms_state_store_poll(63,6,7);
  assert(programs==count);assert(errors);now+=5*32000;cut=-1;
- bms_state_store_update_and_log_if_changed(64,8,9);assert(g_bms_state.soc==64);
- assert(bms_state_store_write_all(65,9,10));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65);
+ bms_state_store_poll(64,8,9);assert(g_bms_state.soc==64);
+ assert(bms_state_store_save(65,9,10));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65);
 
- /* Keep schema 3 SOC/cycle/revision offsets. Ignore obsolete learning bytes. */
+ /* schema 4 仅保存 SOC/累计/循环和本域 OTA 标记。 */
+ assert(BMS_STATE_PAYLOAD_BYTES==24u);
  u8 state_payload[BMS_STATE_PAYLOAD_BYTES];bms_state_encode(&g_bms_state,state_payload);
- for(unsigned i=12;i<40;++i)assert(state_payload[i]==0);
- memset(state_payload+12,0xff,28);assert(storage_record_save(&g_bms_state_store,state_payload));
- reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65&&g_bms_state.cycle==10);
- assert(!bms_state_store_write_all(101,0,0));assert(!bms_state_store_write_all(60,101,0));
- assert(!bms_state_store_set_soc_cycle(60,0,65536));
+ for(unsigned i=12;i<24;++i)assert(state_payload[i]==0);
+ assert(!bms_state_store_save(101,0,0));assert(!bms_state_store_save(60,101,0));
+ assert(!bms_state_store_save(60,0,65536));
  bms_state_persist_t old=g_bms_state,next=old;next.soc=77;
  memcpy(backup,flash,sizeof(flash));
  for(int byte=0;byte<(int)(24+BMS_STATE_PAYLOAD_BYTES+8);byte++){
@@ -224,8 +223,8 @@ static void test_state(void){
  assert(bms_state_save(&next));reboot();assert(bms_state_store_init());
  assert(g_bms_state.soc==77);
  now=UINT32_MAX-32000;g_bms_state_last_attempt_32k=now;
- bms_state_store_update_and_log_if_changed(78,0,0);now+=(60*32000);bms_state_store_update_and_log_if_changed(79,0,0);assert(g_bms_state.soc==79);
- puts("PASS State: coalescing, failure/backoff, cycle state/reserved slots, atomic rollback, all byte cuts, wrap");
+ bms_state_store_poll(78,0,0);now+=(60*32000);bms_state_store_poll(79,0,0);assert(g_bms_state.soc==79);
+ puts("PASS State: coalescing, failure/backoff, compact cycle state, atomic rollback, all byte cuts, wrap");
 }
 static void test_events(void){
  fresh();bms_event_log_sample_t sample={0};sample.vcell_ovp=1;
@@ -275,7 +274,7 @@ static void test_diag_boot(void){
  puts("PASS diagnostics: one Config failure, independent State/Event attempts, frozen first failure, blank defaults");
 }
 static void test_config_failure_preserves_state_cache(void){
- fresh();assert(bms_state_store_write_all(63u,27u,123u));
+ fresh();assert(bms_state_store_save(63u,27u,123u));
  reboot();config_read_fail=1;bms_parameters_init();
  assert(!bms_protection_params_valid());assert(g_bms_state_ready && g_bms_event_log.ready);
  bms_state_store_data_t loaded=bms_state_store_get();
@@ -374,9 +373,9 @@ static void test_user_parameters(void){
   assert(bms_config_calibrate_current(raw)==expected);
  }
  fresh();bms_state_persist_t state=g_bms_state;cut=0;
- assert(!bms_state_store_set_soc_cycle(88,9,999));assert(g_bms_state.soc==state.soc);
- cut=-1;assert(g_bms_state_pending.soc==state.soc);reboot();assert(bms_state_store_init());assert(g_bms_state.soc==state.soc);
- assert(bms_state_store_set_soc_cycle(88,9,999));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==88 && g_bms_state.cycle==999);
+ assert(!bms_state_store_save(88,9,999));assert(g_bms_state.soc==state.soc);
+ cut=-1;assert(g_bms_state.soc==state.soc);reboot();assert(bms_state_store_init());assert(g_bms_state.soc==state.soc);
+ assert(bms_state_store_save(88,9,999));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==88 && g_bms_state.cycle==999);
  puts("PASS new parameters: heater validation, SN persistence, Config byte cuts, independent reset, 10000 current arithmetic oracle cases, synchronous State rollback");
 }
 static void test_balance_permission(void)
@@ -503,7 +502,6 @@ static void test_ota_state_events(void)
         fresh();
         bms_state_persist_t cfg = g_bms_state;
         cfg.soc = 88u; cfg.cycle = 99u;
-        cfg.soc_revision = 65535u; /* 旧编号变化本身不重置状态。 */
         assert(bms_state_save(&cfg));
         assert(bms_event_log_note_sleep());
         {
@@ -532,7 +530,7 @@ static void test_ota_state_events(void)
             reboot(); bms_parameters_init(); assert(programs == before);
         }
         /* 更新执行后客户在线修改状态，同一 BIN 重启不能再清零循环或 SOC。 */
-        assert(bms_state_store_set_soc_cycle(77u, 3u, 123u));
+        assert(bms_state_store_save(77u, 3u, 123u));
         u32 before = programs;
         reboot(); bms_parameters_init(); assert(programs == before);
         assert(g_bms_state.soc == 77u && g_bms_state.dsg == 3u && g_bms_state.cycle == 123u);
@@ -564,27 +562,27 @@ static void test_storage_reliability(void){
  for(unsigned i=0;i<10;++i)assert(bms_config_reset_business());
  assert(g_bms_config_store.next_sequence==seq);
  unsigned slots=g_bms_state_store.slots_per_sector;
- for(unsigned i=1;i<slots;++i)assert(bms_state_store_write_all(i%100,0,i));
+ for(unsigned i=1;i<slots;++i)assert(bms_state_store_save(i%100,0,i));
  u32 old=g_bms_state.soc,old_addr=g_bms_state_store.latest_addr;
  u32 before_erase=erases,before_program=programs;cut=0;now=60u*32000u;
- for(unsigned i=0;i<120;++i){bms_state_store_update_and_log_if_changed(77,0,77);now+=5u*32000u;}
+ for(unsigned i=0;i<120;++i){bms_state_store_poll(77,0,77);now+=5u*32000u;}
  assert(erases-before_erase==1);assert(programs-before_program==3);
  assert(g_bms_state_store.latest_addr==old_addr && g_bms_state.soc==old);
  reboot();assert(bms_state_store_init());assert(g_bms_state.soc==old);
  fresh();old_addr=g_bms_state_store.latest_addr;cut=10;
- assert(!bms_state_store_write_all(77,0,77));cut=-1;now+=5u*32000u;before_erase=erases;
- assert(bms_state_store_write_all(78,0,78));assert(erases==before_erase);
+ assert(!bms_state_store_save(77,0,77));cut=-1;now+=5u*32000u;before_erase=erases;
+ assert(bms_state_store_save(78,0,78));assert(erases==before_erase);
  assert(g_bms_state_store.latest_addr==old_addr+2u*g_bms_state_store.slot_size);
  fresh();slots=g_bms_state_store.slots_per_sector;
- for(unsigned i=1;i<slots;++i)assert(bms_state_store_write_all(i%100,0,i));
+ for(unsigned i=1;i<slots;++i)assert(bms_state_store_save(i%100,0,i));
  old_addr=g_bms_state_store.latest_addr;before_erase=erases;before_program=programs;erase_ok=0;
- for(unsigned i=0;i<120;++i){assert(!bms_state_store_write_all(77,0,77));now+=5u*32000u;}
+ for(unsigned i=0;i<120;++i){assert(!bms_state_store_save(77,0,77));now+=5u*32000u;}
  assert(erases-before_erase==3u && programs==before_program);
  assert(g_bms_state_store.latest_addr==old_addr);
  fresh();begin_ok=0;before_erase=erases;before_program=programs;
- for(unsigned i=0;i<120;++i){assert(!bms_state_store_write_all(77,0,77));now+=5u*32000u;}
+ for(unsigned i=0;i<120;++i){assert(!bms_state_store_save(77,0,77));now+=5u*32000u;}
  assert(erases==before_erase && programs==before_program && g_bms_state_store.write_failures==0u);
- begin_ok=1;assert(bms_state_store_write_all(77,0,77));
+ begin_ok=1;assert(bms_state_store_save(77,0,77));
  for(unsigned domain=0;domain<3;++domain){
   fresh();reboot();read_ok=0;before_program=programs;before_erase=erases;
   assert(!bms_config_get_user(&(bms_user_params_t){0}));

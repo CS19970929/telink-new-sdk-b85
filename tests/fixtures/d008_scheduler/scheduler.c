@@ -79,19 +79,19 @@ static void blt_sdk_main_loop(void){note('B');}
 static void bus_mux_task(void){note('X');}
 static void sif_prepare_task(u32 tick){(void)tick;}
 static void main_loop_modbus(void){note('U');}
-static void bms_state_store_update_and_log_if_changed(int a,int b,int c){(void)a;(void)b;(void)c;note('F');}
 static void app_power_process(const volatile uint8_t *pending){assert(pending==&s_sample_due);note('P');}
+static void bms_state_store_poll(int a,int b,int c){(void)a;(void)b;(void)c;note('F');}
 static struct {int soc_estimate_percent,discharge_fraction_percent,cycle_count;} g_bms_soc;
 /* PRODUCTION_SOURCE */
 static void expect(const char *s){assert(!strcmp(calls,s));n=0;calls[0]=0;}
 int main(void){
- main_loop();expect("123BXUFP");
- now=3200000;main_loop();expect("123BXUFP"); /* SDK uses strict >. */
- now++;main_loop();expect("123BAVSWLXUFP");assert(s_sample_tick==now&&!s_sample_due);
- s_sample_due=1;main_loop();expect("123BAVSWLXUFP");
- valid=0;s_sample_due=1;main_loop();expect("123BAVSWLXUFP");valid=1;
- now=16000001;main_loop();expect("123BAVSWLEXUFP");
- main_loop();expect("123BXUFP"); /* no repeated event or sample */
+ main_loop();expect("123BXUP");
+ now=3200000;main_loop();expect("123BXUP"); /* SDK uses strict >. */
+ now++;main_loop();expect("123BAVSWLXUP");assert(s_sample_tick==now&&!s_sample_due);
+ s_sample_due=1;main_loop();expect("123BAVSWLXUP");
+ valid=0;s_sample_due=1;main_loop();expect("123BAVSWLXUP");valid=1;
+ now=16000001;main_loop();expect("123BAVSWLEFXUP");
+ main_loop();expect("123BXUP"); /* no repeated event or sample */
  now=0x100; s_sample_tick=0xffc00000u;app_sample_task();expect("AVSWL");
  sample_cost=3200001;s_sample_due=1;app_sample_task();expect("AVSWL");assert(s_sample_due);
  sample_cost=0;s_sample_due=1;callback_during_sample=1;app_sample_task();expect("AVSWL");assert(s_sample_due);

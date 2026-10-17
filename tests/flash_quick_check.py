@@ -159,10 +159,10 @@ class ArchitectureTests(unittest.TestCase):
 
     def test_state_keeps_changed_value_write_semantics(self):
         state = text(STATE_C)
-        for field in ("soc", "dsg", "cycle", "soc_revision"):
+        for field in ("soc", "dsg", "cycle"):
             self.assertIn(f"next->{field} == g_bms_state.{field}", state)
         self.assertIn("memcmp(next->ota_update_id, g_bms_state.ota_update_id", state)
-        self.assertIn("bms_state_store_update_and_log_if_changed", text(APP_C))
+        self.assertIn("bms_state_store_poll", text(APP_C))
         self.assertFalse((MOD / "soc_kv_store.h").exists())
         self.assertFalse((MOD / "bms_cold_kv_store.h").exists())
         self.assertNotIn("runtime_min", state)

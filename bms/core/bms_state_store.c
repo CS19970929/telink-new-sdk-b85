@@ -16,26 +16,22 @@
 
 #define BMS_STATE_SAVE_INTERVAL_32K (60u * 32000u)
 
-#define BMS_STATE_RECORD_MAGIC        0x53544200u + BMS_PRODUCT_ID /*
- * 状态标识为 STB 加产品编号。
+#define BMS_STATE_RECORD_MAGIC        0x53543400u + BMS_PRODUCT_ID /*
+ * 状态标识为 ST4 加产品编号。
  */
-#define BMS_STATE_SCHEMA_VERSION      3u
-#define BMS_STATE_PAYLOAD_WORDS       10u
-#define BMS_STATE_PAYLOAD_BYTES       (BMS_STATE_PAYLOAD_WORDS * 4u + 4u)
+#define BMS_STATE_SCHEMA_VERSION      4u
+#define BMS_STATE_PAYLOAD_BYTES (12u + BMS_OTA_UPDATE_ID_WORDS * 2u)
 
 typedef struct {
-    uint16_t soc_revision;
     uint16_t ota_update_id[BMS_OTA_UPDATE_ID_WORDS];
     uint32_t soc;
     uint32_t dsg;
     uint32_t cycle;
 } bms_state_persist_t;
 
-static storage_record_store_t g_bms_state_store;
+static storage_record_store_t g_bms_state_store __attribute__((aligned(4)));
 static bms_state_persist_t g_bms_state;
 static uint8_t g_bms_state_ready;
-/* 待 checkpoint 的状态副本；与当前持久状态分离以保留失败后的重试内容。 */
-static bms_state_persist_t g_bms_state_pending;
 static uint32_t g_bms_state_last_attempt_32k;
 static uint8_t g_bms_state_last_failed;
 
@@ -69,7 +65,6 @@ bms_state_store_data_t bms_state_store_get_default_data(void)
 static void bms_state_defaults(bms_state_persist_t *state)
 {
     bms_state_store_data_t soc = bms_state_store_get_default_data();
-    state->soc_revision = BMS_UPDATE_SOC_STATE_REVISION;
     memset(state->ota_update_id, 0, sizeof(state->ota_update_id));
     if (bms_ota_update_selected(BMS_UPDATE_SOC_STATE)) bms_ota_update_copy_id(state->ota_update_id);
     state->soc = soc.soc;
@@ -84,12 +79,10 @@ static void bms_state_encode(const bms_state_persist_t *state, uint8_t *payload)
     bms_state_put_u32le(&payload[0], state->soc);
     bms_state_put_u32le(&payload[4], state->dsg);
     bms_state_put_u32le(&payload[8], state->cycle);
-    memset(&payload[12], 0, 28u); /* 原学习槽前 12 字节用于 OTA 标记，其余恒零。 */
     for (i = 0u; i < BMS_OTA_UPDATE_ID_WORDS; ++i) {
         payload[12u + 2u * i] = (uint8_t)state->ota_update_id[i];
         payload[13u + 2u * i] = (uint8_t)(state->ota_update_id[i] >> 8);
     }
-    bms_state_put_u32le(&payload[40], (uint32_t)state->soc_revision);
 }
 
 /* 验证版本、产品及字段范围后解码状态记录。 */
@@ -99,7 +92,6 @@ static void bms_state_decode(bms_state_persist_t *state, const uint8_t *payload)
     state->soc = bms_state_get_u32le(&payload[0]);
     state->dsg = bms_state_get_u32le(&payload[4]);
     state->cycle = bms_state_get_u32le(&payload[8]);
-    state->soc_revision = (uint16_t)bms_state_get_u32le(&payload[40]);
     for (i = 0u; i < BMS_OTA_UPDATE_ID_WORDS; ++i)
         state->ota_update_id[i] = (uint16_t)((uint16_t)payload[12u + 2u * i] |
                                            ((uint16_t)payload[13u + 2u * i] << 8));
@@ -113,7 +105,6 @@ static int bms_state_save(const bms_state_persist_t *next)
     /* 比较全部持久字段，避免重复编码及第二份 payload；不能比较结构体填充字节。 */
     if (g_bms_state_store.has_latest && next->soc == g_bms_state.soc &&
         next->dsg == g_bms_state.dsg && next->cycle == g_bms_state.cycle &&
-        next->soc_revision == g_bms_state.soc_revision &&
         memcmp(next->ota_update_id, g_bms_state.ota_update_id, sizeof(next->ota_update_id)) == 0) return 1;
     /* 强制关机写入绕过普通间隔，但绝不绕过失败退避。 */
     if (g_bms_state_last_failed &&
@@ -161,7 +152,6 @@ int bms_state_store_init(void)
         bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid;
     }
     if (!bms_state_save(&next)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE); return 0; }
-    g_bms_state_pending = g_bms_state;
     g_bms_state_last_attempt_32k = bms_time_now_32k();
     g_bms_state_ready = 1u;
     bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OK);
@@ -184,37 +174,20 @@ bms_state_store_data_t bms_state_store_get(void)
     return data;
 }
 
-/* 保存完整状态并按结果发布缓存。 */
-int bms_state_store_write_all(uint32_t soc, uint32_t dsg, uint32_t cycle)
-{
-    if (soc > 100u || dsg > 100u || cycle > 65535u || !bms_state_store_init()) return 0;
-    g_bms_state_pending.soc = soc;
-    g_bms_state_pending.dsg = dsg;
-    g_bms_state_pending.cycle = cycle;
-    return bms_state_save(&g_bms_state_pending);
-}
-
-/* 仅在状态变化且策略允许时提交检查点。 */
-void bms_state_store_update_and_log_if_changed(uint32_t soc, uint32_t dsg, uint32_t cycle)
-{
-    uint32_t interval;
-    if (soc > 100u || dsg > 100u || cycle > 65535u || !bms_state_store_init()) return;
-    g_bms_state_pending.soc = soc;
-    g_bms_state_pending.dsg = dsg;
-    g_bms_state_pending.cycle = cycle;
-    interval = g_bms_state_last_failed ? BMS_STORAGE_RETRY_INTERVAL_32K : BMS_STATE_SAVE_INTERVAL_32K;
-    if ((uint32_t)(bms_time_now_32k() - g_bms_state_last_attempt_32k) < interval) return;
-    (void)bms_state_save(&g_bms_state_pending);
-}
-
-/* 更新 SOC 与循环次数状态并保存。 */
-int bms_state_store_set_soc_cycle(uint32_t soc, uint32_t dsg, uint32_t cycle)
+/* 当前业务值由调用者提供；保存失败保留最后已提交状态，下轮重新取业务快照。 */
+int bms_state_store_save(uint32_t soc, uint32_t dsg, uint32_t cycle)
 {
     bms_state_persist_t next;
     if (soc > 100u || dsg > 100u || cycle > 65535u || !bms_state_store_init()) return 0;
-    next = g_bms_state_pending;
+    next = g_bms_state;
     next.soc = soc; next.dsg = dsg; next.cycle = cycle;
-    if (!bms_state_save(&next)) return 0;
-    g_bms_state_pending = next;
-    return 1;
+    return bms_state_save(&next);
+}
+
+/* 一秒业务节拍检查；正常 60 秒 checkpoint，失败 5 秒退避。 */
+void bms_state_store_poll(uint32_t soc, uint32_t dsg, uint32_t cycle)
+{
+    uint32_t interval = g_bms_state_last_failed ? BMS_STORAGE_RETRY_INTERVAL_32K : BMS_STATE_SAVE_INTERVAL_32K;
+    if ((uint32_t)(bms_time_now_32k() - g_bms_state_last_attempt_32k) < interval) return;
+    (void)bms_state_store_save(soc, dsg, cycle);
 }

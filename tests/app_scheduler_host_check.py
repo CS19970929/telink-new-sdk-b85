@@ -59,12 +59,13 @@ def check_app_scheduler_host_check():
         app = selected_source(MOD / "app.c", defines=("-DBMS_SERVICE_DIAG_ENABLE=1",))
         power = selected_source(MOD / "app_power.c", defines=("-DBMS_SERVICE_DIAG_ENABLE=1",))
         # Exercise the actual event deadline gate, stub only event payload collection.
-        event = function(app, "static void app_event_log_1s_task(")
+        event = function(app, "static void app_storage_1s_task(")
         event = event[event.index("    _attribute_data_retention_"):event.index("\tmemset(&sample")]
+        checkpoint = re.search(r"bms_state_store_poll\([^;]+;",function(app,"static void app_storage_1s_task(")).group(0)
         scheduler = "\n".join([
             function(power, "uint8_t app_power_prepare_loop("),
             function(app, "static void app_sample_task("),
-            "static void app_event_log_1s_task(void){\n" + event + "note('E');}",
+            "static void app_storage_1s_task(void){\n" + event + "note('E');" + checkpoint + "}",
             function(app, "_attribute_no_inline_ void main_loop("),
         ])
         with tempfile.TemporaryDirectory(prefix="d008-scheduler-") as folder:

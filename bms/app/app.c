@@ -85,7 +85,7 @@ static void app_schedule_sample_wakeup(void)
 }
 
 /* 按秒推进历史事件与运行计时任务。 */
-static void app_event_log_1s_task(void)
+static void app_storage_1s_task(void)
 {
 	bms_event_log_sample_t sample;
 
@@ -112,6 +112,11 @@ static void app_event_log_1s_task(void)
 	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
 
 	bms_event_log_poll_1s(&sample);
+#if BMS_SOC_BOARD_TEST_ENABLE
+    /* 假电流结果不能进入正常 State checkpoint。 */
+    if (!bms_soc_board_test_active())
+#endif
+	bms_state_store_poll(g_bms_soc.soc_estimate_percent, g_bms_soc.discharge_fraction_percent, g_bms_soc.cycle_count);
 #if BMS_DEBUG_LOG_ENABLE
     {
         static u32 previous_exits;
@@ -206,7 +211,7 @@ _attribute_no_inline_ void main_loop(void)
     }
 #endif
     app_sample_task();
-    app_event_log_1s_task();
+    app_storage_1s_task();
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 	bus_mux_task();
@@ -215,11 +220,6 @@ _attribute_no_inline_ void main_loop(void)
 #if BMS_PRODUCT_UART_ENABLE
 	main_loop_modbus();
 #endif
-#if BMS_SOC_BOARD_TEST_ENABLE
-    /* 假电流结果不能进入正常 State checkpoint。 */
-    if (!bms_soc_board_test_active())
-#endif
-	bms_state_store_update_and_log_if_changed(g_bms_soc.soc_estimate_percent, g_bms_soc.discharge_fraction_percent, g_bms_soc.cycle_count);
 	app_power_process(&s_sample_due);
 #if BMS_SOC_BOARD_TEST_ENABLE
     if (bms_soc_board_test_keep_awake()) bls_pm_setSuspendMask(SUSPEND_DISABLE);
