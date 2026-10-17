@@ -78,7 +78,7 @@ static u16 encode_signed_current_reg(void);
 static u16 read_reg(u16 reg);
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 /* 读取 AFE 实际配置的协议诊断字段。 */
-static u16 read_afe_actual_reg(u16 reg);
+static u16 read_afe_actual_reg(u16 offset, const sh3673510_protection_actual_t *actual, u8 valid);
 #endif
 /* 校验地址及取值后写入一个协议寄存器。 */
 static u8 write_reg(u16 reg, u16 val);
@@ -105,24 +105,17 @@ static int afe_hw_profile_is_reg(u16 reg)
     return afe_hw_profile_is_requested_reg(reg) || afe_hw_profile_is_effective_reg(reg);
 }
 
-/* 读取硬件保护请求配置和元数据；有效配置在整帧入口只回读一次。 */
-static u16 afe_hw_profile_read_reg(u16 reg)
+/* 编码本请求的硬件保护配置和元数据，不重复获取配置。 */
+static u16 afe_hw_profile_read_reg(u16 reg, const bms_afe_hw_profile_t *profile, u8 valid)
 {
-    bms_afe_hw_profile_t p;
-    u16 offset;
-
-    if (!afe_hw_profile_is_requested_reg(reg)) return 0xFFFFu;
-    offset = (u16)(reg - BMS_AFE_HW_REQUESTED_REG_BASE);
+    u16 offset = (u16)(reg - BMS_AFE_HW_REQUESTED_REG_BASE);
     if (offset < BMS_AFE_HW_PROFILE_WORD_COUNT)
-    {
-        if (!bms_afe_hw_profile_get(&p)) return 0xFFFFu;
-        return ((const u16 *)&p)[offset];
-    }
+        return valid ? ((const u16 *)profile)[offset] : 0xFFFFu;
 
     switch (reg)
     {
     case BMS_AFE_HW_META_CAPABILITIES:      return bms_afe_hw_profile_capabilities();
-    case BMS_AFE_HW_META_VALID:             return bms_afe_hw_profile_get(&p) ? 1u : 0u;
+    case BMS_AFE_HW_META_VALID:             return valid ? 1u : 0u;
     case BMS_AFE_HW_META_CELL_COUNT:        return BMS_PRODUCT_CELL_COUNT;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     case BMS_AFE_HW_META_SHUNT_UOHM:        return DVC1124_DEFAULT_SHUNT_UOHM;
@@ -350,13 +343,6 @@ static u16 read_reg(u16 reg)
         default: return 0u;
         }
     }
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    if (reg >= BMS_AFE_ACTUAL_REG_BASE && reg < BMS_AFE_ACTUAL_REG_BASE+BMS_AFE_ACTUAL_REG_COUNT)
-        return read_afe_actual_reg(reg);
-#endif
-
-    if (afe_hw_profile_is_requested_reg(reg)) return afe_hw_profile_read_reg(reg);
-
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
         return dvc_comm_read(reg);
@@ -524,6 +510,31 @@ static int modbus_read_holding(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
         for (i = 0u; i < qty; ++i)
             put_u16be(&rsp[3u + (u32)i * 2u],
                 valid ? ((const u16 *)&effective)[offset + i] : 0xFFFFu);
+    } else if (afe_hw_profile_is_requested_reg(reg)) {
+        bms_afe_hw_profile_t requested;
+        u16 offset = (u16)(reg - BMS_AFE_HW_REQUESTED_REG_BASE);
+        u8 valid = 0u;
+        if ((u32)offset + qty > BMS_AFE_HW_REQUESTED_REG_COUNT)
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+        /* 仅含固定元数据时无需配置；数据和 VALID 共用一次 RAM 读取/校验。 */
+        if (offset < BMS_AFE_HW_PROFILE_WORD_COUNT ||
+            (reg <= BMS_AFE_HW_META_VALID && (u32)reg + qty > BMS_AFE_HW_META_VALID))
+            valid = bms_afe_hw_profile_get(&requested);
+        for (i = 0u; i < qty; ++i)
+            put_u16be(&rsp[3u + (u32)i * 2u],
+                      afe_hw_profile_read_reg((u16)(reg + i), &requested, valid));
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    } else if (reg >= BMS_AFE_ACTUAL_REG_BASE && reg < BMS_AFE_ACTUAL_REG_BASE+BMS_AFE_ACTUAL_REG_COUNT) {
+        sh3673510_protection_actual_t actual;
+        u16 offset = (u16)(reg - BMS_AFE_ACTUAL_REG_BASE);
+        u8 valid;
+        if ((u32)offset + qty > BMS_AFE_ACTUAL_REG_COUNT)
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+        valid = sh3673510_control_get_protection_actual(&actual);
+        for (i = 0u; i < qty; ++i)
+            put_u16be(&rsp[3u + (u32)i * 2u],
+                      read_afe_actual_reg((u16)(offset + i), &actual, valid));
+#endif
     } else {
         /* 先校验整个范围；非法尾地址不能造成部分读取。 */
         for (i = 0u; i < qty; ++i)
@@ -704,24 +715,21 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 /* 读取 AFE 实际配置的协议诊断字段。 */
-static u16 read_afe_actual_reg(u16 reg)
+static u16 read_afe_actual_reg(u16 offset, const sh3673510_protection_actual_t *actual, u8 valid)
 {
-    sh3673510_protection_actual_t a;
-    u16 offset=(u16)(reg-BMS_AFE_ACTUAL_REG_BASE);
-    u8 valid=sh3673510_control_get_protection_actual(&a);
     if (!offset) return valid ? 1u : 0u;
     if (!valid) return 0xFFFFu;
     switch (offset) {
-    case 1u: return a.ov_mv;
-    case 2u: return a.uv_mv;
-    case 3u: return a.ocd1_a10;
-    case 4u: return a.ocd2_a10;
-    case 5u: return a.occ_a10;
-    case 6u: return a.ov_delay_ms;
-    case 7u: return a.uv_delay_ms;
-    case 8u: return a.ocd1_delay_ms;
-    case 9u: return a.ocd2_delay_ms;
-    case 10u: return a.occ_delay_ms;
+    case 1u: return actual->ov_mv;
+    case 2u: return actual->uv_mv;
+    case 3u: return actual->ocd1_a10;
+    case 4u: return actual->ocd2_a10;
+    case 5u: return actual->occ_a10;
+    case 6u: return actual->ov_delay_ms;
+    case 7u: return actual->uv_delay_ms;
+    case 8u: return actual->ocd1_delay_ms;
+    case 9u: return actual->ocd2_delay_ms;
+    case 10u: return actual->occ_delay_ms;
     default: return 0xFFFFu;
     }
 }

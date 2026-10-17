@@ -37,7 +37,7 @@ def check_modbus_fuzz_host_check():
     for header,names in (
         ('bms_afe_hw_access.h', ('BMS_AFE_HW_ACCESS_MODBUS_FUNC',)),
         ('bms_afe_hw_modbus.h', ('BMS_AFE_HW_REQUESTED_REG_BASE','BMS_AFE_HW_REQUESTED_REG_COUNT',
-                                 'BMS_AFE_HW_EFFECTIVE_REG_BASE','BMS_AFE_HW_EFFECTIVE_REG_COUNT')),
+                                 'BMS_AFE_HW_EFFECTIVE_REG_BASE','BMS_AFE_HW_EFFECTIVE_REG_COUNT','BMS_AFE_HW_META_VALID')),
         ('bms_event_log.h', ('BMS_EVENT_LOG_ENTRY_COUNT','BMS_EVENT_LOG_REG_BASE','BMS_EVENT_LOG_REG_COUNT')),
         ('btname_modbus.h', ('BTNAME_REG_BASE','BTNAME_REG_WORDS'))):
         for name in names:
