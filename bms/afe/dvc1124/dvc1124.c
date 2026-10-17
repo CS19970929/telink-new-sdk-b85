@@ -1223,15 +1223,26 @@ static uint8_t dvc_refresh_balance_state(void)
 static uint8_t dvc_write_balance_hw(uint32_t cell_mask)
 {
     uint8_t data[3];
+    uint8_t verify[3];
+    uint8_t attempt;
     cell_mask &= dvc_valid_cell_mask();
     data[0] = (uint8_t)(cell_mask >> 16);
     data[1] = (uint8_t)(cell_mask >> 8);
     data[2] = (uint8_t)cell_mask;
-    if (!dvc_write_verified_block(DVC1124_REG_BAL_24_17, data, 3u)) return 0u;
-    if (!dvc_refresh_balance_state()) return 0u;
-    /* 写后验证与最终刷新之间硬件状态仍可能改变，成功必须对应最新回读。 */
-    return ((((uint32_t)g_bms_report.balance_bits_high << 16) |
-             g_bms_report.balance_bits_low) == cell_mask) ? 1u : 0u;
+    /* 同一次最终回读用于确认和发布实际值，避免验证后再次读取。
+     * 比较完整三字节，不能用有效串掩码隐藏范围外残留；失败仍按原次数退避重试。 */
+    for (attempt = 0u; attempt < DVC1124_I2C_RETRY_COUNT; ++attempt) {
+        if (DVC1124_WriteRegisters(DVC1124_REG_BAL_24_17, data, 3u) &&
+            DVC1124_ReadRegisters(DVC1124_REG_BAL_24_17, verify, 3u)) {
+            uint32_t actual = (((uint32_t)verify[0] << 16) |
+                               ((uint32_t)verify[1] << 8) | verify[2]) & dvc_valid_cell_mask();
+            g_bms_report.balance_bits_low = (uint16_t)(actual & 0xFFFFu);
+            g_bms_report.balance_bits_high = (uint16_t)((actual >> 16) & 0x00FFu);
+            if (memcmp(data, verify, sizeof(data)) == 0) return 1u;
+        }
+        dvc_delay_ms(1u);
+    }
+    return 0u;
 }
 
 /* 请求由公共策略拥有；驱动只保存成功续期时间和实际回读。

@@ -1,5 +1,6 @@
 """DVC RM V1.2 p6/p8 RC ADC事件与独立R6 FET反馈；总线重试不能吃掉事件。"""
 from validation_support import read, function, run_c, evidence
+import re
 s=read('bms/afe/dvc1124/dvc1124.c')
 code=r'''
 #include <stdint.h>
@@ -145,65 +146,87 @@ evidence({'domain':'adc_events','trace':out.strip(),'boundary':'实际CRC/ReadRe
 balance_fixture = r'''
 #include <stdint.h>
 #include <assert.h>
+#include <string.h>
+#include <stdio.h>
 #define DVC_BALANCE_REFRESH_INTERVAL_US 100u
 #define DVC1124_REG_BAL_24_17 0u
 static uint32_t s_balance_last_refresh_tick,now,hw;
 static struct {uint16_t balance_bits_low,balance_bits_high;} g_bms_report;
-static unsigned writes,reads;
-static uint8_t cells=24,read_ok=1,write_ok=1,verify_then_change;
+static unsigned writes,reads,delays;
+static uint8_t cells=24,read_ok=1,write_ok=1,stuck_xor,verify_pending;
+static unsigned write_failures,read_failures,verify_failures;
+static uint32_t stuck_extra_bits;
 static uint32_t dvc_valid_cell_mask(void){return (1u<<cells)-1u;}
-static uint8_t dvc_refresh_balance_state(void){
- ++reads;if(!read_ok)return 0;
- g_bms_report.balance_bits_low=(uint16_t)(hw&dvc_valid_cell_mask());
- g_bms_report.balance_bits_high=(uint16_t)((hw&dvc_valid_cell_mask())>>16);return 1;
+static uint8_t DVC1124_ReadRegisters(uint8_t reg,uint8_t *data,uint8_t len){
+ (void)reg;assert(len==3u);++reads;
+ if(verify_pending){verify_pending=0;if(verify_failures){--verify_failures;return 0;}}
+ if(!read_ok)return 0;
+ if(read_failures){--read_failures;return 0;}
+ data[0]=(uint8_t)(hw>>16);data[1]=(uint8_t)(hw>>8);data[2]=(uint8_t)hw;return 1;
 }
-/* verified 事务成功后，peer 在末次刷新前改变硬件掩码。 */
-static uint8_t dvc_write_verified_block(uint8_t reg,const uint8_t *data,uint8_t len){
+/* 在真实写入与最终确认之间注入缺位、OFF 反弹和范围外残留。 */
+static uint8_t DVC1124_WriteRegisters(uint8_t reg,const uint8_t *data,uint8_t len){
  (void)reg;assert(len==3u);++writes;if(!write_ok)return 0;
+ if(write_failures){--write_failures;return 0;}
  hw=((uint32_t)data[0]<<16)|((uint32_t)data[1]<<8)|data[2];
- if(verify_then_change)hw^=1u;
+ hw^=stuck_xor;hw|=stuck_extra_bits;verify_pending=1;
  return 1;
 }
+static void dvc_delay_ms(uint16_t ms){assert(ms==1u);++delays;}
 static uint32_t clock_time(void){return now;}
 static int clock_time_exceed(uint32_t tick,uint32_t us){return (uint32_t)(now-tick)>us;}
 '''
+balance_fixture += re.search(r'^#define DVC1124_I2C_RETRY_COUNT[^\n]*',read('bms/products/d008/dvc1124_product_defaults.h'),re.M).group(0)+'\n'
+balance_fixture += function(s,'static uint8_t dvc_write_verified_block(')
+balance_fixture += function(s,'static uint8_t dvc_refresh_balance_state(')
 balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'static uint8_t dvc_write_balance_hw(')
 balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'uint8_t bms_afe_driver_set_balance_mask(')
 balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'uint8_t bms_afe_driver_get_balance_mask(')
 balance_fixture += r'''
+static void expect(uint32_t mask,uint8_t good,unsigned expected_reads,unsigned expected_writes){
+ unsigned r=reads,w=writes;
+ assert(bms_afe_driver_set_balance_mask(mask)==good);
+ assert(reads-r==expected_reads && writes-w==expected_writes);
+}
 int main(void){
  uint32_t mask=123u;
  assert(!bms_afe_driver_get_balance_mask(0)&&reads==0);
- assert(bms_afe_driver_set_balance_mask(0)&&writes==0);
- now=5;assert(bms_afe_driver_set_balance_mask(0x810001u)&&writes==1);
+ expect(0,1,1,0); /* 已 OFF 只读一次。 */
+ now=5;expect(0x810001u,1,2,1); /* 初始读、写、唯一最终确认。 */
  assert(bms_afe_driver_get_balance_mask(&mask)&&mask==0x810001u);
- assert(bms_afe_driver_set_balance_mask(mask)&&writes==1);
- hw=0x010001u;assert(bms_afe_driver_set_balance_mask(mask)&&writes==2); /* 缺位 */
- now+=100;assert(bms_afe_driver_set_balance_mask(mask)&&writes==2); /* 原严格 > */
- now++;assert(bms_afe_driver_set_balance_mask(mask)&&writes==3); /* 到期 */
- write_ok=0;assert(!bms_afe_driver_set_balance_mask(0)&&hw==mask);
+ expect(mask,1,1,0);
+ hw=0x010001u;expect(mask,1,2,1); /* 缺位重写。 */
+ now+=100;expect(mask,1,1,0); /* 原严格 > */
+ now++;expect(mask,1,2,1); /* 到期续期。 */
+ write_ok=0;expect(0,0,1,DVC1124_I2C_RETRY_COUNT);assert(hw==mask);
  assert(s_balance_last_refresh_tick==now);
- write_ok=1;assert(bms_afe_driver_set_balance_mask(0)&&!hw&&writes==5);
- hw=2;assert(bms_afe_driver_set_balance_mask(0)&&!hw&&writes==6); /* OFF残留 */
- read_ok=0;mask=123;assert(!bms_afe_driver_set_balance_mask(1)&&writes==6);
+ write_ok=1;expect(0,1,2,1);assert(!hw);
+ hw=2;expect(0,1,2,1);assert(!hw); /* OFF残留。 */
+ read_ok=0;mask=123;expect(1,0,1,0); /* 读失败不能凭缓存打开。 */
  assert(!bms_afe_driver_get_balance_mask(&mask)&&mask==123);
- hw=2;assert(!bms_afe_driver_set_balance_mask(0)&&!hw&&writes==7); /* 读失败仍尝试OFF，失败不确认 */
+ hw=2;expect(0,0,1+DVC1124_I2C_RETRY_COUNT,DVC1124_I2C_RETRY_COUNT);assert(!hw);
+ read_ok=1;hw=2;read_failures=1;expect(0,1,2,1); /* 首读失败仍尝试并确认 OFF。 */
  read_ok=1;cells=16;assert(bms_afe_driver_set_balance_mask(0xff010001u)&&hw==1u);
  now=UINT32_MAX-50u;hw=0;assert(bms_afe_driver_set_balance_mask(5));
  now=49;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
  now=50;write_ok=0;assert(!bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
  write_ok=1;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_tick==50);
- /* 前一次写后验证匹配不能掩盖最终刷新不一致；不得续期或发布请求。 */
- verify_then_change=1;now=60;hw=0;
- unsigned before_reads=reads;
- assert(!bms_afe_driver_set_balance_mask(5));
+ /* 最终确认缺位/OFF反弹：报告实际值，失败不续期。 */
+ stuck_xor=1;now=60;hw=0;
+ expect(5,0,1+DVC1124_I2C_RETRY_COUNT,DVC1124_I2C_RETRY_COUNT);
  assert(g_bms_report.balance_bits_low==4u && s_balance_last_refresh_tick==50u);
- assert(reads==before_reads+2u); /* 初始读取和已有最终刷新，没有新增读取 */
- assert(!bms_afe_driver_set_balance_mask(0));
+ expect(0,0,1+DVC1124_I2C_RETRY_COUNT,DVC1124_I2C_RETRY_COUNT);
  assert(g_bms_report.balance_bits_low==1u && s_balance_last_refresh_tick==50u);
- verify_then_change=0;
- assert(bms_afe_driver_set_balance_mask(0) && g_bms_report.balance_bits_low==0u);
+ stuck_xor=0;expect(0,1,2,1);assert(g_bms_report.balance_bits_low==0u);
+ /* 屏蔽范围外串位不能掩盖原始三字节不一致。 */
+ stuck_extra_bits=0x010000u;now=70;
+ expect(5,0,1+DVC1124_I2C_RETRY_COUNT,DVC1124_I2C_RETRY_COUNT);
+ assert(g_bms_report.balance_bits_low==5u && s_balance_last_refresh_tick==60u);
+ stuck_extra_bits=0;hw=0;write_failures=1;unsigned d=delays;
+ expect(5,1,2,2);assert(delays==d+1u); /* 一次写失败后有界重试。 */
+ hw=0;verify_failures=1;d=delays;expect(5,1,3,2);assert(delays==d+1u);
+ puts("PASS DVC balance: normal change/renew 2 reads + 1 write; OFF 1 read; bounded failure retries, raw-mask mismatch, actual report and wrap");
  return 0;
 }
 '''
-run_c(balance_fixture,name='dvc-balance-transaction')
+run_c(balance_fixture,flags=['-Wno-unused-function'],name='dvc-balance-transaction')
