@@ -28,6 +28,14 @@ Modbus 先验证完整地址，再把连续业务参数交给 `bms_parameter_rea
 
 从 `b76b8a76` 抽取原逐字函数，与新块函数在四产品分别比较全部 8036 个可读子块（正常、user/system/aux 三种失败条件），输出逐字节相同。新增回归检查 50-word 和 7-word 客户端分块、SN/校准/类型/两档休眠、tick 回绕、失效未知值、空指针、数量和地址回绕、非法尾地址无读取；四产品 Modbus、语义存储和源码契约入口通过。
 
+## 4. SH 单轮恢复复用同一份证据
+
+`sh3510_update_protection()` 已为软件保护采集本轮新鲜方向、物理释放许可和 TS1/TS2 温度，现在硬件恢复直接复用这份只读输入；软件保护不会修改该输入或这些测量。短路清除复用本轮充电证据，硬件 FLAG 恢复复用方向/温度；OCD 两级、温度四组分别只换算一次相同恢复延时。没有跨轮缓存或新增状态机。
+
+九个恢复计数仍独立，SC 的 latch、clear_pending、LOADOFF 窗口、下一次实读确认仍保留。`FLAG1` 清除失败仍短路后续 `FLAG2`，失败仍向上进入原 inhibit/静默链。原厂 SH36735XX CV1.0A 第 15、17–18、34 页的温度清除、WDT/MOS 行为和 TS 使能边界保留；本轮不改寄存器编码或物理恢复策略。各板资料、实装及物理验收缺口见 [AFE 资料指南](AFE_REFERENCE_GUIDE.md) 与 [硬件验收](HARDWARE_VALIDATION.md)。
+
+三个 SH 产品的既有 recovery（含 HW 0/1 和完整 BMS/guard O2/Os 场景）、真实 SW 安全链、后端契约，以及 D014 完整安全闭环通过。新增完整选中 SH TU 场景覆盖九组不同恢复窗口并发、独立计数失效、温度无效、缓存/新鲜方向、200/201 mA 死区、清 FLAG1/FLAG2 失败次序及配置读取失败；三个产品均通过。D011 和 D014 集成源码契约已按证据输入位置更新并通过。阶段四产品 ELF 链接为 0 error/0 warning。
+
 ## 验证边界
 
 本轮只执行用户授权的相关 host 回归及四产品 sources/link/resources，不生成 BIN。host 与 ELF/MAP 不能替代实板 I2C/SPI 电气、物理保护恢复、MOS Gate/Vgs、Flash 掉电、低功耗/WDT、OTA 及现有 EXE/Android 与设备联调验收。

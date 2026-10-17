@@ -83,7 +83,7 @@ static void sample(uint8_t sc, uint8_t removed) {
     s_load_removed = removed; /* Evidence input; mode/timing has a public-path test. */
     publish_hw_status(&status);
 #if SH3673510_HW_PROTECT_ENABLE
-    service_short_recovery(&status);
+    service_short_recovery(&status, sh3510_fresh_charging());
 #endif
 }
 static void short_recovery(void) {

@@ -323,20 +323,25 @@ for needle in (
     "cell_max_mv < actual.ov_mv",
     "cell_min_mv >= hw.cuv_recover_mv",
     "cell_min_mv > actual.uv_mv",
-    "dsg_ocp_release_ok",
-    "s_load_removed",
-    "sh3510_fresh_charging()",
-    "sh3510_fresh_discharging()",
+    "sample->discharge_recovery_allowed",
+    "sample->discharge_recovery_immediate",
+    "sample->charge_recovery_immediate",
     "discharge_current_a10 <= hw.ocd_recover_a10",
     "discharge_current_a10 < actual.ocd1_a10",
     "discharge_current_a10 < actual.ocd2_a10",
     "hw.ocd_recover_ms",
     "charge_current_a10 <= hw.occ_recover_a10",
     "charge_current_a10 < actual.occ_a10",
-    "bat_max <= hw.chg_ot_recover_x10",
-    "bat_min >= hw.chg_ut_recover_x10",
+    "sample->battery_temp_valid",
+    "sample->battery_temp_max <= hw.chg_ot_recover_x10",
+    "sample->battery_temp_min >= hw.chg_ut_recover_x10",
 ):
     require(hw_text, needle)
+for needle in ("sw.discharge_recovery_allowed = s_load_removed || sw.discharge_recovery_immediate",
+               "sw.discharge_recovery_immediate = sh3510_fresh_charging()",
+               "sw.charge_recovery_immediate = sh3510_fresh_discharging()",
+               "sw.battery_temp_valid = battery_temperature_snapshot"):
+    require(bms, needle)
 if "fault_third" in hw_text:
     raise AssertionError("hardware FLAG recovery must be independent from software Third-level activity")
 
