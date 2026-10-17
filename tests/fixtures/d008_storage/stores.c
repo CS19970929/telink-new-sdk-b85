@@ -618,10 +618,10 @@ static void test_event_semantics(void){
  fresh();memset(&sample,0,sizeof(sample));sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);
  reboot();assert(bms_event_log_init());assert(bms_event_log_read_reg(0)==0);
  fresh();memset(&sample,0,sizeof(sample));
- now=UINT32_MAX-16000u;g_bms_event_log.clock_tick_ms=now;
+ now=UINT32_MAX-500u;g_bms_event_log.clock_tick_ms=now;
  now+=1000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
- now+=16000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
- now+=16000u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==2u);
+ now+=500u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==1u);
+ now+=500u;bms_event_log_poll_1s(&sample);assert(g_bms_event_log.interval_s==2u);
  sample.vcell_ovp=1;bms_event_log_poll_1s(&sample);u8 payload[BMS_EVENT_PAYLOAD_BYTES];
  bms_event_log_encode(payload);payload[2]=255;assert(!bms_event_log_decode(payload));
  puts("PASS events: checkpoint-independent merging, elapsed time, CBC onset only, sleep cancellation, abrupt reset window, fractional tick/wrap, semantic decode");

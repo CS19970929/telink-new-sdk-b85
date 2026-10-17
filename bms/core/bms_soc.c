@@ -516,12 +516,12 @@ static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir, uint32_t
     uint32_t sum;
     uint32_t delta;
     const uint32_t denominator = 100000u;
-    if (!g_soc_input_valid || elapsed_ms == 0u || elapsed_ms > BMS_SOC_MAX_SAMPLE_GAP_MS)
+    if (!g_soc_input_valid || elapsed_ms == 0u)
         return 0u;
     soc_integral_select_dir(dir);
     magnitude_ma = (g_soc_input_current_ma < 0) ?
         (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
-    /* 最大幅值2147483648、间隔400ms：整商乘积<=8589600；
+    /* 调用者已按既有规则限定间隔<=400ms；最大幅值2147483648：整商乘积<=8589600；
      * 余数乘积加历史余数<=40099599。无需64位乘除或分块循环。 */
     delta = (magnitude_ma / denominator) * elapsed_ms;
     sum = (magnitude_ma % denominator) * elapsed_ms + g_soc_integral_remainder;

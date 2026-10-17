@@ -205,7 +205,15 @@ bms_afe_sample_result_t bms_afe_sample(void)
     if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;
     if (bms_error_get(BMS_ERROR_AFE1)) s_guard.comm_fault_latched = 1u;
     result = bms_afe_driver_sample();
-    if (result.status == BMS_AFE_SAMPLE_NOT_READY) return result;
+    if (result.status == BMS_AFE_SAMPLE_NOT_READY) {
+        /* 启动/重配置等待撤销旧资格，但不记通信失败或重复访问总线。
+         * 普通缓存属于 OK，不会经过这里。 */
+        s_guard.comm_inhibit = 1u;
+        s_guard.valid_snapshot_streak = 0u;
+        bms_afe_publish_fet_status(0u, 0u);
+        bms_features_stop();
+        return result;
+    }
     if (result.status == BMS_AFE_SAMPLE_ERROR ||
         !bms_afe_driver_get_aux_measurements(&m)) {
         note_invalid();

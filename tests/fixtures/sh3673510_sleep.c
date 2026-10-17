@@ -55,7 +55,7 @@ static void bms_features_stop(void) { ++invalidations; heater_on = 0; }
 #define AFE_SLEEP() bms_afe_driver_sleep()
 #define AFE_BAL_SET(m) sh3673510_control_set_balance(m)
 #define AFE_FETS(c,d) sh3673510_control_set_fets(c,d)
-#define APP_PM_TICKS_PER_SEC 1000u
+#define APP_PM_MS_PER_SEC 1000u
 
 static uint8_t bms_afe_driver_set_fets(uint8_t c,uint8_t d){return sh3673510_control_set_fets(c,d);}
 /* PRODUCTION */
@@ -64,7 +64,7 @@ static uint8_t bms_afe_driver_set_fets(uint8_t c,uint8_t d){return sh3673510_con
     printf("FAIL line %d: %s\n", __LINE__, #c); ++failures; } } while (0)
 static void reset(void) {
     /* 每个故障场景使用独立状态及不同墙钟时间。 */
-    fake_tick += 4u * APP_PM_TICKS_PER_SEC;
+    fake_tick += 4u * APP_PM_MS_PER_SEC;
     memset(&s_guard, 0, sizeof(s_guard));
     s_guard.output_enabled = 1;
     s_guard.valid_snapshot_streak = 3;
@@ -91,7 +91,7 @@ int main(void) {
     CHECK(!bms_afe_sleep()); CHECK(s_guard.bus_silenced);
     n = bus_calls;
     CHECK(!bms_afe_sleep()); CHECK(bus_calls == n);
-    CHECK(s_guard.failsafe_start_tick_32k == fake_tick);
+    CHECK(s_guard.failsafe_start_tick_ms == fake_tick);
 
     /* 对实际AFE链逐个注入SPI失败；应用层强制深睡另有独立场景。 */
     reset(); CHECK(bms_afe_sleep()); n = bus_calls;
@@ -104,8 +104,8 @@ int main(void) {
     }
     reset(); control_wake_active = 1; CHECK(!bms_afe_sleep());
     CHECK(!sleep_writes);
-    reset(); s_guard.bus_silenced = 1; s_guard.failsafe_start_tick_32k = 90;
-    CHECK(!bms_afe_sleep()); CHECK(!bus_calls && s_guard.failsafe_start_tick_32k == 90);
+    reset(); s_guard.bus_silenced = 1; s_guard.failsafe_start_tick_ms = 90;
+    CHECK(!bms_afe_sleep()); CHECK(!bus_calls && s_guard.failsafe_start_tick_ms == 90);
     /* SLEEP接受但ACK丢失后，仍必须执行NORMAL/configure。 */
     reset(); command_fail_at = n;
     CHECK(!bms_afe_sleep()); CHECK(sh3673510_control_wake());

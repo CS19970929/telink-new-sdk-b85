@@ -5,6 +5,7 @@
 #include "bms_parameters.h"
 #include "bms_state.h"
 #include "bms_afe.h"
+#include "bms_features.h"
 #include "bms_afe_driver.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_sw_protection.h"
@@ -129,7 +130,11 @@ static void step(void)
     now_32k += 6400u;
 
     regs[SH3673520_REG_FLAG2] |= ready_bits;
-    if (bms_afe_sample().status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs();
+    bms_afe_sample_result_t result = bms_afe_sample();
+    if (result.status == BMS_AFE_SAMPLE_OK) {
+        bms_features_service(result.confirm_sample);
+        bms_afe_apply_outputs();
+    }
 }
 static void steps(unsigned n) { while (n--) step(); }
 static int discharge_on(void) { return !!(regs[SH3673520_REG_SCONF2] & SH3673520_SCONF2_DSGMOS_MASK); }

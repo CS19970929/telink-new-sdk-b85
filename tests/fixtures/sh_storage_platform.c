@@ -36,7 +36,7 @@ int main(void){
  assert(bms_storage_telink_erase(0,4096,4096));assert(erase_calls==1);
  bms_storage_telink_end(0);assert(!unlocked);
  tick=UINT32_MAX-100;verify_ok=0;assert(!bms_storage_telink_program(0,0,bytes,1));
- assert(!bms_storage_telink_begin(0));tick+=5*32000-1;assert(!bms_storage_telink_begin(0));++tick;
+ assert(!bms_storage_telink_begin(0));tick+=5*32000-32;assert(!bms_storage_telink_begin(0));tick+=32;
  assert(bms_storage_telink_begin(0));verify_ok=1;assert(bms_storage_telink_program(0,0,bytes,1));bms_storage_telink_end(0);
  bms_storage_platform_get_diagnostics(&d);
  assert(d.verify_failures==1 && d.deferred_writes==4 && d.max_erase_ticks_32k==16000 && d.max_program_ticks_32k==96);

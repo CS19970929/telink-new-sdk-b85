@@ -150,7 +150,7 @@ def check_d008_framework_contract_check():
         def test_guard_comm_loss_uses_hardware_watchdog_silence(self):
             self.assertEqual(macro_literal(self.guard, "BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT"), 3)
             self.assertEqual(macro_literal(self.guard, "BMS_AFE_COMM_FAILS_BEFORE_SILENCE"), 2)
-            self.assertIn("5000u * 32u, 0u, 1u", self.fixed_backend)
+            self.assertIn("5000u, 0u, 1u", self.fixed_backend)
             self.assertIn("s_guard.comm_inhibit = 1u;", self.guard)
             self.assertIn("s_guard.bus_silenced = 1u;", self.guard)
             self.assertIn("if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;", self.guard)

@@ -14,7 +14,8 @@ typedef uint8_t u8;
 #define SUSPEND_MODE 0
 #define PM_WAKEUP_TIMER 0
 #define LED_BLUE_PIN 0
-static u32 now, s_sample_tick, sample_cost;
+static u32 now, now_ms, s_sample_tick, sample_cost;
+static u32 bms_time_ms(void){return now_ms;}
 static volatile u8 s_sample_due;
 static u8 s_acc_sleep_committed, valid = 1, callback_during_sample;
 static u8 s_protective_sleep_committed;
@@ -94,7 +95,7 @@ int main(void){
  now++;main_loop();expect("123BATMVSWLXUP");assert(s_sample_tick==now&&!s_sample_due);
  s_sample_due=1;main_loop();expect("123BATMVSWLXUP");
  valid=0;s_sample_due=1;main_loop();expect("123BATMVSWLXUP");valid=1;
- now=16000001;main_loop();expect("123BATMVSWLEFXUP");
+ now=16000001;now_ms=1001u;main_loop();expect("123BATMVSWLEFXUP");
  main_loop();expect("123BXUP"); /* no repeated event or sample */
  now=0x100; s_sample_tick=0xffc00000u;app_sample_task();expect("ATMVSWL");
  sample_cost=3200001;s_sample_due=1;app_sample_task();expect("ATMVSWL");assert(s_sample_due);

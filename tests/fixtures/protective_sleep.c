@@ -8,7 +8,7 @@
 typedef uint8_t u8;
 typedef uint32_t u32;
 typedef int GPIO_PinTypeDef;
-#define APP_PM_TICKS_PER_SEC 1000u
+#define APP_PM_MS_PER_SEC 1000u
 #define BMS_SOC_MAX_SAMPLE_GAP_MS 400u
 #define BMS_SAMPLE_MAX_POLL_GAP_MS 400u
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
@@ -35,7 +35,7 @@ typedef int GPIO_PinTypeDef;
 #define HCI_ERR_REMOTE_USER_TERM_CONN 19
 #define BLC_ADV_DISABLE 0
 #define SUSPEND_DISABLE 0
-typedef struct { u32 last_tick_ms, pending_tick_ms; u8 ready; } app_pm_elapsed_ctx_t;
+typedef struct { u32 epoch_ms; u8 ready; } app_pm_elapsed_ctx_t;
 typedef struct { u32 sample_time_ms; int32_t current_ma; } bms_afe_aux_measurements_t;
 static struct { uint16_t cell_min_mv, pack_voltage_10mv; struct { struct { uint8_t cell_uvp, pack_uvp; } bits; } fault_third; } g_bms_report;
 static struct { u8 soc_estimate_percent, discharge_fraction_percent; u32 cycle_count; } g_bms_soc;
@@ -164,7 +164,7 @@ int main(void) {
     assert(fixture_sleep_poll(1, &sleep_status));
     reset(); g_bms_report.cell_min_mv=2700;
     assert(!fixture_sleep_poll(3599, &sleep_status));
-    now+=12801u; assert(!fixture_sleep_poll(0, &sleep_status));
+    now+=401u; assert(!fixture_sleep_poll(0, &sleep_status));
     assert(s_protective_sleep.low_voltage_seconds==3599u);
     assert(fixture_sleep_poll(1, &sleep_status)); /* 采样等待不能推迟已确认低压的一小时到期。 */
     reset(); g_bms_report.cell_min_mv=2900; measurement.current_ma=-90;
@@ -177,7 +177,7 @@ int main(void) {
         assert(fixture_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock), &sleep_status)==(seconds==3600u));
         assert(s_protective_sleep.low_voltage_seconds==seconds);
         if(seconds==3600u) break;
-        now+=12801u;
+        now+=401u;
         assert(!fixture_sleep_poll(app_pm_take_elapsed_seconds(&wall_clock), &sleep_status));
         assert(s_protective_sleep.low_voltage_seconds==seconds);
     }
@@ -188,10 +188,10 @@ int main(void) {
         assert(fixture_sleep_poll(1800u, &sleep_status)==(step==48u));
     }
     assert(reason==DIAG_SLEEP_REASON_NORMAL);
-    reset(); app_pm_elapsed_ctx_t ctx={UINT32_MAX-499u,500u,1u}; now=0u;
-    assert(app_pm_take_elapsed_seconds(&ctx)==1u&&!ctx.pending_tick_ms);
-    ctx.last_tick_ms=1u;ctx.pending_tick_ms=999u;now=0u;
-    assert(app_pm_take_elapsed_seconds(&ctx)==4294968u&&ctx.pending_tick_ms==294u);
+    reset(); app_pm_elapsed_ctx_t ctx={UINT32_MAX-999u,1u}; now=0u;
+    assert(app_pm_take_elapsed_seconds(&ctx)==1u&&ctx.epoch_ms==0u);
+    ctx.epoch_ms=1u;now=0u;
+    assert(app_pm_take_elapsed_seconds(&ctx)==4294967u&&(u32)(now-ctx.epoch_ms)==295u);
     /* 宏启用：OFF本次调用立即提交；关闭：仅移除开关触发。 */
     reset(); pins[0]=1; tx_busy=ble_pending=ota_is_working=device_in_connection_state=1;
     flash_ready=0;
@@ -212,7 +212,7 @@ int main(void) {
     assert(reason==DIAG_SLEEP_REASON_COMMAND);
     reset(); deepsleep_en=1; tx_busy=ble_pending=device_in_connection_state=1;
     ota_is_working=1; flash_ready=0;
-    assert(!app_sh_explicit_sleep_poll()); now+=15999;
+    assert(!app_sh_explicit_sleep_poll()); now+=499;
     assert(!app_sh_explicit_sleep_poll()); now++;
     assert(app_sh_explicit_sleep_poll()&&sleep_calls==1&&!saves&&comm_sleep_calls==1);
     /* 命令ON入睡，OFF只在业务初始化前重新深睡，ON才放行正常启动。 */

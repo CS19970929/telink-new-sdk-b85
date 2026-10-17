@@ -30,8 +30,9 @@ app_sample_wakeup：置采样到期标志
 main_loop → app_sample_task（约 200 ms）
   bms_afe_sample → guard → 当前 backend 采样/恢复/测量发布
   backend → bms_sw_protection_update；合并芯片硬件故障
-  guard → 合格样本及 bms_features_service
-  guard → apply_requested → backend 最终仲裁/写寄存器
+  guard → OK / NOT_READY / ERROR；confirm_sample 仅推进恢复资格
+  app → bms_features_service(confirm_sample)：有效缓存也检查停止条件
+  app → bms_afe_apply_outputs → guard apply_requested → backend 最终仲裁/写寄存器
   app_update_soc_from_sample → bms_soc_process_sample
   runtime diagnostics → 下次采样唤醒安排
 ```

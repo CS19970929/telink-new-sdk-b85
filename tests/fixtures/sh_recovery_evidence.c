@@ -289,7 +289,7 @@ int main(void) {
     device.bstatus2=SH3673520_BSTATUS2_LOADOFF_MASK;
     unsigned before=clear_calls;
     sample(); assert(load_mode==1 && clear_calls==before);
-    for(unsigned i=0;i<9;++i) sample();
+    for(unsigned i=0;i<10;++i) sample();
     assert(clear_calls==before);
     sample(); assert(clear_calls==before+1 && command_d==0);
     sample(); assert(command_d==1 && load_mode==0);
@@ -301,10 +301,11 @@ int main(void) {
 #if BMS_FEATURE_HEATER_SUPPORTED
     assert(!bms_afe_driver_get_charge_source_present(&present));
 #endif
-    for(unsigned i=0;i<10;++i)sample();
+    for(unsigned i=0;i<11;++i)sample();
     assert(clear_calls==before+1 && device.flag1==SH3673520_FLAG1_OCC_MASK);
     sample();assert(load_mode==1 && command_c==0); /* SC readback confirmation */
     sample();assert(load_mode==0 && command_c==0); /* C+ settle begins */
+    sample();assert(clear_calls==before+1 && command_c==0); /* 恰好200ms仍等待。 */
     sample();assert(clear_calls==before+2 && command_c==0);
     sample();assert(command_c==1);
 
@@ -363,6 +364,13 @@ int main(void) {
     sample(); assert(!bms_afe_samples_qualified());
     sample(); assert(bms_afe_samples_qualified());
     assert(command_c==1 && command_d==1 && bms_afe_get_aux_measurements(&aux));
+    /* AFE 自复位成功重配也必须撤销旧三帧资格；等待不累加通信失败。 */
+    device.flag1=SH3673520_FLAG1_RST1_MASK;
+    sample();assert(!bms_afe_samples_qualified() && !s_guard.comm_failures);
+    assert(command_c==0 && command_d==0);
+    for(unsigned i=0;i<8;++i){sample();assert(!bms_afe_samples_qualified());}
+    sample();assert(bms_afe_samples_qualified() && command_c==1 && command_d==1);
+    assert(bms_afe_get_aux_measurements(&aux));
     uint32_t stamp=aux.sample_tick_32k;
     device.flag2=SH3673520_FLAG2_VADC_MASK;
     sample();assert(bms_afe_get_aux_measurements(&aux) && aux.sample_tick_32k==stamp);
@@ -381,7 +389,7 @@ int main(void) {
     if (bms_afe_sample().status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs(); assert(!bms_afe_bus_access_allowed());
     assert(clear_calls==before);
     now+=33u; bms_afe_sample(); assert(bms_afe_bus_access_allowed() && !bms_afe_samples_qualified());
-    for(unsigned i=0;i<8;++i)sample();
+    for(unsigned i=0;i<9;++i)sample();
     assert(bms_afe_samples_qualified());
     device.flag1=SH3673520_FLAG1_OCC_MASK;clear_ok=0;
     sample(); assert(!bms_afe_samples_qualified() && command_c==0 && command_d==0);

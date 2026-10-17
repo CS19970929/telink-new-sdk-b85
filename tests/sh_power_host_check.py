@@ -213,7 +213,7 @@ def check_sh_suspend_current_gates():
     #define SUSPEND_ADV 1
     #define SUSPEND_CONN 2
     static bool s_low_power_mode, deepsleep_en;
-    static u32 s_command_tick;
+    static u32 s_command_ms;
     typedef struct { u8 reason; u32 elapsed_ms, delay_ms; } app_sleep_status_t;
     #define DIAG_SLEEP_REASON_NONE 0
     #define DIAG_SLEEP_REASON_COMMAND 1

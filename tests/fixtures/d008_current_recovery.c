@@ -27,12 +27,12 @@ static uint8_t dvc_charge_blocked(void) { return g_bms_report.fault_third.bits.c
 static uint8_t dvc_discharge_blocked(void) { return g_bms_report.fault_third.bits.discharge_ocp; }
 static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t c,dvc1124_fet_drive_t d) { chg_mode=c; dsg_mode=d; return 1; }
 /* PRODUCTION */
-static uint8_t step(uint32_t tick,uint8_t alarm,uint8_t driver_on,uint8_t swc,uint8_t swd) {
-    dvc1124_snapshot_t snap={0}; snap.valid=1; snap.current_fresh=1; snap.current_ma=current_ma; snap.sample_tick_32k=tick; snap.status=6; snap.fet_status=driver_on ? DVC1124_CC2_DSGF_MASK : 0;
+static uint8_t step(uint32_t now_ms,uint8_t alarm,uint8_t driver_on,uint8_t swc,uint8_t swd) {
+    dvc1124_snapshot_t snap={0}; snap.valid=1; snap.current_fresh=1; snap.current_ma=current_ma; snap.sample_time_ms=now_ms; snap.status=6; snap.fet_status=driver_on ? DVC1124_CC2_DSGF_MASK : 0;
     g_bms_report.fault_third.bits.charge_ocp=swc;
     g_bms_report.fault_third.bits.discharge_ocp=swd;
-    dvc_observe_current_recovery(&snap,tick);
-    return dvc_recover_current_faults(&snap,alarm,tick);
+    dvc_observe_current_recovery(&snap,now_ms);
+    return dvc_recover_current_faults(&snap,alarm,now_ms);
 }
 static void reset(void) { memset(&s_current_recovery,0,sizeof(s_current_recovery)); current_ma=0; pb1=0; writes=0; write_ok=read_ok=1; read_alarm=0; }
 int main(void) {
@@ -43,16 +43,16 @@ int main(void) {
     step(204,0,0,0,0);step(406,0,0,0,0);assert(s_current_recovery.discharge);
     current_ma=-200;step(608,0,0,0,0);assert(s_current_recovery.discharge);
     dvc1124_snapshot_t cache={0};cache.valid=1;cache.current_ma=-201;
-    assert(dvc_recover_current_faults(&cache,0,19400)==0 && s_current_recovery.discharge);
+    assert(dvc_recover_current_faults(&cache,0,609)==0 && s_current_recovery.discharge);
     current_ma=-201;step(610,0,0,0,0);assert(!s_current_recovery.discharge);
     /* OCC 不再等待30秒；两方向证据独立。 */
     reset();step(3,0,0,1,1);current_ma=201;step(200,0,0,0,0);
     assert(!s_current_recovery.charge && s_current_recovery.discharge);
     current_ma=-201;step(300,0,0,0,0);assert(!bms_afe_current_recovery_pending());
     /* PB1 高且输出确实关闭，持续200ms才允许移除恢复；支持tick回绕。 */
-    reset();pb1=1;step(0xfffff000u,0,0,0,1);
-    step(0xfffff000u+200u,0,0,0,0);assert(s_current_recovery.discharge);
-    step(0xfffff000u+201u,0,0,0,0);assert(!s_current_recovery.discharge);
+    reset();pb1=1;step(0xffffff80u,0,0,0,1);
+    step(0xffffff80u+200u,0,0,0,0);assert(s_current_recovery.discharge);
+    step(0xffffff80u+201u,0,0,0,0);assert(!s_current_recovery.discharge);
     reset();pb1=1;step(3,0,1,0,1);step(204,0,1,0,0);
     assert(s_current_recovery.discharge && !s_current_recovery.load_release_pending);
     step(406,0,0,0,0);pb1=0;step(500,0,0,0,0);
@@ -63,8 +63,8 @@ int main(void) {
     cache.valid=0;dvc_observe_current_recovery(&cache,204);
     step(406,0,0,0,0);assert(s_current_recovery.discharge);
     step(608,0,0,0,0);assert(!s_current_recovery.discharge);
-    reset();pb1=1;step(3,0,0,0,1);step(32100,0,0,0,0);assert(s_current_recovery.discharge);
-    step(38500,0,0,0,0);assert(!s_current_recovery.discharge);
+    reset();pb1=1;step(3,0,0,0,1);step(1003,0,0,0,0);assert(s_current_recovery.discharge);
+    step(1204,0,0,0,0);assert(!s_current_recovery.discharge);
     /* 软件状态机仍未解除时，后端不得抢先清锁存。 */
     reset();current_ma=-201;step(3,0,0,0,1);assert(s_current_recovery.discharge);
     step(200,0,0,0,0);assert(!s_current_recovery.discharge);

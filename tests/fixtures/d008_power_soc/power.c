@@ -7,7 +7,7 @@ typedef uint8_t u8;typedef uint32_t u32;
 typedef int GPIO_PinTypeDef;
 #define BMS_AFE_BACKEND 1
 #define BMS_AFE_BACKEND_DVC1124 1
-#define APP_PM_TICKS_PER_SEC 1000u
+#define APP_PM_MS_PER_SEC 1000u
 /* CURRENT_FLOOR */
 /* SUSPEND_CURRENT_LIMIT */
 #define BMS_SOC_MAX_SAMPLE_GAP_MS 400u
@@ -132,7 +132,7 @@ static void reset(void){
  acc_low_during_shutdown=acc_low_during_sleep=0;
  s_acc_sleep_committed=0;
  deepsleep_en=false;ble_tx_pending=uart_busy=modbus_tx_busy=0;ble_control_ok=1;
- s_command_seen=0;s_command_tick=0;
+ s_command_seen=0;s_command_ms=0;
  memset(&s_protective_sleep,0,sizeof(s_protective_sleep));s_protective_sleep_committed=0u;
  sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
  g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
@@ -202,7 +202,7 @@ static void test_low_voltage_sample_wait(void){
   app_power_process(&s_sample_due);
   assert(observed_sleep_elapsed==seconds*1000u);
   if(seconds==3600){assert(cut_calls==1&&timer_hold_calls==0&&!deep_calls&&!output_enabled);break;}
-  now+=12801u;elapsed=0;app_power_process(&s_sample_due);
+  now+=401u;elapsed=0;app_power_process(&s_sample_due);
   /* 无新鲜样本时诊断可能优先显示 AFE 倒计时；低压计时所有者必须保持。 */
   assert(s_protective_sleep.voltage_conditions==(BMS_SLEEP_VOLTAGE_LOW_ACTIVE|BMS_SLEEP_VOLTAGE_NORMAL_ACTIVE)&&s_protective_sleep.low_voltage_seconds==seconds);
   assert(mask==SUSPEND_DISABLE&&!deep_calls);
@@ -304,7 +304,7 @@ int main(void){
  measurement.current_ma=0;valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  puts("PASS connected suspend: link retained; ordinary OTA/bus/Flash/sample/current/invalid gates");
  reset();valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
- reset();now+=12801;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
+ reset();now+=401;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
  reset();ota_is_working=device_in_connection_state=bus_busy=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;
  elapsed=3600;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
  assert(cut_calls==1&&!deep_calls&&timer_hold_calls==0&&s_protective_sleep_committed&&!output_enabled);

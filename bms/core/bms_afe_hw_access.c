@@ -10,13 +10,13 @@
 #include "bms_crc.h"
 
 static u16 s_token;
-static u32 s_last_activity_tick;
+static u32 s_last_activity_ms;
 static u16 s_generation;
 #define ACCESS_FRAME_BYTES 79u
 #define ACCESS_CHUNK_BYTES 11u
 static u8 s_frame[ACCESS_FRAME_BYTES];
 static u8 s_received;
-static u32 s_fragment_tick;
+static u32 s_fragment_ms;
 
 /* 从大端字节序读取 16 位无符号值。 */
 static u16 access_u16be(const u8 *p)
@@ -42,15 +42,15 @@ void bms_afe_hw_access_close(void)
 {
     s_received = 0u;
     s_token = 0u;
-    s_last_activity_tick = 0u;
+    s_last_activity_ms = 0u;
 }
 
 /* 检查授权超时并关闭失效会话。 */
 void bms_afe_hw_access_poll(void)
 {
     uint32_t now = bms_time_ms();
-    if (s_received && (uint32_t)(now - s_fragment_tick) > 5u * 1000u) s_received = 0u;
-    if (s_token && (uint32_t)(now - s_last_activity_tick) >
+    if (s_received && (uint32_t)(now - s_fragment_ms) > 5u * 1000u) s_received = 0u;
+    if (s_token && (uint32_t)(now - s_last_activity_ms) >
             BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS * 1000u) bms_afe_hw_access_close();
 }
 
@@ -64,12 +64,12 @@ u8 bms_afe_hw_access_is_active(void)
 /* 取得硬件写授权会话的剩余秒数。 */
 u16 bms_afe_hw_access_remaining_seconds(void)
 {
-    u32 elapsed_ticks;
+    u32 elapsed_ms;
     u32 elapsed_seconds;
 
     if (!bms_afe_hw_access_is_active()) return 0u;
-    elapsed_ticks = (u32)(bms_time_ms() - s_last_activity_tick);
-    elapsed_seconds = elapsed_ticks / 1000u;
+    elapsed_ms = (u32)(bms_time_ms() - s_last_activity_ms);
+    elapsed_seconds = elapsed_ms / 1000u;
     if (elapsed_seconds >= BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS) return 0u;
     return (u16)(BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS - elapsed_seconds);
 }
@@ -86,7 +86,7 @@ static u16 access_new_token(void)
 static u8 access_session_valid(u16 token)
 {
     if (!bms_afe_hw_access_is_active() || token == 0u || token != s_token) return 0u;
-    s_last_activity_tick = bms_time_ms();
+    s_last_activity_ms = bms_time_ms();
     return 1u;
 }
 
@@ -147,7 +147,7 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
 
         s_received = 0u;
         s_token = access_new_token();
-        s_last_activity_tick = bms_time_ms();
+        s_last_activity_ms = bms_time_ms();
         access_put_u16be(&payload[0], s_token);
         access_put_u16be(&payload[2], BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS);
         payload[4] = BMS_AFE_HW_ACCESS_PROTOCOL_VERSION;
@@ -174,7 +174,7 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
             req[5] != s_received || (u16)s_received + count > ACCESS_FRAME_BYTES) goto bad_fragment;
         for (i = 0u; i < count; ++i) s_frame[s_received + i] = req[7u + i];
         s_received = (u8)(s_received + count);
-        s_fragment_tick = bms_time_ms();
+        s_fragment_ms = bms_time_ms();
         access_put_u16be(payload, s_token); payload[2] = s_received;
         return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_OK, payload, 3u, rsp, rsp_len);
     }

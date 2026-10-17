@@ -105,8 +105,8 @@ static void check_suspend(void){
  irqsrc|=1;assert(!modbus_uart_suspend_ready());irqsrc=0;
  // 跨32K回绕、发送尚未结束和结束后的30秒。
  now_32k=UINT32_MAX-100u;busy=1;main_loop_modbus();busy=0;
- now_32k+=30u*32000u-1u;main_loop_modbus();assert(!modbus_uart_suspend_ready());
- ++now_32k;main_loop_modbus();assert(modbus_uart_suspend_ready());
+ now_32k+=30u*32000u-32u;main_loop_modbus();assert(!modbus_uart_suspend_ready());
+ now_32k+=32u;main_loop_modbus();assert(modbus_uart_suspend_ready());
  // Timer和RX同时到来，也丢弃被恢复动作截断的首帧。
  modbus_uart_suspend_enter();rx_edge();modbus_uart_suspend_exit(WAKEUP_STATUS_TIMER);
  main_loop_modbus();assert(s_uart_wake_discard&&!modbus_uart_suspend_ready());

@@ -52,7 +52,8 @@ void bms_afe_publish_fet_status(uint8_t x,uint8_t y){(void)x;(void)y;}
 void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
 uint8_t DVC1124_ClearAlarmFlags(uint8_t m){registers[0]&=(uint8_t)~m;return 1;}
 static uint32_t pm_get_32k_tick(void){return now;}
-uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=now;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
+static uint32_t time_last_raw,time_ms,time_fraction;
+uint32_t bms_time_ms(void){uint32_t delta=now-time_last_raw;time_last_raw=now;time_fraction+=delta%32u;time_ms+=delta/32u+time_fraction/32u;time_fraction%=32u;return time_ms;}
 uint32_t bms_time_now_32k(void){return now;}
 
 uint8_t DVC1124_WriteRegisters(uint8_t r,const uint8_t *p,uint8_t n){memcpy(registers+r,p,n);return 1;}
@@ -90,10 +91,10 @@ static bms_afe_sample_result_t result;
 static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;result=DVC1124_App_AFEGet();}
 static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));
  s_pending_adc_events=s_voltage_seen=s_current_seen=s_voltage_since_current=0;
- s_voltage_ms=s_current_ms=s_adc_wait_started_ms=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
+ s_voltage_ms=s_current_ms=s_adc_wait_started_ms=0;now=time_last_raw=time_ms=time_fraction=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
 int main(void){
- reset();acquire(100,0);acquire(6500,0);assert(!s_voltage_seen && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample);
- acquire(7000,0x40);assert(s_voltage_seen && s_snapshot.voltage_fresh && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample);
+ reset();acquire(100,0);acquire(6500,0);assert(!s_voltage_seen && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_NOT_READY && !result.confirm_sample);
+ acquire(7000,0x40);assert(s_voltage_seen && s_snapshot.voltage_fresh && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_NOT_READY && !result.confirm_sample);
  acquire(8000,0x10);assert(s_snapshot.valid && s_snapshot.current_fresh && result.confirm_sample && s_snapshot.sample_tick_32k==8000);
  acquire(9000,0);assert(s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample && s_voltage_seen && s_snapshot.sample_tick_32k==8000);
  acquire(8000+512u*32u+32u,0);assert(!s_snapshot.valid && result.status==BMS_AFE_SAMPLE_ERROR);

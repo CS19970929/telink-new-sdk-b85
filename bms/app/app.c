@@ -91,10 +91,10 @@ static void app_storage_1s_task(void)
 {
 	bms_event_log_sample_t sample;
 
-    _attribute_data_retention_ static u32 event_log_tick = 0;
+    _attribute_data_retention_ static u32 event_log_ms = 0;
 
-    if (!clock_time_exceed(event_log_tick, 1000 * 1000)) return;
-    event_log_tick = clock_time();
+    if ((u32)(bms_time_ms() - event_log_ms) <= 1000u) return;
+    event_log_ms = bms_time_ms();
 
 	memset(&sample, 0, sizeof(sample));
 
@@ -187,12 +187,12 @@ static void board_init(void)
 }
 
 #endif
-/* 一条主循环：BLE → 到期采样 → 通信 → 状态检查点 → 板级低功耗。 */
+/* 一条主循环：BLE → 到期采样 → 状态检查点 → 通信 → 板级低功耗。 */
 _attribute_no_inline_ void main_loop(void)
 {
     if (app_power_prepare_loop()) return;
     /*
-     * 协作顺序：先服务 BLE，到期只采样一次，再处理通信和持久化；
+     * 协作顺序：先服务 BLE，到期只采样一次，再处理持久化和通信；
      * 最后根据新状态评估 suspend。
      */
 	blt_sdk_main_loop();
@@ -276,7 +276,7 @@ static void app_sample_task(void)
                           valid ? m.sample_tick_32k : pm_get_32k_tick());
 #endif
 
-    /* 即使 BLE 广播间隔为 800 ms，也保持固定采样节拍。 */
+    /* 采样期限独立于 BLE 广播间隔；超期只标记下一轮，不补跑历史样本。 */
     if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
     app_schedule_sample_wakeup();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124

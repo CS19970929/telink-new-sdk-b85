@@ -57,12 +57,11 @@
 #error "BMS_PRODUCT_SWITCH_SLEEP_ENABLE must be 0 or 1"
 #endif
 
-#define APP_PM_TICKS_PER_SEC 1000u
+#define APP_PM_MS_PER_SEC 1000u
 
 typedef struct
 {
-	u32 last_tick_ms;
-	u32 pending_tick_ms;
+	u32 epoch_ms;
 	u8 ready;
 } app_pm_elapsed_ctx_t;
 static bool s_low_power_mode;
@@ -70,9 +69,9 @@ uint8_t deepsleep_en;
 
 /* 四产品保护性休眠共用计时；到期后锁存，不再回到通信/采样业务。 */
 /* 命令应答只作有界等待，不能成为强制休眠的永久门禁。 */
-#define APP_COMMAND_REPLY_MS (APP_PM_TICKS_PER_SEC / 2u)
+#define APP_COMMAND_REPLY_MS (APP_PM_MS_PER_SEC / 2u)
 static u8 s_command_seen;
-static u32 s_command_tick;
+static u32 s_command_ms;
 /* 普通 Suspend 与低压可靠充电分别拥有阈值，不随 SOC 电流死区调整。 */
 #define APP_SUSPEND_EXIT_CURRENT_MA ((int32_t)200)
 /* 策略时间由 Core 推进；提交标志只由应用一次性硬件收尾拥有。 */
@@ -118,31 +117,17 @@ static uint8_t board_switch_is_on(void)
 /* 从低功耗时间差中消费完整秒数并保留余量。 */
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 {
-	u32 now_tick_ms;
-	u32 elapsed_tick_ms;
-	u32 total_tick_ms;
-	u32 elapsed_sec;
-
-	if (ctx == NULL)
-	{
-		return 0u;
-	}
-
-	now_tick_ms = bms_time_ms();
-	if (!ctx->ready)
-	{
-		ctx->last_tick_ms = now_tick_ms;
-		ctx->ready = 1u;
-		return 0u;
-	}
-
-	elapsed_tick_ms = now_tick_ms - ctx->last_tick_ms;
-	ctx->last_tick_ms = now_tick_ms;
-	/* 先取余再合并，避免一次接近完整 u32 周期的跨度与余量相加溢出。 */
-	total_tick_ms = ctx->pending_tick_ms + elapsed_tick_ms % APP_PM_TICKS_PER_SEC;
-	elapsed_sec = elapsed_tick_ms / APP_PM_TICKS_PER_SEC + total_tick_ms / APP_PM_TICKS_PER_SEC;
-	ctx->pending_tick_ms = total_tick_ms % APP_PM_TICKS_PER_SEC;
-	return elapsed_sec;
+    u32 now = bms_time_ms();
+    u32 seconds;
+    if (!ctx->ready) {
+        ctx->epoch_ms = now;
+        ctx->ready = 1u;
+        return 0u;
+    }
+    seconds = (u32)(now - ctx->epoch_ms) / APP_PM_MS_PER_SEC;
+    /* 起点只跨过完整秒，余下毫秒留在差值中；乘积不会超过原始差值。 */
+    ctx->epoch_ms += seconds * APP_PM_MS_PER_SEC;
+    return seconds;
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
@@ -280,8 +265,8 @@ static u8 app_command_sleep_poll(void)
     u32 elapsed;
     if (!deepsleep_en) return 0u;
     if (s_protective_sleep_committed) return 1u;
-    if (!s_command_seen) { s_command_seen = 1u; s_command_tick = now; }
-    elapsed = (u32)(now - s_command_tick);
+    if (!s_command_seen) { s_command_seen = 1u; s_command_ms = now; }
+    elapsed = (u32)(now - s_command_ms);
     bms_diag_sleep(DIAG_SLEEP_REASON_COMMAND, 0u, elapsed,
                     APP_COMMAND_REPLY_MS, 0u, 0u);
     /* 应答空闲即执行，最长等待500ms；使用无符号时间差处理tick回绕。 */
@@ -426,35 +411,34 @@ int app_power_before_suspend(void)
 #endif
 
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-/* 处理 SDK 休眠进入事件并保存必要状态。 */
+/* SH 的普通 Suspend 保留 UART PAD 唤醒；D008 依靠应用采样定时器。 */
 void task_sleep_enter(u8 e, u8 *p, int n)
 {
-    (void)e;
-    (void)p;
-    (void)n;
-    /* 无 ACC/负载 PAD 唤醒策略，采样由 SDK 应用定时器限定。 */
+    (void)e; (void)p; (void)n;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    bls_pm_setWakeupSource(PM_WAKEUP_PAD);
+#endif
 }
 
-/* @brief 应用电源管理。 */
-/* 根据运行状态和通信互锁选择 SDK suspend/深睡；调试日志积压本身不增加休眠阻断条件。 */
+/* 共用一次测量、保护性休眠计时和原因选择，再处理板级入口与Suspend门禁。 */
 void app_power_process(const volatile uint8_t *sample_due)
 {
     static app_pm_elapsed_ctx_t elapsed_ctx;
     bms_afe_aux_measurements_t m;
     app_sleep_status_t protective;
     u32 elapsed_sec = app_pm_take_elapsed_seconds(&elapsed_ctx);
+    u8 valid = app_get_fresh_measurements(&m);
+    if (app_protective_sleep_poll(elapsed_sec, &m, valid, &protective)) return;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     u32 pm_block = 0u;
 #if BMS_SERVICE_DIAG_ENABLE
     u32 voltage_seconds;
     u8 region;
 #endif
-    u8 valid = app_get_fresh_measurements(&m);
     u8 ota_busy = ota_is_working ? 1u : 0u;
     u8 flash_busy = app_flash_lock_restore_enabled() ? 0u : 1u;
     u8 bus_busy = (BUS_STATE_OWC_IDLE != bus_mux_get_state()) ? 1u : 0u;
 
-    if (app_protective_sleep_poll(elapsed_sec, &m, valid, &protective)) return;
 #if BMS_SERVICE_DIAG_ENABLE
     /* 诊断沿用原 2=下档、3=上档编码；业务只保存两项独立资格位。 */
     region = (s_protective_sleep.voltage_conditions & BMS_SLEEP_VOLTAGE_LOW_ACTIVE) ? 2u :
@@ -524,29 +508,12 @@ void app_power_process(const volatile uint8_t *sample_due)
 #if BMS_SERVICE_DIAG_ENABLE
     app_dvc_publish_sleep(&protective, s_low_power_mode, valid);
 #endif
-}
-
 #else
-/* 所有普通 Suspend（广播/连接、长/短窗口）均保留 UART PAD 唤醒。 */
-void task_sleep_enter(u8 e, u8 *p, int n)
-{
-    (void)e; (void)p; (void)n;
-    bls_pm_setWakeupSource(PM_WAKEUP_PAD);
-}
-
-void app_power_process(const volatile uint8_t *sample_due)
-{
-    static app_pm_elapsed_ctx_t sleep_elapsed_ctx = {0};
-    u32 elapsed_sec = app_pm_take_elapsed_seconds(&sleep_elapsed_ctx);
-    bms_afe_aux_measurements_t m;
-    app_sleep_status_t protective;
-    u8 sample_valid = app_get_fresh_measurements(&m);
     u8 ui_busy = 0u;
     u8 sample_block;
-    if (app_protective_sleep_poll(elapsed_sec, &m, sample_valid, &protective)) return;
     if (app_sh_explicit_sleep_poll()) return;
-    sample_block = (u8)(!sample_valid || (*sample_due) ||
-        app_current_prevents_suspend(&m, sample_valid));
+    sample_block = (u8)(!valid || (*sample_due) ||
+        app_current_prevents_suspend(&m, valid));
 #if (UI_KEYBOARD_ENABLE)
     ui_busy = (scan_pin_need || key_not_released) ? 1u : 0u;
 #elif (UI_BUTTON_ENABLE)
@@ -562,15 +529,14 @@ void app_power_process(const volatile uint8_t *sample_due)
     /* 最终快照使用本轮Suspend决定，不沿用计时入口发布的保守值。 */
     if (deepsleep_en)
         bms_diag_sleep(DIAG_SLEEP_REASON_COMMAND, 0u,
-            (u32)(bms_time_ms() - s_command_tick), 500u, 0u, s_low_power_mode);
+            (u32)(bms_time_ms() - s_command_ms), 500u, 0u, s_low_power_mode);
     else if (protective.reason != DIAG_SLEEP_REASON_NONE)
         bms_diag_sleep(protective.reason, 0u, protective.elapsed_ms,
             protective.delay_ms, 0u, s_low_power_mode);
     else
         bms_diag_sleep(DIAG_SLEEP_REASON_NONE, 0u, 0u, 0u, 0u, s_low_power_mode);
-}
-
 #endif
+}
 
 /* 保护性深睡保持动作优先；保留 ACC/关机保持与正常 DVC 外围诊断时点。 */
 uint8_t app_power_prepare_loop(void)

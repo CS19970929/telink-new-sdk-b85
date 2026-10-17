@@ -29,7 +29,8 @@ uint8_t DVC1124_GetWriteAddress(void) { return 0x40u; }
 void DVC1124_GetSnapshot(dvc1124_snapshot_t *s) { *s=s_snapshot; }
 void DVC1124_GetConfig(dvc1124_config_t *c) { *c=s_cfg; }
 static uint32_t pm_get_32k_tick(void) { return now; }
-uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=now;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
+static uint32_t time_last_raw,time_ms,time_fraction;
+uint32_t bms_time_ms(void){uint32_t delta=now-time_last_raw;time_last_raw=now;time_fraction+=delta%32u;time_ms+=delta/32u+time_fraction/32u;time_fraction%=32u;return time_ms;}
 uint32_t bms_time_now_32k(void){return now;}
 
 static void dvc_note_comm_result(uint8_t ok) { (void)ok; }
@@ -73,6 +74,7 @@ static void reset(void)
     memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));
     s_pending_adc_events=s_voltage_seen=s_current_seen=s_voltage_since_current=0u;
     s_voltage_ms=s_current_ms=s_adc_wait_started_ms=0u;
+    time_last_raw=time_ms=time_fraction=0u;
     read_ok=1u; now=1000u; s_snapshot.rpu_ohm=10000u;
     put16(DVC1124_REG_V1P8_H,18000u);
     for (unsigned gp=0;gp<4u;++gp) put16((uint8_t)(DVC1124_REG_GP1_H+2u*gp),9000u);
