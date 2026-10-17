@@ -350,7 +350,6 @@ static u16 read_reg(u16 reg)
         default: return 0u;
         }
     }
-    if (bms_parameter_readable(reg)) return bms_parameter_read(reg);
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     if (reg >= BMS_AFE_ACTUAL_REG_BASE && reg < BMS_AFE_ACTUAL_REG_BASE+BMS_AFE_ACTUAL_REG_COUNT)
         return read_afe_actual_reg(reg);
@@ -530,8 +529,19 @@ static int modbus_read_holding(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
         for (i = 0u; i < qty; ++i)
             if (!read_address_supported((u16)(reg + i)))
                 return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-        for (i = 0u; i < qty; ++i)
-            put_u16be(&rsp[3u + (u32)i * 2u], read_reg((u16)(reg + i)));
+        i = 0u;
+        while (i < qty) {
+            if (bms_parameter_readable((u16)(reg + i))) {
+                u16 start = i;
+                do { ++i; } while (i < qty && bms_parameter_readable((u16)(reg + i)));
+                if (!bms_parameter_read_block((u16)(reg + start), (u16)(i - start),
+                                               &rsp[3u + (u32)start * 2u]))
+                    return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+            } else {
+                put_u16be(&rsp[3u + (u32)i * 2u], read_reg((u16)(reg + i)));
+                ++i;
+            }
+        }
     }
     bytes = (u32)qty * 2u;
     rsp[0] = addr;

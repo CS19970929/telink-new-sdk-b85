@@ -113,8 +113,8 @@ void bms_product_info_refresh(void);
 
 /* 检查业务参数地址是否允许读取。 */
 int bms_parameter_readable(u16 reg);
-/* 按地址读取业务参数并编码为协议字。 */
-u16 bms_parameter_read(u16 reg);
+/* 完整地址校验后，每请求复用只读快照并编码为大端协议字。 */
+int bms_parameter_read_block(u16 reg, u16 qty, u8 *data);
 /* 校验并写入业务参数，按类别执行持久化。 */
 u8 bms_parameter_write(u16 reg, u16 qty, const u8 *data);
 /* 按类别恢复软件业务参数并提交存储。 */

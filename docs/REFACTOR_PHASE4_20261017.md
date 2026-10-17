@@ -20,6 +20,14 @@
 
 另从固定基线 `git show` 提取旧默认构造与旧曲线数据，与新构造在四产品分别编译，LFP/NMC 全部 100 个 payload 字节完全一致；不只比较新实现自身编码/解码往返。阶段四产品 development 链接均为 0 error/0 warning；最终提交后再执行统一链接收据。
 
+## 3. 参数块读取复用本请求快照
+
+Modbus 先验证完整地址，再把连续业务参数交给 `bms_parameter_read_block()`。请求内按需读取 SOC profile、user、system、aux 和 sleep 各一次，包含读取失败结果；没有全局缓存或跨请求过期状态。协议字直接写入原响应缓冲区，保留普通寄存器与参数混读顺序、非法尾地址无部分读取、`0xFFFF` 未知值及大端字节序。删除唯一生产消费者原来的逐字参数入口；写入、授权、generation、50-word stage 和 commit 未修改。
+
+现有客户端继续每次读 7 word、写 4 word。50-word 曲线一次读取由 50 次 100-byte 复制变为 1 次；7-word 读取由 7 次变为 1 次。SN 16-word 块只读取 user 一次。此项用少量请求内有效标记换取稳定块视图和减少重复复制，不宣称每个模块源码行数都下降。
+
+从 `b76b8a76` 抽取原逐字函数，与新块函数在四产品分别比较全部 8036 个可读子块（正常、user/system/aux 三种失败条件），输出逐字节相同。新增回归检查 50-word 和 7-word 客户端分块、SN/校准/类型/两档休眠、tick 回绕、失效未知值、空指针、数量和地址回绕、非法尾地址无读取；四产品 Modbus、语义存储和源码契约入口通过。
+
 ## 验证边界
 
 本轮只执行用户授权的相关 host 回归及四产品 sources/link/resources，不生成 BIN。host 与 ELF/MAP 不能替代实板 I2C/SPI 电气、物理保护恢复、MOS Gate/Vgs、Flash 掉电、低功耗/WDT、OTA 及现有 EXE/Android 与设备联调验收。

@@ -8,6 +8,8 @@
 bms_protection_params_t g_bms_protection_params;
 uint8_t deepsleep_en;
 static unsigned requested_reads, effective_reads, event_reads, frames;
+static unsigned parameter_reads;
+static u8 parameter_mixed;
 static int requested_fail_at = -1, effective_fail_at = -1;
 static u16 effective_base = 0x2000u;
 static uint32_t corpus = 2166136261u;
@@ -45,8 +47,12 @@ u16 bms_afe_hw_profile_last_error(void) { return 3u; }
 u8 bms_afe_hw_access_is_active(void) { return 1u; }
 u16 bms_event_log_read_reg(u16 r) { ++event_reads; return (u16)(0x4000u+r); }
 const char *btname_get(void) { return "BT_TEST"; }
-int bms_parameter_readable(u16 r) { return r>=0x2E00u && r<=0x2E0Fu; }
-u16 bms_parameter_read(u16 r) { return (u16)(r^0x55aau); }
+int bms_parameter_readable(u16 r) { return (r>=0x2E00u && r<=0x2E0Fu) || (parameter_mixed && r==1u); }
+int bms_parameter_read_block(u16 r,u16 n,u8 *d) {
+    ++parameter_reads;
+    for(unsigned i=0;i<n;++i){u16 v=(u16)((r+i)^0x55aau);d[i*2u]=(u8)(v>>8);d[i*2u+1u]=(u8)v;}
+    return 1;
+}
 int bms_config_get_user(bms_user_params_t *u) { memset(u,0,sizeof(*u)); return 1; }
 void bms_config_store_get_default_protect(bms_protection_params_t *p) { (void)p; abort(); }
 int bms_config_store_get_system(bms_config_system_params_t *p) { (void)p; abort(); }
@@ -144,6 +150,16 @@ int main(void)
 {
     u16 words[125]={0};
     bms_diag_init(); bms_debug_log_init();
+    for(unsigned i=0;i<16u;++i)words[i]=(u16)((0x2e00u+i)^0x55aau);
+    parameter_reads=0u;expect_read(1u,0x2e00u,16u,words,0u);assert(parameter_reads==1u);
+    parameter_reads=0u;expect_read(1u,0x2e0fu,2u,words,2u);assert(!parameter_reads);
+    /* 模拟相邻所有者：普通寄存器/参数/普通寄存器混读仍按原顺序编码。 */
+    parameter_mixed=1u;
+    memcpy(g_bms_report.mac_public,"\x10\x20\x30\x40\x50\x60",6u);
+    words[0]=0x1020u;words[1]=1u^0x55aau;words[2]=0x5060u;
+    expect_read(1u,0u,3u,words,0u);
+    parameter_reads=0u;expect_read(1u,0u,4u,words,2u);assert(!parameter_reads);
+    parameter_mixed=0u;memset(g_bms_report.mac_public,0,6u);
     /* The canceled event-clear command must reject both single/block writes. */
     for (unsigned block=0; block<2; ++block) {
         for (unsigned broadcast=0; broadcast<2; ++broadcast) {

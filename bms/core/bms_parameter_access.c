@@ -77,15 +77,24 @@ int bms_parameter_readable(u16 r)
             r == BMS_PARAM_REG_CYCLE);
 }
 
-/* 按地址读取业务参数并编码为协议字。 */
-u16 bms_parameter_read(u16 r)
-{
-    bms_user_params_t v;
+/* 仅在本次同步读取中存在；按需取一次，失败结果也在本次请求内复用。 */
+typedef struct {
+    bms_user_params_t user;
     bms_config_system_params_t system;
     bms_afe_aux_measurements_t sample;
     bms_sleep_config_t sleep;
+    bms_soc_profile_config_t profile;
+    u8 user_loaded, user_valid, system_loaded, system_valid;
+    u8 sample_loaded, sample_valid, sleep_loaded, profile_loaded;
+} parameter_read_snapshot_t;
+
+static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
+{
+    const bms_user_params_t *v = &s->user;
+    const bms_config_system_params_t *system = &s->system;
+    const bms_afe_aux_measurements_t *sample = &s->sample;
+    const bms_soc_profile_config_t *profile = &s->profile;
     u16 sleep_word;
-    u8 sample_valid;
     if (r >= BMS_PARAM_REG_UPDATE_REVISION_BASE && r < BMS_PARAM_REG_UPDATE_REVISION_BASE + BMS_UPDATE_GROUP_COUNT)
         return bms_update_revision((bms_update_group_t)(r - BMS_PARAM_REG_UPDATE_REVISION_BASE));
     if (r == BMS_PARAM_REG_MAGIC) return BMS_PARAMETER_INTERFACE_MAGIC;
@@ -99,25 +108,33 @@ u16 bms_parameter_read(u16 r)
         if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 1u) return BMS_CHEMISTRY_SWITCH_VERSION;
         if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 4u) return s_chemistry_status;
         if (r >= BMS_PARAM_REG_CHEMISTRY_BASE + 5u) {
-            bms_soc_profile_config_t profile;
-            bms_soc_profile_store_get(&profile);
-            if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 5u) return profile.current_deadband_ma;
-            if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 6u) return profile.ocv_rest_prepare_s;
-            return profile.ocv_error_band_percent;
+            if (!s->profile_loaded) {
+                bms_soc_profile_store_get(&s->profile);
+                s->profile_loaded = 1u;
+            }
+            if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 5u) return profile->current_deadband_ma;
+            if (r == BMS_PARAM_REG_CHEMISTRY_BASE + 6u) return profile->ocv_rest_prepare_s;
+            return profile->ocv_error_band_percent;
         }
-        if (!bms_config_store_get_system(&system)) return 0xFFFFu;
+        if (!s->system_loaded) {
+            s->system_valid = bms_config_store_get_system(&s->system);
+            s->system_loaded = 1u;
+        }
+        if (!s->system_valid) return 0xFFFFu;
         return r == BMS_PARAM_REG_CHEMISTRY_BASE + 2u ?
-            (u16)system.battery_chemistry : (u16)system.soc_profile_id;
+            (u16)system->battery_chemistry : (u16)system->soc_profile_id;
     }
     if (r >= BMS_PARAM_REG_SOC_PROFILE_BASE && r <= BMS_PARAM_REG_SOC_PROFILE_STAGE_STATUS) {
-        bms_soc_profile_config_t profile;
         if (r == BMS_PARAM_REG_SOC_PROFILE_BASE) return BMS_SOC_PROFILE_INTERFACE_MAGIC;
         if (r == BMS_PARAM_REG_SOC_PROFILE_BASE + 1u) return BMS_SOC_PROFILE_INTERFACE_VERSION;
         if (r == BMS_PARAM_REG_SOC_PROFILE_PERSISTED) return bms_soc_profile_store_is_persisted();
         if (r == BMS_PARAM_REG_SOC_PROFILE_GENERATION) return s_soc_profile_generation;
         if (r == BMS_PARAM_REG_SOC_PROFILE_STAGE_STATUS) return s_soc_profile_stage_status;
-        bms_soc_profile_store_get(&profile);
-        return bms_soc_profile_store_word(&profile,
+        if (!s->profile_loaded) {
+            bms_soc_profile_store_get(&s->profile);
+            s->profile_loaded = 1u;
+        }
+        return bms_soc_profile_store_word(profile,
             (u16)(r - BMS_PARAM_REG_SOC_PROFILE_BASE - 2u));
     }
     if (r == BMS_PARAM_REG_LAST_RESULT) return s_result;
@@ -137,51 +154,80 @@ u16 bms_parameter_read(u16 r)
         (r >= BMS_PARAM_REG_SLEEP_DEFAULT_BASE && r <= BMS_PARAM_REG_SLEEP_DEFAULT_LAST)) {
         u16 offset;
         if (r >= BMS_PARAM_REG_SLEEP_DEFAULT_BASE) {
-            bms_sleep_config_defaults(&sleep);
+            if (!s->sleep_loaded) bms_sleep_config_defaults(&s->sleep);
             offset = r - BMS_PARAM_REG_SLEEP_DEFAULT_BASE;
         } else {
-            bms_sleep_config_get(&sleep);
+            if (!s->sleep_loaded) bms_sleep_config_get(&s->sleep);
             offset = r - BMS_PARAM_REG_SLEEP_BASE;
         }
-        memcpy(&sleep_word, (const u8 *)&sleep + offset * 2u, sizeof(sleep_word));
+        s->sleep_loaded = 1u;
+        memcpy(&sleep_word, (const u8 *)&s->sleep + offset * 2u, sizeof(sleep_word));
         return sleep_word;
     }
     if (r == BMS_PARAM_REG_SOC) return get_soc_real();
     if (r == BMS_PARAM_REG_CYCLE) return (u16)g_bms_soc.cycle_count;
-    if (r == BMS_PARAM_REG_CAPACITY)
-        return bms_config_store_get_system(&system) ? (u16)system.capacity_factory : 0xFFFFu;
+    if (r == BMS_PARAM_REG_CAPACITY) {
+        if (!s->system_loaded) {
+            s->system_valid = bms_config_store_get_system(&s->system);
+            s->system_loaded = 1u;
+        }
+        return s->system_valid ? (u16)system->capacity_factory : 0xFFFFu;
+    }
     if (r >= BMS_PARAM_REG_RAW_CURRENT_LO && r <= BMS_PARAM_REG_SAMPLE_TICK_HI)
     {
-        memset(&sample, 0, sizeof(sample));
-        sample_valid = bms_afe_get_aux_measurements(&sample);
+        if (!s->sample_loaded) {
+            s->sample_valid = bms_afe_get_aux_measurements(&s->sample);
+            s->sample_loaded = 1u;
+        }
         if (r == BMS_PARAM_REG_SAMPLE_VALID)
-            return sample_valid &&
-                   (u32)(bms_time_now_32k() - sample.sample_tick_32k) <= BMS_SOC_MAX_SAMPLE_GAP_32K;
-        if (r == BMS_PARAM_REG_SAMPLE_TICK_LO) return (u16)sample.sample_tick_32k;
-        if (r == BMS_PARAM_REG_SAMPLE_TICK_HI) return (u16)(sample.sample_tick_32k >> 16);
-        if (r == BMS_PARAM_REG_RAW_CURRENT_LO) return (u16)sample.raw_current_ma;
-        if (r == BMS_PARAM_REG_RAW_CURRENT_HI) return (u16)((u32)sample.raw_current_ma >> 16);
-        if (r == BMS_PARAM_REG_CURRENT_LO) return (u16)sample.current_ma;
-        return (u16)((u32)sample.current_ma >> 16);
+            return s->sample_valid &&
+                   (u32)(bms_time_now_32k() - sample->sample_tick_32k) <= BMS_SOC_MAX_SAMPLE_GAP_32K;
+        if (r == BMS_PARAM_REG_SAMPLE_TICK_LO) return (u16)sample->sample_tick_32k;
+        if (r == BMS_PARAM_REG_SAMPLE_TICK_HI) return (u16)(sample->sample_tick_32k >> 16);
+        if (r == BMS_PARAM_REG_RAW_CURRENT_LO) return (u16)sample->raw_current_ma;
+        if (r == BMS_PARAM_REG_RAW_CURRENT_HI) return (u16)((u32)sample->raw_current_ma >> 16);
+        if (r == BMS_PARAM_REG_CURRENT_LO) return (u16)sample->current_ma;
+        return (u16)((u32)sample->current_ma >> 16);
     }
-    if (!bms_config_get_user(&v)) return 0xFFFFu;
-    if (r == BMS_PARAM_REG_HEATER_ENABLE) return v.heater_enable;
-    if (r == BMS_PARAM_REG_HEATER_START) return v.heater_start_x10;
-    if (r == BMS_PARAM_REG_HEATER_STOP) return v.heater_stop_x10;
-    if (r == BMS_PARAM_REG_BALANCE_ENABLE) return v.balance_enable;
-    if (r == BMS_PARAM_REG_BALANCE_START) return v.balance_start_mv;
-    if (r == BMS_PARAM_REG_BALANCE_DELTA_START) return v.balance_start_delta_mv;
-    if (r == BMS_PARAM_REG_BALANCE_DELTA_STOP) return v.balance_stop_delta_mv;
-    if (r == BMS_PARAM_REG_CURRENT_OFFSET_LO) return (u16)v.current_offset_ma;
-    if (r == BMS_PARAM_REG_CURRENT_OFFSET_HI) return (u16)((u32)v.current_offset_ma >> 16);
-    if (r == BMS_PARAM_REG_CURRENT_GAIN_LO) return (u16)v.current_gain_ppm;
-    if (r == BMS_PARAM_REG_CURRENT_GAIN_HI) return (u16)(v.current_gain_ppm >> 16);
+    if (!s->user_loaded) {
+        s->user_valid = bms_config_get_user(&s->user);
+        s->user_loaded = 1u;
+    }
+    if (!s->user_valid) return 0xFFFFu;
+    if (r == BMS_PARAM_REG_HEATER_ENABLE) return v->heater_enable;
+    if (r == BMS_PARAM_REG_HEATER_START) return v->heater_start_x10;
+    if (r == BMS_PARAM_REG_HEATER_STOP) return v->heater_stop_x10;
+    if (r == BMS_PARAM_REG_BALANCE_ENABLE) return v->balance_enable;
+    if (r == BMS_PARAM_REG_BALANCE_START) return v->balance_start_mv;
+    if (r == BMS_PARAM_REG_BALANCE_DELTA_START) return v->balance_start_delta_mv;
+    if (r == BMS_PARAM_REG_BALANCE_DELTA_STOP) return v->balance_stop_delta_mv;
+    if (r == BMS_PARAM_REG_CURRENT_OFFSET_LO) return (u16)v->current_offset_ma;
+    if (r == BMS_PARAM_REG_CURRENT_OFFSET_HI) return (u16)((u32)v->current_offset_ma >> 16);
+    if (r == BMS_PARAM_REG_CURRENT_GAIN_LO) return (u16)v->current_gain_ppm;
+    if (r == BMS_PARAM_REG_CURRENT_GAIN_HI) return (u16)(v->current_gain_ppm >> 16);
     if (r >= BMS_PARAM_REG_SN_BASE && r <= BMS_PARAM_REG_SN_LAST)
     {
         u16 i = (u16)((r - BMS_PARAM_REG_SN_BASE) * 2u);
-        return ((u16)(u8)v.serial[i] << 8) | (u8)v.serial[i + 1u];
+        return ((u16)(u8)v->serial[i] << 8) | (u8)v->serial[i + 1u];
     }
     return 0u;
+}
+
+/* 全范围先校验，之后按请求复用快照并直接编码大端协议字。 */
+int bms_parameter_read_block(u16 reg, u16 qty, u8 *data)
+{
+    parameter_read_snapshot_t snapshot;
+    u16 i;
+    if (!data || !qty || qty > 125u || (u32)reg + qty > 65536u) return 0;
+    for (i = 0u; i < qty; ++i)
+        if (!bms_parameter_readable((u16)(reg + i))) return 0;
+    memset(&snapshot, 0, sizeof(snapshot));
+    for (i = 0u; i < qty; ++i) {
+        u16 value = parameter_read_word((u16)(reg + i), &snapshot);
+        data[i * 2u] = (u8)(value >> 8);
+        data[i * 2u + 1u] = (u8)value;
+    }
+    return 1;
 }
 
 /* 完整短帧校验密码，要求新鲜静置电流；不会把关 MOS 后零电流当作恢复证据。 */

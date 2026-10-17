@@ -372,33 +372,37 @@ static u8 bms_reset_software_parameters(void){return 0;}
 static u8 bms_reset_afe_parameters(void){return access_active?0:2;}
 void bms_product_info_refresh(void){identity_updates++;}
 /* PARAMETER_PROTOCOL */
+static u16 parameter_read_one(u16 reg) {
+    u8 data[2]; assert(bms_parameter_read_block(reg,1u,data));
+    return (u16)(((u16)data[0]<<8)|data[1]);
+}
 static void test_parameter_protocol(void){
- fresh();u8 retired[]={0,6};u32 flash_before=programs;u16 sequence=bms_parameter_read(0x2e04);
- assert((bms_parameter_read(0x2e02u)&0x0200u)!=0u);
- assert(bms_parameter_read(0x2eb0u)==0x534fu&&bms_parameter_read(0x2eb1u)==1u);
+ fresh();u8 retired[]={0,6};u32 flash_before=programs;u16 sequence=parameter_read_one(0x2e04);
+ assert((parameter_read_one(0x2e02u)&0x0200u)!=0u);
+ assert(parameter_read_one(0x2eb0u)==0x534fu&&parameter_read_one(0x2eb1u)==1u);
  u8 profile_command[]={0,1,0,0,'h','s','4','5','6',0};
  assert(bms_parameter_write(0x2ef8u,4u,profile_command)==3u);
  profile_command[9]=1u;assert(bms_parameter_write(0x2ef8u,5u,profile_command)==2u);profile_command[9]=0u;
  assert(bms_parameter_write(0x2ef8u,5u,profile_command)==0u);
- u16 profile_generation=bms_parameter_read(0x2ee5u);u8 deadband[]={0,250};
+ u16 profile_generation=parameter_read_one(0x2ee5u);u8 deadband[]={0,250};
  assert(bms_parameter_write(0x2f24u,1u,deadband)==0u);
  profile_command[0]=0u;profile_command[1]=2u;profile_command[2]=(u8)(profile_generation>>8);profile_command[3]=(u8)profile_generation;
- assert(bms_parameter_write(0x2ef8u,5u,profile_command)==0u&&bms_parameter_read(0x2eb6u)==250u&&bms_parameter_read(0x2ee4u)==1u);
- sequence=bms_parameter_read(0x2e04u);
+ assert(bms_parameter_write(0x2ef8u,5u,profile_command)==0u&&parameter_read_one(0x2eb6u)==250u&&parameter_read_one(0x2ee4u)==1u);
+ sequence=parameter_read_one(0x2e04u);
  access_active=0;assert(bms_parameter_write(0x2e10,1,retired)==3);
  access_active=1;assert(bms_parameter_write(0x2e10,1,retired)==3);
- assert(programs==flash_before && bms_parameter_read(0x2e04)==sequence);
+ assert(programs==flash_before && parameter_read_one(0x2e04)==sequence);
  u8 heat[]={0,1,1,134,1,194},begin[]={0,0},chunk[8]={'S','N','0','1',0,0,0,0};
- assert(bms_parameter_read(0x2e00)==0xd008);assert(bms_parameter_write(0x2e20,1,heat)==3);
- assert(bms_parameter_write(0x2e20,3,heat)==0);assert(bms_parameter_read(0x2e21)==390);
- cut=0;heat[0]=0;heat[1]=0;assert(bms_parameter_write(0x2e20,3,heat)==4);assert(bms_parameter_read(0x2e20)==1);cut=-1;
+ assert(parameter_read_one(0x2e00)==0xd008);assert(bms_parameter_write(0x2e20,1,heat)==3);
+ assert(bms_parameter_write(0x2e20,3,heat)==0);assert(parameter_read_one(0x2e21)==390);
+ cut=0;heat[0]=0;heat[1]=0;assert(bms_parameter_write(0x2e20,3,heat)==4);assert(parameter_read_one(0x2e20)==1);cut=-1;
  access_active=0;assert(bms_parameter_write(0x2e40,1,begin)==2);access_active=1;
  u32 before=programs;assert(bms_parameter_write(0x2e40,1,begin)==0);
- u16 gen=bms_parameter_read(0x2e06);u8 commit[]={(u8)(gen>>8),(u8)gen};
+ u16 gen=parameter_read_one(0x2e06);u8 commit[]={(u8)(gen>>8),(u8)gen};
  assert(bms_parameter_write(0x2e40,1,commit)==3);
  for(u16 i=0;i<16;i+=4)assert(bms_parameter_write(0x2e50+i,4,chunk)==0);
  assert(programs==before);assert(bms_parameter_write(0x2e40,1,commit)==0);assert(identity_updates==1);
- reboot();bms_parameters_init();assert(bms_parameter_read(0x2e30)==0x534e);
+ reboot();bms_parameters_init();assert(parameter_read_one(0x2e30)==0x534e);
  now=UINT32_MAX-100;assert(bms_parameter_write(0x2e40,1,begin)==0);now+=61u*32000u;
  assert(bms_parameter_write(0x2e50,4,chunk)==3);
  assert(bms_parameter_write(0x2e24,4,0)==3);assert(bms_parameter_write(0x2e20,0,heat)==3);
@@ -445,14 +449,14 @@ static void test_balance_permission(void)
  for(unsigned allowed=0u;allowed<2u;++allowed){
   words[1]=(u8)allowed;
   assert(bms_parameter_write(0x2e70u,4u,words)==0u);
-  reboot();bms_parameters_init();assert(bms_parameter_read(0x2e70u)==allowed);
-  assert(bms_config_reset_business());assert(bms_parameter_read(0x2e70u)==allowed);
+  reboot();bms_parameters_init();assert(parameter_read_one(0x2e70u)==allowed);
+  assert(bms_config_reset_business());assert(parameter_read_one(0x2e70u)==allowed);
   test_ota_mask=4u;bms_config_cache_t next=g_bms_config;
   memset(next.ota_update_id,0xff,sizeof(next.ota_update_id));
   assert(bms_config_save_cache(&next));
   reboot();bms_parameters_init();assert(bms_protection_params_valid());
-  assert(bms_parameter_read(0x2e70u)==allowed);
-  assert(bms_parameter_read(0x2e71u)==BMS_BALANCE_START_VOLTAGE_MV_DEFAULT);
+  assert(parameter_read_one(0x2e70u)==allowed);
+  assert(parameter_read_one(0x2e71u)==BMS_BALANCE_START_VOLTAGE_MV_DEFAULT);
  }
  words[1]=0u;assert(bms_parameter_write(0x2e70u,4u,words)==0u);
  memcpy(backup,flash,sizeof(flash));words[1]=1u;
@@ -460,11 +464,11 @@ static void test_balance_permission(void)
  for(int byte=0;byte<(int)(24+BMS_CONFIG_PAYLOAD_BYTES+8);++byte){
   memcpy(flash,backup,sizeof(flash));reboot();bms_parameters_init();cut=byte;
   assert(bms_parameter_write(0x2e70u,4u,words)==4u);
-  assert(bms_parameter_read(0x2e70u)==0u);
-  reboot();bms_parameters_init();assert(bms_parameter_read(0x2e70u)==0u);
+  assert(parameter_read_one(0x2e70u)==0u);
+  reboot();bms_parameters_init();assert(parameter_read_one(0x2e70u)==0u);
  }
  assert(bms_parameter_write(0x2e70u,4u,words)==0u);
- reboot();bms_parameters_init();assert(bms_parameter_read(0x2e70u)==1u);
+ reboot();bms_parameters_init();assert(parameter_read_one(0x2e70u)==1u);
  puts("PASS balance permission: explicit disable/allow, reboot, business reset, OTA retention and interrupted allow rollback");
 }
 /* OTA 策略回归：通过真实记录模拟客户旧值，启动流程负责按 BIN 选择提交。 */
@@ -536,9 +540,9 @@ static void test_ota_config_policy(void)
             assert(bms_protection_params_valid()); assert_update_groups(1u << group);
         }
     }
-    assert(bms_parameter_read(0x2e05u) == 2u);
+    assert(parameter_read_one(0x2e05u) == 2u);
     for (unsigned group = 0; group < BMS_UPDATE_GROUP_COUNT; ++group)
-        assert(bms_parameter_read((u16)(0x2e80u + group)) == bms_update_revision((bms_update_group_t)group));
+        assert(parameter_read_one((u16)(0x2e80u + group)) == bms_update_revision((bms_update_group_t)group));
     /* 同一个 BIN 执行后，客户再次修改参数，重启不能再次覆盖。 */
     fresh(); test_ota_mask = 15u; reboot(); bms_parameters_init();
     bms_config_cache_t custom = configured(); assert(bms_config_save_cache(&custom));
@@ -700,7 +704,7 @@ static void test_sleep_config(void)
 {
  fresh(); bms_sleep_config_t cfg;
  bms_sleep_config_get(&cfg);assert(cfg.low_cell_mv==2800u && cfg.low_delay_minutes==1u);
- assert(bms_parameter_read(0x2e02u)&0x80u);
+ assert(parameter_read_one(0x2e02u)&0x80u);
  assert(bms_parameter_readable(0x2e90u)&&bms_parameter_readable(0x2e94u));
  assert(!bms_parameter_readable(0x2e95u)&&!bms_parameter_readable(0x2e9du));
  u8 values[]={0x0a,0x28,0,2,0x0b,0xb8,0x05,0xa0,0,30}; /* 2600 / 2 / 3000 / 1440 / 30 */
@@ -708,7 +712,7 @@ static void test_sleep_config(void)
  assert(bms_parameter_write(0x2e91u,1u,values)==2u);
  assert(bms_parameter_write(0x2e98u,5u,values)==2u);
  assert(bms_parameter_write(0x2e90u,5u,values)==0u);
- assert(bms_parameter_read(0x2e90u)==2600u&&bms_parameter_read(0x2e91u)==2u);
+ assert(parameter_read_one(0x2e90u)==2600u&&parameter_read_one(0x2e91u)==2u);
  u32 written=programs;assert(bms_parameter_write(0x2e90u,5u,values)==0u&&programs==written);
  bms_sleep_config_get(&cfg);cfg.low_cell_mv=cfg.normal_cell_mv;
  assert(!bms_sleep_config_set(&cfg));
@@ -721,8 +725,8 @@ static void test_sleep_config(void)
  assert(cfg.afe_delay_minutes==30u && cfg.low_delay_minutes==2u && programs==writes_before_reload);
  u8 forbidden_afe[]={0x0a,0x28,0,2,0x0b,0xb8,0x05,0xa0,0,1};
  assert(bms_parameter_write(0x2e90u,5u,forbidden_afe)==3u);
- reboot();assert(bms_parameter_read(0x2e91u)==2u);
- assert(bms_config_reset_business());assert(bms_parameter_read(0x2e91u)==2u);
+ reboot();assert(parameter_read_one(0x2e91u)==2u);
+ assert(bms_config_reset_business());assert(parameter_read_one(0x2e91u)==2u);
  memcpy(backup,flash,sizeof(flash));
  for(int interrupted=0;interrupted<=44;++interrupted) {
   memcpy(flash,backup,sizeof(flash));reboot();
@@ -751,8 +755,8 @@ static void test_chemistry_switch(void)
  fresh();
  u8 command[]={0,1,'h','s','4','5','6',0};
  u32 written=programs;
- assert(bms_parameter_read(0x2e02u)&0x100u);
- assert(bms_parameter_read(0x2ea0u)==0x4348u && bms_parameter_read(0x2ea1u)==1u);
+ assert(parameter_read_one(0x2e02u)&0x100u);
+ assert(parameter_read_one(0x2ea0u)==0x4348u && parameter_read_one(0x2ea1u)==1u);
  assert(bms_parameter_write(0x2ea8u,3u,command)==3u && programs==written);
  command[7]=1u;
  assert(bms_parameter_write(0x2ea8u,4u,command)==2u && programs==written);
@@ -794,7 +798,7 @@ static void test_chemistry_switch(void)
  }
  fresh();switch_apply_ok=0u;config_inhibited=0u;
  assert(bms_parameter_write(0x2ea8u,4u,command)==4u);
- assert(config_inhibited>0u && bms_parameter_read(0x2ea4u)==3u);
+ assert(config_inhibited>0u && parameter_read_one(0x2ea4u)==3u);
  switch_apply_ok=1u;
  puts("PASS chemistry transaction: password, length, 24S limit, fresh idle sample, byte cuts, retained domains, apply failure inhibit");
 }
