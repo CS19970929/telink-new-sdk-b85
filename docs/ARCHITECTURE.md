@@ -21,8 +21,11 @@ Config / State / Event → storage_record → Telink Flash 平台
 不访问外设或执行休眠。Application 唯一拥有已提交标志，并执行原 BLE/Flash/AFE 收尾及
 板级 GPIO、Sleep/Wakeup。名称的 BLE 广播应用位于既有 `app_ble.c`。
 PC CMake 使用实际 Core TU 验证这些接口，无 SDK include 路径。旧
-`bms_state_store.c` 的 SDK 时间引用、AFE 板级 GPIO/I2C 和 Telink 普通 Suspend
+AFE 板级 GPIO/I2C 和 Telink 普通 Suspend
 仍是后续 MCU 移植需要适配的具体位置；不宣称整个源码树已经脱离 SDK。
+
+`bms_state_store.c` 已使用现有 `bms_time_now_32k()`，其 Telink 实现仍直接返回
+`pm_get_32k_tick()`；checkpoint/失败退避时基与 schema 3 持久格式不变。
 
 SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH 恢复证据与采样资格](SH_RECOVERY_AND_FRESHNESS.md)。充电器查询与 feature 快照均只读已验证缓存，guard 继续拥有输出资格和 watchdog 静默。
 

@@ -10,7 +10,7 @@
 
 #include "bms_storage_platform.h"
 #include "storage_record.h"
-#include "drivers.h"
+#include "bms_time.h"
 #include "bms_error.h"
 #include <string.h>
 
@@ -109,7 +109,7 @@ static void bms_state_decode(bms_state_persist_t *state, const uint8_t *payload)
 static int bms_state_save(const bms_state_persist_t *next)
 {
     uint8_t payload[BMS_STATE_PAYLOAD_BYTES];
-    uint32_t now = pm_get_32k_tick();
+    uint32_t now = bms_time_now_32k();
     /* 比较全部持久字段，避免重复编码及第二份 payload；不能比较结构体填充字节。 */
     if (g_bms_state_store.has_latest && next->soc == g_bms_state.soc &&
         next->dsg == g_bms_state.dsg && next->cycle == g_bms_state.cycle &&
@@ -140,7 +140,7 @@ int bms_state_store_init(void)
     if (g_bms_state_ready) return 1;
     bms_diag_attempt(BMS_STORAGE_DOMAIN_STATE);
     if (g_bms_state_last_failed &&
-        (uint32_t)(pm_get_32k_tick() - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_BACKOFF); return 0; }
+        (uint32_t)(bms_time_now_32k() - g_bms_state_last_attempt_32k) < BMS_STORAGE_RETRY_INTERVAL_32K) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_BACKOFF); return 0; }
     port = bms_storage_platform_port();
     if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_PORT); goto invalid; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region)) { goto invalid; }
@@ -162,13 +162,13 @@ int bms_state_store_init(void)
     }
     if (!bms_state_save(&next)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE); return 0; }
     g_bms_state_pending = g_bms_state;
-    g_bms_state_last_attempt_32k = pm_get_32k_tick();
+    g_bms_state_last_attempt_32k = bms_time_now_32k();
     g_bms_state_ready = 1u;
     bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OK);
     return 1;
 invalid:
     g_bms_state_last_failed = 1u;
-    g_bms_state_last_attempt_32k = pm_get_32k_tick();
+    g_bms_state_last_attempt_32k = bms_time_now_32k();
     bms_error_raise(BMS_ERROR_EEPROM_STORE);
     return 0;
 }
@@ -203,7 +203,7 @@ void bms_state_store_update_and_log_if_changed(uint32_t soc, uint32_t dsg, uint3
     g_bms_state_pending.dsg = dsg;
     g_bms_state_pending.cycle = cycle;
     interval = g_bms_state_last_failed ? BMS_STORAGE_RETRY_INTERVAL_32K : BMS_STATE_SAVE_INTERVAL_32K;
-    if ((uint32_t)(pm_get_32k_tick() - g_bms_state_last_attempt_32k) < interval) return;
+    if ((uint32_t)(bms_time_now_32k() - g_bms_state_last_attempt_32k) < interval) return;
     (void)bms_state_save(&g_bms_state_pending);
 }
 

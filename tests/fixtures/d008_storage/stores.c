@@ -43,7 +43,6 @@ static int read_ok=1, erase_ok=1, config_read_fail;
 static int cut=-1, begin_ok=1, region_ok=1;
 static u8 flash[30u*4096u];
 static u8 backup[sizeof(flash)];
-static u32 pm_get_32k_tick(void){return now;}
 static void bms_error_raise(int e){(void)e;++errors;}
 static int bms_sw_protection_validate_params(const bms_protection_params_t *p){return p!=0;}
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t*p){memset(p,0,sizeof(*p));p->schema_version=1;p->afe_model=0x1124;p->cov_mv=3650;}

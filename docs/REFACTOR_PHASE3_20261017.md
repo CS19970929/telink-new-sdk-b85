@@ -55,6 +55,17 @@ ETA、OCV 展示字段和端点事件标志只在现有
 前后故障注入日志分别在树外 `step3-red.log`、`step3-green.log`。
 另通过 D008 寄存器场景、固定策略及四产品 feature 回归，日志在 `step3-related/`。
 
+## 第四步：State 存储使用业务时钟
+
+第四步 State 存储的五处时钟调用改用已有 `bms_time_now_32k()`，删除 SDK 头依赖。
+Telink 平台实现仍返回同一个 `pm_get_32k_tick()`；保存间隔、失败退避、调用次数、
+无符号差值和 pending/committed 语义不变。host 存储夹具删除 SDK 时钟替身，
+只保留业务时钟，从编译层避免公共存储重新依赖 SDK 符号。
+
+四产品 `storage_host_check.py` 和 `flash_quick_check.py` 全部通过，覆盖普通/packed
+布局、未提交缓存、失败退避、逐字节写入切断、重启、schema 3 和 tick 回绕。
+这是 RAM Flash 故障模型，不是物理 Flash 掉电验收；日志在树外 `step4-related/`。
+
 ## 验证与证据约定
 
 基线已在干净提交上完成四产品 development/production ELF/MAP/resources，
