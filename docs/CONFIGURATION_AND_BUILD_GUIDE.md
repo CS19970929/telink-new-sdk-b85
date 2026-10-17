@@ -10,7 +10,7 @@
 | 运行参数 | Config journal，启动加载到公共模块 | 已保存值优先；BIN 内勾选组和一次性标记决定覆盖 |
 | 运行状态 | State/Event journal 和 RAM | SOC、循环、事件由各模块维护 |
 
-修改头文件不是在线修改设备。同格式 schema 4 默认保留设备参数，显式选中更新组才采用本次固件默认；有效旧 CFG2/schema 3 整套恢复新默认，不迁移旧字段，也不比较客户编号。回刷和失败处理见 [OTA_PARAMETERS](OTA_PARAMETERS.md)。
+修改头文件不是在线修改设备。同格式 schema 4 默认保留设备参数；旧板需要按新板初始化时，明确使用出厂包或有线擦除业务区，不识别旧 CFG2，也不比较客户旧编号。回刷和失败处理见 [OTA_PARAMETERS](OTA_PARAMETERS.md)。
 
 ## 2. 修改位置
 
@@ -27,7 +27,7 @@
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms/products/bms_battery_defaults.h`、`bms_config_user_defaults()` | 均衡起始电压跟随类型；BUSINESS；能力禁用仍优先 |
 | 均衡通道数量上限、温度回差 | 各产品 `bms_product.h` 的 `BMS_BALANCE_*` 宏，见下节 | 编译期策略，不写入 Flash、不增加协议字段 |
 | SOC 配置/OCV 曲线 | 各产品 `dXXX_protection_config.h`；公共算法消费 `bms_soc_profile.h` | SOC，另评估 SOC_STATE；曲线点随固件生效 |
-| OTA 更新策略 | 各产品 dXXX_protection_config.h 的 OTA_SOURCE_POLICY 区域；公共 bms_update_policy.h 合成 | 五个更新开关、固定标识和输入摘要一起保存到源码；历史编号只保留只读地址 |
+| OTA 更新策略 | 各产品 dXXX_protection_config.h 的 OTA_SOURCE_POLICY 区域；公共 bms_update_policy.h 合成 | 六个更新开关（含独占恢复出厂）、固定标识和输入摘要一起保存到源码；历史编号只保留只读地址 |
 | 开关/ACC触发休眠 | 四项目各自 `bms_product.h` 的 `BMS_PRODUCT_SWITCH_SLEEP_ENABLE` | 默认1，设0只关闭开关休眠请求；不改变开关输入/唤醒/其他用途，不属于Flash参数；详见 [SH低功耗与开关策略](SH_LOW_POWER_FAILURE_HANDLING.md) |
 | 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |
 
@@ -157,3 +157,11 @@ D008 的 SCD 默认开启：200 A、请求延时 256 µs，200 µΩ 下对应 40
 ## 两档休眠与固定过放休眠（2026-10-13）
 
 Windows 客户版/内部版“业务参数 → 保护性休眠参数”可读写两档 mV、两档整数分钟；AFE异常固定30分钟，不可编辑；与其他低频参数一起保存在 Config/schema 4，在线修改只改变本组。另有过放未恢复固定 180 秒，不可编辑。默认值、先到期规则、协议及未执行验证见 [休眠配置](SLEEP_CONFIGURATION.md)。
+
+
+## 旧板重新烧录时的出厂初始化
+
+在 Ctrl+Shift+B 窗口单独选 `factory_reset`，保存生成一次性标识并构建，即可在新固件首次启动时
+依次恢复 Config/State/Event 出厂默认。也可在有线烧录前擦除全部业务 Flash 扇区，使板子按空白板初始化。
+**没有显式出厂选择且未擦除业务区时，旧格式不再自动恢复默认，而是保持输出禁止。**
+烧录分区说明见 `python bms_tools/bms.py flash-help`，不能擦 OTA/SDK 保留区。
