@@ -447,7 +447,7 @@ int main(int argc,char **argv){
    case 4:g_soc_input.current_fault=1;break;
    default:g_soc_input.pack_fault=1;break;
   }
-  for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor(&g_soc_input);
+  for(unsigned n=0;n<100;n++)soc_apply_idle_empty_anchor(&g_soc_input, soc_current_direction(0));
   assert(get_soc_real()==60 && !g_soc_runtime.empty_lock_ticks);
  }
  /* 应用实际读取路径：加热命令和均衡回读都不再阻止静置空电锚定。 */

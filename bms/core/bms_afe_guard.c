@@ -15,17 +15,7 @@
 #define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u
 
-/*
- * 失联安全分两层：MCU 立即撤销输出授权，
- * 在总线可能仍可用时尽力关闭一次；重复失败后停止全部 AFE 总线流量，
- * 让 AFE 自身硬件看门狗到期并最终关 MOS。DVC 量产 I2C 看门狗为 4 秒，
- * 等待 5 秒才探测恢复一次，避免失败重试持续喂狗；SH 量产约 32 秒，此处等待 35 秒。
- */
-#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
-#define BMS_AFE_FAILSAFE_WAIT_MS 5000u
-#else
-#define BMS_AFE_FAILSAFE_WAIT_MS 35000u
-#endif
+/* MCU 撤销请求后按所选后端的固定 watchdog 窗口保持总线静默。 */
 
 typedef struct
 {
@@ -70,53 +60,6 @@ uint8_t bms_afe_bus_access_allowed(void)
     return (s_guard.bus_silenced || s_guard.test_shutdown_hold) ? 0u : 1u;
 }
 
-#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
-#define AFE_INIT() dvc1124_backend_init()
-#define AFE_SAMPLE() dvc1124_backend_sample()
-#define AFE_PENDING() dvc1124_backend_sample_pending()
-#define AFE_TEST_SHUTDOWN() dvc1124_backend_enter_shutdown()
-#define AFE_APPLY() dvc1124_backend_apply_protection_config()
-#define AFE_FETS(c,d) dvc1124_backend_set_fets((c),(d))
-#define AFE_DIRECTION_ALLOW() dvc1124_backend_get_direction_allow_mask()
-#define AFE_OUTPUT(e) dvc1124_backend_set_output_enabled((e))
-#define AFE_AUX(m) dvc1124_backend_get_aux_measurements((m))
-#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
-#define AFE_FEATURE(s) dvc1124_backend_get_feature_snapshot((s))
-#endif
-#if BMS_FEATURE_HEATER_SUPPORTED
-#define AFE_CHARGER(p) dvc1124_backend_get_charge_source_present((p))
-#endif
-#if BMS_FEATURE_BALANCE_SUPPORTED
-#define AFE_BAL_SET(m) dvc1124_backend_set_balance_mask((m))
-#define AFE_BAL_GET(m) dvc1124_backend_get_balance_mask((m))
-#endif
-#else
-#define AFE_INIT() sh3673510_bms_afe_init()
-#define AFE_SAMPLE() sh3673510_bms_afe_sample()
-#define AFE_PENDING() sh3673510_bms_afe_sample_pending()
-#define AFE_SLEEP() sh3673510_bms_afe_sleep()
-#define AFE_APPLY() sh3673510_bms_afe_apply_protection_config()
-#define AFE_FETS(c,d) sh3673510_bms_afe_set_fets((c),(d))
-#define AFE_DIRECTION_ALLOW() sh3673510_bms_afe_get_direction_allow_mask()
-#define AFE_OUTPUT(e) ((void)(e)) /* SH 没有第二份授权；最终请求在公共门禁裁定。 */
-#define AFE_AUX(m) sh3673510_bms_afe_get_aux_measurements((m))
-#if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
-#define AFE_FEATURE(s) sh3673510_backend_get_feature_snapshot((s))
-#endif
-#if BMS_FEATURE_HEATER_SUPPORTED
-#define AFE_CHARGER(p) sh3673510_backend_get_charge_source_present((p))
-#endif
-#if BMS_FEATURE_BALANCE_SUPPORTED
-#define AFE_BAL_SET(m) sh3673510_backend_set_balance_mask((m))
-#define AFE_BAL_GET(m) sh3673510_backend_get_balance_mask((m))
-#endif
-#endif
-
-#if !BMS_FEATURE_BALANCE_SUPPORTED
-#define AFE_BAL_SET(m) ((m) == 0u ? 1u : 0u)
-#define AFE_BAL_GET(m) ((*(m) = 0u), 1u)
-#endif
-
 /* 设置本地输出禁止状态，撤销驱动授权。 */
 static void inhibit_local(void)
 {
@@ -137,8 +80,10 @@ static void best_effort_shutdown(void)
      * 这次软件关闭不是失联安全保证，只是总线可能仍接受命令时的最后尝试。
      * 总线已失效时，以硬件 AFE 看门狗关断为准。
      */
-    (void)AFE_BAL_SET(0u);
-    (void)AFE_FETS(0u, 0u);
+#if BMS_FEATURE_BALANCE_SUPPORTED
+    (void)bms_afe_driver_set_balance_mask(0u);
+#endif
+    (void)bms_afe_driver_set_fets(0u, 0u);
 }
 
 /* 进入硬件看门狗故障安全等待阶段并禁止总线访问。 */
@@ -157,7 +102,7 @@ static uint8_t service_failsafe_wait(void)
 
     /* 硬件看门狗计时期间绝不进行 AFE I2C/SPI 访问。 */
     if ((uint32_t)(bms_time_now_32k() - s_guard.failsafe_start_tick_32k) <
-        BMS_AFE_FAILSAFE_WAIT_MS * 32u)
+        bms_afe_driver_policy.failsafe_wait_32k)
     {
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
         return 1u;
@@ -170,11 +115,10 @@ static uint8_t service_failsafe_wait(void)
     s_guard.comm_inhibit = 1u;
 
     /* SH 原恢复路径重建软件保护滤波，DVC 保持原有恢复语义。 */
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    bms_sw_protection_init();
-#endif
-    AFE_INIT();
-    AFE_OUTPUT(s_guard.output_enabled);
+    if (bms_afe_driver_policy.reset_protection_before_init)
+        bms_sw_protection_init();
+    bms_afe_driver_init();
+    bms_afe_driver_set_output_enabled(s_guard.output_enabled);
 
     /* 后端初始化可清自身通信错误，但尚未完成资格确认，因此系统 AFE 故障仍保持置位。 */
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
@@ -193,7 +137,7 @@ static uint8_t apply_requested(void)
 
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
-    direction_allow_mask = AFE_DIRECTION_ALLOW();
+    direction_allow_mask = bms_afe_driver_get_direction_allow_mask();
     /*
      * 用户关闭意图始终保留。AFE 确认放电时临时放行充电 MOS，确认充电时
      * 临时放行放电 MOS；方向消失后下一次仲裁自动恢复用户关闭。
@@ -210,7 +154,7 @@ static uint8_t apply_requested(void)
         d = 0u;
     }
     /* 方向阻断由选定后端处理，保留同口放电及 DVC AUTO_DIODE 语义。 */
-    return AFE_FETS(c, d);
+    return bms_afe_driver_set_fets(c, d);
 }
 
 /* 记录无效样本并更新连续失败与输出隔离状态。 */
@@ -236,19 +180,19 @@ void bms_afe_init(void)
     memset(&s_guard, 0, sizeof(s_guard));
     s_guard.comm_inhibit = 1u;
     s_guard.config_inhibit = config_inhibit;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    bms_sw_protection_init();
-#endif
-    AFE_INIT();
+    if (bms_afe_driver_policy.reset_protection_before_init)
+        bms_sw_protection_init();
+    bms_afe_driver_init();
     /* 同进程重初始化不能仅靠 RAM 清零解除未验证配置；完整应用成功才解除。 */
-    if (config_inhibit && AFE_APPLY()) s_guard.config_inhibit = 0u;
-    AFE_OUTPUT(0u);
-    (void)AFE_FETS(0u, 0u);
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    bms_sw_protection_init();
-#endif
+    if (config_inhibit && bms_afe_driver_apply_protection_config()) s_guard.config_inhibit = 0u;
+    bms_afe_driver_set_output_enabled(0u);
+    (void)bms_afe_driver_set_fets(0u, 0u);
+    if (!bms_afe_driver_policy.reset_protection_before_init)
+        bms_sw_protection_init();
     bms_features_init();
-    (void)AFE_BAL_SET(0u);
+#if BMS_FEATURE_BALANCE_SUPPORTED
+    (void)bms_afe_driver_set_balance_mask(0u);
+#endif
     s_guard.comm_fault_latched = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
 }
 
@@ -261,16 +205,16 @@ void bms_afe_sample(void)
 
     /* 新样本确认恢复资格期间，保留真正已发生的通信故障。 */
     if (bms_error_get(BMS_ERROR_AFE1)) s_guard.comm_fault_latched = 1u;
-    AFE_SAMPLE();
-    if (!AFE_AUX(&m))
+    bms_afe_driver_sample();
+    if (!bms_afe_driver_get_aux_measurements(&m))
     {
-        if (AFE_PENDING()) return;
+        if (bms_afe_driver_sample_pending()) return;
         note_invalid();
         return;
     }
 
     s_guard.comm_failures = 0u;
-    if (!AFE_PENDING())
+    if (!bms_afe_driver_sample_pending())
     {
         if (s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
             ++s_guard.valid_snapshot_streak;
@@ -289,23 +233,26 @@ void bms_afe_sample(void)
     }
 
     /* 仅合格新样本推进加热/均衡资格；缓存等待不能累计确认次数。 */
-    if (!s_guard.comm_inhibit && !AFE_PENDING()) bms_features_service();
+    if (!s_guard.comm_inhibit && !bms_afe_driver_sample_pending()) bms_features_service();
     if (!apply_requested()) note_invalid();
 }
 
 /* 产品低功耗模式固定：DVC 仅用 Shutdown，SH 仅用 Sleep。 */
 uint8_t bms_afe_sleep(void)
 {
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    return bms_afe_enter_shutdown();
-#else
-    if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;
+    if (!bms_afe_bus_access_allowed() ||
+        (bms_afe_driver_policy.sleep_holds_bus && !runtime_access_allowed())) return 0u;
     inhibit_local();
-    /* 本地禁止会主动置 AFE1；此处依据实际命令应答。 */
-    if (!AFE_SLEEP()) { note_invalid(); return 0u; }
+    if (bms_afe_driver_policy.sleep_holds_bus) {
+#if BMS_FEATURE_BALANCE_SUPPORTED
+        if (!bms_afe_driver_set_balance_mask(0u)) { note_invalid(); return 0u; }
+#endif
+        if (!bms_afe_driver_set_fets(0u, 0u)) { note_invalid(); return 0u; }
+    }
+    if (!bms_afe_driver_sleep()) { note_invalid(); return 0u; }
+    if (bms_afe_driver_policy.sleep_holds_bus) s_guard.test_shutdown_hold = 1u;
     s_guard.comm_failures = 0u;
     return 1u;
-#endif
 }
 
 /* 安全门禁允许时应用独立硬件保护配置。 */
@@ -317,7 +264,7 @@ uint8_t bms_afe_apply_protection_config(void)
         (s_guard.comm_inhibit && !s_guard.config_inhibit)) return 0u;
     s_guard.config_inhibit = 1u;
     s_guard.valid_snapshot_streak = 0u;
-    ok = AFE_APPLY();
+    ok = bms_afe_driver_apply_protection_config();
     if (ok) s_guard.config_inhibit = 0u;
     else note_invalid();
     return ok;
@@ -429,7 +376,7 @@ void bms_afe_set_output_enabled(uint8_t e)
     s_guard.output_enabled = e ? 1u : 0u;
 
     if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold)
-        AFE_OUTPUT(s_guard.output_enabled);
+        bms_afe_driver_set_output_enabled(s_guard.output_enabled);
 
     if (!s_guard.output_enabled)
     {
@@ -448,7 +395,7 @@ void bms_afe_set_output_enabled(uint8_t e)
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 {
     if (!m) return 0u;
-    if (!runtime_access_allowed() || !AFE_AUX(m))
+    if (!runtime_access_allowed() || !bms_afe_driver_get_aux_measurements(m))
     {
         memset(m, 0, sizeof(*m));
         return 0u;
@@ -461,7 +408,7 @@ uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s)
 {
 #if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     if (!s || !runtime_access_allowed()) return 0u;
-    return AFE_FEATURE(s);
+    return bms_afe_driver_get_feature_snapshot(s);
 #else
     if (s) memset(s, 0, sizeof(*s));
     return 0u;
@@ -473,7 +420,7 @@ uint8_t bms_afe_get_charge_source_present(uint8_t *p)
 {
 #if BMS_FEATURE_HEATER_SUPPORTED
     if (!p || !runtime_access_allowed()) return 0u;
-    return AFE_CHARGER(p);
+    return bms_afe_driver_get_charge_source_present(p);
 #else
     if (p) *p = 0u;
     return 0u;
@@ -486,7 +433,7 @@ uint8_t bms_afe_set_balance_mask(uint32_t m)
 #if BMS_FEATURE_BALANCE_SUPPORTED
     /* 即使请求 OFF，总线无法访问也不能声称已经物理确认关闭。 */
     if (!runtime_access_allowed()) return 0u;
-    return AFE_BAL_SET(m);
+    return bms_afe_driver_set_balance_mask(m);
 #else
     return (m == 0u) ? 1u : 0u;
 #endif
@@ -502,48 +449,14 @@ uint8_t bms_afe_get_balance_mask(uint32_t *m)
         *m = 0u;
         return 0u;
     }
-    return AFE_BAL_GET(m);
+    return bms_afe_driver_get_balance_mask(m);
 #else
     *m = 0u;
     return 1u;
 #endif
 }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-/* 撤销输出授权并执行后端 shutdown。 */
-uint8_t bms_afe_enter_shutdown(void)
-{
-    if (!runtime_access_allowed())
-        return 0u;
-
-    inhibit_local();
-    /*
-     * 必须传播每个关闭/回读失败，由调用方决定后续动作；
-     * ACC、命令及保护性休眠在失败后仍由 PM 完成 MCU 深睡或断电。
-     */
-    if (!AFE_BAL_SET(0u) || !AFE_FETS(0u, 0u))
-    {
-        note_invalid();
-        return 0u;
-    }
-    if (!AFE_TEST_SHUTDOWN())
-    {
-        note_invalid();
-        return 0u;
-    }
-
-    s_guard.test_shutdown_hold = 1u;
-    s_guard.comm_failures = 0u;
-    return 1u;
-}
-
 #if defined(BMS_HOST_TEST) && BMS_HOST_TEST
-/* 测试构建中发起 AFE shutdown 并记录结果。 */
-uint8_t bms_afe_test_enter_shutdown(void)
-{
-    return bms_afe_enter_shutdown();
-}
-
 /* 测试构建中执行 AFE 唤醒并重新获取资格。 */
 uint8_t bms_afe_test_wake(void)
 {
@@ -560,37 +473,16 @@ uint8_t bms_afe_test_wake(void)
      * 正常后端初始化负责完整 shutdown 唤醒/复位、持久硬件配置、编译期策略与回读；
      * 公共门禁确认三帧新样本前保持请求阻断。
      */
-    AFE_INIT();
-    AFE_OUTPUT(s_guard.output_enabled);
+    bms_afe_driver_init();
+    bms_afe_driver_set_output_enabled(s_guard.output_enabled);
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
     return 1u;
 }
 #endif
 
-#endif
-
-#if BMS_SERVICE_DIAG_ENABLE && (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
-/* 从选定后端刷新诊断，遵守总线静默门禁。 */
-void bms_afe_diag_poll(void)
+#if BMS_SERVICE_DIAG_ENABLE
+uint8_t bms_afe_shutdown_held(void)
 {
-    uint32_t c = bms_features_charge_direction_blocked() ? DIAG_BLOCK_HEATER : 0u;
-    uint32_t d = 0u;
-    uint32_t common = 0u;
-    uint16_t params = bms_diag_cached_word(144u);
-    if (!(params & 1u)) common |= DIAG_BLOCK_PARAMS;
-    if (!(params & 2u)) common |= DIAG_BLOCK_UPGRADE;
-    if (!s_guard.output_enabled) common |= DIAG_BLOCK_OUTPUT;
-    if (s_guard.comm_inhibit || s_guard.bus_silenced) common |= DIAG_BLOCK_COMM;
-    if (s_guard.test_shutdown_hold) common |= DIAG_BLOCK_SHUTDOWN;
-    c |= bms_diag_cached_word(146u); d |= bms_diag_cached_word(147u);
-    if (s_remote_off_mask & 1u) c |= DIAG_BLOCK_REMOTE;
-    if (s_remote_off_mask & 2u) d |= DIAG_BLOCK_REMOTE;
-    bms_diag_mos((uint16_t)(s_guard.requested_charge_on | (s_guard.requested_discharge_on << 1)), c | common, d | common);
-    if (common & (DIAG_BLOCK_COMM | DIAG_BLOCK_SHUTDOWN)) {
-        bms_afe_publish_fet_status(0u, 0u);
-        bms_diag_command((uint8_t)bms_diag_cached_word(130u), 0u);
-    }
-    bms_diag_mos_capture();
+    return s_guard.test_shutdown_hold;
 }
-
 #endif

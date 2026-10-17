@@ -146,45 +146,63 @@ balance_fixture = r'''
 #include <stdint.h>
 #include <assert.h>
 #define DVC_BALANCE_REFRESH_INTERVAL_US 100u
+#define DVC1124_REG_BAL_24_17 0u
 static uint32_t s_balance_last_refresh_tick,now,hw;
 static struct {uint16_t balance_bits_low,balance_bits_high;} g_bms_report;
 static unsigned writes,reads;
-static uint8_t cells=24,read_ok=1,write_ok=1;
+static uint8_t cells=24,read_ok=1,write_ok=1,verify_then_change;
 static uint32_t dvc_valid_cell_mask(void){return (1u<<cells)-1u;}
 static uint8_t dvc_refresh_balance_state(void){
  ++reads;if(!read_ok)return 0;
  g_bms_report.balance_bits_low=(uint16_t)(hw&dvc_valid_cell_mask());
  g_bms_report.balance_bits_high=(uint16_t)((hw&dvc_valid_cell_mask())>>16);return 1;
 }
-static uint8_t dvc_write_balance_hw(uint32_t mask){++writes;if(!write_ok)return 0;hw=mask;return dvc_refresh_balance_state();}
+/* verified 事务成功后，peer 在末次刷新前改变硬件掩码。 */
+static uint8_t dvc_write_verified_block(uint8_t reg,const uint8_t *data,uint8_t len){
+ (void)reg;assert(len==3u);++writes;if(!write_ok)return 0;
+ hw=((uint32_t)data[0]<<16)|((uint32_t)data[1]<<8)|data[2];
+ if(verify_then_change)hw^=1u;
+ return 1;
+}
 static uint32_t clock_time(void){return now;}
 static int clock_time_exceed(uint32_t tick,uint32_t us){return (uint32_t)(now-tick)>us;}
 '''
-balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'uint8_t dvc1124_backend_set_balance_mask(')
-balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'uint8_t dvc1124_backend_get_balance_mask(')
+balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'static uint8_t dvc_write_balance_hw(')
+balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'uint8_t bms_afe_driver_set_balance_mask(')
+balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'uint8_t bms_afe_driver_get_balance_mask(')
 balance_fixture += r'''
 int main(void){
  uint32_t mask=123u;
- assert(!dvc1124_backend_get_balance_mask(0)&&reads==0);
- assert(dvc1124_backend_set_balance_mask(0)&&writes==0);
- now=5;assert(dvc1124_backend_set_balance_mask(0x810001u)&&writes==1);
- assert(dvc1124_backend_get_balance_mask(&mask)&&mask==0x810001u);
- assert(dvc1124_backend_set_balance_mask(mask)&&writes==1);
- hw=0x010001u;assert(dvc1124_backend_set_balance_mask(mask)&&writes==2); /* 缺位 */
- now+=100;assert(dvc1124_backend_set_balance_mask(mask)&&writes==2); /* 原严格 > */
- now++;assert(dvc1124_backend_set_balance_mask(mask)&&writes==3); /* 到期 */
- write_ok=0;assert(!dvc1124_backend_set_balance_mask(0)&&hw==mask);
+ assert(!bms_afe_driver_get_balance_mask(0)&&reads==0);
+ assert(bms_afe_driver_set_balance_mask(0)&&writes==0);
+ now=5;assert(bms_afe_driver_set_balance_mask(0x810001u)&&writes==1);
+ assert(bms_afe_driver_get_balance_mask(&mask)&&mask==0x810001u);
+ assert(bms_afe_driver_set_balance_mask(mask)&&writes==1);
+ hw=0x010001u;assert(bms_afe_driver_set_balance_mask(mask)&&writes==2); /* 缺位 */
+ now+=100;assert(bms_afe_driver_set_balance_mask(mask)&&writes==2); /* 原严格 > */
+ now++;assert(bms_afe_driver_set_balance_mask(mask)&&writes==3); /* 到期 */
+ write_ok=0;assert(!bms_afe_driver_set_balance_mask(0)&&hw==mask);
  assert(s_balance_last_refresh_tick==now);
- write_ok=1;assert(dvc1124_backend_set_balance_mask(0)&&!hw&&writes==5);
- hw=2;assert(dvc1124_backend_set_balance_mask(0)&&!hw&&writes==6); /* OFF残留 */
- read_ok=0;mask=123;assert(!dvc1124_backend_set_balance_mask(1)&&writes==6);
- assert(!dvc1124_backend_get_balance_mask(&mask)&&mask==123);
- hw=2;assert(!dvc1124_backend_set_balance_mask(0)&&!hw&&writes==7); /* 读失败仍尝试OFF，失败不确认 */
- read_ok=1;cells=16;assert(dvc1124_backend_set_balance_mask(0xff010001u)&&hw==1u);
- now=UINT32_MAX-50u;hw=0;assert(dvc1124_backend_set_balance_mask(5));
- now=49;assert(dvc1124_backend_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
- now=50;write_ok=0;assert(!dvc1124_backend_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
- write_ok=1;assert(dvc1124_backend_set_balance_mask(5)&&s_balance_last_refresh_tick==50);
+ write_ok=1;assert(bms_afe_driver_set_balance_mask(0)&&!hw&&writes==5);
+ hw=2;assert(bms_afe_driver_set_balance_mask(0)&&!hw&&writes==6); /* OFF残留 */
+ read_ok=0;mask=123;assert(!bms_afe_driver_set_balance_mask(1)&&writes==6);
+ assert(!bms_afe_driver_get_balance_mask(&mask)&&mask==123);
+ hw=2;assert(!bms_afe_driver_set_balance_mask(0)&&!hw&&writes==7); /* 读失败仍尝试OFF，失败不确认 */
+ read_ok=1;cells=16;assert(bms_afe_driver_set_balance_mask(0xff010001u)&&hw==1u);
+ now=UINT32_MAX-50u;hw=0;assert(bms_afe_driver_set_balance_mask(5));
+ now=49;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
+ now=50;write_ok=0;assert(!bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_tick==UINT32_MAX-50u);
+ write_ok=1;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_tick==50);
+ /* 前一次写后验证匹配不能掩盖最终刷新不一致；不得续期或发布请求。 */
+ verify_then_change=1;now=60;hw=0;
+ unsigned before_reads=reads;
+ assert(!bms_afe_driver_set_balance_mask(5));
+ assert(g_bms_report.balance_bits_low==4u && s_balance_last_refresh_tick==50u);
+ assert(reads==before_reads+2u); /* 初始读取和已有最终刷新，没有新增读取 */
+ assert(!bms_afe_driver_set_balance_mask(0));
+ assert(g_bms_report.balance_bits_low==1u && s_balance_last_refresh_tick==50u);
+ verify_then_change=0;
+ assert(bms_afe_driver_set_balance_mask(0) && g_bms_report.balance_bits_low==0u);
  return 0;
 }
 '''

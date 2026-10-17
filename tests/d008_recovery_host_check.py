@@ -16,11 +16,11 @@ def check_d008_current_recovery_host_check():
 
     state = '#include "bms_timing.h"\n' + s[s.index('#define DVC_LOAD_RELEASE_CONFIRM_TICKS'):s.index('static uint16_t dvc_get_configured_temperature')]
     fixture = (ROOT / 'tests/fixtures/d008_current_recovery.c').read_text()
-    code = fixture.replace('/* PRODUCTION */', state + function('dvc_recover_current_faults') + function('dvc1124_backend_set_fets'))
+    code = fixture.replace('/* PRODUCTION */', state + function('dvc_recover_current_faults') + function('bms_afe_driver_set_fets'))
     # Failed samples must break PB1 qualification, before returning from acquisition.
-    acquisition = s[s.index('void dvc1124_backend_sample('):]
+    acquisition = s[s.index('void bms_afe_driver_sample('):]
     assert acquisition.index('dvc_observe_current_recovery(&snapshot') < acquisition.index('if (!snapshot.valid)')
-    assert 'if (dvc1124_backend_sample_pending()) return;' not in acquisition
+    assert 'if (bms_afe_driver_sample_pending()) return;' not in acquisition
     assert s.index('bms_sw_protection_update_groups(&sw') < s.index('alarm = dvc_recover_current_faults(&snapshot')
     with tempfile.TemporaryDirectory(prefix='d008-current-') as tmp:
         c = Path(tmp) / 'check.c'; c.write_text(code)

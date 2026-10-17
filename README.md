@@ -14,6 +14,8 @@ D008 无放电启动 SCD、CBC 与三级放电过流的现场定位及配置顺�
 
 当前专题与阅读顺序见 [文档导航](docs/README.md)。
 
+第二阶段的驱动接口、重复事务与 SOC 状态裁决见 [2026-10-17 重构记录](docs/REFACTOR_PHASE2_20261017.md)。
+
 **新员工从 [交接与上手指南](docs/ONBOARDING.md) 开始。** 本 README 优先列出当前系统；固定提交报告与 generated evidence 见末尾历史入口。
 
 AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边界见 [AFE修复记录](docs/AFE_AUDIT_REMEDIATION.md)。

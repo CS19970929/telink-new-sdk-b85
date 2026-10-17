@@ -52,7 +52,7 @@ static uint8_t test_output_enabled, test_requested_charge_on, test_requested_dis
 /* PRODUCTION */
 static uint8_t apply_granted_fets(void) {
     uint8_t allowed = test_output_enabled && guard_qualified;
-    return sh3673510_bms_afe_set_fets(allowed ? test_requested_charge_on : 0u,
+    return bms_afe_driver_set_fets(allowed ? test_requested_charge_on : 0u,
                                      allowed ? test_requested_discharge_on : 0u);
 }
 static void set_test_output_enabled(uint8_t enabled) {
@@ -149,7 +149,7 @@ static void recovery_continuity(void) {
     for (id = 0; id < HW_REC_COUNT; ++id)
         CHECK(!hw_recovery_stable((sh3510_hw_recovery_id_t)id, 1, 200));
     s_short_release_count = 9; s_short_clear_pending = 1; s_short_latched = 1;
-    sh3673510_bms_afe_sleep();
+    bms_afe_driver_sleep();
     CHECK(s_short_release_count == 0 && !s_short_clear_pending && s_short_latched);
 }
 static void fet_cache(void) {

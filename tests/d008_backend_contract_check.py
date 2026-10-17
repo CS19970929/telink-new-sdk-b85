@@ -196,7 +196,7 @@ def check_dvc1124_config_quick_check():
             self.assertIn("bms_afe_hw_profile_get(&verify)", self.hw_profile)
 
         def test_backend_runtime_apply_only_delegates_protection(self):
-            fn = self.backend.split("uint8_t dvc1124_backend_apply_protection_config", 1)[1]
+            fn = self.backend.split("uint8_t bms_afe_driver_apply_protection_config", 1)[1]
             self.assertIn("dvc_apply_protection_from_params()", fn)
             self.assertNotIn("ConfigStore", fn)
 
@@ -251,8 +251,8 @@ def check_d008_common_port_fet_contract_check():
 
         def test_one_sided_protection_uses_auto_diode_without_hard_off_transition(self):
             bms = read("dvc1124_bms.c")
-            policy = bms.split("uint8_t dvc1124_backend_set_fets", 1)[1]
-            policy = policy.split("void dvc1124_backend_sample", 1)[0]
+            policy = bms.split("uint8_t bms_afe_driver_set_fets", 1)[1]
+            policy = policy.split("void bms_afe_driver_sample", 1)[0]
             self.assertIn("charge_blocked && !discharge_blocked", policy)
             self.assertIn("discharge_blocked && !charge_blocked", policy)
             self.assertGreaterEqual(policy.count("DVC1124_FET_DRIVE_AUTO_DIODE"), 2)
@@ -268,19 +268,19 @@ def check_d008_common_port_fet_contract_check():
             self.assertIn("!bms_protection_params_valid()", guard)
             apply = guard.split("static uint8_t apply_requested(void)", 1)[1].split("static void note_invalid(void)", 1)[0]
             self.assertNotIn("bms_features_charge_direction_blocked()", apply)
-            diag = guard.split("void bms_afe_diag_poll(void)", 1)[1]
+            diag = bms.split("void bms_afe_diag_poll(void)", 1)[1]
             self.assertIn("bms_features_charge_direction_blocked()", diag)
             charge = bms.split("static uint8_t dvc_charge_blocked", 1)[1].split("static uint8_t dvc_discharge_blocked", 1)[0]
             self.assertIn("bms_features_charge_direction_blocked()", charge)
-            policy = bms.split("uint8_t dvc1124_backend_set_fets", 1)[1]
-            policy = policy.split("void dvc1124_backend_sample", 1)[0]
+            policy = bms.split("uint8_t bms_afe_driver_set_fets", 1)[1]
+            policy = policy.split("void bms_afe_driver_sample", 1)[0]
             self.assertIn("charge_blocked && !discharge_blocked", policy)
             self.assertIn("DVC1124_FET_DRIVE_AUTO_DIODE", policy)
 
         def test_steady_auto_diode_mode_does_not_rewrite_r81_every_200ms(self):
             bms = read("dvc1124_bms.c")
             helper = bms.split("static uint8_t dvc_set_fet_modes_if_changed", 1)[1]
-            helper = helper.split("uint8_t dvc1124_backend_set_fets", 1)[0]
+            helper = helper.split("uint8_t bms_afe_driver_set_fets", 1)[0]
             self.assertIn("DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL", helper)
             self.assertIn("DVC1124_FET_CHGC_MASK", helper)
             self.assertIn("DVC1124_FET_DSGC_MASK", helper)
@@ -295,7 +295,7 @@ def check_d008_common_port_fet_contract_check():
         def test_single_r81_write_encodes_final_chg_and_dsg_modes(self):
             bms = read("dvc1124_bms.c")
             helper = bms.split("static uint8_t dvc_set_fet_modes_if_changed", 1)[1]
-            helper = helper.split("uint8_t dvc1124_backend_set_fets", 1)[0]
+            helper = helper.split("uint8_t bms_afe_driver_set_fets", 1)[0]
             self.assertIn("DVC1124_FIELD_PREP(DVC1124_FET_CHGC_MASK", helper)
             self.assertIn("DVC1124_FIELD_PREP(DVC1124_FET_DSGC_MASK", helper)
             self.assertNotIn("DVC1124_WriteRegisterFieldSafe", helper)
@@ -306,8 +306,8 @@ def check_d008_common_port_fet_contract_check():
 
             # When communication is healthy, an explicit 0/0 request still maps to
             # the true DVC OFF/OFF command.
-            policy = bms.split("uint8_t dvc1124_backend_set_fets", 1)[1]
-            policy = policy.split("void dvc1124_backend_sample", 1)[0]
+            policy = bms.split("uint8_t bms_afe_driver_set_fets", 1)[1]
+            policy = policy.split("void bms_afe_driver_sample", 1)[0]
             self.assertIn("dvc1124_fet_drive_t charge_mode = DVC1124_FET_DRIVE_OFF", policy)
             self.assertIn("dvc1124_fet_drive_t discharge_mode = DVC1124_FET_DRIVE_OFF", policy)
             self.assertIn("return (!s_guard.comm_inhibit && !s_guard.bus_silenced &&", guard)

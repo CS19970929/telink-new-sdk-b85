@@ -335,7 +335,7 @@ static uint8_t dvc_boot_zero_force_all_fets_off(void)
                                         DVC1124_FET_DSGC_MASK |
                                         DVC1124_FET_CHGC_MASK);
 
-    dvc1124_backend_set_output_enabled(0u);
+    bms_afe_driver_set_output_enabled(0u);
     if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &current, 1u)) return 0u;
     target = (uint8_t)(current & (uint8_t)~path_mask);
     return DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
@@ -958,7 +958,7 @@ static void dvc_note_comm_result(uint8_t ok)
 }
 
 /* 应用并验证 DVC 硬件保护参数。 */
-uint8_t dvc1124_backend_apply_protection_config(void)
+uint8_t bms_afe_driver_apply_protection_config(void)
 {
     uint8_t ok = dvc_apply_protection_from_params();
 
@@ -1187,7 +1187,7 @@ static uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
 }
 
 /* 设置 DVC 输出授权并同步 MOS 控制。 */
-void dvc1124_backend_set_output_enabled(uint8_t enabled)
+void bms_afe_driver_set_output_enabled(uint8_t enabled)
 {
     s_output_enabled = enabled ? 1u : 0u;
     if (!s_output_enabled)
@@ -1228,12 +1228,15 @@ static uint8_t dvc_write_balance_hw(uint32_t cell_mask)
     data[1] = (uint8_t)(cell_mask >> 8);
     data[2] = (uint8_t)cell_mask;
     if (!dvc_write_verified_block(DVC1124_REG_BAL_24_17, data, 3u)) return 0u;
-    return dvc_refresh_balance_state();
+    if (!dvc_refresh_balance_state()) return 0u;
+    /* 写后验证与最终刷新之间硬件状态仍可能改变，成功必须对应最新回读。 */
+    return ((((uint32_t)g_bms_report.balance_bits_high << 16) |
+             g_bms_report.balance_bits_low) == cell_mask) ? 1u : 0u;
 }
 
 /* 请求由公共策略拥有；驱动只保存成功续期时间和实际回读。
  * 同样请求无需镜像缓存，回读不符或到期才写，OFF 也须成功确认。 */
-uint8_t dvc1124_backend_set_balance_mask(uint32_t cell_mask)
+uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask)
 {
     uint32_t actual;
     cell_mask &= dvc_valid_cell_mask();
@@ -1255,7 +1258,7 @@ uint8_t dvc1124_backend_set_balance_mask(uint32_t cell_mask)
 }
 
 /* 只有成功回读才能向调用者提供有效均衡状态。 */
-uint8_t dvc1124_backend_get_balance_mask(uint32_t *cell_mask)
+uint8_t bms_afe_driver_get_balance_mask(uint32_t *cell_mask)
 {
     if (cell_mask == 0 || !dvc_refresh_balance_state()) return 0u;
     *cell_mask = ((uint32_t)g_bms_report.balance_bits_high << 16) |
@@ -1588,7 +1591,7 @@ void DVC1124_App_AFEGet(void)
 }
 
 /* 有效缓存等待新的转换完成，不计为新样本，也不伪造通信故障。 */
-uint8_t dvc1124_backend_sample_pending(void)
+uint8_t bms_afe_driver_sample_pending(void)
 {
     return s_sample_pending;
 }
@@ -1749,7 +1752,7 @@ uint8_t DVC1124_ApplyProjectOperatingConfig(void)
 }
 
 /* 直接查询唯一有效 CC2 缓存；等待新转换时保留方向，失效或复位后返回零。 */
-uint8_t dvc1124_backend_get_direction_allow_mask(void)
+uint8_t bms_afe_driver_get_direction_allow_mask(void)
 {
     if (!s_snapshot.valid) return 0u;
     if (s_snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)

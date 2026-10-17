@@ -95,7 +95,7 @@ for pin in (
 
 require(backend, "BMS_AFE_BACKEND_SH3673510")
 require(backend, "#define BMS_AFE_BACKEND 2")
-require(afe, "sh3673510_bms_afe_init")
+require(afe, "bms_afe_driver_init")
 require(afe, "int32_t current_ma;")
 require(afe, "uint32_t sample_tick_32k;")
 require(conf, "#define BMS_PRODUCT_WIRE_ID 2u")
@@ -205,7 +205,7 @@ require(bms, "g_bms_report.temperature_max_x10 = bat_temp_max;")
 # 共用 MOS 请求的实际 CHG/DSG 输出由 bms_simplification_host_check 执行验证。
 if "dsg_target = d011_switch_is_on()" in app:
     raise AssertionError("D011 common-port DSG must not be gated by PA0/SW1")
-fet_start = bms.find("uint8_t sh3673510_bms_afe_set_fets")
+fet_start = bms.find("uint8_t bms_afe_driver_set_fets")
 fet_end = bms.find("static void publish_hw_status", fet_start)
 if fet_start < 0 or fet_end <= fet_start:
     raise AssertionError("missing FET arbitration function")
@@ -300,11 +300,11 @@ require_count(modbus, "static u16 read_afe_actual_reg(u16 reg);")
 require_count(control, "void sh3673510_board_force_heater_fuse_safe(void)\n{")
 require_count(control, "uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)\n{")
 # 通信重初始化不能清短路锁存，检查初始化函数本身而非注释文字。
-init_text = bms.split("void sh3673510_bms_afe_init(void)", 1)[1].split(
-    "void sh3673510_bms_afe_sample(void)", 1)[0]
+init_text = bms.split("void bms_afe_driver_init(void)", 1)[1].split(
+    "void bms_afe_driver_sample(void)", 1)[0]
 if re.search(r"\bs_short_latched\s*=", init_text):
     raise AssertionError("AFE communication reinitialization clears short latch")
-sleep_text = bms[bms.index("uint8_t sh3673510_bms_afe_sleep(void)"):]
+sleep_text = bms[bms.index("uint8_t bms_afe_driver_sleep(void)"):]
 require(sleep_text, "s_snapshot_valid = 0u;")
 require(sleep_text, "if (!sh3673510_control_sleep())")
 require_count(bms, "s_short_latched = 0u;", 2)
@@ -347,13 +347,13 @@ for forbidden in ("static void apply_heater", "static void apply_balance",
     if forbidden in bms:
         raise AssertionError(f"SH backend owns common policy: {forbidden}")
 
-sample_start = bms.find("void sh3673510_bms_afe_sample(void)")
-sample_end = bms.find("uint8_t sh3673510_bms_afe_apply_protection_config", sample_start)
+sample_start = bms.find("void bms_afe_driver_sample(void)")
+sample_end = bms.find("uint8_t bms_afe_driver_apply_protection_config", sample_start)
 if sample_start < 0 or sample_end <= sample_start:
     raise AssertionError("missing SH sample function")
 sample_text = bms[sample_start:sample_end]
 for forbidden in ("apply_heater();", "apply_balance();",
-                  "sh3673510_bms_afe_set_fets(", "sh3673510_control_init()"):
+                  "bms_afe_driver_set_fets(", "sh3673510_control_init()"):
     if forbidden in sample_text:
         raise AssertionError(f"SH sample bypasses common owner: {forbidden}")
 

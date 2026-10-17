@@ -335,23 +335,6 @@ static uint8_t dvc_discharge_blocked(void)
             bms_error_get(BMS_ERROR_TEMP_BREAK)) ? 1u : 0u;
 }
 
-/* 按 NTC 电阻反算遗留接口所需的 ADC 毫伏值。 */
-static uint16_t dvc_legacy_adc_mv(uint32_t resistance_ohm)
-{
-    uint32_t mv;
-
-    if (resistance_ohm == 0u) return 0u;
-    mv = (3300u * resistance_ohm) / (resistance_ohm + 10000u);
-    return (uint16_t)((mv > 3299u) ? 3299u : mv);
-}
-
-/* 将电阻转换为遗留接口的 100 Ω 单位。 */
-static uint32_t dvc_legacy_resistance_100ohm(uint16_t adc_mv)
-{
-    if (adc_mv >= 3300u) adc_mv = 3299u;
-    return (100u * adc_mv) / (3300u - adc_mv);
-}
-
 /*
  * R81 CHGC/DSGC 是模式命令，CHGF/DSGF 是驱动输出状态。AUTO_DIODE 命令可仍为 10b，
  * 而 DVC 在反向电流超过 BDPT 后自主恢复驱动。不得每 200 ms 重写相同 R81 模式，
@@ -400,7 +383,7 @@ static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
 }
 
 /* 按共口保护与方向条件应用充放电 FET 状态。 */
-uint8_t dvc1124_backend_set_fets(uint8_t charge_on,
+uint8_t bms_afe_driver_set_fets(uint8_t charge_on,
                                               uint8_t discharge_on)
 {
     uint8_t charge_blocked = dvc_charge_blocked();
@@ -450,7 +433,7 @@ uint8_t dvc1124_backend_set_fets(uint8_t charge_on,
 }
 
 /* 采样后发布测量、合并保护并更新 DVC FET 仲裁。 */
-void dvc1124_backend_sample(void)
+void bms_afe_driver_sample(void)
 {
     dvc1124_snapshot_t snapshot;
     bms_sw_protection_inputs_t sw;
@@ -536,10 +519,9 @@ void dvc1124_backend_sample(void)
 }
 
 /* 取得后端辅助测量与有效性。 */
-uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measurements)
+uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *measurements)
 {
     dvc1124_snapshot_t snapshot;
-    uint32_t pack_adc_mv;
 
     if (measurements == NULL) return 0u;
     memset(measurements, 0, sizeof(*measurements));
@@ -547,23 +529,6 @@ uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measure
     DVC1124_GetSnapshot(&snapshot);
     if (!snapshot.valid) return 0u;
 
-    /*
-     * 仅兼容旧诊断表示。电池主通道为 GP2，保护使用 GP2/GP3，
-     * MOS 诊断为真实功率 MOS 的 GP4。
-     */
-    measurements->battery_ntc_mv =
-        dvc_legacy_adc_mv(snapshot.ntc_res_ohm[DVC1124_DEFAULT_BATTERY_NTC_GP - 1u]);
-    measurements->battery_ntc_100ohm =
-        dvc_legacy_resistance_100ohm(measurements->battery_ntc_mv);
-    measurements->mos_ntc_mv =
-        dvc_legacy_adc_mv(snapshot.ntc_res_ohm[DVC1124_DEFAULT_MOS_NTC_GP - 1u]);
-    measurements->mos_ntc_100ohm =
-        dvc_legacy_resistance_100ohm(measurements->mos_ntc_mv);
-
-    /* 仅兼容旧诊断表示，此处不使用 MCU ADC。 */
-    pack_adc_mv = (snapshot.vtop_mv * 15u) / 485u;
-    if (pack_adc_mv > 3299u) pack_adc_mv = 3299u;
-    measurements->pack_voltage_mv = (pack_adc_mv * 485u) / 15u;
     measurements->raw_current_ma = snapshot.raw_current_ma;
     measurements->current_ma = snapshot.current_ma;
     measurements->sample_tick_32k = snapshot.sample_tick_32k;
@@ -571,7 +536,7 @@ uint8_t dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t *measure
 }
 
 /* 取得均衡和温度策略需要的后端快照。 */
-uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
+uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
     dvc1124_snapshot_t s;
     dvc1124_config_t cfg;
@@ -612,7 +577,7 @@ uint8_t dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 }
 
 /* 返回后端可确认的充电源存在状态。 */
-uint8_t dvc1124_backend_get_charge_source_present(uint8_t *present)
+uint8_t bms_afe_driver_get_charge_source_present(uint8_t *present)
 {
     /*
      * 尚无批准的充电器存在信号。PB1 是负载检测；独立产品策略确认前，
@@ -621,3 +586,35 @@ uint8_t dvc1124_backend_get_charge_source_present(uint8_t *present)
     if (present != 0) *present = 0u;
     return 0u;
 }
+
+#if BMS_SERVICE_DIAG_ENABLE
+
+/* 从选定后端刷新诊断，遵守总线静默门禁。 */
+void bms_afe_diag_poll(void)
+{
+    uint8_t charge, discharge;
+    uint16_t guard = bms_afe_get_guard_diagnostic_bits();
+    uint32_t c = bms_features_charge_direction_blocked() ? DIAG_BLOCK_HEATER : 0u;
+    uint32_t d = 0u;
+    uint32_t common = 0u;
+    uint16_t params = bms_diag_cached_word(144u);
+    if (!(params & 1u)) common |= DIAG_BLOCK_PARAMS;
+    if (!(params & 2u)) common |= DIAG_BLOCK_UPGRADE;
+    bms_afe_get_requested_fets(&charge, &discharge);
+    if (!(guard & DIAG_GUARD_OUTPUT_ENABLED)) common |= DIAG_BLOCK_OUTPUT;
+    if ((guard & DIAG_GUARD_COMM_INHIBIT) ||
+        ((guard & DIAG_GUARD_BUS_SILENCED) && !bms_afe_shutdown_held())) common |= DIAG_BLOCK_COMM;
+    if (bms_afe_shutdown_held()) common |= DIAG_BLOCK_SHUTDOWN;
+    c |= bms_diag_cached_word(146u); d |= bms_diag_cached_word(147u);
+    if (!(bms_afe_get_remote_allowed_mask() & 1u)) c |= DIAG_BLOCK_REMOTE;
+    if (!(bms_afe_get_remote_allowed_mask() & 2u)) d |= DIAG_BLOCK_REMOTE;
+    bms_diag_mos((uint16_t)(charge | (discharge << 1)), c | common, d | common);
+    if (common & (DIAG_BLOCK_COMM | DIAG_BLOCK_SHUTDOWN)) {
+        bms_afe_publish_fet_status(0u, 0u);
+        bms_diag_command((uint8_t)bms_diag_cached_word(130u), 0u);
+    }
+    bms_diag_mos_capture();
+}
+
+
+#endif

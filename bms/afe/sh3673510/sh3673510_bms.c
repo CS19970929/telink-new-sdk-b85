@@ -6,6 +6,10 @@
 /* 现有产品 10K NTC 表：电阻单位 100 Ω，温度编码为 (degC+40)*10。 */
 #include "sh3673510_ntc.h"
 #include "bms_afe_driver.h"
+
+/* 保持既有 watchdog 余量、保护初始化顺序和休眠后总线语义。 */
+const bms_afe_driver_policy_t bms_afe_driver_policy = { 35000u * 32u, 1u, 0u };
+#include "sh3673510_diag.h"
 #include "tl_common.h"
 #include "drivers.h"
 #include "bms_product.h"
@@ -134,15 +138,6 @@ static uint16_t ntc_temp(uint32_t ohm)
                           (uint16_t)r100);
 }
 
-/* 按 NTC 电阻反算遗留接口所需的 ADC 毫伏值。 */
-static uint16_t legacy_adc_mv(uint32_t ohm)
-{
-    uint32_t mv;
-    if (ohm == 0u) return 0u;
-    mv = (3300u * ohm) / (ohm + 10000u);
-    return (uint16_t)((mv > 3299u) ? 3299u : mv);
-}
-
 /* 累计通信失败并更新 AFE 错误状态。 */
 static void note_comm_error(uint16_t stage)
 {
@@ -234,7 +229,7 @@ static uint8_t sh3510_outputs_healthy(void)
 }
 
 /* 合并输出授权和阻断条件后应用 MOS 请求。 */
-uint8_t sh3673510_bms_afe_set_fets(uint8_t requested_charge_on,
+uint8_t bms_afe_driver_set_fets(uint8_t requested_charge_on,
                                    uint8_t requested_discharge_on)
 {
     uint8_t charge_on = 0u;
@@ -659,7 +654,6 @@ static void sh3510_publish_voltage(const int32_t *cell, int32_t pack_mv)
     g_bms_report.cell_delta_mv = (uint16_t)(max_mv - min_mv);
 
     if (pack_mv < 0L) pack_mv = 0L;
-    s_aux.pack_voltage_mv = (uint32_t)pack_mv;
     g_bms_report.pack_voltage_10mv = (uint16_t)(((uint32_t)pack_mv + 5u) / 10u);
 }
 
@@ -725,24 +719,7 @@ static void sh3510_publish_temperatures(const int32_t *external_raw)
     /* 报告温度只由本次 AFE 采样发布，应用层不再二次查表覆盖。 */
     g_bms_report.temperature_x10[ENV_TEMP3] = g_bms_report.temperature_max_x10;
 
-    if ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] != 0u) &&
-        (s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] != 0u))
-        s_aux.battery_ntc_100ohm =
-            ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] < s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) ?
-             s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] : s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]) / 100u;
-    else if ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] != 0u))
-        s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX] / 100u;
-    else if ((s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] != 0u))
-        s_aux.battery_ntc_100ohm = s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX] / 100u;
-    else s_aux.battery_ntc_100ohm = 0u;
-#if SH3673510_PRODUCT_MOS_NTC_SUPPORTED
-    s_aux.mos_ntc_100ohm = (s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] != 0u) ?
-        s_ntc_ohm[SH3673510_BOARD_MOS_NTC_INDEX] / 100u : 0u;
-#else
-    s_aux.mos_ntc_100ohm = 0u;
-#endif
-    s_aux.battery_ntc_mv = legacy_adc_mv(s_aux.battery_ntc_100ohm * 100u);
-    s_aux.mos_ntc_mv = legacy_adc_mv(s_aux.mos_ntc_100ohm * 100u);
+
 }
 
 /* 测量发布之后评估软件保护及硬件恢复，保持原物理证据、清标志和失败阶段。 */
@@ -859,7 +836,7 @@ static uint16_t publish_measurements(void)
 }
 
 /* 初始化选定 AFE 后端并应用产品配置。 */
-void sh3673510_bms_afe_init(void)
+void bms_afe_driver_init(void)
 {
     uint8_t i;
 
@@ -894,7 +871,7 @@ void sh3673510_bms_afe_init(void)
 }
 
 /* 采集 AFE 测量和状态，并更新样本有效性。 */
-void sh3673510_bms_afe_sample(void)
+void bms_afe_driver_sample(void)
 {
     uint16_t failure;
     s_sample_pending = 0u;
@@ -919,13 +896,13 @@ void sh3673510_bms_afe_sample(void)
 }
 
 /* 查询是否仍有 AFE 采样流程未完成。 */
-uint8_t sh3673510_bms_afe_sample_pending(void)
+uint8_t bms_afe_driver_sample_pending(void)
 {
     return s_sample_pending;
 }
 
 /* 应用独立 AFE 硬件保护配置并返回结果。 */
-uint8_t sh3673510_bms_afe_apply_protection_config(void)
+uint8_t bms_afe_driver_apply_protection_config(void)
 {
     if (!sh3673510_control_ready()) return 0u;
     if (!sh3673510_control_apply_protection()) { note_comm_error(DIAG_AFE_FAIL_PROFILE); return 0u; }
@@ -935,7 +912,7 @@ uint8_t sh3673510_bms_afe_apply_protection_config(void)
 
 /* 主循环只读 RAM 查询；有效性与数据属于最近一次接受的帧。 */
 #if BMS_FEATURE_HEATER_SUPPORTED
-uint8_t sh3673510_backend_get_charge_source_present(uint8_t *present)
+uint8_t bms_afe_driver_get_charge_source_present(uint8_t *present)
 {
     if (present == 0 || !s_snapshot_valid || !s_charger_known) return 0u;
     *present = s_charger_present;
@@ -945,7 +922,7 @@ uint8_t sh3673510_backend_get_charge_source_present(uint8_t *present)
 
 /* 取得均衡和温度策略需要的后端快照。 */
 #if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
-uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
+uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 {
     if (out == 0) return 0u;
     memset(out, 0, sizeof(*out));
@@ -966,7 +943,7 @@ uint8_t sh3673510_backend_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 #endif
 
 /* 取得后端辅助测量与有效性。 */
-uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
+uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *m)
 {
     if (m == 0) return 0u;
     if (!s_snapshot_valid) { memset(m, 0, sizeof(*m)); return 0u; }
@@ -975,7 +952,7 @@ uint8_t sh3673510_bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 }
 
 /* 将 AFE 自带方向状态映射为同口反向电流期间需要临时开通的 MOS；不访问 SPI。 */
-uint8_t sh3673510_bms_afe_get_direction_allow_mask(void)
+uint8_t bms_afe_driver_get_direction_allow_mask(void)
 {
     uint8_t mask = 0u;
 
@@ -1061,7 +1038,7 @@ uint8_t sh3673510_bms_afe_get_fet_diag_detail(sh3673510_fet_diag_detail_t *detai
 #endif
 
 /* 按器件与板级时序进入 AFE 休眠。 */
-uint8_t sh3673510_bms_afe_sleep(void)
+uint8_t bms_afe_driver_sleep(void)
 {
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
@@ -1097,7 +1074,7 @@ static uint8_t sh_read_balance_mask(uint32_t *mask)
 }
 
 /* 设置有效通道范围内的后端均衡掩码。 */
-uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
+uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask)
 {
     uint32_t actual;
     uint8_t read_ok;
@@ -1125,8 +1102,20 @@ uint8_t sh3673510_backend_set_balance_mask(uint32_t cell_mask)
 }
 
 /* 取得后端缓存或回读的均衡状态掩码。 */
-uint8_t sh3673510_backend_get_balance_mask(uint32_t *cell_mask)
+uint8_t bms_afe_driver_get_balance_mask(uint32_t *cell_mask)
 {
     return sh_read_balance_mask(cell_mask);
 }
 #endif
+
+/* SH 的授权只在 guard 保存；低层 FET 请求已由公共门禁裁定。 */
+void bms_afe_driver_set_output_enabled(uint8_t enabled)
+{
+    (void)enabled;
+}
+
+/* 原公共查询对 SH 返回 0，保留该诊断语义。 */
+uint8_t bms_afe_current_recovery_pending(void)
+{
+    return 0u;
+}

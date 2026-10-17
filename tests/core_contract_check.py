@@ -156,7 +156,7 @@ def check_common_feature_policy_contract_check():
     assert "bms_board_heater_supported" in board_h and "bms_board_balance_supported" in board_h
     assert "bms_board_heater_supported()" in features_c and "bms_board_balance_supported()" in features_c
     assert "service_balance" in features_c and "apply_balance_mask(0u)" in features_c
-    charge_block=guard_c.index("!bms_protection_params_valid()"); fet_write=guard_c.index("AFE_FETS",charge_block)
+    charge_block=guard_c.index("!bms_protection_params_valid()"); fet_write=guard_c.index("bms_afe_driver_set_fets",charge_block)
     assert charge_block < fet_write
     assert "bms_features_charge_direction_blocked()" in text("sh3673510_bms.c")
     assert "bms_features_service();" in guard_c and "bms_features_stop();" in guard_c
@@ -168,16 +168,18 @@ def check_common_feature_policy_contract_check():
     # production profile, so the common guard must leave the SPI bus silent for a
     # full 35 s margin before a single bounded recovery attempt.
     assert "#define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u" in guard_c
-    assert "#define BMS_AFE_FAILSAFE_WAIT_MS 35000u" in guard_c
+    assert "BMS_AFE_BACKEND" not in guard_c
+    assert "dvc1124" not in guard_c and "sh3673510" not in guard_c
+    assert "35000u * 32u, 1u, 0u" in text("sh3673510_bms.c")
     assert "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;" in guard_c
     # 校验静默等待分支在任何总线动作之前返回，不依赖注释语言。
     wait = guard_c.split("static uint8_t service_failsafe_wait", 1)[1].split(
         "static uint8_t apply_requested", 1)[0]
-    waiting = wait.split("BMS_AFE_FAILSAFE_WAIT_MS * 32u)", 1)[1].split(
+    waiting = wait.split("bms_afe_driver_policy.failsafe_wait_32k)", 1)[1].split(
         "s_guard.bus_silenced = 0u;", 1)[0]
     assert "return 1u;" in waiting
-    assert "AFE_" not in waiting
-    assert wait.index("return 1u;") < wait.index("AFE_INIT();")
+    assert "bms_afe_driver_" not in waiting
+    assert wait.index("return 1u;") < wait.index("bms_afe_driver_init();")
     assert "if (s_guard.comm_failures == 0u) best_effort_shutdown();" in guard_c
     assert "s_guard.bus_silenced = 1u;" in guard_c
     assert "bms_afe_bus_access_allowed" in afe_h and "bms_afe_bus_access_allowed" in guard_c
@@ -187,9 +189,8 @@ def check_common_feature_policy_contract_check():
     for gate in ("!s_guard.comm_inhibit", "!s_guard.bus_silenced", "!s_guard.test_shutdown_hold"):
         assert gate in access
     sleep=guard_c.split("uint8_t bms_afe_sleep",1)[1].split("uint8_t bms_afe_apply_protection_config",1)[0]
-    dvc_sleep, sh_sleep=sleep.split("#else",1)
-    assert "return bms_afe_enter_shutdown();" in dvc_sleep and "AFE_SLEEP()" not in dvc_sleep
-    assert sh_sleep.index("if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return 0u;") < sh_sleep.index("AFE_SLEEP()")
+    assert "bms_afe_driver_policy.sleep_holds_bus" in sleep
+    assert sleep.index("if (!bms_afe_bus_access_allowed()") < sleep.index("bms_afe_driver_sleep()")
     setfets=guard_c.split("uint8_t bms_afe_set_fets",1)[1].split("void bms_afe_get_requested_fets",1)[0]
     assert "if (!runtime_access_allowed()) return 1u;" in setfets
 
@@ -202,8 +203,8 @@ def check_common_feature_policy_contract_check():
     ):
         assert forbidden not in sh_bms, forbidden
 
-    sample = sh_bms.split("void sh3673510_bms_afe_sample(void)", 1)[1].split(
-        "uint8_t sh3673510_bms_afe_apply_protection_config", 1
+    sample = sh_bms.split("void bms_afe_driver_sample(void)", 1)[1].split(
+        "uint8_t bms_afe_driver_apply_protection_config", 1
     )[0]
     for forbidden in (
         "apply_heater();",
@@ -221,10 +222,10 @@ def check_common_feature_policy_contract_check():
         "SH_FEATURE_BALANCE_REFRESH_TICKS (20000u * 32u)","sh_read_balance_mask"
     ): assert token in sh, token
     for token in ("SH3673520_REG_VCHGRH", "SH3510_CHARGER_ON_MV", "SH3510_CHARGER_OFF_MV",
-                  "sample_release_evidence", "sh3673510_backend_get_charge_source_present"):
+                  "sample_release_evidence", "bms_afe_driver_get_charge_source_present"):
         assert token in sh_bms, token
     from validation_support import function
-    assert "SH3673520_ReadRegs" not in function(sh, "uint8_t sh3673510_backend_get_feature_snapshot(")
+    assert "SH3673520_ReadRegs" not in function(sh, "uint8_t bms_afe_driver_get_feature_snapshot(")
 
     for token in ("balance_enable","balance_start_mv","balance_start_delta_mv","balance_stop_delta_mv"):
         assert token in config_h and token in config_c and token in features_c
@@ -239,7 +240,7 @@ def check_common_feature_policy_contract_check():
     assert "SH3673520_BSTATUS2_CHGING_MASK" in sh_bms
     assert "s_fet_command_valid" in sh_bms
     # 相同有效 FET 命令必须在再次写硬件之前返回，避免干扰自主保护。
-    fets = sh_bms.split("uint8_t sh3673510_bms_afe_set_fets", 1)[1].split(
+    fets = sh_bms.split("uint8_t bms_afe_driver_set_fets", 1)[1].split(
         "static void publish_hw_status", 1)[0]
     cached = fets.split("if (s_fet_command_valid &&", 1)[1].split(
         "if (!sh3673510_control_set_fets", 1)[0]
@@ -358,13 +359,13 @@ def check_soc_contract_check():
             self.assertIn("300u, 200u, 150u, 50u", PROFILE)
 
         def test_upward_calibration_requires_confirmed_charging_full_anchor(self):
-            start = C.index("static uint8_t soc_apply_full_anchor(const bms_soc_sample_t *sample)")
-            end = C.index("static uint8_t soc_apply_forced_empty_anchor(const bms_soc_sample_t *sample)", start)
+            start = C.index("static uint8_t soc_apply_full_anchor(")
+            end = C.index("static uint8_t soc_apply_forced_empty_anchor(", start)
             full_fn = C[start:end]
             self.assertIn("(sample->cell_max_mv >= full_mv) && (sample->cell_min_mv >= full_min)", full_fn)
-            self.assertIn("(sample->cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG()", full_fn)
+            self.assertIn("(sample->cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && (dir == SOC_INTEGRAL_DIR_CHG)", full_fn)
             self.assertIn("if (voltage_ready && sample->third_cell_ovp)", full_fn)
-            self.assertNotIn("if (isCHG() && sample->third_cell_ovp)", full_fn)
+            self.assertNotIn("if ((dir == SOC_INTEGRAL_DIR_CHG) && sample->third_cell_ovp)", full_fn)
             self.assertNotIn("&& !isDSG()", full_fn)
 
         def test_soc_low_faults_are_implemented_without_mos_policy(self):

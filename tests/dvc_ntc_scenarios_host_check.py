@@ -27,9 +27,9 @@ for signature in ('static uint16_t dvc_get_configured_temperature(',
                   'static uint8_t dvc_charge_blocked(',
                   'static uint8_t dvc_discharge_blocked(',
                   'static uint8_t dvc_set_fet_modes_if_changed(',
-                  'uint8_t dvc1124_backend_set_fets('):
+                  'uint8_t bms_afe_driver_set_fets('):
     production += function(backend, signature) + '\n'
-production += function(feature, 'uint8_t dvc1124_backend_get_feature_snapshot(') + '\n'
+production += function(feature, 'uint8_t bms_afe_driver_get_feature_snapshot(') + '\n'
 # 原始采集层不能独立清除公共 NTC 错误；公共保护统一读取两个电池探头和 MOS 探头。
 for signature in ('void DVC1124_App_AFEGet(',
                   'static void dvc_publish_temperature_measurement('):

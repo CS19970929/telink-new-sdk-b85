@@ -70,8 +70,8 @@ SH 深睡关闭 CMNT_EN；INT_WK、ALARM、RESET 等 PAD 等待输入改变，�
 不恢复 BLE/采样业务、不重复保存或发送 AFE 命令。真正 deep sleep 唤醒走完整启动。
 
 2026-10-10 按产品要求将 D008 的全部 AFE 低功耗请求统一为 Shutdown，包括低压和
-AFE 异常保护性深睡；开关及命令关机原本已用 Shutdown。公共 `bms_afe_sleep()`
-复用已有受保护的 `bms_afe_enter_shutdown()`，移除 DVC Sleep 命令入口：均衡关闭、
+AFE 异常保护性深睡；开关及命令关机原本已用 Shutdown。2026-10-17 将原受保护关机流程
+直接并入公共 `bms_afe_sleep()`，保持 DVC 仅使用 Shutdown：均衡关闭、
 FET 关闭及 shutdown 应答成功后保持总线静止。通信 inhibit、命令失败或 watchdog
 bus silence 不阻止保护性 MCU 深睡，不追加绕过 guard 的命令。
 SH 软件仅请求 Sleep；按用户确认关闭欠压自主 Powerdown（`PD_EN=0`），保持

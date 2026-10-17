@@ -465,12 +465,6 @@ static soc_integral_dir_t soc_current_direction(uint16_t *magnitude_a10)
     return dir;
 }
 
-/* 查询当前是否处于有效充电方向。 */
-static uint8_t isCHG(void)
-{
-    return (soc_current_direction(0) == SOC_INTEGRAL_DIR_CHG) ? 1u : 0u;
-}
-
 /* 取得内部计算的真实 SOC 百分比。 */
 uint8_t get_soc_real(void)
 {
@@ -718,9 +712,9 @@ static uint8_t soc_ocv_sample_valid(const bms_soc_sample_t *sample)
 }
 
 /* 静置校正只依据测量、故障和电流；业务加热/均衡状态不阻止校正。 */
-static uint8_t soc_rest_context_valid(const bms_soc_sample_t *sample)
+static uint8_t soc_rest_context_valid(const bms_soc_sample_t *sample, soc_integral_dir_t dir)
 {
-    return soc_current_direction(0) == SOC_INTEGRAL_DIR_NONE &&
+    return dir == SOC_INTEGRAL_DIR_NONE &&
         sample->voltage_valid && sample->temperature_valid &&
         sample->temperature_min_x10 >= SOC_OCV_TEMP_MIN_X10 &&
         sample->temperature_max_x10 <= SOC_OCV_TEMP_MAX_X10 &&
@@ -786,7 +780,7 @@ static void soc_reset_ocv_tracking(void)
 }
 
 /* 推进静置确认和 OCV 校正。 */
-static uint8_t soc_idle_ocv_tracking(const bms_soc_sample_t *sample)
+static uint8_t soc_idle_ocv_tracking(const bms_soc_sample_t *sample, soc_integral_dir_t dir)
 {
     uint16_t mv;
     uint16_t diff;
@@ -794,7 +788,7 @@ static uint8_t soc_idle_ocv_tracking(const bms_soc_sample_t *sample)
     uint32_t confidence;
     uint8_t current_soc;
 
-    if (!soc_rest_context_valid(sample) ||
+    if (!soc_rest_context_valid(sample, dir) ||
         !soc_ocv_sample_valid(sample) ||
         sample->cell_delta_mv > SOC_OCV_IDLE_CELL_DELTA_MAX_MV) {
         soc_reset_ocv_tracking();
@@ -897,12 +891,10 @@ static uint16_t soc_discharge_gap_correction_step_ticks(uint8_t current_soc,
 }
 
 /* 根据大电流压降更新放电校正保持期。 */
-static void soc_update_discharge_sag_hold(void)
+static void soc_update_discharge_sag_hold(soc_integral_dir_t dir, uint16_t current_a10)
 {
-    uint16_t current = 0u;
-    soc_integral_dir_t dir = soc_current_direction(&current);
-    if ((dir == SOC_INTEGRAL_DIR_DSG) && (current > SOC_DSG_SAG_HOLD_CURR_MIN_A10)) {
-        uint16_t hold = (current > 100u) ? SOC_DSG_SAG_HOLDOFF_HIGH_TICKS : SOC_DSG_SAG_HOLDOFF_TICKS;
+    if ((dir == SOC_INTEGRAL_DIR_DSG) && (current_a10 > SOC_DSG_SAG_HOLD_CURR_MIN_A10)) {
+        uint16_t hold = (current_a10 > 100u) ? SOC_DSG_SAG_HOLDOFF_HIGH_TICKS : SOC_DSG_SAG_HOLDOFF_TICKS;
         if (g_soc_runtime.dsg_sag_hold_ticks < hold) g_soc_runtime.dsg_sag_hold_ticks = hold;
     } else if (g_soc_runtime.dsg_sag_hold_ticks > 0u) {
         g_soc_runtime.dsg_sag_hold_ticks--;
@@ -918,9 +910,8 @@ static uint16_t soc_uvp_trip_mv(void)
 }
 
 /* 用当前有效容量、电流和方向更新剩余时间。 */
-static void soc_eta_update(const bms_soc_sample_t *sample)
+static void soc_eta_update(const bms_soc_sample_t *sample, soc_integral_dir_t dir)
 {
-    soc_integral_dir_t direction = soc_current_direction(0);
     bms_soc_eta_input_t input;
     input.current_ma = g_soc_input_current_ma;
     input.remaining_as10 = g_bms_soc.remaining_capacity_as10;
@@ -928,8 +919,8 @@ static void soc_eta_update(const bms_soc_sample_t *sample)
     input.deadband_ma = g_soc_config.current_deadband_ma;
     if (input.deadband_ma < BMS_CURRENT_UNRELIABLE_MAX_MA)
         input.deadband_ma = BMS_CURRENT_UNRELIABLE_MAX_MA;
-    input.direction = direction == SOC_INTEGRAL_DIR_CHG ? BMS_SOC_ETA_DIR_CHARGE :
-        (direction == SOC_INTEGRAL_DIR_DSG ? BMS_SOC_ETA_DIR_DISCHARGE : BMS_SOC_ETA_DIR_NONE);
+    input.direction = dir == SOC_INTEGRAL_DIR_CHG ? BMS_SOC_ETA_DIR_CHARGE :
+        (dir == SOC_INTEGRAL_DIR_DSG ? BMS_SOC_ETA_DIR_DISCHARGE : BMS_SOC_ETA_DIR_NONE);
     input.endpoint_active = g_soc_runtime.endpoint_state != BMS_SOC_ENDPOINT_NORMAL;
     input.near_full = sample->cell_max_mv + g_soc_profile->full_min_margin_mv >= g_soc_profile->full_sync_mv;
     bms_soc_eta_update(&g_soc_runtime.eta, &input);
@@ -964,16 +955,16 @@ static uint8_t soc_terminal_lookup(const bms_soc_sample_t *sample, uint8_t *targ
 }
 
 /* 按末端电压与压降资格推进放电 SOC 修正。 */
-static uint8_t soc_apply_discharge_terminal_tracking(const bms_soc_sample_t *sample)
+static uint8_t soc_apply_discharge_terminal_tracking(const bms_soc_sample_t *sample,
+                                                       soc_integral_dir_t dir, uint16_t current_a10)
 {
     uint8_t target_soc;
     uint8_t sag_hold_blocks;
     uint8_t current_soc;
-    uint16_t current = 0u;
     uint16_t step_ticks;
 
     if (!sample->voltage_valid ||
-        soc_current_direction(&current) != SOC_INTEGRAL_DIR_DSG) {
+        dir != SOC_INTEGRAL_DIR_DSG) {
         g_soc_runtime.dsg_terminal_adjust_ticks = 0u;
         g_soc_runtime.dsg_empty_lock_ticks = 0u;
         return 0u;
@@ -1014,7 +1005,7 @@ static uint8_t soc_apply_discharge_terminal_tracking(const bms_soc_sample_t *sam
     }
 
     g_soc_runtime.dsg_empty_lock_ticks = 0u;
-    step_ticks = soc_discharge_gap_correction_step_ticks(current_soc, target_soc, current);
+    step_ticks = soc_discharge_gap_correction_step_ticks(current_soc, target_soc, current_a10);
     if (g_soc_runtime.dsg_terminal_adjust_ticks < step_ticks)
         g_soc_runtime.dsg_terminal_adjust_ticks++;
     if (g_soc_runtime.dsg_terminal_adjust_ticks < step_ticks) return 0u;
@@ -1028,14 +1019,14 @@ static uint8_t soc_apply_discharge_terminal_tracking(const bms_soc_sample_t *sam
 }
 
 /* 确认满充端点后约束真实及显示 SOC。 */
-static uint8_t soc_apply_full_anchor(const bms_soc_sample_t *sample)
+static uint8_t soc_apply_full_anchor(const bms_soc_sample_t *sample, soc_integral_dir_t dir)
 {
     /* 只有确认真实充电方向时才允许向上校准；空闲、高压启动和电压回弹绝不能提高 SOC。 */
     uint16_t full_mv = g_soc_profile->full_sync_mv;
     uint16_t full_min = (full_mv > g_soc_profile->full_min_margin_mv) ?
         (uint16_t)(full_mv - g_soc_profile->full_min_margin_mv) : 0u;
     uint8_t voltage_ready = (sample->cell_max_mv >= full_mv) && (sample->cell_min_mv >= full_min) &&
-        (sample->cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && isCHG();
+        (sample->cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && (dir == SOC_INTEGRAL_DIR_CHG);
     uint8_t before;
 
     if (!sample->voltage_valid) {
@@ -1103,12 +1094,12 @@ static uint8_t soc_apply_full_anchor(const bms_soc_sample_t *sample)
 }
 
 /* 在明确空电条件下执行强制空电锚定。 */
-static uint8_t soc_apply_forced_empty_anchor(const bms_soc_sample_t *sample)
+static uint8_t soc_apply_forced_empty_anchor(const bms_soc_sample_t *sample, soc_integral_dir_t dir)
 {
     uint8_t before;
     /* 欠压保护可能在充电恢复期间继续锁存，不能反复清掉已充入的容量。
      * MOS 欠压保护仍由保护模块处理；可靠充电方向只禁止 SOC 空电锚定。 */
-    if (!sample->third_cell_uvp || isCHG() ||
+    if (!sample->third_cell_uvp || (dir == SOC_INTEGRAL_DIR_CHG) ||
         !sample->voltage_valid ||
         sample->cell_min_mv > g_bms_protection_params.cell_uvp_third_mv) return 0u;
     /* 旧 UV 锁存不是新空电证据；电压已回升时保留充入容量，不新增方向状态。 */
@@ -1134,7 +1125,7 @@ static uint8_t soc_apply_forced_empty_anchor(const bms_soc_sample_t *sample)
 }
 
 /* 在合格静置低电压条件下执行空电锚定。 */
-static uint8_t soc_apply_idle_empty_anchor(const bms_soc_sample_t *sample)
+static uint8_t soc_apply_idle_empty_anchor(const bms_soc_sample_t *sample, soc_integral_dir_t dir)
 {
     uint16_t empty_mv = g_soc_profile->empty_sync_mv;
     uint16_t empty_max = (uint16_t)(empty_mv + g_soc_profile->empty_max_margin_mv);
@@ -1144,7 +1135,7 @@ static uint8_t soc_apply_idle_empty_anchor(const bms_soc_sample_t *sample)
         g_soc_runtime.empty_adjust_ticks = 0u;
         return 0u;
     }
-    if (!soc_rest_context_valid(sample) ||
+    if (!soc_rest_context_valid(sample, dir) ||
         (sample->cell_min_mv > empty_mv) || (sample->cell_max_mv > empty_max)) {
         g_soc_runtime.empty_lock_ticks = 0u;
         g_soc_runtime.empty_adjust_ticks = 0u;
@@ -1258,7 +1249,11 @@ static void soc_update_low_faults(void)
 /* 推进 OCV、充放电端点与显示 SOC 策略。 */
 static void soc_strategy_update(const bms_soc_sample_t *sample)
 {
+    uint16_t current_a10;
+    soc_integral_dir_t dir;
     soc_profile_refresh();
+    /* 本轮各策略消费相同电流和死区；只裁定一次，不增加跨轮镜像状态。 */
+    dir = soc_current_direction(&current_a10);
     /*
      * 即使满充后电流立即消失，也保持 CONFIRMED_FULL 足够久，
      * 让显示 SOC 完成平缓到达。
@@ -1267,15 +1262,15 @@ static void soc_strategy_update(const bms_soc_sample_t *sample)
         (g_soc_runtime.full_anchor_latched && get_soc_real() == SOC_PERCENT_MAX &&
          g_soc_display_soc < SOC_PERCENT_MAX) ?
         BMS_SOC_ENDPOINT_CONFIRMED_FULL : BMS_SOC_ENDPOINT_NORMAL;
-    soc_update_discharge_sag_hold();
+    soc_update_discharge_sag_hold(dir, current_a10);
 
     /* 顺序即优先级；每个策略仍执行自己的资格维护，命中后不执行低优先级校正。 */
-    if (!soc_apply_full_anchor(sample) &&
-        !soc_apply_forced_empty_anchor(sample) &&
-        !soc_apply_discharge_terminal_tracking(sample) &&
-        !soc_apply_idle_empty_anchor(sample))
-        (void)soc_idle_ocv_tracking(sample);
-    soc_eta_update(sample);
+    if (!soc_apply_full_anchor(sample, dir) &&
+        !soc_apply_forced_empty_anchor(sample, dir) &&
+        !soc_apply_discharge_terminal_tracking(sample, dir, current_a10) &&
+        !soc_apply_idle_empty_anchor(sample, dir))
+        (void)soc_idle_ocv_tracking(sample, dir);
+    soc_eta_update(sample, dir);
 }
 
 /* 更新 SOC 参数与相关容量状态。 */

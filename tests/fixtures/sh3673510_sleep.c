@@ -52,11 +52,12 @@ static void note_comm_error(uint8_t stage) { (void)stage; ++comm_errors; }
 static uint8_t bms_error_get(unsigned e) { (void)e; return errors != 0; }
 static void bms_error_raise(unsigned e) { (void)e; ++errors; }
 static void bms_features_stop(void) { ++invalidations; heater_on = 0; }
-#define AFE_SLEEP() sh3673510_bms_afe_sleep()
+#define AFE_SLEEP() bms_afe_driver_sleep()
 #define AFE_BAL_SET(m) sh3673510_control_set_balance(m)
 #define AFE_FETS(c,d) sh3673510_control_set_fets(c,d)
 #define APP_PM_TICKS_PER_SEC 32000u
 
+static uint8_t bms_afe_driver_set_fets(uint8_t c,uint8_t d){return sh3673510_control_set_fets(c,d);}
 /* PRODUCTION */
 
 #define CHECK(c) do { ++assertions; if (!(c)) { \

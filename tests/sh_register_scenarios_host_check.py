@@ -80,7 +80,7 @@ def check_sh_current_report_range_host_check():
     fixture+=r'''
     int main(void) {
      device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
-     sh3673510_bms_afe_init();for(unsigned i=0;i<12;++i)sample();
+     bms_afe_driver_init();for(unsigned i=0;i<12;++i)sample();
      const int32_t input[]={0,49,50,6553450,6553550,6553600,INT32_MAX,-49,-50,-6553450,-6553550,-6553600,INT32_MIN};
      const uint16_t expected[]={0,0,1,65535,65535,65535,65535,0,1,65535,65535,65535,65535};
      for(unsigned i=0;i<sizeof(input)/sizeof(input[0]);++i) {

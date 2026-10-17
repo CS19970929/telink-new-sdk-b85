@@ -57,7 +57,7 @@ def check_d008_20s_profile_contract_check():
 
     # Balancing is armed by request and renewed below the ~60s hardware auto-clear.
     assert '#define DVC_BALANCE_REFRESH_INTERVAL_US 45000000u' in dvc
-    assert 'dvc1124_backend_set_balance_mask' in dvc
+    assert 'bms_afe_driver_set_balance_mask' in dvc
 
     print('D008 20S/product safety completion contract: PASS')
 
@@ -145,17 +145,17 @@ def check_d008_framework_contract_check():
         def test_backend_defaults_to_dvc1124(self):
             self.assertIn("BMS_AFE_BACKEND_DVC1124", self.backend_h)
             self.assertRegex(self.backend_h, r"#define\s+BMS_AFE_BACKEND\s+1")
-            self.assertIn("dvc1124_backend_sample", self.afe_h)
+            self.assertIn("bms_afe_driver_sample", self.afe_h)
 
         def test_guard_comm_loss_uses_hardware_watchdog_silence(self):
             self.assertEqual(macro_literal(self.guard, "BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT"), 3)
             self.assertEqual(macro_literal(self.guard, "BMS_AFE_COMM_FAILS_BEFORE_SILENCE"), 2)
-            self.assertEqual(macro_literal(self.guard, "BMS_AFE_FAILSAFE_WAIT_MS"), 5000)
+            self.assertIn("5000u * 32u, 0u, 1u", self.fixed_backend)
             self.assertIn("s_guard.comm_inhibit = 1u;", self.guard)
             self.assertIn("s_guard.bus_silenced = 1u;", self.guard)
             self.assertIn("if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;", self.guard)
             self.assertIn("if (s_guard.comm_failures == 0u) best_effort_shutdown();", self.guard)
-            self.assertIn("AFE_INIT();", self.guard)
+            self.assertIn("bms_afe_driver_init();", self.guard)
             self.assertNotIn("BMS_AFE_REINIT_TRIGGER", self.guard)
             self.assertNotIn("BMS_AFE_REINIT_COOLDOWN_SAMPLES", self.guard)
             self.assertIn("valid_snapshot_streak", self.guard)
@@ -165,11 +165,11 @@ def check_d008_framework_contract_check():
         def test_guard_owns_shutdown_wake_test_lifecycle(self):
             for token in (
                 "test_shutdown_hold",
-                "bms_afe_test_enter_shutdown",
+                "bms_afe_sleep",
                 "bms_afe_test_wake",
                 "if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;",
-                "AFE_TEST_SHUTDOWN()",
-                "AFE_INIT();",
+                "bms_afe_driver_sleep()",
+                "bms_afe_driver_init();",
                 "s_guard.valid_snapshot_streak = 0u;",
             ):
                 self.assertIn(token, self.guard)
@@ -200,8 +200,8 @@ def check_d008_framework_contract_check():
             self.assertNotRegex(self.dvc_bms, r"(?:charge|discharge)_mos_status\s*=")
 
         def test_common_port_policy_uses_auto_diode_without_off_pulse(self):
-            policy = self.dvc_bms.split("uint8_t dvc1124_backend_set_fets", 1)[1]
-            policy = policy.split("void dvc1124_backend_sample", 1)[0]
+            policy = self.dvc_bms.split("uint8_t bms_afe_driver_set_fets", 1)[1]
+            policy = policy.split("void bms_afe_driver_sample", 1)[0]
             self.assertIn("DVC1124_FET_DRIVE_AUTO_DIODE", policy)
             self.assertIn("dvc_set_fet_modes_if_changed", policy)
             self.assertNotIn("DVC1124_SetMosState", policy)
@@ -225,8 +225,8 @@ def check_d008_framework_contract_check():
             self.assertIn("gpio_write(BMS_BOARD_HEATER_FUSE_PIN, 0);", self.app)
 
         def test_dvc_is_single_temperature_owner_for_protection_and_reporting(self):
-            sample = self.dvc_bms.split("void dvc1124_backend_sample", 1)[1]
-            sample = sample.split("uint8_t dvc1124_backend_set_fets", 1)[0]
+            sample = self.dvc_bms.split("void bms_afe_driver_sample", 1)[1]
+            sample = sample.split("uint8_t bms_afe_driver_set_fets", 1)[0]
             self.assertIn("dvc_get_battery_temperature_range", sample)
             self.assertIn("DVC1124_DEFAULT_MOS_NTC_GP", sample)
             self.assertIn("dvc_publish_temperature_report(&sw);", sample)
@@ -254,8 +254,8 @@ def check_d008_framework_contract_check():
             self.assertIn("DVC1124_REG_CHG_MASK, 0xFFu", block)
 
         def test_sw_off_clears_software_managed_fault_state(self):
-            sample = self.dvc_bms.split("void dvc1124_backend_sample", 1)[1]
-            sample = sample.split("uint8_t dvc1124_backend_set_fets", 1)[0]
+            sample = self.dvc_bms.split("void bms_afe_driver_sample", 1)[1]
+            sample = sample.split("uint8_t bms_afe_driver_set_fets", 1)[0]
             self.assertIn("DVC1124_SW_TEMP_PROTECT_ENABLE", sample)
             self.assertIn("bms_sw_protection_update_groups(&sw, DVC1124_SW_PROTECT_ENABLE,", sample)
             self.assertNotIn("bms_sw_protection_clear();", sample)
@@ -305,8 +305,8 @@ def check_d008_framework_contract_check():
         def test_only_protection_profiles_remain_runtime_persistent_for_afe(self):
             self.assertIn("bms_afe_hw_profile_get(&hw)", self.service)
             self.assertIn("bms_afe_hw_profile_get", self.hw_profile)
-            self.assertIn("dvc1124_backend_apply_protection_config", self.fixed_backend)
-            fn = self.fixed_backend.split("uint8_t dvc1124_backend_apply_protection_config", 1)[1]
+            self.assertIn("bms_afe_driver_apply_protection_config", self.fixed_backend)
+            fn = self.fixed_backend.split("uint8_t bms_afe_driver_apply_protection_config", 1)[1]
             self.assertIn("dvc_apply_protection_from_params()", fn)
 
         def test_product_profile_still_selects_physical_cell_count_and_soc_identity(self):
@@ -355,7 +355,7 @@ def check_d008_framework_contract_check():
             self.assertIn("apply_balance_mask(0u)", self.features)
             self.assertIn("balance_voltage_trusted", self.features)
             self.assertNotIn("cell_delta_first_mv", self.features)
-            self.assertIn("dvc1124_backend_set_balance_mask", self.dvc)
+            self.assertIn("bms_afe_driver_set_balance_mask", self.dvc)
 
         def test_source_order_still_contains_backend_lifecycle_unit(self):
             order = (ROOT / "bms/products/d008/sources.txt").read_text(encoding="utf-8")

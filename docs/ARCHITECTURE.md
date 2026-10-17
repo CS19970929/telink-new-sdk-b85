@@ -14,7 +14,7 @@ app / feature → bms_afe.h → bms_afe_guard → bms_afe_driver.h
 Config / State / Event → storage_record → Telink Flash 平台
 ```
 
-每个固件只链接一个后端，无运行时 factory/ops 表。业务调用公共 AFE API；guard、后端及受控诊断使用 driver 边界。GPIO、UART/BLE、Flash 仍按 Telink SDK 实现；公共业务的 32K 时间由 `bms_time_now_32k()` 提供，诊断不拥有安全计时源。
+每个固件只链接一个后端，直接实现统一的 `bms_afe_driver_*` 接口；Guard 不再识别芯片型号。固定 watchdog/初始化顺序/休眠语义由后端只读 policy 给出，无运行时 factory/ops 表。业务调用公共 AFE API；guard、后端及受控诊断使用 driver 边界。GPIO、UART/BLE、Flash 仍按 Telink SDK 实现；公共业务的 32K 时间由 `bms_time_now_32k()` 提供，诊断不拥有安全计时源。
 
 保护性休眠的低压/AFE/过放计时和选择集中在 `bms_sleep_config.c` 的
 `bms_sleep_policy_step()`：输入为已验证快照、配置和业务秒数，输出为原因与剩余期限，
@@ -111,3 +111,5 @@ D008 SIF 由主循环显式编码到两个缓冲区，IRQ 只领取完成包和�
 持久化使用 [STORAGE](STORAGE.md) 与 [OTA_PARAMETERS](OTA_PARAMETERS.md) 的 schema/镜像更新选择规则。根 CMake 只是可移植子集，SOC、参数、语义存储和 Modbus 仍有平台依赖，不声称已完成 STM32 移植。
 
 2026-10-14：D008 ACC也使用锁存后一次收尾的强制深睡，移除通信/存储/AFE成功门禁与5秒退避，保持PC4高与PA0唤醒。公共收尾为 `app_prepare_deep_sleep()`；普通Suspend资格独立。完整入口、优先级、PC4与AFE/MCU唤醒边界见 [休眠梳理](SLEEP_LOGIC_REVIEW.md)，本次未执行测试或编译。
+
+2026-10-17 的接口、无消费者字段、SOC 重复判断与保留状态裁决见 [第二阶段重构](REFACTOR_PHASE2_20261017.md)。

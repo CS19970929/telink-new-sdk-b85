@@ -93,10 +93,10 @@ static void step(uint8_t events,uint32_t elapsed_ticks)
     in.mos_temp=dvc_get_configured_temperature(4u);
     dvc_publish_temperature_report(&in);
     bms_sw_protection_update_groups(&in,0u,1u);
-    assert(dvc1124_backend_get_feature_snapshot(&feature));
+    assert(bms_afe_driver_get_feature_snapshot(&feature));
     assert(feature.battery_temp_valid==in.battery_temp_valid);
     assert(feature.mos_temp_valid==in.mos_temp_valid);
-    assert(dvc1124_backend_set_fets(1u,1u));
+    assert(bms_afe_driver_set_fets(1u,1u));
 }
 static void check_closed(void)
 {
@@ -133,17 +133,17 @@ static void check_cell_delta_protection(void)
     g_bms_report.cell_delta_mv=900u;
     for (unsigned i=0u;i<5u;++i) bms_sw_protection_update(&in);
     assert(g_bms_report.fault_second.bits.cell_delta_high);
-    assert(dvc1124_backend_set_fets(1u,1u)); check_open();
+    assert(bms_afe_driver_set_fets(1u,1u)); check_open();
 
     g_bms_report.cell_delta_mv=3300u; /* 有效串位掉到 0，其他串约 3300 mV。 */
     for (unsigned i=0u;i<5u;++i) {
         bms_sw_protection_update(&in);
-        assert(dvc1124_backend_set_fets(1u,1u));
+        assert(bms_afe_driver_set_fets(1u,1u));
         assert((registers[DVC1124_REG_FET_CTRL]&0x0fu)==(i<4u?0x0fu:0u));
     }
     assert(bms_sw_protection_charge_blocked() && bms_sw_protection_discharge_blocked());
     for (unsigned request=0u;request<4u;++request) {
-        assert(dvc1124_backend_set_fets(request&1u,(request>>1)&1u));
+        assert(bms_afe_driver_set_fets(request&1u,(request>>1)&1u));
         assert((registers[DVC1124_REG_FET_CTRL]&0x0fu)==0u);
     }
     g_bms_report.cell_delta_mv=801u;
@@ -152,7 +152,7 @@ static void check_cell_delta_protection(void)
     g_bms_report.cell_delta_mv=800u;
     for (unsigned i=0u;i<5u;++i) {
         bms_sw_protection_update(&in);
-        assert(dvc1124_backend_set_fets(1u,1u));
+        assert(bms_afe_driver_set_fets(1u,1u));
         assert((registers[DVC1124_REG_FET_CTRL]&0x0fu)==(i<4u?0u:0x0fu));
     }
     check_open();

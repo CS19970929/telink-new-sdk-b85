@@ -117,10 +117,13 @@ def check_sh3673510_sleep_host_check():
 
     guard = (APP / 'bms_afe_guard.c').read_text(encoding='utf-8')
     state = re.search(r'^#define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT .*$', guard, re.M).group(0) + '\n' + guard[guard.index('typedef struct'):guard.index('uint8_t bms_afe_bus_access_allowed')]
-    body = '#include "bms_debug_log.h"\n' + state + '\n'.join([
+    policy = re.search(r'typedef struct\s*\{[^}]*\} bms_afe_driver_policy_t;', (ROOT/'bms/core/bms_afe_driver.h').read_text(encoding='utf-8'), re.S).group()
+    policy += '\n' + re.search(r'const bms_afe_driver_policy_t bms_afe_driver_policy = [^;]+;', (APP/'sh3673510_bms.c').read_text(encoding='utf-8')).group()
+    body = '#include "bms_debug_log.h"\n' + policy + '\n' + state + '\n'.join([
         function('sh3673510_control.c', 'sh3673510_control_sleep'),
         function('sh3673510_control.c', 'sh3673510_control_wake'),
-        function('sh3673510_bms.c', 'sh3673510_bms_afe_sleep'),
+        function('sh3673510_bms.c', 'bms_afe_driver_sleep'),
+        function('bms_afe_guard.c', 'bms_afe_bus_access_allowed'),
         function('bms_afe_guard.c', 'inhibit_local'),
         function('bms_afe_guard.c', 'best_effort_shutdown'),
         function('bms_afe_guard.c', 'enter_failsafe_wait'),

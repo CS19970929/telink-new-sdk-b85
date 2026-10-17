@@ -36,37 +36,13 @@ void bms_afe_set_output_enabled(uint8_t enabled);
  * 看门狗总线静默或主动 shutdown 后返回 0；诊断/原始路径也须遵守，不能访问 AFE。
  */
 uint8_t bms_afe_bus_access_allowed(void);
-#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
-/* 主循环只读 RAM 查询，无 I2C 或 FET 命令。 */
+/* 主循环只读 RAM 查询，无总线事务或 FET 命令。 */
 uint8_t bms_afe_current_recovery_pending(void);
-#else
-/* 查询是否仍有电流保护等待物理条件恢复。 */
-static inline uint8_t bms_afe_current_recovery_pending(void) { return 0u; }
-#endif
-#if (BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124)
-/*
- * 受保护的 D008 关机流程：shutdown 保留 FET 请求但禁止全部 AFE 访问；
- * 唤醒完整初始化并确认新样本后才允许请求到达硬件。
- */
-/*
- * 只有均衡关闭、FET 关闭命令和 shutdown 应答全部成功才返回成功；
- * 冷启动/受保护唤醒前不再访问 AFE。
- */
-uint8_t bms_afe_enter_shutdown(void);
 #if defined(BMS_HOST_TEST) && BMS_HOST_TEST
-/* 测试构建中发起 AFE shutdown 并记录结果。 */
-uint8_t bms_afe_test_enter_shutdown(void);
-/* 测试构建中执行 AFE 唤醒并重新获取资格。 */
+/* 主动保持的休眠在重新初始化、三帧资格确认后恢复。 */
 uint8_t bms_afe_test_wake(void);
 #endif
-
-#endif
 typedef struct {
-    uint16_t battery_ntc_mv;
-    uint16_t mos_ntc_mv;
-    uint32_t battery_ntc_100ohm;
-    uint32_t mos_ntc_100ohm;
-    uint32_t pack_voltage_mv;
     int32_t raw_current_ma;
     int32_t current_ma; /* mA：正放电，负充电 */
     uint32_t sample_tick_32k;

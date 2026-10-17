@@ -13,6 +13,7 @@ typedef uint8_t u8; typedef uint16_t u16;
 #define BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK 2u
 typedef struct {int dummy;} bms_afe_aux_measurements_t;
 typedef struct {int dummy;} bms_afe_feature_snapshot_t;
+static const bms_afe_driver_policy_t bms_afe_driver_policy={5000u*32u,0u,1u};
 static int err,cmd_c,cmd_d,apply_calls,hardware_profile,fet_fail;
 static uint8_t params_valid=1u;
 static uint8_t bms_protection_params_valid(void){return params_valid;}
@@ -27,24 +28,24 @@ static unsigned protection_inits;
 static void bms_sw_protection_init(void){++protection_inits;}
 static void bms_features_service(void){}
 static int bms_features_charge_direction_blocked(void){return 0;}
-static void dvc1124_backend_init(void){if(init_fail)bms_error_raise(BMS_ERROR_AFE1);}
-static void dvc1124_backend_sample(void){sample_calls++;err=0;}
-static uint8_t dvc1124_backend_sample_pending(void){return 0;}
-static int dvc1124_backend_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
-static int dvc1124_backend_set_fets(int c,int d){if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
-static uint8_t dvc1124_backend_get_direction_allow_mask(void){return direction_allow_mask;}
-static void dvc1124_backend_set_output_enabled(int x){}
-static int dvc1124_backend_get_aux_measurements(bms_afe_aux_measurements_t*x){return aux_ok;}
-static int dvc1124_backend_get_feature_snapshot(bms_afe_feature_snapshot_t*x){return 1;}
-static int dvc1124_backend_get_charge_source_present(uint8_t*x){return 0;}
-static int dvc1124_backend_set_balance_mask(uint32_t x){return balance_ok;}
-static int dvc1124_backend_get_balance_mask(uint32_t*x){return 1;}
-static int dvc1124_backend_enter_shutdown(void){shutdown_calls++;return shutdown_ok;}
+static void bms_afe_driver_init(void){if(init_fail)bms_error_raise(BMS_ERROR_AFE1);}
+static void bms_afe_driver_sample(void){sample_calls++;err=0;}
+static uint8_t bms_afe_driver_sample_pending(void){return 0;}
+static int bms_afe_driver_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
+static int bms_afe_driver_set_fets(int c,int d){if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
+static uint8_t bms_afe_driver_get_direction_allow_mask(void){return direction_allow_mask;}
+static void bms_afe_driver_set_output_enabled(int x){}
+static int bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t*x){return aux_ok;}
+static int bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t*x){return 1;}
+static int bms_afe_driver_get_charge_source_present(uint8_t*x){return 0;}
+static int bms_afe_driver_set_balance_mask(uint32_t x){return balance_ok;}
+static int bms_afe_driver_get_balance_mask(uint32_t*x){return 1;}
+static int bms_afe_driver_sleep(void){shutdown_calls++;return shutdown_ok;}
 struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bits;}g_bms_system_status;
 
 static uint32_t guard_tick;
 uint32_t bms_time_now_32k(void){return guard_tick;}
-uint8_t bms_afe_enter_shutdown(void);
+uint8_t bms_afe_sleep(void);
 void bms_afe_publish_fet_status(uint8_t bits, uint8_t valid);
 /* PRODUCTION_SOURCE */
 static void reset(void){
@@ -142,13 +143,13 @@ int main(void){
  s_guard.comm_inhibit=1;bms_afe_diag_poll();assert(bms_diag_cached_word(133)==0);
  puts("PASS MOS diagnostics: simultaneous independent reasons, requested ON/driver OFF, invalid feedback");
 
- reset();balance_ok=0;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==0&&!s_guard.test_shutdown_hold);
- reset();fet_fail=1;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==0&&!s_guard.test_shutdown_hold);
- reset();shutdown_ok=0;assert(!bms_afe_enter_shutdown());assert(shutdown_calls==1&&!s_guard.test_shutdown_hold);
- reset();assert(bms_afe_enter_shutdown());assert(shutdown_calls==1&&s_guard.test_shutdown_hold);
+ reset();balance_ok=0;assert(!bms_afe_sleep());assert(shutdown_calls==0&&!s_guard.test_shutdown_hold);
+ reset();fet_fail=1;assert(!bms_afe_sleep());assert(shutdown_calls==0&&!s_guard.test_shutdown_hold);
+ reset();shutdown_ok=0;assert(!bms_afe_sleep());assert(shutdown_calls==1&&!s_guard.test_shutdown_hold);
+ reset();assert(bms_afe_sleep());assert(shutdown_calls==1&&s_guard.test_shutdown_hold);
  assert(cmd_c==0&&cmd_d==0);assert(!bms_afe_bus_access_allowed());
  int samples=sample_calls;for(int i=0;i<100;i++){bms_afe_sample();} assert(sample_calls==samples);
  assert(bms_afe_set_fets(1,1));assert(cmd_c==0&&cmd_d==0);assert(!bms_afe_apply_protection_config());
- assert(!bms_afe_enter_shutdown());assert(shutdown_calls==1);
+ assert(!bms_afe_sleep());assert(shutdown_calls==1);
  puts("PASS guard: balance/FET/shutdown failures, command OFF, terminal bus hold");
 }

@@ -80,7 +80,7 @@ def main():
                 'static void app_acc_sleep_hold(',
                 'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void app_power_process(',
                 'uint8_t app_power_prepare_loop(')),
-            'guard': source('bms_afe_guard.c'),
+            'guard': source('bms_afe_guard.c') + '\n' + function('dvc1124_bms.c', 'void bms_afe_diag_poll('),
             'current': function('dvc1124.c', 'static void dvc_publish_current_report('),
             })
         for name, code in units.items():
@@ -88,6 +88,9 @@ def main():
             if name == 'power':
                 code = '#include "' + (ROOT/'bms/core/bms_debug_log.h').as_posix() + '"\n' + code
             fixture = (FIX / (name + '.c')).read_text()
+            if name == 'guard':
+                policy = re.search(r'typedef struct\s*\{[^}]*\} bms_afe_driver_policy_t;', (ROOT/'bms/core/bms_afe_driver.h').read_text(encoding='utf-8'), re.S).group()
+                fixture = policy + '\n' + fixture
             if name == 'power':
                 fixture = '#include "' + (ROOT/'bms/core/bms_diag.h').as_posix() + '"\n' + fixture
             assert fixture.count('/* PRODUCTION_SOURCE */') == 1

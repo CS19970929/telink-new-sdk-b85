@@ -38,7 +38,7 @@ static void reset(void) { memset(&s_current_recovery,0,sizeof(s_current_recovery
 int main(void) {
     /* 零流/关闭 MOS 不等于负载移除；只接受新鲜的可靠反向电流。 */
     reset(); step(100,0,1,0,1); assert(s_current_recovery.discharge);
-    dvc1124_backend_set_fets(1,1);
+    bms_afe_driver_set_fets(1,1);
     assert(chg_mode==DVC1124_FET_DRIVE_ON && dsg_mode==DVC1124_FET_DRIVE_AUTO_DIODE);
     step(6500,0,0,0,0);step(12900,0,0,0,0);assert(s_current_recovery.discharge);
     current_ma=-200;step(19300,0,0,0,0);assert(s_current_recovery.discharge);

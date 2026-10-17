@@ -4,6 +4,7 @@
  * bms/afe/sh3673510/sh3673510_diag.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_driver.h"
+#include "sh3673510_diag.h"
 #include "bms_diag.h"
 #include "bms_features.h"
 #include <string.h>

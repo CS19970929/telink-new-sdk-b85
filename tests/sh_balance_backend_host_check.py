@@ -45,36 +45,36 @@ code += r'''
 #if BMS_FEATURE_BALANCE_SUPPORTED
 int main(void) {
     tick=UINT32_MAX-32000u;
-    assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==1u);
-    for(unsigned i=0;i<200;i++)assert(sh3673510_backend_set_balance_mask(1u));
+    assert(bms_afe_driver_set_balance_mask(1u)); assert(balance_writes==1u);
+    for(unsigned i=0;i<200;i++)assert(bms_afe_driver_set_balance_mask(1u));
     assert(balance_writes==1u);
     tick+=20000u*32u-1u;
-    assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==1u);
-    ++tick; assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==2u);
+    assert(bms_afe_driver_set_balance_mask(1u)); assert(balance_writes==1u);
+    ++tick; assert(bms_afe_driver_set_balance_mask(1u)); assert(balance_writes==2u);
     tick+=20000u*32u; fail_write=1;
-    assert(!sh3673510_backend_set_balance_mask(1u));
-    fail_write=0; assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==4u);
+    assert(!bms_afe_driver_set_balance_mask(1u));
+    fail_write=0; assert(bms_afe_driver_set_balance_mask(1u)); assert(balance_writes==4u);
     registers[SH3673520_REG_BALANCEH+2]=0;
-    assert(sh3673510_backend_set_balance_mask(1u)); assert(balance_writes==5u);
+    assert(bms_afe_driver_set_balance_mask(1u)); assert(balance_writes==5u);
     balance_reads=0u;
-    assert(sh3673510_backend_set_balance_mask(0u));
+    assert(bms_afe_driver_set_balance_mask(0u));
     assert(balance_writes==6u && balance_reads==2u); /* 非零 → 写零 → 回读确认 */
     balance_reads=0u;
-    assert(sh3673510_backend_set_balance_mask(0u));
+    assert(bms_afe_driver_set_balance_mask(0u));
     assert(balance_writes==6u && balance_reads==1u); /* 原本为零只需一次有效回读 */
     /* 读取失败不能阻止最后一次OFF尝试，但没有确认就不能发布成功。 */
     registers[SH3673520_REG_BALANCEH+2]=1u;
     fail_reads=1u; balance_reads=0u;
-    assert(sh3673510_backend_set_balance_mask(0u) && balance_writes==7u && balance_reads==2u);
+    assert(bms_afe_driver_set_balance_mask(0u) && balance_writes==7u && balance_reads==2u);
     assert(!registers[SH3673520_REG_BALANCEH+2]);
     registers[SH3673520_REG_BALANCEH+2]=1u;
     tick++; fail_reads=2u;
-    assert(!sh3673510_backend_set_balance_mask(0u) && balance_writes==8u);
+    assert(!bms_afe_driver_set_balance_mask(0u) && balance_writes==8u);
     assert(s_balance_refresh_tick!=tick && !registers[SH3673520_REG_BALANCEH+2]);
     fail_reads=1u; fail_write=1u;
-    assert(!sh3673510_backend_set_balance_mask(0u) && balance_writes==9u);
+    assert(!bms_afe_driver_set_balance_mask(0u) && balance_writes==9u);
     fail_write=0u; fail_reads=1u;
-    assert(!sh3673510_backend_set_balance_mask(1u) && balance_writes==9u);
+    assert(!bms_afe_driver_set_balance_mask(1u) && balance_writes==9u);
     puts("PASS SH balance: refresh, tick wrap, failed write, readback and hardware timeout");
     return 0;
 }

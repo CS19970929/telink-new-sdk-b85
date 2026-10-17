@@ -25,7 +25,7 @@ VADC/CADC、TS1..TS4、内部温度、CUR 和 CADCD；这些数据寄存器为�
 
 ## 行为与状态所有者
 
-调用链仍为 `app_sample_task()` → `bms_afe_sample()` → `sh3673510_bms_afe_sample()`。软件三级保护、AFE hardware profile、产品输出请求、实际驱动状态继续独立。
+调用链仍为 `app_sample_task()` → `bms_afe_sample()` → `bms_afe_driver_sample()`。软件三级保护、AFE hardware profile、产品输出请求、实际驱动状态继续独立。
 
 | 所有者 | 本轮职责 |
 |---|---|

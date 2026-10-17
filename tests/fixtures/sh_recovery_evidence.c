@@ -8,6 +8,7 @@
 #endif
 #include "bms_state.h"
 #include "bms_afe_driver.h"
+#include "sh3673510_diag.h"
 #include "bms_sw_protection.h"
 #include "bms_features.h"
 #include "bms_error.h"
@@ -141,8 +142,8 @@ static void sample(void) {
 #ifdef GUARD_TEST
     bms_afe_sample();
 #else
-    sh3673510_bms_afe_sample();
-    sh3673510_bms_afe_set_fets(1,1);
+    bms_afe_driver_sample();
+    bms_afe_driver_set_fets(1,1);
 #endif
 }
 #if defined(MODE_TEST)
@@ -181,9 +182,9 @@ int main(void) {
     bms_afe_feature_snapshot_t snap;
 #endif
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
-    sh3673510_bms_afe_init();
+    bms_afe_driver_init();
     for(unsigned i=0;i<8;++i)sample();
-    assert(sh3673510_bms_afe_get_aux_measurements(&aux));
+    assert(bms_afe_driver_get_aux_measurements(&aux));
     assert(command_c==1u && command_d==1u);
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
     assert(cplus_reads>0u && read_stage==8u); /* D011 加热仍需充电器证据。 */
@@ -192,7 +193,7 @@ int main(void) {
     uint8_t present;
     (void)present;
 #if BMS_FEATURE_HEATER_SUPPORTED
-    assert(!sh3673510_backend_get_charge_source_present(&present));
+    assert(!bms_afe_driver_get_charge_source_present(&present));
 #endif
     /* 独立软件保护所有者已锁存 OCC 时，同样必须重新读取 C+。 */
     g_bms_report.fault_third.bits.charge_ocp=1u;
@@ -212,10 +213,10 @@ int main(void) {
         assert(failure_step==expected[f]);
         if(f>2u) assert(failure_flag2 & 0x200u);
         device.bstatus2=0u;
-        assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
+        assert(!bms_afe_driver_get_aux_measurements(&aux));
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
 #if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
-        assert(!sh3673510_backend_get_feature_snapshot(&snap));
+        assert(!bms_afe_driver_get_feature_snapshot(&snap));
 #endif
     }
     /* 硬件 OCC 需要的 C+ 读取失败仍使整帧失效并关闭两路 MOS。 */
@@ -224,7 +225,7 @@ int main(void) {
     device.flag1=SH3673520_FLAG1_OCC_MASK;
     fail_stage=8u;sample();
     assert(failure_step==DIAG_AFE_FAIL_RELEASE_READ);
-    assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
+    assert(!bms_afe_driver_get_aux_measurements(&aux));
     assert(!memcmp(&before,&g_bms_report,sizeof(before)));
     assert(command_c==0u && command_d==0u);
     device.flag1=0u;
@@ -232,23 +233,23 @@ int main(void) {
     for(unsigned c=0;c<SH3673510_BOARD_CELL_COUNT;++c)for(unsigned v=0;v<2;++v) {
         bad_cell=(int)c;bad_cell_mv=v?65536:-1;sample();
         assert(failure_step==DIAG_AFE_FAIL_CELL_RANGE);
-        assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
+        assert(!bms_afe_driver_get_aux_measurements(&aux));
         assert(!memcmp(&before,&g_bms_report,sizeof(before)));
     }
     bad_cell=-1;sample();sample();
 #if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     unsigned reads=read_stage;
-    assert(sh3673510_backend_get_feature_snapshot(&snap) && snap.battery_temp_valid);
+    assert(bms_afe_driver_get_feature_snapshot(&snap) && snap.battery_temp_valid);
     assert(read_stage==reads && snap.cell_count==SH3673510_BOARD_CELL_COUNT);
 #endif
     for(unsigned i=SH3673510_BOARD_CELL_COUNT;i<32;++i)assert(g_bms_report.cell_voltage_mv[i]==61001);
     invalid_ntc=SH3673510_BOARD_BAT_NTC1_INDEX;sample();
 #if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
-    assert(sh3673510_backend_get_feature_snapshot(&snap) && !snap.battery_temp_valid);
+    assert(bms_afe_driver_get_feature_snapshot(&snap) && !snap.battery_temp_valid);
 #endif
     device.flag1=SH3673520_FLAG1_RST1_MASK;sample();
 #if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
-    assert(!sh3673510_backend_get_feature_snapshot(&snap));
+    assert(!bms_afe_driver_get_feature_snapshot(&snap));
 #endif
     puts("Required read/cell failures remain atomic; healthy heater-free products skip unused C+ reads");
     return 0;
@@ -256,13 +257,13 @@ int main(void) {
 #elif !defined(GUARD_TEST)
 int main(void) {
     bms_afe_aux_measurements_t aux, previous;
-    sh3673510_bms_afe_init();
+    bms_afe_driver_init();
     sample(); sample();
-    assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
+    assert(!bms_afe_driver_get_aux_measurements(&aux));
     assert(!bms_error_get(BMS_ERROR_AFE1)); /* Waiting for first conversion is normal. */
     sample();
     assert(bms_error_get(BMS_ERROR_AFE1)); /* Bounded waiting, even if all reads ACK. */
-    sh3673510_bms_afe_init();
+    bms_afe_driver_init();
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     device.flag1=SH3673520_FLAG1_OCC_MASK;
     for(unsigned i=0;i<20;++i) sample();
@@ -274,7 +275,7 @@ int main(void) {
     uint8_t present;
     (void)present;
 #if BMS_FEATURE_HEATER_SUPPORTED
-    assert(!sh3673510_backend_get_charge_source_present(&present));
+    assert(!bms_afe_driver_get_charge_source_present(&present));
 #endif
     cplus_raw=0;
     sample();
@@ -296,7 +297,7 @@ int main(void) {
     before=clear_calls;sample();
     (void)present;
 #if BMS_FEATURE_HEATER_SUPPORTED
-    assert(!sh3673510_backend_get_charge_source_present(&present));
+    assert(!bms_afe_driver_get_charge_source_present(&present));
 #endif
     for(unsigned i=0;i<10;++i)sample();
     assert(clear_calls==before+1 && device.flag1==SH3673520_FLAG1_OCC_MASK);
@@ -322,15 +323,15 @@ int main(void) {
     sample();assert(command_c==1);
     public_current_ma=0;device.bstatus2=0;sample();sample();
 
-    assert(sh3673510_bms_afe_get_aux_measurements(&previous));
+    assert(bms_afe_driver_get_aux_measurements(&previous));
     device.flag2=0;
     sample(); sample();
-    assert(sh3673510_bms_afe_get_aux_measurements(&aux));
+    assert(bms_afe_driver_get_aux_measurements(&aux));
     assert(aux.sample_tick_32k==previous.sample_tick_32k);
-    sample(); assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
+    sample(); assert(!bms_afe_driver_get_aux_measurements(&aux));
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     for(unsigned i=0;i<8;++i) sample();
-    mode_ok=0;sample();assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
+    mode_ok=0;sample();assert(!bms_afe_driver_get_aux_measurements(&aux));
     assert(command_c==0 && command_d==0);
     mode_ok=1;sample();sample();
 
@@ -339,7 +340,7 @@ int main(void) {
     public_current_ma=201; /* 新鲜放电触发 OCC 清除，随后注入 W0C 写失败。 */
     clear_ok=0;
     sample();
-    assert(!sh3673510_bms_afe_get_aux_measurements(&aux));
+    assert(!bms_afe_driver_get_aux_measurements(&aux));
     assert(bms_error_get(BMS_ERROR_AFE1) && command_c==0 && command_d==0);
     puts("C+/LOAD mode settling, readback and failed-clear inhibit");
     return 0;

@@ -5,6 +5,9 @@
 #include "dvc1124.h"
 #include "bms_afe_driver.h"
 
+/* 保持既有 watchdog 余量、保护初始化顺序和休眠后总线语义。 */
+const bms_afe_driver_policy_t bms_afe_driver_policy = { 5000u * 32u, 0u, 1u };
+
 #include "tl_common.h"
 #include "drivers.h"
 #include "bms_product.h"
@@ -78,7 +81,7 @@ static void dvc_project_i2c_wake_pulse(void)
 }
 
 /* 执行后端 shutdown 流程并返回通信结果。 */
-uint8_t dvc1124_backend_enter_shutdown(void)
+uint8_t bms_afe_driver_sleep(void)
 {
     uint8_t cmd = (uint8_t)DVC1124_CST_ENTER_SHUTDOWN;
 
@@ -90,7 +93,7 @@ uint8_t dvc1124_backend_enter_shutdown(void)
 }
 
 /* 初始化选定 AFE 后端并应用产品配置。 */
-void dvc1124_backend_init(void)
+void bms_afe_driver_init(void)
 {
     dvc_project_enable_afe_interface();
     dvc_project_i2c_wake_pulse();

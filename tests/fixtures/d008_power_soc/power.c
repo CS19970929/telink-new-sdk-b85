@@ -64,8 +64,8 @@ static int afe_error, output_enabled=1,afe_shutdown_calls;
 #define BMS_ERROR_AFE1 0
 static int bms_error_get(int error){assert(error==BMS_ERROR_AFE1);return afe_error;}
 static void bms_afe_set_output_enabled(u8 en){output_enabled=en;}
-static int bms_afe_enter_shutdown(void);
-static int bms_afe_sleep(void){return bms_afe_enter_shutdown();}
+static int bms_afe_sleep(void);
+
 static bool deepsleep_en;
 static u8 ble_tx_pending,uart_busy,modbus_tx_busy;
 static u8 blc_ll_getTxFifoNumber(void){return ble_tx_pending;}
@@ -92,7 +92,7 @@ static int app_flash_lock_restore_enabled(void){return flash_ready;}
 static int bus_mux_get_state(void){return bus_busy;}
 static int bms_state_store_write_all(int s,int d,uint32_t c){seq[seq_len++]=1;return storage_ok;}
 static int bms_event_log_note_sleep(void){seq[seq_len++]=2;return event_ok;}
-static int bms_afe_enter_shutdown(void){afe_shutdown_calls++;seq[seq_len++]=3;if(acc_low_during_shutdown)acc_high=0;return shutdown_ok;}
+static int bms_afe_sleep(void){afe_shutdown_calls++;seq[seq_len++]=3;if(acc_low_during_shutdown)acc_high=0;return shutdown_ok;}
 static void bls_pm_setAppWakeupLowPower(u32 t,int en){assert(en==0);seq[seq_len++]=4;}
 static void gpio_write(int pin,int level){assert(pin==BMS_BOARD_MCU_LDO_PIN);ldo_high=level;if(!level)cut_calls++;seq[seq_len++]=5;}
 static u32 clock_time(void){return now;}

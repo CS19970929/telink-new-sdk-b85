@@ -17,6 +17,8 @@ static uint32_t expected_tick;
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m) { (void)m; ++aux_reads;return 0; }
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 uint8_t bms_afe_current_recovery_pending(void) { return 1u; }
+#else
+uint8_t bms_afe_current_recovery_pending(void) { return 0u; }
 #endif
 void bms_soc_get_diag(bms_soc_diag_t *soc) { memset(soc,0,sizeof(*soc));soc->soc_display=47;++soc_reads; }
 void bms_diag_runtime_sample(uint8_t valid,int32_t raw,int32_t current,uint32_t tick,uint8_t recovery) {
