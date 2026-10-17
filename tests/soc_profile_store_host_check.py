@@ -75,12 +75,34 @@ int main(void) {
         same=programs;assert(!bms_soc_profile_store_set(&next));assert(programs==same);
         next=old;next.chemistry=(u16)(3u-chemistry);next.profile_id=next.chemistry;
         assert(!bms_soc_profile_store_set(&next));assert(!memcmp(view,&old,sizeof(old)));
+        /* reset 允许先于 Config 改类型；每个字节断点都不能发布候选。 */
+        bms_soc_profile_config_t defaults;
+        u8 target=(u8)(3u-chemistry);
+        bms_soc_profile_store_defaults(target,&defaults);
+        for(unsigned byte=0;byte<total;++byte) {
+            memcpy(flash,backup,sizeof(flash));cut=-1;bms_soc_profile_store_init();
+            generation=bms_soc_profile_store_generation();cut=(int)byte;
+            assert(!bms_soc_profile_store_reset(target));
+            assert(generation==bms_soc_profile_store_generation() && !memcmp(view,&old,sizeof(old)));
+            assert(bms_soc_profile_store_is_persisted());
+            cut=-1;bms_soc_profile_store_init();assert(!memcmp(view,&old,sizeof(old)));
+        }
+        memcpy(flash,backup,sizeof(flash));bms_soc_profile_store_init();
+        s_generation=UINT16_MAX;bytes=0u;
+        assert(bms_soc_profile_store_reset(target));assert(bytes==total);
+        assert(bms_soc_profile_store_generation()==1u && !memcmp(view,&defaults,sizeof(defaults)));
+        /* 与 set 去重不同，显式 reset 相同默认仍写 journal 并推进 generation。 */
+        same=programs;generation=bms_soc_profile_store_generation();
+        assert(bms_soc_profile_store_reset(target));
+        assert(programs>same && bms_soc_profile_store_generation()==(u16)(generation+1u));
+        memcpy(flash,backup,sizeof(flash));bms_soc_profile_store_init();
         /* 旧记录类型不匹配只降级默认，不自动覆写；读失败禁止后续写入。 */
         chemistry=(u8)(3u-chemistry);same=programs;bms_soc_profile_store_init();
         assert(view->chemistry==chemistry && !bms_soc_profile_store_is_persisted() && programs==same);
         chemistry=(u8)(3u-chemistry);read_ok=0;bms_soc_profile_store_init();
-        assert(!bms_soc_profile_store_set(&old));assert(programs==same);read_ok=1;
-        printf("PASS SOC profile chemistry %u: %u byte cuts, stable view, unchanged 100-byte payload\n",chemistry,total);
+        assert(!bms_soc_profile_store_set(&old));assert(!bms_soc_profile_store_reset(chemistry));
+        assert(programs==same);read_ok=1;
+        printf("PASS SOC profile chemistry %u: set/reset each %u byte cuts, generation wrap, forced reset, unchanged 100-byte payload\n",chemistry,total);
     }
     return 0;
 }

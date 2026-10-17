@@ -57,6 +57,8 @@ u8 bms_soc_config_valid(const bms_soc_config_t*c){return c && c->ocv_rest_prepar
 static bms_soc_profile_config_t soc_profile_stub;
 static u16 soc_profile_stub_generation=1u;
 static u8 soc_profile_stub_persisted;
+static unsigned soc_profile_stub_reads;
+static u8 soc_profile_stub_reset_ok=1u;
 void bms_soc_profile_store_defaults(u8 chemistry,bms_soc_profile_config_t*c){
  memset(c,0,sizeof(*c));c->chemistry=chemistry;c->profile_id=chemistry;c->profile_version=1u;c->point_count=2u;
  c->current_deadband_ma=200u;c->ocv_rest_prepare_s=600u;c->ocv_error_band_percent=5u;
@@ -69,11 +71,12 @@ void bms_soc_profile_store_defaults(u8 chemistry,bms_soc_profile_config_t*c){
 int bms_soc_profile_store_valid(const bms_soc_profile_config_t*c){return c&&c->chemistry>=1u&&c->chemistry<=2u&&c->profile_id==c->chemistry&&c->point_count>=2u&&c->point_count<=BMS_SOC_PROFILE_MAX_POINTS;}
 void bms_soc_profile_store_init(void){bms_soc_config_t id;if(!bms_config_store_get_soc(&id))id.chemistry=1u;bms_soc_profile_store_defaults(id.chemistry,&soc_profile_stub);soc_profile_stub_persisted=0u;}
 void bms_soc_profile_store_get(bms_soc_profile_config_t*c){
+ ++soc_profile_stub_reads;
  bms_soc_config_t id;if(bms_config_store_get_soc(&id)&&soc_profile_stub.chemistry!=id.chemistry)bms_soc_profile_store_defaults(id.chemistry,&soc_profile_stub);
  if(c)*c=soc_profile_stub;
 }
 int bms_soc_profile_store_set(const bms_soc_profile_config_t*c){if(!bms_soc_profile_store_valid(c))return 0;soc_profile_stub=*c;soc_profile_stub_persisted=1u;if(++soc_profile_stub_generation==0u)++soc_profile_stub_generation;return 1;}
-int bms_soc_profile_store_reset(u8 chemistry){bms_soc_profile_config_t c;bms_soc_profile_store_defaults(chemistry,&c);return bms_soc_profile_store_set(&c);}
+int bms_soc_profile_store_reset(u8 chemistry){bms_soc_profile_config_t c;if(!soc_profile_stub_reset_ok)return 0;bms_soc_profile_store_defaults(chemistry,&c);return bms_soc_profile_store_set(&c);}
 u16 bms_soc_profile_store_word(const bms_soc_profile_config_t*c,u16 offset){u16 value=0u;if(!c||offset>=BMS_SOC_PROFILE_WORDS)return 0u;if(offset<BMS_SOC_PROFILE_FIXED_WORDS){memcpy(&value,(const u8*)c+offset*2u,2u);return value;}offset-=BMS_SOC_PROFILE_FIXED_WORDS;return(offset&1u)?c->points[offset/2u].soc_percent:c->points[offset/2u].mv;}
 int bms_soc_profile_store_set_word(bms_soc_profile_config_t*c,u16 offset,u16 value){if(!c||offset>=BMS_SOC_PROFILE_WORDS)return 0;if(offset<BMS_SOC_PROFILE_FIXED_WORDS){memcpy((u8*)c+offset*2u,&value,2u);return 1;}offset-=BMS_SOC_PROFILE_FIXED_WORDS;if(offset&1u)c->points[offset/2u].soc_percent=value;else c->points[offset/2u].mv=value;return 1;}
 u16 bms_soc_profile_store_generation(void){return soc_profile_stub_generation;}
@@ -768,6 +771,24 @@ static void test_chemistry_switch(void)
  switch_current_ma=0;switch_sample_age=BMS_SOC_MAX_SAMPLE_GAP_32K+1u;
  assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
  switch_sample_age=0;
+ /* 静置门禁和失败回滚共用复制的原曲线；reset 会覆盖已提交对象。 */
+ bms_soc_profile_config_t original_profile=soc_profile_stub;
+ original_profile.current_deadband_ma=123u;original_profile.profile_version=17u;
+ assert(bms_soc_profile_store_set(&original_profile));
+ switch_current_ma=124;written=programs;
+ assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
+ for(unsigned fail_reset=0u;fail_reset<2u;++fail_reset) {
+  switch_current_ma=fail_reset?-123:123;
+  soc_profile_stub_reset_ok=(u8)!fail_reset;
+  soc_profile_stub_reads=0u;config_inhibited=0u;written=programs;cut=0;
+  assert(bms_parameter_write(0x2ea8u,4u,command)==4u);
+  assert(soc_profile_stub_reads==1u && config_inhibited>0u);
+  assert(!memcmp(&soc_profile_stub,&original_profile,sizeof(original_profile)));
+  if(fail_reset)assert(programs==written);else assert(programs>written);
+  cut=-1;
+ }
+ soc_profile_stub_reset_ok=1u;
+ switch_current_ma=0;
  bms_config_cache_t original=g_bms_config;
  original.protect.cell_ovp_third_mv=3999u;
  original.system.capacity_factory=777u;

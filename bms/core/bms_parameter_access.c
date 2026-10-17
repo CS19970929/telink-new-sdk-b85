@@ -234,7 +234,6 @@ int bms_parameter_read_block(u16 reg, u16 qty, u8 *data)
 static u8 switch_chemistry(const u8 *data, u16 qty)
 {
     bms_afe_aux_measurements_t sample;
-    bms_soc_profile_config_t active_profile;
     bms_soc_profile_config_t previous_profile;
     u16 chemistry = word(data);
     if (qty != 4u) return 3u;
@@ -244,17 +243,17 @@ static u8 switch_chemistry(const u8 *data, u16 qty)
 #if BMS_PRODUCT_ID == 8u
     if (chemistry == BMS_SOC_CHEMISTRY_NMC && BMS_PRODUCT_CELL_COUNT > 23u) return 3u;
 #endif
-    bms_soc_profile_store_get(&active_profile);
+    /* 保留原曲线副本，既用于静置门禁，也用于 Config 保存失败后的回滚。 */
+    bms_soc_profile_store_get(&previous_profile);
     if (!bms_protection_params_valid() || !bms_afe_bus_access_allowed() ||
         !(bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) ||
         !bms_afe_get_aux_measurements(&sample) ||
         (u32)(bms_time_now_32k() - sample.sample_tick_32k) > BMS_SOC_MAX_SAMPLE_GAP_32K ||
-        !bms_soc_profile_store_valid(&active_profile) ||
-        sample.current_ma > (int32_t)active_profile.current_deadband_ma ||
-        sample.current_ma < -(int32_t)active_profile.current_deadband_ma) return 4u;
+        !bms_soc_profile_store_valid(&previous_profile) ||
+        sample.current_ma > (int32_t)previous_profile.current_deadband_ma ||
+        sample.current_ma < -(int32_t)previous_profile.current_deadband_ma) return 4u;
     s_chemistry_status = CHEMISTRY_SWITCH_FAILED;
     bms_afe_invalidate_configuration();
-    bms_soc_profile_store_get(&previous_profile);
     if (!bms_soc_profile_store_reset((u8)chemistry)) return 4u;
     if (!bms_config_store_switch_chemistry((u8)chemistry)) {
         (void)bms_soc_profile_store_set(&previous_profile);

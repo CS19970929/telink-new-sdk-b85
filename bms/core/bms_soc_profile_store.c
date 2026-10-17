@@ -151,25 +151,31 @@ void bms_soc_profile_store_get(bms_soc_profile_config_t *config)
     if (config) *config = s_config;
 }
 
+/* 调用者拥有稳定候选；journal 成功后才发布，失败不改变曲线或代次。 */
+static int save_profile(bms_soc_profile_config_t *candidate)
+{
+    uint8_t payload[SOC_PROFILE_PAYLOAD_BYTES];
+    codec(candidate, payload, 1u);
+    if (!storage_record_save(&s_store, payload)) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0;
+    }
+    s_config = *candidate;
+    s_persisted = 1u;
+    if (++s_generation == 0u) ++s_generation;
+    return 1;
+}
+
 int bms_soc_profile_store_set(const bms_soc_profile_config_t *config)
 {
     bms_soc_config_t identity;
-    uint8_t payload[SOC_PROFILE_PAYLOAD_BYTES];
     bms_soc_profile_config_t next;
     if (!s_writable || !bms_soc_profile_store_valid(config) ||
         !bms_config_store_get_soc(&identity) || config->chemistry != identity.chemistry ||
         config->profile_id != identity.profile_id) return 0;
     if (s_persisted && !memcmp(config, &s_config, sizeof(*config))) return 1;
     next = *config;
-    codec(&next, payload, 1u);
-    if (!storage_record_save(&s_store, payload)) {
-        bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        return 0;
-    }
-    s_config = next;
-    s_persisted = 1u;
-    if (++s_generation == 0u) ++s_generation;
-    return 1;
+    return save_profile(&next);
 }
 
 int bms_soc_profile_store_reset(uint8_t chemistry)
@@ -179,18 +185,7 @@ int bms_soc_profile_store_reset(uint8_t chemistry)
     if (!bms_soc_profile_store_valid(&defaults)) return 0;
     /* 类型切换在 Config 提交前调用，允许候选类型暂时与当前 Config 不同。 */
     if (!s_writable) return 0;
-    {
-        uint8_t payload[SOC_PROFILE_PAYLOAD_BYTES];
-        codec(&defaults, payload, 1u);
-        if (!storage_record_save(&s_store, payload)) {
-            bms_error_raise(BMS_ERROR_EEPROM_STORE);
-            return 0;
-        }
-    }
-    s_config = defaults;
-    s_persisted = 1u;
-    if (++s_generation == 0u) ++s_generation;
-    return 1;
+    return save_profile(&defaults);
 }
 
 uint16_t bms_soc_profile_store_generation(void) { return s_generation; }
