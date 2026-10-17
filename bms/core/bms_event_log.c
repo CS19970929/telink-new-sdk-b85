@@ -1,10 +1,9 @@
 /*
- * 文件功能：持久历史事件、重复计数和 Flash checkpoint；与详细运行调试日志独立，
+ * 文件功能：持久历史事件和 Flash checkpoint；与详细运行调试日志独立，
  * OTA 保留已保存的历史事件，不再依据旧编号清空。
  * bms/core/bms_event_log.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
-#include "bms_update_policy.h"
 #include "bms_event_log.h"
 
 #include "bms_error.h"
@@ -17,16 +16,14 @@
 
 #define BMS_EVENT_SAVE_INTERVAL_32K (60u * 32000u)
 
-#define BMS_EVENT_RECORD_MAGIC          0x45563200u + BMS_PRODUCT_ID /*
- * 事件标识为 EV2 加产品编号。
+#define BMS_EVENT_RECORD_MAGIC          0x45563400u + BMS_PRODUCT_ID /*
+ * 事件标识为 EV4 加产品编号。
  */
-#define BMS_EVENT_SCHEMA_VERSION        3u
-#define BMS_EVENT_REPEAT_OFFSET (2u + BMS_EVENT_LOG_ENTRY_COUNT * 2u)
-#define BMS_EVENT_PAYLOAD_BYTES         (4u + (BMS_EVENT_LOG_ENTRY_COUNT * 4u))
+#define BMS_EVENT_SCHEMA_VERSION        4u
+#define BMS_EVENT_PAYLOAD_BYTES (2u + BMS_EVENT_LOG_ENTRY_COUNT * 2u)
 
 typedef struct {
     u8 records[BMS_EVENT_LOG_ENTRY_COUNT][2];
-    u16 repeats[BMS_EVENT_LOG_ENTRY_COUNT];
     u32 last_attempt_32k;
     u8 last_failed;
     u8 dirty;
@@ -85,7 +82,6 @@ static void bms_event_log_advance_time(void)
 static void bms_event_log_reset_ram_only(void)
 {
     memset(g_bms_event_log.records, 0, sizeof(g_bms_event_log.records));
-    memset(g_bms_event_log.repeats, 0, sizeof(g_bms_event_log.repeats));
     g_bms_event_log.write_pos = 0u;
     bms_event_log_clear_runtime_flags();
 }
@@ -93,12 +89,8 @@ static void bms_event_log_reset_ram_only(void)
 /* 按固定存储格式编码历史事件快照。 */
 static void bms_event_log_encode(u8 payload[BMS_EVENT_PAYLOAD_BYTES])
 {
-    u16 i;
-    bms_event_log_put_u16le(&payload[BMS_EVENT_PAYLOAD_BYTES - 2u], BMS_UPDATE_EVENTS_REVISION);
     bms_event_log_put_u16le(&payload[0], g_bms_event_log.write_pos);
     memcpy(&payload[2], g_bms_event_log.records, sizeof(g_bms_event_log.records));
-    for (i = 0u; i < BMS_EVENT_LOG_ENTRY_COUNT; ++i)
-        bms_event_log_put_u16le(&payload[BMS_EVENT_REPEAT_OFFSET + 2u * i], g_bms_event_log.repeats[i]);
 }
 
 /* 验证并解码历史事件持久记录。 */
@@ -111,16 +103,12 @@ static int bms_event_log_decode(const u8 payload[BMS_EVENT_PAYLOAD_BYTES])
     for (i = 0u; i < BMS_EVENT_LOG_ENTRY_COUNT; ++i) {
         u8 event = payload[2u + 2u * i];
         u8 time = payload[3u + 2u * i];
-        u16 repeat = bms_event_log_get_u16le(&payload[BMS_EVENT_REPEAT_OFFSET + 2u * i]);
-        if (event >= EVENT_NUM || (event == 0u && (time != 0u || repeat != 0u)) ||
-            (event != 0u && (repeat == 0u ||
-             (time == 0u && event != BMS_START_UP) ||
+        if (event >= EVENT_NUM || (event == 0u && time != 0u) ||
+            (event != 0u && ((time == 0u && event != BMS_START_UP) ||
              (time > 168u && time != 170u && time != 171u)))) return 0;
     }
     g_bms_event_log.write_pos = write_pos;
     memcpy(g_bms_event_log.records, &payload[2], sizeof(g_bms_event_log.records));
-    for (i = 0u; i < BMS_EVENT_LOG_ENTRY_COUNT; ++i)
-        g_bms_event_log.repeats[i] = bms_event_log_get_u16le(&payload[BMS_EVENT_REPEAT_OFFSET + 2u * i]);
     return 1;
 }
 
@@ -153,8 +141,7 @@ static u8 bms_event_log_map_interval(u32 seconds)
 }
 
 /*
- * RAM 待保存环形缓冲在保存失败后保留事件；协议记录编码不变，重复计数单独诊断，
- * 绝不打包到记录内。
+ * RAM 待保存环形缓冲在保存失败后保留事件；协议仍为 event ID 和时间码。
  */
 static void bms_event_log_append(bms_event_log_id_t event)
 {
@@ -165,10 +152,7 @@ static void bms_event_log_append(bms_event_log_id_t event)
     if (g_bms_event_log.merge_ready && event != BMS_START_UP && event != BMS_SLEEP &&
         g_bms_event_log.records[previous][0] == (u8)event &&
         g_bms_event_log.interval_s <= 60u) {
-        if (g_bms_event_log.repeats[previous] != 65535u) {
-            ++g_bms_event_log.repeats[previous];
-            g_bms_event_log.dirty = 1u;
-        }
+        /* 相同事件在首条后的 60 秒内合并；没有消费者的隐藏计数不再触发擦写。 */
         return;
     }
     g_bms_event_log.records[pos][0] = (u8)event;
@@ -177,7 +161,6 @@ static void bms_event_log_append(bms_event_log_id_t event)
     /* 直接访问 packed 字段，不能把未对齐成员地址作为普通 u32 * 传递。 */
     if (event != BMS_START_UP) g_bms_event_log.interval_s = 0u;
     g_bms_event_log.clock_fraction_32k = 0u;
-    g_bms_event_log.repeats[pos] = 1u;
     g_bms_event_log.merge_ready = (event != BMS_START_UP && event != BMS_SLEEP) ? 1u : 0u;
     g_bms_event_log.write_pos = (u16)((pos + 1u) % BMS_EVENT_LOG_ENTRY_COUNT);
     g_bms_event_log.dirty = 1u;

@@ -19,7 +19,7 @@ def check_sh_event_checkpoint_host_check():
     #define BMS_ERROR_EEPROM_STORE 1
     static u32 tick, saves, blocked;
     static int save_ok=1;
-    static u8 durable[404];
+    static u8 durable[202];
     static u32 bms_time_now_32k(void){return tick;}
     static void bms_error_raise(int e){(void)e;}
     static void bms_diag_attempt(int d){(void)d;}
@@ -37,9 +37,9 @@ def check_sh_event_checkpoint_host_check():
     static const storage_port_t port={0};
     const storage_port_t*bms_storage_platform_port(void){return &port;}
     int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){(void)d;r->base=4096;r->size=8192;return 1;}
-    int storage_record_open(storage_record_store_t*s,const storage_port_t*p,storage_region_t r,uint32_t m,uint16_t v,uint16_t n){(void)s;(void)p;(void)r;(void)m;assert(v==3 && n==404);return 1;}
+    int storage_record_open(storage_record_store_t*s,const storage_port_t*p,storage_region_t r,uint32_t m,uint16_t v,uint16_t n){(void)s;(void)p;(void)r;(void)m;assert(v==4 && n==202);return 1;}
     int storage_record_load(storage_record_store_t*s,uint8_t*p){(void)s;(void)p;return 0;}
-    int storage_record_save(storage_record_store_t*s,const uint8_t*p){(void)s;++saves;if(!save_ok){++blocked;return 0;}memcpy(durable,p,404);return 1;}
+    int storage_record_save(storage_record_store_t*s,const uint8_t*p){(void)s;++saves;if(!save_ok){++blocked;return 0;}memcpy(durable,p,202);return 1;}
     /* PRODUCTION */
     int main(void){
      bms_event_log_sample_t sample={0};u16 pos;
