@@ -54,6 +54,9 @@ typedef struct {
 int bms_config_store_init(void);
 /* 输出授权前验证各配置域、更新编号与存储提交状态。 */
 int bms_config_store_validate_startup(void);
+/* 出厂包 Config 预提交后，等待 State/Event 重置并完成最终提交。 */
+int bms_config_store_factory_reset_pending(void);
+int bms_config_store_finish_factory_reset(void);
 /* 取得缓存的SOC 算法配置。 */
 int bms_config_store_get_soc(bms_soc_config_t *config);
 /* 取得缓存的软件保护配置。 */

@@ -31,6 +31,8 @@ typedef struct {
 
 /* 加载并验证持久状态，建立当前缓存。 */
 int  bms_state_store_init(void);
+/* 恢复出厂包清除旧 SOC/循环，失败不发布。 */
+int  bms_state_store_factory_reset(void);
 /* 取得 SOC 和循环状态默认值。 */
 bms_state_store_data_t bms_state_store_get_default_data(void);
 /* 取得缓存的 SOC 和循环状态。 */

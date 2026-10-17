@@ -70,18 +70,24 @@ static inline uint16_t bms_update_revision(bms_update_group_t group)
  * State 在已废弃学习字段中保存自己的标记，两个域各自提交，不跨域假定原子性。 */
 #define BMS_OTA_UPDATE_ID_WORDS 6u
 #define BMS_OTA_UPDATE_CONFIG_MASK 0x000Fu
-#define BMS_OTA_UPDATE_SUPPORTED_MASK 0x004Fu
+/* 出厂恢复是与普通参数更新互斥的整包操作，不纳入旧 revision 枚举。 */
+#define BMS_OTA_FACTORY_RESET_MASK 0x0200u
+#define BMS_OTA_UPDATE_SUPPORTED_MASK (0x004Fu | BMS_OTA_FACTORY_RESET_MASK)
+#ifndef BMS_OTA_UPDATE_FACTORY_RESET
+#define BMS_OTA_UPDATE_FACTORY_RESET 0u
+#endif
 #ifndef BMS_OTA_UPDATE_MASK
 #ifdef BMS_OTA_UPDATE_SW
 #define BMS_OTA_UPDATE_MASK ((BMS_OTA_UPDATE_SW << 0) | (BMS_OTA_UPDATE_AFE << 1) | \
-    (BMS_OTA_UPDATE_BUSINESS << 2) | (BMS_OTA_UPDATE_SOC << 3) | (BMS_OTA_UPDATE_SOC_STATE << 6))
+    (BMS_OTA_UPDATE_BUSINESS << 2) | (BMS_OTA_UPDATE_SOC << 3) | (BMS_OTA_UPDATE_SOC_STATE << 6) | \
+    (BMS_OTA_UPDATE_FACTORY_RESET << 9))
 #else
 /* 独立语义存储夹具可提供产品身份和策略，不强制引入完整板级配置。 */
 #define BMS_OTA_UPDATE_MASK 0u
 #endif
 #endif
 #if BMS_OTA_UPDATE_SW > 1u || BMS_OTA_UPDATE_AFE > 1u || BMS_OTA_UPDATE_BUSINESS > 1u || \
-    BMS_OTA_UPDATE_SOC > 1u || BMS_OTA_UPDATE_SOC_STATE > 1u
+    BMS_OTA_UPDATE_SOC > 1u || BMS_OTA_UPDATE_SOC_STATE > 1u || BMS_OTA_UPDATE_FACTORY_RESET > 1u
 #error "OTA source switches must be 0 or 1"
 #endif
 #ifndef BMS_OTA_UPDATE_ID_0
@@ -95,12 +101,21 @@ static inline uint16_t bms_update_revision(bms_update_group_t group)
 #if (BMS_OTA_UPDATE_MASK & ~BMS_OTA_UPDATE_SUPPORTED_MASK) != 0u
 #error "Unsupported OTA parameter group"
 #endif
+#if ((BMS_OTA_UPDATE_MASK & BMS_OTA_FACTORY_RESET_MASK) != 0u) && \
+    ((BMS_OTA_UPDATE_MASK & ~BMS_OTA_FACTORY_RESET_MASK) != 0u)
+#error "Factory reset cannot be combined with selective OTA parameter updates"
+#endif
 #if BMS_OTA_UPDATE_ID_0 != 0u || BMS_OTA_UPDATE_ID_1 > 65535u || BMS_OTA_UPDATE_ID_2 > 65535u || BMS_OTA_UPDATE_ID_3 > 65535u || BMS_OTA_UPDATE_ID_4 > 65535u || BMS_OTA_UPDATE_ID_5 > 65535u
 #error "Invalid OTA update identifier"
 #endif
 #if BMS_OTA_UPDATE_MASK != 0u && (BMS_OTA_UPDATE_ID_1 | BMS_OTA_UPDATE_ID_2 | BMS_OTA_UPDATE_ID_3 | BMS_OTA_UPDATE_ID_4 | BMS_OTA_UPDATE_ID_5) == 0u
 #error "Selected OTA groups require an update identifier"
 #endif
+
+static inline uint8_t bms_ota_factory_reset_requested(void)
+{
+    return (BMS_OTA_UPDATE_MASK & BMS_OTA_FACTORY_RESET_MASK) != 0u;
+}
 
 static inline uint8_t bms_ota_update_selected(bms_update_group_t group)
 {

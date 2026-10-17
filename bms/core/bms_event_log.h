@@ -48,6 +48,8 @@ typedef struct {
 
 /* 加载历史记录并初始化事件跟踪状态。 */
 int bms_event_log_init(void);
+/* 恢复出厂包清空全部可见事件历史。 */
+int bms_event_log_factory_reset(void);
 /* 记录本次启动；原协议不含启动原因。 */
 void bms_event_log_note_startup(void);
 /* 追加休眠尝试并保存检查点；失败保留待保存记录。 */

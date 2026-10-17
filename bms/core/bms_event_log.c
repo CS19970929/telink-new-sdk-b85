@@ -5,6 +5,7 @@
  */
 #include "bms_diag.h"
 #include "bms_event_log.h"
+#include "bms_update_policy.h"
 
 #include "bms_error.h"
 #include "bms_storage_platform.h"
@@ -272,4 +273,25 @@ u16 bms_event_log_read_reg(u16 reg)
     if (idx >= BMS_EVENT_LOG_ENTRY_COUNT) idx = (u16)(idx - BMS_EVENT_LOG_ENTRY_COUNT);
     return (u16)(((u16)g_bms_event_log.records[idx][0] << 8) |
                  g_bms_event_log.records[idx][1]);
+}
+
+/* 出厂恢复：提交空历史快照，旧记录不再属于可见事件历史。 */
+int bms_event_log_factory_reset(void)
+{
+    const storage_port_t *port;
+    storage_region_t region;
+    u8 payload[BMS_EVENT_PAYLOAD_BYTES];
+    if (!bms_ota_factory_reset_requested()) return 0;
+    if (!g_bms_event_store.ready) {
+        port = bms_storage_platform_port();
+        if (!port || !bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region) ||
+            !storage_record_open(&g_bms_event_store, port, region, BMS_EVENT_RECORD_MAGIC,
+                                 BMS_EVENT_SCHEMA_VERSION, BMS_EVENT_PAYLOAD_BYTES)) return 0;
+    }
+    (void)storage_record_load(&g_bms_event_store, payload);
+    if (g_bms_event_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) return 0;
+    bms_event_log_reset_ram_only();
+    g_bms_event_log.ready = 1u;
+    g_bms_event_log.dirty = 1u;
+    return bms_event_log_write_snapshot();
 }

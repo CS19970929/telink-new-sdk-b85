@@ -75,8 +75,16 @@ static void parameters_validate_storage_startup(void)
     s_storage_startup_valid = 0u;
     /* 各域独立加载；Config 失败也须保留健康 State 的 SOC/循环次数缓存。 */
     config_valid = bms_config_store_validate_startup() ? 1u : 0u;
-    state_valid = bms_state_store_init() ? 1u : 0u;
-    event_valid = bms_event_log_init() ? 1u : 0u;
+    if (config_valid && bms_config_store_factory_reset_pending()) {
+        /* Config 已提交进行中标记；全部完成之前不得授权输出。 */
+        state_valid = bms_state_store_factory_reset() ? 1u : 0u;
+        event_valid = state_valid && bms_event_log_factory_reset() ? 1u : 0u;
+        if (!state_valid || !event_valid || !bms_config_store_finish_factory_reset())
+            config_valid = 0u;
+    } else {
+        state_valid = bms_state_store_init() ? 1u : 0u;
+        event_valid = bms_event_log_init() ? 1u : 0u;
+    }
     /* 只有安全配置的启动资格阻断输出。State 估算与 Event 历史故障单独降级，
      * 各域保留错误诊断和自身重试，不把可选持久化失败当作保护参数失效。 */
     s_storage_startup_valid = config_valid;

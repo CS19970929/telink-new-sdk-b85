@@ -191,3 +191,33 @@ void bms_state_store_poll(uint32_t soc, uint32_t dsg, uint32_t cycle)
     if ((uint32_t)(bms_time_now_32k() - g_bms_state_last_attempt_32k) < interval) return;
     (void)bms_state_store_save(soc, dsg, cycle);
 }
+
+/* 显式出厂包：直接重置 State，既不解析也不迁移旧 payload。 */
+int bms_state_store_factory_reset(void)
+{
+    const storage_port_t *port;
+    storage_region_t region;
+    uint8_t payload[BMS_STATE_PAYLOAD_BYTES];
+    bms_state_persist_t next;
+    if (!bms_ota_factory_reset_requested()) return 0;
+    if (!g_bms_state_store.ready) {
+        port = bms_storage_platform_port();
+        if (!port || !bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region) ||
+            !storage_record_open(&g_bms_state_store, port, region, BMS_STATE_RECORD_MAGIC,
+                                 BMS_STATE_SCHEMA_VERSION, BMS_STATE_PAYLOAD_BYTES)) return 0;
+    }
+    (void)storage_record_load(&g_bms_state_store, payload);
+    if (g_bms_state_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) return 0;
+    bms_state_defaults(&next);
+    bms_ota_update_copy_id(next.ota_update_id);
+    bms_state_encode(&next, payload);
+    if (!storage_record_save(&g_bms_state_store, payload)) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0;
+    }
+    g_bms_state = next;
+    g_bms_state_ready = 1u;
+    g_bms_state_last_failed = 0u;
+    g_bms_state_last_attempt_32k = bms_time_now_32k();
+    return 1;
+}

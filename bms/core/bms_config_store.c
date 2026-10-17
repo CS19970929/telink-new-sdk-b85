@@ -4,6 +4,7 @@
  * bms/core/bms_config_store.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_diag.h"
+#include "bms_error.h"
 #include "bms_update_policy.h"
 #include "bms_config_store.h"
 #include "bms_product.h"
@@ -19,6 +20,8 @@
 
 #define BMS_CONFIG_RECORD_MAGIC          0x43464734u /* 配置记录标识：CFG4。 */
 #define BMS_CONFIG_SCHEMA_VERSION        4u
+/* 普通包 ID 的第一 word 恒为零；出厂重置进行中时改为此标记。 */
+#define BMS_CONFIG_FACTORY_PENDING_TAG    0xFA57u
 #define BMS_CONFIG_PROTECT_WORDS         65u
 #define BMS_CONFIG_SYSTEM_WORDS          3u
 #define BMS_CONFIG_AFE_WORDS             35u
@@ -510,7 +513,9 @@ static int bms_config_save_cache(const bms_config_cache_t *cfg)
         bms_config_cache_equal(cfg, &g_bms_config)) return 1;
     bms_config_encode(cfg, payload);
     if (!storage_record_save(&g_bms_config_store, payload)) {
-        bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_SAVE); return 0;
+        bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_SAVE);
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0;
     }
     if (memcmp(&g_bms_config.soc, &cfg->soc, sizeof(cfg->soc)) != 0) {
         if (++g_bms_config_soc_generation == 0u) ++g_bms_config_soc_generation;
@@ -527,24 +532,29 @@ static int bms_config_ensure_ready(void)
     return g_bms_config_ready ? 1 : bms_config_store_init();
 }
 
-/* 只识别上一格式的完整记录，不解码或迁移旧参数。复用同一个记录引擎验证 CRC/提交。
- * 借用启动 payload 缓冲，不增加长期缓存；新默认提交前保留旧记录所在 sector。 */
-static int bms_config_has_previous_format(const storage_port_t *port,
-                                           storage_region_t region, u8 *payload)
+/* 不解码任何旧版数据。进行中标记与本次出厂包 ID 一同持久化。 */
+static int bms_config_factory_pending_matches(const u16 *saved)
 {
-    storage_record_store_t previous __attribute__((aligned(4)));
-    u32 next_sector;
-    if (!storage_record_open(&previous, port, region, 0x43464732u, 3u, 322u) ||
-        !storage_record_load(&previous, payload) ||
-        bms_config_get_u32le(payload) != BMS_PRODUCT_ID) return 0;
-    g_bms_config_store.latest_addr = previous.latest_addr;
-    g_bms_config_store.next_sequence = previous.next_sequence;
-    g_bms_config_store.has_latest = 1u;
-    /* 两种槽长不同，不能在旧 sector 的 FF payload 中按新网格找空槽。 */
-    next_sector = ((previous.latest_addr - region.base) / port->erase_size + 1u) % previous.sector_count;
-    g_bms_config_store.write_addr = region.base + next_sector * port->erase_size;
-    g_bms_config_store.write_needs_erase = 1u;
-    return 1;
+    u16 expected[BMS_OTA_UPDATE_ID_WORDS];
+    if (!bms_ota_factory_reset_requested() || saved[0] != BMS_CONFIG_FACTORY_PENDING_TAG)
+        return 0;
+    bms_ota_update_copy_id(expected);
+    return memcmp(&saved[1], &expected[1], sizeof(expected) - sizeof(expected[0])) == 0;
+}
+
+int bms_config_store_factory_reset_pending(void)
+{
+    return g_bms_config_ready &&
+           bms_config_factory_pending_matches(g_bms_config.ota_update_id);
+}
+
+int bms_config_store_finish_factory_reset(void)
+{
+    bms_config_cache_t next;
+    if (!bms_config_store_factory_reset_pending()) return 0;
+    next = g_bms_config;
+    next.ota_update_id[0] = 0u;
+    return bms_config_save_cache(&next);
 }
 
 /* 加载、校验 CFG4 记录并建立参数缓存。 */
@@ -553,6 +563,7 @@ int bms_config_store_init(void)
     const storage_port_t *port;
     storage_region_t region;
     u8 payload[BMS_CONFIG_PAYLOAD_BYTES];
+    int loaded;
     if (g_bms_config_ready) return 1;
     bms_diag_attempt(BMS_STORAGE_DOMAIN_CONFIG);
     port = bms_storage_platform_port();
@@ -563,37 +574,57 @@ int bms_config_store_init(void)
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_OPEN); return 0;
     }
     g_bms_config_needs_save = 0u;
-    if (storage_record_load(&g_bms_config_store, payload) &&
-        bms_config_get_u32le(payload) == BMS_PRODUCT_ID) {
+    loaded = storage_record_load(&g_bms_config_store, payload);
+    if (g_bms_config_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
+        bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID);
+        return 0;
+    }
+    if (loaded && bms_config_get_u32le(payload) == BMS_PRODUCT_ID) {
         bms_config_decode(&g_bms_config, payload);
-        /* 装配串数属于板级身份，不能把另一种装配的参数直接用于当前板。 */
-        if (g_bms_config.system.series_num != BMS_PRODUCT_CELL_COUNT ||
-            g_bms_config.system.bms_type != BMS_PRODUCT_WIRE_ID) {
-            /* 拓扑变化必须显式更新四组；保留校准和身份，拒绝旧阈值配新串数。 */
-            if ((BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) != BMS_OTA_UPDATE_CONFIG_MASK) {
-                bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID); return 0;
+        if (bms_ota_factory_reset_requested()) {
+            if (!bms_ota_update_id_matches(g_bms_config.ota_update_id) &&
+                !bms_config_factory_pending_matches(g_bms_config.ota_update_id)) {
+                bms_config_defaults(&g_bms_config);
+                bms_ota_update_copy_id(g_bms_config.ota_update_id);
+                g_bms_config.ota_update_id[0] = BMS_CONFIG_FACTORY_PENDING_TAG;
+                g_bms_config_needs_save = 1u;
             }
-            g_bms_config.system.series_num = BMS_PRODUCT_CELL_COUNT;
-            g_bms_config.system.bms_type = BMS_PRODUCT_WIRE_ID;
-            memset(g_bms_config.ota_update_id, 0, sizeof(g_bms_config.ota_update_id));
+        } else {
+            if (g_bms_config.ota_update_id[0] == BMS_CONFIG_FACTORY_PENDING_TAG) {
+                bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID);
+                return 0;
+            }
+            if (g_bms_config.system.series_num != BMS_PRODUCT_CELL_COUNT ||
+                g_bms_config.system.bms_type != BMS_PRODUCT_WIRE_ID) {
+                if ((BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) != BMS_OTA_UPDATE_CONFIG_MASK) {
+                    bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID);
+                    return 0;
+                }
+                g_bms_config.system.series_num = BMS_PRODUCT_CELL_COUNT;
+                g_bms_config.system.bms_type = BMS_PRODUCT_WIRE_ID;
+                memset(g_bms_config.ota_update_id, 0, sizeof(g_bms_config.ota_update_id));
+            }
+            if (!bms_ota_update_id_matches(g_bms_config.ota_update_id) &&
+                (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) &&
+                g_bms_config.soc.chemistry != BMS_PRODUCT_CHEMISTRY &&
+                (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) != BMS_OTA_UPDATE_CONFIG_MASK) {
+                bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID);
+                return 0;
+            }
+            g_bms_config_needs_save = bms_config_apply_update_policy(&g_bms_config);
         }
-        /* 切换化学体系时四组配置一起更新，避免旧电压阈值/均衡混入。 */
-        if (!bms_ota_update_id_matches(g_bms_config.ota_update_id) &&
-            (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) &&
-            g_bms_config.soc.chemistry != BMS_PRODUCT_CHEMISTRY &&
-            (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) != BMS_OTA_UPDATE_CONFIG_MASK) {
-            bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID); return 0;
-        }
-        g_bms_config_needs_save = bms_config_apply_update_policy(&g_bms_config);
     } else {
-        /* 旧格式整套恢复默认；当前已提交记录损坏、异产品和 I/O 失败不按升级处理。 */
-        if (g_bms_config_store.load_status != STORAGE_RECORD_LOAD_EMPTY &&
-            !((g_bms_config_store.load_status == STORAGE_RECORD_LOAD_INCOMPATIBLE ||
-               g_bms_config_store.load_status == STORAGE_RECORD_LOAD_UNCOMMITTED) &&
-              bms_config_has_previous_format(port, region, payload))) {
-            bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID); return 0;
+        /* 仅全空白自动出厂；旧格式/损坏数据需要明确的出厂包。 */
+        if (!bms_ota_factory_reset_requested() &&
+            (loaded || g_bms_config_store.load_status != STORAGE_RECORD_LOAD_EMPTY)) {
+            bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_INVALID);
+            return 0;
         }
         bms_config_defaults(&g_bms_config);
+        if (bms_ota_factory_reset_requested()) {
+            bms_ota_update_copy_id(g_bms_config.ota_update_id);
+            g_bms_config.ota_update_id[0] = BMS_CONFIG_FACTORY_PENDING_TAG;
+        }
         g_bms_config_needs_save = 1u;
         bms_diag_result(BMS_STORAGE_DOMAIN_CONFIG, DIAG_DEFAULTS);
     }
@@ -721,6 +752,9 @@ int bms_config_store_validate_startup(void)
     bms_soc_config_t soc;
     bms_diag_upgrade(DIAG_UPGRADE_STARTED, 0u);
     if (!bms_config_ensure_ready()) return 0;
+    /* 进行中记录禁止被普通回刷固件误当成安全配置放行。 */
+    if (g_bms_config.ota_update_id[0] == BMS_CONFIG_FACTORY_PENDING_TAG &&
+        !bms_config_store_factory_reset_pending()) return 0;
     if (!bms_sw_protection_validate_params(&g_bms_config.protect)) invalid |= DIAG_UPGRADE_BAD_SW;
     if (!bms_afe_hw_profile_validate(&g_bms_config.afe_hw)) invalid |= DIAG_UPGRADE_BAD_AFE;
     if (!bms_config_store_get_soc(&soc)) invalid |= DIAG_UPGRADE_BAD_SOC;
