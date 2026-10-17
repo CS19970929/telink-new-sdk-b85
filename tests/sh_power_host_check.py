@@ -204,8 +204,8 @@ def check_sh_suspend_current_gates():
     typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
     typedef struct { int unused; } app_pm_elapsed_ctx_t;
     typedef struct { int32_t current_ma; u32 sample_time_ms; } bms_afe_aux_measurements_t;
-    #define BMS_SOC_MAX_SAMPLE_GAP_32K 12800u
-    #define BMS_SAMPLE_MAX_POLL_GAP_32K (400u * 32u)
+    #define BMS_SOC_MAX_SAMPLE_GAP_MS 400u
+    #define BMS_SAMPLE_MAX_POLL_GAP_MS 400u
     #define BMS_BOARD_SWITCH_PIN 0
     #define BMS_BOARD_INT_WK_MCU_PIN 1
     #define Level_Low 0

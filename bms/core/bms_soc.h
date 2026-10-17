@@ -40,12 +40,13 @@
 
 /*
  * 与硬件无关的 SOC 输入；单位属于 ABI：
- * mV、mA、既有 (degC+40)*10 温度和 SDK 32K 时间。应用按后端有效快照填写结构，
+ * mV、mA、既有 (degC+40)*10 温度和毫秒时间。应用按后端有效快照填写结构，
  * SOC 不依赖 DVC/SH 寄存器或传输细节。
  */
 typedef struct
 {
-    uint32_t timestamp_32k;        /* 本次应用任务时间；有效缓存也计算新时间区间。 */
+    uint32_t timestamp_ms;         /* 应用时间；有效缓存也计算新时间区间。 */
+    uint32_t timestamp_32k;        /* 仅兼容既有诊断/板测记录，不参与积分。 */
     int32_t current_ma;             /* 负值充电，正值放电。 */
     uint16_t cell_min_mv;
     uint16_t cell_max_mv;
@@ -102,10 +103,9 @@ void bms_soc_get_diag(bms_soc_diag_t *diag);
 /*
  * 应用每 200 ms 提交最新有效电流，按实际应用间隔积分。
  * 应用间隔超过 400 ms 不补算盲区；AFE 活性由后端独立验证。
- * SDK 32K 时钟通过无符号减法跨回绕。
+ * 毫秒时钟通过无符号减法跨回绕。
  */
-#define BMS_SOC_TIME_TICKS_PER_SECOND 32000u
-#define BMS_SOC_MAX_SAMPLE_GAP_32K    BMS_SAMPLE_MAX_POLL_GAP_32K
+#define BMS_SOC_MAX_SAMPLE_GAP_MS BMS_SAMPLE_MAX_POLL_GAP_MS
 /* 检查样本与时间差后执行积分和 SOC 策略。 */
 void bms_soc_process_sample(const bms_soc_sample_t *sample);
 #if BMS_SOC_BOARD_TEST_ENABLE

@@ -48,6 +48,7 @@
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_soc.h"
+#include "bms_time.h"
 #include "bms_soc_profile.h"
 #include "bms_event_log.h"
 #include "bms_sleep_config.h"
@@ -302,6 +303,7 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma)
     memset(&sample, 0, sizeof(sample));
 
     /* 积分使用应用时间；旧电流可用于新时间段，但不能冒充新的确认样本。 */
+    sample.timestamp_ms = bms_time_ms();
     sample.timestamp_32k = pm_get_32k_tick();
     sample.current_ma = current_ma;
     sample.cell_min_mv = g_bms_report.cell_min_mv;

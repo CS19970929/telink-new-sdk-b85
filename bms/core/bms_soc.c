@@ -122,11 +122,14 @@ typedef struct
 bms_soc_state_t g_bms_soc;
 static soc_runtime_t g_soc_runtime;
 static soc_integral_dir_t g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
-/* mA 乘 32K tick 的余数；每 As*10 单位分母含 100 mA。 */
-static uint32_t g_soc_integral_tick_remainder;
+/* mA * ms 的积分余数；每 As*10 对应 100000 mA*ms。 */
+static uint32_t g_soc_integral_remainder;
 static int32_t g_soc_input_current_ma;
-static uint32_t g_soc_sample_tick_32k;
-static uint32_t g_soc_strategy_pending_32k;
+static uint32_t g_soc_sample_ms;
+#if BMS_SOC_DIAG_STATE_ENABLE
+static uint32_t g_soc_sample_tick_32k; /* 仅保留原始诊断/板测单位。 */
+#endif
+static uint32_t g_soc_strategy_pending_ms;
 static uint8_t g_soc_input_valid;
 /* 显示值唯一保存在公共报告中；只有本模块初始化和步进函数写入。 */
 static uint8_t g_soc_display_step_ticks;
@@ -494,7 +497,7 @@ static void soc_recalc_now_capacity(void)
 static void soc_reset_integral_accumulator(void)
 {
     g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
-    g_soc_integral_tick_remainder = 0u;
+    g_soc_integral_remainder = 0u;
 }
 
 /* 切换积分方向并管理方向相关余量。 */
@@ -502,39 +505,28 @@ static void soc_integral_select_dir(soc_integral_dir_t dir)
 {
     if (g_soc_integral_dir != dir) {
         g_soc_integral_dir = dir;
-        g_soc_integral_tick_remainder = 0u;
+        g_soc_integral_remainder = 0u;
     }
 }
 
 /* 把电流与有效时间转换为容量积分增量。 */
-static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir, uint32_t elapsed_32k)
+static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir, uint32_t elapsed_ms)
 {
     uint32_t magnitude_ma;
-    uint32_t ticks_left;
+    uint32_t sum;
     uint32_t delta;
-    uint32_t fractional_ma;
-    const uint32_t denominator = BMS_SOC_TIME_TICKS_PER_SECOND * 100u;
-    if (!g_soc_input_valid || elapsed_32k == 0u) return 0u;
+    const uint32_t denominator = 100000u;
+    if (!g_soc_input_valid || elapsed_ms == 0u || elapsed_ms > BMS_SOC_MAX_SAMPLE_GAP_MS)
+        return 0u;
     soc_integral_select_dir(dir);
     magnitude_ma = (g_soc_input_current_ma < 0) ?
         (0u - (uint32_t)g_soc_input_current_ma) : (uint32_t)g_soc_input_current_ma;
-    /*
-     * 固定 TC32 链接器无 64 位乘除辅助函数。将幅值拆为整分母单位和有界余数块；
-     * 整数结果不超过 671*25600，各次和小于 3200000*1025<UINT32_MAX。
-     * 应用允许的 400 ms 间隔最多循环 13 次，
-     * 与 mA*ticks/denominator 保持完全相同商和余数。
-     */
-    delta = (magnitude_ma / denominator) * elapsed_32k;
-    fractional_ma = magnitude_ma % denominator;
-    ticks_left = elapsed_32k;
-    while (ticks_left != 0u)
-    {
-        uint32_t chunk = (ticks_left > 1024u) ? 1024u : ticks_left;
-        uint32_t sum = fractional_ma * chunk + g_soc_integral_tick_remainder;
-        delta += sum / denominator;
-        g_soc_integral_tick_remainder = sum % denominator;
-        ticks_left -= chunk;
-    }
+    /* 最大幅值2147483648、间隔400ms：整商乘积<=8589600；
+     * 余数乘积加历史余数<=40099599。无需64位乘除或分块循环。 */
+    delta = (magnitude_ma / denominator) * elapsed_ms;
+    sum = (magnitude_ma % denominator) * elapsed_ms + g_soc_integral_remainder;
+    delta += sum / denominator;
+    g_soc_integral_remainder = sum % denominator;
     return delta;
 }
 
@@ -1341,7 +1333,7 @@ static void soc_reset_voltage_confirmation(void)
 static void soc_invalidate_sample_interval(void)
 {
     g_soc_input_valid = 0u;
-    g_soc_strategy_pending_32k = 0u;
+    g_soc_strategy_pending_ms = 0u;
     soc_reset_ocv_tracking();
     soc_reset_voltage_confirmation();
     g_soc_runtime.full_anchor_latched = 0u;
@@ -1357,8 +1349,11 @@ static void soc_invalidate_sample_interval(void)
 /* 检查样本与时间差后执行积分和 SOC 策略。 */
 void bms_soc_process_sample(const bms_soc_sample_t *sample)
 {
+    uint32_t elapsed_ms;
+#if BMS_SOC_DIAG_STATE_ENABLE
     uint32_t elapsed_32k;
-    const uint32_t quantum_32k = BMS_SOC_TIME_TICKS_PER_SECOND / SOC_TICKS_PER_SECOND;
+#endif
+    const uint32_t quantum_ms = SOC_INTEGRAL_MS_PER_SEC / SOC_TICKS_PER_SECOND;
     soc_integral_dir_t dir;
     soc_integral_dir_t previous_dir;
 
@@ -1379,19 +1374,26 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_FIRST,
                              SOC_INTEGRAL_DIR_NONE, 0u);
+        g_soc_sample_ms = sample->timestamp_ms;
+#if BMS_SOC_DIAG_STATE_ENABLE
         g_soc_sample_tick_32k = sample->timestamp_32k;
+#endif
         g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
         return; /* 首个新样本不能证明此前时间段。 */
     }
-    elapsed_32k = sample->timestamp_32k - g_soc_sample_tick_32k;
-    if (elapsed_32k == 0u) {
+    elapsed_ms = sample->timestamp_ms - g_soc_sample_ms;
+    if (elapsed_ms == 0u) {
         soc_diag_note_sample(BMS_SOC_SAMPLE_DUPLICATE,
                              soc_current_direction(0), 0u);
         return; /* 同一应用时间不重复积分；相同电流可用于下一时间段。 */
     }
+    g_soc_sample_ms = sample->timestamp_ms;
+#if BMS_SOC_DIAG_STATE_ENABLE
+    elapsed_32k = sample->timestamp_32k - g_soc_sample_tick_32k;
     g_soc_sample_tick_32k = sample->timestamp_32k;
-    if (elapsed_32k > BMS_SOC_MAX_SAMPLE_GAP_32K)
+#endif
+    if (elapsed_ms > BMS_SOC_MAX_SAMPLE_GAP_MS)
     {
         soc_diag_note_sample(BMS_SOC_SAMPLE_GAP,
                              SOC_INTEGRAL_DIR_NONE, elapsed_32k);
@@ -1408,7 +1410,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     soc_diag_note_sample(BMS_SOC_SAMPLE_ACCEPTED, dir, elapsed_32k);
 
     if (dir == SOC_INTEGRAL_DIR_NONE) soc_reset_integral_accumulator();
-    else soc_apply_integral_delta(sample, dir, soc_integral_delta_from_current(dir, elapsed_32k));
+    else soc_apply_integral_delta(sample, dir, soc_integral_delta_from_current(dir, elapsed_ms));
 
     if (dir != previous_dir)
     {
@@ -1421,7 +1423,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
 #if BMS_SOC_DIAG_STATE_ENABLE
         bms_soc_eta_reset(&g_soc_runtime.eta);
 #endif
-        g_soc_strategy_pending_32k = 0u;
+        g_soc_strategy_pending_ms = 0u;
         return;
     }
 
@@ -1429,10 +1431,10 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
      * 既有校准阈值仍为 200 ms 单位，但按实测时间计入；
      * 每个合格应用间隔最多记两个单位。长间隔下 8 mV 斜率检查保持保守。
      */
-    g_soc_strategy_pending_32k += elapsed_32k;
-    while (g_soc_strategy_pending_32k >= quantum_32k)
+    g_soc_strategy_pending_ms += elapsed_ms;
+    while (g_soc_strategy_pending_ms >= quantum_ms)
     {
-        g_soc_strategy_pending_32k -= quantum_32k;
+        g_soc_strategy_pending_ms -= quantum_ms;
         soc_strategy_update(sample);
         soc_update_low_faults();
         SOC_Result_Pass();
@@ -1454,7 +1456,7 @@ static const int32_t s_board_currents_ma[] = {
     -3000, -3000
 };
 #define SOC_BOARD_CASE_COUNT 14u
-#define SOC_BOARD_CASE_TICKS (20u * BMS_SOC_TIME_TICKS_PER_SECOND)
+#define SOC_BOARD_CASE_TICKS (20u * 32000u)
 static uint16_t s_board_words[SOC_BOARD_CASE_COUNT][20];
 static bms_soc_state_t s_board_saved_soc;
 static uint32_t s_board_started_tick;

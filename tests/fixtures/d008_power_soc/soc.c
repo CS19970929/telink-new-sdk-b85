@@ -40,6 +40,8 @@ static uint16_t config_store_rest_s=600u;
 /* CURRENT_FLOOR */
 static uint32_t tick;
 static uint32_t pm_get_32k_tick(void) {return tick;}
+static uint32_t test_last_raw,test_ms,test_fraction;
+static uint32_t bms_time_ms(void){uint32_t delta=tick-test_last_raw;test_last_raw=tick;test_fraction+=delta%32u;test_ms+=delta/32u+test_fraction/32u;test_fraction%=32u;return test_ms;}
 /* PRODUCTION_SOURCE */
 /* 私有策略测试的输入由夹具拥有；生产不保存本帧副本。 */
 static bms_soc_sample_t g_soc_input;
@@ -54,7 +56,7 @@ static void setup(uint8_t chemistry,uint8_t soc,uint16_t voltage){
  g_bms_report.cell_min_mv=voltage;g_bms_report.cell_max_mv=voltage;
  g_bms_system_status.bits.heater_status=0;temp_valid=1;
  afe_error=0;stored_user.current_offset_ma=0;stored_user.current_gain_ppm=1000000;
- bms_state_store_data_t d={soc,0,0};soc_param_lib_init(&d);tick=0;
+ bms_state_store_data_t d={soc,0,0};soc_param_lib_init(&d);tick=0;test_last_raw=test_ms=test_fraction=0;
  memset(&g_soc_input,0,sizeof(g_soc_input));g_soc_input.sample_valid=1;g_soc_input.voltage_valid=1;
  g_soc_input.temperature_valid=1;g_soc_input.temperature_min_x10=650;g_soc_input.temperature_max_x10=650;
  g_soc_input.cell_min_mv=voltage;g_soc_input.cell_max_mv=voltage;
@@ -200,7 +202,7 @@ static int replay_csv(const char *input_path,const char *output_path){
    &ck,&cp,&lk,&lp,&event,&true_soc,&seed_soc)!=27)continue;
   if(!initialized||event==2u){setup(1u,(uint8_t)seed_soc,min_mv);initialized=1;}
   else if(event==1u||event==3u)simulated_reboot();
-  memset(&s,0,sizeof(s));s.timestamp_32k=(uint32_t)timestamp;s.current_ma=current_ma;
+  memset(&s,0,sizeof(s));tick=(uint32_t)timestamp;s.timestamp_ms=bms_time_ms();s.timestamp_32k=(uint32_t)timestamp;s.current_ma=current_ma;
   s.cell_min_mv=(uint16_t)min_mv;s.cell_max_mv=(uint16_t)max_mv;s.cell_delta_mv=(uint16_t)delta_mv;
   s.temperature_min_x10=(uint16_t)tmin;s.temperature_max_x10=(uint16_t)tmax;
   s.sample_valid=(uint8_t)sample_valid;s.voltage_valid=(uint8_t)voltage_valid;s.temperature_valid=(tmin||tmax)?1u:0u;
@@ -254,16 +256,16 @@ int main(int argc,char **argv){
  /* Host-only 64-bit oracle, including INT32_MIN and retained remainders. */
  setup(1,60,3330);
  uint32_t random_state=17,ref_remainder=0;
- g_soc_integral_dir=SOC_INTEGRAL_DIR_DSG;g_soc_integral_tick_remainder=0;
+ g_soc_integral_dir=SOC_INTEGRAL_DIR_DSG;g_soc_integral_remainder=0;
  for(int n=0;n<10000;n++){
   random_state=random_state*1664525u+1013904223u;
   g_soc_input_current_ma=n==0?INT32_MIN:(int32_t)random_state;
-  g_soc_input_valid=1;uint32_t elapsed_32k=(random_state%25600u)+1u;
+  g_soc_input_valid=1;uint32_t elapsed_ms=(random_state%400u)+1u;
   uint32_t magnitude=g_soc_input_current_ma<0?0u-(uint32_t)g_soc_input_current_ma:(uint32_t)g_soc_input_current_ma;
-  uint64_t reference=(uint64_t)magnitude*elapsed_32k+ref_remainder;
-  assert(soc_integral_delta_from_current(SOC_INTEGRAL_DIR_DSG,elapsed_32k)==reference/3200000u);
-  ref_remainder=(uint32_t)(reference%3200000u);
-  assert(g_soc_integral_tick_remainder==ref_remainder);
+  uint64_t reference=(uint64_t)magnitude*elapsed_ms+ref_remainder;
+  assert(soc_integral_delta_from_current(SOC_INTEGRAL_DIR_DSG,elapsed_ms)==reference/100000u);
+  ref_remainder=(uint32_t)(reference%100000u);
+  assert(g_soc_integral_remainder==ref_remainder);
  }
 
  for(uint8_t chemistry=1;chemistry<=2;chemistry++){
@@ -307,8 +309,8 @@ int main(int argc,char **argv){
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_ACCEPTED);
   assert(g_bms_soc.remaining_capacity_as10==before-2u);
   before=g_bms_soc.remaining_capacity_as10;
-  sample(1,500,12801);assert(g_bms_soc.remaining_capacity_as10==before);
-  assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_GAP&&g_soc_runtime.last_sample_elapsed_32k==12801u);
+  sample(1,500,12832);assert(g_bms_soc.remaining_capacity_as10==before);
+  assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_GAP&&g_soc_runtime.last_sample_elapsed_32k==12832u);
   sample(1,500,6400);assert(g_bms_soc.remaining_capacity_as10==before-1);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_ACCEPTED);
   assert(g_soc_runtime.last_integral_direction==SOC_INTEGRAL_DIR_DSG);

@@ -21,11 +21,13 @@ int main(void)
             init_case((uint8_t)chemistry, seed);
             bms_soc_sample_t sample = {0};
             sample.timestamp_32k = UINT32_MAX - 12800u;
+            sample.timestamp_ms = UINT32_MAX - 400u;
             sample.sample_valid = sample.voltage_valid = sample.temperature_valid = 1u;
             sample.temperature_min_x10 = sample.temperature_max_x10 = 650u;
             for (unsigned n = 0u; n < (scenario == 0u ? 36000u : 2400u); ++n) {
                 uint16_t mid = chemistry == 1u ? 3330u : 3800u;
                 sample.timestamp_32k += 6400u;
+                sample.timestamp_ms += 200u;
                 sample.cell_min_mv = mid;
                 sample.cell_max_mv = mid + 10u;
                 sample.cell_delta_mv = 10u;
@@ -48,7 +50,7 @@ int main(void)
                 } else if (scenario == 4u) { /* 方向转换、缺帧、长间隔、重复时间与重启。 */
                     sample.current_ma = n % 400u < 200u ? 5000 : -5000;
                     if (n % 173u == 0u) sample.sample_valid = 0u;
-                    if (n % 211u == 0u) sample.timestamp_32k += BMS_SOC_MAX_SAMPLE_GAP_32K + 1u;
+                    if (n % 211u == 0u) { sample.timestamp_ms += BMS_SOC_MAX_SAMPLE_GAP_MS + 1u; sample.timestamp_32k += (BMS_SOC_MAX_SAMPLE_GAP_MS + 1u)*32u; }
                     if (n == 1200u) {
                         bms_state_store_data_t saved = {get_soc_real(), g_bms_soc.discharge_fraction_percent,
                                                        g_bms_soc.cycle_count};
@@ -80,6 +82,7 @@ int main(void)
     board.temperature_min_x10 = board.temperature_max_x10 = 650u;
     for (unsigned n = 0u; n <= SOC_BOARD_CASE_COUNT * 100u; ++n) {
         board.timestamp_32k = n * 6400u;
+        board.timestamp_ms = n * 200u;
         bms_soc_board_test_prepare(&board, board.timestamp_32k);
         if (bms_soc_board_test_active()) {
             bms_soc_process_sample(&board);
