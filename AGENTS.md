@@ -1,11 +1,11 @@
 # AGENTS.md — BMS monorepo
 
-这是 D008 / D011 / D013 / D014 的统一源码仓库。直接在本仓库的 `codex-bms-monorepo` 分支开发，不另建 monorepo worktree。先读 `README.md` 的完整文档导航及相关产品 reference。
+这是 D008 / D011 / D013 / D014 的统一源码仓库。直接在本仓库的 `codex-bms-deep-simplification-20261016` 分支开发，不另建 monorepo worktree。先读 `README.md` 的完整文档导航及相关产品 reference。
 涉及 AFE 寄存器、采样/校准、保护恢复、MOS/均衡、低功耗/通信，或默认/持久化/OTA AFE 配置时，先读 `docs/AFE_REFERENCE_GUIDE.md` 和其中的固定提交审查入口；按对应原 PDF 页码建立依据，明确型号/版本、硬件条件与未决项。原资料在 `references/afe/`，临时解析/渲染输出仍在源码树外。
 首次接手读 `docs/ONBOARDING.md`；修改配置读 `docs/CONFIGURATION_AND_BUILD_GUIDE.md` 和 `docs/OTA_PARAMETERS.md`；
 构建/测试读 `docs/BUILD_AND_TEST.md`；追调用与状态读 `docs/CODE_READING_GUIDE.md`、`docs/ARCHITECTURE.md`。
 `docs/history/BMS_MONOREPO_VALIDATION.md` 仅为初次迁移的固定提交记录，不作为当前测试结果。
-全局嵌入式规则继续适用；当前开发阶段拒绝更早的旧 schema。当前 schema 3 旧记录兼容读取；OTA 按 BIN 内参数组选择和一次性标记处理，详见 `docs/OTA_PARAMETERS.md`，不读取客户旧编号。
+全局嵌入式规则继续适用；当前 Config/State/Event 使用 schema 4；有效同产品 CFG2/schema 3 整套恢复新默认，不迁移旧字段，当前格式损坏保持输出禁止。详见 `docs/STORAGE.md`；OTA 按 BIN 内参数组选择和一次性标记处理，详见 `docs/OTA_PARAMETERS.md`，不读取客户旧编号。
 
 ## 本机验证约定
 
@@ -25,7 +25,7 @@
 - 无效串位发送 61001，不计入有效串数、min/max、SOC、保护、balance/open-wire。
 - D011 PB5 fuse 安全电平不得改变；D013 heater/balance 都不支持；D014 无 heater、TS3 NC、TS4 为 MOS NTC。
 - D014 原理图/BOM 与板级阻断详见产品目录 AGENTS 和 `docs/HARDWARE_VALIDATION.md`。
-- CFG2 payload 格式不变；Config/State/Event 内部 journal schema 3，旧开发布局不迁移（本次用户已授权重划业务 Flash）；wire product ID、外部地址、缩放、Flash/OTA/APP 边界不能擅自改变。
+- 外部参数协议 v2 保持；Config/State/Event 内部 schema 4 和三域布局按 `docs/STORAGE.md` 维护，旧格式默认恢复须提交成功后才取得输出资格；wire product ID、外部地址、缩放、Flash/OTA/APP 边界不能擅自改变。
 - 用户要求测试且未限定更小范围时，公共改动至少执行四产品 `sources --check`、`link`、`resources` 和相关 host 回归。
 - `link` 只产生 ELF/MAP/LST；没有明确镜像请求不得自动使用 `build`/`rebuild`/`objcopy`/`check-fw`。
 - host/链接/MAP 不替代实板、Flash 掉电、低功耗、物理保护或 OTA 验收。

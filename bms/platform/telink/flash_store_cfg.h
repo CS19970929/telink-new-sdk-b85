@@ -17,7 +17,7 @@ u32 blc_ota_getCurrentUsedMultipleBootAddress(void);
 #define FLASH_SECTOR_SIZE                 4096u
 #define FLASH_PAGE_SIZE                   256u
 
-/* 既有三个业务域及独立休眠/SOC profile；APP/OTA 和 SDK 区域不变。 */
+/* 仅保留 Config/State/Event 三个业务域；APP/OTA 和 SDK 区域不变。 */
 #define FLASH_ADDR_EVENT_SECTORS          16u
 #define FLASH_ADDR_STATE_SECTORS          8u
 #define FLASH_ADDR_CONFIG_SECTORS         4u

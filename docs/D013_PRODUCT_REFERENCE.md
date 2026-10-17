@@ -206,7 +206,7 @@ First/Second 离开各自阈值后按 Filter 清除；不是用 80°C 恢复值�
 该保证适用于持续运行中的传感器失效，不包括下文的完整 AFE 重初始化或 MCU reset。
 
 阈值来自 `bms_config_store.c::s_default_protection`，实际运行以 `g_bms_protection_params` 为准。
-MOS 能力是编译配置，装入新固件即启用，不依赖 OTA 参数组选中；已有 schema 3 Flash 的 MOS 阈值原样加载。
+MOS 能力是编译配置，装入新固件即启用，不依赖 OTA 参数组选中；同格式 schema 4 中的有效 MOS 阈值按更新选择加载；跨旧 CFG2 时整套恢复新默认，见 [存储说明](STORAGE.md)。
 若原持久参数的 `mos_otp_third_x10=0`，现有算法将三级 MOS OTP 视为关闭，TS4 断线保护仍有效。
 需要上述默认时须按 [OTA 参数](OTA_PARAMETERS.md) 显式选择 `sw`，该选择会更新整组软件保护；本次没有强制覆盖或生成更新包。
 

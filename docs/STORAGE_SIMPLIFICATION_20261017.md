@@ -85,3 +85,79 @@ D011 110244 B、D013 106868 B、D014 109300 B；这不是实板验证或动态�
 
 实板 Flash 掉电、擦写耗时、Gate/Vgs、保护恢复、低功耗电流/唤醒、真实 OTA 和动态栈水位仍需独立验收。
 本任务不生成 BIN，不烧录，不执行 OTA，也不将 RAM Flash 故障注入当作物理掉电试验。
+
+## 四轮主体软件结果（固定提交）
+
+四轮主体固定到 `92e32d8b511150762c2370f6ad9aef92b0f59242`；以下完整回归、16 组 sanitizer 和首批六配置资源均对应此提交。
+随后追加第五轮槽位转换修复，见下节；该修复后的最终目标资源另行记录，不能把首批 ELF 当作追加修复后的产物。
+
+| 轮次 | 提交 | 内容 |
+|---|---|---|
+| 一 | `b2292785` | 安全启动、整区空白检查与基线夹具修复 |
+| 二 | `5b211ce9` | Config 统一曲线/休眠、旧 CFG2 原子默认恢复 |
+| 三 | `1243d3ef` | 删除 Event 隐藏重复计数 |
+| 四 | `92e32d8b` | 精简 State、统一一秒检查点 |
+
+最终完整 host 执行 128 组：127 组直接通过；1 组 `d014_defaults_host_check` 因夹具仍用旧 system
+结构编译失败。改为抽取生产三字段结构，并链接真实 `bms_soc_profile.c` 检查 chemistry/profile 后，
+定向 1 组复验通过，原产品/装配/化学体系默认矩阵不减项。
+这是“全量结果 + 夹具修复后的定向复验”，不是声称某次完整运行 128/128 全绿。
+`final-host/report.md` 保留失败，`final-defaults-retry/report.md` 保留复验，运行期间输入均未改变。
+
+ASan/UBSan 针对存储四产品、纯曲线四产品、SH 存储三产品、Modbus 四产品和 D014 联合生产 TU
+共 16 组通过，见 `final-sanitizer-retry/`。使用 Clang 23.1.3（LLVM-MinGW 20261006），
+`-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer`；
+工具运行对 typedef 重复和既有 unused-but-set-global 提示放宽，不改 TC32 规则。
+关闭 LSan；app scheduler 普通 host 已执行，未计入这 16 组 sanitizer。
+首次 sanitizer 目录 `final-sanitizer/` 是 CC 路径反斜杠被 shlex 处理导致的编译器启动失败，修正路径后复验；不当作软件断言通过。
+
+四产品 `sources --check` 已执行。六种 production 配置均完成 `link` 和 `resources`，无错误/警告，
+资源收据记录干净源码 SHA，且 `image_generated=false`；未执行 BIN 转换、打包、烧录或 OTA。
+
+| 产品 / profile | Flash 投影 B | APP 槽剩余 B | RAM 地址跨度 B |
+|---|---:|---:|---:|
+| D008 16s-lfp | 110708 | 16268 | 22364 |
+| D008 20s-nmc | 110708 | 16268 | 22364 |
+| D008 24s-lfp | 110724 | 16252 | 22364 |
+| D011 | 108628 | 18348 | 21672 |
+| D013 | 105252 | 21724 | 21588 |
+| D014 | 107684 | 19292 | 21668 |
+
+APP 槽为 126976 B，最小剩余 16252 B，满足当前至少 8 KiB 门禁。
+相对本轮实测基线，D008 16S LFP、D011、D013、D014 各减少 Flash 1616 B；
+RAM 地址跨度分别减少 340/344/344/344 B。D008 其他两 profile 这里只列绝对值，不伪造基线比较。
+RAM 地址跨度包括 RAM code/cache/IRQ stack；3072 B 主栈只是预留预算，未测动态高水位。
+六配置 ELF/MAP 和资源 JSON 在 `final-target/a25269d0c116/`，汇总日志为 `final-link.log`。
+
+## 减法结果与保留理由
+
+- 五个 journal 收敛为三个；曲线与休眠只有 Config 一个持久所有者，取消跨域配置补救写入。
+- State payload 44 → 24 B，Event 404 → 202 B；Config 因接管完整曲线及休眠由 322 → 414 B。
+- 删除长期 State pending、Event repeats、重复选型/废学习槽；默认曲线集中为一份常量。
+- 相对起点生产 C/H 净减 218 行，C/H 文件净少 1 个；没有用改名虚增文件减量。
+- 原两块 8 KiB 业务区释放，三主分区和 APP/OTA/SDK 边界保持；释放的 16 KiB 不增加 APP 槽位。
+- 旧修订只读接口有现有客户端，保留 `bms_parameter_policy.h` 的外部契约；不再参与参数更新决策。
+- 平台全局 Flash 退避、各域 checkpoint/失败预算承担不同职责，保留 CRC/最终 commit/轮换/回读及故障门禁。
+
+外部参数协议 v2、地址、数量、字节序、缩放、100 条事件窗口和 61001 无效串位不变。
+旧格式恢复整套默认不等于硬件已允许输出：仍须配置提交成功、原 AFE 初始化/应用/回读及新样本资格。
+所有证据是源码、host 故障模型或 TC32 ELF/MAP；物理 Flash 掉电、Gate/Vgs、WDT/低功耗、真实 OTA
+和动态栈水位仍未验收。原 D: 主目录的 14 个既有修改没有纳入本轮提交。
+
+## 第五轮：旧格式不同槽长的掉电边界
+
+独立提交 `abef6d48` 修复 CFG2 的 356-byte 槽与 CFG4 的 448-byte 槽网格不一致问题。
+原转换只继承旧最新地址，新网格查找可能将旧记录的 FF payload 尾部当作空槽，
+在新默认提交前覆盖仍有效的旧数据。已使用固定的修复前生产函数复现旧最新记录字节被修改；
+证据在 `final-geometry-red/storage_host_check-d014/old-record-overlap.log`。
+
+现在转换显式从旧最新记录所在 sector 的下一 sector 起写，跨区域尾部回绕也不触碰最新旧 sector。
+序号、CRC/commit、物理失败预算及后续失败游标保持；不增加长期兼容缓存。
+新增四个 sector 全部 44 个旧槽位置、FF payload、首次写中断及重启重试场景。
+原 449 个完整写入切点继续执行。三个域和外部接口均未改变。
+
+修复后四产品存储和 D014 联合生产安全链共 5 组通过（`final-geometry-green/`）；
+四产品存储 ASan/UBSan 共 4 组通过（`final-geometry-sanitizer/`）。两次运行期间输入均未改变。
+不重复完整 128 组：本轮新增代码仅在识别旧格式后的首次写游标设置中执行，相关语义/断电/安全链已重测。
+本次收口还同步当前存储、配置、类型切换、校准和产品文档，以及 AGENTS 的分支/schema 约定；
+固定历史审计和原厂资料保留原提交事实。后续目标资源复核完成前，上节资源仅代表第四轮固定提交。

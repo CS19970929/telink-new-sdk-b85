@@ -1,6 +1,6 @@
 # 四产品参数配置与电池类型切换
 
-2026-10-14，基线 `fb70ea5a`，按用户确认在 `codex-remove-openwire` 开发。本轮仅源码与 Git 差异审查，未测试、编译、检查资源、生成镜像、OTA 或操作实板。
+类型切换首次实现于 2026-10-14，基线 `fb70ea5a`；当时仅源码审查。2026-10-17 已将低频参数合入 CFG4/schema 4，当前实现与软件验证见 [存储精简记录](STORAGE_SIMPLIFICATION_20261017.md)，实板验收仍未完成。
 
 ## 参数入口
 
@@ -25,7 +25,7 @@
 4. 工具自动生成新 `BMS_OTA_UPDATE_ID_0..5`，与 mask 编入镜像。无需修改 `bms_parameter_policy.h` 历史编号或增加旧 revision，也不要求客户读取旧编号。
 5. OTA 后核对实际参数、启动状态及 AFE requested/effective/寄存器读回；同一更新包不重复恢复客户在线修改。详见 [OTA 参数规则](OTA_PARAMETERS.md)。
 
-修改编译默认 OCV 曲线点时同步递增本产品 `BMS_SOC_OCV_LFP_VERSION` / `BMS_SOC_OCV_NMC_VERSION`，用于诊断追踪。`soc` 组控制 CFG2 中的持久类型/profile 和三项回退调参；设备在线保存的完整 SOC profile 位于独立 `SCP1` journal，优先于编译默认。保护性休眠和 `SCP1` 都不属于这四个 OTA 更新组；改首次默认不会覆盖健康在线记录。校准、身份和事件也不在 OTA 更新选项中。
+修改编译默认 OCV 曲线点时同步递增本产品 `BMS_SOC_OCV_LFP_VERSION` / `BMS_SOC_OCV_NMC_VERSION`，用于诊断追踪。`soc` 组控制 Config 中的完整曲线和 SOC 算法参数；选中时恢复全部 SOC 默认，未选中时保留在线定制曲线。保护性休眠不随四个 Config 更新组覆盖；同格式内改首次默认不会覆盖健康在线记录。校准、身份和事件不在 OTA 更新选项中；跨有效旧 CFG2 时整套默认恢复优先。
 
 ## 一键切换与密码
 
@@ -33,13 +33,13 @@ App、Windows 和公共客户端代码都在 `feature/windows-afe-hw-protection-
 
 切换前确认实际电芯类型，断开充电器和负载。固件检查启动参数有效、AFE 总线访问资格、三次新鲜采样资格、最新样本年龄及电流是否在当前 SOC 死区内。这是配置操作门禁，不是过流/短路物理恢复证据。
 
-切换恢复该产品整套软件保护、整套独立 AFE 保护、加热/均衡阈值、SOC 全部算法阈值与对应 OCV 曲线。目标类型的完整 SOC profile 先写入独立 `SCP1` journal，CFG2 随后原子提交；CFG2 失败会尝试恢复原 profile。保留串数、容量、均衡许可、实测电流校准、身份、当前 SOC/循环/放电累计、事件、独立休眠记录和 OTA 执行标记。OCV 曲线切换不等于实测电量校准，当前 SOC 继续由原算法按静置资格修正。D013 heater/balance、D014 heater/TS3 能力边界不变。
+切换恢复该产品整套软件保护、整套独立 AFE 保护、加热/均衡阈值、SOC 全部算法阈值与对应 OCV 曲线。目标类型的完整 SOC profile 与软件/AFE/业务参数在同一条 Config 中原子提交；保存失败保持原缓存，无需第二域补救写入。保留串数、容量、均衡许可、实测电流校准、身份、当前 SOC/循环/放电累计、事件、休眠参数和 OTA 执行标记。OCV 曲线切换不等于实测电量校准，当前 SOC 继续由原算法按静置资格修正。D013 heater/balance、D014 heater/TS3 能力边界不变。
 
 D008 保留首次/OTA 的既有均衡测试组。在线切换 LFP 使用 3300/30/15 mV，NMC 使用 4100/30/15 mV；关闭测试宏后分别为 3400/50/30 和 4100/50/30 mV。D008 24S 拒绝 4.20 V NMC，沿用现有 100 V 上限。
 
 ## 事务和失败
 
-候选整体校验后，先撤销输出授权，再保存完整 SOC profile 并将其余四组参数写入同一条 CFG2 journal 记录，成功后发布运行值并由原后端应用 AFE。CFG2 322-byte payload、schema 3、分区、CRC、最后提交标记和旧地址不变；`SCP1` 使用原未分配区的两个 sector，自有 CRC、序号和最后提交标记。
+候选整体校验后，先撤销输出授权，再将完整 profile 和其余低频参数写入同一条 CFG4/schema 4 journal 记录，成功后发布运行值并由原后端应用 AFE。Config payload 为 414 bytes，CRC、最终提交和三主域地址保留；独立 `SCP1`/`SLP1` 存储已取消。
 
 保存失败保留旧 RAM cache 并保持 inhibit；掉电后选择完整旧/新记录。AFE 应用失败保留整套已提交的新参数，保持 inhibit 并返回失败；需重新读取并按现有启动路径验证，不声称已经回滚或已经物理关断。成功应用后仍需三次新鲜样本资格，原保护故障、AFE latch/物理恢复、watchdog bus silence 和远程 MOS 许可继续约束输出。
 
@@ -67,6 +67,6 @@ Android 服务模式验证成功后停留在“设备”页并展开明确入口
 
 沿用 DVC1124-2 RM V1.2 原 PDF p20（SCD）、p23–24（电压保护）及 SH36735XX CV1.0A 原 PDF p49（电压范围）；寄存器编码、量化和物理恢复策略未变。实装型号后缀、硅版本、接线和阈值签核限制见 [AFE 指南](AFE_REFERENCE_GUIDE.md) 与 [硬件验证](HARDWARE_VALIDATION.md)。
 
-补充四产品两种编译类型下的运行默认场景，以及存储夹具中的密码/长度/24S NMC、静置/样本年龄、逐字节写中断、保留域、应用失败门禁场景，均未执行。仍需构建/资源、Flash 真实掉电、BLE/串口、手机/Windows UI、AFE 读回及物理保护验收。
+四产品两种编译类型下的运行默认、密码/长度/24S NMC、静置/样本年龄、逐字节写中断、保留域和应用失败门禁场景，本轮 host 已执行；六配置 TC32 链接/资源结果见 [存储精简记录](STORAGE_SIMPLIFICATION_20261017.md)。Flash 真实掉电、BLE/串口、手机/Windows UI、AFE 实板读回及物理保护仍需验收。
 
 客户端工作树存在本轮之前的大量未提交修改，全部保留，不混入固件提交。客户端增量 patch 以本轮开始时的工作树为基线，不能视为针对客户端旧 HEAD 的独立提交。

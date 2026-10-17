@@ -25,7 +25,7 @@ AFE 板级 GPIO/I2C 和 Telink 普通 Suspend
 仍是后续 MCU 移植需要适配的具体位置；不宣称整个源码树已经脱离 SDK。
 
 `bms_state_store.c` 已使用现有 `bms_time_now_32k()`，其 Telink 实现仍直接返回
-`pm_get_32k_tick()`；checkpoint/失败退避时基与 schema 3 持久格式不变。
+`pm_get_32k_tick()`；checkpoint/失败退避时基保持，持久格式见 [三域存储](STORAGE.md)。
 
 SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH 恢复证据与采样资格](SH_RECOVERY_AND_FRESHNESS.md)。充电器查询与 feature 快照均只读已验证缓存，guard 继续拥有输出资格和 watchdog 静默。
 
@@ -42,7 +42,7 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 | 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
 | heater/balance 策略 | `bms/app/bms_features.c` | 产品头用 `BMS_FEATURE_*_SUPPORTED` 编译期裁剪；保留产品的温度、可信采样及故障互锁 |
 | SOC estimate/display/OCV/循环 SOH | `bms_soc.c`，应用输入推进 | 首轮建立基准、重复应用时间不积分、无效/GAP 不补算；有效缓存可积分，新测量确认独立 |
-| SOC/放电累计/循环持久值 | `bms_state_store.c`；提交 cache 与待保存副本分离 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立执行标记 |
+| SOC/放电累计/循环持久值 | `bms_state_store.c`；只持有最后已提交值，最新快照由 SOC 提供 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立执行标记 |
 | 采样到期标志 / 休眠计时与提交状态 | `app.c` 持有采样标志；`app_power.c` 持有 PM 状态并只读该标志 | 回调只置位；已提交保护性深睡、ACC 休眠/关机先执行保持动作，不再进入业务调度 |
 | 32K 业务时间 | `bms_time_now_32k()` 的 Telink 平台实现 | 自然回绕；guard/feature/debug 可读取，关闭诊断不能改变保护计时 |
 | 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | 前者 Flash checkpoint，后者仅 RAM；均有丢失窗口 |
@@ -51,7 +51,8 @@ SH 后端的 C+/LOAD 互斥、ADC 新样本资格和清 flag 失败处理见 [SH
 拥有，feature 不再初始化保护模块；加热周期由 `heater_state` 保持。2026-10-12 按用户决定，
 均衡删除充电会话记忆，冷启动静置也可建立资格；当前真实放电仍停止均衡。
 充电源查询仅用于启动有需求且受支持的加热周期，不参与均衡。
-Config 的化学体系/profile 只存于 system，SOC getter 组装运行配置，CFG2 编码不变。
+Config 独占完整 SOC profile 与四项休眠参数；化学体系/曲线/保护在一条 CFG4 中提交。
+State/Event 独立保存，周期检查共用一秒任务。详见 [三域存储](STORAGE.md)。
 PM 的原因/elapsed/delay 是本轮局部结果，跨轮只保存计时、最后确认条件和提交状态。
 
 ## 3. 软件保护与 AFE 保护

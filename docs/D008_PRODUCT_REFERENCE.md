@@ -425,7 +425,7 @@ D008 当前加热策略使用 DVC 电流方向启动加热周期，而不是 PB1
 
 ### 13.2 均衡独立参数
 
-Balance 不再复用软件压差保护参数。CFG2 格式的 user payload（当前内部 journal schema 3） 独立保存：
+Balance 不再复用软件压差保护参数。Config/schema 4 的 user 字段保存：
 
 - `balance_enable`
 - `balance_start_mv`：可调均衡起始电压；

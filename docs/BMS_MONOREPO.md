@@ -68,13 +68,12 @@ SDK `vendor/ble_sample` 只保留 `app_config.h` 转发入口，旧业务源码�
 
 ## 参数、单位与新存储格式
 
-根据用户指令，开发板旧参数不兼容、不迁移。
-Config 使用 `CFG2` magic `0x43464732`，内部 journal schema 3，CFG2 格式的 322-byte payload：
-4-byte 产品标识、130-byte 软件保护、20-byte 系统数据、70-byte AFE profile、24-byte BT suffix、8-byte SOC 设置、54-byte 用户参数、12-byte 分组更新编号。
-所有整数显式按 LE 编码；没有保存 C struct 原始 padding。不同产品标识的 CRC-valid 记录也不会被套用。
-State 使用 `0x53544200 + BMS_PRODUCT_ID`、schema 3、44-byte payload（删除老化计时）。
-Event 使用 `0x45563200 + BMS_PRODUCT_ID`、schema 3、404-byte payload，包含 100 条事件、重复次数和更新编号。
-不读取旧 schema；同一新 schema 内按各产品的独立更新编号保留或更新参数，见 [OTA_PARAMETERS.md](OTA_PARAMETERS.md)。
+当前只有 Config/State/Event 三个 journal，均为 schema 4，payload 分别为 414/24/202 bytes。
+Config 使用 CFG4（`0x43464734`），统一完整曲线、四项休眠和其他低频参数；
+State 使用 `0x53543400 + BMS_PRODUCT_ID`，Event 使用 `0x45563400 + BMS_PRODUCT_ID`。
+所有整数显式按 LE 编码，不保存 C struct padding，CRC-valid 异产品记录也不会套用。
+按用户指令，有效同产品旧 CFG2/schema 3 整套恢复新默认，不迁移旧字段；当前格式损坏不自动放行。
+同格式 OTA 按所选组和一次性标记更新。完整布局、槽位及故障边界见 [STORAGE.md](STORAGE.md)，更新策略见 [OTA_PARAMETERS.md](OTA_PARAMETERS.md)。
 启动路径先验证和持久化需要更新的数据，再允许业务输出。
 保存失败不发布新 RAM 值，启动阶段失败不能被后续 `SaveParam` 单独绕过。
 
@@ -89,7 +88,7 @@ SH `0x2180..0x218A` 的旧实际量化值诊断保留；公共 `0x2500` profile�
 恢复默认值统一使用 `0x2E10` 命令：值 1 恢复软件保护，值 2 恢复 AFE profile，值 3 恢复业务参数；
 值 6 保留当前有效授权检查后成功空操作，不再进入老化模式或写 Flash。AFE profile 写入仍需要当前有效授权。
 旧 SH 路径的 `0x1102=3` 不再执行恢复，`0x2E07=1` 明确公布此规则；
-`0x2E05=2` 公布 CFG2 payload 格式版本，内部 journal schema 为 3。上位机应读取公共参数接口能力后使用对应命令。
+`0x2E05=2` 保持外部参数接口的版本契约，与内部 journal schema 4 独立。上位机应读取公共参数接口能力后使用对应命令。
 
 ## STM32 接入边界
 

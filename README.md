@@ -1,6 +1,6 @@
 # BMS monorepo：D008 / D011 / D013 / D014
 
-本分支 `codex-remove-openwire` 从 `ee284189` 裁剪主动断线检测，见 [删除与回归说明](docs/OPENWIRE_REMOVAL.md)。
+当前工作分支为 `codex-bms-deep-simplification-20261016`。此前 `codex-remove-openwire` 从 `ee284189` 裁剪主动断线检测，见 [删除与回归说明](docs/OPENWIRE_REMOVAL.md)。
 
 四产品固件的主开发分支是 `codex-bms-monorepo`。公共代码只维护一份，产品通过编译配置和 `sources.txt` 选择硬件输入与 AFE 后端。Windows 上位机仍在 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/` 维护。
 
@@ -95,7 +95,7 @@ python bms_tools/bms.py --product d014 resources
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 开关/低压强制深睡、UART静默30秒Suspend及首帧唤醒 |
 | [四产品保护性休眠](docs/LOW_POWER_POLICY.md) | 低压、AFE 异常到期 D008 断电、SH 深睡与唤醒 |
 | [完整休眠逻辑与开关强制深睡](docs/SLEEP_LOGIC_REVIEW.md) | 各入口时间、通信门禁、PC4 与 MCU 深睡、唤醒条件及 D008 ACC 拒睡修正 |
-| [两档休眠参数与固定过放休眠](docs/SLEEP_CONFIGURATION.md) | 上位机配置电压/延时、独立参数保存、过放未恢复固定 3 分钟 |
+| [两档休眠参数与固定过放休眠](docs/SLEEP_CONFIGURATION.md) | 上位机配置电压/延时、Config 保存、过放未恢复固定 3 分钟 |
 | [MOS 无人值守监控](docs/MOS_MONITOR.md) | 请求、命令、AFE 状态、原因、开发历史及自动写盘 |
 | [充放电 MOS 独立远程许可](docs/MOS_REMOTE_CONTROL.md) | App/Windows 独立控制、RAM 生命周期、协议、AFE 报告与安全边界 |
 | [MOS 关断时序优化](docs/MOS_SHUTDOWN_TIMING_OPTIMIZATION.md) | 监控异常的证据边界、配置重复读取、D008 NTC 资格及 SH 辅助采样 |
@@ -119,7 +119,7 @@ python bms_tools/bms.py --product d014 resources
 | [硬件验证清单](docs/HARDWARE_VALIDATION.md) | 四产品共同与各自的未关闭项 |
 | [项目待办](docs/TODO.md) | 待资料或后续开发项；D013 TS4 MOS 温度已接入，待实板验收 |
 
-2026-10-06 已导入六份 AFE 原始手册及 D008 24S 原理图，见 [资料使用指南](docs/AFE_REFERENCE_GUIDE.md)；D011/D013/D014 原始图纸/BOM仍缺。四产品容量/保护参数及实板验收仍需签核；D008 20S NMC 已关联确认的三元锂开发默认。Ctrl+Shift+B 可选择板型、AFE、串数、类型、容量及 OTA 更新组；BIN 自带选择和一次性标记，无需查询客户编号，见 [配置指南](docs/CONFIGURATION_AND_BUILD_GUIDE.md)。Config/State/Event 内部 schema 3、payload 和分区保持；兼容当前 schema 3 旧记录，更早布局不迁移。开发默认不代替产品签核，源码、host、ELF、读回及实板波形分别留证。
+2026-10-06 已导入六份 AFE 原始手册及 D008 24S 原理图，见 [资料使用指南](docs/AFE_REFERENCE_GUIDE.md)；D011/D013/D014 原始图纸/BOM仍缺。四产品容量/保护参数及实板验收仍需签核；D008 20S NMC 已关联确认的三元锂开发默认。Ctrl+Shift+B 可选择板型、AFE、串数、类型、容量及 OTA 更新组；BIN 自带选择和一次性标记，无需查询客户编号，见 [配置指南](docs/CONFIGURATION_AND_BUILD_GUIDE.md)。Config/State/Event 内部 schema 4，低频参数统一由 Config 保存；有效旧 CFG2 整套恢复新默认，当前格式损坏保持输出禁止，详见 [存储说明](docs/STORAGE.md)。开发默认不代替产品签核，源码、host、ELF、读回及实板波形分别留证。
 
 <details>
 <summary>历史审计与固定提交证据（需要追溯时展开）</summary>

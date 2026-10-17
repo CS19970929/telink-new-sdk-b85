@@ -46,7 +46,8 @@ main_loop → app_sample_task（约 200 ms）
 
 ```text
 产品/公共默认 → Config default builder
-有效同产品内部 journal schema 3 记录 → 按 BIN 选择及一次性标记更新
+有效 schema 4 记录 → 按 BIN 选择及一次性标记更新
+有效上一版 CFG2 → 整套新默认，校验/提交成功后取得配置资格
 候选校验 → journal commit → 发布 RAM 值
 启动安全配置失败 → s_storage_startup_valid=0 → 输出资格不成立
 ```

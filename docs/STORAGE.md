@@ -1,129 +1,116 @@
 # Flash、SOC 持久化与低功耗
 
-2026-10-17 当前低频配置已收敛到 Config schema 4，完整曲线及四项休眠参数同条提交，
-旧 CFG2 的有效记录整套恢复默认且提交成功后才具备输出资格。当前格式损坏仍禁止输出。
-详见 [存储精简记录](STORAGE_SIMPLIFICATION_20261017.md)。下文五域/schema 3 的细节为重构前基线，
-新格式字段和最终验证以该精简记录为准。
+当前采用 Config/State/Event 三个 journal，内部 schema 4。2026-10-17 已按用户要求取消旧参数迁移，
+有效上一版 CFG2 整套恢复新固件默认；当前格式损坏与 I/O 失败不自动恢复放行。
+实施、逐轮提交及固定源码验证见 [存储精简记录](STORAGE_SIMPLIFICATION_20261017.md)。
 
-本文对应四产品共用实现。2026-10-06 按开发期需求删除老化模式、重新划分业务 Flash，并统一采用内部 journal schema 3；不迁移旧开发布局。通信字段、事件读取格式和 APP/OTA/SDK 区域保留；事件清空命令 `0x1007` 已取消。参数更新规则见 [OTA_PARAMETERS.md](OTA_PARAMETERS.md)。
-
-## 存储结构与所有权
+## 数据与所有者
 
 ```text
-Config / State / Event / SleepConfig / SocProfile（各自拥有业务缓存）
-             ↓
-storage_record（固定记录、CRC32、序号、最后提交）
-             ↓
-storage_port → bms_storage_platform_telink → SDK Flash
+Config（全部低频参数） / State（SOC/循环） / Event（历史）
+    → storage_record（CRC32、序号、最终 commit、轮换与失败游标）
+    → storage_port → bms_storage_platform_telink → SDK Flash
 ```
 
-没有 Factory 域、老化计时、KV、文件系统或额外管理层。业务不持有物理地址，不直接调用 SDK 擦写。所有写入都由主循环路径执行，ISR 不擦写 Flash。普通 getter 和协议读取只读 RAM 缓存，不触发初始化、擦除或保存；启动路径显式加载并验证各域。
-
-| 域 | 业务数据 | 内部 schema / payload | 正常写入条件 |
+| 域 | 当前数据 | magic / schema / payload | 写入时机 |
 |---|---|---|---|
-| Config | 软件保护、产品/容量/SOC 设置、AFE requested、校准、SN、蓝牙后缀、OTA 执行标记 | 3 / 322 bytes；magic `CFG2` | 候选编码改变或选中 OTA 更新未执行 |
-| State | SOC、放电累计、循环、OTA 执行标记及旧保留槽 | 3 / 44 bytes | 有变化且检查点到期，或显式保存 |
-| Event | 100 条事件环、重复计数、写位置、EVENTS 编号 | 3 / 404 bytes | dirty 且检查点到期，或入睡前提交 |
-| SleepConfig | 两档电压、两档分钟数及保留AFE时间槽（固定30分钟） | 1 / 10 bytes；magic `SLP1` | 显式整组保存且参数变化；见 [休眠配置](SLEEP_CONFIGURATION.md) |
-| SocProfile | chemistry/profile、SOC 算法阈值、最多15个 OCV 点 | 1 / 100 bytes；magic `SCP1` | App/Windows 完整候选提交或一键切换类型 |
+| Config | 软件保护、AFE requested、容量/产品身份、完整 SOC 曲线与参数、四项休眠、业务许可、校准/SN/BLE 后缀、OTA 标记 | CFG4 / 4 / 414 bytes | 完整候选有变化，或启动默认/选中更新待提交 |
+| State | 整数 SOC、放电累计、cycle、本域 OTA 标记 | ST4 + product ID / 4 / 24 bytes | 一秒任务检查，通常 60 s checkpoint，或显式设置/休眠 |
+| Event | 写位置及 100 条事件 ID/时间码 | EV4 + product ID / 4 / 202 bytes | 新事件 dirty 且检查点到期，或入睡前 |
 
-每域独立提交，没有跨域原子事务。Config 候选提交成功后才发布 cache；State 区分已提交 cache 与待保存副本，保存失败不丢弃候选。Event 在 RAM 先记事件，失败保留 dirty。启动安全配置校验/保存失败时，输出授权保持关闭，普通 `SaveParam` 不会绕过该门禁；State/Event 失败按文末规则降级。
+Config 的 chemistry/profile 和算法阈值只保存一次。SOC 消费 Config 内稳定只读视图，曲线提交改变后
+代次递增，作废旧 OCV 静置资格。默认曲线集中定义在 `bms_soc_profile.c`；其校验及 word 映射不访问 Flash。
+`bms_sleep_config.c` 只处理业务默认、校验和纯休眠策略；固定 AFE 异常 30 分钟只用编译常量。
+没有独立 SleepConfig/SocProfile 缓存或 journal。
 
-`CFG2` 的 322-byte payload 及通信 `0x2E05=2` 保留；它与内部 journal schema 3 是不同层次。`0x2E87` 保留原位置，恒为 1，没有老化更新宏；废弃的 `0x2E10=6` 返回非法值（异常码 3），不再提供成功空操作。SN/电流校准继续要求 AFE 已授权会话。诊断原 Factory 槽位保留 NOT_RUN、地址/大小为 0，原运行模式字段为 0；其他诊断字段位置不变。
+在线 Config 候选保存成功才发布缓存；启动候选须校验、提交成功后才取得安全配置资格。
+State 只保留最后已提交值，最新业务值由 SOC 所有者提供，失败后的下一轮重新取当前值。
+显式 SOC/循环设置先保存成功再修改算法。Event RAM 先记事件，写失败保留 dirty。
+三个域彼此独立，不假定跨域原子性。getter 和协议读取只读 RAM，不初始化或擦写。
+Flash 业务写入在主循环，ISR 不擦写。
 
-## Flash 布局
+## 分区与槽位
 
-TLSR8251 512 KiB：
+TLSR8251 512 KiB 分区：
 
 | 区域 | 地址 | 大小 |
-|---|---|---:|
-| Firmware A | `0x00000..0x1EFFF` | 124 KiB |
-| OTA A meta | `0x1F000..0x1FFFF` | 4 KiB |
-| Firmware B | `0x20000..0x3EFFF` | 124 KiB |
-| OTA B meta | `0x3F000..0x3FFFF` | 4 KiB |
-| Config | `0x40000..0x43FFF` | 16 KiB / 4 sectors |
-| State | `0x44000..0x4BFFF` | 32 KiB / 8 sectors |
-| Event | `0x4C000..0x5BFFF` | 64 KiB / 16 sectors |
-| SleepConfig | `0x5C000..0x5DFFF` | 8 KiB / 2 sectors |
-| SocProfile | `0x5E000..0x5FFFF` | 8 KiB / 2 sectors |
-| 未分配 | `0x60000..0x73FFF` | 80 KiB |
-| SDK 保留 | `0x74000..0x7FFFF` | 48 KiB |
-
-SDK 当前 825x 定义 SMP pairing `0x74000`、MAC `0x76000`、calibration `0x77000`，master pairing `0x78000`；整个 SDK 保留区不进入业务擦除。旧文档中的 `0x7F000` MAC 是其他 MCU 分支定义，不能用于 TLSR8251。
-
-| Flash 容量 | Config base | State base | Event base |
-|---|---:|---:|---:|
-| 512 KiB | `0x40000` | `0x44000` | `0x4C000` |
-| 1 MiB | `0xB0000` | `0xB4000` | `0xBC000` |
-| 2 MiB | `0x1B0000` | `0x1B4000` | `0x1BC000` |
-
-三种容量的 Config/State/Event 都使用 4/8/16 个 4 KiB sector；SleepConfig 另用 2 个 sector，分别从 `0x5C000` / `0xCC000` / `0x1CC000` 开始；SocProfile 紧随其后，从 `0x5E000` / `0xCE000` / `0x1CE000` 开始。地址仅由 `flash_store_cfg.h` 定义；OTA 兼容门禁及 SDK 地址冲突由布局检查覆盖，本次未执行。硬件型号与当前 OTA 配置仍需按实际设备验收。
-
-## 一致性、失败与寿命
-
-32-byte 固定头包含 magic、格式、schema、长度、sequence、CRC32 和提交标记；数据显式 little-endian 编码，提交标记最后写。平台按 256-byte page 边界编程，并逐段读回验证；擦除也读回验证。加载扫描所有槽位，选择最新完整且 CRC 正确的记录，跳过写中断残留。轮换不擦除最后有效记录所在 sector。
-
-读取结果区分空白、版本不适配、损坏和端口报告的 I/O 错误。开发期空白/旧格式可使用默认并保存；端口明确报告 I/O 错误时初始化失败，不能把读取失败当空白写默认。Telink SDK 的 `flash_read_page` 没有错误返回，当前端口无法识别所有物理读故障；CRC 不等于完整硬件故障检测。
-
-保存失败保留重试游标。擦除成功后编程失败，跳过受影响槽位，继续使用该 sector 的后续槽位，不因五秒重试反复擦同一 sector。每域连续三次实际擦除/编程失败后，本次启动停止物理写入；OTA、Flash lock 或退避拒绝事务不消耗该预算。成功保存清零连续失败计数，MCU reset 重建预算；频繁 reset 仍可能再次产生擦写，不能据此保证异常电源下寿命。
-
-正常 State/Event 采用 60 s 检查点、失败 5 s 退避。Config 相同编码直接成功，不增加 sequence 或物理写入。寿命主要取决于变化频率，而不是读取次数：
-
-Event 的 `storage_record_store_t` 单独静态存放并显式四字节对齐。SDK 保留 `-fpack-struct`，不能把该对象内嵌到业务 ctx 的未对齐偏移：TC32 `program_bytes` 的整字指针读取可能取错端口。2026-10-08 D008 开发设备曾出现 Event 首次保存失败、擦除一次但未进入编程，进而保持启动输出禁止；同 Build ID 的 MAP/LST 显示内嵌对象地址 `0x008453A6` 却使用 `tloadr`。本轮仅调整 RAM 对象组织，不改变 Flash schema、payload、分区或启动门禁。存储 host 回归增加 packed 布局下的实际对象地址检查；目标 MAP/LST 和 OTA 后设备读回分别作为独立证据，不能以 host 通过代替实板恢复。
-
-| 域 | 每 sector 槽位 | 全区域一轮记录数 |
-|---|---:|---:|
-| Config：32+322 对齐为 356 bytes | 11 | 44 |
-| State：32+44=76 bytes | 53 | 424 |
-| Event：32+404=436 bytes | 9 | 144 |
-
-Event 从 8 增至 16 个 sector。同样持续 dirty、每分钟保存一次的假设下，平均每 sector 约从 20 次擦除/天降到 10 次；State 同假设约 3.4 次/天。无变化时不会持续保存，显式写入/入睡会增加次数，写失败与频繁重启也会改变分布。实际寿命需用实装 Flash 的保证擦写次数、温度、数据保持要求和设备负载计算，不承诺固定年限。
-
-## Event 行为
-
-- 仍是 100 条记录、ID 0..20、最新在前，读取 `0xC008..0xC06B`；每条仍为 event ID 高字节与时间码低字节。
-- 正常均衡开启不再记录 `BALANCE_OPEN`，避免频繁启停使 Event 持续 dirty、增加 Flash 检查点写入。事件 ID 3 保留用于读取旧记录，其他 ID、schema 和 payload 不变；均衡请求/回读/失败的详细运行日志仍仅存 RAM，相关保护故障历史保持原行为。
-- 故障发生沿记录，恢复只释放 latch；CBC 恢复不再误记 CBC_ERR。AFE1 错误对应原事件 ID，不新增事件或改变 ID。
-- 时间由真实 32K tick 差值累计，处理小数秒和 tick 回绕，不再把一次调用视为一秒。相邻时间更新须短于约 37 小时的回绕周期。
-- 相邻同 ID 在首条事件之后 60 s 窗口内合并，重复计数独立保存并饱和到 65535；checkpoint 不会终止合并，增加计数仍会标记 dirty。Startup/Sleep 不合并，重启不合并上一启动的记录。
-- 时间码保持：Startup=0，间隔不超过 60 s 为 171，1..168 表示向上取整小时，超过 168 小时为 170。保存时验证 ID、时间码与计数，不接收不一致 payload。
-- Sleep 表示进入低功耗的尝试，不证明硬件已睡眠；失败保存的同次尝试不重复追加，物理转换取消后解除 latch，下一次尝试可另记。
-- 采样仍约 1 s，短于采样间隔的瞬态可能漏记；未增加 MOS 物理反馈、故障恢复历史或新日志状态命令。突然 reset 仍可能丢失未提交的 RAM 窗口。
-
-`0x1007` 的 `0x06`/`0x10` 写入返回 illegal address，广播不应答且无副作用。Windows 工具保留读取和解码，内部工厂工具的清空按钮与发送路径已移除。
-
-## SOC 当前存储逻辑
-
-SOC 输入只由合格的新样本推进，通常约 200 ms；重复、无效或过大 gap 不虚构积分。名义容量、化学体系、OCV、死区属于 Config；实时 estimate/display 与积分余量属于 RAM；State 保存整数 SOC 0..100、放电累计百分比 0..100、cycle 0..65535 和 OTA 执行标记。
-
-容量学习删除后，Config 仍为 322 bytes，原开关偏移 253/254 写零、读取忽略。2026-10-10 OTA 选择改用一次性标记：Config 原编号槽 310..321 复用为标记；State 仍为 44 bytes，0/4/8 为 SOC/放电累计/cycle，12..23 保存本域标记，24..39 写零，40 保留历史编号。schema、记录几何和参数位置保持；兼容当前旧记录，未选中参数不因旧编号而恢复。详情见 [OTA 参数策略](OTA_PARAMETERS.md)。
-
-SOC/循环变化由主循环汇入待保存副本，检查点到期且编码改变时提交；显式设置先成功保存再修改算法值。计划休眠/断电主动提交当前 SOC、放电累计及 cycle。启动从最后有效 State 恢复这三个值，并使用名义容量与循环 SOH 重算满容量/剩余容量；积分余量、显示跟随、OCV 静置、ETA 状态重新建立。
-
-没有持久化每一笔库仑积分、绝对剩余容量、掉电时刻或当前保护 latch。突然掉电可能丢失最近未提交的约 60 s 变化及不足整数百分比的积分余量；State 和 Event 是历史数据，不能用它们替代当前保护恢复资格。此次保留这些策略，没有更改 MCU reset 后输出授权规则。
-
-## 当前低功耗逻辑
-
-| 产品/路径 | 进入条件与动作 | 持久化/恢复 |
 |---|---|---|
-| D008 普通 suspend | OTA/Flash/总线/样本门禁通过、有效电流绝对值小于 200 mA；BLE 连接事件间也允许；应用采样唤醒约 200 ms | RAM 保留，不为每次 suspend 擦写 |
-| D008 ACC 深睡 | 休眠宏开启时ACC高锁存请求；一次收尾后关广告，尽力 AFE shutdown；PC4 保持高 | State/Event 各尽力保存一次，失败不取消深睡；ACC 低唤醒，完整 reboot；CHG_IN 不作为该路径唤醒源 |
-| D008 显式断电 | `0x1102=0x000A` 锁存请求，应答空闲即执行，等待最多500ms；撤销输出并尽力shutdown，最后拉低PC4 | 非OTA且Flash可写时State/Event各尝试一次，保存/AFE/BLE失败不拒绝断电；一线通接入不阻止 |
-| D008 保护性断电 | 低压/AFE条件到期；通信、OTA、Flash不阻止 | State/Event尽力保存后拉低PC4，失败不能取消断电；详见保护性休眠策略 |
-| SH 三产品深睡 | 休眠宏开启时开关OFF立即提交、低压/AFE 到期或显式命令；提交后不被 UART、OTA、Flash、AFE 失败取消 | 非 OTA 且 Flash 可写时 State/Event 各尽力保存一次；失败不重试，SDK 返回仅重试深睡 |
-| SH 普通 Suspend | 串口静默 30 s 及采样/电流等安全条件满足；RX 唤醒，首帧丢弃 | RAM 保留，不为 Suspend 写 Flash，主循环恢复 UART/DMA |
+| Firmware A / OTA A meta | 0x00000..0x1EFFF / 0x1F000..0x1FFFF | 124 / 4 KiB |
+| Firmware B / OTA B meta | 0x20000..0x3EFFF / 0x3F000..0x3FFFF | 124 / 4 KiB |
+| Config | 0x40000..0x43FFF | 16 KiB / 4 sector |
+| State | 0x44000..0x4BFFF | 32 KiB / 8 sector |
+| Event | 0x4C000..0x5BFFF | 64 KiB / 16 sector |
+| 未分配 | 0x5C000..0x73FFF | 96 KiB |
+| SDK 保留 | 0x74000..0x7FFFF | 48 KiB |
 
-SH 固定 UART 禁睡宏已移除。低压阈值保持，详细进入、唤醒和失败处理见
-[SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。AFE/State/Event 失败不会使已提交的 SH
-请求返回正常业务。D008 ACC、显式命令和保护性低压/过放/AFE 入口均不受保存失败阻止；
-以 [保护性休眠](LOW_POWER_POLICY.md) 和当前 `app_prepare_deep_sleep()` 为准。
+原 SleepConfig/SocProfile 共 16 KiB 释放，不自动擦除。释放业务区不增加 APP 槽位。
+1 MiB 的 Config/State/Event base 为 0xB0000/0xB4000/0xBC000；2 MiB 为
+0x1B0000/0x1B4000/0x1BC000，仍使用 4/8/16 个 4 KiB sector。
+地址只由 `flash_store_cfg.h` 定义，保留原 OTA 布局门禁及 SDK 地址边界。
 
-## 验证与实板边界
+32-byte 记录头加 payload，按四字节编程单位对齐后：
 
-回归入口覆盖编码、CRC、逐字节中断、sector 轮换、部分槽位后续利用、连续失败预算、门禁不耗预算、I/O 失败不写默认、cache-only 读取、事件合并/时间/取消、OTA 选择和协议。本次新增用例尚未执行。四产品实际 sources 与 TC32 ELF/MAP/resource 单独验证；不会自动生成 BIN。
+| 域 | 槽大小 | 每 sector 槽数 | 全区域槽数 |
+|---|---:|---:|---:|
+| Config | 448 B | 9 | 36 |
+| State | 56 B | 73 | 584 |
+| Event | 236 B | 17 | 272 |
 
-实板仍需验证擦写过程中掉电、复位风暴、低电压写入、Flash 读回故障、最大擦写时间/watchdog/BLE 延迟，以及 ACC/AFE/MCU 进入及唤醒顺序。Host 和 ELF 不证明这些硬件行为。
+Config 是低频参数，其槽数从 44 降至 36；State 从 424 增至 584，Event 从 144 增至 272。
+无变化不写 Flash。寿命仍须按实装器件擦写保证、温度、电源、写频率和保持要求计算，不承诺固定年限。
 
-## 非安全持久域降级
+## 启动、旧格式与故障
 
-启动仍各初始化 Config/State/Event 一次。Config 或保护参数校验失败保持输出禁止；State/Event 失败记录 EEPROM 错误和域诊断，不撤销有效软件保护资格。State 无可用缓存时沿既有默认估算入口启动，SOC/SOH 不作为 MOS 许可依据；持久域保留自身重试和 journal 掉电安全。诊断中的 startup 资格表示安全配置启动资格，不表示全部持久域健康。
+1. 有有效 schema 4 记录：加载最新完整记录，跳过损坏或写中断的新槽，按选中 OTA 组处理。
+2. 整区空白：建立出厂默认，校验并保存成功后才取得 Config 资格。只检查空白头部不够，整区含尾部也须为空。
+3. 没有有效新记录但有同产品完整 CFG2/schema 3/322-byte 记录：验证其 CRC/commit，不解码迁移字段，
+   整套恢复当前产品默认。借用启动缓冲识别旧格式，没有长期兼容缓存；新默认提交前保护旧有效 sector。
+   写中断而旧记录仍完整时允许重新转换。
+4. 当前已提交记录损坏且无其他有效当前记录、旧 CFG2 损坏、异产品、未知格式或明确 I/O 错误：
+   Config 启动失败并保持输出禁止，不自动当作升级。普通参数保存不能解除启动失败门禁。
+
+整套恢复包含旧校准、SN、BLE 后缀、软件/AFE 保护、曲线、休眠及业务参数，必须采用已签核的源码默认。
+新 State/Event 不迁移 schema 3，分别建立 SOC/循环默认和空历史。State/Event 失败只降级相关历史/估算，
+记录 EEPROM 错误；不撤销有效安全配置，也不阻止已到期保护性休眠。
+
+32-byte 头包含格式、schema、长度、sequence、CRC 和最终提交标记。记录显式 little-endian 编码；
+平台按 256-byte page 分段编程并回读，擦除也验证。轮换不擦除最后有效记录所在 sector。
+保存失败保留重试游标，跳过部分写入槽，不反复擦同一 sector。
+每域连续三次实际写失败后，本次启动停止物理写入；OTA/锁/退避拒绝不消耗预算。
+成功清连续失败数，MCU reset 重建预算，频繁 reset 下的寿命仍须单独评估。
+
+State/Event 的 60 s checkpoint / 5 s 失败退避和平台的全 Flash 5 s 故障退避作用不同，继续分别维护。
+业务布尔失败返回、诊断原因和记录层物理失败预算保留，未引入新管理层或结果分发框架。
+三个 `storage_record_store_t` 均独立四字节对齐，避免 TC32 `-fpack-struct` 下端口指针误读。
+SDK `flash_read_page` 没有错误返回；当前端口不能识别所有物理读故障，CRC/host 不能代替硬件故障诊断。
+
+## 协议、OTA、事件和 SOC
+
+外部参数协议仍为 v2，`0x2E05=2` 保留，与内部 schema 4 独立。
+35-word AFE 事务、50-word SOC profile、五 word 休眠、地址、缩放、字序与授权均保留。
+旧修订编号只读槽有现有客户端，保留但不参与 OTA 决策。
+同格式 OTA 按 BIN 的选择和一次性标记更新；SOC 组恢复完整曲线和算法默认，未选中保留定制曲线。
+BUSINESS 保留均衡永久许可、校准与身份；休眠不随 BUSINESS/SOC 更新。
+类型切换只提交一条完整 Config；之后 AFE 硬件应用、读回、失败 inhibit 及新样本资格仍必须完成。
+
+Event 保持 100 条、原 ID、最新在前和 `0xC008..0xC06B` 窗口，ID 高字节、时间码低字节。
+相邻同 ID 在首条之后 60 s 内合并，不累计隐藏重复次数，不因此产生 dirty。
+Startup/Sleep 不合并，重启不合并上一启动；正常均衡开启不记持久历史，旧 ID 3 保留。
+时间按真实 32K 差累计并处理小数秒/回绕，相邻更新时间须短于约 37 小时。
+Sleep 是进入低功耗的尝试，不证明硬件已睡；同次失败重试不重复追加。
+采样约一秒，可能漏掉更短瞬态；突然 reset 会丢失未提交 RAM 窗口。详细运行日志仍仅存 RAM。
+
+State 保存 SOC 0..100、放电累计 0..100、cycle 0..65535。
+积分余量、显示跟随、OCV 静置与 ETA 重新建立；未持久化每笔库仑积分或当前保护 latch。
+突然断电可能丢失约 60 s 检查点窗口及不足整数百分比的积分余量。State/Event 历史不替代当前保护恢复资格。
+
+## 低功耗与验收边界
+
+普通 Suspend 保留 RAM，不为每次 Suspend 擦写。D008 ACC 深睡保持 PC4 高、ACC 低唤醒；
+显式/保护性断电最后拉低 PC4。SH 强制请求提交后进入 MCU DeepSleep。
+这些强制路径均在非 OTA 且 Flash 可写时尽力保存 State/Event 一次，保存/AFE 失败不取消电源动作。
+普通 Suspend、UART/BLE 门禁、真实唤醒和 watchdog 策略保持。
+
+源码、host、ASan/UBSan、TC32 ELF/MAP 和实板证据分别留存。详细结果见本轮精简记录。
+物理 Flash 掉电、低电压写入、复位风暴、最大擦写时间/BLE/watchdog、Gate/Vgs、
+低功耗电流/唤醒、真实 OTA 与动态栈水位仍需实板验收；本轮没有生成 BIN、烧录或执行 OTA。

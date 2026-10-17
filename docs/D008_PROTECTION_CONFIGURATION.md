@@ -48,7 +48,7 @@ AFE短路保持40mV/请求256us；200uOhm下对应200A。原编码名义延时24
 
 空白板没有有效 Config 记录时，`bms_config_store_init()` 经 `bms_config_defaults()` 分别调用软件默认和独立 AFE 默认构造，再按原校验、保存、应用与输出门禁处理。Flash I/O错误不会被当成空白板覆盖。
 
-已有有效 Config 记录时，保存值优先；修改源码后仅重烧 APP 不保证恢复默认。需要更新时使用原 SW/AFE 分组更新选择及一次性标记。修改软件组不会覆盖 AFE 组，反之亦然。CFG2 payload、schema 3、外部协议、缩放、Flash分区、启动/OTA边界及校准/SN/事件均未改变。
+已有有效 Config 记录时，保存值优先；修改源码后仅重烧 APP 不保证恢复默认。需要更新时使用原 SW/AFE 分组更新选择及一次性标记。修改软件组不会覆盖 AFE 组，反之亦然。当前内部为 CFG4/schema 4；外部协议、缩放及 APP/OTA/SDK 边界保持，同格式内保留校准/SN/事件；有效旧 CFG2 整套恢复新默认，见 [存储说明](STORAGE.md)。
 
 ## 本次检查范围
 
