@@ -30,7 +30,7 @@ const bms_afe_driver_policy_t bms_afe_driver_policy = { 35000u * 32u, 1u, 0u };
 #include "sh3673510_control.h"
 #include <string.h>
 
-#define SH3510_SAMPLE_MS              200u
+#define SH3510_SAMPLE_MS              BMS_SAMPLE_PERIOD_MS
 #define SH3510_SHORT_RELEASE_SAMPLES    10u /* 按 200 ms 节拍连续确认 LOADOFF 2 秒。 */
 #define SH3510_MISSING_CELL_MV       61001u /* D000..D01F 未用串位的协议标记。 */
 #define SH3510_DETECT_SETTLE_32K      6400u /*
@@ -87,11 +87,10 @@ static uint8_t s_load_removed;
 static uint8_t s_charger_removed;
 static uint8_t s_charger_known;
 static uint8_t s_charger_present;
-static uint8_t s_sample_pending;
+static uint8_t s_confirm_sample;
 static uint8_t s_sampling_restart;
 static uint8_t s_vadc_seen;
 static uint8_t s_cadc_seen;
-static uint8_t s_temperature_started;
 static uint32_t s_sampling_start_tick;
 static uint32_t s_vadc_tick;
 static uint32_t s_cadc_tick;
@@ -107,9 +106,8 @@ static void restart_sampling(void)
     s_sampling_start_tick = pm_get_32k_tick();
     s_vadc_tick = s_cadc_tick = s_sampling_start_tick;
     s_vadc_seen = s_cadc_seen = 0u;
-    s_temperature_started = 0u;
     s_snapshot_valid = 0u;
-    s_sample_pending = 1u;
+    s_confirm_sample = 0u;
     s_sampling_restart = 0u;
 }
 
@@ -163,7 +161,7 @@ static void note_comm_error(uint16_t stage)
     s_detection_initialized = 0u;
     s_load_removed = s_charger_removed = s_charger_known = 0u;
     s_vadc_seen = s_cadc_seen = 0u;
-    s_sample_pending = 0u;
+    s_confirm_sample = 0u;
     /* 恢复要求连续有效样本，不能跨通信间断累计；保留故障锁存，仅作废恢复资格。 */
     s_short_clear_pending = 0u;
     s_short_release_count = 0u;
@@ -362,12 +360,12 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
 /* 立即恢复只接受本次完整新样本中超过死区的真实电流。 */
 static uint8_t sh3510_fresh_charging(void)
 {
-    return !s_sample_pending && s_aux.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+    return s_confirm_sample && s_aux.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
 }
 
 static uint8_t sh3510_fresh_discharging(void)
 {
-    return !s_sample_pending && s_aux.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+    return s_confirm_sample && s_aux.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
 }
 
 #if SH3673510_HW_PROTECT_ENABLE
@@ -726,7 +724,7 @@ static uint16_t sh3510_update_protection(const sh3673510_control_status_t *statu
     bms_sw_protection_inputs_t sw;
     memset(&sw, 0, sizeof(sw));
     sw.current_recovery_requires_evidence = 1u;
-    sw.current_recovery_sample_fresh = !s_sample_pending;
+    sw.current_recovery_sample_fresh = s_confirm_sample;
     sw.charge_recovery_immediate = sh3510_fresh_discharging();
     sw.discharge_recovery_immediate = sh3510_fresh_charging();
     sw.charge_recovery_allowed = s_charger_removed || sw.charge_recovery_immediate;
@@ -756,7 +754,7 @@ static uint16_t sh3510_update_protection(const sh3673510_control_status_t *statu
     if (!s_charger_removed && !sw.charge_recovery_immediate)
         s_hw_recovery_count[HW_REC_OCC] = 0u;
     if (!service_short_recovery(status, sw.discharge_recovery_immediate)) return DIAG_AFE_FAIL_SHORT_RECOVERY;
-    if (!s_sample_pending && !service_hw_flag_recovery(status, &sw)) return DIAG_AFE_FAIL_FLAG_RECOVERY;
+    if (s_confirm_sample && !service_hw_flag_recovery(status, &sw)) return DIAG_AFE_FAIL_FLAG_RECOVERY;
 #endif
     bms_sw_protection_record_fault_edges();
     return DIAG_AFE_FAIL_NONE;
@@ -803,25 +801,23 @@ static uint16_t publish_measurements(void)
         return DIAG_AFE_FAIL_VADC_AGE;
     if ((uint32_t)(now - s_cadc_tick) > SH3510_ADC_MAX_AGE_32K)
         return DIAG_AFE_FAIL_CADC_AGE;
-    s_sample_pending = ((status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) !=
+    s_confirm_sample = ((status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ==
                        (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ? 1u : 0u;
     publish_hw_status(&status);
     if (s_afe_reconfigure_required) return DIAG_AFE_FAIL_NONE;
     if (!sample_release_evidence(&status)) return DIAG_AFE_FAIL_RELEASE_READ;
-    if ((uint32_t)(now - s_sampling_start_tick) >= SH3510_TEMP_STARTUP_32K)
-        s_temperature_started = 1u;
-    if (!s_vadc_seen || !s_cadc_seen || !s_temperature_started ||
-        (!s_snapshot_valid && s_sample_pending)) {
-        s_sample_pending = 1u;
-        return DIAG_AFE_FAIL_NONE;
-    }
-
-    if (status.flag2 & SH3673520_FLAG2_VADC_MASK)
+    /* 各路独立建立缓存；首次完整数据不要求 VADC/CADC 在同一轮置位。 */
+    if (status.flag2 & SH3673520_FLAG2_VADC_MASK) {
         sh3510_publish_voltage(cell, pack_mv);
+        sh3510_publish_temperatures(external_raw);
+    }
     if (status.flag2 & SH3673520_FLAG2_CADC_MASK)
         sh3510_publish_current(current_ma, now);
-    if (status.flag2 & SH3673520_FLAG2_VADC_MASK)
-        sh3510_publish_temperatures(external_raw);
+    if (!s_vadc_seen || !s_cadc_seen ||
+        (uint32_t)(now - s_sampling_start_tick) < SH3510_TEMP_STARTUP_32K) {
+        s_confirm_sample = 0u;
+        return DIAG_AFE_FAIL_NONE;
+    }
 
     {
         uint16_t failure = sh3510_update_protection(&status);
@@ -870,34 +866,29 @@ void bms_afe_driver_init(void)
 }
 
 /* 采集 AFE 测量和状态，并更新样本有效性。 */
-void bms_afe_driver_sample(void)
+bms_afe_sample_result_t bms_afe_driver_sample(void)
 {
     uint16_t failure;
-    s_sample_pending = 0u;
+    bms_afe_sample_result_t result = { BMS_AFE_SAMPLE_ERROR, 0u };
+    s_confirm_sample = 0u;
     s_sample_attempt_tick = pm_get_32k_tick();
     s_sample_attempt_flag2 = 0u;
     sh3673510_board_force_heater_fuse_safe();
-    if (s_flag_clear_failed) { note_comm_error(DIAG_AFE_FAIL_FLAG_CLEAR_HOLD); return; }
+    if (s_flag_clear_failed) { note_comm_error(DIAG_AFE_FAIL_FLAG_CLEAR_HOLD); return result; }
     failure = publish_measurements();
     if (failure != DIAG_AFE_FAIL_NONE) {
-        /* 公共 bms_afe_guard 管理关闭请求、WDT 静默和有界重初始化。 */
         note_comm_error(failure);
-        return;
+        return result;
     }
-
     if (s_afe_reconfigure_required) {
         if (!service_afe_reconfiguration()) note_comm_error(DIAG_AFE_FAIL_RECONFIGURE);
-        return; /* 下一周期必须使用配置完成后的新测量。 */
+        else result.status = BMS_AFE_SAMPLE_NOT_READY;
+        return result;
     }
-
     note_comm_ok();
-    /* 公共功能模块管理加热/均衡，公共门禁负责最终 FET 应用。 */
-}
-
-/* 查询是否仍有 AFE 采样流程未完成。 */
-uint8_t bms_afe_driver_sample_pending(void)
-{
-    return s_sample_pending;
+    result.status = s_snapshot_valid ? BMS_AFE_SAMPLE_OK : BMS_AFE_SAMPLE_NOT_READY;
+    result.confirm_sample = s_snapshot_valid ? s_confirm_sample : 0u;
+    return result;
 }
 
 /* 应用独立 AFE 硬件保护配置并返回结果。 */

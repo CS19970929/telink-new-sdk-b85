@@ -68,7 +68,7 @@ static void reset(void)
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));
     memset(registers,0,sizeof(registers));
     memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));
-    s_pending_adc_events=s_voltage_seen=s_current_seen=s_sample_pending=s_voltage_since_current=0u;
+    s_pending_adc_events=s_voltage_seen=s_current_seen=s_voltage_since_current=0u;
     s_voltage_tick=s_current_tick=s_adc_wait_started=0u;
     read_ok=1u; now=1000u; s_snapshot.rpu_ohm=10000u;
     put16(DVC1124_REG_V1P8_H,18000u);

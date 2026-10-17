@@ -12,9 +12,7 @@ typedef struct {
 extern const bms_afe_driver_policy_t bms_afe_driver_policy;
 
 void bms_afe_driver_init(void);
-void bms_afe_driver_sample(void);
-/* 等待 ADC 完成不能作为新的通信恢复样本。 */
-uint8_t bms_afe_driver_sample_pending(void);
+bms_afe_sample_result_t bms_afe_driver_sample(void);
 /* 最后一次命令成功仅确认 AFE 事务，不代表实测 MOS/Gate 状态。 */
 uint8_t bms_afe_driver_sleep(void);
 uint8_t bms_afe_driver_apply_protection_config(void);

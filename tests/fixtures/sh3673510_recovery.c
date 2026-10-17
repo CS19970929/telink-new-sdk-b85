@@ -72,7 +72,7 @@ static void reset(void) {
     s_fet_command_valid = 0;
     test_requested_charge_on = test_requested_discharge_on = 1;
     s_bstatus2 = 0;
-    s_aux.current_ma=0;s_sample_pending=0;
+    s_aux.current_ma=0;s_confirm_sample=1;
     clears = writes = 0;
     clear_ok = write_ok = init_ok = 1;
 }
@@ -100,8 +100,8 @@ static void short_recovery(void) {
     CHECK(!s_short_latched && !errors[BMS_ERROR_DSG_SHORT]);
 
     reset();s_aux.current_ma=-200;sample(1,0);CHECK(clears==0);
-    s_aux.current_ma=-201;s_sample_pending=1;sample(1,0);CHECK(clears==0);
-    s_sample_pending=0;sample(1,0);CHECK(clears==1 && s_short_clear_pending);
+    s_aux.current_ma=-201;s_confirm_sample=0;sample(1,0);CHECK(clears==0);
+    s_confirm_sample=1;sample(1,0);CHECK(clears==1 && s_short_clear_pending);
     sample(0,0);CHECK(!s_short_latched); /* 反向充电不等待10次LOADOFF。 */
 
     /* A failed clear must not release the latch; later readback is mandatory. */

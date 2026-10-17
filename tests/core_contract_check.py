@@ -159,7 +159,8 @@ def check_common_feature_policy_contract_check():
     charge_block=guard_c.index("!bms_protection_params_valid()"); fet_write=guard_c.index("bms_afe_driver_set_fets",charge_block)
     assert charge_block < fet_write
     assert "bms_features_charge_direction_blocked()" in text("sh3673510_bms.c")
-    assert "bms_features_service();" in guard_c and "bms_features_stop();" in guard_c
+    assert "bms_features_service(" not in guard_c and "bms_features_stop();" in guard_c
+    assert "bms_features_service(result.confirm_sample);" in text("app.c")
     for symbol in ("bms_afe_get_feature_snapshot","bms_afe_get_charge_source_present","bms_afe_set_balance_mask","bms_afe_get_balance_mask"): assert symbol in afe_h
     balance_set=guard_c.split("uint8_t bms_afe_set_balance_mask",1)[1].split("uint8_t bms_afe_get_balance_mask",1)[0]
     assert "if (!runtime_access_allowed()) return 0u;" in balance_set
@@ -203,7 +204,7 @@ def check_common_feature_policy_contract_check():
     ):
         assert forbidden not in sh_bms, forbidden
 
-    sample = sh_bms.split("void bms_afe_driver_sample(void)", 1)[1].split(
+    sample = sh_bms.split("bms_afe_sample_result_t bms_afe_driver_sample(void)", 1)[1].split(
         "uint8_t bms_afe_driver_apply_protection_config", 1
     )[0]
     for forbidden in (

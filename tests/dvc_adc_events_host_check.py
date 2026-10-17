@@ -78,21 +78,22 @@ code+=function(s,'static uint8_t dvc_boot_zero_wait_fresh_cc2(')
 code+=function(s,'static void dvc_publish_current_measurement(')
 code+=function(s,'static void dvc_publish_voltage_measurement(')
 code+=function(s,'static void dvc_publish_temperature_measurement(')
-code+=function(s,'void DVC1124_App_AFEGet(')
+code+=function(s,'bms_afe_sample_result_t DVC1124_App_AFEGet(')
 recovery=read('bms/afe/dvc1124/dvc1124_bms.c')
 code+='\n'+recovery[recovery.index('#define DVC_LOAD_RELEASE_CONFIRM_TICKS'):recovery.index('static uint16_t dvc_get_configured_temperature')]
 code+=function(recovery,'static uint8_t dvc_recover_current_faults(')
 code+=r'''
-static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;DVC1124_App_AFEGet();}
+static bms_afe_sample_result_t result;
+static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;result=DVC1124_App_AFEGet();}
 static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));
- s_pending_adc_events=s_voltage_seen=s_current_seen=s_sample_pending=s_voltage_since_current=0;
+ s_pending_adc_events=s_voltage_seen=s_current_seen=s_voltage_since_current=0;
  s_voltage_tick=s_current_tick=s_adc_wait_started=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
 int main(void){
- reset();acquire(100,0);acquire(6500,0);assert(!s_voltage_seen && !s_snapshot.valid && s_sample_pending);
- acquire(7000,0x40);assert(s_voltage_seen && s_snapshot.voltage_fresh && !s_snapshot.valid && s_sample_pending);
- acquire(8000,0x10);assert(s_snapshot.valid && s_snapshot.current_fresh && !s_sample_pending && s_snapshot.sample_tick_32k==8000);
- acquire(9000,0);assert(s_snapshot.valid && s_sample_pending && s_voltage_seen && s_snapshot.sample_tick_32k==8000);
- acquire(8000+512u*32u+1u,0);assert(!s_snapshot.valid && !s_sample_pending);
+ reset();acquire(100,0);acquire(6500,0);assert(!s_voltage_seen && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample);
+ acquire(7000,0x40);assert(s_voltage_seen && s_snapshot.voltage_fresh && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample);
+ acquire(8000,0x10);assert(s_snapshot.valid && s_snapshot.current_fresh && result.confirm_sample && s_snapshot.sample_tick_32k==8000);
+ acquire(9000,0);assert(s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample && s_voltage_seen && s_snapshot.sample_tick_32k==8000);
+ acquire(8000+512u*32u+1u,0);assert(!s_snapshot.valid && result.status==BMS_AFE_SAMPLE_ERROR);
  /* RM p8 R6 bit1；R1 CST bit1不能冒充DSGF。 */
  reset();registers[6]=2;acquire(100,0x50);assert(s_snapshot.fet_status==2 && g_bms_system_status.bits.discharge_mos_status);
  registers[6]=0;acquire(200,0x52);assert(!s_snapshot.fet_status && !g_bms_system_status.bits.discharge_mos_status);

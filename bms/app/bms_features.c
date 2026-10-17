@@ -107,7 +107,7 @@ static void fire_heater_fuse(void)
  * 认为加热功率路径卡住/故障，驱动 PD4/MCC-EN-RF 触发不可逆保险丝。
  * 加热期间过热先关闭命令，只有关闭后持续过热才推进不可逆动作。
  */
-static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
+static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s, uint8_t confirm_sample)
 {
     uint16_t trip;
     uint16_t required;
@@ -151,7 +151,7 @@ static uint8_t heater_circuit_safe(const bms_afe_feature_snapshot_t *s)
     }
 
     required = heater_confirm_samples();
-    if (s_feature.heater_off_hot_samples < required)
+    if (confirm_sample && s_feature.heater_off_hot_samples < required)
         ++s_feature.heater_off_hot_samples;
     if (!bms_error_get(BMS_ERROR_HEAT)) bms_error_raise(BMS_ERROR_HEAT);
     set_heater(0u);
@@ -205,7 +205,7 @@ static uint8_t heater_demand(const bms_afe_feature_snapshot_t *s,
 
 /* 推进加热需求、资格确认和故障处置状态。 */
 static void service_heater(const bms_afe_feature_snapshot_t *s,
-                           const bms_user_params_t *config)
+                           const bms_user_params_t *config, uint8_t confirm_sample)
 {
     uint8_t present = 0u;
     uint8_t source_known;
@@ -215,7 +215,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s,
         return;
     }
 
-    if (!heater_circuit_safe(s)) return;
+    if (!heater_circuit_safe(s, confirm_sample)) return;
 
     if (config == 0 || !config->heater_enable ||
         !s->battery_temp_valid || heater_hard_fault())
@@ -248,6 +248,7 @@ static void service_heater(const bms_afe_feature_snapshot_t *s,
     if (s_feature.heater_state == BMS_HEATER_IDLE)
         source_known = bms_afe_get_charge_source_present(&present);
 #endif
+    if (!confirm_sample && s_feature.heater_state != BMS_HEATER_ACTIVE) return;
     if (s_feature.heater_state == BMS_HEATER_IDLE)
     {
         /* 零电流可维持既有预热会话，不能证明仍有充电器来启动新周期。
@@ -367,7 +368,7 @@ static uint8_t balance_sample_plausible(const bms_afe_feature_snapshot_t *s)
 }
 
 /* 更新均衡电压可信度及连续确认状态。 */
-static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
+static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s, uint8_t confirm_sample)
 {
     uint16_t required = (uint16_t)BMS_BALANCE_TRUST_CONFIRM_SAMPLES;
 
@@ -380,7 +381,7 @@ static void update_balance_voltage_trust(const bms_afe_feature_snapshot_t *s)
         return;
     }
 
-    if (s_feature.balance_trust_samples < required)
+    if (confirm_sample && s_feature.balance_trust_samples < required)
         ++s_feature.balance_trust_samples;
 }
 
@@ -580,8 +581,9 @@ void bms_features_init(void)
 }
 
 /* 成功取得的栈上快照只在本次同步调用中使用，内部 helper 不重复判空/判有效。 */
-void bms_features_service(void)
+void bms_features_service(uint8_t confirm_sample)
 {
+    (void)confirm_sample;
 #if BMS_FEATURE_HEATER_SUPPORTED || BMS_FEATURE_BALANCE_SUPPORTED
     bms_afe_feature_snapshot_t s;
     bms_user_params_t config;
@@ -595,10 +597,10 @@ void bms_features_service(void)
 
     user = bms_config_get_user(&config) ? &config : 0;
 #if BMS_FEATURE_BALANCE_SUPPORTED
-    update_balance_voltage_trust(&s);
+    update_balance_voltage_trust(&s, confirm_sample);
 #endif
 #if BMS_FEATURE_HEATER_SUPPORTED
-    service_heater(&s, user);
+    service_heater(&s, user, confirm_sample);
 #endif
 #if BMS_FEATURE_BALANCE_SUPPORTED
     service_balance(&s, user);

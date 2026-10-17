@@ -7,6 +7,7 @@
 #define DVC1124_H_
 
 #include <stdint.h>
+#include "bms_afe.h"
 #include "dvc1124_reg.h"
 
 #ifdef __cplusplus
@@ -217,7 +218,7 @@ static inline uint8_t DVC1124_WriteRegisterFieldSafe(uint8_t reg,
 uint8_t DVC1124_ApplyProjectOperatingConfig(void);
 
 /* DVC 后端入口；应用代码使用 bms_afe.h。 */
-void DVC1124_App_AFEGet(void);
+bms_afe_sample_result_t DVC1124_App_AFEGet(void);
 /* 采样后发布测量、合并保护并更新 DVC FET 仲裁。 */
 /* 复位 DVC AFE 并重建驱动状态。 */
 void DVC1124_AFE_Reset(void);

@@ -80,7 +80,7 @@ void bms_error_clear(bms_error_id_t id) { errors[id] = 0; }
 uint16_t bms_afe_get_guard_diagnostic_bits(void) { return DIAG_GUARD_OUTPUT_ENABLED | DIAG_GUARD_SAMPLES_QUALIFIED; }
 #else
 void bms_features_init(void) {}
-void bms_features_service(void) {}
+void bms_features_service(uint8_t confirm_sample) {(void)confirm_sample;}
 void bms_features_stop(void) {}
 uint8_t bms_protection_params_valid(void) { return 1; }
 #endif
@@ -140,7 +140,7 @@ static void sample(void) {
     now += 6400;
     read_stage=0;
 #ifdef GUARD_TEST
-    bms_afe_sample();
+    if (bms_afe_sample().status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs();
 #else
     bms_afe_driver_sample();
     bms_afe_driver_set_fets(1,1);
@@ -376,7 +376,7 @@ int main(void) {
     /* 高频调用不能提前结束静默；时间跨回绕后仍须完整等待。 */
     for(unsigned i=0;i<1000;++i) { bms_afe_sample(); assert(!bms_afe_bus_access_allowed()); }
     now += 35000u * 32u - 1u;
-    bms_afe_sample(); assert(!bms_afe_bus_access_allowed());
+    if (bms_afe_sample().status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs(); assert(!bms_afe_bus_access_allowed());
     assert(clear_calls==before);
     ++now; bms_afe_sample(); assert(bms_afe_bus_access_allowed() && !bms_afe_samples_qualified());
     for(unsigned i=0;i<8;++i)sample();

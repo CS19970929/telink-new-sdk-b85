@@ -433,7 +433,7 @@ uint8_t bms_afe_driver_set_fets(uint8_t charge_on,
 }
 
 /* 采样后发布测量、合并保护并更新 DVC FET 仲裁。 */
-void bms_afe_driver_sample(void)
+bms_afe_sample_result_t bms_afe_driver_sample(void)
 {
     dvc1124_snapshot_t snapshot;
     bms_sw_protection_inputs_t sw;
@@ -442,7 +442,7 @@ void bms_afe_driver_sample(void)
 
     uint16_t diag_c = 0u, diag_d = 0u;
 
-    DVC1124_App_AFEGet();
+    bms_afe_sample_result_t result = DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
     poll_tick = pm_get_32k_tick();
     dvc_observe_current_recovery(&snapshot, poll_tick);
@@ -450,7 +450,7 @@ void bms_afe_driver_sample(void)
 #if DVC1124_HW_PROTECT_ENABLE
         (void)dvc_clear_recovered_hw_latches(0u, 0u, 0u, 0u);
 #endif
-        bms_afe_publish_fet_status(0u, 0u); return;
+        bms_afe_publish_fet_status(0u, 0u); return result;
     }
 
 #if DVC1124_HW_PROTECT_ENABLE
@@ -516,6 +516,7 @@ void bms_afe_driver_sample(void)
      * 本次采样后由 bms_afe_guard 立即仲裁 FET，保留通信与断线硬阻断语义；
      * 本函数仅更新故障状态。
      */
+    return result;
 }
 
 /* 取得后端辅助测量与有效性。 */

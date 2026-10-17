@@ -55,9 +55,12 @@ static void reset(void)
     memset(&s_feature,0,sizeof(s_feature)); /* 模拟 MCU 冷启动，区别于 AFE 重初始化。 */
     voltages(50);g_bms_report.charge_current_a10=10;bms_features_init();
 }
-static void step(unsigned n){while(n--){test_tick+=6400u;bms_features_service();}}
+static void step(unsigned n){while(n--){test_tick+=6400u;bms_features_service(1u);}}
 int main(void)
 {
+    /* 缓存轮次不累计可信度，但已运行的均衡必须响应停止条件。 */
+    reset();for(unsigned i=0;i<20;i++)bms_features_service(0u);assert(!balance_voltage_trusted());
+    step(5);user.balance_enable=0;bms_features_service(0u);assert(!balance);
     /* 功能只报告自己的 MOS 阻断；参数失效仍停功能输出，MOS 由 guard 独立阻断。 */
     reset();params_valid=0;step(5);
     assert(!balance && !heater);

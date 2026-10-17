@@ -197,43 +197,39 @@ void bms_afe_init(void)
 }
 
 /* 通过安全门禁采样并更新恢复资格及输出授权。 */
-void bms_afe_sample(void)
+bms_afe_sample_result_t bms_afe_sample(void)
 {
     bms_afe_aux_measurements_t m;
+    bms_afe_sample_result_t result = { BMS_AFE_SAMPLE_NOT_READY, 0u };
 
-    if (s_guard.test_shutdown_hold || service_failsafe_wait()) return;
-
-    /* 新样本确认恢复资格期间，保留真正已发生的通信故障。 */
+    if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;
     if (bms_error_get(BMS_ERROR_AFE1)) s_guard.comm_fault_latched = 1u;
-    bms_afe_driver_sample();
-    if (!bms_afe_driver_get_aux_measurements(&m))
-    {
-        if (bms_afe_driver_sample_pending()) return;
+    result = bms_afe_driver_sample();
+    if (result.status == BMS_AFE_SAMPLE_NOT_READY) return result;
+    if (result.status == BMS_AFE_SAMPLE_ERROR ||
+        !bms_afe_driver_get_aux_measurements(&m)) {
         note_invalid();
-        return;
+        result.status = BMS_AFE_SAMPLE_ERROR;
+        result.confirm_sample = 0u;
+        return result;
     }
 
     s_guard.comm_failures = 0u;
-    if (!bms_afe_driver_sample_pending())
-    {
-        if (s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
-            ++s_guard.valid_snapshot_streak;
-    }
-
+    if (result.confirm_sample &&
+        s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
+        ++s_guard.valid_snapshot_streak;
     if (!s_guard.config_inhibit &&
-        s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
-    {
+        s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT) {
         s_guard.comm_inhibit = 0u;
         s_guard.comm_fault_latched = 0u;
-    }
-    else if (s_guard.comm_fault_latched)
-    {
-        /* 健康启动仅禁止输出，不凭空产生 AFE1 故障。 */
+    } else if (s_guard.comm_fault_latched) {
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
     }
+    return result;
+}
 
-    /* 仅合格新样本推进加热/均衡资格；缓存等待不能累计确认次数。 */
-    if (!s_guard.comm_inhibit && !bms_afe_driver_sample_pending()) bms_features_service();
+void bms_afe_apply_outputs(void)
+{
     if (!apply_requested()) note_invalid();
 }
 

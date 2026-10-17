@@ -10,8 +10,19 @@
 #include "bms_diag_config.h"
 /* 初始化 guard 与选定后端，输出仍受采样资格约束。 */
 void bms_afe_init(void);
-/* 通过安全门禁采样并更新恢复资格及输出授权。 */
-void bms_afe_sample(void);
+/* OK 包括有效缓存；确认事件仅供恢复/功能资格，不是普通业务门禁。 */
+typedef enum {
+    BMS_AFE_SAMPLE_OK = 0,
+    BMS_AFE_SAMPLE_NOT_READY,
+    BMS_AFE_SAMPLE_ERROR
+} bms_afe_sample_status_t;
+typedef struct {
+    bms_afe_sample_status_t status;
+    uint8_t confirm_sample;
+} bms_afe_sample_result_t;
+bms_afe_sample_result_t bms_afe_sample(void);
+/* 应用在功能决策后调用；实际输出仍由 Guard 检查全部授权。 */
+void bms_afe_apply_outputs(void);
 /* DVC 请求 Shutdown，SH 请求 Sleep；门禁拒绝或命令失败返回 0。 */
 uint8_t bms_afe_sleep(void);
 /* 安全门禁允许时应用独立硬件保护配置。 */

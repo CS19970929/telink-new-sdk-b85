@@ -127,7 +127,7 @@ static void step(void)
     now_32k += 6400u;
 
     regs[SH3673520_REG_FLAG2] |= ready_bits;
-    bms_afe_sample();
+    if (bms_afe_sample().status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs();
 }
 static void steps(unsigned n) { while (n--) step(); }
 static int discharge_on(void) { return !!(regs[SH3673520_REG_SCONF2] & SH3673520_SCONF2_DSGMOS_MASK); }

@@ -54,7 +54,7 @@ int main(void) {
     g_bms_report.cell_min_mv=g_bms_report.cell_max_mv=3300u;
     g_bms_report.temperature_x10[AFE1_TEMP1]=640u;g_bms_report.temperature_x10[AFE1_TEMP2]=660u;
     s_ntc_ohm[SH3673510_BOARD_BAT_NTC1_INDEX]=s_ntc_ohm[SH3673510_BOARD_BAT_NTC2_INDEX]=10000u;
-    s_sample_pending=0u;s_aux.current_ma=0;s_load_removed=s_charger_removed=1u;clear_ok=0u;
+    s_confirm_sample=1u;s_aux.current_ma=0;s_load_removed=s_charger_removed=1u;clear_ok=0u;
     for(unsigned id=0;id<9u;++id)if(id<5u)status.flag1|=masks[id];else status.flag2|=masks[id];
     memset(s_hw_recovery_count,0,sizeof(s_hw_recovery_count));
     for(unsigned n=1;n<=6u;++n) {
@@ -76,9 +76,9 @@ int main(void) {
     for(unsigned id=5u;id<9u;++id)assert(!s_hw_recovery_count[id]);
     /* 等待转换不能把缓存反向电流当作即时恢复；201mA 新样本才可。 */
     status.flag1=SH3673520_FLAG1_OCD1_MASK|SH3673520_FLAG1_OCD2_MASK;status.flag2=0u;
-    s_load_removed=0u;s_aux.current_ma=-201;s_sample_pending=1u;
+    s_load_removed=0u;s_aux.current_ma=-201;s_confirm_sample=0u;
     v=evidence();trace_reset();assert(service_hw_flag_recovery(&status,&v));assert(!flag1_calls);
-    s_sample_pending=0u;v=evidence();trace_reset();assert(service_hw_flag_recovery(&status,&v));assert(cleared1==status.flag1);
+    s_confirm_sample=1u;v=evidence();trace_reset();assert(service_hw_flag_recovery(&status,&v));assert(cleared1==status.flag1);
     s_aux.current_ma=-200;v=evidence();trace_reset();assert(service_hw_flag_recovery(&status,&v));assert(!flag1_calls);
     /* FLAG1 失败时不得继续 FLAG2；FLAG2 失败同样向上传递。 */
     status.flag1=SH3673520_FLAG1_WK_MASK;status.flag2=SH3673520_FLAG2_WDT_MASK;

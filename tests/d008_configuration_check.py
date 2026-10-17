@@ -201,7 +201,7 @@ def check_d008_framework_contract_check():
 
         def test_common_port_policy_uses_auto_diode_without_off_pulse(self):
             policy = self.dvc_bms.split("uint8_t bms_afe_driver_set_fets", 1)[1]
-            policy = policy.split("void bms_afe_driver_sample", 1)[0]
+            policy = policy.split("bms_afe_sample_result_t bms_afe_driver_sample", 1)[0]
             self.assertIn("DVC1124_FET_DRIVE_AUTO_DIODE", policy)
             self.assertIn("dvc_set_fet_modes_if_changed", policy)
             self.assertNotIn("DVC1124_SetMosState", policy)
@@ -225,7 +225,7 @@ def check_d008_framework_contract_check():
             self.assertIn("gpio_write(BMS_BOARD_HEATER_FUSE_PIN, 0);", self.app)
 
         def test_dvc_is_single_temperature_owner_for_protection_and_reporting(self):
-            sample = self.dvc_bms.split("void bms_afe_driver_sample", 1)[1]
+            sample = self.dvc_bms.split("bms_afe_sample_result_t bms_afe_driver_sample", 1)[1]
             sample = sample.split("uint8_t bms_afe_driver_set_fets", 1)[0]
             self.assertIn("dvc_get_battery_temperature_range", sample)
             self.assertIn("DVC1124_DEFAULT_MOS_NTC_GP", sample)
@@ -254,7 +254,7 @@ def check_d008_framework_contract_check():
             self.assertIn("DVC1124_REG_CHG_MASK, 0xFFu", block)
 
         def test_sw_off_clears_software_managed_fault_state(self):
-            sample = self.dvc_bms.split("void bms_afe_driver_sample", 1)[1]
+            sample = self.dvc_bms.split("bms_afe_sample_result_t bms_afe_driver_sample", 1)[1]
             sample = sample.split("uint8_t bms_afe_driver_set_fets", 1)[0]
             self.assertIn("DVC1124_SW_TEMP_PROTECT_ENABLE", sample)
             self.assertIn("bms_sw_protection_update_groups(&sw, DVC1124_SW_PROTECT_ENABLE,", sample)

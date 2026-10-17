@@ -84,7 +84,7 @@
 
 /* 初始化、推进和撤销加热/均衡资格。 */
 void bms_features_init(void);
-void bms_features_service(void);
+void bms_features_service(uint8_t confirm_sample);
 void bms_features_stop(void);
 
 /* 查询充电方向相关的公共功能阻断。 */

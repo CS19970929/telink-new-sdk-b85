@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include <assert.h>
 #include <string.h>
+typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR } bms_afe_sample_status_t;
+typedef struct { bms_afe_sample_status_t status; uint8_t confirm_sample; } bms_afe_sample_result_t;
 typedef uint32_t u32;
 typedef uint8_t u8;
 #define _attribute_data_retention_
@@ -65,7 +67,9 @@ typedef struct {
     uint32_t last_integral_delta_as10;
 } bms_soc_diag_t;
 typedef union {uint16_t all;} diag_fault_t;
-static void bms_afe_sample(void){note('A');now+=sample_cost;if(callback_during_sample)s_sample_due=1;}
+static bms_afe_sample_result_t bms_afe_sample(void){bms_afe_sample_result_t r={BMS_AFE_SAMPLE_OK,1u};note('A');now+=sample_cost;if(callback_during_sample)s_sample_due=1;return r;}
+static void bms_features_service(uint8_t confirm_sample){assert(confirm_sample);note('T');}
+static void bms_afe_apply_outputs(void){note('M');}
 static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){note('V');m->raw_current_ma=-710;m->current_ma=-700;m->sample_tick_32k=99;return valid;}
 static void app_diag_poll_runtime(u8 v,int raw,int current,u32 tick){assert(v==valid);assert(raw==(v?-710:0));assert(current==(v?-700:0));assert(tick==(v?99u:77u));}
 static void app_update_soc_from_sample(u8 v,int ma){note('S');assert(v==valid);assert(ma==(v?-700:0));}
@@ -87,14 +91,14 @@ static void expect(const char *s){assert(!strcmp(calls,s));n=0;calls[0]=0;}
 int main(void){
  main_loop();expect("123BXUP");
  now=3200000;main_loop();expect("123BXUP"); /* SDK uses strict >. */
- now++;main_loop();expect("123BAVSWLXUP");assert(s_sample_tick==now&&!s_sample_due);
- s_sample_due=1;main_loop();expect("123BAVSWLXUP");
- valid=0;s_sample_due=1;main_loop();expect("123BAVSWLXUP");valid=1;
- now=16000001;main_loop();expect("123BAVSWLEFXUP");
+ now++;main_loop();expect("123BATMVSWLXUP");assert(s_sample_tick==now&&!s_sample_due);
+ s_sample_due=1;main_loop();expect("123BATMVSWLXUP");
+ valid=0;s_sample_due=1;main_loop();expect("123BATMVSWLXUP");valid=1;
+ now=16000001;main_loop();expect("123BATMVSWLEFXUP");
  main_loop();expect("123BXUP"); /* no repeated event or sample */
- now=0x100; s_sample_tick=0xffc00000u;app_sample_task();expect("AVSWL");
- sample_cost=3200001;s_sample_due=1;app_sample_task();expect("AVSWL");assert(s_sample_due);
- sample_cost=0;s_sample_due=1;callback_during_sample=1;app_sample_task();expect("AVSWL");assert(s_sample_due);
+ now=0x100; s_sample_tick=0xffc00000u;app_sample_task();expect("ATMVSWL");
+ sample_cost=3200001;s_sample_due=1;app_sample_task();expect("ATMVSWL");assert(s_sample_due);
+ sample_cost=0;s_sample_due=1;callback_during_sample=1;app_sample_task();expect("ATMVSWL");assert(s_sample_due);
  callback_during_sample=0;
  s_acc_sleep_committed=1;main_loop();expect("H");
  s_acc_sleep_committed=0;s_protective_sleep_committed=1;main_loop();expect("");

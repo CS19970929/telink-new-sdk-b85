@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR } bms_afe_sample_status_t;
+typedef struct { bms_afe_sample_status_t status; uint8_t confirm_sample; } bms_afe_sample_result_t;
 typedef uint8_t u8; typedef uint16_t u16;
 #define BMS_AFE_BACKEND 1
 #define BMS_AFE_BACKEND_DVC1124 1
@@ -26,11 +28,10 @@ static void bms_features_stop(void){}
 static void bms_features_init(void){}
 static unsigned protection_inits;
 static void bms_sw_protection_init(void){++protection_inits;}
-static void bms_features_service(void){}
+static void bms_features_service(uint8_t confirm_sample){}
 static int bms_features_charge_direction_blocked(void){return 0;}
 static void bms_afe_driver_init(void){if(init_fail)bms_error_raise(BMS_ERROR_AFE1);}
-static void bms_afe_driver_sample(void){sample_calls++;err=0;}
-static uint8_t bms_afe_driver_sample_pending(void){return 0;}
+static bms_afe_sample_result_t bms_afe_driver_sample(void){bms_afe_sample_result_t r={BMS_AFE_SAMPLE_OK,1u};sample_calls++;err=0;return r;}
 static int bms_afe_driver_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
 static int bms_afe_driver_set_fets(int c,int d){if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
 static uint8_t bms_afe_driver_get_direction_allow_mask(void){return direction_allow_mask;}
@@ -48,37 +49,38 @@ uint32_t bms_time_now_32k(void){return guard_tick;}
 uint8_t bms_afe_sleep(void);
 void bms_afe_publish_fet_status(uint8_t bits, uint8_t valid);
 /* PRODUCTION_SOURCE */
+static void sample_cycle(void){if(bms_afe_sample().status==BMS_AFE_SAMPLE_OK)bms_afe_apply_outputs();}
 static void reset(void){
  params_valid=1u;direction_allow_mask=0u;
  err=raised=init_fail=0;aux_ok=1;
  balance_ok=shutdown_ok=1;fet_fail=shutdown_calls=sample_calls=0;
  bms_afe_init();bms_afe_set_channel_allowed(0,1);bms_afe_set_channel_allowed(1,1);
- bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
+ bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)sample_cycle();
 }
 static void test_remote_control(void){
  uint8_t c=0,d=0;
  reset();bms_afe_set_fets(1,1);assert(cmd_c==1&&cmd_d==1);
  assert(bms_afe_set_channel_allowed(0,0));assert(bms_afe_get_remote_allowed_mask()==2u);
  bms_afe_get_requested_fets(&c,&d);assert(c==1u&&d==1u);assert(cmd_c==0&&cmd_d==1);
- bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)bms_afe_sample();
+ bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)sample_cycle();
  bms_afe_set_fets(1,1);assert(cmd_c==0&&cmd_d==1); /* AFE 重初始化不丢失关闭许可。 */
  fet_fail=1;assert(!bms_afe_set_channel_allowed(0,1));assert(bms_afe_get_remote_allowed_mask()==2u);
  fet_fail=0;assert(bms_afe_set_channel_allowed(0,1));assert(s_guard.comm_inhibit);
- for(int i=0;i<3;i++)bms_afe_sample();
+ for(int i=0;i<3;i++)sample_cycle();
  assert(cmd_c==1&&cmd_d==1); /* 通信失败后，重新授权不能绕过三次有效样本资格。 */
  puts("PASS remote MOS permission: independent RAM intent, AFE reinit persistence and fail-safe enable rollback");
 }
 static void test_remote_direction_override(void){
  reset();bms_afe_set_fets(1,1);
  assert(bms_afe_set_channel_allowed(0,0));assert(cmd_c==0&&cmd_d==1);
- direction_allow_mask=1u;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==1&&cmd_d==1);
+ direction_allow_mask=1u;sample_cycle();assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==1&&cmd_d==1);
  assert(bms_afe_set_channel_allowed(0,0));assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==1&&cmd_d==1);
- direction_allow_mask=0u;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==0&&cmd_d==1);
+ direction_allow_mask=0u;sample_cycle();assert(bms_afe_get_remote_allowed_mask()==2u&&cmd_c==0&&cmd_d==1);
  assert(bms_afe_set_channel_allowed(0,1));
  assert(bms_afe_set_channel_allowed(1,0));assert(cmd_c==1&&cmd_d==0);
- direction_allow_mask=2u;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==1);
+ direction_allow_mask=2u;sample_cycle();assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==1);
  assert(bms_afe_set_channel_allowed(1,0));assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==1);
- direction_allow_mask=0u;bms_afe_sample();assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==0);
+ direction_allow_mask=0u;sample_cycle();assert(bms_afe_get_remote_allowed_mask()==1u&&cmd_c==1&&cmd_d==0);
  puts("PASS remote MOS direction override: user OFF intent persists, opposite direction opens temporarily and direction loss re-closes");
 }
 static void test_startup_qualification(void){
@@ -88,36 +90,36 @@ static void test_startup_qualification(void){
  for(unsigned valid=0;valid<2;valid++)
  {
   params_valid=(uint8_t)valid;bms_afe_set_output_enabled((uint8_t)enabled);
-  bms_afe_sample();assert(cmd_c==(int)(enabled && valid));assert(cmd_d==cmd_c);
+  sample_cycle();assert(cmd_c==(int)(enabled && valid));assert(cmd_d==cmd_c);
  }
  reset();raised=0;bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
  unsigned init_count=protection_inits;
  assert(s_guard.comm_inhibit && !err && !raised);
  for(int i=0;i<2;i++){
-  bms_afe_sample();assert(s_guard.comm_inhibit && !err && !raised);
+  sample_cycle();assert(s_guard.comm_inhibit && !err && !raised);
   assert(cmd_c==0 && cmd_d==0);
  }
- bms_afe_sample();assert(!s_guard.comm_inhibit && !err && !raised && cmd_c==1 && cmd_d==1);
+ sample_cycle();assert(!s_guard.comm_inhibit && !err && !raised && cmd_c==1 && cmd_d==1);
  /* An actual failed read still reports immediately and needs three good reads. */
- aux_ok=0;bms_afe_sample();assert(err && raised && s_guard.comm_inhibit);
+ aux_ok=0;sample_cycle();assert(err && raised && s_guard.comm_inhibit);
  aux_ok=1;
- for(int i=0;i<2;i++){bms_afe_sample();assert(err && s_guard.comm_inhibit && cmd_c==0 && cmd_d==0);}
- bms_afe_sample();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
+ for(int i=0;i<2;i++){sample_cycle();assert(err && s_guard.comm_inhibit && cmd_c==0 && cmd_d==0);}
+ sample_cycle();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
  assert(protection_inits==init_count); /* DVC 失联恢复保持既有保护生命周期。 */
  /* Repeated failures still silence the bus for the hardware watchdog window. */
  guard_tick=UINT32_MAX-32000u;
- aux_ok=0;bms_afe_sample();bms_afe_sample();assert(s_guard.bus_silenced && err);
+ aux_ok=0;sample_cycle();sample_cycle();assert(s_guard.bus_silenced && err);
  int before=sample_calls;aux_ok=1;
- for(int i=0;i<1000;i++){bms_afe_sample();} assert(sample_calls==before && s_guard.bus_silenced);
- guard_tick+=5000u*32u-1u;bms_afe_sample();assert(sample_calls==before && s_guard.bus_silenced);
+ for(int i=0;i<1000;i++){sample_cycle();} assert(sample_calls==before && s_guard.bus_silenced);
+ guard_tick+=5000u*32u-1u;sample_cycle();assert(sample_calls==before && s_guard.bus_silenced);
  ++guard_tick;
- bms_afe_sample();assert(sample_calls==before && err && s_guard.comm_inhibit);
- for(int i=0;i<2;i++){bms_afe_sample();assert(err && s_guard.comm_inhibit);}
- bms_afe_sample();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
+ sample_cycle();assert(sample_calls==before && err && s_guard.comm_inhibit);
+ for(int i=0;i<2;i++){sample_cycle();assert(err && s_guard.comm_inhibit);}
+ sample_cycle();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
  /* A backend init/config failure is not mistaken for healthy startup. */
  reset();init_fail=1;bms_afe_init();assert(err);
- for(int i=0;i<2;i++){bms_afe_sample();assert(err && s_guard.comm_inhibit);}
- bms_afe_sample();assert(!err && !s_guard.comm_inhibit);init_fail=0;
+ for(int i=0;i<2;i++){sample_cycle();assert(err && s_guard.comm_inhibit);}
+ sample_cycle();assert(!err && !s_guard.comm_inhibit);init_fail=0;
  puts("PASS healthy boot: zero synthetic AFE1 errors, three-sample output inhibit; real init/read faults and watchdog recovery retained");
 }
 int main(void){
@@ -148,7 +150,7 @@ int main(void){
  reset();shutdown_ok=0;assert(!bms_afe_sleep());assert(shutdown_calls==1&&!s_guard.test_shutdown_hold);
  reset();assert(bms_afe_sleep());assert(shutdown_calls==1&&s_guard.test_shutdown_hold);
  assert(cmd_c==0&&cmd_d==0);assert(!bms_afe_bus_access_allowed());
- int samples=sample_calls;for(int i=0;i<100;i++){bms_afe_sample();} assert(sample_calls==samples);
+ int samples=sample_calls;for(int i=0;i<100;i++){sample_cycle();} assert(sample_calls==samples);
  assert(bms_afe_set_fets(1,1));assert(cmd_c==0&&cmd_d==0);assert(!bms_afe_apply_protection_config());
  assert(!bms_afe_sleep());assert(shutdown_calls==1);
  puts("PASS guard: balance/FET/shutdown failures, command OFF, terminal bus hold");

@@ -30,6 +30,8 @@ def check_sh3673510_sample_schedule_host_check():
     #define BMS_SERVICE_DIAG_ENABLE 1
     #include <stdint.h>
     #include <stdio.h>
+typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR } bms_afe_sample_status_t;
+typedef struct { bms_afe_sample_status_t status; uint8_t confirm_sample; } bms_afe_sample_result_t;
     typedef uint8_t u8;
     typedef uint32_t u32;
     #define SYSTEM_TIMER_TICK_1US 16u
@@ -47,7 +49,9 @@ def check_sh3673510_sample_schedule_host_check():
         if (!enable) ++failures;
         scheduled_tick = tick;
     }
-    static void bms_afe_sample(void) { ++samples; fake_tick += sample_cost; }
+    static bms_afe_sample_result_t bms_afe_sample(void) { bms_afe_sample_result_t r={BMS_AFE_SAMPLE_OK,1u}; ++samples; fake_tick += sample_cost; return r; }
+    static void bms_features_service(uint8_t confirmed){(void)confirmed;}
+    static void bms_afe_apply_outputs(void){}
     static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *s) {
         if (valid) { s->raw_current_ma = 1230; s->current_ma = 1234; s->sample_tick_32k = 123; }
         return valid;

@@ -42,6 +42,7 @@
 #include "modbus_uart.h"
 #include "modbus_rtu.h"
 #include "bms_afe.h"
+#include "bms_features.h"
 #include "bms_afe_hw_access.h"
 #include "bms_diag.h"
 #include "bms_error.h"
@@ -253,13 +254,18 @@ static void app_diag_poll_runtime(uint8_t valid, int32_t raw_current_ma,
 static void app_sample_task(void)
 {
     bms_afe_aux_measurements_t m;
+    bms_afe_sample_result_t result;
     u8 valid;
 
     if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) return;
 
     s_sample_due = 0u;
     s_sample_tick = clock_time();
-    bms_afe_sample();
+    result = bms_afe_sample();
+    if (result.status == BMS_AFE_SAMPLE_OK) {
+        bms_features_service(result.confirm_sample);
+        bms_afe_apply_outputs();
+    }
     valid = bms_afe_get_aux_measurements(&m);
     app_update_soc_from_sample(valid, valid ? m.current_ma : 0);
 

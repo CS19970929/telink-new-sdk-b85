@@ -73,7 +73,7 @@ static uint32_t s_balance_last_refresh_tick;
 #define DVC_ADC_MAX_AGE_TICKS (512u * 32u)
 #define DVC_NTC_VALID_SAMPLES 3u
 static uint8_t s_pending_adc_events;
-static uint8_t s_voltage_seen, s_current_seen, s_sample_pending;
+static uint8_t s_voltage_seen, s_current_seen;
 static uint8_t s_voltage_since_current;
 static uint32_t s_voltage_tick, s_current_tick, s_adc_wait_started;
 static uint8_t s_ntc_valid_samples[4]; /* 仅 GP1..GP4 为 NTC；只由新 VADF 推进。 */
@@ -1333,7 +1333,7 @@ void DVC1124_AFE_Reset(void)
     memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
     s_balance_last_refresh_tick = clock_time();
     s_pending_adc_events = 0u;
-    s_voltage_seen = s_current_seen = s_sample_pending = 0u;
+    s_voltage_seen = s_current_seen = 0u;
     s_voltage_since_current = 0u;
     s_adc_wait_started = pm_get_32k_tick();
     s_need_config = 1u;
@@ -1529,17 +1529,17 @@ static void dvc_publish_temperature_measurement(const uint8_t *data)
 }
 
 /* 采集 DVC 测量和状态并更新驱动快照。 */
-void DVC1124_App_AFEGet(void)
+bms_afe_sample_result_t DVC1124_App_AFEGet(void)
 {
     uint8_t data[DVC_MEAS_BYTES];
     uint32_t now = pm_get_32k_tick();
-    s_sample_pending = 0u;
+    bms_afe_sample_result_t result = { BMS_AFE_SAMPLE_ERROR, 0u };
     s_snapshot.voltage_fresh = s_snapshot.current_fresh = 0u;
 
     /* 初始化未完整成功时只返回失败；guard 负责静默及有界重初始化。 */
     if (s_need_config) {
         s_snapshot.valid = 0u;
-        return;
+        return result;
     }
 
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))
@@ -1550,7 +1550,7 @@ void DVC1124_App_AFEGet(void)
         g_bms_report.charge_current_a10 = 0u;
         g_bms_report.discharge_current_a10 = 0u;
         dvc_note_comm_result(0u);
-        return;
+        return result;
     }
 
     s_snapshot.voltage_fresh = (s_pending_adc_events & DVC1124_STATUS_VADF_MASK) ? 1u : 0u;
@@ -1583,10 +1583,14 @@ void DVC1124_App_AFEGet(void)
     s_snapshot.valid = s_voltage_seen && s_current_seen &&
         (uint32_t)(now - s_voltage_tick) <= DVC_ADC_MAX_AGE_TICKS &&
         (uint32_t)(now - s_current_tick) <= DVC_ADC_MAX_AGE_TICKS;
-    s_sample_pending = (!s_voltage_since_current || !s_snapshot.current_fresh) &&
-        (s_snapshot.valid || ((!s_voltage_seen || !s_current_seen) &&
-         (uint32_t)(now - s_adc_wait_started) <= DVC_ADC_MAX_AGE_TICKS));
-    if (!s_sample_pending && s_snapshot.valid) s_voltage_since_current = 0u;
+    if (s_snapshot.valid) {
+        result.status = BMS_AFE_SAMPLE_OK;
+        result.confirm_sample = s_voltage_since_current && s_snapshot.current_fresh;
+        if (result.confirm_sample) s_voltage_since_current = 0u;
+    } else if ((!s_voltage_seen || !s_current_seen) &&
+               (uint32_t)(now - s_adc_wait_started) <= DVC_ADC_MAX_AGE_TICKS) {
+        result.status = BMS_AFE_SAMPLE_NOT_READY;
+    }
 
     g_bms_system_status.bits.charge_mos_status =
         (data[DVC1124_REG_CC2_L_FLAGS] & DVC1124_CC2_CHGF_MASK) ? 1u : 0u;
@@ -1599,12 +1603,7 @@ void DVC1124_App_AFEGet(void)
     if (!dvc_refresh_balance_state())
         bms_error_raise(BMS_ERROR_BALANCE); /* 未知保留最后确认值，不能冒充关闭。 */
     dvc_note_comm_result(1u);
-}
-
-/* 有效缓存等待新的转换完成，不计为新样本，也不伪造通信故障。 */
-uint8_t bms_afe_driver_sample_pending(void)
-{
-    return s_sample_pending;
+    return result;
 }
 
 /* 统一读改写与校验实现，集中管理边界及保留位，保持调试入口稳定。 */
