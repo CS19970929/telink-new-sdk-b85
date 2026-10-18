@@ -1526,8 +1526,10 @@ bms_afe_sample_status_t DVC1124_App_AFEGet(void)
     bms_afe_publish_fet_status(data[DVC1124_REG_CC2_L_FLAGS], 1u);
 
     /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */
-    if (!dvc_refresh_balance_state())
+    if (!dvc_refresh_balance_state()) {
         bms_error_raise(BMS_ERROR_BALANCE); /* 未知保留最后确认值，不能冒充关闭。 */
+        result = BMS_AFE_SAMPLE_READ_ERROR;
+    }
 
     return result;
 }

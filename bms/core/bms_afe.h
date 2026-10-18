@@ -16,7 +16,8 @@ typedef enum {
     BMS_AFE_SAMPLE_OK = 0,
     BMS_AFE_SAMPLE_NOT_READY,
     BMS_AFE_SAMPLE_ERROR,
-    /* 普通读事务失败；不能与芯片/配置/清锁存失败混为一类。 */
+    /* 可观察的业务总线事务失败；测量是否有效另由 getter 提供。
+     * 不等同于明确芯片故障或需要完整重配的配置/清锁存失败。 */
     BMS_AFE_SAMPLE_READ_ERROR
 } bms_afe_sample_status_t;
 bms_afe_sample_status_t bms_afe_sample(void);

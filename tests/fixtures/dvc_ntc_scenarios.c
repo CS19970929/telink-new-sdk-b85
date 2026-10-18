@@ -16,7 +16,7 @@
 static dvc1124_snapshot_t s_snapshot;
 static dvc1124_config_t s_cfg = {.cell_count=4};
 static uint32_t now;
-static uint8_t s_need_config, registers[256], read_ok=1;
+static uint8_t s_need_config, registers[256], read_ok=1, balance_read_ok=1;
 bms_protection_params_t g_bms_protection_params;
 /* PRODUCTION STATE */
 
@@ -37,7 +37,7 @@ static int32_t dvc_cc2_to_raw_current_ma(int32_t x) { return x; }
 static int32_t bms_config_calibrate_current(int32_t x) { return x; }
 static void dvc_publish_current_report(int32_t x) { (void)x; }
 static uint16_t dvc_correct_cell_mv(uint16_t x,uint32_t cm) { (void)cm; return x; }
-static uint8_t dvc_refresh_balance_state(void) { return 1u; }
+static uint8_t dvc_refresh_balance_state(void) { return balance_read_ok; }
 uint8_t DVC1124_ReadRegisters(uint8_t reg,uint8_t *data,uint8_t count)
 {
     if (!read_ok) return 0u;
@@ -69,7 +69,7 @@ static void reset(void)
     memset(registers,0,sizeof(registers));
     memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));
     time_last_raw=time_ms=time_fraction=0u;
-    read_ok=1u; now=1000u; s_snapshot.rpu_ohm=10000u;
+    read_ok=balance_read_ok=1u; now=1000u; s_snapshot.rpu_ohm=10000u;
     put16(DVC1124_REG_V1P8_H,18000u);
     for (unsigned gp=0;gp<4u;++gp) put16((uint8_t)(DVC1124_REG_GP1_H+2u*gp),9000u);
     g_bms_protection_params.mos_otp_first_x10=1500u;
@@ -206,6 +206,14 @@ int main(void)
     /* 偶发读失败仅使本轮无效；已确认 NTC 和原 MOS 命令保持。 */
     read_ok=0u; step(0x50u,6400u); assert(!s_snapshot.valid && s_snapshot.ntc_res_ohm[1]); check_open();
     read_ok=1u; step(0x50u,6400u); check_open();
+    /* 测量完整而业务均衡刷新失败：保留测量，不能返回完整业务成功。 */
+    balance_read_ok=0u;
+    g_bms_report.balance_bits_low=1u;
+    assert(DVC1124_App_AFEGet()==BMS_AFE_SAMPLE_READ_ERROR);
+    assert(s_snapshot.valid && g_bms_report.balance_bits_low==1u);
+    assert(bms_afe_driver_get_aux_measurements(NULL));
+    balance_read_ok=1u;
+    assert(DVC1124_App_AFEGet()==BMS_AFE_SAMPLE_OK);
     /* 已合格探头在晚轮询中取得正常新转换，不因旧缓存年龄制造 TEMP_BREAK。 */
     step(0x50u,25600u); check_open();
     step(0x50u,96000u); check_open(); /* 三秒未轮询但已有新转换，不等于 ADC 停更。 */
