@@ -31,7 +31,7 @@ main_loop → app_sample_task（约 200 ms）
   bms_afe_sample → guard → 当前 backend 采样/恢复/测量发布
   backend → bms_sw_protection_update；合并芯片硬件故障
   guard → OK / NOT_READY / READ_ERROR / ERROR；无 ADC 活性或公共新样本计数
-  app → bms_features_service()：完整有效轮次检查业务条件
+  app → bms_features_service()：先读实际均衡状态，再评估加热/均衡条件
   app → bms_afe_apply_outputs → guard apply_requested → backend 最终仲裁/写寄存器
   app_update_soc_from_sample → bms_soc_process_sample
   runtime diagnostics → 下次采样唤醒安排
@@ -46,6 +46,17 @@ main_loop → app_sample_task（约 200 ms）
 电压/温度，CADC 推进过流，缺少事件只暂停对应组。内部辅助测量 getter 的 NULL 输出用于
 只查询有效性；应用侧同名功能入口仍拒绝 NULL。当前修改及验证边界见
 [逐轮实现记录](PROTECTION_RECOVERY_SIMPLIFICATION_20261018.md)。
+
+继续读 [AFE 控制分轮重构](AFE_CONTROL_REFACTOR_20261018.md)：guard 独占 output_enabled。
+apply_requested 的 explicit_off_mask 只表达本次新关闭；失效轮次不重放旧远程 OFF，
+开启许可失败先标记 cycle_failed 再补偿，保持同步响应。DVC 恢复函数的 io_failed 是调用栈上的
+只置位结果，测量完整也必须把清锁存/回读失败交给通信观察，不能据此重新开 MOS。
+
+沿 bms_features_service 的 get_balance → publish_balance → service_balance → set_balance 追一遍：
+known_actual 仅指向本轮刚验证的栈上实际值，不跨轮保存；写入失败、OFF 补偿、初始化和休眠传 NULL。
+getter 失败先停止功能，成功 OFF 不消除本轮失败。AFE 定时关闭后实际活动串为零，不能再借旧报告的停止迟滞重开。
+SH 的 SH3673520_Init 只建立传输，业务配置成功要继续看 sh3673510_control_init；CADC 不再有两个初始化所有者。
+上述新增及调整的行为夹具尚未执行，不能从源码推演得出软件或实板验收结论。
 
 ## 第三轮：默认值为何不一定生效
 

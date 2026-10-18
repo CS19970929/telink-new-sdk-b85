@@ -10,7 +10,7 @@ D008 无放电启动 SCD、CBC 与三级放电过流的现场定位及配置顺�
 
 SH 通信恢复保护锁存、分组恢复证据及后续等价精简，见 [2026-10-18 保护恢复与实现精简](docs/PROTECTION_RECOVERY_SIMPLIFICATION_20261018.md)。
 
-后续 MOS 失败路径、DVC 恢复事务与 SH 重复访问精简，见 [AFE 控制分轮重构](docs/AFE_CONTROL_REFACTOR_20261018.md)。
+MOS 失败补偿、DVC 恢复事务、SH 配置归属与本轮均衡回读共享的逐轮提交及保留裁决，见 [AFE 控制分轮重构](docs/AFE_CONTROL_REFACTOR_20261018.md)。
 
 四产品反向电流立即恢复、D008 PB1 负载移除恢复及 D011 充电器加热门禁见 [恢复与加热说明](docs/CURRENT_RECOVERY_AND_CHARGER_HEATING.md)。
 
