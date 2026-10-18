@@ -12,6 +12,40 @@
 #include <string.h>
 
 /*
+ * 诊断窗口边界：只读协议的唯一地址来源，overlaps 与两个编译分支的读取共用。
+ * 快照与 Trace 分段登记，一次请求跨越 0x2B00 时不属于任何窗口。
+ */
+typedef struct {
+    uint16_t base;      /* 窗口起始地址（含） */
+    uint16_t end;       /* 窗口结束地址（不含） */
+    uint16_t word_base; /* 取值函数的字偏移零点 */
+} diag_range_t;
+
+static const diag_range_t s_diag_ranges[] = {
+    {BMS_DIAG_BASE, BMS_DIAG_TRACE_BASE, BMS_DIAG_BASE},
+    {BMS_DIAG_TRACE_BASE, BMS_DIAG_END, BMS_DIAG_BASE},
+    {BMS_DIAG_SLEEP_BASE, BMS_DIAG_SLEEP_END, BMS_DIAG_SLEEP_BASE},
+    {BMS_DIAG_MOS_BASE, BMS_DIAG_MOS_END, BMS_DIAG_MOS_BASE},
+    {BMS_DIAG_AFE_FAILURE_BASE, BMS_DIAG_AFE_FAILURE_END, BMS_DIAG_AFE_FAILURE_BASE},
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+    {BMS_DIAG_BOARD_TEST_BASE, BMS_DIAG_BOARD_TEST_END, BMS_DIAG_BOARD_TEST_BASE},
+#endif
+};
+#define DIAG_RANGE_COUNT ((uint16_t)(sizeof(s_diag_ranges) / sizeof(s_diag_ranges[0])))
+
+/* 返回完整包含该请求范围的窗口下标；不在任何窗口内时返回 DIAG_RANGE_COUNT。 */
+static uint16_t diag_range_find(uint16_t start, uint16_t count)
+{
+    uint32_t end = (uint32_t)start + count;
+    uint16_t i;
+
+    if (count == 0u || count > 125u) return DIAG_RANGE_COUNT;
+    for (i = 0u; i < DIAG_RANGE_COUNT; ++i)
+        if (start >= s_diag_ranges[i].base && end <= s_diag_ranges[i].end) return i;
+    return DIAG_RANGE_COUNT;
+}
+
+/*
  * 判断请求寄存器范围是否与诊断窗口重叠。
  * 两份编译分支的地址占用完全相同：量产即使不保留快照，也必须占住这些地址，
  * 不能把已撤销/未启用的窗口当成普通参数地址放行。
@@ -19,14 +53,13 @@
 int bms_diag_overlaps(uint16_t start, uint16_t count)
 {
     uint32_t end = (uint32_t)start + count;
-    return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
-#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
-        (start < 0x3940u && end > 0x3800u) ||
-#endif
-        (start < 0x3630u && end > 0x3600u) ||
-        (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
-        (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE) ||
-        (start < BMS_DIAG_AFE_FAILURE_END && end > BMS_DIAG_AFE_FAILURE_BASE));
+    uint16_t i;
+
+    if (count == 0u) return 0;
+    for (i = 0u; i < DIAG_RANGE_COUNT; ++i)
+        if (start < s_diag_ranges[i].end && end > s_diag_ranges[i].base) return 1;
+    /* 已撤销的断线检测窗口继续占位：读写都按保留地址处理。 */
+    return (start < BMS_DIAG_RESERVED_END && end > BMS_DIAG_RESERVED_BASE) ? 1 : 0;
 }
 
 #if BMS_SERVICE_DIAG_ENABLE
@@ -474,109 +507,125 @@ void bms_diag_sleep_committed(void)
     put32(&s_sleep_words[16], bms_time_now_32k());
 }
 
-/* 从 RAM 诊断快照读取指定寄存器范围。 */
+/* 窗口取值函数：offset 相对窗口 word_base，now 为本轮统一时钟。 */
+typedef uint16_t (*diag_word_fn)(uint16_t offset, uint32_t now);
+
+/* 快照窗口：offset < 256 为运行快照，其后为 Trace 环。 */
+static uint16_t diag_word_main(uint16_t offset, uint32_t now)
+{
+    if (offset == 6u) return (uint16_t)now;
+    if (offset == 7u) return (uint16_t)(now >> 16);
+    if (offset < 256u) return s_words[offset];
+#if BMS_DIAG_TRACE_ENABLE
+    offset = (uint16_t)(offset - 256u);
+    return s_trace[offset / BMS_DIAG_TRACE_WORDS][offset % BMS_DIAG_TRACE_WORDS];
+#else
+    return 0u;
+#endif
+}
+
+/* 休眠快照窗口：读取时刷新末尾时间戳，保持原有只读语义。 */
+static uint16_t diag_word_sleep(uint16_t offset, uint32_t now)
+{
+    put32(&s_sleep_words[18], now);
+    return s_sleep_words[offset];
+}
+
+/* MOS 变化历史窗口。 */
+static uint16_t diag_word_mos(uint16_t offset, uint32_t now)
+{
+    uint16_t word = 0u;
+    (void)now;
+
+    if (offset == 0u) word = 0x4D48u;
+    else if (offset == 1u) word = 1u;
+    else if (offset == 2u) word = BMS_DIAG_TRACE_ENABLE;
+    else if (offset == 3u) word = BMS_DIAG_MOS_RECORD_COUNT;
+    else if (offset == 4u) word = BMS_DIAG_MOS_RECORD_WORDS;
+    else if (offset == 12u) word = (uint16_t)BMS_DIAG_BUILD_ID;
+    else if (offset == 13u) word = (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
+    else if (offset == 14u) word = s_words[14];
+    else if (offset == 15u) word = s_words[13];
+#if BMS_DIAG_TRACE_ENABLE
+    else if (offset == 5u) word = s_mos_count;
+    else if (offset == 6u) word = (uint16_t)s_mos_sequence;
+    else if (offset == 7u) word = (uint16_t)(s_mos_sequence >> 16);
+    else if (offset == 8u) word = (uint16_t)s_mos_overwritten;
+    else if (offset == 9u) word = (uint16_t)(s_mos_overwritten >> 16);
+    else if (offset == 10u) word = (uint16_t)s_mos_boot_tick;
+    else if (offset == 11u) word = (uint16_t)(s_mos_boot_tick >> 16);
+    else if (offset < 48u) word = s_mos_live[offset-16u];
+    else {
+        offset = (uint16_t)(offset-48u);
+        word = s_mos_history[offset / BMS_DIAG_MOS_RECORD_WORDS][offset % BMS_DIAG_MOS_RECORD_WORDS];
+    }
+#endif
+    return word;
+}
+
+/* AFE 失败历史窗口。 */
+static uint16_t diag_word_afe_failure(uint16_t offset, uint32_t now)
+{
+    uint16_t word = 0u;
+    (void)now;
+
+    if (offset == 0u) word = 0x4146u;
+    else if (offset == 1u) word = 1u;
+    else if (offset == 2u) word = BMS_DIAG_TRACE_ENABLE && s_words[14] == 0x3510u;
+    else if (offset == 3u) word = BMS_DIAG_MOS_RECORD_COUNT;
+    else if (offset == 4u) word = BMS_DIAG_AFE_FAILURE_WORDS;
+    else if (offset == 10u) word = (uint16_t)BMS_DIAG_BUILD_ID;
+    else if (offset == 11u) word = (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
+    else if (offset == 14u) word = s_words[14];
+    else if (offset == 15u) word = 32u; /* SDK 时间单位：32 tick/ms。 */
+#if BMS_DIAG_TRACE_ENABLE
+    else if (offset == 5u) word = s_mos_count;
+    else if (offset == 6u) word = (uint16_t)s_mos_sequence;
+    else if (offset == 7u) word = (uint16_t)(s_mos_sequence >> 16);
+    else if (offset == 8u) word = (uint16_t)s_mos_boot_tick;
+    else if (offset == 9u) word = (uint16_t)(s_mos_boot_tick >> 16);
+    else if (offset >= 16u && offset < 32u) word = s_afe_failure_live[offset-16u];
+    else if (offset >= 32u) {
+        offset = (uint16_t)(offset-32u);
+        word = s_afe_failure_history[offset / BMS_DIAG_AFE_FAILURE_WORDS][offset % BMS_DIAG_AFE_FAILURE_WORDS];
+    }
+#endif
+    return word;
+}
+
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+/* 板测只读窗口。 */
+static uint16_t diag_word_board_test(uint16_t offset, uint32_t now)
+{
+    (void)now;
+    return bms_soc_board_test_word(offset);
+}
+#endif
+
+/* 与 s_diag_ranges 一一对应：顺序必须同步，长度由下面的编译期断言锁定。 */
+static const diag_word_fn s_diag_words[] = {
+    diag_word_main, diag_word_main, diag_word_sleep, diag_word_mos, diag_word_afe_failure,
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+    diag_word_board_test,
+#endif
+};
+typedef char diag_word_table_must_match[
+    (sizeof(s_diag_words) / sizeof(s_diag_words[0]) == DIAG_RANGE_COUNT) ? 1 : -1];
+
+/* 从 RAM 诊断快照读取指定寄存器范围；越界或跨窗口一律拒绝。 */
 int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
 {
+    uint16_t index = diag_range_find(start, count);
     uint16_t i;
-    uint32_t end = (uint32_t)start + count;
-    uint32_t tick = bms_time_now_32k();
-#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
-    if (bytes && count && count <= 125u && start >= 0x3800u && end <= 0x3940u) {
-        for (i=0u; i<count; ++i) {
-            uint16_t value=bms_soc_board_test_word((uint16_t)(start-0x3800u+i));
-            bytes[2u*i]=(uint8_t)(value>>8); bytes[2u*i+1u]=(uint8_t)value;
-        }
-        return 1;
-    }
-#endif
-    if (bytes && count && count <= 125u && start >= BMS_DIAG_AFE_FAILURE_BASE && end <= BMS_DIAG_AFE_FAILURE_END) {
-        for (i = 0u; i < count; ++i) {
-            uint16_t offset = (uint16_t)(start - BMS_DIAG_AFE_FAILURE_BASE + i), word = 0u;
-            if (offset == 0u) word = 0x4146u;
-            else if (offset == 1u) word = 1u;
-            else if (offset == 2u) word = BMS_DIAG_TRACE_ENABLE && s_words[14] == 0x3510u;
-            else if (offset == 3u) word = BMS_DIAG_MOS_RECORD_COUNT;
-            else if (offset == 4u) word = BMS_DIAG_AFE_FAILURE_WORDS;
-            else if (offset == 10u) word = (uint16_t)BMS_DIAG_BUILD_ID;
-            else if (offset == 11u) word = (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
-            else if (offset == 14u) word = s_words[14];
-            else if (offset == 15u) word = 32u; /* SDK 时间单位：32 tick/ms。 */
-#if BMS_DIAG_TRACE_ENABLE
-            else if (offset == 5u) word = s_mos_count;
-            else if (offset == 6u) word = (uint16_t)s_mos_sequence;
-            else if (offset == 7u) word = (uint16_t)(s_mos_sequence >> 16);
-            else if (offset == 8u) word = (uint16_t)s_mos_boot_tick;
-            else if (offset == 9u) word = (uint16_t)(s_mos_boot_tick >> 16);
-            else if (offset >= 16u && offset < 32u) word = s_afe_failure_live[offset-16u];
-            else if (offset >= 32u) {
-                offset = (uint16_t)(offset-32u);
-                word = s_afe_failure_history[offset / BMS_DIAG_AFE_FAILURE_WORDS][offset % BMS_DIAG_AFE_FAILURE_WORDS];
-            }
-#endif
-            bytes[2u*i] = (uint8_t)(word >> 8); bytes[2u*i+1u] = (uint8_t)word;
-        }
-        return 1;
-    }
-    if (bytes && count && count <= 125u && start >= BMS_DIAG_MOS_BASE && end <= BMS_DIAG_MOS_END) {
-        for (i = 0u; i < count; ++i) {
-            uint16_t offset = (uint16_t)(start - BMS_DIAG_MOS_BASE + i), word = 0u;
-            if (offset == 0u) word = 0x4D48u;
-            else if (offset == 1u) word = 1u;
-            else if (offset == 2u) word = BMS_DIAG_TRACE_ENABLE;
-            else if (offset == 3u) word = BMS_DIAG_MOS_RECORD_COUNT;
-            else if (offset == 4u) word = BMS_DIAG_MOS_RECORD_WORDS;
-            else if (offset == 12u) word = (uint16_t)BMS_DIAG_BUILD_ID;
-            else if (offset == 13u) word = (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
-            else if (offset == 14u) word = s_words[14];
-            else if (offset == 15u) word = s_words[13];
-#if BMS_DIAG_TRACE_ENABLE
-            else if (offset == 5u) word = s_mos_count;
-            else if (offset == 6u) word = (uint16_t)s_mos_sequence;
-            else if (offset == 7u) word = (uint16_t)(s_mos_sequence >> 16);
-            else if (offset == 8u) word = (uint16_t)s_mos_overwritten;
-            else if (offset == 9u) word = (uint16_t)(s_mos_overwritten >> 16);
-            else if (offset == 10u) word = (uint16_t)s_mos_boot_tick;
-            else if (offset == 11u) word = (uint16_t)(s_mos_boot_tick >> 16);
-            else if (offset < 48u) word = s_mos_live[offset-16u];
-            else {
-                offset = (uint16_t)(offset-48u);
-                word = s_mos_history[offset / BMS_DIAG_MOS_RECORD_WORDS][offset % BMS_DIAG_MOS_RECORD_WORDS];
-            }
-#endif
-            bytes[2u*i] = (uint8_t)(word >> 8); bytes[2u*i+1u] = (uint8_t)word;
-        }
-        return 1;
-    }
-    if (bytes && count && count <= BMS_DIAG_SLEEP_WORDS &&
-        start >= BMS_DIAG_SLEEP_BASE && end <= BMS_DIAG_SLEEP_END) {
-        put32(&s_sleep_words[18], tick);
-        for (i = 0u; i < count; ++i) {
-            uint16_t word = s_sleep_words[start - BMS_DIAG_SLEEP_BASE + i];
-            bytes[2u*i] = (uint8_t)(word >> 8);
-            bytes[2u*i+1u] = (uint8_t)word;
-        }
-        return 1;
-    }
-    if (!bytes || !count || count > 125u || start < BMS_DIAG_BASE ||
-        end > BMS_DIAG_END || (start < BMS_DIAG_TRACE_BASE && end > BMS_DIAG_TRACE_BASE)) return 0;
-    /*
-     * 调用者和生产者均在主循环，无需屏蔽中断或再复制 2 KB；
-     * 显式编码避免 ABI 打包依赖。
-     */
+    uint32_t now;
+
+    if (!bytes || index >= DIAG_RANGE_COUNT) return 0;
+    now = bms_time_now_32k();
     for (i = 0u; i < count; ++i) {
-        uint16_t word, offset = (uint16_t)(start + i - BMS_DIAG_BASE);
-        if (offset == 6u) word = (uint16_t)tick;
-        else if (offset == 7u) word = (uint16_t)(tick >> 16);
-        else if (offset < 256u) word = s_words[offset];
-        else {
-#if BMS_DIAG_TRACE_ENABLE
-            offset = (uint16_t)(offset - 256u);
-            word = s_trace[offset / BMS_DIAG_TRACE_WORDS][offset % BMS_DIAG_TRACE_WORDS];
-#else
-            word = 0u;
-#endif
-        }
-        bytes[2u*i] = (uint8_t)(word >> 8); bytes[2u*i+1u] = (uint8_t)word;
+        uint16_t word = s_diag_words[index](
+            (uint16_t)(start + i - s_diag_ranges[index].word_base), now);
+        bytes[2u * i] = (uint8_t)(word >> 8);
+        bytes[2u * i + 1u] = (uint8_t)word;
     }
     return 1;
 }
@@ -621,6 +670,9 @@ void bms_diag_backend_details(const uint16_t *words)
  */
 static uint16_t compatibility_word(uint16_t base, uint16_t offset)
 {
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+    if (base == BMS_DIAG_BOARD_TEST_BASE) return bms_soc_board_test_word(offset);
+#endif
     if (base == BMS_DIAG_BASE) {
         if (offset == 0u) return 0x4447u;
         if (offset == 1u) return 1u;
@@ -658,35 +710,13 @@ static uint16_t compatibility_word(uint16_t base, uint16_t offset)
 
 int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
 {
+    uint16_t index = diag_range_find(start, count);
     uint16_t i;
-    uint16_t base;
-    uint32_t end = (uint32_t)start + count;
 
-#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
-    if (bytes && count && count <= 125u && start >= 0x3800u && end <= 0x3940u) {
-        for (i = 0u; i < count; ++i) {
-            uint16_t value = bms_soc_board_test_word((uint16_t)(start - 0x3800u + i));
-            bytes[2u*i] = (uint8_t)(value >> 8);
-            bytes[2u*i+1u] = (uint8_t)value;
-        }
-        return 1;
-    }
-#endif
-    if (!bytes || !count || count > 125u) return 0;
-    if (start >= BMS_DIAG_BASE && end <= BMS_DIAG_END &&
-        !(start < BMS_DIAG_TRACE_BASE && end > BMS_DIAG_TRACE_BASE))
-        base = BMS_DIAG_BASE;
-    else if (start >= BMS_DIAG_SLEEP_BASE && end <= BMS_DIAG_SLEEP_END)
-        base = BMS_DIAG_SLEEP_BASE;
-    else if (start >= BMS_DIAG_MOS_BASE && end <= BMS_DIAG_MOS_END)
-        base = BMS_DIAG_MOS_BASE;
-    else if (start >= BMS_DIAG_AFE_FAILURE_BASE && end <= BMS_DIAG_AFE_FAILURE_END)
-        base = BMS_DIAG_AFE_FAILURE_BASE;
-    else
-        return 0;
-
+    if (!bytes || index >= DIAG_RANGE_COUNT) return 0;
     for (i = 0u; i < count; ++i) {
-        uint16_t word = compatibility_word(base, (uint16_t)(start - base + i));
+        uint16_t word = compatibility_word(s_diag_ranges[index].base,
+            (uint16_t)(start + i - s_diag_ranges[index].word_base));
         bytes[2u*i] = (uint8_t)(word >> 8);
         bytes[2u*i+1u] = (uint8_t)word;
     }
