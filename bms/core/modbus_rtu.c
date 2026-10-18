@@ -74,8 +74,8 @@ static u16 read_production_info_reg(u16 reg);
 static u16 read_realtime_status_reg(u16 reg);
 /* 把有符号电流转换为既有协议编码。 */
 static u16 encode_signed_current_reg(void);
-/* 按地址分派读取一个协议寄存器。 */
-static u16 read_reg(u16 reg);
+/* 按地址分派读取一个协议寄存器；返回 0 表示该地址不属于任何只读窗口。 */
+static int read_reg(u16 reg, u16 *value);
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 /* 读取 AFE 实际配置的协议诊断字段。 */
 static u16 read_afe_actual_reg(u16 offset, const sh3673510_protection_actual_t *actual, u8 valid);
@@ -302,27 +302,8 @@ static int modbus_exception(u8 addr,
     return 1;
 }
 
-/* 检查读请求地址是否属于已实现的窗口。 */
-static int read_address_supported(u16 r)
-{
-    return (r >= BMS_MOS_CONTROL_BASE && r < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT) ||
-           bms_parameter_readable(r) || r<3u ||
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-           (r>=BMS_AFE_ACTUAL_REG_BASE && r<BMS_AFE_ACTUAL_REG_BASE+BMS_AFE_ACTUAL_REG_COUNT) ||
-#endif
-           (r>=BTNAME_REG_BASE && r<BTNAME_REG_BASE+BTNAME_REG_COUNT) ||
-           (r>=0xC002u && r<0xC032u) || (r>=0xD000u && r<=0xD03Eu) ||
-           (r>=0x2100u && r<=0x2140u) || (r>=0xD100u && r<=0xD116u) ||
-           (r>=BMS_REALTIME_REG_BASE && r<BMS_REALTIME_REG_BASE+BMS_REALTIME_REG_COUNT) ||
-           afe_hw_profile_is_reg(r)
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-           || dvc_comm_is_semantic(r) || dvc_comm_is_raw(r)
-#endif
-           ;
-}
-
-/* 按地址分派读取一个协议寄存器。 */
-static u16 read_reg(u16 reg)
+/* 按地址分派读取一个协议寄存器；返回 0 表示该地址不属于任何只读窗口。 */
+static int read_reg(u16 reg, u16 *value)
 {
     if (reg >= BMS_MOS_CONTROL_BASE && reg < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT) {
         uint8_t c, d;
@@ -331,21 +312,24 @@ static u16 read_reg(u16 reg)
         uint16_t guard = bms_afe_get_guard_diagnostic_bits();
         bms_afe_get_requested_fets(&c, &d);
         switch (reg-BMS_MOS_CONTROL_BASE) {
-        case 0: return BMS_MOS_CONTROL_MAGIC;
-        case 1: return 1u;
-        case 2: return bms_afe_get_remote_allowed_mask() & 1u;
-        case 3: return (bms_afe_get_remote_allowed_mask() >> 1) & 1u;
-        case 4: return driver;
-        case 5: return (driver_valid &&
-            (guard & DIAG_GUARD_SAMPLES_QUALIFIED)) ? 1u : 0u;
-        case 6: return guard;
-        case 7: return (uint16_t)(c | (d << 1));
-        default: return 0u;
+        case 0: *value = BMS_MOS_CONTROL_MAGIC; break;
+        case 1: *value = 1u; break;
+        case 2: *value = bms_afe_get_remote_allowed_mask() & 1u; break;
+        case 3: *value = (bms_afe_get_remote_allowed_mask() >> 1) & 1u; break;
+        case 4: *value = driver; break;
+        case 5: *value = (driver_valid &&
+            (guard & DIAG_GUARD_SAMPLES_QUALIFIED)) ? 1u : 0u; break;
+        case 6: *value = guard; break;
+        case 7: *value = (uint16_t)(c | (d << 1)); break;
+        default: *value = 0u; break;
         }
+        return 1;
     }
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
-        return dvc_comm_read(reg);
+    if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg)) {
+        *value = dvc_comm_read(reg);
+        return 1;
+    }
 #endif
 
     if (reg < 3u)
@@ -353,17 +337,22 @@ static u16 read_reg(u16 reg)
         switch (reg)
         {
         case 0:
-            return (u16)((g_bms_report.mac_public[0] << 8) |
-                         g_bms_report.mac_public[1]);
+            *value = (u16)((g_bms_report.mac_public[0] << 8) |
+                           g_bms_report.mac_public[1]);
+            break;
         case 1:
-            return (u16)((g_bms_report.mac_public[2] << 8) |
-                         g_bms_report.mac_public[3]);
+            *value = (u16)((g_bms_report.mac_public[2] << 8) |
+                           g_bms_report.mac_public[3]);
+            break;
         case 2:
-            return (u16)((g_bms_report.mac_public[4] << 8) |
-                         g_bms_report.mac_public[5]);
+            *value = (u16)((g_bms_report.mac_public[4] << 8) |
+                           g_bms_report.mac_public[5]);
+            break;
         default:
-            return 0u;
+            *value = 0u;
+            break;
         }
+        return 1;
     }
 
     if (reg >= BTNAME_REG_BASE && reg < BTNAME_REG_BASE + BTNAME_REG_COUNT)
@@ -378,44 +367,52 @@ static u16 read_reg(u16 reg)
             high_byte = (u8)name[str_idx];
         if ((str_idx + 1u) < BTNAME_TOTAL_MAX_LEN && name[str_idx + 1u] != '\0')
             low_byte = (u8)name[str_idx + 1u];
-        return (u16)(((u16)high_byte << 8) | low_byte);
+        *value = (u16)(((u16)high_byte << 8) | low_byte);
+        return 1;
     }
 
-    if (reg >= 0xC002u && reg <= (0xC002u + 48u))
-        return read_production_info_reg(reg);
+    if (reg >= 0xC002u && reg < 0xC032u) {
+        *value = read_production_info_reg(reg);
+        return 1;
+    }
 
     if (reg >= 0xD000u && reg <= 0xD03Eu)
     {
-        u16 value;
         /* 此协议窗口跨多个报告字段，不仅是单体数组。 */
-        memcpy(&value, (const u8 *)&g_bms_report + (reg-0xD000u)*2u, sizeof(value));
-        return value;
+        memcpy(value, (const u8 *)&g_bms_report + (reg-0xD000u)*2u, sizeof(*value));
+        return 1;
     }
 
     if (reg >= 0x2100u && reg <= 0x2140u)
     {
-        u16 value;
-        memcpy(&value, (const u8 *)&g_bms_protection_params + (reg-0x2100u)*2u, sizeof(value));
-        return value;
+        memcpy(value, (const u8 *)&g_bms_protection_params + (reg-0x2100u)*2u, sizeof(*value));
+        return 1;
     }
 
-    if (reg >= 0xD100u && reg <= 0xD114u)
-    {
-        if (reg <= 0xD108u) return read_fault_history_reg(reg);
-        return read_error_status_reg(reg);
+    if (reg >= 0xD100u && reg <= 0xD108u) {
+        *value = read_fault_history_reg(reg);
+        return 1;
     }
-
-    if (reg >= 0xD115u && reg <= 0xD118u)
-    {
-        if (reg == 0xD115u) return (u16)(g_bms_system_status.all & 0x0000FFFFu);
-        if (reg == 0xD116u) return (u16)(g_bms_system_status.all >> 16);
+    if (reg >= 0xD109u && reg <= 0xD114u) {
+        *value = read_error_status_reg(reg);
+        return 1;
+    }
+    if (reg == 0xD115u) {
+        *value = (u16)(g_bms_system_status.all & 0x0000FFFFu);
+        return 1;
+    }
+    if (reg == 0xD116u) {
+        *value = (u16)(g_bms_system_status.all >> 16);
+        return 1;
     }
 
     if (reg >= BMS_REALTIME_REG_BASE &&
-        reg < (BMS_REALTIME_REG_BASE + BMS_REALTIME_REG_COUNT))
-        return read_realtime_status_reg(reg);
+        reg < (BMS_REALTIME_REG_BASE + BMS_REALTIME_REG_COUNT)) {
+        *value = read_realtime_status_reg(reg);
+        return 1;
+    }
 
-    return 0u;
+    return 0;
 }
 
 /* 校验地址及取值后写入一个协议寄存器。 */
@@ -536,21 +533,21 @@ static int modbus_read_holding(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
                       read_afe_actual_reg((u16)(offset + i), &actual, valid));
 #endif
     } else {
-        /* 先校验整个范围；非法尾地址不能造成部分读取。 */
-        for (i = 0u; i < qty; ++i)
-            if (!read_address_supported((u16)(reg + i)))
-                return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+        /* 逐地址读取；任一地址不属于只读窗口即整帧按非法地址拒绝。 */
         i = 0u;
         while (i < qty) {
+            u16 value;
             if (bms_parameter_readable((u16)(reg + i))) {
                 u16 start = i;
                 do { ++i; } while (i < qty && bms_parameter_readable((u16)(reg + i)));
                 if (!bms_parameter_read_block((u16)(reg + start), (u16)(i - start),
                                                &rsp[3u + (u32)start * 2u]))
                     return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-            } else {
-                put_u16be(&rsp[3u + (u32)i * 2u], read_reg((u16)(reg + i)));
+            } else if (read_reg((u16)(reg + i), &value)) {
+                put_u16be(&rsp[3u + (u32)i * 2u], value);
                 ++i;
+            } else {
+                return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
             }
         }
     }

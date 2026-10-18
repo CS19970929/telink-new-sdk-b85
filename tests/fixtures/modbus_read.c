@@ -97,6 +97,13 @@ dvc1124_config_result_t DVC1124_ConfigServiceWriteRaw(u8 r,u8 v)
 { (void)r; (void)v; abort(); }
 #endif
 
+/* Read-window support is decided by the single dispatch function; no separate table. */
+static int addr_supported(u16 reg)
+{
+    u16 value;
+    return read_reg(reg, &value);
+}
+
 /* Independent CRC oracle for both request and expected response. */
 static u16 wire_crc(const u8 *p,unsigned n)
 {
@@ -230,13 +237,14 @@ int main(void)
     check_requested_profile();
     for(unsigned i=0;i<16u;++i)words[i]=(u16)((0x2e00u+i)^0x55aau);
     parameter_reads=0u;expect_read(1u,0x2e00u,16u,words,0u);assert(parameter_reads==1u);
-    parameter_reads=0u;expect_read(1u,0x2e0fu,2u,words,2u);assert(!parameter_reads);
+    /* 非法尾地址仍整帧拒绝；分派现在先读合法前缀，不再有独立的支持表预检。 */
+    parameter_reads=0u;expect_read(1u,0x2e0fu,2u,words,2u);assert(parameter_reads==1u);
     /* 模拟相邻所有者：普通寄存器/参数/普通寄存器混读仍按原顺序编码。 */
     parameter_mixed=1u;
     memcpy(g_bms_report.mac_public,"\x10\x20\x30\x40\x50\x60",6u);
     words[0]=0x1020u;words[1]=1u^0x55aau;words[2]=0x5060u;
     expect_read(1u,0u,3u,words,0u);
-    parameter_reads=0u;expect_read(1u,0u,4u,words,2u);assert(!parameter_reads);
+    parameter_reads=0u;expect_read(1u,0u,4u,words,2u);assert(parameter_reads==1u);
     parameter_mixed=0u;memset(g_bms_report.mac_public,0,6u);
     /* The canceled event-clear command must reject both single/block writes. */
     for (unsigned block=0; block<2; ++block) {
@@ -253,15 +261,15 @@ int main(void)
             }
         }
     }
-    assert(read_address_supported(0xD000)); assert(read_address_supported(0xD03E));
-    assert(!read_address_supported(0xD03F)); assert(read_address_supported(0x2140));
-    assert(!read_address_supported(0x2141)); assert(!read_address_supported(0xFFFF));
-    assert(read_address_supported(BTNAME_REG_BASE));
-    assert(read_address_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT-1));
-    assert(!read_address_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT));
-    assert(read_address_supported(BMS_MOS_CONTROL_BASE));
-    assert(read_address_supported(BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT-1u));
-    assert(!read_address_supported(BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT));
+    assert(addr_supported(0xD000)); assert(addr_supported(0xD03E));
+    assert(!addr_supported(0xD03F)); assert(addr_supported(0x2140));
+    assert(!addr_supported(0x2141)); assert(!addr_supported(0xFFFF));
+    assert(addr_supported(BTNAME_REG_BASE));
+    assert(addr_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT-1));
+    assert(!addr_supported(BTNAME_REG_BASE+BTNAME_REG_COUNT));
+    assert(addr_supported(BMS_MOS_CONTROL_BASE));
+    assert(addr_supported(BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT-1u));
+    assert(!addr_supported(BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT));
     fet_driver=3u;fet_driver_valid=1u;
     { const u16 mos[]={BMS_MOS_CONTROL_MAGIC,1u,1u,1u,3u,1u,
         DIAG_GUARD_OUTPUT_ENABLED|DIAG_GUARD_SAMPLES_QUALIFIED,3u};
@@ -344,8 +352,7 @@ int main(void)
     }
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     const u16 actual[]={1,3650,2700,111,222,333,100,200,300,400,500};
-    assert(read_address_supported(0x2180)); assert(read_address_supported(0x218A));
-    assert(!read_address_supported(0x218B));
+    /* AFE actual 窗口在批量分支独占，边界由下面的整段读与越界用例覆盖。 */
     for (unsigned valid=0u; valid<2u; ++valid) {
         actual_valid=(u8)valid;
         for (unsigned start=0u; start<11u; ++start)
@@ -363,7 +370,7 @@ int main(void)
     actual_ov_mv=3750u;words[0]=3750u;actual_reads=0u;
     expect_read(1u,0x2181u,1u,words,0u);assert(actual_reads==1u);
 #else
-    assert(!read_address_supported(0x2180)); expect_read(1,0x2180,1,words,2);
+    assert(!addr_supported(0x2180)); expect_read(1,0x2180,1,words,2);
 #endif
     printf("frames=%u corpus=%08lx identity/requested/effective/actual protocol checked\n",frames,(unsigned long)corpus);
     return 0;

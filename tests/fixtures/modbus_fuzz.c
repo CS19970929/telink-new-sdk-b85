@@ -23,10 +23,9 @@ static int bms_diag_overlaps(u16 r,u16 n){return 0;}
 static int bms_debug_log_read(u16 r,u16 n,u8*d){return 0;}
 static int bms_diag_read(u16 r,u16 n,u8*d){return 0;}
 static u16 bms_event_log_read_reg(u16 r){return (u16)(r^0x55aa);}
-static int read_address_supported(u16 r){return r>=0x2100&&r<=0x2140;}
 static int bms_parameter_readable(u16 r){(void)r;return 0;}
 static int bms_parameter_read_block(u16 r,u16 n,u8*d){(void)r;(void)n;(void)d;abort();}
-static u16 read_reg(u16 r){return (u16)(r^0x55aa);}
+static int read_reg(u16 r,u16*v){*v=(u16)(r^0x55aa);return r>=0x2100&&r<=0x2140;}
 static int afe_hw_profile_is_effective_reg(u16 r){return r>=BMS_AFE_HW_EFFECTIVE_REG_BASE&&r<BMS_AFE_HW_EFFECTIVE_REG_BASE+BMS_AFE_HW_EFFECTIVE_REG_COUNT;}
 static u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t*p){memset(p,0,sizeof(*p));return 1u;}
 static int afe_hw_profile_is_requested_reg(u16 r){return r>=BMS_AFE_HW_REQUESTED_REG_BASE&&r<BMS_AFE_HW_REQUESTED_REG_BASE+BMS_AFE_HW_REQUESTED_REG_COUNT;}
