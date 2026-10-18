@@ -16,7 +16,7 @@ guard = r'''
 const bms_afe_driver_policy_t bms_afe_driver_policy = {5000u,0u,1u};
 static uint32_t now;
 static unsigned c,d,writes,samples;
-static uint8_t control_ok=1, balance_ok=1;
+static uint8_t control_ok=1, balance_ok=1, direction_allow_mask;
 static bms_afe_sample_status_t status=BMS_AFE_SAMPLE_OK;
 uint32_t bms_time_ms(void){return now;}
 void bms_features_init(void){}
@@ -35,7 +35,7 @@ uint8_t bms_afe_driver_set_fets(uint8_t a,uint8_t b){
  else {if(!a)c=0;if(!b)d=0;}return 1;
 }
 uint8_t bms_afe_driver_disable_fets(uint8_t a,uint8_t b){if(!control_ok)return 0;if(a)c=0;if(b)d=0;return 1;}
-uint8_t bms_afe_driver_get_direction_allow_mask(void){return 0;}
+uint8_t bms_afe_driver_get_direction_allow_mask(void){return direction_allow_mask;}
 uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *m){
  if(m)memset(m,0,sizeof(*m));return status==BMS_AFE_SAMPLE_OK;
 }
@@ -50,13 +50,22 @@ static void poll(void){
  if(r==BMS_AFE_SAMPLE_OK){if(!balance_ok)(void)bms_afe_set_balance_mask(1u);bms_afe_apply_outputs();}
 }
 static void qualify(void){
- status=BMS_AFE_SAMPLE_OK;control_ok=1;bms_afe_init();
+ status=BMS_AFE_SAMPLE_OK;control_ok=1;direction_allow_mask=0;bms_afe_init();
  bms_afe_set_channel_allowed(0,1);bms_afe_set_channel_allowed(1,1);
  bms_afe_set_fets(1,1);bms_afe_set_output_enabled(1);
  for(unsigned i=0;i<3;i++)poll();assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
 }
 int main(void){
  bms_afe_aux_measurements_t m;uint8_t bits;
+ /* 已有反向放行不能因读失败被撤销；失效期间的新关闭仍只作用于指定方向。 */
+ for(unsigned channel=0;channel<2;channel++){
+  qualify();direction_allow_mask=(uint8_t)(1u<<channel);
+  assert(bms_afe_set_channel_allowed((uint8_t)channel,0)&&c&&d);
+  status=BMS_AFE_SAMPLE_READ_ERROR;poll();assert(c&&d);
+  assert(bms_afe_set_channel_allowed((uint8_t)(1u-channel),0));
+  assert(c==(channel==0u)&&d==(channel==1u));
+  status=BMS_AFE_SAMPLE_OK;direction_allow_mask=0;poll();assert(!c&&!d);
+ }
  now=UINT32_MAX-500u;qualify();unsigned before=writes;
  assert(bms_afe_get_aux_measurements(&m)&&!bms_afe_get_aux_measurements(NULL));
  status=BMS_AFE_SAMPLE_READ_ERROR;poll();

@@ -375,6 +375,19 @@ int main(void) {
     sample();assert(output_ready() && command_c && command_d);
     for(unsigned i=0;i<100;i++)sample();
     assert(output_ready() && bms_afe_get_aux_measurements(&aux) && !bms_error_get(BMS_ERROR_AFE1));
+    /* 实际 SH + guard：方向临时放行后读失败，不应发出旧远程许可的 OFF。 */
+    for(unsigned channel=0;channel<2;channel++) {
+        device.bstatus2=channel?SH3673520_BSTATUS2_CHGING_MASK:SH3673520_BSTATUS2_DSGING_MASK;
+        sample();assert(bms_afe_set_channel_allowed((uint8_t)channel,0));
+        assert(command_c && command_d);
+        fail_stage=4u;sample();assert(command_c && command_d);
+        assert(bms_afe_set_channel_allowed((uint8_t)(1u-channel),0));
+        assert(command_c==(channel==0u) && command_d==(channel==1u));
+        fail_stage=0u;device.bstatus2=0u;sample();
+        assert(!command_c && !command_d);
+        assert(bms_afe_set_channel_allowed(0,1) && bms_afe_set_channel_allowed(1,1));
+        sample();assert(command_c && command_d);
+    }
     /* 明确的清锁存失败仍关闭并进入既有watchdog静默。 */
     device.flag1=SH3673520_FLAG1_OCC_MASK;
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;

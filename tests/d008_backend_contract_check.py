@@ -266,7 +266,7 @@ def check_d008_common_port_fet_contract_check():
             guard = read("bms_afe_guard.c")
             bms = read("dvc1124_bms.c")
             self.assertIn("!bms_protection_params_valid()", guard)
-            apply = guard.split("static uint8_t apply_requested(void)", 1)[1].split("static void note_invalid(void)", 1)[0]
+            apply = guard.split("static uint8_t apply_requested(uint8_t explicit_off_mask)", 1)[1].split("static void note_invalid(void)", 1)[0]
             self.assertNotIn("bms_features_charge_direction_blocked()", apply)
             diag = bms.split("void bms_afe_diag_poll(void)", 1)[1]
             self.assertIn("bms_features_charge_direction_blocked()", diag)

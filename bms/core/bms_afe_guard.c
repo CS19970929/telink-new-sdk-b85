@@ -126,7 +126,7 @@ static uint8_t service_failsafe_wait(void)
 }
 
 /* 合并调用方 MOS 意图与 guard 授权；应用侧请求并不等同于真实 Gate 已导通。 */
-static uint8_t apply_requested(void)
+static uint8_t apply_requested(uint8_t explicit_off_mask)
 {
     uint8_t c;
     uint8_t d;
@@ -140,7 +140,19 @@ static uint8_t apply_requested(void)
     d = s_guard.requested_discharge_on;
     sample_valid = !s_guard.cycle_failed &&
         bms_afe_driver_get_aux_measurements(NULL);
-    direction_allow_mask = sample_valid ? bms_afe_driver_get_direction_allow_mask() : 0u;
+    if (!s_guard.output_enabled || !bms_protection_params_valid() ||
+        !output_ready())
+    {
+        c = 0u;
+        d = 0u;
+    }
+    /* 方向未知不代表此前反向放行已结束。失效轮次只关闭产品撤销、全局禁止、
+     * 本次新用户关闭及后端已确认保护；不能重放旧远程 OFF 意图。 */
+    if (!sample_valid)
+        return bms_afe_driver_disable_fets(
+            !c || (explicit_off_mask & BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK),
+            !d || (explicit_off_mask & BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK));
+    direction_allow_mask = bms_afe_driver_get_direction_allow_mask();
     /*
      * 用户关闭意图始终保留。AFE 确认放电时临时放行充电 MOS，确认充电时
      * 临时放行放电 MOS；方向消失后下一次仲裁自动恢复用户关闭。
@@ -149,15 +161,7 @@ static uint8_t apply_requested(void)
         !(direction_allow_mask & BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK)) c = 0u;
     if ((s_remote_off_mask & BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK) &&
         !(direction_allow_mask & BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK)) d = 0u;
-    /* 参数资格直接由输出门禁消费，不借业务功能代为阻断。 */
-    if (!s_guard.output_enabled || !bms_protection_params_valid() ||
-        !output_ready())
-    {
-        c = 0u;
-        d = 0u;
-    }
     /* 方向阻断由选定后端处理，保留同口放电及 DVC AUTO_DIODE 语义。 */
-    if (!sample_valid) return bms_afe_driver_disable_fets(!c, !d);
     return bms_afe_driver_set_fets(c, d);
 }
 
@@ -240,7 +244,7 @@ bms_afe_sample_status_t bms_afe_sample(void)
     if (result == BMS_AFE_SAMPLE_READ_ERROR) {
         note_communication_failure();
         /* 后端只允许撤销已有命令；已读出的真实保护仍可立即关断方向。 */
-        if (runtime_access_allowed()) (void)apply_requested();
+        if (runtime_access_allowed()) (void)apply_requested(0u);
         return result;
     }
     if (result == BMS_AFE_SAMPLE_ERROR ||
@@ -258,7 +262,7 @@ bms_afe_sample_status_t bms_afe_sample(void)
 void bms_afe_apply_outputs(void)
 {
     if (!runtime_access_allowed()) return;
-    if (!apply_requested() || s_guard.cycle_failed) {
+    if (!apply_requested(0u) || s_guard.cycle_failed) {
         note_communication_failure();
         return;
     }
@@ -328,7 +332,7 @@ uint8_t bms_afe_set_fets(uint8_t c, uint8_t d)
     /* 通信未合格时只缓存产品请求；请求状态变化不能成为访问静默总线的理由。 */
     if (!runtime_access_allowed()) return 1u;
 
-    if (!apply_requested())
+    if (!apply_requested(0u))
     {
         note_communication_failure();
         return 0u;
@@ -354,11 +358,11 @@ uint8_t bms_afe_set_channel_allowed(uint8_t channel, uint8_t allowed)
     /* 命令已变化但尚未获得新回读，不能继续发布旧 driver 状态。 */
     bms_afe_publish_fet_status(0u, 0u);
     /* 静默阶段只记意图，不访问总线；AFE 恢复后继续执行关闭。 */
-    if (!apply_requested()) {
+    if (!apply_requested(allowed ? 0u : bit)) {
         /* 开启许可失败时恢复原来的关闭许可；关闭失败仍保留 fail-safe 意图。 */
         if (allowed) {
             s_remote_off_mask = old_mask;
-            (void)apply_requested();
+            (void)apply_requested(0u);
         }
         note_communication_failure();
         return 0u;
@@ -420,7 +424,7 @@ void bms_afe_set_output_enabled(uint8_t e)
     }
 
     if (!runtime_access_allowed()) return;
-    if (!apply_requested()) note_communication_failure();
+    if (!apply_requested(0u)) note_communication_failure();
 }
 
 /* 取得选定后端的辅助测量快照。 */
