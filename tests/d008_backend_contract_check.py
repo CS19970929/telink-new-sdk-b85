@@ -280,7 +280,7 @@ def check_d008_common_port_fet_contract_check():
         def test_steady_auto_diode_mode_does_not_rewrite_r81_every_200ms(self):
             bms = read("dvc1124_bms.c")
             helper = bms.split("static uint8_t dvc_set_fet_modes_if_changed", 1)[1]
-            helper = helper.split("uint8_t bms_afe_driver_set_fets", 1)[0]
+            helper = helper.split("uint8_t bms_afe_driver_disable_fets", 1)[0]
             self.assertIn("DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL", helper)
             self.assertIn("DVC1124_FET_CHGC_MASK", helper)
             self.assertIn("DVC1124_FET_DSGC_MASK", helper)
@@ -295,7 +295,7 @@ def check_d008_common_port_fet_contract_check():
         def test_single_r81_write_encodes_final_chg_and_dsg_modes(self):
             bms = read("dvc1124_bms.c")
             helper = bms.split("static uint8_t dvc_set_fet_modes_if_changed", 1)[1]
-            helper = helper.split("uint8_t bms_afe_driver_set_fets", 1)[0]
+            helper = helper.split("uint8_t bms_afe_driver_disable_fets", 1)[0]
             self.assertIn("DVC1124_FIELD_PREP(DVC1124_FET_CHGC_MASK", helper)
             self.assertIn("DVC1124_FIELD_PREP(DVC1124_FET_DSGC_MASK", helper)
             self.assertNotIn("DVC1124_WriteRegisterFieldSafe", helper)

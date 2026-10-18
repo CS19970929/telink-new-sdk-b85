@@ -206,6 +206,7 @@ int main(void)
     read_ok=1u; step(0x50u,6400u); check_open();
     /* 已合格探头在晚轮询中取得正常新转换，不因旧缓存年龄制造 TEMP_BREAK。 */
     step(0x50u,25600u); check_open();
+    step(0x50u,96000u); check_open(); /* 三秒未轮询但已有新转换，不等于 ADC 停更。 */
     /* 512 ms 后业务数据失效，但两秒以内保留已确认 NTC 和原命令。 */
     step(0x10u,25600u); assert(!s_snapshot.valid && s_snapshot.ntc_res_ohm[1]); check_open();
     step(0x50u,6400u); check_open();

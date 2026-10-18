@@ -1559,7 +1559,7 @@ bms_afe_sample_result_t DVC1124_App_AFEGet(void)
     if (s_voltage_seen && (uint32_t)(now - s_voltage_ms) > DVC_ADC_MAX_AGE_MS) {
         uint8_t i;
         for (i = 0u; i < 4u; ++i) {
-            if ((uint32_t)(now - s_voltage_ms) >= BMS_AFE_ADC_STOP_CONFIRM_MS ||
+            if ((!s_snapshot.voltage_fresh && (uint32_t)(now - s_voltage_ms) >= BMS_AFE_ADC_STOP_CONFIRM_MS) ||
                 s_ntc_valid_samples[i] < DVC_NTC_VALID_SAMPLES) {
                 s_ntc_valid_samples[i] = 0u;
                 s_snapshot.ntc_res_ohm[i] = 0u;
