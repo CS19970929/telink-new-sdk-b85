@@ -40,7 +40,7 @@ static uint8_t bms_afe_driver_get_direction_allow_mask(void){return direction_al
 static int bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t*x){return aux_ok;}
 static int bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t*x){return 1;}
 static int bms_afe_driver_get_charge_source_present(uint8_t*x){return 0;}
-static int bms_afe_driver_set_balance_mask(uint32_t x){return balance_ok;}
+static int bms_afe_driver_set_balance_mask(uint32_t x,const uint32_t *known_actual){(void)x;(void)known_actual;return balance_ok;}
 static int bms_afe_driver_get_balance_mask(uint32_t*x){return 1;}
 static int bms_afe_driver_sleep(void){shutdown_calls++;return shutdown_ok;}
 struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status,afe1_status;}bits;}g_bms_system_status;

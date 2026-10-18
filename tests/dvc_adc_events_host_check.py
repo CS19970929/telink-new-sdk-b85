@@ -46,7 +46,6 @@ static uint16_t dvc_correct_cell_mv(uint16_t x,uint32_t cm){(void)cm;return x;}
 static uint8_t dvc_ntc_resistance(uint16_t gp,uint16_t v,uint16_t rpu,uint32_t*r){(void)gp;(void)v;(void)rpu;*r=10000;return 1;}
 static uint16_t ntc_encoded_temp=650u;
 static uint16_t dvc_ntc_temp_report(uint32_t r){(void)r;return ntc_encoded_temp;}
-static void bms_error_raise(uint32_t x){(void)x;}
 void bms_afe_publish_fet_status(uint8_t x,uint8_t y){(void)x;(void)y;}
 void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
 uint8_t DVC1124_ClearAlarmFlags(uint8_t m){registers[0]&=(uint8_t)~m;return 1;}
@@ -55,8 +54,6 @@ uint32_t bms_time_ms(void){uint32_t delta=now-time_last_raw;time_last_raw=now;ti
 uint32_t bms_time_now_32k(void){return now;}
 
 uint8_t DVC1124_WriteRegisters(uint8_t r,const uint8_t *p,uint8_t n){memcpy(registers+r,p,n);return 1;}
-static uint8_t balance_read_ok=1;
-static uint8_t dvc_refresh_balance_state(void){return balance_read_ok;}
 static void dvc_bus_init(void){s_bus_initialized=1;}
 static void dvc_bus_recover(void){}
 static void dvc_delay_ms(uint32_t ms){now+=ms*32u;if(auto_cc2_event)registers[1]|=0x10u;}
@@ -86,6 +83,7 @@ code+='\n'+recovery[recovery.index('#define DVC_LOAD_RELEASE_CONFIRM_MS'):recove
 code+=function(recovery,'static uint8_t dvc_recover_current_faults(')
 code+=r'''
 static bms_afe_sample_status_t result;
+static uint8_t io_failed;
 static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;result=DVC1124_App_AFEGet();}
 static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));
  now=time_last_raw=time_ms=time_fraction=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
@@ -120,16 +118,17 @@ int main(void){
   reset();memset(&s_current_recovery,0,sizeof(s_current_recovery));registers[6]=driver?2:0;
   acquire(100,(uint8_t)(0x50|cst));g_bms_report.fault_third.bits.discharge_ocp=1;
   dvc_observe_current_recovery(&s_snapshot,bms_time_ms());
-  dvc_recover_current_faults(&s_snapshot,0,bms_time_ms());
+  dvc_recover_current_faults(&s_snapshot,0,bms_time_ms(),&io_failed);
   acquire(6500,(uint8_t)(0x50|cst));g_bms_report.fault_third.bits.discharge_ocp=0;
   dvc_observe_current_recovery(&s_snapshot,bms_time_ms());
-  dvc_recover_current_faults(&s_snapshot,0,bms_time_ms());
+  dvc_recover_current_faults(&s_snapshot,0,bms_time_ms(),&io_failed);
   assert(s_snapshot.status==(uint8_t)(0x50|cst));
   assert(!!(s_snapshot.fet_status&DVC1124_CC2_DSGF_MASK)==driver);
   assert(s_current_recovery.discharge); /* R1/R6 均不能让零电流解除放电故障。 */
  }
- reset();g_bms_report.balance_bits_low=5;balance_read_ok=0;acquire(100,0x50);
- assert(g_bms_report.balance_bits_low==5);balance_read_ok=1;
+ /* 测量采集不再读取均衡，实际状态由功能决策前的读取拥有。 */
+ reset();g_bms_report.balance_bits_low=5;acquire(100,0x50);
+ assert(g_bms_report.balance_bits_low==5 && result==BMS_AFE_SAMPLE_OK);
  /* 编码0可代表有效 -40.0C，不应被全局温度极值汇总跳过。 */
  reset();ntc_encoded_temp=0u;
  registers[DVC1124_REG_VCT_H]=0x03u;
@@ -190,7 +189,7 @@ balance_fixture += function(read('bms/afe/dvc1124/dvc1124.c'),'uint8_t bms_afe_d
 balance_fixture += r'''
 static void expect(uint32_t mask,uint8_t good,unsigned expected_reads,unsigned expected_writes){
  unsigned r=reads,w=writes;
- assert(bms_afe_driver_set_balance_mask(mask)==good);
+ assert(bms_afe_driver_set_balance_mask(mask, NULL)==good);
  assert(reads-r==expected_reads && writes-w==expected_writes);
 }
 int main(void){
@@ -211,11 +210,11 @@ int main(void){
  assert(!bms_afe_driver_get_balance_mask(&mask)&&mask==123);
  hw=2;expect(0,0,1+DVC1124_I2C_RETRY_COUNT,DVC1124_I2C_RETRY_COUNT);assert(!hw);
  read_ok=1;hw=2;read_failures=1;expect(0,1,2,1); /* 首读失败仍尝试并确认 OFF。 */
- read_ok=1;cells=16;assert(bms_afe_driver_set_balance_mask(0xff010001u)&&hw==1u);
- now=UINT32_MAX-50u;hw=0;assert(bms_afe_driver_set_balance_mask(5));
- now=49;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_ms==UINT32_MAX-50u);
- now=50;write_ok=0;assert(!bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_ms==UINT32_MAX-50u);
- write_ok=1;assert(bms_afe_driver_set_balance_mask(5)&&s_balance_last_refresh_ms==50);
+ read_ok=1;cells=16;assert(bms_afe_driver_set_balance_mask(0xff010001u, NULL)&&hw==1u);
+ now=UINT32_MAX-50u;hw=0;assert(bms_afe_driver_set_balance_mask(5, NULL));
+ now=49;assert(bms_afe_driver_set_balance_mask(5, NULL)&&s_balance_last_refresh_ms==UINT32_MAX-50u);
+ now=50;write_ok=0;assert(!bms_afe_driver_set_balance_mask(5, NULL)&&s_balance_last_refresh_ms==UINT32_MAX-50u);
+ write_ok=1;assert(bms_afe_driver_set_balance_mask(5, NULL)&&s_balance_last_refresh_ms==50);
  /* 最终确认缺位/OFF反弹：报告实际值，失败不续期。 */
  stuck_xor=1;now=60;hw=0;
  expect(5,0,1+DVC1124_I2C_RETRY_COUNT,DVC1124_I2C_RETRY_COUNT);
@@ -230,6 +229,16 @@ int main(void){
  stuck_extra_bits=0;hw=0;write_failures=1;unsigned d=delays;
  expect(5,1,2,2);assert(delays==d+1u); /* 一次写失败后有界重试。 */
  hw=0;verify_failures=1;d=delays;expect(5,1,3,2);assert(delays==d+1u);
+ /* 本轮读值复用：不变不再读，有写入仍须验证。 */
+ assert(bms_afe_driver_get_balance_mask(&mask)&&mask==5u);
+ unsigned r=reads,w=writes;
+ assert(bms_afe_driver_set_balance_mask(5u,&mask)&&reads==r&&writes==w);
+ assert(bms_afe_driver_set_balance_mask(0u,&mask)&&reads==r+1u&&writes==w+1u);
+ assert(bms_afe_driver_get_balance_mask(&mask)&&mask==0u);
+ r=reads;w=writes;verify_failures=DVC1124_I2C_RETRY_COUNT;
+ assert(!bms_afe_driver_set_balance_mask(5u,&mask));
+ assert(reads==r+DVC1124_I2C_RETRY_COUNT&&writes==w+DVC1124_I2C_RETRY_COUNT);
+ expect(0,1,2,1); /* 失败后的补偿传 NULL，重新读取并确认。 */
  puts("PASS DVC balance: normal change/renew 2 reads + 1 write; OFF 1 read; bounded failure retries, raw-mask mismatch, actual report and wrap");
  return 0;
 }

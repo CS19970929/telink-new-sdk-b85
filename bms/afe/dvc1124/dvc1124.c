@@ -13,7 +13,6 @@
 #include "drivers.h"
 #include "bms_product.h"
 #include "bms_afe_backend.h"
-#include "bms_error.h"
 #include "bms_state.h"
 #include "bms_parameters.h"
 #include "bms_afe_hw_profile.h"
@@ -1179,19 +1178,22 @@ static uint8_t dvc_write_balance_hw(uint32_t cell_mask)
 }
 
 /* 请求由公共策略拥有；驱动只保存成功续期时间和实际回读。
- * 同样请求无需镜像缓存，回读不符或到期才写，OFF 也须成功确认。 */
-uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask)
+ * 本轮已读实际值可复用；回读不符或到期才写，OFF 也须成功确认。 */
+uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask, const uint32_t *known_actual)
 {
     uint32_t actual;
     cell_mask &= dvc_valid_cell_mask();
-    if (!dvc_refresh_balance_state()) {
-        /* 读失败不能阻止尝试关闭；非零请求则禁止凭缓存通电。 */
-        if (cell_mask || !dvc_write_balance_hw(0u)) return 0u;
-        s_balance_last_refresh_ms = bms_time_ms();
-        return 1u;
+    if (known_actual != NULL) actual = *known_actual & dvc_valid_cell_mask();
+    else {
+        if (!dvc_refresh_balance_state()) {
+            /* 读失败不能阻止尝试关闭；非零请求则禁止凭缓存通电。 */
+            if (cell_mask || !dvc_write_balance_hw(0u)) return 0u;
+            s_balance_last_refresh_ms = bms_time_ms();
+            return 1u;
+        }
+        actual = ((uint32_t)g_bms_report.balance_bits_high << 16) |
+                 g_bms_report.balance_bits_low;
     }
-    actual = ((uint32_t)g_bms_report.balance_bits_high << 16) |
-             g_bms_report.balance_bits_low;
     if (actual != cell_mask ||
         (cell_mask && (uint32_t)(bms_time_ms() - s_balance_last_refresh_ms) >
                                        DVC_BALANCE_REFRESH_INTERVAL_MS)) {
@@ -1489,12 +1491,7 @@ bms_afe_sample_status_t DVC1124_App_AFEGet(void)
 
     bms_afe_publish_fet_status(data[DVC1124_REG_CC2_L_FLAGS], 1u);
 
-    /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */
-    if (!dvc_refresh_balance_state()) {
-        bms_error_raise(BMS_ERROR_BALANCE); /* 未知保留最后确认值，不能冒充关闭。 */
-        result = BMS_AFE_SAMPLE_READ_ERROR;
-    }
-
+    /* 均衡实际值由公共策略在选串前读取，本函数只负责测量快照。 */
     return result;
 }
 

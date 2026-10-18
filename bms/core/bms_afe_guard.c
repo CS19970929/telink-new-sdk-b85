@@ -82,7 +82,7 @@ static void best_effort_shutdown(void)
      * 总线已失效时，以硬件 AFE 看门狗关断为准。
      */
 #if BMS_FEATURE_BALANCE_SUPPORTED
-    (void)bms_afe_driver_set_balance_mask(0u);
+    (void)bms_afe_driver_set_balance_mask(0u, NULL);
 #endif
     (void)bms_afe_driver_set_fets(0u, 0u);
 }
@@ -218,7 +218,7 @@ void bms_afe_init(void)
         bms_sw_protection_init();
     bms_features_init();
 #if BMS_FEATURE_BALANCE_SUPPORTED
-    (void)bms_afe_driver_set_balance_mask(0u);
+    (void)bms_afe_driver_set_balance_mask(0u, NULL);
 #endif
     g_bms_system_status.bits.afe1_status = 0u;
 }
@@ -280,7 +280,7 @@ uint8_t bms_afe_sleep(void)
     inhibit_local();
     if (bms_afe_driver_policy.sleep_holds_bus) {
 #if BMS_FEATURE_BALANCE_SUPPORTED
-        if (!bms_afe_driver_set_balance_mask(0u)) { note_invalid(); return 0u; }
+        if (!bms_afe_driver_set_balance_mask(0u, NULL)) { note_invalid(); return 0u; }
 #endif
         if (!bms_afe_driver_set_fets(0u, 0u)) { note_invalid(); return 0u; }
     }
@@ -453,15 +453,18 @@ uint8_t bms_afe_get_charge_source_present(uint8_t *p)
 }
 
 /* 门禁允许时更新有效通道均衡请求。 */
-uint8_t bms_afe_set_balance_mask(uint32_t m)
+uint8_t bms_afe_set_balance_mask(uint32_t m, const uint32_t *known_actual)
 {
 #if BMS_FEATURE_BALANCE_SUPPORTED
     /* 即使请求 OFF，总线无法访问也不能声称已经物理确认关闭。 */
     if (!runtime_access_allowed()) return 0u;
-    if (bms_afe_driver_set_balance_mask(m)) return 1u;
+    if (s_guard.cycle_failed && m != 0u) return 0u;
+    if (s_guard.cycle_failed) known_actual = NULL;
+    if (bms_afe_driver_set_balance_mask(m, known_actual)) return 1u;
     s_guard.cycle_failed = 1u;
     return 0u;
 #else
+    (void)known_actual;
     return (m == 0u) ? 1u : 0u;
 #endif
 }

@@ -3,7 +3,7 @@ bms_protection_params_t g_bms_protection_params;
 static bms_user_params_t user;
 static bms_afe_feature_snapshot_t snapshot;
 static uint8_t snapshot_valid, heater, balance_fail, balance_off_fail, balance_read_fail, params_valid=1;
-static unsigned balance_on_calls, balance_off_calls, balance_get_calls;
+static unsigned balance_on_calls, balance_off_calls, balance_get_calls, balance_read_failures;
 static unsigned charger_queries;
 static uint8_t charger_present, charger_valid;
 static unsigned fuse_count;
@@ -18,14 +18,15 @@ void bms_board_heater_set(uint8_t on){heater=on;}
 void bms_board_heater_fuse_fire(void){++fuse_count;fuse_request=1u;}
 uint8_t bms_afe_get_charge_source_present(uint8_t *present){++charger_queries;*present=charger_present;return charger_valid;}
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s){if(!snapshot_valid){memset(s,0xa5,sizeof(*s));return 0;}*s=snapshot;return 1;}
-uint8_t bms_afe_set_balance_mask(uint32_t mask){
+uint8_t bms_afe_set_balance_mask(uint32_t mask,const uint32_t *known_actual){
+    if(known_actual)assert(*known_actual==balance && !balance_read_fail);
     if(mask)++balance_on_calls;else ++balance_off_calls;
     if(balance_fail || (!mask && balance_off_fail))return 0;
     balance=mask & ~balance_dropped_mask;
     /* 与 DVC/SH 真实后端保持同一契约：成功必须完成回读并与请求一致。 */
     return !balance_read_fail && balance==mask;
 }
-uint8_t bms_afe_get_balance_mask(uint32_t *mask){++balance_get_calls;if(balance_read_fail)return 0;*mask=balance;return 1;}
+uint8_t bms_afe_get_balance_mask(uint32_t *mask){++balance_get_calls;if(balance_read_fail)return 0;if(balance_read_failures){--balance_read_failures;return 0;}*mask=balance;return 1;}
 /* FEATURES */
 static void voltages(unsigned delta)
 {
@@ -42,7 +43,7 @@ static void reset(void)
     for(unsigned i=0;i<BMS_ERROR_COUNT;i++)bms_error_clear((bms_error_id_t)i);
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));memset(&snapshot,0,sizeof(snapshot));
     params_valid=1;balance=0;balance_dropped_mask=0;balance_fail=balance_off_fail=balance_read_fail=0;
-    balance_on_calls=balance_off_calls=balance_get_calls=0;fuse_count=0;fuse_request=0;
+    balance_on_calls=balance_off_calls=balance_get_calls=balance_read_failures=0;fuse_count=0;fuse_request=0;
     charger_queries=0;charger_present=BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT;charger_valid=1;
     snapshot_valid=1;snapshot.cell_count=BMS_PRODUCT_CELL_COUNT;
     snapshot.battery_temp_valid=1;snapshot.heater_temp_valid=1;snapshot.mos_temp_valid=1;
@@ -65,8 +66,8 @@ int main(void)
     reset();params_valid=0;step(5);
     assert(!balance && !heater);
     /* 许可为零时持续禁止；AFE 重初始化也不能覆盖持久配置。 */
-    reset();step(5);assert(balance_get_calls==0u); /* 成功的 ON/OFF 不再重复读硬件 */
-    user.balance_enable=0;step(1);assert(!balance && balance_get_calls==0u);
+    reset();step(5);assert(balance_get_calls==(BMS_FEATURE_BALANCE_SUPPORTED?5u:0u));
+    user.balance_enable=0;step(1);assert(!balance && balance_get_calls==(BMS_FEATURE_BALANCE_SUPPORTED?6u:0u));
     unsigned on_before=balance_on_calls;
     bms_features_init();step(20);assert(!balance && balance_on_calls==on_before);
     /* 恢复许可只恢复条件检测，压差不足仍然不启动。 */
@@ -95,6 +96,10 @@ int main(void)
     assert(!balance);
     g_bms_report.discharge_current_a10=0;g_bms_report.charge_current_a10=10;step(1);
     voltages(31);step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
+    /* AFE 定时关闭后不能凭旧活动报告借用停止迟滞重新开启。 */
+    balance=0u;step(1);assert(!balance && !reported_balance_mask());
+    voltages(50);step(1);voltages(31);step(1);
+    assert(balance==(bms_board_balance_supported()?1u:0u));
     voltages(30);step(1);assert(!balance);
     voltages(49);step(1);assert(!balance);voltages(50);step(1);
     assert(balance==(bms_board_balance_supported()?1u:0u));
@@ -162,6 +167,14 @@ int main(void)
         assert(g_bms_report.balance_bits_low==3u);
         on_calls=balance_on_calls;step(2);assert(balance_on_calls==on_calls);
         balance_read_fail=0;step(1);assert(!balance && !s_feature.balance_off_pending);
+        assert(!balance_voltage_trusted()); /* 必要读取失败重建电压资格，不能直接重开。 */
+    }
+    if(bms_board_balance_supported()) {
+        /* 必要读取失败，随后 OFF 成功：仍保留失败观察，且不执行本轮加热决策。 */
+        reset();step(5);unsigned queries=charger_queries,on_calls=balance_on_calls;
+        balance_read_failures=1;step(1);
+        assert(!balance && !heater && bms_error_get(BMS_ERROR_BALANCE));
+        assert(!balance_voltage_trusted() && balance_on_calls==on_calls && charger_queries==queries);
     }
     reset();user.balance_stop_delta_mv=0;step(5);voltages(0);step(1);
     assert(!balance); /* 零停止压差不能把最低电芯或所有电芯打开。 */

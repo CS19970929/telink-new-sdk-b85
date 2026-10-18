@@ -77,8 +77,10 @@ typedef struct {
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
 /* 取得后端可验证的充电源存在状态。 */
 uint8_t bms_afe_get_charge_source_present(uint8_t *present);
-/* 有均衡能力时返回 1 代表实际硬件掩码已回读确认等于请求；总线静默返回 0。 */
-uint8_t bms_afe_set_balance_mask(uint32_t cell_mask);
+/* 有均衡能力时返回 1 代表实际硬件掩码已回读确认等于请求；总线静默返回 0。
+ * known_actual 非空时只能指向本轮刚成功读取的实际值；失败/写入后不得复用。
+ * 独立关闭、初始化及补偿传 NULL，由后端自行读取确认。 */
+uint8_t bms_afe_set_balance_mask(uint32_t cell_mask, const uint32_t *known_actual);
 /* 读取当前后端均衡状态掩码。 */
 uint8_t bms_afe_get_balance_mask(uint32_t *cell_mask);
 /* 取得输出禁止、通信隔离和恢复阶段诊断位。 */

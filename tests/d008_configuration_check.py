@@ -351,7 +351,7 @@ def check_d008_framework_contract_check():
             self.assertNotIn("param_upgrade_mark_epoch", self.param)
 
         def test_balance_safety_gate_remains(self):
-            self.assertIn("apply_balance_mask(0u)", self.features)
+            self.assertIn("apply_balance_mask(0u, NULL)", self.features)
             self.assertIn("balance_voltage_trusted", self.features)
             self.assertNotIn("cell_delta_first_mv", self.features)
             self.assertIn("bms_afe_driver_set_balance_mask", self.dvc)

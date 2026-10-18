@@ -289,7 +289,7 @@ static void publish_balance(uint32_t mask)
 }
 
 /* 应用均衡掩码并记录实际成功状态。 */
-static uint8_t apply_balance_mask(uint32_t desired)
+static uint8_t apply_balance_mask(uint32_t desired, const uint32_t *known_actual)
 {
     uint32_t actual;
 
@@ -298,7 +298,7 @@ static uint8_t apply_balance_mask(uint32_t desired)
         BMS_LOG(BMS_LOG_INFO, BMS_LOG_FEATURE, BMS_LOG_BALANCE_REQUEST, s_feature.balance_requested_mask, desired);
     s_feature.balance_requested_mask = desired;
 #endif
-    if (!bms_afe_set_balance_mask(desired))
+    if (!bms_afe_set_balance_mask(desired, known_actual))
     {
         BMS_LOG(BMS_LOG_ERROR, BMS_LOG_FEATURE, BMS_LOG_BALANCE_RESULT, desired, UINT32_MAX);
         if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
@@ -307,8 +307,8 @@ static uint8_t apply_balance_mask(uint32_t desired)
         return 0u;
     }
 
-    /* AFE set 返回成功已经包含实际寄存器回读匹配。
-     * 总线静默和未确认的 OFF 均返回失败；不再进行第二次同值回读。 */
+    /* 同轮已读实际值可确认不变请求；发生写入时后端仍须回读匹配。
+     * 总线静默和未确认的 OFF 均返回失败。 */
     publish_balance(desired);
     if (desired == 0u) s_feature.balance_off_pending = 0u;
     bms_error_clear(BMS_ERROR_BALANCE);
@@ -520,7 +520,8 @@ static uint32_t select_balance_mask(const bms_afe_feature_snapshot_t *s,
  * 失效测量和硬故障应通过现有路径停止均衡。
  */
 static void service_balance(const bms_afe_feature_snapshot_t *s,
-                            const bms_user_params_t *config)
+                            const bms_user_params_t *config,
+                            const uint32_t *known_actual)
 {
     uint32_t desired = 0u;
     /* 即使其他门禁阻断，也持续记录过热/降温，不能丢失暂停回差。 */
@@ -542,11 +543,11 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
 
     if (allowed) desired = select_balance_mask(s, config);
 
-    if (!apply_balance_mask(desired))
+    if (!apply_balance_mask(desired, known_actual))
     {
         /* 非零应用失败后仅追加一次关闭尝试；关闭未确认时以后只重试 OFF。
          * 受 guard 总线静默约束，不在这里重初始化 AFE，也不忙等。 */
-        if (desired != 0u) (void)apply_balance_mask(0u);
+        if (desired != 0u) (void)apply_balance_mask(0u, NULL);
         if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
     }
 }
@@ -587,6 +588,9 @@ void bms_features_service(void)
     bms_afe_feature_snapshot_t s;
     bms_user_params_t config;
     const bms_user_params_t *user;
+#if BMS_FEATURE_BALANCE_SUPPORTED
+    uint32_t actual_balance;
+#endif
 
     if (!bms_afe_get_feature_snapshot(&s))
     {
@@ -596,13 +600,23 @@ void bms_features_service(void)
 
     user = bms_config_get_user(&config) ? &config : 0;
 #if BMS_FEATURE_BALANCE_SUPPORTED
+    /* 必要总线读取先于加热/均衡决策，失败不能在本轮短暂启动功能输出。
+     * 选串使用真实活动串；栈上结果只传给随后一次同步设置，不跨轮保存。 */
+    if (!bms_afe_get_balance_mask(&actual_balance))
+    {
+        bms_features_stop();
+        (void)apply_balance_mask(0u, NULL);
+        if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
+        return;
+    }
+    publish_balance(actual_balance);
     update_balance_voltage_trust(&s);
 #endif
 #if BMS_FEATURE_HEATER_SUPPORTED
     service_heater(&s, user);
 #endif
 #if BMS_FEATURE_BALANCE_SUPPORTED
-    service_balance(&s, user);
+    service_balance(&s, user, &actual_balance);
 #endif
 #endif
 }

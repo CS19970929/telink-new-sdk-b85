@@ -28,8 +28,9 @@ uint8_t bms_afe_driver_get_direction_allow_mask(void);
 uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *sample);
 uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
 uint8_t bms_afe_driver_get_charge_source_present(uint8_t *present);
-/* 成功必须已回读确认实际掩码；失败不能发布请求值为已应用值。 */
-uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask);
+/* 成功必须已回读确认实际掩码；失败不能发布请求值为已应用值。
+ * known_actual 的同步读取资格与公共接口相同，不能跨轮缓存。 */
+uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask, const uint32_t *known_actual);
 uint8_t bms_afe_driver_get_balance_mask(uint32_t *cell_mask);
 
 void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid);

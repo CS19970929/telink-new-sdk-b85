@@ -1074,12 +1074,15 @@ static uint8_t sh_read_balance_mask(uint32_t *mask)
 }
 
 /* 设置有效通道范围内的后端均衡掩码。 */
-uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask)
+uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask, const uint32_t *known_actual)
 {
     uint32_t actual;
     uint8_t read_ok;
     cell_mask &= SH_FEATURE_VALID_CELL_MASK;
-    read_ok = sh_read_balance_mask(&actual);
+    if (known_actual != NULL) {
+        actual = *known_actual & SH_FEATURE_VALID_CELL_MASK;
+        read_ok = 1u;
+    } else read_ok = sh_read_balance_mask(&actual);
 
     if (cell_mask == 0u) {
         /* 已回读确认为 OFF 时无须再读；首次读取失败仍尽力写 OFF 并再次确认。 */
@@ -1101,7 +1104,7 @@ uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask)
     return 1u;
 }
 
-/* 取得后端缓存或回读的均衡状态掩码。 */
+/* 取得本次实际回读的均衡状态掩码。 */
 uint8_t bms_afe_driver_get_balance_mask(uint32_t *cell_mask)
 {
     return sh_read_balance_mask(cell_mask);

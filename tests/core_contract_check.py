@@ -155,7 +155,7 @@ def check_common_feature_policy_contract_check():
     assert "bms_board_heater_set" in board_h
     assert "bms_board_heater_supported" in board_h and "bms_board_balance_supported" in board_h
     assert "bms_board_heater_supported()" in features_c and "bms_board_balance_supported()" in features_c
-    assert "service_balance" in features_c and "apply_balance_mask(0u)" in features_c
+    assert "service_balance" in features_c and "apply_balance_mask(0u, NULL)" in features_c
     charge_block=guard_c.index("!bms_protection_params_valid()"); fet_write=guard_c.index("bms_afe_driver_set_fets",charge_block)
     assert charge_block < fet_write
     assert "bms_features_charge_direction_blocked()" in text("sh3673510_bms.c")

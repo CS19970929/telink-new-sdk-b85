@@ -17,7 +17,7 @@ const bms_afe_driver_policy_t bms_afe_driver_policy = {5000u,0u,1u};
 static uint32_t now;
 static unsigned c,d,writes,samples;
 static unsigned set_calls, fail_next_control;
-static uint8_t control_ok=1, balance_ok=1, direction_allow_mask;
+static uint8_t control_ok=1, balance_ok=1, balance_get_ok=1, balance_used_known, direction_allow_mask;
 static bms_afe_sample_status_t status=BMS_AFE_SAMPLE_OK;
 uint32_t bms_time_ms(void){return now;}
 void bms_features_init(void){}
@@ -43,13 +43,13 @@ uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *m){
 }
 uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *s){(void)s;return 1;}
 uint8_t bms_afe_driver_get_charge_source_present(uint8_t *p){*p=0;return 1;}
-uint8_t bms_afe_driver_set_balance_mask(uint32_t m){(void)m;return balance_ok;}
-uint8_t bms_afe_driver_get_balance_mask(uint32_t *m){*m=0;return 1;}
+uint8_t bms_afe_driver_set_balance_mask(uint32_t m,const uint32_t *known_actual){(void)m;balance_used_known=(known_actual!=NULL);return balance_ok;}
+uint8_t bms_afe_driver_get_balance_mask(uint32_t *m){if(!balance_get_ok)return 0;*m=0;return 1;}
 uint8_t bms_afe_driver_apply_protection_config(void){return control_ok;}
 uint8_t bms_afe_driver_sleep(void){return 1;}
 static void poll(void){
  bms_afe_sample_status_t r=bms_afe_sample();
- if(r==BMS_AFE_SAMPLE_OK){if(!balance_ok)(void)bms_afe_set_balance_mask(1u);bms_afe_apply_outputs();}
+ if(r==BMS_AFE_SAMPLE_OK){if(!balance_ok)(void)bms_afe_set_balance_mask(1u, NULL);bms_afe_apply_outputs();}
 }
 static void qualify(void){
  status=BMS_AFE_SAMPLE_OK;control_ok=1;direction_allow_mask=0;bms_afe_init();
@@ -109,6 +109,18 @@ int main(void){
  now+=500;poll();assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());
  control_ok=1;now+=5001;poll();qualify();
  #if BMS_FEATURE_BALANCE_SUPPORTED
+ /* 前置均衡读失败、OFF 成功也不能清掉观察或沿用旧资格。 */
+ uint32_t actual_balance=0u;
+ for(unsigned i=0;i<2;i++){
+  assert(bms_afe_sample()==BMS_AFE_SAMPLE_OK);
+  balance_get_ok=0;assert(!bms_afe_get_balance_mask(&actual_balance));balance_get_ok=1;
+  assert(bms_afe_set_balance_mask(0u,&actual_balance)&&!balance_used_known);
+  assert(!bms_afe_set_balance_mask(1u,&actual_balance));
+  bms_afe_apply_outputs();
+  if(!i){assert(!bms_error_get(BMS_ERROR_AFE1));now+=1000u;}
+ }
+ assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());
+ now+=5001u;poll();qualify();
  /* 均衡通信失败后，旧有效测量不能授权同轮新开；下一完整轮次恢复。 */
  assert(bms_afe_set_channel_allowed(0,0)&&!c&&d);
  balance_ok=0;poll();assert(!c&&d&&!bms_error_get(BMS_ERROR_AFE1));
