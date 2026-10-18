@@ -72,7 +72,6 @@ def main():
         if args.compile_soc_executable is None and not args.soc_only and args.behavior_mode is None:
             units.update({
             'power': protective_sleep_state() + '\n'.join(function('app_power.c', sig) for sig in (
-                'static uint8_t app_get_fresh_measurements(',
                 'static uint8_t app_current_prevents_suspend(',
                 'static void app_protective_sleep_hold(',
                 'static void app_prepare_deep_sleep(',

@@ -86,14 +86,6 @@ typedef char sleep_reason_matches_diag[
      (int)BMS_SLEEP_REASON_OVERDISCHARGE == (int)DIAG_SLEEP_REASON_OVERDISCHARGE) ? 1 : -1];
 static app_protective_sleep_t s_protective_sleep;
 
-/* 普通 suspend 只接受新鲜缓存；低压计时不能用此门禁失败推断电压已恢复。 */
-static uint8_t app_get_fresh_measurements(bms_afe_aux_measurements_t *m)
-{
-    if (!bms_afe_get_aux_measurements(m)) return 0u;
-    return ((u32)(bms_time_ms() - m->sample_time_ms) <=
-            BMS_SAMPLE_MAX_POLL_GAP_MS) ? 1u : 0u;
-}
-
 /* 普通 Suspend 只看电流是否达到活动阈值；与保护性深睡资格独立。 */
 static uint8_t app_current_prevents_suspend(const bms_afe_aux_measurements_t *m, u8 valid)
 {
@@ -427,7 +419,7 @@ void app_power_process(const volatile uint8_t *sample_due)
     bms_afe_aux_measurements_t m;
     app_sleep_status_t protective;
     u32 elapsed_sec = app_pm_take_elapsed_seconds(&elapsed_ctx);
-    u8 valid = app_get_fresh_measurements(&m);
+    u8 valid = bms_afe_get_aux_measurements(&m);
     if (app_protective_sleep_poll(elapsed_sec, &m, valid, &protective)) return;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     u32 pm_block = 0u;

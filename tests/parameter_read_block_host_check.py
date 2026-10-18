@@ -77,7 +77,7 @@ int main(void) {
         123u,0x8000u,(u16)(u32)-1234,(u16)((u32)-1234>>16),1u,0xfff0u,0xffffu};
     check(BMS_PARAM_REG_CURRENT_OFFSET_LO,11u,currents);assert(user_calls==1u&&sample_calls==1u);
     sample_ok=0u;reset();assert(bms_parameter_read_block(BMS_PARAM_REG_RAW_CURRENT_LO,7u,data));assert(!value(4));sample_ok=1u;
-    sample_tick=now-BMS_SAMPLE_MAX_POLL_GAP_MS-1u;reset();assert(bms_parameter_read_block(BMS_PARAM_REG_SAMPLE_VALID,1u,data));assert(!value(0));
+    sample_tick=now-BMS_SAMPLE_MAX_POLL_GAP_MS-1u;reset();assert(bms_parameter_read_block(BMS_PARAM_REG_SAMPLE_VALID,1u,data));assert(value(0)==1u);
     user_ok=0u;reset();assert(bms_parameter_read_block(BMS_PARAM_REG_SN_BASE,16u,data));assert(user_calls==1u);
     for(unsigned i=0;i<16u;++i)assert(value(i)==0xffffu);
     user_ok=1u;

@@ -160,7 +160,6 @@ def check_sh_protective_sleep():
     policy = (root / 'bms/core/bms_sleep_config.c').read_text()
     body += policy[policy.index('static uint32_t sleep_elapsed_limit('):]
     body += '\n'.join(function(source, signature) for signature in (
-        'static uint8_t app_get_fresh_measurements(',
         'static u32 app_pm_take_elapsed_seconds(',
         'static u8 app_sh_other_wakeup_levels(', 'static void app_sh_set_other_wakeup(',
         'u8 app_power_boot_sleep_hold(',
@@ -192,7 +191,6 @@ def check_sh_suspend_current_gates():
     defines += '\n' + re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                                (root / 'bms/core/bms_soc.h').read_text(), re.M).group()
     body = '\n'.join(function(source, signature) for signature in (
-        'static uint8_t app_get_fresh_measurements(',
         'static uint8_t app_current_prevents_suspend(',
         'void app_power_process('))
     fixture = r'''
@@ -250,19 +248,19 @@ def check_sh_suspend_current_gates():
         measurement.current_ma=0;
         valid=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         valid=1;now=measurement.sample_time_ms+401u;
-        app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
+        app_power_process(&due);assert(mask==(SUSPEND_ADV|SUSPEND_CONN) && observed_allowed);
         now=100;due=1;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         due=0;flash_locked=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         /* 各门禁组合：控制输出与最终诊断必须一致，每轮只设置一次 mask。 */
-        for(unsigned bits=0;bits<256u;bits++){
+        for(unsigned bits=0;bits<128u;bits++){
             idle_ready=(bits&1u)!=0;flash_locked=(bits&2u)!=0;
             tx_busy=(bits&4u)!=0;modbus_busy=(bits&8u)!=0;
             ota_is_working=(bits&16u)!=0;valid=(bits&32u)!=0;
             due=(bits&64u)!=0;
-            now=100u+((bits&128u)?401u:0u);mask_calls=0;
+            now=100u;mask_calls=0;
             app_power_process(&due);
             int blocked=!idle_ready || !flash_locked ||
-                tx_busy || modbus_busy || ota_is_working || !valid || due || (bits&128u);
+                tx_busy || modbus_busy || ota_is_working || !valid || due;
             assert(mask==(blocked?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
             assert(observed_allowed==!blocked && s_low_power_mode==!blocked && mask_calls==1);
         }

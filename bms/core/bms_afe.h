@@ -9,7 +9,7 @@
 #include "bms_afe_backend.h"
 #include "bms_diag_config.h"
 #include "bms_timing.h"
-/* 初始化 guard 与选定后端，输出仍受采样资格约束。 */
+/* 初始化 guard 与选定后端，完整测量和配置验证前禁止输出。 */
 void bms_afe_init(void);
 /* OK 表示本轮完整读取成功；转换完成事件只在后端用于校准及保护恢复。 */
 typedef enum {
@@ -49,7 +49,7 @@ uint8_t bms_afe_bus_access_allowed(void);
 /* 主循环只读 RAM 查询，无总线事务或 FET 命令。 */
 uint8_t bms_afe_current_recovery_pending(void);
 #if defined(BMS_HOST_TEST) && BMS_HOST_TEST
-/* 主动保持的休眠在重新初始化、三帧资格确认后恢复。 */
+/* 主动保持的休眠在重新初始化、完整测量和必要控制成功后恢复。 */
 uint8_t bms_afe_test_wake(void);
 #endif
 typedef struct {

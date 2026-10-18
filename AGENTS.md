@@ -21,7 +21,7 @@
 - SDK 和 TC32 ABI/启动/链接库保持原体系。TLSR8251 为 32 KiB SRAM，启动定义 `MCU_STARTUP_8251`。
 - 公共 mA 正放电负充电；温度协议仍是 `(°C+40)*10`，容量字段单位必须核对。
 - 软件保护与 AFE hardware profile 独立；SC/OCD/OCC 不能只用关 MOS 后零电流恢复。
-- 通信失效必须保留 watchdog bus silence、三次有效样本资格和输出 inhibit。
+- AFE 通信异常持续 1 秒才确认故障；保留 watchdog bus silence 和输出 inhibit。删除 ADC 活性、停更故障及三次新样本门禁；完整通信和配置验证后恢复，真实保护仍按物理条件恢复。详见 `docs/AFE_COMMUNICATION_POLICY.md`。
 - 无效串位发送 61001，不计入有效串数、min/max、SOC、保护、balance/open-wire。
 - D011 PB5 fuse 安全电平不得改变；D013 heater/balance 都不支持；D014 无 heater、TS3 NC、TS4 为 MOS NTC。
 - D014 原理图/BOM 与板级阻断详见产品目录 AGENTS 和 `docs/HARDWARE_VALIDATION.md`。

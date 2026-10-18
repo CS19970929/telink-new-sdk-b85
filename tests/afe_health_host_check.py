@@ -16,7 +16,7 @@ guard = r'''
 const bms_afe_driver_policy_t bms_afe_driver_policy = {5000u,0u,1u};
 static uint32_t now;
 static unsigned c,d,writes,samples;
-static uint8_t control_ok=1;
+static uint8_t control_ok=1, balance_ok=1;
 static bms_afe_sample_status_t status=BMS_AFE_SAMPLE_OK;
 uint32_t bms_time_ms(void){return now;}
 void bms_features_init(void){}
@@ -40,13 +40,13 @@ uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *m){
 }
 uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *s){(void)s;return 1;}
 uint8_t bms_afe_driver_get_charge_source_present(uint8_t *p){*p=0;return 1;}
-uint8_t bms_afe_driver_set_balance_mask(uint32_t m){(void)m;return 1;}
+uint8_t bms_afe_driver_set_balance_mask(uint32_t m){(void)m;return balance_ok;}
 uint8_t bms_afe_driver_get_balance_mask(uint32_t *m){*m=0;return 1;}
 uint8_t bms_afe_driver_apply_protection_config(void){return control_ok;}
 uint8_t bms_afe_driver_sleep(void){return 1;}
 static void poll(void){
  bms_afe_sample_status_t r=bms_afe_sample();
- if(r==BMS_AFE_SAMPLE_OK)bms_afe_apply_outputs();
+ if(r==BMS_AFE_SAMPLE_OK){if(!balance_ok)(void)bms_afe_set_balance_mask(1u);bms_afe_apply_outputs();}
 }
 static void qualify(void){
  status=BMS_AFE_SAMPLE_OK;control_ok=1;bms_afe_init();
@@ -80,6 +80,12 @@ int main(void){
  control_ok=0;poll();now+=500;poll();assert(c&&d);
  now+=500;poll();assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());
  control_ok=1;now+=5001;poll();qualify();
+ #if BMS_FEATURE_BALANCE_SUPPORTED
+ /* 本轮均衡必要事务失败，即使后续 MOS 成功也不能清零。 */
+ balance_ok=0;poll();now+=999;poll();assert(!bms_error_get(BMS_ERROR_AFE1));
+ now+=1;poll();assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());
+ balance_ok=1;now+=5001;poll();qualify();
+ #endif
  status=BMS_AFE_SAMPLE_ERROR;poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));
  qualify();bms_afe_invalidate_configuration();assert(!c&&!d);
  for(unsigned i=0;i<20;i++)poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));

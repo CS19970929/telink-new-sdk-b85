@@ -100,7 +100,7 @@ void bms_config_get_sleep(bms_sleep_config_t *config){*config=sleep_config;}
 static u8 fixture_sleep_poll(u32 seconds, app_sleep_status_t *status)
 {
     bms_afe_aux_measurements_t snapshot;
-    u8 sample_valid = app_get_fresh_measurements(&snapshot);
+    u8 sample_valid = bms_afe_get_aux_measurements(&snapshot);
     return app_protective_sleep_poll(seconds, &snapshot, sample_valid, status);
 }
 static app_sleep_status_t sleep_status;

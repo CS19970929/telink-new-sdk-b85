@@ -173,8 +173,7 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
             s->sample_loaded = 1u;
         }
         if (r == BMS_PARAM_REG_SAMPLE_VALID)
-            return s->sample_valid &&
-                   (u32)(bms_time_ms() - sample->sample_time_ms) <= BMS_SAMPLE_MAX_POLL_GAP_MS;
+            return s->sample_valid;
         if (r == BMS_PARAM_REG_SAMPLE_TICK_LO) return (u16)sample->sample_tick_32k;
         if (r == BMS_PARAM_REG_SAMPLE_TICK_HI) return (u16)(sample->sample_tick_32k >> 16);
         if (r == BMS_PARAM_REG_RAW_CURRENT_LO) return (u16)sample->raw_current_ma;
@@ -243,7 +242,6 @@ static u8 switch_chemistry(const u8 *data, u16 qty)
     if (!bms_protection_params_valid() || !bms_afe_bus_access_allowed() ||
         !(bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) ||
         !bms_afe_get_aux_measurements(&sample) ||
-        (u32)(bms_time_ms() - sample.sample_time_ms) > BMS_SAMPLE_MAX_POLL_GAP_MS ||
         !bms_soc_profile_valid(&previous_profile) ||
         sample.current_ma > (int32_t)previous_profile.current_deadband_ma ||
         sample.current_ma < -(int32_t)previous_profile.current_deadband_ma) return 4u;

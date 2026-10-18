@@ -97,15 +97,10 @@ static void test_startup_qualification(void){
  reset();raised=0;bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
  unsigned init_count=protection_inits;
  assert(s_guard.comm_inhibit && !err && !raised);
- for(int i=0;i<2;i++){
-  sample_cycle();assert(s_guard.comm_inhibit && !err && !raised);
-  assert(cmd_c==0 && cmd_d==0);
- }
  sample_cycle();assert(!s_guard.comm_inhibit && !err && !raised && cmd_c==1 && cmd_d==1);
- /* An actual failed read still reports immediately and needs three good reads. */
+ /* 后端违反 OK/aux 契约仍是明确错误；完整有效读取即可重新取得资格。 */
  aux_ok=0;sample_cycle();assert(err && raised && s_guard.comm_inhibit);
  aux_ok=1;
- for(int i=0;i<2;i++){sample_cycle();assert(err && s_guard.comm_inhibit && cmd_c==0 && cmd_d==0);}
  sample_cycle();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
  assert(protection_inits==init_count); /* DVC 失联恢复保持既有保护生命周期。 */
  /* Repeated failures still silence the bus for the hardware watchdog window. */
@@ -116,13 +111,11 @@ static void test_startup_qualification(void){
  guard_tick+=5000u-1u;sample_cycle();assert(sample_calls==before && s_guard.bus_silenced);
  guard_tick+=2u;
  sample_cycle();assert(sample_calls==before && err && s_guard.comm_inhibit);
- for(int i=0;i<2;i++){sample_cycle();assert(err && s_guard.comm_inhibit);}
  sample_cycle();assert(!err && !s_guard.comm_inhibit && cmd_c==1 && cmd_d==1);
  /* A backend init/config failure is not mistaken for healthy startup. */
  reset();init_fail=1;bms_afe_init();assert(err);
- for(int i=0;i<2;i++){sample_cycle();assert(err && s_guard.comm_inhibit);}
  sample_cycle();assert(!err && !s_guard.comm_inhibit);init_fail=0;
- puts("PASS healthy boot: zero synthetic AFE1 errors, three-sample output inhibit; real init/read faults and watchdog recovery retained");
+ puts("PASS healthy boot: zero synthetic AFE1 errors, complete-read output gate; real init/read faults and watchdog recovery retained");
 }
 int main(void){
  test_startup_qualification();

@@ -1,6 +1,5 @@
 /*
- * 文件功能：AFE 通信安全门禁；管理输出授权、失联隔离、硬件 watchdog 静默窗口和恢复样
- * 本资格。
+ * 文件功能：AFE 通信安全门禁；管理输出授权、失联隔离、watchdog 静默和完整轮次恢复。
  * bms/core/bms_afe_guard.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_driver.h"
@@ -15,7 +14,6 @@
 
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u
 #define BMS_AFE_COMM_CONFIRM_MS             1000u
-#define BMS_AFE_COMM_CONFIRM_COUNT          3u
 
 /* MCU 撤销请求后按所选后端的固定 watchdog 窗口保持总线静默。 */
 
@@ -32,7 +30,7 @@ typedef struct
     uint8_t test_shutdown_hold;
     uint8_t fet_driver_bits;
     uint8_t fet_driver_valid;
-    uint8_t sample_unusable;
+    uint8_t cycle_failed; /* 本轮任一必要事务失败，成功的局部事务不能清除观察。 */
     uint32_t comm_failure_started_ms;
     uint32_t failsafe_start_tick_ms;
 } bms_afe_guard_state_t;
@@ -67,7 +65,7 @@ static void inhibit_local(void)
 {
     s_guard.comm_fault_latched = 1u;
     s_guard.comm_inhibit = 1u;
-    s_guard.sample_unusable = 1u;
+    s_guard.cycle_failed = 1u;
     g_bms_system_status.bits.afe1_status = 0u;
     bms_afe_publish_fet_status(0u, 0u);
     bms_features_stop();
@@ -133,13 +131,16 @@ static uint8_t apply_requested(void)
     uint8_t c;
     uint8_t d;
     uint8_t direction_allow_mask;
+    bms_afe_aux_measurements_t measurements;
+    uint8_t sample_valid;
 
     /* 通信禁止期间 MCU 只管理授权，不能反复写关闭命令而意外喂 AFE WDT。 */
     if (!runtime_access_allowed()) return 1u;
 
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
-    direction_allow_mask = s_guard.sample_unusable ? 0u : bms_afe_driver_get_direction_allow_mask();
+    sample_valid = bms_afe_driver_get_aux_measurements(&measurements);
+    direction_allow_mask = sample_valid ? bms_afe_driver_get_direction_allow_mask() : 0u;
     /*
      * 用户关闭意图始终保留。AFE 确认放电时临时放行充电 MOS，确认充电时
      * 临时放行放电 MOS；方向消失后下一次仲裁自动恢复用户关闭。
@@ -156,7 +157,7 @@ static uint8_t apply_requested(void)
         d = 0u;
     }
     /* 方向阻断由选定后端处理，保留同口放电及 DVC AUTO_DIODE 语义。 */
-    if (s_guard.sample_unusable) return bms_afe_driver_disable_fets(!c, !d);
+    if (!sample_valid) return bms_afe_driver_disable_fets(!c, !d);
     return bms_afe_driver_set_fets(c, d);
 }
 
@@ -184,25 +185,25 @@ static void note_invalid(void)
 static void note_communication_failure(void)
 {
     uint32_t now = bms_time_ms();
-    s_guard.sample_unusable = 1u;
+    s_guard.cycle_failed = 1u;
     bms_afe_publish_fet_status(0u, 0u);
+    if (s_guard.comm_fault_latched) s_guard.comm_inhibit = 1u;
     bms_features_stop();
     if (s_guard.comm_failures == 0u) s_guard.comm_failure_started_ms = now;
     if (s_guard.comm_failures != 0xFFu) ++s_guard.comm_failures;
-    if (s_guard.comm_failures >= BMS_AFE_COMM_CONFIRM_COUNT &&
-        (uint32_t)(now - s_guard.comm_failure_started_ms) >= BMS_AFE_COMM_CONFIRM_MS) {
+    if ((uint32_t)(now - s_guard.comm_failure_started_ms) >= BMS_AFE_COMM_CONFIRM_MS) {
         best_effort_shutdown();
         enter_failsafe_wait();
     }
 }
 
-/* 初始化 guard 与选定后端，输出仍受采样资格约束。 */
+/* 初始化 guard 与选定后端；完整测量和配置验证前禁止输出。 */
 void bms_afe_init(void)
 {
     uint8_t config_inhibit = s_guard.config_inhibit;
     memset(&s_guard, 0, sizeof(s_guard));
     s_guard.comm_inhibit = 1u;
-    s_guard.sample_unusable = 1u;
+    s_guard.cycle_failed = 1u;
     s_guard.config_inhibit = config_inhibit;
     if (bms_afe_driver_policy.reset_protection_before_init)
         bms_sw_protection_init();
@@ -227,12 +228,12 @@ bms_afe_sample_status_t bms_afe_sample(void)
     bms_afe_sample_status_t result = BMS_AFE_SAMPLE_NOT_READY;
 
     if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;
+    s_guard.cycle_failed = 0u;
     result = bms_afe_driver_sample();
     if (result == BMS_AFE_SAMPLE_NOT_READY) {
-        /* 启动/重配置等待撤销旧资格，但不记通信失败或重复访问总线。
-         * 普通缓存属于 OK，不会经过这里。 */
+        /* 芯片初始化/重配置的必要等待不计为通信失败。 */
         s_guard.comm_inhibit = 1u;
-        s_guard.sample_unusable = 1u;
+        s_guard.cycle_failed = 1u;
         bms_afe_publish_fet_status(0u, 0u);
         bms_features_stop();
         return result;
@@ -250,22 +251,24 @@ bms_afe_sample_status_t bms_afe_sample(void)
         return result;
     }
 
-    s_guard.sample_unusable = 0u;
-    if (!s_guard.config_inhibit) {
-        s_guard.comm_inhibit = 0u;
-        s_guard.comm_fault_latched = 0u;
-        bms_error_clear(BMS_ERROR_AFE1);
-        g_bms_system_status.bits.afe1_status = 1u;
-    } else if (s_guard.comm_fault_latched) {
-        if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
-    }
+    /* 只在完整测量之后允许仲裁；AFE1 要等本轮必要控制也成功才解除。 */
+    if (!s_guard.config_inhibit) s_guard.comm_inhibit = 0u;
     return result;
 }
 
 void bms_afe_apply_outputs(void)
 {
-    if (!apply_requested()) note_communication_failure();
-    else s_guard.comm_failures = 0u;
+    if (!runtime_access_allowed()) return;
+    if (!apply_requested() || s_guard.cycle_failed) {
+        note_communication_failure();
+        return;
+    }
+    s_guard.comm_failures = 0u;
+    if (!s_guard.config_inhibit) {
+        s_guard.comm_fault_latched = 0u;
+        bms_error_clear(BMS_ERROR_AFE1);
+        g_bms_system_status.bits.afe1_status = 1u;
+    }
 }
 
 /* 产品低功耗模式固定：DVC 仅用 Shutdown，SH 仅用 Sleep。 */
@@ -425,7 +428,7 @@ void bms_afe_set_output_enabled(uint8_t e)
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 {
     if (!m) return 0u;
-    if (s_guard.sample_unusable || !runtime_access_allowed() || !bms_afe_driver_get_aux_measurements(m))
+    if (!runtime_access_allowed() || !bms_afe_driver_get_aux_measurements(m))
     {
         memset(m, 0, sizeof(*m));
         return 0u;
@@ -437,7 +440,7 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s)
 {
     /* SOC 同样消费电池温度；测量有效性不能由加热/均衡能力裁剪。 */
-    if (!s || s_guard.sample_unusable || !runtime_access_allowed()) return 0u;
+    if (!s || !runtime_access_allowed()) return 0u;
     return bms_afe_driver_get_feature_snapshot(s);
 }
 
@@ -459,7 +462,9 @@ uint8_t bms_afe_set_balance_mask(uint32_t m)
 #if BMS_FEATURE_BALANCE_SUPPORTED
     /* 即使请求 OFF，总线无法访问也不能声称已经物理确认关闭。 */
     if (!runtime_access_allowed()) return 0u;
-    return bms_afe_driver_set_balance_mask(m);
+    if (bms_afe_driver_set_balance_mask(m)) return 1u;
+    s_guard.cycle_failed = 1u;
+    return 0u;
 #else
     return (m == 0u) ? 1u : 0u;
 #endif
@@ -475,7 +480,9 @@ uint8_t bms_afe_get_balance_mask(uint32_t *m)
         *m = 0u;
         return 0u;
     }
-    return bms_afe_driver_get_balance_mask(m);
+    if (bms_afe_driver_get_balance_mask(m)) return 1u;
+    s_guard.cycle_failed = 1u;
+    return 0u;
 #else
     *m = 0u;
     return 1u;

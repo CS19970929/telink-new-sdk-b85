@@ -30,14 +30,14 @@ app_sample_wakeup：置采样到期标志
 main_loop → app_sample_task（约 200 ms）
   bms_afe_sample → guard → 当前 backend 采样/恢复/测量发布
   backend → bms_sw_protection_update；合并芯片硬件故障
-  guard → OK / NOT_READY / ERROR；confirm_sample 仅推进恢复资格
-  app → bms_features_service(confirm_sample)：有效缓存也检查停止条件
+  guard → OK / NOT_READY / READ_ERROR / ERROR；无 ADC 活性或公共新样本计数
+  app → bms_features_service()：完整有效轮次检查业务条件
   app → bms_afe_apply_outputs → guard apply_requested → backend 最终仲裁/写寄存器
   app_update_soc_from_sample → bms_soc_process_sample
   runtime diagnostics → 下次采样唤醒安排
 ```
 
-软件保护滤波及 MOS 仲裁在 SOC 调用前完成。固定产品请求只在 app_init 提交一次，guard 仍在每次采样后重新仲裁；watchdog 恢复重初始化后端时保留请求，三次新鲜有效样本资格不变。SOC 按应用时间使用最新有效电流；同一电流可用于不同时间段，但缓存不能冒充恢复资格的新帧。无效输入仍作废区间，不补算盲区。请求、允许输出、软件保护、AFE 锁存与寄存器缓存是不同状态；DVC 单侧保护 AUTO_DIODE 与 SH 的 FET 控制方式也不同。
+软件保护滤波及 MOS 仲裁在 SOC 调用前完成。固定产品请求只在 app_init 提交一次，guard 仍在每次采样后重新仲裁；watchdog 恢复重初始化后端时保留请求，完整配置、测量与必要控制成功后恢复，取消三次新样本资格。SOC 按应用时间使用最新有效电流；同一电流可用于不同时间段；具体保护恢复仍检查后端物理证据。无效输入仍作废区间，不补算盲区。请求、允许输出、软件保护、AFE 锁存与寄存器缓存是不同状态；DVC 单侧保护 AUTO_DIODE 与 SH 的 FET 控制方式也不同。
 
 完成标准：沿“温度无效 → TEMP_BREAK → 阻断”走通一遍，指出 SC/OCD/OCC 的恢复证据在哪里；不能只用关 MOS 后电流为零解释恢复。
 

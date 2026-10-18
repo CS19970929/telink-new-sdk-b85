@@ -50,11 +50,11 @@ typedef struct
     uint8_t alarm;
     uint8_t status;
     uint8_t fet_status;          /* R6 CHGF/DSGF，与 R1 CST/RC 事件严格分开。 */
-    uint8_t voltage_fresh;
-    uint8_t current_fresh;
+    uint8_t voltage_fresh;      /* 本轮 VADF，仅供电压保护恢复。 */
+    uint8_t current_fresh;      /* 本轮 CC2F，仅供电流保护恢复。 */
     uint8_t cell_count;
     uint32_t sample_time_ms;
-    uint32_t sample_tick_32k;    /* 采样时刻，使用 SDK 32K 时钟的 32 位回绕值。 */
+    uint32_t sample_tick_32k;    /* MCU 完整读取时刻，SDK 32K 时钟的 32 位回绕值。 */
     int32_t raw_current_ma;     /* 软件工厂校准之前的值。 */
     int32_t current_ma;          /* 正值放电，负值充电。 */
     uint32_t vtop_mv;

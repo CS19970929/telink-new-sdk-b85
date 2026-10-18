@@ -205,7 +205,7 @@ static void test_low_voltage_sample_wait(void){
   now+=401u;elapsed=0;app_power_process(&s_sample_due);
   /* 无新鲜样本时诊断可能优先显示 AFE 倒计时；低压计时所有者必须保持。 */
   assert(s_protective_sleep.voltage_conditions==(BMS_SLEEP_VOLTAGE_LOW_ACTIVE|BMS_SLEEP_VOLTAGE_NORMAL_ACTIVE)&&s_protective_sleep.low_voltage_seconds==seconds);
-  assert(mask==SUSPEND_DISABLE&&!deep_calls);
+  assert(mask==(SUSPEND_ADV|SUSPEND_CONN)&&!deep_calls);
  }
  /* 无效缓存的“恢复电压”不能清零；有效恢复和不同延时区才可以。 */
  reset();g_bms_report.cell_min_mv=2700;elapsed=100;app_power_process(&s_sample_due);
@@ -304,7 +304,7 @@ int main(void){
  measurement.current_ma=0;valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  puts("PASS connected suspend: link retained; ordinary OTA/bus/Flash/sample/current/invalid gates");
  reset();valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
- reset();now+=401;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
+ reset();now+=401;app_power_process(&s_sample_due);assert(mask==(SUSPEND_ADV|SUSPEND_CONN) && !cut_calls && seq_len==0);
  reset();ota_is_working=device_in_connection_state=bus_busy=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;
  elapsed=3600;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
  assert(cut_calls==1&&!deep_calls&&timer_hold_calls==0&&s_protective_sleep_committed&&!output_enabled);
