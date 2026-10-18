@@ -96,7 +96,9 @@ int main(void){
  acquire(7000,0x40);assert(s_voltage_seen && s_snapshot.voltage_fresh && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_NOT_READY && !result.confirm_sample);
  acquire(8000,0x10);assert(s_snapshot.valid && s_snapshot.current_fresh && result.confirm_sample && s_snapshot.sample_tick_32k==8000);
  acquire(9000,0);assert(s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample && s_voltage_seen && s_snapshot.sample_tick_32k==8000);
- acquire(8000+512u*32u+32u,0);assert(!s_snapshot.valid && result.status==BMS_AFE_SAMPLE_ERROR);
+ acquire(8000+512u*32u+32u,0);assert(!s_snapshot.valid && result.status==BMS_AFE_SAMPLE_STALE);
+ acquire(7000+1999u*32u,0);assert(result.status==BMS_AFE_SAMPLE_STALE);
+ acquire(7000+2000u*32u,0);assert(result.status==BMS_AFE_SAMPLE_ERROR);
  /* RM p8 R6 bit1；R1 CST bit1不能冒充DSGF。 */
  reset();registers[6]=2;acquire(100,0x50);assert(s_snapshot.fet_status==2 && g_bms_system_status.bits.discharge_mos_status);
  registers[6]=0;acquire(200,0x52);assert(!s_snapshot.fet_status && !g_bms_system_status.bits.discharge_mos_status);
@@ -144,7 +146,7 @@ int main(void){
 }
 '''
 out=run_c(code,flags=['-DBMS_SERVICE_DIAG_ENABLE=1'],name='dvc-adc-events')
-evidence({'domain':'adc_events','trace':out.strip(),'boundary':'实际CRC/ReadRegisters/App_AFEGet函数体；I2C peer非芯片仿真，外围换算替身；512ms为项目活性约束'})
+evidence({'domain':'adc_events','trace':out.strip(),'boundary':'实际CRC/ReadRegisters/App_AFEGet函数体；I2C peer非芯片仿真；512ms数据失效与2秒停更故障分离'})
 
 # 同一真实事务验证回读、命令失败、续期、OFF、有效串和tick回绕。
 balance_fixture = r'''

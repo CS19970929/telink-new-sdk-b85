@@ -1547,11 +1547,8 @@ bms_afe_sample_result_t DVC1124_App_AFEGet(void)
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))
     {
         s_snapshot.valid = 0u;
-        memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
-        memset(s_snapshot.ntc_res_ohm, 0, sizeof(s_snapshot.ntc_res_ohm));
-        g_bms_report.charge_current_a10 = 0u;
-        g_bms_report.discharge_current_a10 = 0u;
-        dvc_note_comm_result(0u);
+        /* 通信失败不伪造零电流，也不丢弃此前已确认的 NTC；本轮整体无效。 */
+        result.status = BMS_AFE_SAMPLE_READ_ERROR;
         return result;
     }
 
@@ -1592,6 +1589,9 @@ bms_afe_sample_result_t DVC1124_App_AFEGet(void)
     } else if ((!s_voltage_seen || !s_current_seen) &&
                (uint32_t)(now - s_adc_wait_started_ms) <= DVC_ADC_MAX_AGE_MS) {
         result.status = BMS_AFE_SAMPLE_NOT_READY;
+    } else if ((uint32_t)(now - (s_voltage_seen ? s_voltage_ms : s_adc_wait_started_ms)) < BMS_AFE_ADC_STOP_CONFIRM_MS &&
+               (uint32_t)(now - (s_current_seen ? s_current_ms : s_adc_wait_started_ms)) < BMS_AFE_ADC_STOP_CONFIRM_MS) {
+        result.status = BMS_AFE_SAMPLE_STALE;
     }
 
     g_bms_system_status.bits.charge_mos_status =

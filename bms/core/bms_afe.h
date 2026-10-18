@@ -8,13 +8,18 @@
 #include <stdint.h>
 #include "bms_afe_backend.h"
 #include "bms_diag_config.h"
+#include "bms_timing.h"
 /* 初始化 guard 与选定后端，输出仍受采样资格约束。 */
 void bms_afe_init(void);
 /* OK 包括有效缓存；确认事件仅供恢复/功能资格，不是普通业务门禁。 */
 typedef enum {
     BMS_AFE_SAMPLE_OK = 0,
     BMS_AFE_SAMPLE_NOT_READY,
-    BMS_AFE_SAMPLE_ERROR
+    BMS_AFE_SAMPLE_ERROR,
+    /* 普通读事务失败；不能与芯片/配置/清锁存失败混为一类。 */
+    BMS_AFE_SAMPLE_READ_ERROR,
+    /* 数据已不宜用于业务，但尚未达到持续停更故障期限。 */
+    BMS_AFE_SAMPLE_STALE
 } bms_afe_sample_status_t;
 typedef struct {
     bms_afe_sample_status_t status;
