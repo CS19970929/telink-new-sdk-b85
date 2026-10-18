@@ -121,7 +121,8 @@ static void run_long_duration_checks(void){
   int32_t choices[]={-10000,-5000,0,150,5000,10000,20000};
   int32_t ma=choices[random_state%7u];
   if((true_ah<=0.0&&ma>0)||(true_ah>=100.0&&ma<0))ma=0;
-  true_ah-=ma*0.4/3600000.0;
+  /* 模型与固件同一充电库仑效率：充入的 Ah 只有 99% 进入真实容量。 */
+  true_ah-=ma*0.4/3600000.0*(ma<0?0.99:1.0);
   if(true_ah<0)true_ah=0;
   if(true_ah>100)true_ah=100;
   model_voltage(true_ah,ma,random_state+n);
@@ -142,7 +143,8 @@ static void run_long_duration_checks(void){
   if(hour<6u)ma=5000;
   else ma=(((hour-6u)/12u)&1u)?5000:-5000;
   if((true_ah<=20.0&&ma>0)||(true_ah>=80.0&&ma<0))ma=0;
-  true_ah-=ma*0.4/3600000.0;
+  /* 模型与固件同一充电库仑效率：充入的 Ah 只有 99% 进入真实容量。 */
+  true_ah-=ma*0.4/3600000.0*(ma<0?0.99:1.0);
   model_voltage(true_ah,ma,n);
   sample(1,ma,step_ticks);
   if(n&&n%(15u*24u*steps_per_hour)==0u)simulated_reboot();
@@ -166,7 +168,8 @@ static int write_trajectory(void){
   else if(hour<12u)ma=0;
   else ma=-5000;
   if((true_ah<=5.0&&ma>0)||(true_ah>=95.0&&ma<0))ma=0;
-  true_ah-=ma*0.4/3600000.0;
+  /* 模型与固件同一充电库仑效率：充入的 Ah 只有 99% 进入真实容量。 */
+  true_ah-=ma*0.4/3600000.0*(ma<0?0.99:1.0);
   if(true_ah<0)true_ah=0;
   if(true_ah>100)true_ah=100;
   random_state=random_state*1664525u+1013904223u;
@@ -277,16 +280,16 @@ int main(int argc,char **argv){
   assert(integrate(chemistry,499,6400,100)==99);
   assert(integrate(chemistry,499,8000,80)==99);
   assert(integrate(chemistry,499,12800,50)==99);
-  assert(integrate(chemistry,-499,6400,100)==99);
+  assert(integrate(chemistry,-499,6400,100)==98);
   assert(integrate(chemistry,199,6400,100)==0);
   assert(integrate(chemistry,200,6400,100)==0);
   assert(integrate(chemistry,201,6400,100)==40);
   assert(integrate(chemistry,-199,6400,100)==0);
   assert(integrate(chemistry,-200,6400,100)==0);
-  assert(integrate(chemistry,-201,6400,100)==40);
-  assert(integrate(chemistry,-500,6400,100)==100);
+  assert(integrate(chemistry,-201,6400,100)==39);
+  assert(integrate(chemistry,-500,6400,100)==99);
   assert(integrate(chemistry,501,6400,100)==100);
-  assert(integrate(chemistry,-501,6400,100)==100);
+  assert(integrate(chemistry,-501,6400,100)==99);
   /* 五个不同的200ms区间使用同一有效电流，必须完整累计一秒。 */
   setup(chemistry,60,chemistry==1?3330:3800);sample(1,10000,1);
   uint32_t held_before=g_bms_soc.remaining_capacity_as10;
@@ -295,7 +298,7 @@ int main(int argc,char **argv){
   setup(chemistry,60,chemistry==1?3330:3800);sample(1,-10000,1);
   held_before=g_bms_soc.remaining_capacity_as10;
   for(unsigned i=0;i<5u;i++){tick+=6400u;app_update_soc_from_sample(1,-10000);}
-  assert(g_bms_soc.remaining_capacity_as10==held_before+100u);
+  assert(g_bms_soc.remaining_capacity_as10==held_before+99u);
 
   setup(chemistry,60,2900);sample(1,0,1);
   assert(g_soc_runtime.last_sample_state==BMS_SOC_SAMPLE_FIRST);

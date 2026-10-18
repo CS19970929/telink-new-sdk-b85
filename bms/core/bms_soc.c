@@ -42,6 +42,8 @@ static void SOC_Result_Pass(void);
 #define SOC_DISPLAY_APPROACH_STEP_TICKS     4u
 #define SOC_DISPLAY_CONFIRMED_FULL_TICKS    2u
 #define SOC_DSG_EMPTY_LOCK_TICKS            (SOC_TICKS_PER_SECOND * 2u)
+/* 充电库仑效率：充入的安时只有约 99% 变成可用容量，放电侧不折算。 */
+#define SOC_CHARGE_EFFICIENCY_PERCENT       99u
 #define SOC_DSG_SAG_HOLD_CURR_MIN_A10       50u
 #define SOC_DSG_SAG_HOLDOFF_TICKS           (SOC_TICKS_PER_SECOND * 60u)
 #define SOC_DSG_SAG_HOLDOFF_HIGH_TICKS      (SOC_TICKS_PER_SECOND * 90u)
@@ -120,6 +122,8 @@ static soc_runtime_t g_soc_runtime;
 static soc_integral_dir_t g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
 /* mA * ms 的积分余数；每 As*10 对应 100000 mA*ms。 */
 static uint32_t g_soc_integral_remainder;
+/* 充电库仑效率的百分之一余数，与方向一起复位。 */
+static uint32_t g_soc_charge_remainder;
 static int32_t g_soc_input_current_ma;
 static uint32_t g_soc_sample_ms;
 #if BMS_SOC_DIAG_STATE_ENABLE
@@ -395,6 +399,7 @@ static void soc_reset_integral_accumulator(void)
 {
     g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
     g_soc_integral_remainder = 0u;
+    g_soc_charge_remainder = 0u;
 }
 
 /* 切换积分方向并管理方向相关余量。 */
@@ -403,6 +408,7 @@ static void soc_integral_select_dir(soc_integral_dir_t dir)
     if (g_soc_integral_dir != dir) {
         g_soc_integral_dir = dir;
         g_soc_integral_remainder = 0u;
+        g_soc_charge_remainder = 0u;
     }
 }
 
@@ -424,6 +430,15 @@ static uint32_t soc_integral_delta_from_current(soc_integral_dir_t dir, uint32_t
     sum = (magnitude_ma % denominator) * elapsed_ms + g_soc_integral_remainder;
     delta += sum / denominator;
     g_soc_integral_remainder = sum % denominator;
+    /*
+     * 充电按库仑效率折算；放电按实际放出量计。
+     * 用百分之一单位为累计余数，避免每个 200 ms 增量只有 0/1 时被截断成 0。
+     */
+    if (dir == SOC_INTEGRAL_DIR_CHG) {
+        uint32_t scaled = delta * SOC_CHARGE_EFFICIENCY_PERCENT + g_soc_charge_remainder;
+        delta = scaled / 100u;
+        g_soc_charge_remainder = scaled % 100u;
+    }
     return delta;
 }
 
