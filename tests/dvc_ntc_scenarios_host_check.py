@@ -8,7 +8,7 @@ feature = read('bms/afe/dvc1124/dvc1124_bms.c')
 constants = '\n'.join(re.findall(
     r'^#define DVC_(?:TEMP_TABLE_LEN|NTC_MIN_RES_OHM|NTC_MAX_RES_OHM)\s+[^\n]+',
     driver, re.M))
-state = driver[driver.index('#define DVC_ADC_MAX_AGE_MS'):
+state = driver[driver.index('#define DVC_NTC_VALID_SAMPLES'):
                driver.index('#define DVC_BALANCE_REFRESH_INTERVAL_MS')]
 table_start = driver.index('static const uint16_t s_ntc_10k_table')
 table = driver[table_start:driver.index('};', table_start) + 2]
@@ -18,7 +18,7 @@ for signature in ('static uint16_t dvc_ntc_temp_report(',
                   'static void dvc_publish_current_measurement(',
                   'static void dvc_publish_voltage_measurement(',
                   'static void dvc_publish_temperature_measurement(',
-                  'bms_afe_sample_result_t DVC1124_App_AFEGet('):
+                  'bms_afe_sample_status_t DVC1124_App_AFEGet('):
     production += function(driver, signature) + '\n'
 for signature in ('static uint16_t dvc_get_configured_temperature(',
                   'static uint8_t dvc_configured_ntc_valid(',
@@ -32,7 +32,7 @@ for signature in ('static uint16_t dvc_get_configured_temperature(',
     production += function(backend, signature) + '\n'
 production += function(feature, 'uint8_t bms_afe_driver_get_feature_snapshot(') + '\n'
 # 原始采集层不能独立清除公共 NTC 错误；公共保护统一读取两个电池探头和 MOS 探头。
-for signature in ('bms_afe_sample_result_t DVC1124_App_AFEGet(',
+for signature in ('bms_afe_sample_status_t DVC1124_App_AFEGet(',
                   'static void dvc_publish_temperature_measurement('):
     assert 'BMS_ERROR_TEMP_BREAK' not in function(driver, signature)
 reset = function(driver, 'void DVC1124_AFE_Reset(')

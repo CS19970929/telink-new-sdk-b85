@@ -160,7 +160,7 @@ def check_common_feature_policy_contract_check():
     assert charge_block < fet_write
     assert "bms_features_charge_direction_blocked()" in text("sh3673510_bms.c")
     assert "bms_features_service(" not in guard_c and "bms_features_stop();" in guard_c
-    assert "bms_features_service(result.confirm_sample);" in text("app.c")
+    assert "bms_features_service();" in text("app.c")
     for symbol in ("bms_afe_get_feature_snapshot","bms_afe_get_charge_source_present","bms_afe_set_balance_mask","bms_afe_get_balance_mask"): assert symbol in afe_h
     balance_set=guard_c.split("uint8_t bms_afe_set_balance_mask",1)[1].split("uint8_t bms_afe_get_balance_mask",1)[0]
     assert "if (!runtime_access_allowed()) return 0u;" in balance_set
@@ -186,7 +186,7 @@ def check_common_feature_policy_contract_check():
     assert "bms_afe_bus_access_allowed" in afe_h and "bms_afe_bus_access_allowed" in guard_c
     apply=guard_c.split("static uint8_t apply_requested",1)[1].split("static void note_invalid",1)[0]
     assert "if (!runtime_access_allowed()) return 1u;" in apply
-    access=guard_c.split("static inline uint8_t runtime_access_allowed",1)[1].split("uint8_t bms_afe_samples_qualified",1)[0]
+    access=guard_c.split("static inline uint8_t runtime_access_allowed",1)[1].split("static uint8_t output_ready",1)[0]
     for gate in ("!s_guard.comm_inhibit", "!s_guard.bus_silenced", "!s_guard.test_shutdown_hold"):
         assert gate in access
     sleep=guard_c.split("uint8_t bms_afe_sleep",1)[1].split("uint8_t bms_afe_apply_protection_config",1)[0]
@@ -204,7 +204,7 @@ def check_common_feature_policy_contract_check():
     ):
         assert forbidden not in sh_bms, forbidden
 
-    sample = sh_bms.split("bms_afe_sample_result_t bms_afe_driver_sample(void)", 1)[1].split(
+    sample = sh_bms.split("bms_afe_sample_status_t bms_afe_driver_sample(void)", 1)[1].split(
         "uint8_t bms_afe_driver_apply_protection_config", 1
     )[0]
     for forbidden in (

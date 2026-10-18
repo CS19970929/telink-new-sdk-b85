@@ -24,7 +24,7 @@ int main(void){
  now=0xffff8000u;device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
  bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
  for(unsigned i=0;i<10;i++)sample();
- assert(bms_afe_samples_qualified() && command_c && command_d);
+ assert(((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u) && command_c && command_d);
  /* 真实 SW/guard/backend：只有 CADC 的可靠反向电流可解除软件 OC。 */
  g_bms_protection_params.discharge_ocp_third_a10=20;
  g_bms_protection_params.discharge_ocp_recover_a10=5;
@@ -35,7 +35,7 @@ int main(void){
  sample();assert(!command_d && bms_sw_protection_discharge_overcurrent_active());
  device.flag2=SH3673520_FLAG2_CADC_MASK;sample();
  assert(command_d && !bms_sw_protection_discharge_overcurrent_active());
- assert(!last_sample_result.confirm_sample);
+ assert(last_sample_result==BMS_AFE_SAMPLE_OK);
  device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
  g_bms_protection_params.charge_ocp_third_a10=20;
  g_bms_protection_params.charge_ocp_recover_a10=5;
@@ -44,7 +44,7 @@ int main(void){
  public_current_ma=201;device.flag2=SH3673520_FLAG2_VADC_MASK;
  sample();assert(!command_c);
  device.flag2=SH3673520_FLAG2_CADC_MASK;sample();assert(command_c);
- assert(!last_sample_result.confirm_sample);
+ assert(last_sample_result==BMS_AFE_SAMPLE_OK);
  device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
  public_current_ma=0;sample();
 
@@ -68,7 +68,7 @@ int main(void){
  for(unsigned i=0;i<10;i++)sample();assert(command_c && command_d);
  device.flag2=SH3673520_FLAG2_VADC_MASK;
  for(unsigned i=0;i<9;i++){sample();assert(command_c && command_d);}
- sample();assert(!command_c && !command_d && !bms_afe_samples_qualified());
+ sample();assert(!command_c && !command_d && !((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u));
  assert(!bms_afe_get_feature_snapshot(&temperature));
  puts("PASS 实际 SH 采样/guard/SW 保护/最终 FET 命令：OV、UV、并发 SC、NTC 无效、ADC 过期、tick 回绕");return 0;
 }

@@ -68,7 +68,6 @@ static void reset(void) {
     fake_tick += 4u * APP_PM_MS_PER_SEC;
     memset(&s_guard, 0, sizeof(s_guard));
     s_guard.output_enabled = 1;
-    s_guard.valid_snapshot_streak = 3;
     s_control_ready = 1; s_afe_sleeping = physical_sleep = 0;
     s_snapshot_valid = s_fet_command_valid = 1;
     s_short_clear_pending = 1; s_short_release_count = 8;
@@ -82,11 +81,10 @@ static void reset(void) {
 }
 int main(void) {
     unsigned i, n;
-    reset(); CHECK(bms_afe_samples_qualified());
-    s_guard.valid_snapshot_streak = 2; CHECK(!bms_afe_samples_qualified());
-    s_guard.valid_snapshot_streak = 3; s_guard.comm_inhibit = 1; CHECK(!bms_afe_samples_qualified());
-    s_guard.comm_inhibit = 0; s_guard.test_shutdown_hold = 1; CHECK(!bms_afe_samples_qualified());
-    s_guard.test_shutdown_hold = 0; s_guard.bus_silenced = 1; CHECK(!bms_afe_samples_qualified());
+    reset(); CHECK(output_ready());
+    s_guard.comm_inhibit = 1; CHECK(!output_ready());
+    s_guard.comm_inhibit = 0; s_guard.test_shutdown_hold = 1; CHECK(!output_ready());
+    s_guard.test_shutdown_hold = 0; s_guard.bus_silenced = 1; CHECK(!output_ready());
     reset(); s_control_ready = 0;
     CHECK(!bms_afe_sleep()); CHECK(s_guard.comm_failures == 1);
     CHECK(!bms_afe_sleep()); CHECK(s_guard.bus_silenced);

@@ -31,7 +31,6 @@ def check_sh3673510_sample_schedule_host_check():
     #include <stdint.h>
     #include <stdio.h>
 typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR } bms_afe_sample_status_t;
-typedef struct { bms_afe_sample_status_t status; uint8_t confirm_sample; } bms_afe_sample_result_t;
     typedef uint8_t u8;
     typedef uint32_t u32;
     #define SYSTEM_TIMER_TICK_1US 16u
@@ -49,8 +48,8 @@ typedef struct { bms_afe_sample_status_t status; uint8_t confirm_sample; } bms_a
         if (!enable) ++failures;
         scheduled_tick = tick;
     }
-    static bms_afe_sample_result_t bms_afe_sample(void) { bms_afe_sample_result_t r={BMS_AFE_SAMPLE_OK,1u}; ++samples; fake_tick += sample_cost; return r; }
-    static void bms_features_service(uint8_t confirmed){(void)confirmed;}
+    static bms_afe_sample_status_t bms_afe_sample(void) { bms_afe_sample_status_t r=BMS_AFE_SAMPLE_OK; ++samples; fake_tick += sample_cost; return r; }
+    static void bms_features_service(void){}
     static void bms_afe_apply_outputs(void){}
     static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *s) {
         if (valid) { s->raw_current_ma = 1230; s->current_ma = 1234; s->sample_tick_32k = 123; }
@@ -120,7 +119,7 @@ def check_sh3673510_sleep_host_check():
         return extract_function(source, match.group(0))
 
     guard = (APP / 'bms_afe_guard.c').read_text(encoding='utf-8')
-    state = re.search(r'^#define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT .*$', guard, re.M).group(0) + '\n' + guard[guard.index('typedef struct'):guard.index('uint8_t bms_afe_bus_access_allowed')]
+    state = guard[guard.index('typedef struct'):guard.index('uint8_t bms_afe_bus_access_allowed')]
     policy = re.search(r'typedef struct\s*\{[^}]*\} bms_afe_driver_policy_t;', (ROOT/'bms/core/bms_afe_driver.h').read_text(encoding='utf-8'), re.S).group()
     policy += '\n' + re.search(r'const bms_afe_driver_policy_t bms_afe_driver_policy = [^;]+;', (APP/'sh3673510_bms.c').read_text(encoding='utf-8')).group()
     body = '#include "bms_debug_log.h"\n' + policy + '\n' + state + '\n'.join([

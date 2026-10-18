@@ -3,7 +3,6 @@
 #include <assert.h>
 #include <string.h>
 typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR } bms_afe_sample_status_t;
-typedef struct { bms_afe_sample_status_t status; uint8_t confirm_sample; } bms_afe_sample_result_t;
 typedef uint32_t u32;
 typedef uint8_t u8;
 #define _attribute_data_retention_
@@ -68,8 +67,8 @@ typedef struct {
     uint32_t last_integral_delta_as10;
 } bms_soc_diag_t;
 typedef union {uint16_t all;} diag_fault_t;
-static bms_afe_sample_result_t bms_afe_sample(void){bms_afe_sample_result_t r={BMS_AFE_SAMPLE_OK,1u};note('A');now+=sample_cost;if(callback_during_sample)s_sample_due=1;return r;}
-static void bms_features_service(uint8_t confirm_sample){assert(confirm_sample);note('T');}
+static bms_afe_sample_status_t bms_afe_sample(void){bms_afe_sample_status_t r=BMS_AFE_SAMPLE_OK;note('A');now+=sample_cost;if(callback_during_sample)s_sample_due=1;return r;}
+static void bms_features_service(void){note('T');}
 static void bms_afe_apply_outputs(void){note('M');}
 static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){note('V');m->raw_current_ma=-710;m->current_ma=-700;m->sample_tick_32k=99;return valid;}
 static void app_diag_poll_runtime(u8 v,int raw,int current,u32 tick){assert(v==valid);assert(raw==(v?-710:0));assert(current==(v?-700:0));assert(tick==(v?99u:77u));}

@@ -5,7 +5,7 @@ from validation_support import ROOT, read, function, run_c
 
 fixture = read('tests/fixtures/sh_recovery_evidence.c').split('#if defined(MODE_TEST)')[0]
 fixture = fixture.replace(function(fixture, 'static void sample('), '')
-fixture = fixture.replace('static bms_afe_sample_result_t last_sample_result;', '')
+fixture = fixture.replace('static bms_afe_sample_status_t last_sample_result;', '')
 fixture = fixture.replace('static unsigned clear_calls;', '')
 profile = re.search(r'typedef struct\s*\{.*?\} bms_afe_hw_profile_t;',
                     read('bms/core/bms_afe_hw_profile.h'), re.S).group()

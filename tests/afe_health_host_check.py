@@ -25,8 +25,8 @@ void bms_sw_protection_init(void){}
 uint8_t bms_protection_params_valid(void){return 1;}
 void bms_afe_driver_init(void){}
 void bms_afe_driver_set_output_enabled(uint8_t e){(void)e;}
-bms_afe_sample_result_t bms_afe_driver_sample(void){
- ++samples;bms_afe_sample_result_t r={status,status==BMS_AFE_SAMPLE_OK};return r;
+bms_afe_sample_status_t bms_afe_driver_sample(void){
+ ++samples;bms_afe_sample_status_t r=status;return r;
 }
 uint8_t bms_afe_driver_set_fets(uint8_t a,uint8_t b){
  if(!control_ok)return 0;
@@ -45,8 +45,8 @@ uint8_t bms_afe_driver_get_balance_mask(uint32_t *m){*m=0;return 1;}
 uint8_t bms_afe_driver_apply_protection_config(void){return control_ok;}
 uint8_t bms_afe_driver_sleep(void){return 1;}
 static void poll(void){
- bms_afe_sample_result_t r=bms_afe_sample();
- if(r.status==BMS_AFE_SAMPLE_OK)bms_afe_apply_outputs();
+ bms_afe_sample_status_t r=bms_afe_sample();
+ if(r==BMS_AFE_SAMPLE_OK)bms_afe_apply_outputs();
 }
 static void qualify(void){
  status=BMS_AFE_SAMPLE_OK;control_ok=1;bms_afe_init();
@@ -65,8 +65,7 @@ int main(void){
  assert(!bms_afe_bus_access_allowed());unsigned calls=samples;
  for(unsigned i=0;i<100;i++)poll();assert(samples==calls);
  now+=5001;poll();assert(bms_afe_bus_access_allowed());
- status=BMS_AFE_SAMPLE_OK;poll();poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));
- poll();assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
+ status=BMS_AFE_SAMPLE_OK;poll();assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
  before=writes;
  for(unsigned i=0;i<20;i++){
   now+=200;status=BMS_AFE_SAMPLE_READ_ERROR;poll();assert(c&&d);
@@ -81,11 +80,10 @@ int main(void){
  control_ok=0;poll();now+=500;poll();assert(c&&d);
  now+=500;poll();assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());
  control_ok=1;now+=5001;poll();qualify();
- status=BMS_AFE_SAMPLE_STALE;poll();assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
  status=BMS_AFE_SAMPLE_ERROR;poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));
  qualify();bms_afe_invalidate_configuration();assert(!c&&!d);
  for(unsigned i=0;i<20;i++)poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));
- puts("PASS guard：999/1000ms、tick回绕、瞬时/间歇失败无OFF、只关闭不新开、事务持续失败、静默和三帧恢复、配置禁止");
+ puts("PASS guard：999/1000ms、tick回绕、瞬时/间歇失败无OFF、只关闭不新开、事务持续失败、静默和完整有效读取恢复、配置禁止");
  return 0;
 }
 '''
@@ -113,8 +111,8 @@ int main(void){
  uint32_t observed=bms_time_ms();bms_afe_aux_measurements_t m;
  assert(!bms_afe_get_aux_measurements(&m));
  fail_pack_read=0;ready_bits=0;step();
- assert(bms_afe_get_aux_measurements(&m)&&m.sample_time_ms<=observed);
- assert(m.sample_time_ms<bms_time_ms());ready_bits=3;step();
+ assert(bms_afe_get_aux_measurements(&m)&&m.sample_time_ms>observed);
+ ready_bits=3;step();
  for(unsigned i=0;i<12;i++){
   bus_failed=1;step();assert(charge_on()&&discharge_on()&&!bms_error_get(BMS_ERROR_AFE1));
   bus_failed=0;step();assert(charge_on()&&discharge_on());
@@ -122,8 +120,7 @@ int main(void){
  bus_failed=1;steps(5);assert(charge_on()&&discharge_on()&&!bms_error_get(BMS_ERROR_AFE1));
  step();assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());
  bus_failed=0;steps(188);assert(charge_on()&&discharge_on());
- ready_bits=0;steps(9);assert(charge_on()&&discharge_on()&&!bms_error_get(BMS_ERROR_AFE1));
- step();require_both_off();assert(bms_error_get(BMS_ERROR_AFE1));
+ ready_bits=0;steps(100);assert(charge_on()&&discharge_on()&&!bms_error_get(BMS_ERROR_AFE1));
  ready_bits=3;steps(5);assert(charge_on()&&discharge_on());
  /* 已验证 E2P 错误优先于测量和容错。 */
  regs[SH3673520_REG_BSTATUS1]|=SH3673520_BSTATUS1_E2P_ERR_MASK;
@@ -147,7 +144,7 @@ int main(void){
  ready_bits=SH3673520_FLAG2_CADC_MASK;steps(3);
  raw16(SH3673520_REG_CADCDH,(uint16_t)-20000);steps(2);
  assert(!discharge_on()&&g_bms_report.fault_third.bits.discharge_ocp&&!bms_error_get(BMS_ERROR_AFE1));
- puts("PASS SH原始TU：间歇总线故障保持、持续1秒静默、ADC停更1800/2000ms、E2P立即阻断");return 0;
+ puts("PASS SH原始TU：间歇总线故障保持、持续1秒静默、无ADC事件持续通信20秒不关MOS、E2P立即阻断");return 0;
 }
 '''
     run_c(fixture, SOURCES, ['-I', str(ROOT/'tests/fixtures/d014_safety_loop/include'),

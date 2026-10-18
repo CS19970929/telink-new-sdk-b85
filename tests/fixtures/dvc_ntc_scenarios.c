@@ -44,9 +44,6 @@ uint8_t DVC1124_ReadRegisters(uint8_t reg,uint8_t *data,uint8_t count)
     if (!read_ok) return 0u;
     memcpy(data,registers+reg,count);
     if (reg==DVC1124_REG_ALARM && count==DVC_MEAS_BYTES) {
-        s_pending_adc_events |= registers[DVC1124_REG_STATUS]&0x50u;
-        if(registers[DVC1124_REG_STATUS]&0x40u)s_pending_voltage_ms=bms_time_ms();
-        if(registers[DVC1124_REG_STATUS]&0x10u)s_pending_current_ms=bms_time_ms();
         registers[DVC1124_REG_STATUS] &= (uint8_t)~0x50u;
     }
     return 1u;
@@ -72,8 +69,6 @@ static void reset(void)
     memset(&g_bms_protection_params,0,sizeof(g_bms_protection_params));
     memset(registers,0,sizeof(registers));
     memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));
-    s_pending_adc_events=s_voltage_seen=s_current_seen=s_voltage_since_current=0u;
-    s_voltage_ms=s_current_ms=s_adc_wait_started_ms=0u;
     time_last_raw=time_ms=time_fraction=0u;
     read_ok=1u; now=1000u; s_snapshot.rpu_ohm=10000u;
     put16(DVC1124_REG_V1P8_H,18000u);
@@ -188,13 +183,11 @@ int main(void)
             if (channel==4u) put16(DVC1124_REG_GP3_H,open_codes[(n+1u)%6u]);
             step(0x50u,6400u); check_closed();
         }
-        /* 插回只恢复对应通道；CC2/缓存轮询不能代替温度新转换。 */
+        /* 插回后按完整有效读取确认，不再等待 VADF。 */
         for (unsigned gp=0;gp<4u;++gp) put16((uint8_t)(DVC1124_REG_GP1_H+2u*gp),9000u);
-        step(0x10u,100u); check_closed();
-        step(0x50u,6400u); check_closed();
-        for (unsigned n=0;n<8u;++n) { step(0x10u,100u); check_closed(); }
-        step(0x50u,6400u); check_closed();
-        step(0x50u,6400u); check_open();
+        step(0u,6400u); check_closed();
+        step(0u,6400u); check_closed();
+        step(0u,6400u); check_open();
     }
     /* 两个正常新转换之间再次断线，恢复资格必须从头开始。 */
     reset(); qualify(); put16(DVC1124_REG_GP2_H,17940u); step(0x50u,6400u); check_closed();
@@ -207,18 +200,13 @@ int main(void)
     /* 已合格探头在晚轮询中取得正常新转换，不因旧缓存年龄制造 TEMP_BREAK。 */
     step(0x50u,25600u); check_open();
     step(0x50u,96000u); check_open(); /* 三秒未轮询但已有新转换，不等于 ADC 停更。 */
-    /* 512 ms 后业务数据失效，但两秒以内保留已确认 NTC 和原命令。 */
-    step(0x10u,25600u); assert(!s_snapshot.valid && s_snapshot.ntc_res_ohm[1]); check_open();
-    step(0x50u,6400u); check_open();
-    step(0x10u,512u*32u); assert(s_snapshot.valid); check_open();
-    step(0x10u,32u); assert(!s_snapshot.valid && s_snapshot.ntc_res_ohm[1]); check_open();
-    step(0x50u,6400u); check_open();
-    /* 未完成恢复的两次好样本不能跨过长空档凑成第三次。 */
-    put16(DVC1124_REG_GP2_H,18000u); step(0x50u,6400u); check_closed();
+    /* 无VADF、长期不轮询都不再撤销已合格NTC；完整读取仍检查真实断线。 */
+    step(0u,25600u); assert(s_snapshot.valid && s_snapshot.ntc_res_ohm[1]); check_open();
+    step(0u,10000u*32u); assert(s_snapshot.valid); check_open();
+    put16(DVC1124_REG_GP2_H,18000u); step(0u,6400u); check_closed();
     put16(DVC1124_REG_GP2_H,9000u);
-    step(0x50u,6400u); step(0x50u,6400u); check_closed();
-    step(0x50u,25600u); check_closed();
-    step(0x50u,6400u); check_closed(); step(0x50u,6400u); check_open();
+    step(0u,6400u); step(0u,6400u); check_closed();
+    step(0u,25600u); check_open();
     /* 即使本轮带 VADF，真实异常原始值仍立即触发温度失效保护。 */
     put16(DVC1124_REG_GP2_H,18000u); step(0x50u,25600u); check_closed();
     put16(DVC1124_REG_GP2_H,9000u); qualify();
@@ -230,6 +218,6 @@ int main(void)
     put16(DVC1124_REG_GP1_H,17940u); step(0x50u,6400u); check_open();
     assert(!s_snapshot.ntc_res_ohm[0]);
     check_cell_delta_protection();
-    puts("PASS D008 NTC 开短路、三次新 VADF 恢复、晚轮询/过期缓存区分、通信失败、tick 回绕及三级压差双向关断/恢复");
+    puts("PASS D008 NTC 开短路、三次完整读取恢复、无ADC年龄门禁、通信失败、tick 回绕及三级压差双向关断/恢复");
     return 0;
 }

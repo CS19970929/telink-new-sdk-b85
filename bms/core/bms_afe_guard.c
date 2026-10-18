@@ -13,7 +13,6 @@
 #include "bms_state.h"
 #include <string.h>
 
-#define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u
 #define BMS_AFE_COMM_CONFIRM_MS             1000u
 #define BMS_AFE_COMM_CONFIRM_COUNT          3u
@@ -28,7 +27,6 @@ typedef struct
     uint8_t comm_inhibit;
     uint8_t config_inhibit;
     uint8_t comm_fault_latched;
-    uint8_t valid_snapshot_streak;
     uint8_t comm_failures;
     uint8_t bus_silenced;
     uint8_t test_shutdown_hold;
@@ -52,11 +50,10 @@ static inline uint8_t runtime_access_allowed(void)
             !s_guard.test_shutdown_hold) ? 1u : 0u;
 }
 
-/* 公共三帧资格只有一个状态所有者，后端 FET 调用也遵守。 */
-uint8_t bms_afe_samples_qualified(void)
+/* 完整有效通信解除初始化禁止；配置事务仍拥有独立门禁。 */
+static uint8_t output_ready(void)
 {
-    return (runtime_access_allowed() && !s_guard.config_inhibit &&
-            s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT) ? 1u : 0u;
+    return runtime_access_allowed() && !s_guard.config_inhibit;
 }
 
 /* 判断当前 guard 阶段是否允许访问 AFE 总线。 */
@@ -70,7 +67,6 @@ static void inhibit_local(void)
 {
     s_guard.comm_fault_latched = 1u;
     s_guard.comm_inhibit = 1u;
-    s_guard.valid_snapshot_streak = 0u;
     s_guard.sample_unusable = 1u;
     g_bms_system_status.bits.afe1_status = 0u;
     bms_afe_publish_fet_status(0u, 0u);
@@ -102,7 +98,7 @@ static void enter_failsafe_wait(void)
     s_guard.comm_failures = 0u;
 }
 
-/* 硬件 watchdog 等待阶段禁止 AFE 总线访问；到期仅探测一次，恢复仍需新样本资格。 */
+/* 硬件 watchdog 等待阶段禁止 AFE 总线访问；到期仅探测一次，恢复仍需完整有效测量。 */
 static uint8_t service_failsafe_wait(void)
 {
     if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) return 0u;
@@ -118,7 +114,6 @@ static uint8_t service_failsafe_wait(void)
     /* 看门狗窗口结束后只作一次有界恢复尝试。 */
     s_guard.bus_silenced = 0u;
     s_guard.comm_failures = 0u;
-    s_guard.valid_snapshot_streak = 0u;
     s_guard.comm_inhibit = 1u;
 
     /* SH 原恢复路径重建软件保护滤波，DVC 保持原有恢复语义。 */
@@ -155,7 +150,7 @@ static uint8_t apply_requested(void)
         !(direction_allow_mask & BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK)) d = 0u;
     /* 参数资格直接由输出门禁消费，不借业务功能代为阻断。 */
     if (!s_guard.output_enabled || !bms_protection_params_valid() ||
-        !bms_afe_samples_qualified())
+        !output_ready())
     {
         c = 0u;
         d = 0u;
@@ -226,51 +221,37 @@ void bms_afe_init(void)
 }
 
 /* 通过安全门禁采样并更新恢复资格及输出授权。 */
-bms_afe_sample_result_t bms_afe_sample(void)
+bms_afe_sample_status_t bms_afe_sample(void)
 {
     bms_afe_aux_measurements_t m;
-    bms_afe_sample_result_t result = { BMS_AFE_SAMPLE_NOT_READY, 0u };
+    bms_afe_sample_status_t result = BMS_AFE_SAMPLE_NOT_READY;
 
     if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;
     result = bms_afe_driver_sample();
-    if (result.status == BMS_AFE_SAMPLE_NOT_READY) {
+    if (result == BMS_AFE_SAMPLE_NOT_READY) {
         /* 启动/重配置等待撤销旧资格，但不记通信失败或重复访问总线。
          * 普通缓存属于 OK，不会经过这里。 */
         s_guard.comm_inhibit = 1u;
-        s_guard.valid_snapshot_streak = 0u;
         s_guard.sample_unusable = 1u;
         bms_afe_publish_fet_status(0u, 0u);
         bms_features_stop();
         return result;
     }
-    if (result.status == BMS_AFE_SAMPLE_READ_ERROR) {
+    if (result == BMS_AFE_SAMPLE_READ_ERROR) {
         note_communication_failure();
         /* 后端只允许撤销已有命令；已读出的真实保护仍可立即关断方向。 */
         if (runtime_access_allowed()) (void)apply_requested();
         return result;
     }
-    if (result.status == BMS_AFE_SAMPLE_STALE) {
-        s_guard.sample_unusable = 1u;
-        bms_afe_publish_fet_status(0u, 0u);
-        bms_features_stop();
-        if (!apply_requested()) note_communication_failure();
-        else s_guard.comm_failures = 0u;
-        return result;
-    }
-    if (result.status == BMS_AFE_SAMPLE_ERROR ||
+    if (result == BMS_AFE_SAMPLE_ERROR ||
         !bms_afe_driver_get_aux_measurements(&m)) {
         note_invalid();
-        result.status = BMS_AFE_SAMPLE_ERROR;
-        result.confirm_sample = 0u;
+        result = BMS_AFE_SAMPLE_ERROR;
         return result;
     }
 
     s_guard.sample_unusable = 0u;
-    if (result.confirm_sample &&
-        s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
-        ++s_guard.valid_snapshot_streak;
-    if (!s_guard.config_inhibit &&
-        s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT) {
+    if (!s_guard.config_inhibit) {
         s_guard.comm_inhibit = 0u;
         s_guard.comm_fault_latched = 0u;
         bms_error_clear(BMS_ERROR_AFE1);
@@ -313,7 +294,6 @@ uint8_t bms_afe_apply_protection_config(void)
     if (s_guard.bus_silenced || s_guard.test_shutdown_hold ||
         (s_guard.comm_inhibit && !s_guard.config_inhibit)) return 0u;
     s_guard.config_inhibit = 1u;
-    s_guard.valid_snapshot_streak = 0u;
     ok = bms_afe_driver_apply_protection_config();
     if (ok) s_guard.config_inhibit = 0u;
     else note_invalid();
@@ -415,7 +395,7 @@ uint16_t bms_afe_get_guard_diagnostic_bits(void)
     if (s_guard.comm_inhibit) bits |= DIAG_GUARD_COMM_INHIBIT;
     if (s_guard.bus_silenced || s_guard.test_shutdown_hold) bits |= DIAG_GUARD_BUS_SILENCED;
     if (s_guard.comm_fault_latched) bits |= DIAG_GUARD_FAULT_LATCHED;
-    if (bms_afe_samples_qualified())
+    if (output_ready())
         bits |= DIAG_GUARD_SAMPLES_QUALIFIED;
     return bits;
 }
@@ -510,14 +490,13 @@ uint8_t bms_afe_test_wake(void)
 
     s_guard.test_shutdown_hold = 0u;
     s_guard.comm_inhibit = 1u;
-    s_guard.valid_snapshot_streak = 0u;
     s_guard.comm_failures = 0u;
     s_guard.bus_silenced = 0u;
     s_guard.failsafe_start_tick_ms = 0u;
 
     /*
      * 正常后端初始化负责完整 shutdown 唤醒/复位、持久硬件配置、编译期策略与回读；
-     * 公共门禁确认三帧新样本前保持请求阻断。
+     * 公共门禁确认完整有效测量前保持请求阻断。
      */
     bms_afe_driver_init();
     bms_afe_driver_set_output_enabled(s_guard.output_enabled);

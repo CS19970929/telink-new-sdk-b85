@@ -73,50 +73,44 @@ static uint8_t dvc_i2c_read_raw(uint8_t addr,uint8_t reg,uint8_t *out,uint16_t c
 }
 '''
 # 实际私有ADC状态、CRC、重试读取及测量发布函数体，换算/平台外围是显式替身。
-code+=s[s.index('#define DVC_ADC_MAX_AGE_MS'):s.index('#define DVC_BALANCE_REFRESH_INTERVAL_MS')]
+code+=s[s.index('#define DVC_NTC_VALID_SAMPLES'):s.index('#define DVC_BALANCE_REFRESH_INTERVAL_MS')]
 code+=function(s,'static uint8_t dvc_crc8(')
 code+=function(s,'uint8_t DVC1124_ReadRegisters(')
 code+=function(s,'static uint8_t dvc_boot_zero_wait_fresh_cc2(')
 code+=function(s,'static void dvc_publish_current_measurement(')
 code+=function(s,'static void dvc_publish_voltage_measurement(')
 code+=function(s,'static void dvc_publish_temperature_measurement(')
-code+=function(s,'bms_afe_sample_result_t DVC1124_App_AFEGet(')
+code+=function(s,'bms_afe_sample_status_t DVC1124_App_AFEGet(')
 recovery=read('bms/afe/dvc1124/dvc1124_bms.c')
 code+='\n'+recovery[recovery.index('#define DVC_LOAD_RELEASE_CONFIRM_MS'):recovery.index('static uint16_t dvc_get_configured_temperature')]
 code+=function(recovery,'static uint8_t dvc_recover_current_faults(')
 code+=r'''
-static bms_afe_sample_result_t result;
+static bms_afe_sample_status_t result;
 static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;result=DVC1124_App_AFEGet();}
 static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));
- s_pending_adc_events=s_voltage_seen=s_current_seen=s_voltage_since_current=0;
- s_voltage_ms=s_current_ms=s_adc_wait_started_ms=0;now=time_last_raw=time_ms=time_fraction=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
+ now=time_last_raw=time_ms=time_fraction=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
 int main(void){
- reset();acquire(100,0);acquire(6500,0);assert(!s_voltage_seen && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_NOT_READY && !result.confirm_sample);
- acquire(7000,0x40);assert(s_voltage_seen && s_snapshot.voltage_fresh && !s_snapshot.valid && result.status==BMS_AFE_SAMPLE_NOT_READY && !result.confirm_sample);
- acquire(8000,0x10);assert(s_snapshot.valid && s_snapshot.current_fresh && result.confirm_sample && s_snapshot.sample_tick_32k==8000);
- acquire(9000,0);assert(s_snapshot.valid && result.status==BMS_AFE_SAMPLE_OK && !result.confirm_sample && s_voltage_seen && s_snapshot.sample_tick_32k==8000);
- acquire(8000+512u*32u+32u,0);assert(!s_snapshot.valid && result.status==BMS_AFE_SAMPLE_STALE);
- acquire(7000+1999u*32u,0);assert(result.status==BMS_AFE_SAMPLE_STALE);
- acquire(7000+2000u*32u,0);assert(result.status==BMS_AFE_SAMPLE_ERROR);
+ reset();acquire(100,0);assert(s_snapshot.valid && result==BMS_AFE_SAMPLE_OK);
+ for(unsigned i=1;i<=100;++i)acquire(100+i*6400u,0);
+ assert(s_snapshot.valid && result==BMS_AFE_SAMPLE_OK && s_snapshot.sample_tick_32k==now);
+ acquire(now+6400u,0x40);assert(s_snapshot.voltage_fresh && !s_snapshot.current_fresh);
+ acquire(now+6400u,0x10);assert(!s_snapshot.voltage_fresh && s_snapshot.current_fresh);
  /* RM p8 R6 bit1；R1 CST bit1不能冒充DSGF。 */
  reset();registers[6]=2;acquire(100,0x50);assert(s_snapshot.fet_status==2 && g_bms_system_status.bits.discharge_mos_status);
  registers[6]=0;acquire(200,0x52);assert(!s_snapshot.fet_status && !g_bms_system_status.bits.discharge_mos_status);
- /* 第一个读取已通过R1 CRC，后面的R2 CRC失败；重试R1已清零，事件仍须保留。 */
+ /* 后续字节 CRC 失败会重试；RC 事件不跨事务缓存，不能冒充保护恢复证据。 */
  reset();corrupt_reg=2;corrupt_count=1;acquire(100,0x50);
- assert(s_snapshot.valid && s_snapshot.voltage_fresh && s_snapshot.current_fresh && s_voltage_seen);
- /* 跨失败轮次保留 RC 事件及原时间，补读成功不能给旧转换续命或推进恢复资格。 */
+ assert(s_snapshot.valid && !s_snapshot.voltage_fresh && !s_snapshot.current_fresh);
  reset();corrupt_reg=2;corrupt_count=-1;acquire(6500u,0x50u);
- assert(result.status==BMS_AFE_SAMPLE_READ_ERROR);
- uint32_t observed=s_pending_current_ms;
+ assert(result==BMS_AFE_SAMPLE_READ_ERROR && !s_snapshot.valid);
  corrupt_reg=-1;acquire(12900u,0u);
- assert(s_snapshot.valid && s_snapshot.sample_time_ms==observed && !result.confirm_sample);
- acquire(6500u+2000u*32u,0u);assert(result.status==BMS_AFE_SAMPLE_ERROR);
- /* R1自身CRC坏，不能把未经验证的事件当作新采样。 */
+ assert(s_snapshot.valid && s_snapshot.sample_tick_32k==now && !s_snapshot.current_fresh);
  reset();corrupt_reg=1;corrupt_count=1;acquire(100,0x50);
- assert(!s_snapshot.valid && !s_voltage_seen && !s_pending_adc_events);
- reset();acquire(0xfffff000u,0x50);acquire(0xfffff000u+512u*32u+32u,0);assert(!s_snapshot.valid);
+ assert(s_snapshot.valid && !s_snapshot.voltage_fresh && !s_snapshot.current_fresh);
+ reset();acquire(0xfffff000u,0x50);acquire(0xfffff000u+10000u*32u,0);
+ assert(s_snapshot.valid && result==BMS_AFE_SAMPLE_OK);
  reset();registers[1]=0x10;assert(!dvc_boot_zero_wait_fresh_cc2()); /* 只有旧事件，等待后没有新转换。 */
- auto_cc2_event=1;assert(dvc_boot_zero_wait_fresh_cc2());assert(!s_pending_adc_events);auto_cc2_event=0;
+ auto_cc2_event=1;assert(dvc_boot_zero_wait_fresh_cc2());auto_cc2_event=0;
  /* 新电压持续发布，零读数不再被诊断缓存替换；无效串位仍是 61001。 */
  reset();registers[DVC1124_REG_CELL1_H]=0x0d;registers[DVC1124_REG_CELL1_H+1]=0x48;
  acquire(100,0x50);assert(g_bms_report.cell_voltage_mv[0]==3400);
@@ -148,11 +142,11 @@ int main(void){
  for(unsigned i=0;i<100;++i)acquire(6400u*i,0x50u);
  assert(!s_snapshot.valid && !configuration_calls);
  s_need_config=0;
- puts("PASS DVC ADC完成事件、异步通道、RC/CRC重试、R1与R6分离、缓存到期与tick回绕");return 0;
+ puts("PASS DVC ADC完成事件、异步通道、RC/CRC重试、R1与R6分离、无ADC事件持续读取与tick回绕");return 0;
 }
 '''
 out=run_c(code,flags=['-DBMS_SERVICE_DIAG_ENABLE=1'],name='dvc-adc-events')
-evidence({'domain':'adc_events','trace':out.strip(),'boundary':'实际CRC/ReadRegisters/App_AFEGet函数体；I2C peer非芯片仿真；512ms数据失效与2秒停更故障分离'})
+evidence({'domain':'adc_events','trace':out.strip(),'boundary':'实际CRC/ReadRegisters/App_AFEGet函数体；I2C peer非芯片仿真；无ADC年龄门禁；RC事件仅供校准和物理保护恢复'})
 
 # 同一真实事务验证回读、命令失败、续期、OFF、有效串和tick回绕。
 balance_fixture = r'''

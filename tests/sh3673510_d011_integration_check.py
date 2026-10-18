@@ -184,7 +184,7 @@ require(cfg, "#define SH3673510_PRODUCT_BALANCE_SUPPORTED      1u")
 require(bms, "sh3673510_control_set_balance")
 require(bms, "SH3510_SHORT_RELEASE_SAMPLES")
 require(bms, "SH3673520_BSTATUS2_LOADOFF_MASK")
-require(text("bms_afe_guard.c"), "!bms_afe_samples_qualified()")
+require(text("bms_afe_guard.c"), "!output_ready()")
 require(bms, "requested_charge_on")
 require(bms, "service_hw_flag_recovery")
 require(bms, "hw_recovery_stable")
@@ -259,7 +259,7 @@ short_text = bms[short_start:short_end]
 if "discharge_current_a10" in short_text:
     raise AssertionError("short-circuit recovery must not use discharge current as load-release proof")
 require(bms, "service_short_recovery")
-require(text("bms_afe_guard.c"), "!bms_afe_samples_qualified()")
+require(text("bms_afe_guard.c"), "!output_ready()")
 require(control, "sh3673510_control_get_protection_actual")
 require(hw_profile, "sense_uv > 80000u")
 require(hw_profile, "sense_uv > 160000u")
@@ -301,7 +301,7 @@ require_count(control, "void sh3673510_board_force_heater_fuse_safe(void)\n{")
 require_count(control, "uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual)\n{")
 # 通信重初始化不能清短路锁存，检查初始化函数本身而非注释文字。
 init_text = bms.split("void bms_afe_driver_init(void)", 1)[1].split(
-    "bms_afe_sample_result_t bms_afe_driver_sample(void)", 1)[0]
+    "bms_afe_sample_status_t bms_afe_driver_sample(void)", 1)[0]
 if re.search(r"\bs_short_latched\s*=", init_text):
     raise AssertionError("AFE communication reinitialization clears short latch")
 sleep_text = bms[bms.index("uint8_t bms_afe_driver_sleep(void)"):]
@@ -352,7 +352,7 @@ for forbidden in ("static void apply_heater", "static void apply_balance",
     if forbidden in bms:
         raise AssertionError(f"SH backend owns common policy: {forbidden}")
 
-sample_start = bms.find("bms_afe_sample_result_t bms_afe_driver_sample(void)")
+sample_start = bms.find("bms_afe_sample_status_t bms_afe_driver_sample(void)")
 sample_end = bms.find("uint8_t bms_afe_driver_apply_protection_config", sample_start)
 if sample_start < 0 or sample_end <= sample_start:
     raise AssertionError("missing SH sample function")

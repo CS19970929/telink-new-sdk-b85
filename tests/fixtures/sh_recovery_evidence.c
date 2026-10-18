@@ -80,7 +80,7 @@ void bms_error_clear(bms_error_id_t id) { errors[id] = 0; }
 uint16_t bms_afe_get_guard_diagnostic_bits(void) { return DIAG_GUARD_OUTPUT_ENABLED | DIAG_GUARD_SAMPLES_QUALIFIED; }
 #else
 void bms_features_init(void) {}
-void bms_features_service(uint8_t confirm_sample) {(void)confirm_sample;}
+void bms_features_service(void) {}
 void bms_features_stop(void) {}
 uint8_t bms_protection_params_valid(void) { return 1; }
 #endif
@@ -140,17 +140,17 @@ sh3673520_status_t SH3673520_ReadRegs(uint8_t reg,uint8_t *v,sh3673520_size_t n)
 /* GUARD */
 #endif
 
-static bms_afe_sample_result_t last_sample_result;
+static bms_afe_sample_status_t last_sample_result;
 static void sample(void) {
     now += 6400;
     read_stage=0;
 #ifdef GUARD_TEST
     last_sample_result = bms_afe_sample();
-    if (last_sample_result.status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs();
+    if (last_sample_result == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs();
 #else
     last_sample_result = bms_afe_driver_sample();
-    bms_afe_driver_set_fets(last_sample_result.status!=BMS_AFE_SAMPLE_ERROR,
-                           last_sample_result.status!=BMS_AFE_SAMPLE_ERROR);
+    bms_afe_driver_set_fets(last_sample_result!=BMS_AFE_SAMPLE_ERROR,
+                           last_sample_result!=BMS_AFE_SAMPLE_ERROR);
 #endif
 }
 #if defined(MODE_TEST)
@@ -190,7 +190,7 @@ int main(void) {
     bms_afe_driver_init();
     for(unsigned i=0;i<8;++i)sample();
     assert(bms_afe_driver_get_aux_measurements(&aux));
-    assert(last_sample_result.status==BMS_AFE_SAMPLE_OK && last_sample_result.confirm_sample);
+    assert(last_sample_result==BMS_AFE_SAMPLE_OK);
     assert(command_c==1u && command_d==1u);
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
     assert(cplus_reads>0u && read_stage==8u); /* D011 加热仍需充电器证据。 */
@@ -212,7 +212,7 @@ int main(void) {
         fail_stage=0;sample();sample();
         device.bstatus2=SH3673520_BSTATUS2_IDLE_MASK;
         fail_stage=f;sample();
-        assert(last_sample_result.status==((f>=2 && f<=6)?BMS_AFE_SAMPLE_READ_ERROR:BMS_AFE_SAMPLE_ERROR) && !last_sample_result.confirm_sample);
+        assert(last_sample_result==((f>=2 && f<=6)?BMS_AFE_SAMPLE_READ_ERROR:BMS_AFE_SAMPLE_ERROR));
         const uint16_t expected[]={0,DIAG_AFE_FAIL_WAKE,DIAG_AFE_FAIL_STATUS,
             DIAG_AFE_FAIL_CELL_READ,DIAG_AFE_FAIL_PACK_READ,DIAG_AFE_FAIL_CURRENT_READ,
             DIAG_AFE_FAIL_TEMP_READ,DIAG_AFE_FAIL_CURRENT_CONVERT,DIAG_AFE_FAIL_RELEASE_READ};
@@ -258,12 +258,12 @@ int main(void) {
     bms_afe_aux_measurements_t aux, previous;
     bms_afe_driver_init();
     sample(); sample();
-    assert(last_sample_result.status==BMS_AFE_SAMPLE_NOT_READY && !last_sample_result.confirm_sample);
+    assert(last_sample_result==BMS_AFE_SAMPLE_NOT_READY);
     assert(!bms_afe_driver_get_aux_measurements(&aux));
     assert(!bms_error_get(BMS_ERROR_AFE1)); /* Waiting for first conversion is normal. */
     for(unsigned i=0;i<8;i++)sample();
-    assert(last_sample_result.status==BMS_AFE_SAMPLE_ERROR);
-    assert(!bms_error_get(BMS_ERROR_AFE1)); /* 后端报告两秒停更，AFE1 仅由 guard 发布。 */
+    assert(last_sample_result==BMS_AFE_SAMPLE_OK);
+    assert(!bms_error_get(BMS_ERROR_AFE1)); /* 无事件不再被当作停更故障。 */
     bms_afe_driver_init();
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     device.flag1=SH3673520_FLAG1_OCC_MASK;
@@ -317,7 +317,7 @@ int main(void) {
     assert(!last_sw_sample.current_recovery_sample_fresh && !last_sw_sample.discharge_recovery_immediate);
     device.flag2=SH3673520_FLAG2_CADC_MASK;
     sample();assert(clear_calls==before+1 && device.flag1==0);
-    assert(last_sample_result.status==BMS_AFE_SAMPLE_OK && !last_sample_result.confirm_sample);
+    assert(last_sample_result==BMS_AFE_SAMPLE_OK);
     assert(last_sw_sample.current_recovery_sample_fresh && last_sw_sample.discharge_recovery_immediate);
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     sample();assert(command_d==1);
@@ -338,14 +338,10 @@ int main(void) {
     device.flag2=0;
     sample(); sample();
     assert(bms_afe_driver_get_aux_measurements(&aux));
-    assert(aux.sample_tick_32k==previous.sample_tick_32k);
-    assert(last_sample_result.status==BMS_AFE_SAMPLE_OK && !last_sample_result.confirm_sample);
-    sample(); assert(!bms_afe_driver_get_aux_measurements(&aux));
-    assert(last_sample_result.status==BMS_AFE_SAMPLE_STALE && !last_sample_result.confirm_sample);
+    assert(aux.sample_tick_32k!=previous.sample_tick_32k);
+    for(unsigned i=0;i<100;i++)sample();
+    assert(bms_afe_driver_get_aux_measurements(&aux) && last_sample_result==BMS_AFE_SAMPLE_OK);
     assert(command_c && command_d);
-    for(unsigned i=0;i<6;i++)sample();
-    assert(command_c && command_d);
-    sample();assert(last_sample_result.status==BMS_AFE_SAMPLE_ERROR);
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     for(unsigned i=0;i<8;++i) sample();
     mode_ok=0;sample();assert(!bms_afe_driver_get_aux_measurements(&aux));
@@ -365,41 +361,24 @@ int main(void) {
 #else
 int main(void) {
     bms_afe_aux_measurements_t aux;
-    /* Start near tick wrap, with genuine 4 Hz ADC cadence at 200 ms polls. */
-    now=0xffff8000u;
-    bms_afe_init(); bms_afe_set_output_enabled(1); bms_afe_set_fets(1,1);
-    for(unsigned i=1;i<=7;++i) {
-        device.flag2=SH3673520_FLAG2_VADC_MASK;
-        if(i%5!=1)device.flag2|=SH3673520_FLAG2_CADC_MASK;
-        sample(); assert(!bms_afe_samples_qualified());
-        assert(command_c==0 && command_d==0);
-    }
-    device.flag2|=SH3673520_FLAG2_CADC_MASK;
-    sample(); assert(!bms_afe_samples_qualified());
-    device.flag2=SH3673520_FLAG2_CADC_MASK;
-    sample(); assert(!bms_afe_samples_qualified() && !last_sample_result.confirm_sample);
-    device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
-    sample(); assert(bms_afe_samples_qualified());
-    assert(command_c==1 && command_d==1 && bms_afe_get_aux_measurements(&aux));
-    /* AFE 自复位成功重配也必须撤销旧三帧资格；等待不累加通信失败。 */
+    /* 完整读取建立输出资格；无ADC事件不关MOS。 */
+    now=0xffff8000u;device.flag2=0;
+    bms_afe_init();bms_afe_set_output_enabled(1);bms_afe_set_fets(1,1);
+    for(unsigned i=0;i<6;i++){sample();assert(!output_ready() && !command_c && !command_d);}
+    sample();assert(output_ready() && command_c && command_d);
     device.flag1=SH3673520_FLAG1_RST1_MASK;
-    sample();assert(!bms_afe_samples_qualified() && !s_guard.comm_failures);
-    assert(last_sample_result.status==BMS_AFE_SAMPLE_NOT_READY && !last_sample_result.confirm_sample);
-    assert(command_c==0 && command_d==0);
-    for(unsigned i=0;i<8;++i){sample();assert(!bms_afe_samples_qualified());}
-    sample();assert(bms_afe_samples_qualified() && command_c==1 && command_d==1);
-    assert(bms_afe_get_aux_measurements(&aux));
-    uint32_t stamp=aux.sample_tick_32k;
-    device.flag2=SH3673520_FLAG2_VADC_MASK;
-    sample();assert(bms_afe_get_aux_measurements(&aux) && aux.sample_tick_32k==stamp);
-    sample();assert(bms_afe_samples_qualified());
-    sample();assert(bms_afe_samples_qualified() && command_c && command_d && !bms_error_get(BMS_ERROR_AFE1));
-    assert(failure_step==DIAG_AFE_FAIL_CADC_AGE && failure_cadc_age==19200u);
-    assert(failure_vadc_age==0u && failure_flag2==(0x100u|SH3673520_FLAG2_VADC_MASK));
-    for(unsigned i=0;i<6;i++)sample();
-    assert(command_c && command_d);
+    sample();assert(!output_ready() && !s_guard.comm_failures);
+    for(unsigned i=0;i<6;i++){sample();assert(!output_ready());}
+    sample();assert(output_ready() && command_c && command_d);
+    for(unsigned i=0;i<100;i++)sample();
+    assert(output_ready() && bms_afe_get_aux_measurements(&aux) && !bms_error_get(BMS_ERROR_AFE1));
+    /* 明确的清锁存失败仍关闭并进入既有watchdog静默。 */
+    device.flag1=SH3673520_FLAG1_OCC_MASK;
+    device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
+    public_current_ma=201;clear_ok=0;
     sample();assert(!command_c && !command_d && bms_error_get(BMS_ERROR_AFE1));
     sample();assert(!bms_afe_bus_access_allowed());
+    clear_ok=1;
     /* No status/clear/detection I/O during the watchdog silence window. */
     unsigned before=clear_calls;
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
@@ -407,15 +386,15 @@ int main(void) {
     /* 高频调用不能提前结束静默；时间跨回绕后仍须完整等待。 */
     for(unsigned i=0;i<1000;++i) { bms_afe_sample(); assert(!bms_afe_bus_access_allowed()); }
     now += 35000u * 32u - 1u;
-    if (bms_afe_sample().status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs(); assert(!bms_afe_bus_access_allowed());
+    if (bms_afe_sample() == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs(); assert(!bms_afe_bus_access_allowed());
     assert(clear_calls==before);
-    now+=33u; bms_afe_sample(); assert(bms_afe_bus_access_allowed() && !bms_afe_samples_qualified());
+    now+=33u; bms_afe_sample(); assert(bms_afe_bus_access_allowed() && !((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u));
     for(unsigned i=0;i<9;++i)sample();
-    assert(bms_afe_samples_qualified());
+    assert(((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u));
     device.flag1=SH3673520_FLAG1_OCC_MASK;clear_ok=0;
-    sample(); assert(!bms_afe_samples_qualified() && command_c==0 && command_d==0);
+    sample(); assert(!((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u) && command_c==0 && command_d==0);
     sample(); assert(!bms_afe_bus_access_allowed());
-    puts("Three actual conversions, tick wrap, stale ADC shutdown and watchdog silence");
+    puts("Complete-read readiness, no ADC health gate, tick wrap and watchdog silence");
     return 0;
 }
 #endif

@@ -130,9 +130,9 @@ static void step(void)
     now_32k += 6400u;
 
     regs[SH3673520_REG_FLAG2] |= ready_bits;
-    bms_afe_sample_result_t result = bms_afe_sample();
-    if (result.status == BMS_AFE_SAMPLE_OK) {
-        bms_features_service(result.confirm_sample);
+    bms_afe_sample_status_t result = bms_afe_sample();
+    if (result == BMS_AFE_SAMPLE_OK) {
+        bms_features_service();
         bms_afe_apply_outputs();
     }
 }
@@ -145,7 +145,7 @@ static void request_outputs(void)
 static void reinitialize(void)
 {
     bms_afe_init(); request_outputs(); require_both_off();
-    steps(3); require_both_off(); steps(9); assert(bms_afe_samples_qualified());
+    steps(3); require_both_off(); steps(9); assert(((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u));
 }
 static void trip_discharge(void)
 {
@@ -190,7 +190,7 @@ int main(void)
     assert(regs[SH3673520_REG_SCONF6] & SH3673520_SCONF6_UV_EN_MASK);
     assert(regs[SH3673520_REG_SCONF5] & SH3673520_SCONF5_WDT_EN_MASK);
     request_outputs(); steps(3); require_both_off(); steps(9);
-    assert(bms_afe_samples_qualified()); assert(discharge_on());
+    assert(((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u)); assert(discharge_on());
     assert(g_bms_report.cell_max_mv==3300 && g_bms_report.cell_min_mv==3300);
     for (unsigned i=8; i<32; ++i) assert(g_bms_report.cell_voltage_mv[i]==61001);
     if (!strcmp(scenario, "cold-reboot")) {
@@ -281,21 +281,21 @@ int main(void)
     puts("PASS 4 Hz CADC eventually recovers; a communication gap discards the partial window");
     /* Failed reconfiguration readback keeps output authorization inhibited. */
     trip_discharge(); corrupt_read_reg=SH3673520_REG_OVL;
-    assert(!bms_afe_apply_protection_config()); assert(!bms_afe_samples_qualified());
+    assert(!bms_afe_apply_protection_config()); assert(!((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u));
     corrupt_read_reg=-1; reinitialize(); assert(!discharge_on()); release_discharge();
     /* A real bus failure must stop bus traffic for the existing watchdog window. */
     trip_discharge(); bus_failed=1; steps(6);
     uint32_t calls=spi_calls; steps(174); assert(spi_calls==calls);
     assert(!bms_afe_bus_access_allowed()); bus_failed=0;
-    steps(15); assert(bms_afe_samples_qualified() && !discharge_on());
+    steps(15); assert(((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u) && !discharge_on());
     release_discharge(); assert(discharge_on());
     puts("PASS readback failure and watchdog silence/re-init cannot clear software OCD");
-    trip_discharge(); ready_bits=0; steps(9);
-    assert(bms_afe_samples_qualified()); step();
-    assert(!bms_afe_samples_qualified()); require_both_off();
+    trip_discharge(); ready_bits=0; steps(100);
+    assert(bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED);
+    assert(charge_on() && !discharge_on() && !bms_error_get(BMS_ERROR_AFE1));
     ready_bits=3; reinitialize(); assert(!discharge_on()); release_discharge();
     now_32k=UINT32_MAX-3200u; reinitialize(); assert(charge_on() && discharge_on());
-    puts("PASS stale ADC inhibits both outputs; sampling qualification handles tick wrap");
+    puts("PASS no ADC events retain normal output and latched OCD; complete-read startup handles tick wrap");
     FILE *f=fopen(image,"wb"); assert(f);
     assert(fwrite(flash,1,sizeof(flash),f)==sizeof(flash)); assert(!fclose(f));
     return 0;

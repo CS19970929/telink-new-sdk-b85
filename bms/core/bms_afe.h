@@ -11,21 +11,15 @@
 #include "bms_timing.h"
 /* 初始化 guard 与选定后端，输出仍受采样资格约束。 */
 void bms_afe_init(void);
-/* OK 包括有效缓存；确认事件仅供恢复/功能资格，不是普通业务门禁。 */
+/* OK 表示本轮完整读取成功；转换完成事件只在后端用于校准及保护恢复。 */
 typedef enum {
     BMS_AFE_SAMPLE_OK = 0,
     BMS_AFE_SAMPLE_NOT_READY,
     BMS_AFE_SAMPLE_ERROR,
     /* 普通读事务失败；不能与芯片/配置/清锁存失败混为一类。 */
-    BMS_AFE_SAMPLE_READ_ERROR,
-    /* 数据已不宜用于业务，但尚未达到持续停更故障期限。 */
-    BMS_AFE_SAMPLE_STALE
+    BMS_AFE_SAMPLE_READ_ERROR
 } bms_afe_sample_status_t;
-typedef struct {
-    bms_afe_sample_status_t status;
-    uint8_t confirm_sample;
-} bms_afe_sample_result_t;
-bms_afe_sample_result_t bms_afe_sample(void);
+bms_afe_sample_status_t bms_afe_sample(void);
 /* 应用在功能决策后调用；实际输出仍由 Guard 检查全部授权。 */
 void bms_afe_apply_outputs(void);
 /* DVC 请求 Shutdown，SH 请求 Sleep；门禁拒绝或命令失败返回 0。 */

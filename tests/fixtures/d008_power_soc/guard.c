@@ -3,8 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR, BMS_AFE_SAMPLE_READ_ERROR, BMS_AFE_SAMPLE_STALE } bms_afe_sample_status_t;
-typedef struct { bms_afe_sample_status_t status; uint8_t confirm_sample; } bms_afe_sample_result_t;
+typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR, BMS_AFE_SAMPLE_READ_ERROR } bms_afe_sample_status_t;
 typedef uint8_t u8; typedef uint16_t u16;
 #define BMS_AFE_BACKEND 1
 #define BMS_AFE_BACKEND_DVC1124 1
@@ -29,10 +28,10 @@ static void bms_features_stop(void){}
 static void bms_features_init(void){}
 static unsigned protection_inits;
 static void bms_sw_protection_init(void){++protection_inits;}
-static void bms_features_service(uint8_t confirm_sample){}
+static void bms_features_service(void){}
 static int bms_features_charge_direction_blocked(void){return 0;}
 static void bms_afe_driver_init(void){}
-static bms_afe_sample_result_t bms_afe_driver_sample(void){bms_afe_sample_result_t r={BMS_AFE_SAMPLE_OK,1u};sample_calls++;return r;}
+static bms_afe_sample_status_t bms_afe_driver_sample(void){bms_afe_sample_status_t r=BMS_AFE_SAMPLE_OK;sample_calls++;return r;}
 static int bms_afe_driver_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
 static int bms_afe_driver_set_fets(int c,int d){if(init_fail){init_fail=0;return 0;}if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
 static int bms_afe_driver_disable_fets(int c,int d){if(fet_fail)return 0;if(c)cmd_c=0;if(d)cmd_d=0;return 1;}
@@ -52,7 +51,7 @@ uint32_t bms_time_now_32k(void){return guard_tick*32u;}
 uint8_t bms_afe_sleep(void);
 void bms_afe_publish_fet_status(uint8_t bits, uint8_t valid);
 /* PRODUCTION_SOURCE */
-static void sample_cycle(void){if(bms_afe_sample().status==BMS_AFE_SAMPLE_OK)bms_afe_apply_outputs();}
+static void sample_cycle(void){if(bms_afe_sample()==BMS_AFE_SAMPLE_OK)bms_afe_apply_outputs();}
 static void reset(void){
  params_valid=1u;direction_allow_mask=0u;
  err=raised=init_fail=0;aux_ok=1;

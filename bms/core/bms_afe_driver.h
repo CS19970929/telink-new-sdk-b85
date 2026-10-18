@@ -12,7 +12,7 @@ typedef struct {
 extern const bms_afe_driver_policy_t bms_afe_driver_policy;
 
 void bms_afe_driver_init(void);
-bms_afe_sample_result_t bms_afe_driver_sample(void);
+bms_afe_sample_status_t bms_afe_driver_sample(void);
 /* 最后一次命令成功仅确认 AFE 事务，不代表实测 MOS/Gate 状态。 */
 uint8_t bms_afe_driver_sleep(void);
 uint8_t bms_afe_driver_apply_protection_config(void);
@@ -33,8 +33,6 @@ uint8_t bms_afe_driver_get_charge_source_present(uint8_t *present);
 uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask);
 uint8_t bms_afe_driver_get_balance_mask(uint32_t *cell_mask);
 
-/* guard 是恢复资格和实际 FET 状态的唯一公共所有者。 */
-uint8_t bms_afe_samples_qualified(void);
 void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid);
 #if BMS_SERVICE_DIAG_ENABLE
 /* 仅诊断读取；总线静默与主动休眠需要不同的阻断原因。 */

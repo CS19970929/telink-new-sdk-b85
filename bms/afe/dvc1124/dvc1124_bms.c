@@ -451,7 +451,7 @@ uint8_t bms_afe_driver_set_fets(uint8_t charge_on,
 }
 
 /* 采样后发布测量、合并保护并更新 DVC FET 仲裁。 */
-bms_afe_sample_result_t bms_afe_driver_sample(void)
+bms_afe_sample_status_t bms_afe_driver_sample(void)
 {
     dvc1124_snapshot_t snapshot;
     bms_sw_protection_inputs_t sw;
@@ -460,11 +460,11 @@ bms_afe_sample_result_t bms_afe_driver_sample(void)
 
     uint16_t diag_c = 0u, diag_d = 0u;
 
-    bms_afe_sample_result_t result = DVC1124_App_AFEGet();
+    bms_afe_sample_status_t result = DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
     poll_tick = bms_time_ms();
     dvc_observe_current_recovery(&snapshot, poll_tick);
-    if (!snapshot.valid && result.status != BMS_AFE_SAMPLE_STALE) {
+    if (!snapshot.valid) {
 #if DVC1124_HW_PROTECT_ENABLE
         (void)dvc_clear_recovered_hw_latches(0u, 0u, 0u, 0u);
 #endif
@@ -483,8 +483,6 @@ bms_afe_sample_result_t bms_afe_driver_sample(void)
 #endif
     /* 与 SH 一样每个有效应用轮次评估软件保护；等待 ADC 不能拖慢软件滤波。 */
     memset(&sw, 0, sizeof(sw));
-    sw.voltage_stale = !snapshot.valid && !snapshot.voltage_fresh;
-    sw.current_stale = !snapshot.valid && !snapshot.current_fresh;
     /* PB1 移除与真实反向充电用于放电恢复；OCC 仍需真实反向放电。 */
     sw.current_recovery_requires_evidence = 1u;
     sw.current_recovery_sample_fresh = snapshot.current_fresh;
