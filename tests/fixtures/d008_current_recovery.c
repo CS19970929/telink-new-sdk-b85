@@ -9,6 +9,7 @@ void bms_error_raise(bms_error_id_t error) { assert(error == BMS_ERROR_AFE1); }
 static struct { struct { struct { uint8_t charge_ocp, discharge_ocp; } bits; } fault_third; } g_bms_report;
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 static int32_t current_ma;
+static uint8_t io_failed;
 #ifndef BMS_D008_LOAD_RELEASE_CONFIRM_MS
 #define BMS_D008_LOAD_RELEASE_CONFIRM_MS 200u
 #define BMS_BOARD_LOAD_REMOVED_LEVEL 1u
@@ -31,11 +32,12 @@ uint8_t DVC1124_GetSnapshot(dvc1124_snapshot_t *s) { if(s){memset(s,0,sizeof(*s)
 uint8_t bms_afe_driver_disable_fets(uint8_t c,uint8_t d) { (void)c;(void)d;assert(0);return 0; }
 /* PRODUCTION */
 static uint8_t step(uint32_t now_ms,uint8_t alarm,uint8_t driver_on,uint8_t swc,uint8_t swd) {
+    io_failed=0u;
     dvc1124_snapshot_t snap={0}; snap.valid=1; snap.current_fresh=1; snap.current_ma=current_ma; snap.sample_time_ms=now_ms; snap.status=6; snap.fet_status=driver_on ? DVC1124_CC2_DSGF_MASK : 0;
     g_bms_report.fault_third.bits.charge_ocp=swc;
     g_bms_report.fault_third.bits.discharge_ocp=swd;
     dvc_observe_current_recovery(&snap,now_ms);
-    return dvc_recover_current_faults(&snap,alarm,now_ms);
+    return dvc_recover_current_faults(&snap,alarm,now_ms,&io_failed);
 }
 static void reset(void) { memset(&s_current_recovery,0,sizeof(s_current_recovery)); current_ma=0; pb1=0; writes=0; write_ok=read_ok=1; read_alarm=0; }
 int main(void) {
@@ -46,7 +48,7 @@ int main(void) {
     step(204,0,0,0,0);step(406,0,0,0,0);assert(s_current_recovery.discharge);
     current_ma=-200;step(608,0,0,0,0);assert(s_current_recovery.discharge);
     dvc1124_snapshot_t cache={0};cache.valid=1;cache.current_ma=-201;
-    assert(dvc_recover_current_faults(&cache,0,609)==0 && s_current_recovery.discharge);
+    assert(dvc_recover_current_faults(&cache,0,609,&io_failed)==0 && s_current_recovery.discharge);
     current_ma=-201;step(610,0,0,0,0);assert(!s_current_recovery.discharge);
     /* OCC 不再等待30秒；两方向证据独立。 */
     reset();step(3,0,0,1,1);current_ma=201;step(200,0,0,0,0);
@@ -84,8 +86,8 @@ int main(void) {
     step(200,DVC_OCC_ALARMS,0,0,0);assert(!s_current_recovery.charge && writes==1);
     /* I/O失败、重新置位及清除期间新故障均保持对应锁存。 */
     reset();step(3,DVC_DSG_ALARMS,0,0,0);current_ma=-201;read_ok=0;
-    step(200,0,0,0,0);assert(s_current_recovery.discharge);
-    read_ok=1;write_ok=0;step(300,0,0,0,0);assert(s_current_recovery.discharge);
+    step(200,0,0,0,0);assert(s_current_recovery.discharge && io_failed);
+    read_ok=1;write_ok=0;step(300,0,0,0,0);assert(s_current_recovery.discharge && io_failed);
     write_ok=1;read_alarm=DVC1124_ALARM_SCD_MASK;step(400,0,0,0,0);assert(s_current_recovery.discharge);
     read_alarm=DVC_OCC_ALARMS;step(500,0,0,0,0);
     assert(!s_current_recovery.discharge && s_current_recovery.charge);
@@ -94,7 +96,8 @@ int main(void) {
     reset();step(3,DVC_DSG_ALARMS,0,0,0);
     cache.valid=1;cache.current_fresh=0;cache.current_ma=0;
     g_bms_report.fault_third.bits.discharge_ocp=0;
-    assert(dvc_recover_current_faults(&cache,0,200)==DVC_DSG_ALARMS);
+    io_failed=0u;
+    assert(dvc_recover_current_faults(&cache,0,200,&io_failed)==DVC_DSG_ALARMS && !io_failed);
     assert(g_bms_report.fault_third.bits.discharge_ocp);
 #endif
     return 0;

@@ -171,7 +171,7 @@ static uint8_t dvc_recovery_stable(uint8_t condition, uint16_t stable_ms,
 static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
                                              uint8_t sample_valid,
                                              uint8_t voltage_fresh,
-                                             uint32_t poll_ms)
+                                             uint32_t poll_ms, uint8_t *io_failed)
 {
     static dvc_voltage_recovery_t cov;
     static dvc_voltage_recovery_t cuv;
@@ -214,8 +214,11 @@ static uint8_t dvc_clear_recovered_hw_latches(uint8_t alarm,
     }
 
     if (clear_mask == 0u) return alarm;
-    if (!DVC1124_ClearAlarmFlags(clear_mask)) return alarm;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, &verify, 1u)) return alarm;
+    if (!DVC1124_ClearAlarmFlags(clear_mask) ||
+        !DVC1124_ReadRegisters(DVC1124_REG_ALARM, &verify, 1u)) {
+        *io_failed = 1u;
+        return alarm;
+    }
     return verify;
 }
 
@@ -249,13 +252,14 @@ static void dvc_merge_hw_faults(uint8_t alarm)
  * 不得把上一周期合并后的位反馈进来。
  */
 static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
-                                         uint8_t alarm, uint32_t now)
+                                         uint8_t alarm, uint32_t now, uint8_t *io_failed)
 {
     uint8_t sw_charge = g_bms_report.fault_third.bits.charge_ocp;
     uint8_t sw_discharge = g_bms_report.fault_third.bits.discharge_ocp;
     uint8_t charge_ready = 0u, discharge_ready = 0u;
     uint8_t release_reason = 0u;
     uint8_t before = (uint8_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1));
+    (void)io_failed; /* 关闭硬件保护的台架配置不执行清锁存事务。 */
 #if DVC1124_HW_PROTECT_ENABLE
     uint8_t clear_mask, verify;
     s_current_recovery.hw_pending |= (uint8_t)(alarm & (DVC_OCC_ALARMS | DVC_DSG_ALARMS));
@@ -288,6 +292,7 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
          */
         if (!DVC1124_ClearAlarmFlags(clear_mask) ||
             !DVC1124_ReadRegisters(DVC1124_REG_ALARM, &verify, 1u)) {
+            *io_failed = 1u;
             charge_ready = discharge_ready = 0u;
         } else {
             alarm = verify;
@@ -456,6 +461,7 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
     dvc1124_snapshot_t snapshot;
     bms_sw_protection_inputs_t sw;
     uint8_t alarm = 0u;
+    uint8_t io_failed = 0u;
     uint32_t poll_tick;
 
     uint16_t diag_c = 0u, diag_d = 0u;
@@ -466,7 +472,7 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
     dvc_observe_current_recovery(&snapshot, poll_tick);
     if (!snapshot.valid) {
 #if DVC1124_HW_PROTECT_ENABLE
-        (void)dvc_clear_recovered_hw_latches(0u, 0u, 0u, 0u);
+        (void)dvc_clear_recovered_hw_latches(0u, 0u, 0u, 0u, &io_failed);
 #endif
         bms_afe_publish_fet_status(0u, 0u); return result;
     }
@@ -479,7 +485,7 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
      */
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm,
         snapshot.valid, snapshot.voltage_fresh,
-        poll_tick);
+        poll_tick, &io_failed);
 #endif
     /* 与 SH 一样每个有效应用轮次评估软件保护；等待 ADC 不能拖慢软件滤波。 */
     memset(&sw, 0, sizeof(sw));
@@ -506,7 +512,7 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
     if (bms_sw_protection_charge_blocked()) diag_c |= DIAG_BLOCK_SW;
     if (bms_sw_protection_discharge_blocked()) diag_d |= DIAG_BLOCK_SW;
 
-    alarm = dvc_recover_current_faults(&snapshot, alarm, poll_tick);
+    alarm = dvc_recover_current_faults(&snapshot, alarm, poll_tick, &io_failed);
 #if DVC1124_HW_PROTECT_ENABLE
     dvc_merge_hw_faults(alarm);
     if (alarm & (DVC1124_ALARM_COV_MASK | DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) diag_c |= DIAG_BLOCK_HW;
@@ -534,7 +540,8 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
      * 本次采样后由 bms_afe_guard 立即仲裁 FET，保留通信与断线硬阻断语义；
      * 本函数仅更新故障状态。
      */
-    return result;
+    /* 测量已完整取得；控制失败不能冒充完整业务成功，故障合并仍须完成。 */
+    return io_failed ? BMS_AFE_SAMPLE_READ_ERROR : result;
 }
 
 /* 取得后端辅助测量与有效性。 */
