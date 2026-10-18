@@ -114,9 +114,9 @@ static uint8_t service_failsafe_wait(void)
     s_guard.comm_failures = 0u;
     s_guard.comm_inhibit = 1u;
 
-    /* SH 原恢复路径重建软件保护滤波，DVC 保持原有恢复语义。 */
+    /* SH 重建观察窗口，不能把 AFE 恢复当成电压/温度故障已经解除。 */
     if (bms_afe_driver_policy.reset_protection_before_init)
-        bms_sw_protection_init();
+        bms_sw_protection_reset_filters();
     bms_afe_driver_init();
     bms_afe_driver_set_output_enabled(s_guard.output_enabled);
 

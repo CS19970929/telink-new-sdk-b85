@@ -28,6 +28,7 @@ static void bms_features_stop(void){}
 static void bms_features_init(void){}
 static unsigned protection_inits;
 static void bms_sw_protection_init(void){++protection_inits;}
+static void bms_sw_protection_reset_filters(void){}
 static void bms_features_service(void){}
 static int bms_features_charge_direction_blocked(void){return 0;}
 static void bms_afe_driver_init(void){}

@@ -258,11 +258,17 @@ uint8_t bms_sw_protection_validate_params(const bms_protection_params_t *p)
     return 1u;
 }
 
+/* 通信恢复不是保护恢复；重初始化期间的时间不能算作连续解除证据。 */
+void bms_sw_protection_reset_filters(void)
+{
+    memset(s_filter_count, 0, sizeof(s_filter_count));
+}
+
 /* 清除软件保护状态与内部滤波计数。 */
 void bms_sw_protection_clear(void)
 {
     uint8_t level;
-    memset(s_filter_count, 0, sizeof(s_filter_count));
+    bms_sw_protection_reset_filters();
     memset(s_sw_fault, 0, sizeof(s_sw_fault));
     for (level = 0u; level < BMS_SW_PROTECTION_LEVEL_COUNT; ++level)
         bms_sw_clear_managed_bits(bms_sw_fault_reg(level));

@@ -66,6 +66,20 @@ int main(void){
  assert(!broken && g_bms_report.fault_third.bits.charge_otp);
  in.battery_temp_min=in.battery_temp_max=750;bms_sw_protection_update_groups(&in,0,1);
  assert(!g_bms_report.fault_third.bits.charge_otp);
+ // AFE restart preserves the latch and discards partial recovery confirmation.
+ g_bms_protection_params.mos_otp_filter_10ms=60;
+ in.mos_temp=1000;
+ for(int i=0;i<3;i++)bms_sw_protection_update_groups(&in,0,1);
+ in.mos_temp=850;bms_sw_protection_reset_filters();
+ for(int i=0;i<6;i++)bms_sw_protection_update_groups(&in,0,1);
+ assert(g_bms_report.fault_third.bits.mos_otp);
+ in.mos_temp=750;
+ for(int i=0;i<2;i++)bms_sw_protection_update_groups(&in,0,1);
+ bms_sw_protection_reset_filters();
+ for(int i=0;i<2;i++)bms_sw_protection_update_groups(&in,0,1);
+ assert(g_bms_report.fault_third.bits.mos_otp);
+ bms_sw_protection_update_groups(&in,0,1);
+ assert(!g_bms_report.fault_third.bits.mos_otp);
  // Unfitted MOS NTC: invalid or stale-hot values never participate.
  in.mos_temp_required=0;in.mos_temp_valid=0;
  bms_sw_protection_update_groups(&in,0,1);assert(!broken);

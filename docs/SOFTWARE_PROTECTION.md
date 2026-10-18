@@ -85,3 +85,8 @@ AND no AFE hardware block/lockout
 ## 温度传感器暂时失效
 
 已建立的电池/MOS 温度保护在传感器暂时无效时保持锁存，触发和连续恢复计数归零。TEMP_BREAK 保持输出禁止；传感器恢复到动作/恢复阈值之间时不能解除旧锁存。明确禁用温度保护或产品不装配 MOS NTC 时仍清理对应状态。host 场景不替代 NTC 与 Gate 实板验证。
+
+2026-10-18：SH 经 guard watchdog 静默后的重初始化只清软件保护滤波计数，保留活动故障、
+TEMP_BREAK 和已记录边沿；不能用 AFE 通信恢复绕过温度、电压或压差的 Recover。
+MCU 冷启动、完整启动入口和显式禁用的原语义不变。实现、场景及未执行验证见
+[本轮记录](PROTECTION_RECOVERY_SIMPLIFICATION_20261018.md)。

@@ -45,6 +45,8 @@ uint8_t bms_sw_protection_validate_params(const bms_protection_params_t *params)
 void bms_sw_protection_init(void);
 /* 清除软件保护状态与内部滤波计数。 */
 void bms_sw_protection_clear(void);
+/* AFE 重初始化只撤销触发/恢复计数，保留活动故障和已记录边沿。 */
+void bms_sw_protection_reset_filters(void);
 /* 作废部分物理恢复窗口，不清除活动故障。 */
 void bms_sw_protection_reset_current_recovery(void);
 /* 按当前测量快照更新软件保护状态。 */

@@ -7,10 +7,24 @@ fixture=read('tests/fixtures/sh_recovery_evidence.c').split('#if defined(MODE_TE
 for signature in ('uint8_t bms_sw_protection_charge_blocked(', 'uint8_t bms_sw_protection_discharge_blocked(',
                   'void bms_sw_protection_init(', 'void bms_sw_protection_update(',
                   'void bms_sw_protection_clear(', 'void bms_sw_protection_record_fault_edges(',
+                  'void bms_sw_protection_reset_filters(',
                   'void bms_sw_protection_reset_current_recovery(',
                   'uint8_t bms_sw_protection_discharge_overcurrent_active('):
     fixture=fixture.replace(function(fixture,signature),'')
 fixture=fixture.replace('static bms_sw_protection_inputs_t last_sw_sample;', '')
+fixture=fixture.replace('static int32_t bad_cell_mv;',
+                        'static int32_t bad_cell_mv;\nstatic int32_t mos_ntc_ohm=10000;')
+fixture=fixture.replace(function(fixture, 'uint16_t bms_lookup_u16('), r'''
+uint16_t bms_lookup_u16(const uint16_t *p,uint16_t n,uint16_t x) {
+ (void)p;(void)n;
+ if(x==200u)return 1350u; /* 95 C */
+ if(x==180u)return 1250u; /* 85 C */
+ if(x==150u)return 1200u; /* 80 C */
+ return 650u;
+}
+''')
+fixture=fixture.replace('t[i]=(i==invalid_ntc)?0:10000;',
+    't[i]=(i==invalid_ntc)?0:((i==SH3673510_BOARD_MOS_NTC_INDEX)?mos_ntc_ohm:10000);')
 profile=re.search(r'typedef struct\s*\{.*?\} bms_afe_hw_profile_t;',read('bms/core/bms_afe_hw_profile.h'),re.S).group()
 fixture=fixture.replace('/* PROFILE TYPE */',profile)
 fixture=fixture.replace('/* PRODUCTION */',selected_source(ROOT/'bms/afe/sh3673510/sh3673510_bms.c'))
@@ -47,6 +61,23 @@ int main(void){
  assert(last_sample_result==BMS_AFE_SAMPLE_OK);
  device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
  public_current_ma=0;sample();
+
+ /* MOS 95 C 动作，85 C 时经 guard watchdog 恢复仍须保持；80 C 重新确认。 */
+ g_bms_protection_params.mos_otp_third_x10=1350;
+ g_bms_protection_params.mos_otp_recover_x10=1200;
+ g_bms_protection_params.mos_otp_filter_10ms=40;
+ mos_ntc_ohm=20000;sample();sample();
+ assert(!command_c && !command_d && g_bms_report.fault_third.bits.mos_otp);
+ mos_ntc_ohm=18000;sample();
+ fail_stage=1u;sample();sample();
+ assert(!bms_afe_bus_access_allowed());
+ fail_stage=0u;now+=(35000u+1u)*32u;sample();
+ for(unsigned i=0;i<10;i++)sample();
+ assert(!bms_error_get(BMS_ERROR_AFE1));
+ assert(g_bms_report.fault_third.bits.mos_otp && !command_c && !command_d);
+ mos_ntc_ohm=15000;sample();assert(g_bms_report.fault_third.bits.mos_otp);
+ sample();assert(!g_bms_report.fault_third.bits.mos_otp && command_c && command_d);
+ mos_ntc_ohm=10000;sample();
 
  bms_afe_feature_snapshot_t temperature;
  assert(bms_afe_get_feature_snapshot(&temperature) && temperature.battery_temp_valid);

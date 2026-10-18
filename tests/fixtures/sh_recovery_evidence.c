@@ -87,6 +87,7 @@ uint8_t bms_sw_protection_charge_blocked(void) { return 0; }
 uint8_t bms_sw_protection_discharge_blocked(void) { return 0; }
 uint8_t bms_features_charge_direction_blocked(void) { return 0; }
 void bms_sw_protection_init(void) {}
+void bms_sw_protection_reset_filters(void) {}
 static bms_sw_protection_inputs_t last_sw_sample;
 void bms_sw_protection_update(const bms_sw_protection_inputs_t *p) { last_sw_sample=*p; }
 void bms_sw_protection_reset_current_recovery(void) {}
