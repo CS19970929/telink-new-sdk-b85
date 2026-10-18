@@ -29,11 +29,10 @@ volatile bms_system_status_t g_bms_system_status;
 static uint8_t errors[BMS_ERROR_COUNT];
 static uint32_t now;
 static uint16_t failure_step, failure_flag2;
-static uint32_t failure_vadc_age, failure_cadc_age;
 void bms_diag_afe_failure(uint16_t stage,int16_t error,uint16_t flag2,
-    uint32_t vadc,uint32_t cadc,uint32_t elapsed,uint32_t crc,uint32_t retries) {
+    uint32_t elapsed,uint32_t crc,uint32_t retries) {
     (void)error;(void)elapsed;(void)crc;(void)retries;
-    failure_step=stage;failure_flag2=flag2;failure_vadc_age=vadc;failure_cadc_age=cadc;
+    failure_step=stage;failure_flag2=flag2;
 }
 /* 本夹具验证采样/恢复；MOS 原始状态的诊断存储由独立 diag 回归覆盖。 */
 void bms_diag_mos_raw_status(uint16_t raw_status) { (void)raw_status; }

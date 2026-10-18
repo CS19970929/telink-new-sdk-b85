@@ -163,7 +163,7 @@ require(bms, "g_bms_report.charge_current_a10")
 require(bms, "g_bms_report.discharge_current_a10")
 require(bms, "s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma);")
 require(bms, "s_aux.sample_tick_32k = bms_time_now_32k();")
-require(bms, "if (status.flag2 & SH3673520_FLAG2_CADC_MASK)")
+require(bms, "sh3510_publish_current(current_ma, now);")
 require(app, "BMS_BOARD_SWITCH_PIN")
 require(text("bms_timing.h"), "#define BMS_SAMPLE_PERIOD_MS 200u")
 require(text("app.h"), "#define APP_SAMPLE_PERIOD_US BMS_SAMPLE_PERIOD_US")
@@ -279,7 +279,7 @@ modbus = text("modbus_rtu.c")
 require_count(control, "static sh3673510_protection_actual_t s_protection_actual;")
 require_count(control_h, "sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual);")
 require_count(control_h, "sh3673510_board_force_heater_fuse_safe(void);")
-require_count((ROOT / "bms/core/bms_afe_guard.c").read_text(encoding="utf-8"), "#define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u")
+assert "BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT" not in (ROOT / "bms/core/bms_afe_guard.c").read_text(encoding="utf-8")
 require_count(bms, "#define SH3510_SHORT_RELEASE_SAMPLES    10u")
 for symbol in (
     "static uint8_t s_short_latched;",
@@ -338,8 +338,8 @@ for needle in (
 ):
     require(hw_text, needle)
 for needle in ("sw.discharge_recovery_allowed = s_load_removed || sw.discharge_recovery_immediate",
-               "sw.discharge_recovery_immediate = confirm_sample &&",
-               "sw.charge_recovery_immediate = confirm_sample &&",
+               "sw.discharge_recovery_immediate = current_fresh &&",
+               "sw.charge_recovery_immediate = current_fresh &&",
                "sw.battery_temp_valid = battery_temperature_snapshot"):
     require(bms, needle)
 if "fault_third" in hw_text:

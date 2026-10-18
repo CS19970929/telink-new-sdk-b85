@@ -66,6 +66,10 @@ int main(void){
  for(unsigned i=0;i<100;i++)poll();assert(samples==calls);
  now+=5001;poll();assert(bms_afe_bus_access_allowed());
  status=BMS_AFE_SAMPLE_OK;poll();assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
+ /* 一秒确认不再叠加三次失败；两个失败观察也可确认。 */
+ qualify();status=BMS_AFE_SAMPLE_READ_ERROR;poll();now+=1000u;poll();
+ assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());
+ now+=5001u;status=BMS_AFE_SAMPLE_OK;poll();qualify();
  before=writes;
  for(unsigned i=0;i<20;i++){
   now+=200;status=BMS_AFE_SAMPLE_READ_ERROR;poll();assert(c&&d);
@@ -81,6 +85,11 @@ int main(void){
  now+=500;poll();assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());
  control_ok=1;now+=5001;poll();qualify();
  #if BMS_FEATURE_BALANCE_SUPPORTED
+ /* 均衡通信失败后，旧有效测量不能授权同轮新开；下一完整轮次恢复。 */
+ assert(bms_afe_set_channel_allowed(0,0)&&!c&&d);
+ balance_ok=0;poll();assert(!c&&d&&!bms_error_get(BMS_ERROR_AFE1));
+ assert(bms_afe_set_channel_allowed(0,1)&&!c&&d);
+ balance_ok=1;poll();assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
  /* 本轮均衡必要事务失败，即使后续 MOS 成功也不能清零。 */
  balance_ok=0;poll();now+=999;poll();assert(!bms_error_get(BMS_ERROR_AFE1));
  now+=1;poll();assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());

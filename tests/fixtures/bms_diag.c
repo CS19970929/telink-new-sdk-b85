@@ -166,8 +166,8 @@ int main(void){
  /* MOS 独立历史：采样间短暂关/开、有效性与背景、只读和生产关闭。 */
  bms_diag_init();
  bms_diag_boot_word(14u,0x3510u);
- bms_diag_afe_failure(DIAG_AFE_FAIL_CADC_AGE,0,0x101u,32u,12801u,64u,22u,44u);
- bms_diag_afe_failure(DIAG_AFE_FAIL_FET_WRITE,-4,0u,32u,12801u,64u,23u,45u);
+ bms_diag_afe_failure(DIAG_AFE_FAIL_CURRENT_READ,0,0x101u,64u,22u,44u);
+ bms_diag_afe_failure(DIAG_AFE_FAIL_FET_WRITE,-4,0u,64u,23u,45u);
  bms_diag_mos(3u,0u,0u); bms_diag_command(3u,1u); bms_diag_driver(3u,1u);
  bms_diag_runtime_sample(1u,-123,-123,tick,0u); bms_diag_mos_capture();
  n=request(q,1,3,BMS_DIAG_MOS_BASE,48u);
@@ -176,10 +176,10 @@ int main(void){
  assert(u16be(r+7)==1u && u16be(r+15)==1u); /* enabled / latest sequence */
  assert(bms_diag_read(BMS_DIAG_AFE_FAILURE_BASE,32u,bytes));
  assert(u16be(bytes)==0x4146u && u16be(bytes+4)==1u && u16be(bytes+30)==32u);
- assert(u16be(bytes+32)==1u && u16be(bytes+36)==1u && u16be(bytes+44)==DIAG_AFE_FAIL_CADC_AGE);
- assert(u16be(bytes+48)==0x101u && u16be(bytes+52)==12801u);
+ assert(u16be(bytes+32)==1u && u16be(bytes+36)==1u && u16be(bytes+44)==DIAG_AFE_FAIL_CURRENT_READ);
+ assert(u16be(bytes+48)==0x101u && u16be(bytes+50)==0u && u16be(bytes+52)==0u);
  assert(bms_diag_read(BMS_DIAG_AFE_FAILURE_BASE+32u,16u,bytes));
- assert(u16be(bytes)==1u && u16be(bytes+12)==DIAG_AFE_FAIL_CADC_AGE);
+ assert(u16be(bytes)==1u && u16be(bytes+12)==DIAG_AFE_FAIL_CURRENT_READ);
  tick=0xfffffff0u;
  bms_diag_runtime_sample(1u,999,999,tick,0u); bms_diag_mos_capture();
  assert(modbus_on_frame(q,n,r,&l) && u16be(r+15)==1u); /* current-only does not fill ring */

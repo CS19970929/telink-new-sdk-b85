@@ -12,7 +12,7 @@ def register(domain, products, evidence, names):
 
 
 register('afe', ('d014',), '22个原始生产TU与配置回滚故障', 'afe_configuration_gate_host_check')
-register('afe', PRODUCTS, '真实guard/State时间边界及SH原始TU通信/ADC/配置故障链', 'afe_health_host_check')
+register('afe', PRODUCTS, '真实guard/State时间边界及SH原始TU通信/配置/无ADC事件策略', 'afe_health_host_check')
 register('afe', PRODUCTS, '原厂范围独立向量与真实校验函数体', 'afe_factory_regression_host_check')
 register('afe', PRODUCTS, '提取函数故障注入', 'afe_hw_transaction_host_check')
 register('power', ('d008',), '提取函数场景', 'app_scheduler_host_check')

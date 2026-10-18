@@ -27,8 +27,8 @@ static uint8_t bms_error_get(unsigned e) { return errors[e]; }
 static void bms_error_raise(unsigned e) { errors[e] = 1; }
 static void bms_error_clear(unsigned e) { errors[e] = 0; }
 static void SH3673520_GetCommStats(sh3673520_comm_stats_t *s) { memset(s,0,sizeof(*s)); s->last_error = SH3673520_ERR_CRC; }
-void bms_diag_afe_failure(uint16_t a,int16_t b,uint16_t c,uint32_t d,uint32_t e,uint32_t f,uint32_t g,uint32_t h) {
-    (void)a;(void)b;(void)c;(void)d;(void)e;(void)f;(void)g;(void)h;
+void bms_diag_afe_failure(uint16_t a,int16_t b,uint16_t c,uint32_t d,uint32_t e,uint32_t f) {
+    (void)a;(void)b;(void)c;(void)d;(void)e;(void)f;
 }
 void bms_diag_mos_raw_status(uint16_t raw) { (void)raw; }
 static uint8_t bms_sw_protection_charge_blocked(void) { return 0; }

@@ -44,6 +44,7 @@ enum {
     DIAG_AFE_FAIL_CELL_READ=3, DIAG_AFE_FAIL_PACK_READ=4,
     DIAG_AFE_FAIL_CURRENT_READ=5, DIAG_AFE_FAIL_TEMP_READ=6,
     DIAG_AFE_FAIL_CURRENT_CONVERT=7, DIAG_AFE_FAIL_CELL_RANGE=8,
+    /* 9/10 为已删除的 ADC 年龄故障编号，仅保留旧诊断编号。 */
     DIAG_AFE_FAIL_VADC_AGE=9, DIAG_AFE_FAIL_CADC_AGE=10,
     DIAG_AFE_FAIL_RELEASE_READ=11, DIAG_AFE_FAIL_SHORT_RECOVERY=12,
     DIAG_AFE_FAIL_FLAG_RECOVERY=13, DIAG_AFE_FAIL_INIT=14,
@@ -174,13 +175,13 @@ enum { DIAG_SLEEP_BLOCK_OTA=1u, DIAG_SLEEP_BLOCK_FLASH=2u,
 enum {
     DIAG_GUARD_OUTPUT_ENABLED=1u, DIAG_GUARD_COMM_INHIBIT=2u,
     DIAG_GUARD_BUS_SILENCED=4u, DIAG_GUARD_FAULT_LATCHED=8u,
-    DIAG_GUARD_SAMPLES_QUALIFIED=16u
+    DIAG_GUARD_SAMPLES_QUALIFIED=16u /* 旧名称/位号；完整通信与配置门禁满足。 */
 };
 
 #if BMS_SERVICE_DIAG_ENABLE
 /* 仅复制故障现场，无额外 AFE I/O；flag2 bit8=读取有效，bit9=IDLE，bit10=SLEEP。 */
 void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
-    uint32_t vadc_age_32k, uint32_t cadc_age_32k, uint32_t sample_elapsed_32k,
+    uint32_t sample_elapsed_32k,
     uint32_t crc_errors, uint32_t retries);
 /* 记录持久参数升级与迁移诊断。 */
 void bms_diag_upgrade(uint16_t stage, uint16_t invalid_mask);

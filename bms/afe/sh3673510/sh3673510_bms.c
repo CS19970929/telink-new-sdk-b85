@@ -134,7 +134,6 @@ static void note_comm_error(uint16_t stage)
 #if BMS_SERVICE_DIAG_ENABLE
     bms_diag_afe_failure(stage, (int16_t)stats.last_error,
         stage < DIAG_AFE_FAIL_INIT ? s_sample_attempt_flag2 : 0u,
-        0u, 0u, /* 旧 ADC 年龄诊断槽保留地址，停止采集。 */
         stage < DIAG_AFE_FAIL_INIT ? (uint32_t)(pm_get_32k_tick()-s_sample_attempt_tick) : 0u,
         stats.crc_error_count, stats.retry_count);
 #else

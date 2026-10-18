@@ -221,7 +221,7 @@ void bms_diag_mos_raw_status(uint16_t raw_status)
  * 不因电流或 tick 变化填满 ring；无效状态是 UNKNOWN，绝非已确认关断。
  */
 void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
-    uint32_t vadc_age_32k, uint32_t cadc_age_32k, uint32_t sample_elapsed_32k,
+    uint32_t sample_elapsed_32k,
     uint32_t crc_errors, uint32_t retries)
 {
 #if BMS_DIAG_TRACE_ENABLE
@@ -232,14 +232,14 @@ void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
     s_afe_failure_latest[6] = stage;
     s_afe_failure_latest[7] = (uint16_t)io_error;
     s_afe_failure_latest[8] = flag2;
-    s_afe_failure_latest[9] = (uint16_t)(vadc_age_32k > 65535u ? 65535u : vadc_age_32k);
-    s_afe_failure_latest[10] = (uint16_t)(cadc_age_32k > 65535u ? 65535u : cadc_age_32k);
+    /* 删除 ADC 活性后保留协议槽位，不再传递或截断年龄值。 */
+    s_afe_failure_latest[9] = s_afe_failure_latest[10] = 0u;
     s_afe_failure_latest[11] = (uint16_t)(sample_elapsed_32k > 65535u ? 65535u : sample_elapsed_32k);
     put32(s_afe_failure_latest+12, crc_errors);
     put32(s_afe_failure_latest+14, retries);
 #else
-    (void)stage; (void)io_error; (void)flag2; (void)vadc_age_32k;
-    (void)cadc_age_32k; (void)sample_elapsed_32k; (void)crc_errors; (void)retries;
+    (void)stage; (void)io_error; (void)flag2;
+    (void)sample_elapsed_32k; (void)crc_errors; (void)retries;
 #endif
 }
 

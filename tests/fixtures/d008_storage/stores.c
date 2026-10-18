@@ -289,8 +289,9 @@ bms_soc_state_t g_bms_soc;
 typedef struct {int32_t raw_current_ma,current_ma;u32 sample_time_ms,sample_tick_32k;} bms_afe_aux_measurements_t;
 static int32_t switch_current_ma;
 static u32 switch_sample_age;
+static u8 switch_sample_valid=1u;
 static u8 switch_apply_ok=1u;
-static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*s){memset(s,0,sizeof(*s));s->current_ma=switch_current_ma;s->sample_time_ms=now-switch_sample_age;return 1;}
+static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*s){memset(s,0,sizeof(*s));s->current_ma=switch_current_ma;s->sample_time_ms=now-switch_sample_age;return switch_sample_valid;}
 static u8 bms_afe_bus_access_allowed(void){return 1u;}
 static u16 bms_afe_get_guard_diagnostic_bits(void){return DIAG_GUARD_SAMPLES_QUALIFIED;}
 u8 bms_afe_hw_profile_apply_committed(void){return switch_apply_ok;}
@@ -695,9 +696,9 @@ static void test_chemistry_switch(void)
  assert(bms_parameter_write(0x2ea8u,4u,command)==3u && programs==written); /* 24S NMC 拒绝。 */
  command[1]=1u;switch_current_ma=1000;
  assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
- switch_current_ma=0;switch_sample_age=BMS_SAMPLE_MAX_POLL_GAP_MS+1u;
+ switch_current_ma=0;switch_sample_valid=0u;
  assert(bms_parameter_write(0x2ea8u,4u,command)==4u && programs==written);
- switch_sample_age=0;
+ switch_sample_valid=1u;
  bms_soc_profile_config_t original_profile;
  bms_config_get_soc_profile(&original_profile);
  original_profile.current_deadband_ma=123u;original_profile.profile_version=17u;
@@ -738,7 +739,10 @@ static void test_chemistry_switch(void)
  assert(bms_parameter_write(0x2ea8u,4u,command)==4u);
  assert(config_inhibited>0u && parameter_read_one(0x2ea4u)==3u);
  switch_apply_ok=1u;
- puts("PASS chemistry transaction: password, length, 24S limit, fresh idle sample, byte cuts, retained domains, apply failure inhibit");
+ fresh();switch_sample_age=BMS_SAMPLE_MAX_POLL_GAP_MS+1u;
+ assert(bms_parameter_write(0x2ea8u,4u,command)==0u); /* 年龄不再是门禁，完整有效静置读取仍可切换。 */
+ switch_sample_age=0u;
+ puts("PASS chemistry transaction: password, length, 24S limit, valid idle sample without ADC age, byte cuts, retained domains, apply failure inhibit");
 }
 
 /* 恢复出厂包清空所有业务持久内容；正常固件不得把旧/损坏记录当空白。 */

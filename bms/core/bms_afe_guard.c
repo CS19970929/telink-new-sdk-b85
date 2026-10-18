@@ -139,7 +139,8 @@ static uint8_t apply_requested(void)
 
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
-    sample_valid = bms_afe_driver_get_aux_measurements(&measurements);
+    sample_valid = !s_guard.cycle_failed &&
+        bms_afe_driver_get_aux_measurements(&measurements);
     direction_allow_mask = sample_valid ? bms_afe_driver_get_direction_allow_mask() : 0u;
     /*
      * 用户关闭意图始终保留。AFE 确认放电时临时放行充电 MOS，确认充电时
