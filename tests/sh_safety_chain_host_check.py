@@ -79,6 +79,19 @@ int main(void){
  sample();assert(!g_bms_report.fault_third.bits.mos_otp && command_c && command_d);
  mos_ntc_ohm=10000;sample();
 
+ /* 完整入口只给 VADC：清 OV，不可借同轮零电流清 OCD；CADC 反向充电后再解除。 */
+ device.flag1=SH3673520_FLAG1_OV_MASK|SH3673520_FLAG1_OCD1_MASK;
+ device.flag2=SH3673520_FLAG2_VADC_MASK;
+ sample();
+ assert(!(device.flag1&SH3673520_FLAG1_OV_MASK));
+ assert(device.flag1&SH3673520_FLAG1_OCD1_MASK);
+ sample();assert(!command_d);
+ public_current_ma=-201;device.flag2=SH3673520_FLAG2_CADC_MASK;
+ sample();assert(!(device.flag1&SH3673520_FLAG1_OCD1_MASK));
+ sample();assert(command_c && command_d);
+ public_current_ma=0;device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
+ sample();
+
  bms_afe_feature_snapshot_t temperature;
  assert(bms_afe_get_feature_snapshot(&temperature) && temperature.battery_temp_valid);
  bad_cell=0;bad_cell_mv=3750;

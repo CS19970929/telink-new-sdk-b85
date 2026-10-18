@@ -45,7 +45,7 @@ int main(void) {
     static const u16 needed[]={2,3,5,5,4,6,6,6,6};
     sh3673510_control_status_t status;memset(&status,0,sizeof(status));
     assert(HW_REC_COUNT==9u);
-    status.flag2=SH3673520_FLAG2_VADC_MASK;
+    status.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     requested.cov_recover_mv=4000u;requested.cuv_recover_mv=2800u;
     requested.ocd_recover_a10=requested.occ_recover_a10=10u;
     requested.cov_recover_ms=400u;requested.cuv_recover_ms=600u;
@@ -68,8 +68,21 @@ int main(void) {
         }
         assert(cleared1==c1&&cleared2==c2);
     }
+    /* 只有 VADC 时，电压/温度可恢复，电流计数不得推进。 */
+    memset(s_hw_recovery_count,0,sizeof(s_hw_recovery_count));
+    status.flag2 &= (uint8_t)~SH3673520_FLAG2_CADC_MASK;
+    for(unsigned n=1;n<=6u;++n) {
+        bms_sw_protection_inputs_t v=evidence(0u);trace_reset();
+        assert(service_hw_flag_recovery(&status,&v));
+        assert(s_hw_recovery_count[HW_REC_OV]==(n<2u?n:2u));
+        assert(s_hw_recovery_count[HW_REC_UV]==(n<3u?n:3u));
+        for(unsigned id=2u;id<=4u;++id)assert(!s_hw_recovery_count[id]);
+        for(unsigned id=5u;id<9u;++id)assert(s_hw_recovery_count[id]==n);
+        assert(!(cleared1&(SH3673520_FLAG1_OCD1_MASK|SH3673520_FLAG1_OCD2_MASK|SH3673520_FLAG1_OCC_MASK)));
+    }
     /* 只有新 CADC 时，仅电流恢复计数推进；不能给电压/温度重复计数。 */
     memset(s_hw_recovery_count,0,sizeof(s_hw_recovery_count));
+    status.flag2 |= SH3673520_FLAG2_CADC_MASK;
     status.flag2 &= (uint8_t)~SH3673520_FLAG2_VADC_MASK;
     for(unsigned n=0;n<6u;++n) {
         bms_sw_protection_inputs_t v=evidence(1u);trace_reset();
@@ -97,6 +110,7 @@ int main(void) {
     status.flag1=SH3673520_FLAG1_OCD1_MASK|SH3673520_FLAG1_OCD2_MASK;status.flag2=0u;
     s_load_removed=0u;s_aux.current_ma=-201;
     v=evidence(0u);trace_reset();assert(service_hw_flag_recovery(&status,&v));assert(!flag1_calls);
+    status.flag2=SH3673520_FLAG2_CADC_MASK;
     v=evidence(1u);trace_reset();assert(service_hw_flag_recovery(&status,&v));assert(cleared1==status.flag1);
     s_aux.current_ma=-200;v=evidence(1u);trace_reset();assert(service_hw_flag_recovery(&status,&v));assert(!flag1_calls);
     /* FLAG1 失败时不得继续 FLAG2；FLAG2 失败同样向上传递。 */
