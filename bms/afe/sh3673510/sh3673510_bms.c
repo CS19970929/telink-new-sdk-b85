@@ -283,13 +283,6 @@ uint8_t bms_afe_driver_set_fets(uint8_t requested_charge_on,
 /* 发布硬件保护与 FET 状态诊断。 */
 static void publish_hw_status(const sh3673510_control_status_t *s)
 {
-#if SH3673510_HW_PROTECT_ENABLE
-    uint8_t chg_flag1;
-    uint8_t dsg_flag1;
-    uint8_t chg_flag2;
-    uint8_t dsg_flag2;
-#endif
-
     if (s == 0) return;
 #if BMS_SERVICE_DIAG_ENABLE
     s_flag1 = s->flag1;
@@ -304,21 +297,19 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
     s_hw_afe_error = (s->bstatus1 & SH3673520_BSTATUS1_E2P_ERR_MASK) ? 1u : 0u;
 
 #if SH3673510_HW_PROTECT_ENABLE
-    chg_flag1 = (uint8_t)(s->flag1 & (SH3673520_FLAG1_OV_MASK |
-                                      SH3673520_FLAG1_OCC_MASK |
-                                      SH3673520_FLAG1_SC_MASK));
-    dsg_flag1 = (uint8_t)(s->flag1 & (SH3673520_FLAG1_UV_MASK |
-                                      SH3673520_FLAG1_OCD1_MASK |
-                                      SH3673520_FLAG1_OCD2_MASK |
-                                      SH3673520_FLAG1_SC_MASK));
-    chg_flag2 = (uint8_t)(s->flag2 & (SH3673520_FLAG2_OTC_MASK |
-                                      SH3673520_FLAG2_UTC_MASK |
-                                      SH3673520_FLAG2_WDT_MASK));
-    dsg_flag2 = (uint8_t)(s->flag2 & (SH3673520_FLAG2_OTD_MASK |
-                                      SH3673520_FLAG2_UTD_MASK |
-                                      SH3673520_FLAG2_WDT_MASK));
-    s_hw_charge_protect = (chg_flag1 || chg_flag2) ? 1u : 0u;
-    s_hw_discharge_protect = (dsg_flag1 || dsg_flag2) ? 1u : 0u;
+    s_hw_charge_protect = ((s->flag1 & (SH3673520_FLAG1_OV_MASK |
+                                        SH3673520_FLAG1_OCC_MASK |
+                                        SH3673520_FLAG1_SC_MASK)) ||
+                           (s->flag2 & (SH3673520_FLAG2_OTC_MASK |
+                                        SH3673520_FLAG2_UTC_MASK |
+                                        SH3673520_FLAG2_WDT_MASK))) ? 1u : 0u;
+    s_hw_discharge_protect = ((s->flag1 & (SH3673520_FLAG1_UV_MASK |
+                                           SH3673520_FLAG1_OCD1_MASK |
+                                           SH3673520_FLAG1_OCD2_MASK |
+                                           SH3673520_FLAG1_SC_MASK)) ||
+                              (s->flag2 & (SH3673520_FLAG2_OTD_MASK |
+                                           SH3673520_FLAG2_UTD_MASK |
+                                           SH3673520_FLAG2_WDT_MASK))) ? 1u : 0u;
 #else
     s_hw_charge_protect = 0u;
     s_hw_discharge_protect = 0u;
