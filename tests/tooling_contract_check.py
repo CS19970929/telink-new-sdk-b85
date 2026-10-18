@@ -86,6 +86,7 @@ def check_monorepo_source_check():
         assert '#include "../sh3673510_defaults.h"' in config
         assert f'#include "{product}_protection_config.h"' in config
         config += (ROOT / "bms/products" / product / f"{product}_protection_config.h").read_text()
+        config += (ROOT / "bms/products/sh3673510_protection_config.h").read_text()
         config += (ROOT / "bms/products/sh3673510_defaults.h").read_text()
         assert "#define SH3673510_BOARD_BAT_NTC1_INDEX" in config
         assert "#define SH3673510_BOARD_SPI_GROUP" in config

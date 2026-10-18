@@ -23,10 +23,10 @@
 | SH GPIO、串数、Rsense、NTC、能力、AFE 默认 | 产品 `bms_product.h` | 固定设置直接编译；`SH3673510_HW_DEFAULT_*` 对应 AFE |
 | DVC 固定配置 | D008 `bms_product.h` 包含的私有 `dvc1124_product_defaults.h` | 固定板级、Rsense 和故障安全策略 |
 | D008 软件/AFE 保护默认 | `bms/products/d008/d008_protection_config.h`，见 [直接修改指南](D008_PROTECTION_CONFIGURATION.md) | `D008_SW_*` 与 `D008_AFE_*` 独立；短路及保护总开关也在此；仅 D008 |
-| D011/D013/D014 软件及 AFE 默认 | 各产品 `d011_protection_config.h` / `d013_protection_config.h` / `d014_protection_config.h` | 软件按一级、二级、三级、恢复、滤波排列；软件与 AFE 独立 |
+| D011/D013/D014 软件及 AFE 默认 | 共用 `bms/products/sh3673510_protection_config.h`；产品文件 `dXXX_protection_config.h` 只保留容量与 OTA 标识 | 软件按一级、二级、三级、恢复、滤波排列；软件与 AFE 独立；改共用文件同时影响三产品 |
 | heater/balance 默认 | `bms/app/bms_features.h`、`bms/products/bms_battery_defaults.h`、`bms_config_user_defaults()` | 均衡起始电压跟随类型；BUSINESS；能力禁用仍优先 |
 | 均衡通道数量上限、温度回差 | 各产品 `bms_product.h` 的 `BMS_BALANCE_*` 宏，见下节 | 编译期策略，不写入 Flash、不增加协议字段 |
-| SOC 配置/OCV 曲线 | 各产品 `dXXX_protection_config.h`；公共算法消费 `bms_soc_profile.h` | SOC，另评估 SOC_STATE；曲线点随固件生效 |
+| SOC 配置/OCV 曲线 | SH 共用 `bms/products/sh3673510_protection_config.h`，D008 为 `d008_protection_config.h`；公共算法消费 `bms_soc_profile.h` | SOC，另评估 SOC_STATE；曲线点随固件生效 |
 | OTA 更新策略 | 各产品 dXXX_protection_config.h 的 OTA_SOURCE_POLICY 区域；公共 bms_update_policy.h 合成 | 六个更新开关（含独占恢复出厂）、固定标识和输入摘要一起保存到源码；历史编号只保留只读地址 |
 | 开关/ACC触发休眠 | 四项目各自 `bms_product.h` 的 `BMS_PRODUCT_SWITCH_SLEEP_ENABLE` | 默认1，设0只关闭开关休眠请求；不改变开关输入/唤醒/其他用途，不属于Flash参数；详见 [SH低功耗与开关策略](SH_LOW_POWER_FAILURE_HANDLING.md) |
 | 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |

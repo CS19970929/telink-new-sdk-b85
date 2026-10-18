@@ -11,6 +11,8 @@
 | D013 | [d013_protection_config.h](../bms/products/d013/d013_protection_config.h) |
 | D014 | [d014_protection_config.h](../bms/products/d014/d014_protection_config.h) |
 
+D011/D013/D014 的保护、SOC/OCV、加热/均衡和保护性休眠默认值已合并为共用 [sh3673510_protection_config.h](../bms/products/sh3673510_protection_config.h)；三个产品文件只保留容量与 OTA 标识，并包含该共用文件。数值只在一处编辑，改共用文件会同时影响三个产品。
+
 文件集中软件保护、独立 AFE 保护、SOC 调参、两种 OCV 曲线、容量、加热/均衡和保护性休眠的首次默认。软件保护按一级、二级、三级、恢复、滤波连续排列。`*_FOR(c)` 条件左侧为 LFP、右侧为 NMC；下方别名选择编译默认，通常只编辑有数值的行。
 
 单位：容量为 0.1 Ah，电流为 0.1 A，软件滤波为 10 ms，温度为 `(℃+40)*10`。软件总压按每串 mV 编辑，再换算为整包 10 mV。GPIO、Rsense、串数、能力、身份和通信留在 `bms_product.h`。SH 公共板级头不再持有第二份保护阈值，软件与 AFE 数值独立。

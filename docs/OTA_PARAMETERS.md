@@ -10,7 +10,7 @@
 
 四产品共用实现。Ctrl+Shift+B 窗口将更新组、新默认值和固定标识保存到各产品源码，构建时全部编入 BIN；客户直接升级即可，不要求读取客户板子的旧编号，也不需要升级后由上位机补写参数。有线烧录后启动使用相同规则。
 
-2026-10-14 参数编辑入口已集中到四产品各自的 `dXXX_protection_config.h`。修改后在窗口选择对应更新组，将固定标识与参数一起保存到源码，不改历史 revision；Git 提交不作为构建或 OTA 门禁。App/Windows 整套 LFP/NMC 切换、密码和保留范围见 [四产品参数与类型切换](BATTERY_TYPE_SWITCH.md)。
+2026-10-14 参数编辑入口已集中到四产品各自的 `dXXX_protection_config.h`；2026-10-18 起 D011/D013/D014 的保护/SOC/OCV 默认值合并到共用 `bms/products/sh3673510_protection_config.h`，产品文件仍保留容量与 `OTA_SOURCE_POLICY` 区域。修改后在窗口选择对应更新组，将固定标识与参数一起保存到源码，不改历史 revision；Git 提交不作为构建或 OTA 门禁。App/Windows 整套 LFP/NMC 切换、密码和保留范围见 [四产品参数与类型切换](BATTERY_TYPE_SWITCH.md)。
 
 当前编辑与直接构建流程见 [源码配置与固定 OTA 标识](SOURCE_CONFIGURATION_WORKFLOW.md)。构建和发送阶段不接受环境宏临时覆盖，但允许使用已写回源码的未提交参数。
 

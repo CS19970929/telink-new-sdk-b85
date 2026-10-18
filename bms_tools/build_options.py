@@ -112,6 +112,8 @@ DEFAULT_INPUTS = ("bms/products/bms_battery_defaults.h", "bms/core/bms_parameter
                   "bms/core/bms_soc.h", "bms/core/bms_state_store.c", "bms/core/bms_state.h",
                   "bms/app/bms_features.h", "bms/afe/sh3673510/sh3673510_quantize.h",
                   "bms/core/bms_update_policy.h")
+# SH3673510 三产品共用默认值；产品文件只保留容量与 OTA 标识，摘要必须覆盖共用输入。
+SHARED_PARAMETERS = "bms/products/sh3673510_protection_config.h"
 
 
 def _text(path: Path) -> str:
@@ -190,6 +192,8 @@ def parameter_inputs_hash(root: Path, product: str, options: dict, replacements=
     replacements = replacements or {}
     paths = list(DEFAULT_INPUTS) + [f"bms/products/{product}/bms_product.h",
                                   f"bms/products/{product}/{product}_protection_config.h"]
+    if product != "d008":
+        paths.append(SHARED_PARAMETERS)
     paths.append("bms/products/d008/d008_product_profile.h" if product == "d008"
                  else "bms/products/sh3673510_defaults.h")
     if product == "d008":

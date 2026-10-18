@@ -7,7 +7,7 @@
 | 内容 | D008 | D011 / D013 / D014 |
 |---|---|---|
 | AFE、串数、化学体系 | `d008_product_profile.h` 的默认 profile / CUSTOM 两项；AFE 固定 DVC1124 | 各产品 `bms_product.h` 的 `BMS_BUILD_AFE_MODEL`、`SH3673510_BOARD_CELL_COUNT`、`BMS_PRODUCT_CHEMISTRY` |
-| 容量、保护、SOC、OCV 等默认值 | `d008_protection_config.h` | 各产品 `dXXX_protection_config.h` |
+| 容量、保护、SOC、OCV 等默认值 | `d008_protection_config.h` | 保护/SOC/OCV：共用 `sh3673510_protection_config.h`；容量：各产品 `dXXX_protection_config.h` |
 | 本包 OTA 更新组、固定标识和输入摘要 | 上述独立参数文件的 `OTA_SOURCE_POLICY` 区域 | 同左 |
 
 原有保护默认值、GPIO、Rsense、实装能力、持久记录、协议、Flash 分区和 OTA 格式保持。D008 旧数字 profile 与显式工程验证入口保留；交付镜像所选 profile 必须与源码的默认选择一致。23S LFP 仍不扩大生产签核范围。
