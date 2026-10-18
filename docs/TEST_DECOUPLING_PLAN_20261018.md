@@ -8,11 +8,16 @@
 
 | 指标 | 数量 |
 |---|---:|
-| 使用 `function()/extract_function()` 抽取生产源码的测试文件 | 23 |
-| 抽取调用总数 | 91 |
+| 使用 `function()/extract_function()` 抽取**生产源码**的测试文件 | 21 |
+| 生产源码抽取调用总数 | 68 |
+| 仅抽取夹具自身文本的调用（不构成耦合） | 4 |
 | 含 `assertIn/assertNotIn/assertRegex`（多为源码文本断言）的测试文件 | 6 |
 | 上述断言总数（含非源码断言） | 328 |
 | `tests/fixtures/**/*.c` 夹具 | 28 |
+
+`sh_recovery_counters_host_check.py` 与 `sh_safety_chain_host_check.py` 已用
+`selected_source()` 整文件链接，生产抽取为 0，不需要改造；`sh_recovery_host_check.py`
+仍有 4 处生产抽取。
 
 抽取最集中的文件：`sh_power_host_check.py`(20)、`dvc_adc_events_host_check.py`(13)、
 `d008_power_soc_host_check.py`(6)、`d014_defaults_host_check.py`(6)、
@@ -25,11 +30,11 @@
 
 ## A1 第一批（按收益/风险排序）
 
-1. **`sh_recovery_counters_host_check.py` → 链接真实 TU**
-   已使用 `selected_source(bms/afe/sh3673510/sh3673510_bms.c)`，只需补齐端口/Flash/时钟替身，
-   删除按名抽取的 2 个函数。
-2. **`sh_recovery_host_check.py`**：把 13 个按名抽取函数改成整文件链接；状态区切片
-   （`#define SH3510_SAMPLE_MS` 到 `restart_sampling`）随之删除。
+1. **`sh_recovery_host_check.py`**：把 4 处生产抽取与 13 个按名抽取函数改成整文件链接；
+   状态区切片（`#define SH3510_SAMPLE_MS` 到 `restart_sampling`）随之删除。
+   该文件已具备端口/Flash/时钟替身，是剩余文件里最接近整文件链接的一个。
+2. **`sh_power_host_check.py`**（9 处）与 **`dvc_adc_events_host_check.py`**（13 处）：
+   分别为 SH 与 DVC 的宿主场景，改造后可覆盖同族其它文件。
 3. **`core_contract_check.py` 的 3 条源码形状断言**改为行为断言：
    - `soc_step_down_to(g_soc_runtime.ocv_high)` → 给定高压静置，断言 SOC 不上升；
    - `soc_step_up_to` 不出现在 OCV 函数 → 由行为断言覆盖（同上）；
