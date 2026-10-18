@@ -66,9 +66,11 @@ static uint8_t s_hw_charge_protect;
 static uint8_t s_hw_discharge_protect;
 static uint8_t s_afe_reconfigure_required;
 static uint8_t s_bstatus2;
+#if BMS_SERVICE_DIAG_ENABLE
 static uint8_t s_flag1;
 static uint8_t s_flag2;
 static int16_t s_mos_ntc_raw;
+#endif
 static uint8_t s_fet_command_valid;
 static uint8_t s_last_charge_command;
 static uint8_t s_last_discharge_command;
@@ -86,9 +88,11 @@ static uint8_t s_charger_known;
 static uint8_t s_charger_present;
 static uint8_t s_sampling_restart;
 static uint32_t s_sampling_started_ms;
+#if BMS_SERVICE_DIAG_ENABLE
 /* 本次采样现场；失败时先复制，再清除恢复资格。协议读取不消费 FLAG2。 */
 static uint32_t s_sample_attempt_tick;
 static uint16_t s_sample_attempt_flag2;
+#endif
 
 
 /* 重配置后重新等待温度扫描稳定；不监测运行期 ADC 活性。 */
@@ -287,8 +291,10 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
 #endif
 
     if (s == 0) return;
+#if BMS_SERVICE_DIAG_ENABLE
     s_flag1 = s->flag1;
     s_flag2 = s->flag2;
+#endif
     s_bstatus2 = s->bstatus2;
     bms_diag_mos_raw_status(s->bstatus1);
     g_bms_system_status.bits.charge_mos_status =
@@ -664,7 +670,9 @@ static void sh3510_publish_temperatures(const int32_t *external_raw)
 {
     uint16_t bat_temp_min = 0u, bat_temp_max = 0u;
     uint8_t i;
+#if BMS_SERVICE_DIAG_ENABLE
     s_mos_ntc_raw = (int16_t)external_raw[SH3673510_BOARD_MOS_NTC_INDEX];
+#endif
     memset(s_ntc_ohm, 0, sizeof(s_ntc_ohm));
     for (i = 0u; i < 4u; ++i) {
         uint32_t r;
@@ -770,10 +778,12 @@ static uint16_t publish_measurements(void)
     memset(&status, 0, sizeof(status));
     status_ok = sh3673510_control_read_status(&status);
     if (!status_ok) return DIAG_AFE_FAIL_STATUS;
+#if BMS_SERVICE_DIAG_ENABLE
     /* 同时保留本次模式，避免把 IDLE 的4秒 CADC 周期误分析为 normal 的250ms。 */
     s_sample_attempt_flag2 = (uint16_t)(0x100u | status.flag2 |
         ((uint16_t)(status.bstatus2 & (SH3673520_BSTATUS2_IDLE_MASK |
                                      SH3673520_BSTATUS2_SLEEP_MASK)) << 5));
+#endif
     /* 已验证的芯片故障/保护优先于后续测量读取，不能被读失败覆盖。 */
     publish_hw_status(&status);
     if (s_hw_afe_error) return DIAG_AFE_FAIL_INIT;
@@ -829,9 +839,11 @@ void bms_afe_driver_init(void)
     s_hw_discharge_protect = 0u;
     s_afe_reconfigure_required = 0u;
     s_bstatus2 = 0u;
+#if BMS_SERVICE_DIAG_ENABLE
     s_flag1 = 0u;
     s_flag2 = 0u;
     s_mos_ntc_raw = 0;
+#endif
     s_fet_command_valid = 0u;
     s_last_charge_command = 0u;
     s_last_discharge_command = 0u;
@@ -848,8 +860,10 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
 {
     uint16_t failure;
     bms_afe_sample_status_t result = BMS_AFE_SAMPLE_ERROR;
+#if BMS_SERVICE_DIAG_ENABLE
     s_sample_attempt_tick = pm_get_32k_tick();
     s_sample_attempt_flag2 = 0u;
+#endif
     sh3673510_board_force_heater_fuse_safe();
     if (s_flag_clear_failed) { note_comm_error(DIAG_AFE_FAIL_FLAG_CLEAR_HOLD); return result; }
     failure = publish_measurements();

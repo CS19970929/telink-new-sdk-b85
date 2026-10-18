@@ -38,7 +38,9 @@ typedef struct {
     uint16_t balance_trust_samples;
     uint8_t balance_prev_cell_count;
     uint16_t balance_prev_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
+#if BMS_DEBUG_LOG_ENABLE
     uint32_t balance_requested_mask;
+#endif
 #endif
 } bms_feature_state_t;
 
@@ -291,9 +293,11 @@ static uint8_t apply_balance_mask(uint32_t desired)
 {
     uint32_t actual;
 
+#if BMS_DEBUG_LOG_ENABLE
     if (s_feature.balance_requested_mask != desired)
         BMS_LOG(BMS_LOG_INFO, BMS_LOG_FEATURE, BMS_LOG_BALANCE_REQUEST, s_feature.balance_requested_mask, desired);
     s_feature.balance_requested_mask = desired;
+#endif
     if (!bms_afe_set_balance_mask(desired))
     {
         BMS_LOG(BMS_LOG_ERROR, BMS_LOG_FEATURE, BMS_LOG_BALANCE_RESULT, desired, UINT32_MAX);
@@ -561,7 +565,9 @@ void bms_features_init(void)
     /* 温度暂停和未确认关闭状态保留，不能用重初始化绕过恢复条件。 */
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
+#if BMS_DEBUG_LOG_ENABLE
     s_feature.balance_requested_mask = 0u;
+#endif
 #endif
     /* prev_cell_count 为零时不读旧数组；完整有效帧才建立新基线。 */
 #if BMS_FEATURE_HEATER_SUPPORTED
@@ -609,7 +615,9 @@ void bms_features_stop(void)
     s_feature.heater_off_hot_samples = 0u;
 #endif
 #if BMS_FEATURE_BALANCE_SUPPORTED
+#if BMS_DEBUG_LOG_ENABLE
     s_feature.balance_requested_mask = 0u;
+#endif
     s_feature.balance_off_pending = 1u;
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_prev_cell_count = 0u;
