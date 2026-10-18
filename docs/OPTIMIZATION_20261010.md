@@ -12,7 +12,7 @@
 | P1 | DVC 均衡读写失败，上层仍获成功，或将最后确认状态清成零 | [dvc1124.c](../bms/afe/dvc1124/dvc1124.c) 及 feature backend 贯通返回值；失败不伪造新确认值。`6c2fa4b3` | 实际采样/均衡函数读失败、写失败、回读失败注入 |
 | P1 | State/Event 初始化失败与 Config 失败共用启动输出阻断 | [bms_parameters.c](../bms/core/bms_parameters.c) 仅安全配置决定启动许可；State/Event 报错并按既有路径降级。`e0806514` | 各域失败、Config 锁存、逐字节中断、重启重试 |
 | P1 | watchdog 静默长度由 200 ms 调用次数决定 | [bms_afe_guard.c](../bms/core/bms_afe_guard.c) 改实际 tick，保留 DVC 5 s/SH 35 s。`473dccc5`；DVC 时钟夹具 `011d0963` | 密集调用不推进时间、到期边界、回绕、三新鲜样本资格 |
-| P2 | SH 均衡续期依赖调用次数，抖动改变实际续期长度 | [sh3673510_feature_backend.c](../bms/afe/sh3673510/sh3673510_feature_backend.c) 20 s tick 续期，保留状态不一致立即重写。`becaa46e` | 到期、回绕、失败重试、掩码丢失 |
+| P2 | SH 均衡续期依赖调用次数，抖动改变实际续期长度 | `sh3673510_feature_backend.c`（已并入 `sh3673510_bms.c`）20 s tick 续期，保留状态不一致立即重写。`becaa46e` | 到期、回绕、失败重试、掩码丢失 |
 | P2 | 静置空电校正绕过 OCV 的基本数据资格 | [bms_soc.c](../bms/core/bms_soc.c) 复用 rest context，排除检测阶段。`28fcced7` | 十类不合格上下文拒绝、健康正控制 |
 | P2 | SH 生产默认 LED=1 与生产门禁冲突，测试额外宏掩盖冲突 | [sh3673510_defaults.h](../bms/products/sh3673510_defaults.h) 生产默认 0，显式开启仍拒绝。`197fd03f` | 四产品实际预处理正负控制 |
 | P2 | 24 h 区间改用独立计时后，旧运行诊断仍显示短计时 | [app_power.c](../bms/app/app_power.c) 按 region 报告对应累计值。`2a9e6eed` | 实际电源入口累计 110 s 报告 |

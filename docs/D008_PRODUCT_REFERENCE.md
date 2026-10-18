@@ -301,8 +301,9 @@ R53/R54 mask 语义：**0 = 允许该来源动作；1 = 屏蔽该来源。**
 
 ### 8.1 受控 Shutdown/Wake 台架接口
 
-禁止直接从产品代码调用 DVC 私有 Shutdown/Wake 原语。D008 仅公开公共
-guard 管理的 `bms_afe_test_enter_shutdown()` / `bms_afe_test_wake()`：
+禁止直接从产品代码调用 DVC 私有 Shutdown/Wake 原语。D008 仅保留公共
+guard 管理的 `bms_afe_test_wake()`（只在 `BMS_HOST_TEST` 下编译；同组的
+Shutdown 入口已不存在，当前也没有 C 调用者，台架脚本使用前需重新确认）：
 
 1. Shutdown 前清均衡、CHG/DSG hard-off，并进入无 I2C 的 hold 状态；
 2. Wake 走完整 AFE init，重新应用固定配置和 AFE HW profile；

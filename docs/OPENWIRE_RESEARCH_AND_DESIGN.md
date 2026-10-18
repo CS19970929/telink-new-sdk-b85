@@ -60,7 +60,7 @@
 | [feature](../bms/app/bms_features.c)，`bms_features_outputs_blocked()` | `openwire_active` 或确认 fault 时阻断两个 MOS。 | 健康检测也会发生关断；`DIAG_BLOCK_OPENWIRE` 同时表示主动检测和故障，历史原因无法直接区分。 |
 | 同文件的疑似处理、冷却分支 | 非合理电压或采样失效置疑似；疑似时跳过冷却和空闲计数。 | ERROR/启动失败设置的冷却随后被疑似绕过，可能连续重试。异常电压也不是已确认采样线开路。 |
 | [DVC 驱动](../bms/afe/dvc1124/dvc1124.c)，`DVC1124_OpenWirePoll()` | 没有新鲜诊断样本时保持 WAITING。 | 所有等待分支没有共同总截止时间；COW 自清不等于软件流程一定退出。 |
-| [SH 后端](../bms/afe/sh3673510/sh3673510_feature_backend.c) | 未见完成标志时返回 BUSY；最多三次已完成尝试获取两阶段；结束关闭 OWD。 | 尝试次数不限制一直 BUSY；关闭 OWD 失败被忽略，仍可能报告 READY。缺少完成证据覆盖和清理成功契约。 |
+| SH 后端（原 `sh3673510_feature_backend.c`，该文件已在后续轮次并入 `sh3673510_bms.c`） | 未见完成标志时返回 BUSY；最多三次已完成尝试获取两阶段；结束关闭 OWD。 | 尝试次数不限制一直 BUSY；关闭 OWD 失败被忽略，仍可能报告 READY。缺少完成证据覆盖和清理成功契约。 |
 | `bms_features_on_afe_invalid()` | 清应用 active、置疑似，保留通信安全门禁。 | 不等于芯片激励已停止；恢复后必须先清理/验证后端，不能把本地状态清零当硬件已恢复。 |
 | [DVC 后端](../bms/afe/dvc1124/dvc1124_bms.c)、[SH 后端](../bms/afe/sh3673510/sh3673510_bms.c) | 正常采样后端推进软件保护；DVC 诊断电压还会更新共享报告。SOC 已有部分 Open-Wire 隔离。 | 只去掉 MOS 阻断，会让新的检测路径与软件/硬件保护、显示、恢复滤波相互作用；必须先证明诊断帧的用途和生命周期。 |
 

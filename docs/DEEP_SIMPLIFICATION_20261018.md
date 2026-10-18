@@ -197,7 +197,25 @@ D008 20S NMC / 24S LFP 的补充结果见第 8 节。
 3. `storage_record` 失败状态与 `has_latest`、SOC `empty_anchor_latched` 两个小项
    （合计约 −40 行、−2 字段），都需要重跑存储/轨迹回归。
 
-## 9. 复现
+## 9. 文档同步检查
+
+本轮同时做了文档与代码的同步抽查（脚本 + 人工核对）：
+
+- 导航：根 `README.md` 与 `docs/README.md` 现在都覆盖全部顶层专题文档（缺链 0）。
+  `docs/README.md` 增加了"补充索引"，把此前只在根 README 出现的近期专题归入主题分组。
+- 代码符号：扫描当前文档中出现的 `bms_*` / `sh36*` / `dvc1124_*` / `DVC1124_*` 标识符与
+  `bms/**` 路径，逐条对照源码。多数"缺失"是**删除记录**（历史文档按约定记录"删除了什么"）
+  或工具名/环境变量，不是失同步；确认并修复的真实失同步只有两处：
+  - `docs/D014_SAFETY_LOOP.md` 引用的 `bms_parameters_startup()` 已改名为 `bms_parameters_init()`；
+  - `docs/D008_PRODUCT_REFERENCE.md` 仍列出不存在的 `bms_afe_test_enter_shutdown()`。
+- 失效链接：`OPENWIRE_RESEARCH_AND_DESIGN.md`、`OPTIMIZATION_20261010.md` 里指向
+  `sh3673510_feature_backend.c` 的链接（该文件后续并入 `sh3673510_bms.c`）改为文字说明。
+- 仍保留但不修：`docs/AFE_AUDIT_REMEDIATION.md` 的 13 个 `文件:行号` 锚点，文档已声明
+  "固定提交 5418a9fa，后续行号以提交为准"；`docs/afe-audit/**` 与 `REFACTOR_PHASE*`
+  中的树外证据绝对路径，按"临时证据不随仓库交付"的约定保留。
+- 未做：对 `docs/history/**` 逐句重核。它们按仓库约定是固定提交记录，不代表当前 HEAD。
+
+## 10. 复现
 
 ```powershell
 $env:PYTHONUTF8 = '1'
