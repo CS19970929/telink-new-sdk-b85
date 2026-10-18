@@ -19,6 +19,11 @@
 
 SOC 按实际应用时间积分，通信无效区间不补算。PM 与协议查询只消费后端测量有效性，不再计算 ADC 年龄；调度、SOC 长间断、物理恢复滤波仍保留各自时间。
 
+同日后续的保护恢复与等价精简见 [逐轮实现记录](PROTECTION_RECOVERY_SIMPLIFICATION_20261018.md)：
+SH watchdog 重初始化保留软件活动故障，仅复位滤波计数；电压/温度与电流硬件恢复分别消费
+本轮 VADC、CADC。guard 的有效性检查仍在原时点执行，但不复制不使用的测量。
+这些修改尚未运行测试、编译或实板验证；下述固定提交收据不覆盖这些修改。
+
 ### 历史固定源码验收收据：2026-10-18（旧活性策略）
 
 以下收据仅对应旧活性策略，当前策略另见上述专题。生产源码固定为 `2b468d917951edc67075eaca902d2eb4dfa08770`，基线为 `a8a608ca`；实现提交依次为 `f49c6b5d`、`e9fca67a`、`2b468d91`。最后一项修复保证三秒未轮询但本轮已取得可信新转换时，不会清空已合格 NTC 而制造 TEMP_BREAK。协议、参数和存储布局未改。
@@ -74,7 +79,7 @@ SH 后端的 C+/LOAD 互斥、具体保护恢复证据和清 flag 失败处理�
 | 持久 Config 和 OTA 执行标记 | `bms_config_store.c` 的 get/set/default/update | 参数和标记一起提交，候选成功落盘后才替换 cache |
 | AFE requested/effective、apply-state | `bms_afe_hw_profile.c`，独立授权/提交接口 | apply/readback 失败回滚；回滚失败 CONFIG_INCONSISTENT |
 | 三等级软件故障 | `bms_sw_protection.c` 私有故障字唯一保存活动位，滤波数组只存计数；SOC Low 在 `bms_soc.c` | 仅在报告边界合并硬件故障，SW 阻断查询只读私有来源；保护同步读取主循环发布的测量 |
-| AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | watchdog bus silence、重配、三次合格样本；失效不能以旧样本恢复 |
+| AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | 持续通信失败确认、watchdog bus silence、配置禁止；完整有效测量及必要控制成功后恢复，不要求三次转换 |
 | AFE 实际 FET 回读及有效性 | backend 经 `bms_afe_publish_fet_status()` 发布，`bms_afe_guard.c` 保存 | 命令变化、通信失效、输出撤销后立即作废；标准协议不依赖开发诊断缓存，也不把寄存器状态宣称为实测 Gate |
 | 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
 | heater/balance 策略 | `bms/app/bms_features.c` | 产品头用 `BMS_FEATURE_*_SUPPORTED` 编译期裁剪；保留产品的温度、可信采样及故障互锁 |

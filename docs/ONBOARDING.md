@@ -4,7 +4,8 @@
 
 ## 1. 确认拿到的代码
 
-从团队仓库取得 `codex-bms-monorepo` 分支，直接在原项目目录开发；本机 monorepo worktree 已移除。其他电脑可使用自己的目录，Windows 构建工具会处理路径中的空格。
+当前按根 `AGENTS.md` 直接在 `codex-bms-deep-simplification-20261016` 分支及原项目目录开发，
+不另建 monorepo worktree。其他电脑可使用自己的目录，Windows 构建工具会处理路径中的空格。
 
 ```powershell
 Set-Location 'D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)' # 改为自己的项目目录
@@ -14,7 +15,8 @@ git status --short
 git remote -v
 ```
 
-完成标准：知道分支、完整 SHA、是否有未提交修改和仓库来源。既有脏文件先识别所有者，不用 reset/clean 清掉别人的工作。功能分支从此基线创建；公共代码合回 monorepo，旧 common 分支不再双向同步。
+完成标准：知道分支、完整 SHA、是否有未提交修改和仓库来源。既有脏文件先识别所有者，
+不用 reset/clean 清掉别人的工作；遵守当前 `AGENTS.md` 的工作分支要求，旧 common 分支不再双向同步。
 
 | 目录 | 接手时应理解的内容 |
 |---|---|

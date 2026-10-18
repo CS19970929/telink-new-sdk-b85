@@ -41,6 +41,12 @@ main_loop → app_sample_task（约 200 ms）
 
 完成标准：沿“温度无效 → TEMP_BREAK → 阻断”走通一遍，指出 SC/OCD/OCC 的恢复证据在哪里；不能只用关 MOS 后电流为零解释恢复。
 
+继续追 `service_failsafe_wait()` → `bms_sw_protection_reset_filters()`：SH 通信恢复只撤销
+旧滤波窗口，活动故障继续等待原 Recover。SH `service_hw_flag_recovery()` 中 VADC 推进
+电压/温度，CADC 推进过流，缺少事件只暂停对应组。内部辅助测量 getter 的 NULL 输出用于
+只查询有效性；应用侧同名功能入口仍拒绝 NULL。当前修改及验证边界见
+[逐轮实现记录](PROTECTION_RECOVERY_SIMPLIFICATION_20261018.md)。
+
 ## 第三轮：默认值为何不一定生效
 
 读 `bms/core/bms_parameters.c`、`bms_config_store.c`、`bms_update_policy.h`、共享 `bms/products/bms_parameter_policy.h`、`bms_parameter_access.c`。
@@ -68,7 +74,7 @@ main_loop → app_sample_task（约 200 ms）
 | BLE/OTA | `bms/platform/telink/app_att.c`、`ble_ota.c`，`app_ble.c` 的连接/SDK PM/Flash 回调及 `app_power.c` 的业务低功耗门禁 |
 | 休眠/关机 | `app_power_prepare_loop` 先处理已提交保持状态；正常任务完成后 `app_power_process` 评估 DVC/SH 的原有门禁；SDK 仍注册 `task_sleep_enter` |
 | 日志诊断 | `bms/core/bms_diag.c`、`bms_debug_log.c`、`bms/app/app.c` |
-| heater/balance | `bms/app/bms_features.c`、所选 AFE `*_feature_backend.c`、产品能力输入 |
+| heater/balance | `bms/app/bms_features.c`、所选 AFE `dvc1124_bms.c` / `sh3673510_bms.c` 及 DVC 驱动、平台 `bms_board.c`、产品能力输入 |
 | 状态保存 | `bms_state_store.c`；SOC/放电累计/循环统一 checkpoint，老化模式已删除 |
 
 每次修改前确认：输入从哪里来、单位是什么、谁拥有状态、失败如何处理、哪些产品编译此文件。用户明确要求测试时，再选择对应 host 测试及 [构建验证](BUILD_AND_TEST.md)。本仓库采用静态对象和明确模块边界，不为简单修改引入新 manager/service 或同步副本。
