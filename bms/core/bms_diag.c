@@ -11,6 +11,24 @@
 #endif
 #include <string.h>
 
+/*
+ * 判断请求寄存器范围是否与诊断窗口重叠。
+ * 两份编译分支的地址占用完全相同：量产即使不保留快照，也必须占住这些地址，
+ * 不能把已撤销/未启用的窗口当成普通参数地址放行。
+ */
+int bms_diag_overlaps(uint16_t start, uint16_t count)
+{
+    uint32_t end = (uint32_t)start + count;
+    return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
+#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
+        (start < 0x3940u && end > 0x3800u) ||
+#endif
+        (start < 0x3630u && end > 0x3600u) ||
+        (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
+        (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE) ||
+        (start < BMS_DIAG_AFE_FAILURE_END && end > BMS_DIAG_AFE_FAILURE_BASE));
+}
+
 #if BMS_SERVICE_DIAG_ENABLE
 
 /* 诊断窗口 RAM 快照；只有主循环生产者更新，读协议不能触发 AFE/Flash 动作。 */
@@ -456,20 +474,6 @@ void bms_diag_sleep_committed(void)
     put32(&s_sleep_words[16], bms_time_now_32k());
 }
 
-/* 判断请求寄存器范围是否与诊断窗口重叠。 */
-int bms_diag_overlaps(uint16_t start, uint16_t count)
-{
-    uint32_t end = (uint32_t)start + count;
-    return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
-#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
-        (start < 0x3940u && end > 0x3800u) ||
-#endif
-        /* 已撤销的只读地址仍拒绝写入；无缓存、无健康结果，也不复用。 */
-        (start < 0x3630u && end > 0x3600u) ||
-        (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
-        (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE) ||
-        (start < BMS_DIAG_AFE_FAILURE_END && end > BMS_DIAG_AFE_FAILURE_BASE));
-}
 /* 从 RAM 诊断快照读取指定寄存器范围。 */
 int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
 {
@@ -615,19 +619,6 @@ void bms_diag_backend_details(const uint16_t *words)
  * 量产仅保留地址占用与 capability=0 的兼容响应。这里没有运行快照、
  * Trace、SOC/MOS 历史，也不读取 AFE、Flash 或系统时钟。
  */
-int bms_diag_overlaps(uint16_t start, uint16_t count)
-{
-    uint32_t end = (uint32_t)start + count;
-    return count != 0u && ((start < BMS_DIAG_END && end > BMS_DIAG_BASE) ||
-#if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
-        (start < 0x3940u && end > 0x3800u) ||
-#endif
-        (start < 0x3630u && end > 0x3600u) ||
-        (start < BMS_DIAG_SLEEP_END && end > BMS_DIAG_SLEEP_BASE) ||
-        (start < BMS_DIAG_MOS_END && end > BMS_DIAG_MOS_BASE) ||
-        (start < BMS_DIAG_AFE_FAILURE_END && end > BMS_DIAG_AFE_FAILURE_BASE));
-}
-
 static uint16_t compatibility_word(uint16_t base, uint16_t offset)
 {
     if (base == BMS_DIAG_BASE) {
