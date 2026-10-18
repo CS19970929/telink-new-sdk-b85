@@ -25,6 +25,27 @@ SOC 对无效轮次跳过未知区间；保护恢复不跨无效区间累计。�
 
 资料依据：本地 SH36735XX V1.0A 原 PDF p17（有效 SPI 可喂 WDT）、p19/p21（转换周期和读清除标志）；DVC1124-2 DS V1.1 p13、RM V1.2 p6（转换与 RC）。1000/2000 ms 为用户选择的软件故障确认策略，不是原厂保证的安全时限。型号/装配/自主 MOS 行为的签核缺口继续见 [硬件验收](HARDWARE_VALIDATION.md)。
 
+### 固定源码验收收据：2026-10-18
+
+生产源码固定为 `2b468d917951edc67075eaca902d2eb4dfa08770`，基线为 `a8a608ca`；实现提交依次为 `f49c6b5d`、`e9fca67a`、`2b468d91`。最后一项修复保证三秒未轮询但本轮已取得可信新转换时，不会清空已合格 NTC 而制造 TEMP_BREAK。协议、参数和存储布局未改。
+
+本轮执行 54 项相关 host 检查（按检查脚本×适用产品计），最终有效结果 54/54 通过。固定源码首次执行为 53 通过、1 项 D008 恢复夹具编译失败；原因是夹具尚未提供新增只关闭接口/快照替身。补齐接口并修正调用链截取后，该项独立重跑通过；两轮输入指纹仅两个测试文件变化，生产源码和 SDK 指纹完全一致。原失败日志保留，不把首次报告改写成全绿。未执行全仓完整回归、ASan/UBSan 或实板测试。
+
+覆盖 999/1000 ms、1800/2000 ms、tick 回绕、间歇失联保持命令、主动关闭与禁止新开、持续控制事务失败、RC 事件原时间、单 ADC 过期时另一分组的电压/电流保护、NTC 开短路、E2P、配置完整回滚/回滚失败、SC/OCD/OCC 物理恢复证据、三次新样本、watchdog 静默、SOC/低压/过放/AFE 休眠，以及原正常 AUTO_DIODE 单次写入约束。
+
+四产品 `sources --check`、`link --jobs 4`、`resources` 全部通过，四次链接均零错误/零警告。模式为默认 development、Core `-O2`，D008 目标仅当前 `16s-lfp`，SH 分别为 10S/10S/8S；未将 host 多配置向量写成其它 D008 profile 的目标链接结果。Build ID 均为 `0x2b468d91`，构建时 dirty=0。
+
+| 产品 | ELF 投影 Flash / B | Flash 余量 / B | SRAM 地址跨度 / B | 预留 3072 B 栈后的余量 / B |
+|---|---:|---:|---:|---:|
+| D008 16S LFP | 116468 | 10508 | 22336 | 7360 |
+| D011 | 114148 | 12828 | 21916 | 7780 |
+| D013 | 110900 | 16076 | 21832 | 7864 |
+| D014 | 113220 | 13756 | 21912 | 7784 |
+
+正式树外收据根目录：`C:/Users/Administrator/AppData/Local/CodexTemp/bms-afe-health-20261018/`。`verification-summary.json` 汇总并引用 `host-verified/report.json`、`host-recovery-rerun/report.json`、`targets-verified.log` 和四份 `resources.json`，保留 ELF/MAP 哈希与失败/复测来源。四份资源报告均 `image_generated=false`，构建目录无 `.bin`；未执行 build/rebuild/objcopy、烧录或 OTA。
+
+上述结果证明主机策略及目标编译/链接，不证明 Gate/Vgs 或负载电流。SPI/I2C 真实断线时软件 OFF 可能无法送达，硬件 watchdog 物理关断、保持期间芯片自主 MOS 行为、实际保护时延、栈高水位、加热/均衡关闭和低功耗恢复仍需实板验收。
+
 ## 1. 模块与调用边界
 
 ```text

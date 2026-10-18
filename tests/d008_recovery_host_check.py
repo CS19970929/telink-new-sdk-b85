@@ -19,7 +19,7 @@ def check_d008_current_recovery_host_check():
     code = fixture.replace('/* PRODUCTION */', state + function('dvc_recover_current_faults') + function('bms_afe_driver_set_fets'))
     # Failed samples must break PB1 qualification, before returning from acquisition.
     acquisition = s[s.index('bms_afe_sample_result_t bms_afe_driver_sample('):]
-    assert acquisition.index('dvc_observe_current_recovery(&snapshot') < acquisition.index('if (!snapshot.valid)')
+    assert acquisition.index('dvc_observe_current_recovery(&snapshot') < acquisition.index('if (!snapshot.valid && result.status != BMS_AFE_SAMPLE_STALE)')
     assert 'if (bms_afe_driver_sample_pending()) return;' not in acquisition
     assert s.index('bms_sw_protection_update_groups(&sw') < s.index('alarm = dvc_recover_current_faults(&snapshot')
     with tempfile.TemporaryDirectory(prefix='d008-current-') as tmp:
@@ -122,12 +122,12 @@ def check_d008_voltage_recovery_host_check():
     }
     '''
     # The production invalid-acquisition branch must reach the qualification reset.
-    invalid = source[source.index('if (!snapshot.valid) {'):source.index('memset(&sw, 0, sizeof(sw));')]
+    invalid = source[source.index('dvc_observe_current_recovery(&snapshot'):source.index('memset(&sw, 0, sizeof(sw));')]
     assert 'dvc_clear_recovered_hw_latches(0u, 0u, 0u, 0u);' in invalid
     recovery = source.index('alarm = dvc_clear_recovered_hw_latches(snapshot.alarm')
     software = source.index('bms_sw_protection_update_groups(&sw')
     assert recovery < software
-    assert '1u, snapshot.voltage_fresh' in source[recovery:software]
+    assert 'snapshot.valid, snapshot.voltage_fresh' in source[recovery:software]
     assert 'poll_tick);' in source[recovery:software]
     with tempfile.TemporaryDirectory(prefix='d008-voltage-recovery-') as tmp:
         c = Path(tmp) / 'check.c'
