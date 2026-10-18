@@ -359,12 +359,13 @@ uint8_t bms_afe_set_channel_allowed(uint8_t channel, uint8_t allowed)
     bms_afe_publish_fet_status(0u, 0u);
     /* 静默阶段只记意图，不访问总线；AFE 恢复后继续执行关闭。 */
     if (!apply_requested(allowed ? 0u : bit)) {
+        /* 第一次失败立即封住本轮开启，补偿成功也不能消除该观察。 */
+        note_communication_failure();
         /* 开启许可失败时恢复原来的关闭许可；关闭失败仍保留 fail-safe 意图。 */
         if (allowed) {
             s_remote_off_mask = old_mask;
-            (void)apply_requested(0u);
+            (void)apply_requested(bit);
         }
-        note_communication_failure();
         return 0u;
     }
     return 1u;

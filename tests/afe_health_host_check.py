@@ -16,6 +16,7 @@ guard = r'''
 const bms_afe_driver_policy_t bms_afe_driver_policy = {5000u,0u,1u};
 static uint32_t now;
 static unsigned c,d,writes,samples;
+static unsigned set_calls, fail_next_control;
 static uint8_t control_ok=1, balance_ok=1, direction_allow_mask;
 static bms_afe_sample_status_t status=BMS_AFE_SAMPLE_OK;
 uint32_t bms_time_ms(void){return now;}
@@ -30,6 +31,8 @@ bms_afe_sample_status_t bms_afe_driver_sample(void){
  ++samples;bms_afe_sample_status_t r=status;return r;
 }
 uint8_t bms_afe_driver_set_fets(uint8_t a,uint8_t b){
+ ++set_calls;
+ if(fail_next_control){--fail_next_control;return 0;}
  if(!control_ok)return 0;
  if(status==BMS_AFE_SAMPLE_OK){if(c!=a||d!=b)++writes;c=a;d=b;}
  else {if(!a)c=0;if(!b)d=0;}return 1;
@@ -67,6 +70,16 @@ int main(void){
   status=BMS_AFE_SAMPLE_OK;direction_allow_mask=0;poll();assert(!c&&!d);
  }
  now=UINT32_MAX-500u;qualify();unsigned before=writes;
+ /* 开启首次失败、补偿成功：不能第二次进入正常 set_fets，也不能丢掉失败观察。 */
+ assert(bms_afe_set_channel_allowed(0,0)&&!c&&d);
+ unsigned calls_before=set_calls;
+ fail_next_control=1;
+ assert(!bms_afe_set_channel_allowed(0,1));
+ assert(set_calls==calls_before+1u && !c && d);
+ assert(bms_afe_get_remote_allowed_mask()==2u);
+ assert(bms_afe_set_channel_allowed(0,1)&&!c&&d);
+ status=BMS_AFE_SAMPLE_OK;poll();assert(c&&d);
+ before=writes;
  assert(bms_afe_get_aux_measurements(&m)&&!bms_afe_get_aux_measurements(NULL));
  status=BMS_AFE_SAMPLE_READ_ERROR;poll();
  assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
