@@ -30,11 +30,17 @@
 
 ## A1 第一批（按收益/风险排序）
 
-1. **`sh_recovery_host_check.py`**：把 4 处生产抽取与 13 个按名抽取函数改成整文件链接；
-   状态区切片（`#define SH3510_SAMPLE_MS` 到 `restart_sampling`）随之删除。
-   该文件已具备端口/Flash/时钟替身，是剩余文件里最接近整文件链接的一个。
+> 试改结论（2026-10-18）：把 `sh_recovery_host_check` 直接改成整文件注入会与夹具自身
+> 定义的类型冲突（`bms_afe_aux_measurements_t` 重复定义），并因生产头 `bms_afe.h`
+> 把 SDK 头（`bsp.h` → `compiler.h`）带进主机编译而失败。整文件链接前必须先做两件事：
+> 夹具不再重复定义生产类型（改为包含生产头），且主机编译要提供 SDK 头的稳定入口
+> （或在夹具里用 `-include` 固定包含顺序）。因此 A1 的实际第一步调整为“消重类型 + 固定包含顺序”，
+> 不是直接替换注入文本。
+
+1. **`sh_recovery_host_check.py`**：先让夹具包含生产头而不是自建同名类型，
+   再把 4 处生产抽取与 13 个按名抽取函数改成整文件链接；状态区切片随之删除。
 2. **`sh_power_host_check.py`**（9 处）与 **`dvc_adc_events_host_check.py`**（13 处）：
-   分别为 SH 与 DVC 的宿主场景，改造后可覆盖同族其它文件。
+   同法处理，分别覆盖 SH 与 DVC 的宿主场景。
 3. **`core_contract_check.py` 的 3 条源码形状断言**改为行为断言：
    - `soc_step_down_to(g_soc_runtime.ocv_high)` → 给定高压静置，断言 SOC 不上升；
    - `soc_step_up_to` 不出现在 OCV 函数 → 由行为断言覆盖（同上）；
