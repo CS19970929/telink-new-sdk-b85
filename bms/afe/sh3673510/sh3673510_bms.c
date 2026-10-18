@@ -1108,12 +1108,6 @@ uint8_t bms_afe_driver_get_balance_mask(uint32_t *cell_mask)
 }
 #endif
 
-/* SH 的授权只在 guard 保存；低层 FET 请求已由公共门禁裁定。 */
-void bms_afe_driver_set_output_enabled(uint8_t enabled)
-{
-    (void)enabled;
-}
-
 /* 原公共查询对 SH 返回 0，保留该诊断语义。 */
 uint8_t bms_afe_current_recovery_pending(void)
 {

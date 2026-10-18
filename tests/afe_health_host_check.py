@@ -26,7 +26,6 @@ void bms_sw_protection_init(void){}
 void bms_sw_protection_reset_filters(void){}
 uint8_t bms_protection_params_valid(void){return 1;}
 void bms_afe_driver_init(void){}
-void bms_afe_driver_set_output_enabled(uint8_t e){(void)e;}
 bms_afe_sample_status_t bms_afe_driver_sample(void){
  ++samples;bms_afe_sample_status_t r=status;return r;
 }

@@ -19,8 +19,6 @@ uint8_t bms_afe_driver_apply_protection_config(void);
 uint8_t bms_afe_driver_set_fets(uint8_t charge_on, uint8_t discharge_on);
 /* 无可信测量时只允许关闭指定方向及已确认保护方向，不重放另一侧开启命令。 */
 uint8_t bms_afe_driver_disable_fets(uint8_t charge_off, uint8_t discharge_off);
-/* DVC 底层输出锁；SH 不另存公共授权。 */
-void bms_afe_driver_set_output_enabled(uint8_t enabled);
 
 /* 最新芯片方向仅临时覆盖用户单管关闭，不能绕过保护或公共门禁。 */
 #define BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK    0x01u

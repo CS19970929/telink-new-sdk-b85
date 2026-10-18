@@ -118,7 +118,6 @@ static uint8_t service_failsafe_wait(void)
     if (bms_afe_driver_policy.reset_protection_before_init)
         bms_sw_protection_reset_filters();
     bms_afe_driver_init();
-    bms_afe_driver_set_output_enabled(s_guard.output_enabled);
 
     /* 后端初始化可清自身通信错误，但尚未完成资格确认，因此系统 AFE 故障仍保持置位。 */
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
@@ -214,7 +213,6 @@ void bms_afe_init(void)
     bms_afe_driver_init();
     /* 同进程重初始化不能仅靠 RAM 清零解除未验证配置；完整应用成功才解除。 */
     if (config_inhibit && bms_afe_driver_apply_protection_config()) s_guard.config_inhibit = 0u;
-    bms_afe_driver_set_output_enabled(0u);
     if (!bms_afe_driver_set_fets(0u, 0u)) note_invalid();
     if (!bms_afe_driver_policy.reset_protection_before_init)
         bms_sw_protection_init();
@@ -412,9 +410,6 @@ void bms_afe_set_output_enabled(uint8_t e)
 {
     s_guard.output_enabled = e ? 1u : 0u;
 
-    if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold)
-        bms_afe_driver_set_output_enabled(s_guard.output_enabled);
-
     if (!s_guard.output_enabled)
     {
         /* 关闭输出不代表电压测量或采样线故障。 */
@@ -510,7 +505,6 @@ uint8_t bms_afe_test_wake(void)
      * 公共门禁确认完整有效测量前保持请求阻断。
      */
     bms_afe_driver_init();
-    bms_afe_driver_set_output_enabled(s_guard.output_enabled);
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
     return 1u;
 }

@@ -37,7 +37,6 @@ static uint8_t DVC1124_ResolveWriteAddress(dvc1124_model_t model,
                                     uint8_t explicit_write_addr,
                                     uint8_t *write_addr);
 static uint8_t DVC1124_SetCellCount(uint8_t cell_count);
-static uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on);
 static uint8_t DVC1124_SetShortCircuitProtection(uint16_t threshold_mv, uint16_t delay_us);
 static uint8_t DVC1124_AFE_IsReady(void);
 static uint8_t DVC1124_EncodeCurrentWake(uint16_t threshold_uv, uint8_t *code);
@@ -68,7 +67,6 @@ static dvc1124_snapshot_t s_snapshot;
 static uint8_t s_i2c_raw[DVC_I2C_RAW_MAX];
 static uint8_t s_bus_initialized;
 static uint8_t s_need_config = 1u;
-static uint8_t s_output_enabled;
 static uint32_t s_balance_last_refresh_ms;
 #define DVC_NTC_VALID_SAMPLES 3u
 static uint8_t s_ntc_valid_samples[4]; /* NTC 恢复滤波，按完整有效读取推进。 */
@@ -326,7 +324,6 @@ static uint8_t dvc_boot_zero_force_all_fets_off(void)
                                         DVC1124_FET_DSGC_MASK |
                                         DVC1124_FET_CHGC_MASK);
 
-    bms_afe_driver_set_output_enabled(0u);
     if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &current, 1u)) return 0u;
     target = (uint8_t)(current & (uint8_t)~path_mask);
     return DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
@@ -779,7 +776,8 @@ static uint8_t dvc_apply_basic_config(void)
     ok &= dvc_write_verified(DVC1124_REG_CHG_MASK, chg_mask);
 
     /* 启动时保持安全状态，稍后由 app_init() 提交产品输出请求。 */
-    ok &= DVC1124_SetMosState(0u, 0u);
+    ok &= dvc_update_reg(DVC1124_REG_FET_CTRL,
+        (uint8_t)(DVC1124_FET_DSGC_MASK | DVC1124_FET_CHGC_MASK), 0u);
     return ok;
 }
 
@@ -1129,40 +1127,6 @@ uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len)
         dvc_delay_ms(1u);
     }
     return 0u;
-}
-
-/* 按充放电请求配置 DVC MOS 控制状态。 */
-static uint8_t DVC1124_SetMosState(uint8_t charge_on, uint8_t discharge_on)
-{
-    uint8_t set = 0u;
-
-    if (charge_on && s_output_enabled)
-    {
-        set |= DVC1124_FIELD_PREP(DVC1124_FET_CHGC_MASK,
-                                   DVC1124_FET_CHGC_SHIFT,
-                                   DVC1124_FET_DRIVE_ON);
-    }
-    if (discharge_on && s_output_enabled)
-    {
-        set |= DVC1124_FIELD_PREP(DVC1124_FET_DSGC_MASK,
-                                   DVC1124_FET_DSGC_SHIFT,
-                                   DVC1124_FET_DRIVE_ON);
-    }
-
-    return dvc_update_reg(DVC1124_REG_FET_CTRL,
-                          (uint8_t)(DVC1124_FET_DSGC_MASK |
-                                    DVC1124_FET_CHGC_MASK),
-                          set);
-}
-
-/* 设置 DVC 输出授权并同步 MOS 控制。 */
-void bms_afe_driver_set_output_enabled(uint8_t enabled)
-{
-    s_output_enabled = enabled ? 1u : 0u;
-    if (!s_output_enabled)
-    {
-        (void)DVC1124_SetMosState(0u, 0u);
-    }
 }
 
 /* 根据有效串数生成电芯通道掩码。 */

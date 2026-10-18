@@ -37,7 +37,6 @@ static int bms_afe_driver_apply_protection_config(void){apply_calls++;hardware_p
 static int bms_afe_driver_set_fets(int c,int d){if(init_fail){init_fail=0;return 0;}if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
 static int bms_afe_driver_disable_fets(int c,int d){if(fet_fail)return 0;if(c)cmd_c=0;if(d)cmd_d=0;return 1;}
 static uint8_t bms_afe_driver_get_direction_allow_mask(void){return direction_allow_mask;}
-static void bms_afe_driver_set_output_enabled(int x){}
 static int bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t*x){return aux_ok;}
 static int bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t*x){return 1;}
 static int bms_afe_driver_get_charge_source_present(uint8_t*x){return 0;}

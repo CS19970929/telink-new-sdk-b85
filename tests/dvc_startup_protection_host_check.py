@@ -31,9 +31,6 @@ uint8_t DVC1124_WriteRegisters(uint8_t r, const uint8_t *p, uint8_t n) {
     return 1;
 }
 static uint8_t dvc_apply_cell_masks(void) { return 1; }
-static uint8_t DVC1124_SetMosState(uint8_t c, uint8_t d) {
-    assert(!c && !d); regs[0x51] &= (uint8_t)~0x0f; return 1;
-}
 '''
 for signature in (
     'static uint8_t dvc_write_verified_block(', 'static uint8_t dvc_write_verified(',
