@@ -1375,7 +1375,6 @@ static void dvc_publish_voltage_measurement(const uint8_t *data)
     uint8_t max_pos = 0u;
     uint8_t min_pos = 0u;
     uint8_t i;
-    s_snapshot.vtop_mv = ((uint32_t)dvc_be16(&data[DVC1124_REG_VTOP_H]) * 128u + 5u) / 10u;
 
     for (i = 0u; i < s_cfg.cell_count; ++i)
     {
@@ -1477,7 +1476,6 @@ bms_afe_sample_status_t DVC1124_App_AFEGet(void)
     s_snapshot.fet_status = data[DVC1124_REG_CC2_L_FLAGS];
     s_snapshot.alarm = data[DVC1124_REG_ALARM];
     s_snapshot.status = data[DVC1124_REG_STATUS];
-    s_snapshot.cell_count = s_cfg.cell_count;
     dvc_publish_current_measurement(data, bms_time_ms());
     dvc_publish_voltage_measurement(data);
     dvc_publish_temperature_measurement(data);

@@ -52,12 +52,10 @@ typedef struct
     uint8_t fet_status;          /* R6 CHGF/DSGF，与 R1 CST/RC 事件严格分开。 */
     uint8_t voltage_fresh;      /* 本轮 VADF，仅供电压保护恢复。 */
     uint8_t current_fresh;      /* 本轮 CC2F，仅供电流保护恢复。 */
-    uint8_t cell_count;
     uint32_t sample_time_ms;
     uint32_t sample_tick_32k;    /* MCU 完整读取时刻，SDK 32K 时钟的 32 位回绕值。 */
     int32_t raw_current_ma;     /* 软件工厂校准之前的值。 */
     int32_t current_ma;          /* 正值放电，负值充电。 */
-    uint32_t vtop_mv;
     uint32_t ntc_res_ohm[6];      /* GP1..GP4 为资格确认后的电阻；无效/恢复中为零。 */
     uint16_t rpu_ohm;
 } dvc1124_snapshot_t;
@@ -87,12 +85,6 @@ typedef struct
     int32_t calibrated_sample2_ma;
     uint16_t spread_ma;
 } dvc1124_boot_zero_diag_t;
-
-typedef enum
-{
-    DVC1124_REG_READ_SAFE = 0u,
-    DVC1124_REG_READ_CLEAR = 1u
-} dvc1124_reg_read_effect_t;
 
 #define DVC1124_FIXED_WRITE_ADDR             0x40u
 #define DVC1124_HARDWIRE_BASE_WRITE_ADDR     0xC0u
@@ -155,17 +147,11 @@ uint8_t DVC1124_BootCurrentZeroCalibrate(void);
  * 读取副作用依据 V1.2 手册：0x01 的 VADF/CC1F/CC2F 为 RC，读字节会消耗标志；
  * 0x76 的 COTF 为 RC，读字节会消耗硬件标志。
  */
-static inline dvc1124_reg_read_effect_t DVC1124_RegReadEffect(uint8_t reg)
-{
-    if ((reg == DVC1124_REG_STATUS) || (reg == DVC1124_REG_CORE_OT))
-        return DVC1124_REG_READ_CLEAR;
-    return DVC1124_REG_READ_SAFE;
-}
-
 /* 判断读取寄存器是否会改变硬件状态。 */
 static inline uint8_t DVC1124_RegReadHasSideEffect(uint8_t reg)
 {
-    return (DVC1124_RegReadEffect(reg) != DVC1124_REG_READ_SAFE) ? 1u : 0u;
+    return ((reg == DVC1124_REG_STATUS) ||
+            (reg == DVC1124_REG_CORE_OT)) ? 1u : 0u;
 }
 
 /* 检查该寄存器是否允许通用读改写。 */
