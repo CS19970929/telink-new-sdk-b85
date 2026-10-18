@@ -8,6 +8,8 @@
 
 四产品的 AFE 配置、软/硬件保护与恢复、异常处理、休眠和电流换算见 [AFE 配置与保护/休眠整理](docs/AFE_PROTECTION_SLEEP_CURRENT.md)。
 
+批次 A 的测试与源码解耦基线、目标与验收口径见 [测试解耦计划](docs/TEST_DECOUPLING_PLAN_20261018.md)。
+
 D008 无放电启动 SCD、CBC 与三级放电过流的现场定位及配置顺序修复见 [启动 SCD 修复记录](docs/D008_STARTUP_SCD_FIX.md)。
 
 四产品 AFE1 保留 1 秒通信异常确认，删除 ADC 活性、停更故障和三次新样本资格，见 [AFE 通信确认与活性删除](docs/AFE_COMMUNICATION_POLICY.md)。
