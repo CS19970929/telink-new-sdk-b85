@@ -4,6 +4,8 @@
 
 四产品固件的主开发分支是 `codex-bms-monorepo`。公共代码只维护一份，产品通过编译配置和 `sources.txt` 选择硬件输入与 AFE 后端。Windows 上位机仍在 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/` 维护。
 
+2026-10-18 全工程复杂度审查、逐轮精简提交与基线测试修复见 [全工程精简记录](docs/DEEP_SIMPLIFICATION_20261018.md)。
+
 D008 无放电启动 SCD、CBC 与三级放电过流的现场定位及配置顺序修复见 [启动 SCD 修复记录](docs/D008_STARTUP_SCD_FIX.md)。
 
 四产品 AFE1 保留 1 秒通信异常确认，删除 ADC 活性、停更故障和三次新样本资格，见 [AFE 通信确认与活性删除](docs/AFE_COMMUNICATION_POLICY.md)。
