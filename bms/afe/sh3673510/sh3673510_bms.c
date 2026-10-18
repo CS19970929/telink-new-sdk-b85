@@ -943,9 +943,11 @@ uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
 /* 取得后端辅助测量与有效性。 */
 uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *m)
 {
-    if (m == 0) return 0u;
-    if (!s_snapshot_valid) { memset(m, 0, sizeof(*m)); return 0u; }
-    *m = s_aux;
+    if (!s_snapshot_valid) {
+        if (m != NULL) memset(m, 0, sizeof(*m));
+        return 0u;
+    }
+    if (m != NULL) *m = s_aux;
     return 1u;
 }
 

@@ -131,7 +131,6 @@ static uint8_t apply_requested(void)
     uint8_t c;
     uint8_t d;
     uint8_t direction_allow_mask;
-    bms_afe_aux_measurements_t measurements;
     uint8_t sample_valid;
 
     /* 通信禁止期间 MCU 只管理授权，不能反复写关闭命令而意外喂 AFE WDT。 */
@@ -140,7 +139,7 @@ static uint8_t apply_requested(void)
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
     sample_valid = !s_guard.cycle_failed &&
-        bms_afe_driver_get_aux_measurements(&measurements);
+        bms_afe_driver_get_aux_measurements(NULL);
     direction_allow_mask = sample_valid ? bms_afe_driver_get_direction_allow_mask() : 0u;
     /*
      * 用户关闭意图始终保留。AFE 确认放电时临时放行充电 MOS，确认充电时
@@ -225,7 +224,6 @@ void bms_afe_init(void)
 /* 通过安全门禁采样并更新恢复资格及输出授权。 */
 bms_afe_sample_status_t bms_afe_sample(void)
 {
-    bms_afe_aux_measurements_t m;
     bms_afe_sample_status_t result = BMS_AFE_SAMPLE_NOT_READY;
 
     if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;
@@ -246,7 +244,7 @@ bms_afe_sample_status_t bms_afe_sample(void)
         return result;
     }
     if (result == BMS_AFE_SAMPLE_ERROR ||
-        !bms_afe_driver_get_aux_measurements(&m)) {
+        !bms_afe_driver_get_aux_measurements(NULL)) {
         note_invalid();
         result = BMS_AFE_SAMPLE_ERROR;
         return result;

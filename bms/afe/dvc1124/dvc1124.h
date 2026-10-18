@@ -131,8 +131,8 @@ typedef enum
 
 /* 取得 DVC 当前驱动配置。 */
 void DVC1124_GetConfig(dvc1124_config_t *config);
-/* 取得 DVC 最近一次测量与状态快照。 */
-void DVC1124_GetSnapshot(dvc1124_snapshot_t *snapshot);
+/* 返回最近一次快照的有效性；非 NULL 时同时复制快照，无总线事务。 */
+uint8_t DVC1124_GetSnapshot(dvc1124_snapshot_t *snapshot);
 /* 取得 DVC 当前 I2C 写地址。 */
 uint8_t DVC1124_GetWriteAddress(void);
 

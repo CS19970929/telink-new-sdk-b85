@@ -1028,10 +1028,11 @@ void DVC1124_GetConfig(dvc1124_config_t *config)
     if (config != NULL) *config = s_cfg;
 }
 
-/* 取得 DVC 最近一次测量与状态快照。 */
-void DVC1124_GetSnapshot(dvc1124_snapshot_t *snapshot)
+/* 返回 DVC 快照有效性；调用方只查询时不复制测量与 NTC 数组。 */
+uint8_t DVC1124_GetSnapshot(dvc1124_snapshot_t *snapshot)
 {
     if (snapshot != NULL) *snapshot = s_snapshot;
+    return s_snapshot.valid;
 }
 
 /* 取得 DVC 当前 I2C 写地址。 */

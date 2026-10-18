@@ -37,7 +37,7 @@ uint8_t bms_afe_driver_set_fets(uint8_t a,uint8_t b){
 uint8_t bms_afe_driver_disable_fets(uint8_t a,uint8_t b){if(!control_ok)return 0;if(a)c=0;if(b)d=0;return 1;}
 uint8_t bms_afe_driver_get_direction_allow_mask(void){return 0;}
 uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *m){
- memset(m,0,sizeof(*m));return status==BMS_AFE_SAMPLE_OK;
+ if(m)memset(m,0,sizeof(*m));return status==BMS_AFE_SAMPLE_OK;
 }
 uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *s){(void)s;return 1;}
 uint8_t bms_afe_driver_get_charge_source_present(uint8_t *p){*p=0;return 1;}
@@ -58,9 +58,11 @@ static void qualify(void){
 int main(void){
  bms_afe_aux_measurements_t m;uint8_t bits;
  now=UINT32_MAX-500u;qualify();unsigned before=writes;
+ assert(bms_afe_get_aux_measurements(&m)&&!bms_afe_get_aux_measurements(NULL));
  status=BMS_AFE_SAMPLE_READ_ERROR;poll();
  assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
  assert(!bms_afe_get_aux_measurements(&m)&&!bms_afe_get_fet_status(&bits));
+ assert(!bms_afe_get_aux_measurements(NULL));
  now+=999;poll();assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
  now+=1;poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));
  assert(!bms_afe_bus_access_allowed());unsigned calls=samples;

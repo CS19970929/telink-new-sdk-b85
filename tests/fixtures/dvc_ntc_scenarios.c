@@ -26,7 +26,6 @@ void bms_afe_publish_fet_status(uint8_t flags,uint8_t valid) { (void)flags; (voi
 void bms_diag_command(uint8_t command,uint8_t valid) { (void)command; (void)valid; }
 void DVC1124_UpdataAfeConfig(void) {}
 uint8_t DVC1124_GetWriteAddress(void) { return 0x40u; }
-void DVC1124_GetSnapshot(dvc1124_snapshot_t *s) { *s=s_snapshot; }
 void DVC1124_GetConfig(dvc1124_config_t *c) { *c=s_cfg; }
 static uint32_t time_last_raw,time_ms,time_fraction;
 uint32_t bms_time_ms(void){uint32_t delta=now-time_last_raw;time_last_raw=now;time_fraction+=delta%32u;time_ms+=delta/32u+time_fraction/32u;time_fraction%=32u;return time_ms;}
@@ -83,8 +82,18 @@ static void step(uint8_t events,uint32_t elapsed_ticks)
 {
     bms_sw_protection_inputs_t in={0};
     bms_afe_feature_snapshot_t feature;
+    bms_afe_aux_measurements_t aux;
     now+=elapsed_ticks; registers[DVC1124_REG_STATUS]=events;
     DVC1124_App_AFEGet();
+    /* 两种读取方式必须观察同一资格；无效帧仍清空调用方的辅助数据。 */
+    assert(DVC1124_GetSnapshot(NULL)==s_snapshot.valid);
+    assert(bms_afe_driver_get_aux_measurements(NULL)==s_snapshot.valid);
+    memset(&aux,0xa5,sizeof(aux));
+    assert(bms_afe_driver_get_aux_measurements(&aux)==s_snapshot.valid);
+    assert(aux.raw_current_ma==(s_snapshot.valid?s_snapshot.raw_current_ma:0));
+    assert(aux.current_ma==(s_snapshot.valid?s_snapshot.current_ma:0));
+    assert(aux.sample_time_ms==(s_snapshot.valid?s_snapshot.sample_time_ms:0u));
+    assert(aux.sample_tick_32k==(s_snapshot.valid?s_snapshot.sample_tick_32k:0u));
     if (!s_snapshot.valid) return; /* 通信隔离由独立 guard 覆盖，本夹具不伪造它。 */
     in.battery_temp_valid=dvc_get_battery_temperature_range(
         &s_snapshot,&in.battery_temp_min,&in.battery_temp_max);

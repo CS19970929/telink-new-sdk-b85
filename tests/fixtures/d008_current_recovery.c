@@ -27,7 +27,7 @@ static uint8_t dvc_charge_blocked(void) { return g_bms_report.fault_third.bits.c
 static uint8_t dvc_discharge_blocked(void) { return g_bms_report.fault_third.bits.discharge_ocp; }
 static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t c,dvc1124_fet_drive_t d) { chg_mode=c; dsg_mode=d; return 1; }
 /* 本夹具只覆盖可信新样本的物理恢复；失效时的只关闭接口由健康策略/NTC 场景覆盖。 */
-void DVC1124_GetSnapshot(dvc1124_snapshot_t *s) { memset(s,0,sizeof(*s));s->valid=1; }
+uint8_t DVC1124_GetSnapshot(dvc1124_snapshot_t *s) { if(s){memset(s,0,sizeof(*s));s->valid=1;}return 1u; }
 uint8_t bms_afe_driver_disable_fets(uint8_t c,uint8_t d) { (void)c;(void)d;assert(0);return 0; }
 /* PRODUCTION */
 static uint8_t step(uint32_t now_ms,uint8_t alarm,uint8_t driver_on,uint8_t swc,uint8_t swd) {

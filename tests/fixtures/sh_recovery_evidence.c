@@ -190,6 +190,7 @@ int main(void) {
     bms_afe_driver_init();
     for(unsigned i=0;i<8;++i)sample();
     assert(bms_afe_driver_get_aux_measurements(&aux));
+    assert(bms_afe_driver_get_aux_measurements(NULL));
     assert(last_sample_result==BMS_AFE_SAMPLE_OK);
     assert(command_c==1u && command_d==1u);
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
@@ -231,6 +232,7 @@ int main(void) {
     fail_stage=8u;sample();
     assert(failure_step==DIAG_AFE_FAIL_RELEASE_READ);
     assert(!bms_afe_driver_get_aux_measurements(&aux));
+    assert(!bms_afe_driver_get_aux_measurements(NULL));
     assert(!memcmp(&before,&g_bms_report,sizeof(before)));
     assert(command_c==0u && command_d==0u);
     device.flag1=0u;
@@ -260,6 +262,7 @@ int main(void) {
     sample(); sample();
     assert(last_sample_result==BMS_AFE_SAMPLE_NOT_READY);
     assert(!bms_afe_driver_get_aux_measurements(&aux));
+    assert(!bms_afe_driver_get_aux_measurements(NULL));
     assert(!bms_error_get(BMS_ERROR_AFE1)); /* Waiting for first conversion is normal. */
     for(unsigned i=0;i<8;i++)sample();
     assert(last_sample_result==BMS_AFE_SAMPLE_OK);

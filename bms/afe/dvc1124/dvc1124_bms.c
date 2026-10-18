@@ -542,11 +542,10 @@ uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *measurem
 {
     dvc1124_snapshot_t snapshot;
 
-    if (measurements == NULL) return 0u;
+    if (measurements == NULL) return DVC1124_GetSnapshot(NULL);
     memset(measurements, 0, sizeof(*measurements));
 
-    DVC1124_GetSnapshot(&snapshot);
-    if (!snapshot.valid) return 0u;
+    if (!DVC1124_GetSnapshot(&snapshot)) return 0u;
 
     measurements->raw_current_ma = snapshot.raw_current_ma;
     measurements->current_ma = snapshot.current_ma;
