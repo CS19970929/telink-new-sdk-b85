@@ -23,7 +23,21 @@
 
 代码入口：`bms/core/bms_afe_guard.c`、`bms/core/bms_afe_hw_profile.c`、`bms/afe/dvc1124/dvc1124.c` / `dvc1124_bms.c`、`bms/afe/sh3673510/sh3673510_control.c` / `sh3673510_bms.c`。这些修改按产品实际 `sources.txt` 参与编译，不需要向旧分支复制。
 
-当前代码位置（固定提交5418a9fa，后续行号以提交为准）：[事务提交](../bms/core/bms_afe_hw_profile.c:529)、[严格新写入校验](../bms/core/bms_afe_hw_profile.c:321)、[独立配置门禁](../bms/core/bms_afe_guard.c:285)、[明确重初始化](../bms/core/bms_afe_guard.c:193)、[DVC读清事件所有者](../bms/afe/dvc1124/dvc1124.c:1154)、[启动新CC2检查](../bms/afe/dvc1124/dvc1124.c:320)、[COW开始](../bms/afe/dvc1124/dvc1124.c:1388)、[R6恢复证据](../bms/afe/dvc1124/dvc1124_bms.c:263)、[DVC软件OC证据](../bms/afe/dvc1124/dvc1124_bms.c:480)、[SH SCT原文表](../bms/afe/sh3673510/sh3673510_control.c:225)、[SH有效配置FET门禁](../bms/afe/sh3673510/sh3673510_control.c:375)、[CRLD稳定位验证](../bms/afe/sh3673510/sh3673510_control.c:406)、[电流报告饱和](../bms/afe/sh3673510/sh3673510_bms.c:680)。
+代码位置按**符号名**给出（行号会随重构漂移，符号名不会；下列符号在当前的 `bms/core`、`bms/afe` 中可直接检索）：
+[事务提交](../bms/core/bms_afe_hw_profile.c)`bms_afe_hw_profile_commit_be()`、
+[严格新写入校验](../bms/core/bms_afe_hw_profile.c)`bms_afe_hw_profile_validate_write()`、
+[独立配置门禁](../bms/core/bms_afe_guard.c)`bms_afe_invalidate_configuration()`、
+[明确重初始化](../bms/core/bms_afe_guard.c)`bms_afe_init()`、
+[DVC读清事件所有者](../bms/afe/dvc1124/dvc1124.c)`DVC1124_ReadRegisters()`、
+[启动新CC2检查](../bms/afe/dvc1124/dvc1124.c)`dvc_boot_zero_wait_fresh_cc2()`、
+[COW开始](../bms/afe/dvc1124/dvc1124.c)`DVC1124_OpenWireBegin()`（主动断线检测已整体删除，见[删除说明](OPENWIRE_REMOVAL.md)）、
+[R6恢复证据](../bms/afe/dvc1124/dvc1124_bms.c)`dvc_recover_current_faults()`、
+[DVC软件OC证据](../bms/afe/dvc1124/dvc1124_bms.c)`dvc1124_backend_sample()`（原 `DVC1124_BmsApp_AFEGet()`，已合并）、
+[SH SCT原文表](../bms/afe/sh3673510/sh3673510_control.c)`sh3673510_control_apply_protection()`、
+[SH有效配置FET门禁](../bms/afe/sh3673510/sh3673510_control.c)`sh3673510_control_set_fets()`、
+[CRLD稳定位验证](../bms/afe/sh3673510/sh3673510_control.c)`sh3673510_control_set_load_detection()`、
+[电流报告饱和](../bms/afe/sh3673510/sh3673510_bms.c)`publish_measurements()`。
+固定提交 `5418a9fa` 的原行号锚点不再随仓库维护。
 
 配置抑制同进程保持，只有完整配置写入/验证成功才解除，之后重新取得三帧资格。硬件配置事务的 `apply_state` / `last_error` 仍记录最近事务结果；明确重初始化后的成功不会抹掉旧事务错误。诊断的 samples-qualified 位按真正输出资格报告。MCU冷复位仍按已有RAM/启动策略；没有新增持久锁存。
 

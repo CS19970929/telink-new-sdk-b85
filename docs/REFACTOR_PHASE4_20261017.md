@@ -1,5 +1,7 @@
 # 有效配置、SOC 与协议读取的四项简化
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 基线为 `b76b8a763dfe0a6141f3fd3b2ad03be0690d62e5`，分支 `codex-bms-deep-simplification-20261016`。本轮按用户授权分四次提交；保留在线 SOC 曲线编辑、放电末端补偿、现有上位机协议和安全行为。四产品 `sources.txt` 仍是编译归属依据。
 
 ## 1. DVC 有效保护配置
@@ -64,7 +66,7 @@ Modbus 先验证完整地址，再把连续业务参数交给 `bms_parameter_rea
 
 本轮 42 个唯一「产品×相关 host 脚本入口」通过；不同优化模式和场景由脚本内部展开，未冒称全量回归。Standards 与 Spec 两位独立只读复核均为 0 项待处理发现，复核者未代替主任务运行测试。初始 Windows 路径过长的基线链接、夹具编译及旧文本契约错误已纠正；最终通过收据与保留的失败日志分开记录。
 
-正式证据在 [树外证据目录](<C:/Users/Administrator/Documents/CodexOutputs/telink-new-sdk-b85/refactor-phase4-20261017-73eb22db/>)：`identity.json`、`host-summary.json`、`target-summary.json`、`summary/resource-comparison.json`、`summary/soc-parity.json`、两个基线 golden 比较、20 份基线/终态资源收据及 ELF/MAP/LST、host 日志、源码差异和 `CHECKSUMS.sha256`。仅克隆 Git 不会获得本机证据包，移交时一并复制并校验哈希。最终验证后的文档补交不改变本轮生产代码，固定验证 SHA 保持上述提交。
+正式证据在当轮树外目录 `refactor-phase4-20261017-73eb22db/`（未随仓库交付）：`identity.json`、`host-summary.json`、`target-summary.json`、`summary/resource-comparison.json`、`summary/soc-parity.json`、两个基线 golden 比较、20 份基线/终态资源收据及 ELF/MAP/LST、host 日志、源码差异和 `CHECKSUMS.sha256`。仅克隆 Git 不会获得本机证据包，移交时一并复制并校验哈希。最终验证后的文档补交不改变本轮生产代码，固定验证 SHA 保持上述提交。
 
 ## 兼容与验证边界
 

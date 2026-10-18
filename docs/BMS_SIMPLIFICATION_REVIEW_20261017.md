@@ -1,5 +1,7 @@
 # BMS 全工程审查与分轮简化（2026-10-17）
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 ## 源码身份与范围
 
 基线为本机当前分支 `codex-bms-deep-simplification-20261016` 的 `b9491cbab374a6b08fa6a893702f145a27913f9f`，原工作区干净，origin 为 CS19970929/telink-new-sdk-b85。本任务按用户本次隔离要求建立独立 worktree；现有 `codex` 分支占据 refs 命名空间，因此使用 `codex-bms-audit-simplify-20261017`。没有合并、推送、修改原工作区或生成 BIN。

@@ -1,5 +1,7 @@
 # Issue #11：全项目减法重构执行记录
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 本报告对应 [GitHub Issue #11](https://github.com/CS19970929/telink-new-sdk-b85/issues/11)。这是一轮已实施的精简，不是待执行建议。结果固定到下述源码与本机证据；后续版本需重新验证。
 
 ## 基线、范围与证据边界

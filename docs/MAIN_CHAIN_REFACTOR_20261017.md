@@ -1,5 +1,7 @@
 # 四产品采样、计时与低功耗主链重构
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 实施基线：`4adb2df563bd4084d948fcd72d8e74d177fd5de7`；分支
 `codex-bms-deep-simplification-20261016`。本记录仅覆盖本轮修改，历史测试不作为本轮结果。
 

@@ -1,5 +1,7 @@
 # 冗余接口、请求读取与 SOC 提交简化
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 基线：`549dc804b7d7fcc7fd7bfd81d61aa5b676d1cc06`；分支：`codex-bms-deep-simplification-20261016`。用户授权实施前三项并分别中文提交，第四项 OTA 参数更新执行逻辑暂缓。四产品源清单、产品参数、OTA 保参选择及标识不变；只执行相关 host 与 sources/link/resources，不生成 BIN。
 
 ## 1. 删除冗余接口和版本 RAM 缓存
@@ -62,7 +64,7 @@ set/reset 共用私有 `save_profile()`，集中编码、journal 保存、成功
 
 可操作发现 0 项，无阻断项。三项独立中文提交齐全，未扩大至暂缓的 OTA 执行逻辑；静置电流门禁、旧曲线回滚、输出 inhibit、协议和持久格式保持，测试安全断言未弱化。复核只读，结论仅限固定差异 `549dc804...9437902d`。
 
-完整可追溯材料在 [树外正式证据](<C:/Users/Administrator/Documents/CodexOutputs/telink-new-sdk-b85/refactor-phase5-20261017-9437902d/>)：identity、host/target 摘要、16 套 ELF/MAP/LST 和链接收据、资源比较、协议/profile 基线比较、SOC 场景观察值比较、分阶段 host 日志、源码补丁及 CHECKSUMS.sha256。仅克隆 Git 不会取得本机证据，移交时一并复制并核对哈希。基线入口最初额外链接了 D008 16S 示例，已重新执行源码 CUSTOM 20S；正式比较及归档只选 CUSTOM 20S 的 ELF 哈希，不混用 profile。
+完整可追溯材料在当轮树外目录 `refactor-phase5-20261017-9437902d/`（未随仓库交付）：identity、host/target 摘要、16 套 ELF/MAP/LST 和链接收据、资源比较、协议/profile 基线比较、SOC 场景观察值比较、分阶段 host 日志、源码补丁及 CHECKSUMS.sha256。仅克隆 Git 不会取得本机证据，移交时一并复制并核对哈希。基线入口最初额外链接了 D008 16S 示例，已重新执行源码 CUSTOM 20S；正式比较及归档只选 CUSTOM 20S 的 ELF 哈希，不混用 profile。
 
 ## 兼容与验证边界
 

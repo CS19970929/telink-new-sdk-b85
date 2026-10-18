@@ -15,9 +15,11 @@
 
 六原厂 PDF 与全部资料库内容已原样保存于 [项目资料库](../../../references/afe/README.md)。当时精确源码字节、分析脚本、预处理文件、主机工具输出与 ELF/MAP 等完整材料同时保存在外部正式证据包。下列本机绝对链接需要访问对应文件；仅克隆 Git 仓库不会获得这些外部材料。移交时应一并传递证据包，并核对哈希。报告内源码链接指向冻结快照，避免将未来工作区行号当作已审核状态。
 
-- [完整证据包](<C:/Users/Administrator/Documents/CodexOutputs/telink-new-sdk-b85/afe-factory-audit-local-20261006-0aaa8429/evidence.zip>)
-- [外部完整交付目录哈希](<C:/Users/Administrator/Documents/CodexOutputs/telink-new-sdk-b85/afe-factory-audit-local-20261006-0aaa8429/CHECKSUMS.sha256>)
-- [冻结源码包](<C:/Users/Administrator/Documents/CodexOutputs/telink-new-sdk-b85/afe-factory-audit-local-20261006-0aaa8429/source-snapshot-0aaa8429.zip>)
+- 完整证据包（`evidence.zip`，未随仓库交付）
+- 外部完整交付目录哈希（`CHECKSUMS.sha256`，未随仓库交付）
+- 冻结源码包（`source-snapshot-0aaa8429.zip`，未随仓库交付）
+
+上列文件名对应当轮执行机的树外输出目录；**仓库内不保存绝对路径**，仅以文件名和下方哈希标识。需要材料时从移交的证据包按同名文件核对。
 
 完整证据包 SHA256：`30c46e97239b194a7427c0359c9f6b42b4583a3c9c89b82fdb274d98bd6f8474`；大小：39720188 B。包内原始日志/JSON的绝对路径保留历史运行位置，不代表本目录可直接重跑。
 

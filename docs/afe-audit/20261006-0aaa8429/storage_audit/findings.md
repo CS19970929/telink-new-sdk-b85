@@ -22,7 +22,7 @@
 
 - 验证：当前探针保留为回归；覆盖每个寄存器写/回读故障、部分写入、rollback 保存/应用失败、掉电和 MCU reset、长故障 watchdog 窗口、并发 SW/SC 锁存；实板观察 SPI、SCONF6/阈值、ALARM、Gate/Vgs、负载恢复，不只看 Modbus requested 值。
 
-证据：[原始 host 结果](probe_results.json)、[production 宏 host 结果](probe_results-production.json)、[探针脚本](<C:/Users/Administrator/Documents/CodexOutputs/telink-new-sdk-b85/afe-factory-audit-local-20261006-0aaa8429/storage_audit/online_transaction_probe.py>)、[22 TU 清单及源码哈希/编译命令](probe_compile-production.json)、[源码行证据](source_evidence.json)。
+证据：[原始 host 结果](probe_results.json)、[production 宏 host 结果](probe_results-production.json)、`树外证据包/storage_audit/online_transaction_probe.py`、[22 TU 清单及源码哈希/编译命令](probe_compile-production.json)、[源码行证据](source_evidence.json)。
 
 ## 已核实的存储和 OTA 参数行为
 

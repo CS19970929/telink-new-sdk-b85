@@ -1,5 +1,7 @@
 # 三域存储精简与验证记录
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 ## 基线与对话审核
 
 本轮从 `codex-bms-deep-simplification-20261016@405e01e1e7b98c7587c8f28b03adf8a9ac75f7ac`

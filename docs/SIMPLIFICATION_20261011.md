@@ -1,5 +1,7 @@
 # 对话审核与全模块简化：2026-10-11
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 审查基线：`fa313f9ec7dc74fe97136a2e922241b6f7b3dc00`，分支 `codex-bms-monorepo`。
 来源：[代码审核建议](https://chatgpt.com/c/6acada55-0dbc-83ec-a365-ec2113b0c7c7)。
 缓存及连接器中的部分助手消息只有引用占位；已从登录浏览器核对可见的优化正文和最终

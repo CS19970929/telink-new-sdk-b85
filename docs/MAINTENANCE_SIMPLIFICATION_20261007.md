@@ -1,5 +1,7 @@
 # 启动、诊断与产品命名收口
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 实施基线 `dfe893f8db74709486974839220869a9fdf8a7c9`，需求为审核最新聊天方案并实施可行部分。
 
 最终代码与验证提交 `d6979d9e5de080122619c60afb2b9dc908424a59`：Windows host **110/110**；WSL ASan/UBSan **41/41**；四开发、六生产 ELF/MAP/resources 均通过，**0 编译 warning**。明细见 [固定提交证据](MAINTENANCE_SIMPLIFICATION_20261007_EVIDENCE.json)。

@@ -1,5 +1,7 @@
 # SOC、D008 均衡与 State 时钟四项优化
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 基线：`d7deee936be4f1171fb30cc55701baf2d6f0fdb6`，分支
 `codex-bms-deep-simplification-20261016`。用户授权按四项方案实施、分别中文提交，
 执行相关 host 回归及四产品 sources/link/resources，不生成 BIN。
@@ -141,7 +143,7 @@ reset/update 符号不再进入该 ELF；这是独立的成员/符号证据，�
 四项分别为 `b0bee34b`、`e09f7565`、`a33afb33`、`c6e68e73`；用户授权的 D008
 保参策略另为 `4b2f44f`。全部中文提交，仅包含本次文件，没有推送。
 
-正式树外证据：[目录及哈希清单](<C:/Users/Administrator/Documents/CodexOutputs/telink-new-sdk-b85/refactor-phase3-20261017-4b2f44f/CHECKSUMS.sha256>)。
+正式树外证据：当轮输出目录 `refactor-phase3-20261017-4b2f44f/CHECKSUMS.sha256`（未随仓库交付，需与证据包一起移交）。
 其中保存 20 份基线/终态资源收据、ELF/MAP/LST、输入指纹、日志、SOC CSV、
 故障注入失败/成功证据、复现脚本、源码差异及身份说明；没有对象缓存或 BIN。
 

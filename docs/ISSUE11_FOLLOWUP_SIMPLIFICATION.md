@@ -1,5 +1,7 @@
 # Issue #11 后续：模块内部计数与调用收敛
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 ## 范围与基线
 
 用户在首轮完成后明确要求继续减少模块内部变量、函数、判断和代码量。本轮直接在 `codex-bms-monorepo` 上实施，基线 `29daac9e1c5de27a58fb6acb1aa3ba98868053c7`，最终生产代码 `0a55fd2d`。上轮 [执行报告](ISSUE11_SIMPLIFICATION.md) 和 [源码导航快照](ISSUE11_SOURCE_INVENTORY.json) 继续保留其原固定提交身份，不改写为本轮证据。

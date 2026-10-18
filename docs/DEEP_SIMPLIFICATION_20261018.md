@@ -210,9 +210,18 @@ D008 20S NMC / 24S LFP 的补充结果见第 8 节。
   - `docs/D008_PRODUCT_REFERENCE.md` 仍列出不存在的 `bms_afe_test_enter_shutdown()`。
 - 失效链接：`OPENWIRE_RESEARCH_AND_DESIGN.md`、`OPTIMIZATION_20261010.md` 里指向
   `sh3673510_feature_backend.c` 的链接（该文件后续并入 `sh3673510_bms.c`）改为文字说明。
-- 仍保留但不修：`docs/AFE_AUDIT_REMEDIATION.md` 的 13 个 `文件:行号` 锚点，文档已声明
-  "固定提交 5418a9fa，后续行号以提交为准"；`docs/afe-audit/**` 与 `REFACTOR_PHASE*`
-  中的树外证据绝对路径，按"临时证据不随仓库交付"的约定保留。
+- 树外绝对路径：`REFACTOR_PHASE3/4/5` 的"树外证据目录"改为"当轮树外目录 + 未随仓库交付"
+  说明；`docs/afe-audit/**` 中 17 处执行机绝对路径改为 `树外证据包/` 占位，并在归档
+  README 写明"仓库内不保存绝对路径，按文件名与哈希核对"。
+- 结构整改（同轮完成）：
+  - 新增 [当前规则](CURRENT_RULES.md) 作为"哪条规则仍然有效"的唯一入口，
+    根 README、`docs/README.md` 与 ONBOARDING 都指向它；
+  - 23 份点时间记录在标题下加统一"固定提交记录"提示；
+  - `AFE_AUDIT_REMEDIATION` 的 13 个 `文件:行号` 锚点改为符号名锚点，其中
+    `DVC1124_OpenWireBegin()`（断线检测已删除）与 `DVC1124_BmsApp_AFEGet()`（已合并）
+    明确标为历史符号。
+- 收口后：相对链接检查只剩 4 条 `%20` 编码的 PDF 链接——文件实际存在，是检查脚本
+  未解码空格造成的假阳性；两个导航入口缺链均为 0。
 - 未做：对 `docs/history/**` 逐句重核。它们按仓库约定是固定提交记录，不代表当前 HEAD。
 
 ## 10. 复现

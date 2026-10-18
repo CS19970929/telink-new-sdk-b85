@@ -1,9 +1,10 @@
 # 当前文档导航
 
-首次接手从 [ONBOARDING](ONBOARDING.md) 阅读；根 [README](../README.md) 直接链接所有当前专题及历史记录。下表按任务安排阅读顺序，参数和安全专题各自保留完整依据。
+首次接手从 [ONBOARDING](ONBOARDING.md) 阅读；判断"哪条规则现在仍然有效"先看 [CURRENT_RULES](CURRENT_RULES.md)；根 [README](../README.md) 直接链接所有当前专题及历史记录。下表按任务安排阅读顺序，参数和安全专题各自保留完整依据。
 
 | 任务 | 文档 |
 |---|---|
+| 判断规则是否仍然有效 | [CURRENT_RULES](CURRENT_RULES.md) |
 | 上手与交接 | [ONBOARDING](ONBOARDING.md) |
 | 选择产品、改参数 | [CONFIGURATION_AND_BUILD_GUIDE](CONFIGURATION_AND_BUILD_GUIDE.md) |
 | D008 直接修改保护源码 | [D008_PROTECTION_CONFIGURATION](D008_PROTECTION_CONFIGURATION.md) |

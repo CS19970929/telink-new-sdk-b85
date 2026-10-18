@@ -1,5 +1,7 @@
 # AFE 控制分轮重构
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 基线 `5ee93448e70a1226ba5f500cc7b10d8aba17d508`，分支
 `codex-bms-deep-simplification-20261016`。用户要求全部实施、每轮独立中文提交。
 本次仅实施和源码/Git 核对，新增及调整测试场景尚未执行；未编译、生成 BIN 或操作实板。

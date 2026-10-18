@@ -1,5 +1,7 @@
 # 第二阶段重构：驱动接口、无效数据与 SOC 重复判断
 
+> 固定提交记录：本文是当时源码与验证的快照，不代表当前 HEAD；当前规则见 [CURRENT_RULES](CURRENT_RULES.md)。文中提交、行数与测试数字只用于追溯。
+
 日期：2026-10-17。工作分支：`codex-bms-deep-simplification-20261016`。
 先执行 `git pull --ff-only origin codex-bms-deep-simplification-20261016`，远端基线为
 `10372c7ffdf735115e0f27e099d97346894bfefe`。原主目录及其 14 个修改未变动。

@@ -42,6 +42,7 @@ AFE原厂审查后的代码修复、新写入规则、回归与尚未签核边�
 
 | 文档 | 何时阅读 |
 |---|---|
+| [当前规则](docs/CURRENT_RULES.md) | 先判断"哪条规则现在仍然有效"；区分当前规则与固定提交记录 |
 | [交接与上手](docs/ONBOARDING.md) | 第一天：环境、阅读顺序、第一项任务和交接验收 |
 | [配置与简单修改](docs/CONFIGURATION_AND_BUILD_GUIDE.md) | 改容量/名称/保护/日志；判断参数是否覆盖设备已有值 |
 | [构建与验证](docs/BUILD_AND_TEST.md) | Windows 命令、产物、测试、失败排查、镜像交付 |
