@@ -124,6 +124,8 @@ static soc_integral_dir_t g_soc_integral_dir = SOC_INTEGRAL_DIR_NONE;
 static uint32_t g_soc_integral_remainder;
 /* 充电库仑效率的百分之一余数，与方向一起复位。 */
 static uint32_t g_soc_charge_remainder;
+/* 最近一次有效电流方向；LFP 充电后弛豫明显慢于放电后。 */
+static soc_integral_dir_t g_soc_last_active_dir = SOC_INTEGRAL_DIR_NONE;
 static int32_t g_soc_input_current_ma;
 static uint32_t g_soc_sample_ms;
 #if BMS_SOC_DIAG_STATE_ENABLE
@@ -623,10 +625,13 @@ static void soc_update_ocv_band(uint16_t cell_mv)
         SOC_PERCENT_MAX : (uint8_t)(center + band);
 }
 
-/* 取得 OCV 静置准备所需节拍数。 */
-static uint32_t soc_ocv_prepare_ticks(void)
+/* 取得 OCV 静置准备所需节拍数：充电后 60 min、放电后 30 min、其余 10 min。 */
+uint32_t soc_ocv_prepare_ticks(void)
 {
-    return (uint32_t)g_soc_profile->ocv_rest_prepare_s * SOC_TICKS_PER_SECOND;
+    uint32_t factor = 1u;
+    if (g_soc_last_active_dir == SOC_INTEGRAL_DIR_CHG) factor = 6u;
+    else if (g_soc_last_active_dir == SOC_INTEGRAL_DIR_DSG) factor = 3u;
+    return (uint32_t)g_soc_profile->ocv_rest_prepare_s * factor * SOC_TICKS_PER_SECOND;
 }
 
 /* 复位静置与斜率跟踪状态。 */
@@ -1182,6 +1187,7 @@ void soc_param_lib_init(const bms_state_store_data_t *soc)
 {
     bms_state_store_data_t defaults;
     memset(&g_soc_runtime, 0, sizeof(g_soc_runtime));
+    g_soc_last_active_dir = SOC_INTEGRAL_DIR_NONE;
     soc_invalidate_sample_interval();
     soc_profile_refresh();
 
@@ -1309,6 +1315,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     previous_dir = soc_current_direction(0);
     g_soc_input_current_ma = sample->current_ma;
     dir = soc_current_direction(0);
+    if (dir != SOC_INTEGRAL_DIR_NONE) g_soc_last_active_dir = dir;
     soc_diag_note_sample(BMS_SOC_SAMPLE_ACCEPTED, dir, elapsed_32k);
 
     if (dir == SOC_INTEGRAL_DIR_NONE) soc_reset_integral_accumulator();

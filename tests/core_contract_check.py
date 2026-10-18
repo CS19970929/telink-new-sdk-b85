@@ -343,7 +343,7 @@ def check_soc_contract_check():
             self.assertIn("soc_current_direction", C)
             self.assertIn("g_soc_integral_remainder", C)
 
-        def test_ocv_requires_ten_minutes_and_uses_band(self):
+        def test_ocv_uses_direction_dependent_rest_and_band(self):
             self.assertIn("g_soc_profile->ocv_rest_prepare_s", C)
             self.assertIn("g_soc_profile->ocv_error_band_percent", C)
             self.assertIn("g_soc_runtime.ocv_low", C)

@@ -66,6 +66,8 @@ static void set_core_voltage(uint16_t min_mv,uint16_t max_mv,uint16_t delta){
  g_soc_input.cell_min_mv=min_mv;g_soc_input.cell_max_mv=max_mv;g_soc_input.cell_delta_mv=delta;
 }
 static void sample(int valid,int32_t ma,uint32_t delta){tick+=delta;app_update_soc_from_sample(valid,ma);}
+uint32_t soc_ocv_prepare_ticks(void);
+static unsigned prep(void){return (unsigned)soc_ocv_prepare_ticks();}
 static uint32_t integrate(uint8_t chemistry,int32_t ma,uint32_t step,unsigned count){
  setup(chemistry,60,chemistry==1?3330:3800);sample(1,ma,1);
  uint32_t before=g_bms_soc.remaining_capacity_as10;
@@ -331,20 +333,20 @@ int main(int argc,char **argv){
   /* The unreliable floor is still an idle candidate (user policy), but
    * invalid frames cannot qualify and a reliable excursion resets rest. */
   setup(chemistry,60,chemistry==1?3330:3800);sample(1,200,1);
-  for(int i=0;i<3010;i++)sample(1,200,6400);
+  for(int i=0;i<(int)prep()+10;i++)sample(1,200,6400);
   assert(g_soc_runtime.ocv_confidence==100);
   sample(0,200,6400);assert(g_soc_runtime.idle_stable_ticks==0);
   /* Fresh zero current enables rest, an observed excursion resets it. */
   setup(chemistry,80,chemistry==1?3300:3750);sample(1,0,1);
-  for(int i=0;i<2995;i++)sample(1,0,6400);
+  for(int i=0;i<(int)prep()-5;i++)sample(1,0,6400);
   assert(g_soc_runtime.ocv_state!=BMS_SOC_OCV_READY);
   for(int i=0;i<10;i++)sample(1,0,6400);
   assert(g_soc_runtime.ocv_confidence==100);
   sample(1,300,3200);sample(1,0,3200);assert(g_soc_runtime.idle_stable_ticks==0);
-  for(int i=0;i<12010;i++)sample(1,0,6400);
+  for(int i=0;i<(int)prep()+9500;i++)sample(1,0,6400);
   assert(get_soc_real()==79); /* 10 min prepare + 30 min downward step */
   setup(chemistry,80,chemistry==1?3300:3750);sample(1,0,1);g_bms_report.balance_bits_low=1;
-  for(int i=0;i<3100;i++)sample(1,0,6400);
+  for(int i=0;i<(int)prep()+100;i++)sample(1,0,6400);
   assert(g_soc_runtime.idle_stable_ticks>0&&g_soc_runtime.ocv_confidence==100);
   g_bms_report.balance_bits_low=0;g_bms_system_status.bits.heater_status=1;for(int i=0;i<100;i++)sample(1,0,6400);
   assert(g_soc_runtime.ocv_confidence==100);g_bms_system_status.bits.heater_status=0;temp_valid=0;
