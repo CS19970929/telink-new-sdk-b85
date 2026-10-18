@@ -8,7 +8,7 @@ typedef uint8_t u8;
 typedef uint32_t u32;
 enum { SH3673520_OK, SH3673520_ERR_SPI };
 enum { BMS_ERROR_AFE1 };
-#define BMS_AFE_COMM_FAILS_BEFORE_SILENCE 2u
+#define BMS_AFE_INVALID_FAILURES_BEFORE_SILENCE 2u
 #define BMS_AFE_FAILSAFE_WAIT_MS 35000u
 static uint8_t s_control_ready, s_afe_sleeping;
 static uint8_t s_short_clear_pending;

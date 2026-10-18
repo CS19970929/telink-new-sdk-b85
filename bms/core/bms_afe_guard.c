@@ -12,7 +12,7 @@
 #include "bms_state.h"
 #include <string.h>
 
-#define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u
+#define BMS_AFE_INVALID_FAILURES_BEFORE_SILENCE    2u
 #define BMS_AFE_COMM_CONFIRM_MS             1000u
 
 /* MCU 撤销请求后按所选后端的固定 watchdog 窗口保持总线静默。 */
@@ -99,7 +99,7 @@ static void enter_failsafe_wait(void)
 /* 硬件 watchdog 等待阶段禁止 AFE 总线访问；到期仅探测一次，恢复仍需完整有效测量。 */
 static uint8_t service_failsafe_wait(void)
 {
-    if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) return 0u;
+    if (!s_guard.bus_silenced) return 0u; /* 调用方已单独拦截主动 shutdown。 */
 
     /* 硬件看门狗计时期间绝不进行 AFE I2C/SPI 访问。 */
     if ((uint32_t)(bms_time_ms() - s_guard.failsafe_start_tick_ms) <=
@@ -178,7 +178,7 @@ static void note_invalid(void)
     if (s_guard.comm_failures == 0u) best_effort_shutdown();
 
     if (s_guard.comm_failures != 0xFFu) ++s_guard.comm_failures;
-    if (s_guard.comm_failures >= BMS_AFE_COMM_FAILS_BEFORE_SILENCE)
+    if (s_guard.comm_failures >= BMS_AFE_INVALID_FAILURES_BEFORE_SILENCE)
         enter_failsafe_wait();
 }
 
@@ -242,7 +242,7 @@ bms_afe_sample_status_t bms_afe_sample(void)
     if (result == BMS_AFE_SAMPLE_READ_ERROR) {
         note_communication_failure();
         /* 后端只允许撤销已有命令；已读出的真实保护仍可立即关断方向。 */
-        if (runtime_access_allowed()) (void)apply_requested(0u);
+        (void)apply_requested(0u);
         return result;
     }
     if (result == BMS_AFE_SAMPLE_ERROR ||
@@ -327,9 +327,7 @@ uint8_t bms_afe_set_fets(uint8_t c, uint8_t d)
     s_guard.requested_charge_on = requested_c;
     s_guard.requested_discharge_on = requested_d;
 
-    /* 通信未合格时只缓存产品请求；请求状态变化不能成为访问静默总线的理由。 */
-    if (!runtime_access_allowed()) return 1u;
-
+    /* apply_requested 统一执行总线门禁，未合格时仅保存意图。 */
     if (!apply_requested(0u))
     {
         note_communication_failure();
@@ -415,11 +413,10 @@ void bms_afe_set_output_enabled(uint8_t e)
         /* 关闭输出不代表电压测量或采样线故障。 */
         bms_features_stop();
         bms_afe_publish_fet_status(0u, 0u);
-        if (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) best_effort_shutdown();
+        best_effort_shutdown();
         return;
     }
 
-    if (!runtime_access_allowed()) return;
     if (!apply_requested(0u)) note_communication_failure();
 }
 

@@ -168,7 +168,7 @@ def check_common_feature_policy_contract_check():
     # Communication-loss fail-safe contract. SH36735xx WDT is ~32 s in the
     # production profile, so the common guard must leave the SPI bus silent for a
     # full 35 s margin before a single bounded recovery attempt.
-    assert "#define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u" in guard_c
+    assert "#define BMS_AFE_INVALID_FAILURES_BEFORE_SILENCE    2u" in guard_c
     assert "BMS_AFE_BACKEND" not in guard_c
     assert "dvc1124" not in guard_c and "sh3673510" not in guard_c
     assert "35000u, 1u, 0u" in text("sh3673510_bms.c")
@@ -193,7 +193,7 @@ def check_common_feature_policy_contract_check():
     assert "bms_afe_driver_policy.sleep_holds_bus" in sleep
     assert sleep.index("if (!bms_afe_bus_access_allowed()") < sleep.index("bms_afe_driver_sleep()")
     setfets=guard_c.split("uint8_t bms_afe_set_fets",1)[1].split("void bms_afe_get_requested_fets",1)[0]
-    assert "if (!runtime_access_allowed()) return 1u;" in setfets
+    assert "if (!apply_requested(0u))" in setfets
 
     sh_bms=text("sh3673510_bms.c")
     for forbidden in (
