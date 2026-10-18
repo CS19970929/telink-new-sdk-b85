@@ -27,6 +27,7 @@ for signature in ('static uint16_t dvc_get_configured_temperature(',
                   'static uint8_t dvc_charge_blocked(',
                   'static uint8_t dvc_discharge_blocked(',
                   'static uint8_t dvc_set_fet_modes_if_changed(',
+                  'uint8_t bms_afe_driver_disable_fets(',
                   'uint8_t bms_afe_driver_set_fets('):
     production += function(backend, signature) + '\n'
 production += function(feature, 'uint8_t bms_afe_driver_get_feature_snapshot(') + '\n'

@@ -141,6 +141,9 @@ def check_sh3673510_board_host_check():
     static struct {uint16_t temperature_x10[4];} g_bms_report;
     static uint32_t s_ntc_ohm[4];
     static uint8_t current_fresh, s_charger_removed, s_load_removed;
+    static uint32_t s_vadc_ms,s_cadc_ms;
+    static uint32_t bms_time_ms(void){return 0;}
+    #define SH3510_ADC_MAX_AGE_MS 400u
     static struct { int32_t current_ma; } s_aux;
     #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
     static uint8_t battery_temperature_snapshot(uint16_t *low,uint16_t *high){*low=*high=650;return 1;}

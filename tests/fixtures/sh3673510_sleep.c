@@ -16,6 +16,7 @@ static uint8_t s_fet_command_valid, s_snapshot_valid;
 static uint8_t s_detection_initialized, s_load_removed, s_charger_removed, s_charger_known;
 static uint8_t s_sampling_restart;
 static uint16_t s_short_release_count, s_hw_recovery_count[9];
+static struct { struct { uint8_t afe1_status; } bits; } g_bms_system_status;
 static unsigned errors, invalidations, comm_errors, failures, assertions;
 static unsigned bus_calls, balance_calls, fet_calls, sleep_writes, normal_writes;
 static unsigned command_fail_at;

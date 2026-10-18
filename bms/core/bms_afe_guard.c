@@ -10,10 +10,13 @@
 #include "bms_sw_protection.h"
 #include "bms_parameters.h"
 #include "bms_time.h"
+#include "bms_state.h"
 #include <string.h>
 
 #define BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT 3u
 #define BMS_AFE_COMM_FAILS_BEFORE_SILENCE    2u
+#define BMS_AFE_COMM_CONFIRM_MS             1000u
+#define BMS_AFE_COMM_CONFIRM_COUNT          3u
 
 /* MCU 撤销请求后按所选后端的固定 watchdog 窗口保持总线静默。 */
 
@@ -31,6 +34,8 @@ typedef struct
     uint8_t test_shutdown_hold;
     uint8_t fet_driver_bits;
     uint8_t fet_driver_valid;
+    uint8_t sample_unusable;
+    uint32_t comm_failure_started_ms;
     uint32_t failsafe_start_tick_ms;
 } bms_afe_guard_state_t;
 
@@ -66,6 +71,8 @@ static void inhibit_local(void)
     s_guard.comm_fault_latched = 1u;
     s_guard.comm_inhibit = 1u;
     s_guard.valid_snapshot_streak = 0u;
+    s_guard.sample_unusable = 1u;
+    g_bms_system_status.bits.afe1_status = 0u;
     bms_afe_publish_fet_status(0u, 0u);
     bms_features_stop();
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
@@ -137,7 +144,7 @@ static uint8_t apply_requested(void)
 
     c = s_guard.requested_charge_on;
     d = s_guard.requested_discharge_on;
-    direction_allow_mask = bms_afe_driver_get_direction_allow_mask();
+    direction_allow_mask = s_guard.sample_unusable ? 0u : bms_afe_driver_get_direction_allow_mask();
     /*
      * 用户关闭意图始终保留。AFE 确认放电时临时放行充电 MOS，确认充电时
      * 临时放行放电 MOS；方向消失后下一次仲裁自动恢复用户关闭。
@@ -154,12 +161,15 @@ static uint8_t apply_requested(void)
         d = 0u;
     }
     /* 方向阻断由选定后端处理，保留同口放电及 DVC AUTO_DIODE 语义。 */
+    if (s_guard.sample_unusable) return bms_afe_driver_disable_fets(!c, !d);
     return bms_afe_driver_set_fets(c, d);
 }
 
 /* 记录无效样本并更新连续失败与输出隔离状态。 */
 static void note_invalid(void)
 {
+    /* 普通读失败观察不能吞掉随后已确认故障的首次关闭尝试。 */
+    if (!s_guard.comm_fault_latched) s_guard.comm_failures = 0u;
     inhibit_local();
 
     /*
@@ -173,12 +183,31 @@ static void note_invalid(void)
         enter_failsafe_wait();
 }
 
+/* 普通通信失败只记录观察；不能通过撤销资格间接关闭已运行的 MOS。
+ * 同一失败周期中不以零星成功事务清零，完整读取和输出仲裁成功后才复位。
+ */
+static void note_communication_failure(void)
+{
+    uint32_t now = bms_time_ms();
+    s_guard.sample_unusable = 1u;
+    bms_afe_publish_fet_status(0u, 0u);
+    bms_features_stop();
+    if (s_guard.comm_failures == 0u) s_guard.comm_failure_started_ms = now;
+    if (s_guard.comm_failures != 0xFFu) ++s_guard.comm_failures;
+    if (s_guard.comm_failures >= BMS_AFE_COMM_CONFIRM_COUNT &&
+        (uint32_t)(now - s_guard.comm_failure_started_ms) >= BMS_AFE_COMM_CONFIRM_MS) {
+        best_effort_shutdown();
+        enter_failsafe_wait();
+    }
+}
+
 /* 初始化 guard 与选定后端，输出仍受采样资格约束。 */
 void bms_afe_init(void)
 {
     uint8_t config_inhibit = s_guard.config_inhibit;
     memset(&s_guard, 0, sizeof(s_guard));
     s_guard.comm_inhibit = 1u;
+    s_guard.sample_unusable = 1u;
     s_guard.config_inhibit = config_inhibit;
     if (bms_afe_driver_policy.reset_protection_before_init)
         bms_sw_protection_init();
@@ -186,14 +215,14 @@ void bms_afe_init(void)
     /* 同进程重初始化不能仅靠 RAM 清零解除未验证配置；完整应用成功才解除。 */
     if (config_inhibit && bms_afe_driver_apply_protection_config()) s_guard.config_inhibit = 0u;
     bms_afe_driver_set_output_enabled(0u);
-    (void)bms_afe_driver_set_fets(0u, 0u);
+    if (!bms_afe_driver_set_fets(0u, 0u)) note_invalid();
     if (!bms_afe_driver_policy.reset_protection_before_init)
         bms_sw_protection_init();
     bms_features_init();
 #if BMS_FEATURE_BALANCE_SUPPORTED
     (void)bms_afe_driver_set_balance_mask(0u);
 #endif
-    s_guard.comm_fault_latched = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
+    g_bms_system_status.bits.afe1_status = 0u;
 }
 
 /* 通过安全门禁采样并更新恢复资格及输出授权。 */
@@ -203,15 +232,29 @@ bms_afe_sample_result_t bms_afe_sample(void)
     bms_afe_sample_result_t result = { BMS_AFE_SAMPLE_NOT_READY, 0u };
 
     if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;
-    if (bms_error_get(BMS_ERROR_AFE1)) s_guard.comm_fault_latched = 1u;
     result = bms_afe_driver_sample();
     if (result.status == BMS_AFE_SAMPLE_NOT_READY) {
         /* 启动/重配置等待撤销旧资格，但不记通信失败或重复访问总线。
          * 普通缓存属于 OK，不会经过这里。 */
         s_guard.comm_inhibit = 1u;
         s_guard.valid_snapshot_streak = 0u;
+        s_guard.sample_unusable = 1u;
         bms_afe_publish_fet_status(0u, 0u);
         bms_features_stop();
+        return result;
+    }
+    if (result.status == BMS_AFE_SAMPLE_READ_ERROR) {
+        note_communication_failure();
+        /* 后端只允许撤销已有命令；已读出的真实保护仍可立即关断方向。 */
+        if (runtime_access_allowed()) (void)apply_requested();
+        return result;
+    }
+    if (result.status == BMS_AFE_SAMPLE_STALE) {
+        s_guard.sample_unusable = 1u;
+        bms_afe_publish_fet_status(0u, 0u);
+        bms_features_stop();
+        if (!apply_requested()) note_communication_failure();
+        else s_guard.comm_failures = 0u;
         return result;
     }
     if (result.status == BMS_AFE_SAMPLE_ERROR ||
@@ -222,7 +265,7 @@ bms_afe_sample_result_t bms_afe_sample(void)
         return result;
     }
 
-    s_guard.comm_failures = 0u;
+    s_guard.sample_unusable = 0u;
     if (result.confirm_sample &&
         s_guard.valid_snapshot_streak < BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT)
         ++s_guard.valid_snapshot_streak;
@@ -230,6 +273,8 @@ bms_afe_sample_result_t bms_afe_sample(void)
         s_guard.valid_snapshot_streak >= BMS_AFE_VALID_SNAPSHOT_RELEASE_COUNT) {
         s_guard.comm_inhibit = 0u;
         s_guard.comm_fault_latched = 0u;
+        bms_error_clear(BMS_ERROR_AFE1);
+        g_bms_system_status.bits.afe1_status = 1u;
     } else if (s_guard.comm_fault_latched) {
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
     }
@@ -238,7 +283,8 @@ bms_afe_sample_result_t bms_afe_sample(void)
 
 void bms_afe_apply_outputs(void)
 {
-    if (!apply_requested()) note_invalid();
+    if (!apply_requested()) note_communication_failure();
+    else s_guard.comm_failures = 0u;
 }
 
 /* 产品低功耗模式固定：DVC 仅用 Shutdown，SH 仅用 Sleep。 */
@@ -302,7 +348,7 @@ uint8_t bms_afe_set_fets(uint8_t c, uint8_t d)
 
     if (!apply_requested())
     {
-        note_invalid();
+        note_communication_failure();
         return 0u;
     }
     return 1u;
@@ -332,7 +378,7 @@ uint8_t bms_afe_set_channel_allowed(uint8_t channel, uint8_t allowed)
             s_remote_off_mask = old_mask;
             (void)apply_requested();
         }
-        note_invalid();
+        note_communication_failure();
         return 0u;
     }
     return 1u;
@@ -392,14 +438,14 @@ void bms_afe_set_output_enabled(uint8_t e)
     }
 
     if (!runtime_access_allowed()) return;
-    if (!apply_requested()) note_invalid();
+    if (!apply_requested()) note_communication_failure();
 }
 
 /* 取得选定后端的辅助测量快照。 */
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 {
     if (!m) return 0u;
-    if (!runtime_access_allowed() || !bms_afe_driver_get_aux_measurements(m))
+    if (s_guard.sample_unusable || !runtime_access_allowed() || !bms_afe_driver_get_aux_measurements(m))
     {
         memset(m, 0, sizeof(*m));
         return 0u;
@@ -411,7 +457,7 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s)
 {
     /* SOC 同样消费电池温度；测量有效性不能由加热/均衡能力裁剪。 */
-    if (!s || !runtime_access_allowed()) return 0u;
+    if (!s || s_guard.sample_unusable || !runtime_access_allowed()) return 0u;
     return bms_afe_driver_get_feature_snapshot(s);
 }
 

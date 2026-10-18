@@ -93,6 +93,8 @@ static uint8_t s_cadc_seen;
 static uint32_t s_sampling_started_ms;
 static uint32_t s_vadc_ms;
 static uint32_t s_cadc_ms;
+static uint8_t s_pending_adc_events;
+static uint32_t s_pending_vadc_ms, s_pending_cadc_ms;
 #if BMS_SERVICE_DIAG_ENABLE
 static uint32_t s_vadc_raw_tick, s_cadc_raw_tick;
 #endif
@@ -111,6 +113,7 @@ static void restart_sampling(void)
 #endif
     s_vadc_ms = s_cadc_ms = s_sampling_started_ms;
     s_vadc_seen = s_cadc_seen = 0u;
+    s_pending_adc_events = 0u;
     s_snapshot_valid = 0u;
     s_sampling_restart = 0u;
 }
@@ -174,16 +177,12 @@ static void note_comm_error(uint16_t stage)
         stats.last_error == SH3673520_ERR_PROTOCOL) {
         if (!bms_error_get(BMS_ERROR_SPI)) bms_error_raise(BMS_ERROR_SPI);
     }
-    if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
-    g_bms_system_status.bits.afe1_status = 0u;
 }
 
 /* 记录成功通信并恢复连续失败计数。 */
 static void note_comm_ok(void)
 {
     bms_error_clear(BMS_ERROR_SPI);
-    if (!s_hw_afe_error) bms_error_clear(BMS_ERROR_AFE1);
-    g_bms_system_status.bits.afe1_status = s_hw_afe_error ? 0u : 1u;
 }
 
 /* 取得电池温度范围与有效性快照。 */
@@ -226,6 +225,15 @@ static uint8_t sh3510_outputs_healthy(void)
     return (s_snapshot_valid && !s_hw_afe_error && !s_afe_reconfigure_required) ? 1u : 0u;
 }
 
+uint8_t bms_afe_driver_disable_fets(uint8_t charge_off, uint8_t discharge_off)
+{
+    uint8_t c_off = charge_off || charge_blocked() || s_hw_afe_error || s_afe_reconfigure_required;
+    uint8_t d_off = discharge_off || discharge_blocked() || s_hw_afe_error || s_afe_reconfigure_required;
+    if (!c_off && !d_off) return 1u;
+    s_fet_command_valid = 0u;
+    return sh3673510_control_disable_fets(c_off, d_off);
+}
+
 /* 合并输出授权和阻断条件后应用 MOS 请求。 */
 uint8_t bms_afe_driver_set_fets(uint8_t requested_charge_on,
                                    uint8_t requested_discharge_on)
@@ -239,6 +247,11 @@ uint8_t bms_afe_driver_set_fets(uint8_t requested_charge_on,
 
     charge_inhibit = charge_blocked();
     discharge_inhibit = discharge_blocked();
+
+    if (!s_snapshot_valid && !s_hw_afe_error && !s_afe_reconfigure_required) {
+        /* 读失败不能使旧 ON 命令被重新发送，也不能吞掉关闭或真实保护。 */
+        return bms_afe_driver_disable_fets(!requested_charge_on, !requested_discharge_on);
+    }
 
     if (sh3510_outputs_healthy())
     {
@@ -305,7 +318,6 @@ static void publish_hw_status(const sh3673510_control_status_t *s)
     g_bms_system_status.bits.discharge_mos_status =
         (s->bstatus1 & SH3673520_BSTATUS1_DSG_FET_MASK) ? 1u : 0u;
     s_hw_afe_error = (s->bstatus1 & SH3673520_BSTATUS1_E2P_ERR_MASK) ? 1u : 0u;
-    if (s_hw_afe_error && !bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
 
 #if SH3673510_HW_PROTECT_ENABLE
     chg_flag1 = (uint8_t)(s->flag1 & (SH3673520_FLAG1_OV_MASK |
@@ -717,6 +729,8 @@ static uint16_t sh3510_update_protection(const sh3673510_control_status_t *statu
     uint8_t current_fresh = (status->flag2 & SH3673520_FLAG2_CADC_MASK) != 0u;
     bms_sw_protection_inputs_t sw;
     memset(&sw, 0, sizeof(sw));
+    sw.voltage_stale = (uint32_t)(bms_time_ms() - s_vadc_ms) > SH3510_ADC_MAX_AGE_MS;
+    sw.current_stale = (uint32_t)(bms_time_ms() - s_cadc_ms) > SH3510_ADC_MAX_AGE_MS;
     sw.current_recovery_requires_evidence = 1u;
     sw.current_recovery_sample_fresh = current_fresh;
     sw.charge_recovery_immediate = current_fresh &&
@@ -743,6 +757,11 @@ static uint16_t sh3510_update_protection(const sh3673510_control_status_t *statu
 #endif
 #if SH3673510_HW_PROTECT_ENABLE
     merge_hw_protection_faults(status);
+    /* 任一路过期都不能推进物理恢复；另一有效分组的软件保护已独立执行。 */
+    if (sw.voltage_stale || sw.current_stale) {
+        bms_sw_protection_record_fault_edges();
+        return DIAG_AFE_FAIL_NONE;
+    }
     /* 硬件恢复复用本轮已采集的方向/TS1、TS2证据；软件保护不修改这些输入。 */
     /* 待完成 CADC 可暂停恢复计数，但观察到负载重接时必须立即作废旧物理窗口。 */
     if (!s_load_removed && !sw.discharge_recovery_immediate)
@@ -767,6 +786,8 @@ static uint16_t publish_measurements(uint8_t *confirmed)
     sh3673510_control_status_t status;
     uint8_t i;
     uint32_t now;
+    uint8_t status_ok;
+    uint8_t current_events;
 
 
     if (!sh3673510_control_wake()) return DIAG_AFE_FAIL_WAKE;
@@ -775,7 +796,14 @@ static uint16_t publish_measurements(uint8_t *confirmed)
      * 先读取读清除就绪标志，再读相应数据。后续转换可能替换寄存器，
      * 但不能把旧值标为新样本。
      */
-    if (!sh3673510_control_read_status(&status)) return DIAG_AFE_FAIL_STATUS;
+    memset(&status, 0, sizeof(status));
+    status_ok = sh3673510_control_read_status(&status);
+    now = bms_time_ms();
+    if (status.flag2 & SH3673520_FLAG2_VADC_MASK) s_pending_vadc_ms = now;
+    if (status.flag2 & SH3673520_FLAG2_CADC_MASK) s_pending_cadc_ms = now;
+    s_pending_adc_events |= status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK);
+    if (!status_ok) return DIAG_AFE_FAIL_STATUS;
+    current_events = status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK);
     /* 同时保留本次模式，避免把 IDLE 的4秒 CADC 周期误分析为 normal 的250ms。 */
     s_sample_attempt_flag2 = (uint16_t)(0x100u | status.flag2 |
         ((uint16_t)(status.bstatus2 & (SH3673520_BSTATUS2_IDLE_MASK |
@@ -795,28 +823,34 @@ static uint16_t publish_measurements(uint8_t *confirmed)
     for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i)
         if (cell[i] < 0L || cell[i] > 65535L) return DIAG_AFE_FAIL_CELL_RANGE;
     now = bms_time_ms();
-    if (status.flag2 & SH3673520_FLAG2_VADC_MASK) { s_vadc_seen = 1u; s_vadc_ms = now;
+    status.flag2 |= s_pending_adc_events;
+    s_pending_adc_events = 0u;
+    if (status.flag2 & SH3673520_FLAG2_VADC_MASK) { s_vadc_seen = 1u; s_vadc_ms = s_pending_vadc_ms;
 #if BMS_SERVICE_DIAG_ENABLE
         s_vadc_raw_tick = bms_time_now_32k();
 #endif
     }
-    if (status.flag2 & SH3673520_FLAG2_CADC_MASK) { s_cadc_seen = 1u; s_cadc_ms = now;
+    if (status.flag2 & SH3673520_FLAG2_CADC_MASK) { s_cadc_seen = 1u; s_cadc_ms = s_pending_cadc_ms;
 #if BMS_SERVICE_DIAG_ENABLE
         s_cadc_raw_tick = bms_time_now_32k();
 #endif
     }
-    if ((uint32_t)(now - s_vadc_ms) > SH3510_ADC_MAX_AGE_MS)
-        return DIAG_AFE_FAIL_VADC_AGE;
-    if ((uint32_t)(now - s_cadc_ms) > SH3510_ADC_MAX_AGE_MS)
-        return DIAG_AFE_FAIL_CADC_AGE;
-    if (!sample_release_evidence(&status)) return DIAG_AFE_FAIL_RELEASE_READ;
+    if ((uint32_t)(now - s_vadc_ms) <= SH3510_ADC_MAX_AGE_MS &&
+        (uint32_t)(now - s_cadc_ms) <= SH3510_ADC_MAX_AGE_MS &&
+        !sample_release_evidence(&status)) return DIAG_AFE_FAIL_RELEASE_READ;
     /* 各路独立建立缓存；首次完整数据不要求 VADC/CADC 在同一轮置位。 */
     if (status.flag2 & SH3673520_FLAG2_VADC_MASK) {
         sh3510_publish_voltage(cell, pack_mv);
         sh3510_publish_temperatures(external_raw);
     }
     if (status.flag2 & SH3673520_FLAG2_CADC_MASK)
-        sh3510_publish_current(current_ma, now);
+        sh3510_publish_current(current_ma, s_cadc_ms);
+    /* 跨失败轮次保存的事件只用于缓存和年龄，不充当本轮保护恢复新证据。 */
+    status.flag2 = (status.flag2 & (uint8_t)~(SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) | current_events;
+    if ((uint32_t)(now - s_vadc_ms) >= BMS_AFE_ADC_STOP_CONFIRM_MS)
+        return DIAG_AFE_FAIL_VADC_AGE;
+    if ((uint32_t)(now - s_cadc_ms) >= BMS_AFE_ADC_STOP_CONFIRM_MS)
+        return DIAG_AFE_FAIL_CADC_AGE;
     if (!s_vadc_seen || !s_cadc_seen ||
         (uint32_t)(now - s_sampling_started_ms) <= SH3510_TEMP_STARTUP_MS) {
         return DIAG_AFE_FAIL_NONE;
@@ -830,6 +864,10 @@ static uint16_t publish_measurements(uint8_t *confirmed)
             ((status.flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ==
              (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)) ? 1u : 0u;
     }
+    if ((uint32_t)(now - s_vadc_ms) > SH3510_ADC_MAX_AGE_MS)
+        return DIAG_AFE_FAIL_VADC_AGE;
+    if ((uint32_t)(now - s_cadc_ms) > SH3510_ADC_MAX_AGE_MS)
+        return DIAG_AFE_FAIL_CADC_AGE;
     s_snapshot_valid = 1u;
     bms_afe_publish_fet_status(
         (uint8_t)((g_bms_system_status.bits.charge_mos_status ? 1u : 0u) |
@@ -883,6 +921,9 @@ bms_afe_sample_result_t bms_afe_driver_sample(void)
     if (s_flag_clear_failed) { note_comm_error(DIAG_AFE_FAIL_FLAG_CLEAR_HOLD); return result; }
     failure = publish_measurements(&result.confirm_sample);
     if (failure != DIAG_AFE_FAIL_NONE) {
+        sh3673520_comm_stats_t stats;
+        /* 在失败操作之后立即取证；note_comm_error 不执行总线访问。 */
+        SH3673520_GetCommStats(&stats);
         note_comm_error(failure);
         switch (failure) {
         case DIAG_AFE_FAIL_STATUS:
@@ -891,6 +932,12 @@ bms_afe_sample_result_t bms_afe_driver_sample(void)
         case DIAG_AFE_FAIL_CURRENT_READ:
         case DIAG_AFE_FAIL_TEMP_READ:
             result.status = BMS_AFE_SAMPLE_READ_ERROR;
+            break;
+        case DIAG_AFE_FAIL_RELEASE_READ:
+            /* 检测模式验证不一致仍是硬错误；普通 C+/模式寄存器通信失败可观察。 */
+            if (stats.last_error == SH3673520_ERR_SPI || stats.last_error == SH3673520_ERR_TIMEOUT ||
+                stats.last_error == SH3673520_ERR_CRC || stats.last_error == SH3673520_ERR_PROTOCOL)
+                result.status = BMS_AFE_SAMPLE_READ_ERROR;
             break;
         case DIAG_AFE_FAIL_VADC_AGE:
         case DIAG_AFE_FAIL_CADC_AGE:

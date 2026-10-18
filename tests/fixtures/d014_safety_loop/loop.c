@@ -284,13 +284,14 @@ int main(void)
     assert(!bms_afe_apply_protection_config()); assert(!bms_afe_samples_qualified());
     corrupt_read_reg=-1; reinitialize(); assert(!discharge_on()); release_discharge();
     /* A real bus failure must stop bus traffic for the existing watchdog window. */
-    trip_discharge(); bus_failed=1; steps(2);
+    trip_discharge(); bus_failed=1; steps(6);
     uint32_t calls=spi_calls; steps(174); assert(spi_calls==calls);
     assert(!bms_afe_bus_access_allowed()); bus_failed=0;
     steps(15); assert(bms_afe_samples_qualified() && !discharge_on());
     release_discharge(); assert(discharge_on());
     puts("PASS readback failure and watchdog silence/re-init cannot clear software OCD");
-    trip_discharge(); ready_bits=0; steps(3);
+    trip_discharge(); ready_bits=0; steps(9);
+    assert(bms_afe_samples_qualified()); step();
     assert(!bms_afe_samples_qualified()); require_both_off();
     ready_bits=3; reinitialize(); assert(!discharge_on()); release_discharge();
     now_32k=UINT32_MAX-3200u; reinitialize(); assert(charge_on() && discharge_on());

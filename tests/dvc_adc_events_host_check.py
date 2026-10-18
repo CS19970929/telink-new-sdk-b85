@@ -37,7 +37,6 @@ static struct {struct {uint8_t charge_mos_status,discharge_mos_status;}bits;}g_b
 static unsigned configuration_calls;
 void DVC1124_UpdataAfeConfig(void){++configuration_calls;}
 uint8_t DVC1124_GetWriteAddress(void){return 0x40;}
-static void dvc_note_comm_result(uint8_t x){(void)x;}
 static uint16_t dvc_be16(const uint8_t *x){return ((uint16_t)x[0]<<8)|x[1];}
 static int32_t dvc_sign_extend20(uint32_t x){return (x&0x80000)?(int32_t)(x|0xfff00000):(int32_t)x;}
 static int32_t dvc_cc2_to_raw_current_ma(int32_t x){return x;}
@@ -105,6 +104,13 @@ int main(void){
  /* 第一个读取已通过R1 CRC，后面的R2 CRC失败；重试R1已清零，事件仍须保留。 */
  reset();corrupt_reg=2;corrupt_count=1;acquire(100,0x50);
  assert(s_snapshot.valid && s_snapshot.voltage_fresh && s_snapshot.current_fresh && s_voltage_seen);
+ /* 跨失败轮次保留 RC 事件及原时间，补读成功不能给旧转换续命或推进恢复资格。 */
+ reset();corrupt_reg=2;corrupt_count=-1;acquire(6500u,0x50u);
+ assert(result.status==BMS_AFE_SAMPLE_READ_ERROR);
+ uint32_t observed=s_pending_current_ms;
+ corrupt_reg=-1;acquire(12900u,0u);
+ assert(s_snapshot.valid && s_snapshot.sample_time_ms==observed && !result.confirm_sample);
+ acquire(6500u+2000u*32u,0u);assert(result.status==BMS_AFE_SAMPLE_ERROR);
  /* R1自身CRC坏，不能把未经验证的事件当作新采样。 */
  reset();corrupt_reg=1;corrupt_count=1;acquire(100,0x50);
  assert(!s_snapshot.valid && !s_voltage_seen && !s_pending_adc_events);

@@ -17,6 +17,8 @@ bms_afe_sample_result_t bms_afe_driver_sample(void);
 uint8_t bms_afe_driver_sleep(void);
 uint8_t bms_afe_driver_apply_protection_config(void);
 uint8_t bms_afe_driver_set_fets(uint8_t charge_on, uint8_t discharge_on);
+/* 无可信测量时只允许关闭指定方向及已确认保护方向，不重放另一侧开启命令。 */
+uint8_t bms_afe_driver_disable_fets(uint8_t charge_off, uint8_t discharge_off);
 /* DVC 底层输出锁；SH 不另存公共授权。 */
 void bms_afe_driver_set_output_enabled(uint8_t enabled);
 

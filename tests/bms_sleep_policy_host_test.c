@@ -41,7 +41,11 @@ int main(void)
     input.overdischarge_fault = 0u;
     input.valid = 0u;
     bms_sleep_policy_step(&state, &config, &input, UINT32_MAX, &status);
-    assert(state.overdischarge_seconds == 180u && state.afe_error_seconds == 1800u);
+    assert(state.overdischarge_seconds == 180u && !state.afe_error_seconds);
+    input.afe_fault=1u;
+    bms_sleep_policy_step(&state, &config, &input, 1800u, &status);
+    assert(state.afe_error_seconds==1800u);
+    input.afe_fault=0u;
     assert(status.elapsed_ms == status.delay_ms);
     input.valid = 1u;
     input.cell_min_mv = 3300u;

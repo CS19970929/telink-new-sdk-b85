@@ -385,17 +385,27 @@ uint8_t sh3673510_control_set_fets(uint8_t charge_on, uint8_t discharge_on)
                              bits);
 }
 
+uint8_t sh3673510_control_disable_fets(uint8_t charge_off, uint8_t discharge_off)
+{
+    uint8_t mask = (charge_off ? SH3673520_SCONF2_CHGMOS_MASK : 0u) |
+                   (discharge_off ? SH3673520_SCONF2_DSGMOS_MASK : 0u);
+    if (!s_control_ready) return 0u;
+    return !mask || sh3510_update_reg(SH3673520_REG_SCONF2, mask, 0u);
+}
+
 /* 读取 SH 状态、保护标志及控制寄存器。 */
 uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status)
 {
     uint8_t pair[2];
+    uint8_t flag2;
     if ((status == 0) || !s_control_ready) return 0u;
 
     if (SH3673520_ReadReg(SH3673520_REG_FLAG1, &status->flag1) != SH3673520_OK)
         return 0u;
     /* 集中进行有意的 FLAG2 读取，会消耗 VADC/CADC 就绪标志。 */
-    if (SH3673520_ReadReg(SH3673520_REG_FLAG2, &status->flag2) != SH3673520_OK)
+    if (SH3673520_ReadReg(SH3673520_REG_FLAG2, &flag2) != SH3673520_OK)
         return 0u;
+    status->flag2 = flag2; /* 只交付已通过 CRC 的 RC 事件，后续读取失败也不能丢失。 */
     if (SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, pair, 2u) != SH3673520_OK)
         return 0u;
     status->bstatus1 = pair[0];

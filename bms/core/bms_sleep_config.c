@@ -55,7 +55,8 @@ void bms_sleep_policy_step(bms_sleep_policy_t *state, const bms_sleep_config_t *
                            bms_sleep_status_t *status)
 {
     uint8_t conditions = state->voltage_conditions;
-    uint8_t afe_fault = !input->valid || input->afe_fault;
+    /* 数据暂不可用不等于正式 AFE 故障；持续失效由 guard 确认。 */
+    uint8_t afe_fault = input->afe_fault;
     uint32_t low_delay, normal_delay, afe_delay;
     low_delay = (uint32_t)config->low_delay_minutes * 60u;
     normal_delay = (uint32_t)config->normal_delay_minutes * 60u;

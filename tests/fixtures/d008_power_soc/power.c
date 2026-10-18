@@ -311,7 +311,9 @@ int main(void){
  assert(afe_shutdown_calls==1); /* shutdown 失败不能阻止低压断电。 */
  assert(seq_len==3&&seq[0]==3&&seq[1]==4&&seq[2]==5); /* OTA/Flash skip saves; AFE failure cannot block */
  int saved=seq_len;app_power_process(&s_sample_due);assert(timer_hold_calls==0&&cut_calls==1&&seq_len==saved);
- reset();valid=0;elapsed=900;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
+ reset();valid=0;elapsed=900;app_power_process(&s_sample_due);
+ assert(!cut_calls && observed_sleep_reason==DIAG_SLEEP_REASON_NONE);
+ reset();valid=0;afe_error=1;elapsed=900;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
  assert(!cut_calls&&!timer_hold_calls&&observed_sleep_reason==DIAG_SLEEP_REASON_AFE);
  app_power_process(&s_sample_due);assert(cut_calls==1&&timer_hold_calls==0&&!deep_calls&&s_protective_sleep_committed);
  assert(afe_shutdown_calls==1); /* AFE 异常入口也请求 Shutdown。 */

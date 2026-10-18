@@ -41,6 +41,8 @@ uint8_t sh3673510_control_apply_protection(void);
 uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *actual);
 /* 根据请求设置充放电 FET 控制位。 */
 uint8_t sh3673510_control_set_fets(uint8_t charge_on, uint8_t discharge_on);
+/* 无可信新测量时只清指定命令位，另一方向保持原命令，绝不重新开启。 */
+uint8_t sh3673510_control_disable_fets(uint8_t charge_off, uint8_t discharge_off);
 /* 读取 SH 状态、保护标志及控制寄存器。 */
 uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status);
 /* CRLD_EN 共用，负载检测与 C+ ADC 不能同时运行。 */

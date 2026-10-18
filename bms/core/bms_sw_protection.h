@@ -16,6 +16,9 @@
  */
 typedef struct
 {
+    /* 过期分组保持已有故障，不用旧值推进触发或恢复；其它分组继续保护。 */
+    uint8_t voltage_stale;
+    uint8_t current_stale;
     uint8_t battery_temp_valid;
     uint8_t mos_temp_valid;
     uint16_t battery_temp_min;

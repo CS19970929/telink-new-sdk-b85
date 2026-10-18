@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR } bms_afe_sample_status_t;
+typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR, BMS_AFE_SAMPLE_READ_ERROR, BMS_AFE_SAMPLE_STALE } bms_afe_sample_status_t;
 typedef struct { bms_afe_sample_status_t status; uint8_t confirm_sample; } bms_afe_sample_result_t;
 typedef uint8_t u8; typedef uint16_t u16;
 #define BMS_AFE_BACKEND 1
@@ -24,16 +24,18 @@ static uint8_t direction_allow_mask;
 static int balance_ok=1,shutdown_ok=1,shutdown_calls,sample_calls;
 static uint8_t bms_error_get(int x){return err;}
 static void bms_error_raise(int x){err=1;raised++;}
+static void bms_error_clear(int x){(void)x;err=0;}
 static void bms_features_stop(void){}
 static void bms_features_init(void){}
 static unsigned protection_inits;
 static void bms_sw_protection_init(void){++protection_inits;}
 static void bms_features_service(uint8_t confirm_sample){}
 static int bms_features_charge_direction_blocked(void){return 0;}
-static void bms_afe_driver_init(void){if(init_fail)bms_error_raise(BMS_ERROR_AFE1);}
-static bms_afe_sample_result_t bms_afe_driver_sample(void){bms_afe_sample_result_t r={BMS_AFE_SAMPLE_OK,1u};sample_calls++;err=0;return r;}
+static void bms_afe_driver_init(void){}
+static bms_afe_sample_result_t bms_afe_driver_sample(void){bms_afe_sample_result_t r={BMS_AFE_SAMPLE_OK,1u};sample_calls++;return r;}
 static int bms_afe_driver_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
-static int bms_afe_driver_set_fets(int c,int d){if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
+static int bms_afe_driver_set_fets(int c,int d){if(init_fail){init_fail=0;return 0;}if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
+static int bms_afe_driver_disable_fets(int c,int d){if(fet_fail)return 0;if(c)cmd_c=0;if(d)cmd_d=0;return 1;}
 static uint8_t bms_afe_driver_get_direction_allow_mask(void){return direction_allow_mask;}
 static void bms_afe_driver_set_output_enabled(int x){}
 static int bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t*x){return aux_ok;}
@@ -42,7 +44,7 @@ static int bms_afe_driver_get_charge_source_present(uint8_t*x){return 0;}
 static int bms_afe_driver_set_balance_mask(uint32_t x){return balance_ok;}
 static int bms_afe_driver_get_balance_mask(uint32_t*x){return 1;}
 static int bms_afe_driver_sleep(void){shutdown_calls++;return shutdown_ok;}
-struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status;}bits;}g_bms_system_status;
+struct {struct {uint8_t charge_mos_status,discharge_mos_status,cooler_status,afe1_status;}bits;}g_bms_system_status;
 
 static uint32_t guard_tick;
 uint32_t bms_time_ms(void){return guard_tick;}
@@ -66,9 +68,9 @@ static void test_remote_control(void){
  bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)sample_cycle();
  bms_afe_set_fets(1,1);assert(cmd_c==0&&cmd_d==1); /* AFE 重初始化不丢失关闭许可。 */
  fet_fail=1;assert(!bms_afe_set_channel_allowed(0,1));assert(bms_afe_get_remote_allowed_mask()==2u);
- fet_fail=0;assert(bms_afe_set_channel_allowed(0,1));assert(s_guard.comm_inhibit);
+ fet_fail=0;assert(bms_afe_set_channel_allowed(0,1));assert(!s_guard.comm_inhibit && !err);
  for(int i=0;i<3;i++)sample_cycle();
- assert(cmd_c==1&&cmd_d==1); /* 通信失败后，重新授权不能绕过三次有效样本资格。 */
+ assert(cmd_c==1&&cmd_d==1); /* 偶发控制通信失败不撤销已有资格；完整采样后正常执行新许可。 */
  puts("PASS remote MOS permission: independent RAM intent, AFE reinit persistence and fail-safe enable rollback");
 }
 static void test_remote_direction_override(void){

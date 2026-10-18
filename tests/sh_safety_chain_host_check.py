@@ -67,7 +67,8 @@ int main(void){
  invalid_ntc=-1;bad_cell=-1;
  for(unsigned i=0;i<10;i++)sample();assert(command_c && command_d);
  device.flag2=SH3673520_FLAG2_VADC_MASK;
- sample();sample();sample();assert(!command_c && !command_d && !bms_afe_samples_qualified());
+ for(unsigned i=0;i<9;i++){sample();assert(command_c && command_d);}
+ sample();assert(!command_c && !command_d && !bms_afe_samples_qualified());
  assert(!bms_afe_get_feature_snapshot(&temperature));
  puts("PASS 实际 SH 采样/guard/SW 保护/最终 FET 命令：OV、UV、并发 SC、NTC 无效、ADC 过期、tick 回绕");return 0;
 }

@@ -61,7 +61,6 @@ static uint8_t dvc_apply_protection_from_params(void) {
     ++profile_applies; return DVC1124_SetShortCircuitProtection(40,256);
 }
 void bms_diag_boot_word(uint16_t o, uint16_t v) { (void)o; (void)v; }
-static void dvc_note_comm_result(uint8_t ok) { (void)ok; }
 '''
 code += '\n' + function(source, 'void DVC1124_UpdataAfeConfig(')
 code += r'''

@@ -41,6 +41,7 @@ static uint8_t sh3673510_control_set_fets(uint8_t c, uint8_t d) {
     if (!write_ok) return 0;
     actual_c = c; actual_d = d; return 1;
 }
+static uint8_t sh3673510_control_disable_fets(uint8_t c, uint8_t d) { if(!write_ok)return 0; if(c)actual_c=0; if(d)actual_d=0; return 1; }
 static uint8_t sh3673510_control_set_balance(uint16_t mask) { (void)mask; return 1; }
 static uint8_t sh3673510_control_init(void) { actual_c = actual_d = 0; return init_ok; }
 static uint8_t sh3673510_control_clear_flag1(uint8_t mask) {

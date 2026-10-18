@@ -383,6 +383,18 @@ static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
     return ok;
 }
 
+uint8_t bms_afe_driver_disable_fets(uint8_t charge_off, uint8_t discharge_off)
+{
+    uint8_t mask = 0u;
+    uint8_t current;
+    if (charge_off || dvc_charge_blocked()) mask |= DVC1124_FET_CHGC_MASK;
+    if (discharge_off || dvc_discharge_blocked()) mask |= DVC1124_FET_DSGC_MASK;
+    if (!mask) return 1u;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &current, 1u)) return 0u;
+    if (!(current & mask)) return 1u;
+    return DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, (uint8_t)(current & ~mask));
+}
+
 /* 按共口保护与方向条件应用充放电 FET 状态。 */
 uint8_t bms_afe_driver_set_fets(uint8_t charge_on,
                                               uint8_t discharge_on)
@@ -391,6 +403,12 @@ uint8_t bms_afe_driver_set_fets(uint8_t charge_on,
     uint8_t discharge_blocked = dvc_discharge_blocked();
     dvc1124_fet_drive_t charge_mode = DVC1124_FET_DRIVE_OFF;
     dvc1124_fet_drive_t discharge_mode = DVC1124_FET_DRIVE_OFF;
+    dvc1124_snapshot_t snapshot;
+
+    DVC1124_GetSnapshot(&snapshot);
+    if (!snapshot.valid) {
+        return bms_afe_driver_disable_fets(!charge_on, !discharge_on);
+    }
 
     /*
      * D008 正常请求双 FET 开启。只有一个方向受保护时，将受阻 FET 直接置 AUTO_DIODE，
@@ -429,7 +447,6 @@ uint8_t bms_afe_driver_set_fets(uint8_t charge_on,
     }
 
     if (dvc_set_fet_modes_if_changed(charge_mode, discharge_mode)) return 1u;
-    bms_error_raise(BMS_ERROR_AFE1);
     return 0u;
 }
 
@@ -447,7 +464,7 @@ bms_afe_sample_result_t bms_afe_driver_sample(void)
     DVC1124_GetSnapshot(&snapshot);
     poll_tick = bms_time_ms();
     dvc_observe_current_recovery(&snapshot, poll_tick);
-    if (!snapshot.valid) {
+    if (!snapshot.valid && result.status != BMS_AFE_SAMPLE_STALE) {
 #if DVC1124_HW_PROTECT_ENABLE
         (void)dvc_clear_recovered_hw_latches(0u, 0u, 0u, 0u);
 #endif
@@ -461,16 +478,18 @@ bms_afe_sample_result_t bms_afe_driver_sample(void)
      * 避免等到新电流才检查时把约 400 ms 的间隔误判为中断。
      */
     alarm = dvc_clear_recovered_hw_latches(snapshot.alarm,
-        1u, snapshot.voltage_fresh,
+        snapshot.valid, snapshot.voltage_fresh,
         poll_tick);
 #endif
     /* 与 SH 一样每个有效应用轮次评估软件保护；等待 ADC 不能拖慢软件滤波。 */
     memset(&sw, 0, sizeof(sw));
+    sw.voltage_stale = !snapshot.valid && !snapshot.voltage_fresh;
+    sw.current_stale = !snapshot.valid && !snapshot.current_fresh;
     /* PB1 移除与真实反向充电用于放电恢复；OCC 仍需真实反向放电。 */
     sw.current_recovery_requires_evidence = 1u;
     sw.current_recovery_sample_fresh = snapshot.current_fresh;
-    sw.charge_recovery_immediate = snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
-    sw.discharge_recovery_immediate = snapshot.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+    sw.charge_recovery_immediate = snapshot.current_fresh && snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
+    sw.discharge_recovery_immediate = snapshot.current_fresh && snapshot.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
     sw.charge_recovery_allowed = sw.charge_recovery_immediate;
     sw.discharge_recovery_allowed = sw.discharge_recovery_immediate || dvc_load_removed(poll_tick);
     sw.battery_temp_valid = dvc_get_battery_temperature_range(

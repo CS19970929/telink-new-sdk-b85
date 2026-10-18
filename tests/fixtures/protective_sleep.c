@@ -119,7 +119,7 @@ static void reset(void) {
     memset(enabled,0,sizeof(enabled));
 }
 int main(void) {
-    reset();sleep_config.afe_delay_minutes=1u;valid=0;
+    reset();sleep_config.afe_delay_minutes=1u;valid=0;afe_error=1;
     assert(!fixture_sleep_poll(1799u,&sleep_status));assert(fixture_sleep_poll(1u,&sleep_status));
     assert(reason==DIAG_SLEEP_REASON_AFE); /* 旧配置槽不能改变固定30分钟。 */
 
@@ -149,7 +149,7 @@ int main(void) {
     assert(s_protective_sleep_committed&&s_low_power_mode);
     pins[1]=0; assert(app_power_prepare_loop());
     assert(sleep_calls==2&&saves==1&&events==1&&afe_calls==1&&output_calls==1&&comm_sleep_calls==1);
-    reset(); ota_is_working=1; flash_ready=0; valid=0;
+    reset(); ota_is_working=1; flash_ready=0; valid=0; afe_error=1;
     assert(!fixture_sleep_poll(1799, &sleep_status)); assert(fixture_sleep_poll(1, &sleep_status));
     assert(reason==DIAG_SLEEP_REASON_AFE&&sleep_calls==1&&!saves&&!events);
     reset(); g_bms_report.cell_min_mv=2400; afe_error=1;
@@ -157,7 +157,8 @@ int main(void) {
     assert(reason==DIAG_SLEEP_REASON_AFE); /* 低压不能遮住 AFE 异常 */
     reset(); valid=0; assert(!fixture_sleep_poll(900, &sleep_status));
     valid=1; assert(!fixture_sleep_poll(1, &sleep_status)); assert(!s_protective_sleep.afe_error_seconds);
-    now+=BMS_SAMPLE_MAX_POLL_GAP_MS+1; assert(fixture_sleep_poll(1800, &sleep_status));
+    now+=BMS_SAMPLE_MAX_POLL_GAP_MS+1; assert(!fixture_sleep_poll(1800, &sleep_status));
+    afe_error=1; assert(fixture_sleep_poll(1800, &sleep_status));
     reset(); g_bms_report.cell_min_mv=2900; measurement.current_ma=-201;
     assert(!fixture_sleep_poll(86400, &sleep_status));
     measurement.current_ma=0; assert(!fixture_sleep_poll(86399, &sleep_status));

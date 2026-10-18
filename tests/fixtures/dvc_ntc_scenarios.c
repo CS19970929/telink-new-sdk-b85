@@ -32,7 +32,6 @@ static uint32_t time_last_raw,time_ms,time_fraction;
 uint32_t bms_time_ms(void){uint32_t delta=now-time_last_raw;time_last_raw=now;time_fraction+=delta%32u;time_ms+=delta/32u+time_fraction/32u;time_fraction%=32u;return time_ms;}
 uint32_t bms_time_now_32k(void){return now;}
 
-static void dvc_note_comm_result(uint8_t ok) { (void)ok; }
 static uint16_t dvc_be16(const uint8_t *p) { return ((uint16_t)p[0]<<8)|p[1]; }
 static int32_t dvc_sign_extend20(uint32_t x) { return (x&0x80000u)?(int32_t)(x|0xfff00000u):(int32_t)x; }
 static int32_t dvc_cc2_to_raw_current_ma(int32_t x) { return x; }
@@ -46,6 +45,8 @@ uint8_t DVC1124_ReadRegisters(uint8_t reg,uint8_t *data,uint8_t count)
     memcpy(data,registers+reg,count);
     if (reg==DVC1124_REG_ALARM && count==DVC_MEAS_BYTES) {
         s_pending_adc_events |= registers[DVC1124_REG_STATUS]&0x50u;
+        if(registers[DVC1124_REG_STATUS]&0x40u)s_pending_voltage_ms=bms_time_ms();
+        if(registers[DVC1124_REG_STATUS]&0x10u)s_pending_current_ms=bms_time_ms();
         registers[DVC1124_REG_STATUS] &= (uint8_t)~0x50u;
     }
     return 1u;
@@ -200,17 +201,17 @@ int main(void)
     put16(DVC1124_REG_GP2_H,9000u); step(0x50u,6400u); step(0x50u,6400u); check_closed();
     put16(DVC1124_REG_GP2_H,18000u); step(0x50u,6400u); check_closed();
     put16(DVC1124_REG_GP2_H,9000u); qualify();
-    /* 真正读失败仍撤销资格；下一次成功读取不能直接恢复 MOS。 */
-    read_ok=0u; step(0x50u,6400u); assert(!s_snapshot.valid && !s_snapshot.ntc_res_ohm[1]);
-    read_ok=1u; qualify();
+    /* 偶发读失败仅使本轮无效；已确认 NTC 和原 MOS 命令保持。 */
+    read_ok=0u; step(0x50u,6400u); assert(!s_snapshot.valid && s_snapshot.ntc_res_ohm[1]); check_open();
+    read_ok=1u; step(0x50u,6400u); check_open();
     /* 已合格探头在晚轮询中取得正常新转换，不因旧缓存年龄制造 TEMP_BREAK。 */
     step(0x50u,25600u); check_open();
-    /* 晚轮询未取得新 VADF，仍按原 512 ms 边界失效并重新资格。 */
-    step(0x10u,25600u); assert(!s_snapshot.valid && !s_snapshot.ntc_res_ohm[1]);
-    qualify();
+    /* 512 ms 后业务数据失效，但两秒以内保留已确认 NTC 和原命令。 */
+    step(0x10u,25600u); assert(!s_snapshot.valid && s_snapshot.ntc_res_ohm[1]); check_open();
+    step(0x50u,6400u); check_open();
     step(0x10u,512u*32u); assert(s_snapshot.valid); check_open();
-    step(0x10u,32u); assert(!s_snapshot.valid && !s_snapshot.ntc_res_ohm[1]);
-    qualify();
+    step(0x10u,32u); assert(!s_snapshot.valid && s_snapshot.ntc_res_ohm[1]); check_open();
+    step(0x50u,6400u); check_open();
     /* 未完成恢复的两次好样本不能跨过长空档凑成第三次。 */
     put16(DVC1124_REG_GP2_H,18000u); step(0x50u,6400u); check_closed();
     put16(DVC1124_REG_GP2_H,9000u);

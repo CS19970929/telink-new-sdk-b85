@@ -74,6 +74,8 @@ static uint32_t s_balance_last_refresh_ms;
 #define DVC_ADC_MAX_AGE_MS 512u
 #define DVC_NTC_VALID_SAMPLES 3u
 static uint8_t s_pending_adc_events;
+/* RC 事件可跨失败读取保留，但重试成功不能把旧事件时间刷新为现在。 */
+static uint32_t s_pending_voltage_ms, s_pending_current_ms;
 static uint8_t s_voltage_seen, s_current_seen;
 static uint8_t s_voltage_since_current;
 static uint32_t s_voltage_ms, s_current_ms, s_adc_wait_started_ms;
@@ -943,27 +945,11 @@ static uint8_t dvc_apply_protection_from_params(void)
 #endif
 }
 
-/* 更新 DVC 通信结果及错误状态。 */
-static void dvc_note_comm_result(uint8_t ok)
-{
-    if (ok)
-    {
-        g_bms_system_status.bits.afe1_status = 1u;
-        bms_error_clear(BMS_ERROR_AFE1);
-    }
-    else
-    {
-        g_bms_system_status.bits.afe1_status = 0u;
-        bms_error_raise(BMS_ERROR_AFE1);
-    }
-}
-
 /* 应用并验证 DVC 硬件保护参数。 */
 uint8_t bms_afe_driver_apply_protection_config(void)
 {
     uint8_t ok = dvc_apply_protection_from_params();
 
-    dvc_note_comm_result(ok);
     return ok;
 }
 
@@ -1104,18 +1090,24 @@ uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len)
         first_crc_input[2] = read_addr;
         first_crc_input[3] = s_i2c_raw[0];
         if (dvc_crc8(first_crc_input, 4u) != s_i2c_raw[1]) valid = 0u;
-        if (valid && reg == DVC1124_REG_STATUS)
+        if (valid && reg == DVC1124_REG_STATUS) {
             s_pending_adc_events |= (uint8_t)(s_i2c_raw[0] &
                 (DVC1124_STATUS_VADF_MASK | DVC1124_STATUS_CC2F_MASK));
+            if (s_i2c_raw[0] & DVC1124_STATUS_VADF_MASK) s_pending_voltage_ms = bms_time_ms();
+            if (s_i2c_raw[0] & DVC1124_STATUS_CC2F_MASK) s_pending_current_ms = bms_time_ms();
+        }
 
         for (i = 1u; (i < len) && valid; ++i)
         {
             if (dvc_crc8(&s_i2c_raw[(uint16_t)i * 2u], 1u) !=
                 s_i2c_raw[(uint16_t)i * 2u + 1u]) valid = 0u;
             /* 已通过该字节CRC的RC事件不能被后续字节失败/重试丢弃。 */
-            if (valid && (uint16_t)reg + i == DVC1124_REG_STATUS)
+            if (valid && (uint16_t)reg + i == DVC1124_REG_STATUS) {
                 s_pending_adc_events |= (uint8_t)(s_i2c_raw[(uint16_t)i * 2u] &
                     (DVC1124_STATUS_VADF_MASK | DVC1124_STATUS_CC2F_MASK));
+                if (s_i2c_raw[(uint16_t)i * 2u] & DVC1124_STATUS_VADF_MASK) s_pending_voltage_ms = bms_time_ms();
+                if (s_i2c_raw[(uint16_t)i * 2u] & DVC1124_STATUS_CC2F_MASK) s_pending_current_ms = bms_time_ms();
+            }
         }
 
         if (valid)
@@ -1354,12 +1346,12 @@ static uint8_t DVC1124_AFE_IsReady(void)
             DVC1124_ReadRegisters(DVC1124_REG_FRT, &frt, 1u))
         {
             s_snapshot.rpu_ohm = (uint16_t)(6800u + (uint16_t)frt * 25u);
-            dvc_note_comm_result(1u);
+
             return 0u; /* 旧 API 约定：0 表示已就绪。 */
         }
         dvc_delay_ms(5u);
     }
-    dvc_note_comm_result(0u);
+
     return 1u;
 }
 
@@ -1373,7 +1365,7 @@ void DVC1124_UpdataAfeConfig(void)
     if (!DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT))
     {
         bms_diag_boot_word(25u, DIAG_INVALID);
-        dvc_note_comm_result(0u);
+
         return;
     }
     if (DVC1124_AFE_IsReady() != 0u) { bms_diag_boot_word(25u, DIAG_INVALID); return; }
@@ -1385,12 +1377,12 @@ void DVC1124_UpdataAfeConfig(void)
     if (ok)
     {
         s_need_config = 0u;
-        dvc_note_comm_result(1u);
+
     }
     else
     {
         s_need_config = 1u;
-        dvc_note_comm_result(0u);
+
     }
 }
 
@@ -1534,7 +1526,9 @@ static void dvc_publish_temperature_measurement(const uint8_t *data)
 bms_afe_sample_result_t DVC1124_App_AFEGet(void)
 {
     uint8_t data[DVC_MEAS_BYTES];
+    uint8_t events;
     uint32_t now = bms_time_ms();
+    uint32_t poll_started_ms = now;
     bms_afe_sample_result_t result = { BMS_AFE_SAMPLE_ERROR, 0u };
     s_snapshot.voltage_fresh = s_snapshot.current_fresh = 0u;
 
@@ -1547,19 +1541,26 @@ bms_afe_sample_result_t DVC1124_App_AFEGet(void)
     if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))
     {
         s_snapshot.valid = 0u;
+        s_voltage_since_current = 0u;
         /* 通信失败不伪造零电流，也不丢弃此前已确认的 NTC；本轮整体无效。 */
         result.status = BMS_AFE_SAMPLE_READ_ERROR;
         return result;
     }
 
-    s_snapshot.voltage_fresh = (s_pending_adc_events & DVC1124_STATUS_VADF_MASK) ? 1u : 0u;
-    s_snapshot.current_fresh = (s_pending_adc_events & DVC1124_STATUS_CC2F_MASK) ? 1u : 0u;
+    now = bms_time_ms(); /* 有界重试可能消耗时间，不能用事务前时间计算数据年龄。 */
+    events = s_pending_adc_events;
+    /* 两次观察相隔远小于半个 tick 周期；跨失败轮次的旧事件仅恢复缓存，不推进恢复资格。 */
+    s_snapshot.voltage_fresh = (events & DVC1124_STATUS_VADF_MASK) &&
+        (uint32_t)(s_pending_voltage_ms - poll_started_ms) < 0x80000000u;
+    s_snapshot.current_fresh = (events & DVC1124_STATUS_CC2F_MASK) &&
+        (uint32_t)(s_pending_current_ms - poll_started_ms) < 0x80000000u;
     s_pending_adc_events = 0u;
     /* 先确认本轮 VADF：正常新转换不撤销已合格探头；恢复计数不能跨长空档。 */
     if (s_voltage_seen && (uint32_t)(now - s_voltage_ms) > DVC_ADC_MAX_AGE_MS) {
         uint8_t i;
         for (i = 0u; i < 4u; ++i) {
-            if (!s_snapshot.voltage_fresh || s_ntc_valid_samples[i] < DVC_NTC_VALID_SAMPLES) {
+            if ((uint32_t)(now - s_voltage_ms) >= BMS_AFE_ADC_STOP_CONFIRM_MS ||
+                s_ntc_valid_samples[i] < DVC_NTC_VALID_SAMPLES) {
                 s_ntc_valid_samples[i] = 0u;
                 s_snapshot.ntc_res_ohm[i] = 0u;
             }
@@ -1569,15 +1570,15 @@ bms_afe_sample_result_t DVC1124_App_AFEGet(void)
     s_snapshot.alarm = data[DVC1124_REG_ALARM];
     s_snapshot.status = data[DVC1124_REG_STATUS];
     s_snapshot.cell_count = s_cfg.cell_count;
-    if (s_snapshot.current_fresh)
-        dvc_publish_current_measurement(data, now);
+    if (events & DVC1124_STATUS_CC2F_MASK)
+        dvc_publish_current_measurement(data, s_pending_current_ms);
 
-    if (s_snapshot.voltage_fresh) {
+    if (events & DVC1124_STATUS_VADF_MASK) {
         dvc_publish_voltage_measurement(data);
         dvc_publish_temperature_measurement(data);
         s_voltage_seen = 1u;
-        s_voltage_since_current = 1u;
-        s_voltage_ms = now;
+        if (s_snapshot.voltage_fresh) s_voltage_since_current = 1u;
+        s_voltage_ms = s_pending_voltage_ms;
     }
     s_snapshot.valid = s_voltage_seen && s_current_seen &&
         (uint32_t)(now - s_voltage_ms) <= DVC_ADC_MAX_AGE_MS &&
@@ -1604,7 +1605,7 @@ bms_afe_sample_result_t DVC1124_App_AFEGet(void)
     /* 0x67..0x69 在 60 秒后自清除；上报 AFE 实际状态，不用缓存请求替代。 */
     if (!dvc_refresh_balance_state())
         bms_error_raise(BMS_ERROR_BALANCE); /* 未知保留最后确认值，不能冒充关闭。 */
-    dvc_note_comm_result(1u);
+
     return result;
 }
 

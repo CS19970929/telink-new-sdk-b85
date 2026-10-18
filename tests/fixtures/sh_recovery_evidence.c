@@ -106,6 +106,7 @@ uint8_t sh3673510_control_wake(void) { return read_ok(); }
 uint8_t sh3673510_control_sleep(void) { return 1; }
 uint8_t sh3673510_control_apply_protection(void) { return 1; }
 uint8_t sh3673510_control_set_fets(uint8_t c, uint8_t d) { command_c=c; command_d=d; return 1; }
+uint8_t sh3673510_control_disable_fets(uint8_t c, uint8_t d) { if(c)command_c=0; if(d)command_d=0; return 1; }
 uint8_t sh3673510_control_set_balance(uint32_t mask) { (void)mask; return 1; }
 void sh3673510_board_set_heater(uint8_t on) { (void)on; }
 void sh3673510_board_force_heater_fuse_safe(void) {}
@@ -148,7 +149,8 @@ static void sample(void) {
     if (last_sample_result.status == BMS_AFE_SAMPLE_OK) bms_afe_apply_outputs();
 #else
     last_sample_result = bms_afe_driver_sample();
-    bms_afe_driver_set_fets(1,1);
+    bms_afe_driver_set_fets(last_sample_result.status!=BMS_AFE_SAMPLE_ERROR,
+                           last_sample_result.status!=BMS_AFE_SAMPLE_ERROR);
 #endif
 }
 #if defined(MODE_TEST)
@@ -210,7 +212,7 @@ int main(void) {
         fail_stage=0;sample();sample();
         device.bstatus2=SH3673520_BSTATUS2_IDLE_MASK;
         fail_stage=f;sample();
-        assert(last_sample_result.status==BMS_AFE_SAMPLE_ERROR && !last_sample_result.confirm_sample);
+        assert(last_sample_result.status==((f>=2 && f<=6)?BMS_AFE_SAMPLE_READ_ERROR:BMS_AFE_SAMPLE_ERROR) && !last_sample_result.confirm_sample);
         const uint16_t expected[]={0,DIAG_AFE_FAIL_WAKE,DIAG_AFE_FAIL_STATUS,
             DIAG_AFE_FAIL_CELL_READ,DIAG_AFE_FAIL_PACK_READ,DIAG_AFE_FAIL_CURRENT_READ,
             DIAG_AFE_FAIL_TEMP_READ,DIAG_AFE_FAIL_CURRENT_CONVERT,DIAG_AFE_FAIL_RELEASE_READ};
@@ -259,8 +261,9 @@ int main(void) {
     assert(last_sample_result.status==BMS_AFE_SAMPLE_NOT_READY && !last_sample_result.confirm_sample);
     assert(!bms_afe_driver_get_aux_measurements(&aux));
     assert(!bms_error_get(BMS_ERROR_AFE1)); /* Waiting for first conversion is normal. */
-    sample();
-    assert(bms_error_get(BMS_ERROR_AFE1)); /* Bounded waiting, even if all reads ACK. */
+    for(unsigned i=0;i<8;i++)sample();
+    assert(last_sample_result.status==BMS_AFE_SAMPLE_ERROR);
+    assert(!bms_error_get(BMS_ERROR_AFE1)); /* 后端报告两秒停更，AFE1 仅由 guard 发布。 */
     bms_afe_driver_init();
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     device.flag1=SH3673520_FLAG1_OCC_MASK;
@@ -338,7 +341,11 @@ int main(void) {
     assert(aux.sample_tick_32k==previous.sample_tick_32k);
     assert(last_sample_result.status==BMS_AFE_SAMPLE_OK && !last_sample_result.confirm_sample);
     sample(); assert(!bms_afe_driver_get_aux_measurements(&aux));
-    assert(last_sample_result.status==BMS_AFE_SAMPLE_ERROR && !last_sample_result.confirm_sample);
+    assert(last_sample_result.status==BMS_AFE_SAMPLE_STALE && !last_sample_result.confirm_sample);
+    assert(command_c && command_d);
+    for(unsigned i=0;i<6;i++)sample();
+    assert(command_c && command_d);
+    sample();assert(last_sample_result.status==BMS_AFE_SAMPLE_ERROR);
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     for(unsigned i=0;i<8;++i) sample();
     mode_ok=0;sample();assert(!bms_afe_driver_get_aux_measurements(&aux));
@@ -351,7 +358,7 @@ int main(void) {
     clear_ok=0;
     sample();
     assert(!bms_afe_driver_get_aux_measurements(&aux));
-    assert(bms_error_get(BMS_ERROR_AFE1) && command_c==0 && command_d==0);
+    assert(s_flag_clear_failed && command_c==0 && command_d==0);
     puts("C+/LOAD mode settling, readback and failed-clear inhibit");
     return 0;
 }
@@ -386,9 +393,12 @@ int main(void) {
     device.flag2=SH3673520_FLAG2_VADC_MASK;
     sample();assert(bms_afe_get_aux_measurements(&aux) && aux.sample_tick_32k==stamp);
     sample();assert(bms_afe_samples_qualified());
-    sample();assert(!bms_afe_samples_qualified() && command_c==0 && command_d==0);
+    sample();assert(bms_afe_samples_qualified() && command_c && command_d && !bms_error_get(BMS_ERROR_AFE1));
     assert(failure_step==DIAG_AFE_FAIL_CADC_AGE && failure_cadc_age==19200u);
     assert(failure_vadc_age==0u && failure_flag2==(0x100u|SH3673520_FLAG2_VADC_MASK));
+    for(unsigned i=0;i<6;i++)sample();
+    assert(command_c && command_d);
+    sample();assert(!command_c && !command_d && bms_error_get(BMS_ERROR_AFE1));
     sample();assert(!bms_afe_bus_access_allowed());
     /* No status/clear/detection I/O during the watchdog silence window. */
     unsigned before=clear_calls;
