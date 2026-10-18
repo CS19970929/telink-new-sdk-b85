@@ -115,6 +115,17 @@ static sh3673520_status_t sh36735xx_xfer_byte(uint8_t tx, uint8_t *rx)
     return sh3673520_map_port_status(sh3673520_port_xfer(tx, rx));
 }
 
+/* 交换一个命令字节并要求 AFE 回显前一字节；回显不符即协议错误。 */
+static sh3673520_status_t sh36735xx_expect(uint8_t tx, uint8_t expected, uint8_t *rx)
+{
+    sh3673520_status_t status = sh36735xx_xfer_byte(tx, rx);
+
+    if ((status == SH3673520_OK) && (*rx != expected)) {
+        status = SH3673520_ERR_PROTOCOL;
+    }
+    return status;
+}
+
 /* 执行一次含 CRC 校验的连续寄存器读取。 */
 static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
                                                    uint8_t *buffer,
@@ -122,236 +133,109 @@ static sh3673520_status_t sh3673520_read_regs_once(uint8_t start_reg,
 {
     sh3673520_status_t status;
     sh3673520_port_status_t port_status;
+    uint8_t tx[4];
+    uint8_t echo[4];
     uint8_t rx;
-    uint8_t crc;
+    uint8_t crc = SH3673520_CRC8_INIT;
     uint8_t index;
-    uint8_t received_crc;
-    uint8_t begun = 0u;
+
+    tx[0] = SH3673520_SPI_CMD_READ;
+    tx[1] = start_reg;
+    tx[2] = length;
+    tx[3] = 0x00u;
+    echo[0] = SH3673520_SPI_RESPONSE_IDLE;
+    echo[1] = SH3673520_SPI_CMD_READ;
+    echo[2] = start_reg;
+    echo[3] = length;
 
     port_status = sh3673520_port_begin();
     if (port_status != SH3673520_PORT_OK) {
         return sh3673520_map_port_status(port_status);
     }
-    begun = 1u;
 
-    crc = SH3673520_CRC8_INIT;
-
-    status = sh36735xx_xfer_byte(SH3673520_SPI_CMD_READ, &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
+    /* 命令头四个字节的回显同时参与 CRC。 */
+    for (index = 0u; index < 4u; ++index) {
+        status = sh36735xx_expect(tx[index], echo[index], &rx);
+        if (status != SH3673520_OK) {
+            sh3673520_port_end();
+            return status;
+        }
+        crc = sh3673520_crc8_update(crc, rx);
     }
-    if (rx != SH3673520_SPI_RESPONSE_IDLE) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-    crc = sh3673520_crc8_update(crc, rx);
-
-    status = sh36735xx_xfer_byte(start_reg, &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != SH3673520_SPI_CMD_READ) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-    crc = sh3673520_crc8_update(crc, rx);
-
-    status = sh36735xx_xfer_byte(length, &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != start_reg) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-    crc = sh3673520_crc8_update(crc, rx);
-
-    status = sh36735xx_xfer_byte(0x00u, &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != length) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-    crc = sh3673520_crc8_update(crc, rx);
 
     for (index = 0u; index < length; ++index) {
         status = sh36735xx_xfer_byte(0x00u, &rx);
         if (status != SH3673520_OK) {
-            goto finish;
+            sh3673520_port_end();
+            return status;
         }
         buffer[index] = rx;
         crc = sh3673520_crc8_update(crc, rx);
     }
 
-    status = sh36735xx_xfer_byte(0x00u, &received_crc);
+    status = sh36735xx_xfer_byte(0x00u, &rx);
+    sh3673520_port_end();
     if (status != SH3673520_OK) {
-        goto finish;
+        return status;
+    }
+    return (rx == crc) ? SH3673520_OK : SH3673520_ERR_CRC;
+}
+
+/*
+ * 发送固定三字节命令帧（命令 + 两个参数）并附 CRC；
+ * 写寄存器与芯片复位的帧结构、回显顺序和 ACK 完全一致。
+ */
+static sh3673520_status_t sh3673520_command_once(uint8_t command,
+                                                 uint8_t arg1,
+                                                 uint8_t arg2)
+{
+    sh3673520_status_t status;
+    sh3673520_port_status_t port_status;
+    uint8_t rx;
+    uint8_t crc;
+    uint8_t frame[3];
+
+    frame[0] = command;
+    frame[1] = arg1;
+    frame[2] = arg2;
+    crc = SH3673520_Crc8(frame, sizeof(frame));
+
+    port_status = sh3673520_port_begin();
+    if (port_status != SH3673520_PORT_OK) {
+        return sh3673520_map_port_status(port_status);
     }
 
-    if (received_crc != crc) {
-        status = SH3673520_ERR_CRC;
-        goto finish;
+    /* 回显依次为：空闲、命令、参数一、参数二、ACK。 */
+    status = sh36735xx_expect(frame[0], SH3673520_SPI_RESPONSE_IDLE, &rx);
+    if (status == SH3673520_OK) {
+        status = sh36735xx_expect(frame[1], frame[0], &rx);
+    }
+    if (status == SH3673520_OK) {
+        status = sh36735xx_expect(frame[2], frame[1], &rx);
+    }
+    if (status == SH3673520_OK) {
+        status = sh36735xx_expect(crc, frame[2], &rx);
+    }
+    if (status == SH3673520_OK) {
+        status = sh36735xx_expect(0x00u, SH3673520_SPI_ACK, &rx);
     }
 
-    status = SH3673520_OK;
-
-finish:
-    if (begun != 0u) {
-        sh3673520_port_end();
-    }
+    sh3673520_port_end();
     return status;
 }
 
 /* 执行一次带 CRC 的单寄存器写入。 */
 static sh3673520_status_t sh3673520_write_reg_once(uint8_t reg, uint8_t value)
 {
-    sh3673520_status_t status;
-    sh3673520_port_status_t port_status;
-    uint8_t rx;
-    uint8_t crc;
-    uint8_t frame[3];
-    uint8_t begun = 0u;
-
-    frame[0] = SH3673520_SPI_CMD_WRITE;
-    frame[1] = reg;
-    frame[2] = value;
-    crc = SH3673520_Crc8(frame, sizeof(frame));
-
-    port_status = sh3673520_port_begin();
-    if (port_status != SH3673520_PORT_OK) {
-        return sh3673520_map_port_status(port_status);
-    }
-    begun = 1u;
-
-    status = sh36735xx_xfer_byte(frame[0], &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != SH3673520_SPI_RESPONSE_IDLE) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = sh36735xx_xfer_byte(frame[1], &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != SH3673520_SPI_CMD_WRITE) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = sh36735xx_xfer_byte(frame[2], &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != reg) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = sh36735xx_xfer_byte(crc, &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != value) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = sh36735xx_xfer_byte(0x00u, &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != SH3673520_SPI_ACK) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = SH3673520_OK;
-
-finish:
-    if (begun != 0u) {
-        sh3673520_port_end();
-    }
-    return status;
+    return sh3673520_command_once(SH3673520_SPI_CMD_WRITE, reg, value);
 }
 
 /* 执行一次芯片复位事务。 */
 static sh3673520_status_t sh3673520_reset_once(void)
 {
-    sh3673520_status_t status;
-    sh3673520_port_status_t port_status;
-    uint8_t rx;
-    uint8_t crc;
-    uint8_t frame[3];
-    uint8_t begun = 0u;
-
-    frame[0] = SH3673520_SPI_CMD_RESET;
-    frame[1] = SH3673520_SPI_RESET_KEY1;
-    frame[2] = SH3673520_SPI_RESET_KEY2;
-    crc = SH3673520_Crc8(frame, sizeof(frame));
-
-    port_status = sh3673520_port_begin();
-    if (port_status != SH3673520_PORT_OK) {
-        return sh3673520_map_port_status(port_status);
-    }
-    begun = 1u;
-
-    status = sh36735xx_xfer_byte(frame[0], &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != SH3673520_SPI_RESPONSE_IDLE) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = sh36735xx_xfer_byte(frame[1], &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != SH3673520_SPI_CMD_RESET) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = sh36735xx_xfer_byte(frame[2], &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != SH3673520_SPI_RESET_KEY1) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = sh36735xx_xfer_byte(crc, &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != SH3673520_SPI_RESET_KEY2) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = sh36735xx_xfer_byte(0x00u, &rx);
-    if (status != SH3673520_OK) {
-        goto finish;
-    }
-    if (rx != SH3673520_SPI_ACK) {
-        status = SH3673520_ERR_PROTOCOL;
-        goto finish;
-    }
-
-    status = SH3673520_OK;
-
-finish:
-    if (begun != 0u) {
-        sh3673520_port_end();
-    }
-    return status;
+    return sh3673520_command_once(SH3673520_SPI_CMD_RESET,
+                                 SH3673520_SPI_RESET_KEY1,
+                                 SH3673520_SPI_RESET_KEY2);
 }
 
 /* 判断通信错误是否需要恢复 SPI 端口。 */
@@ -359,6 +243,25 @@ static uint8_t sh3673520_should_recover_port(sh3673520_status_t status)
 {
     return (uint8_t)(((status == SH3673520_ERR_TIMEOUT) ||
                       (status == SH3673520_ERR_SPI)) ? 1u : 0u);
+}
+
+/* 记录一次失败并执行有界端口恢复/退避；返回 1 表示不应继续重试。 */
+static uint8_t sh3673520_retry_stop(sh3673520_status_t status, uint8_t attempt)
+{
+    sh3673520_record_attempt_failure(status);
+    if ((status == SH3673520_ERR_NOT_READY) ||
+        (status == SH3673520_ERR_INVALID_PARAM)) {
+        return 1u;
+    }
+
+    if ((uint8_t)(attempt + 1u) < SH3673520_TRANSACTION_ATTEMPTS) {
+        ++s_comm_stats.retry_count;
+        if (sh3673520_should_recover_port(status) != 0u) {
+            (void)sh3673520_port_recover();
+        }
+        sh3673520_port_delay_ms(SH3673520_RETRY_DELAY_MS);
+    }
+    return 0u;
 }
 
 /* 对一次寄存器读取执行有界重试和必要端口恢复；所有尝试耗尽后保留失败诊断。 */
@@ -375,20 +278,7 @@ static sh3673520_status_t sh3673520_read_with_retry(uint8_t start_reg,
             sh3673520_record_success();
             return SH3673520_OK;
         }
-
-        sh3673520_record_attempt_failure(status);
-        if ((status == SH3673520_ERR_NOT_READY) ||
-            (status == SH3673520_ERR_INVALID_PARAM)) {
-            break;
-        }
-
-        if ((uint8_t)(attempt + 1u) < SH3673520_TRANSACTION_ATTEMPTS) {
-            ++s_comm_stats.retry_count;
-            if (sh3673520_should_recover_port(status) != 0u) {
-                (void)sh3673520_port_recover();
-            }
-            sh3673520_port_delay_ms(SH3673520_RETRY_DELAY_MS);
-        }
+        if (sh3673520_retry_stop(status, attempt) != 0u) break;
     }
 
     return sh3673520_record_final_failure(status);
@@ -406,20 +296,7 @@ static sh3673520_status_t sh3673520_write_with_retry(uint8_t reg, uint8_t value)
             sh3673520_record_success();
             return SH3673520_OK;
         }
-
-        sh3673520_record_attempt_failure(status);
-        if ((status == SH3673520_ERR_NOT_READY) ||
-            (status == SH3673520_ERR_INVALID_PARAM)) {
-            break;
-        }
-
-        if ((uint8_t)(attempt + 1u) < SH3673520_TRANSACTION_ATTEMPTS) {
-            ++s_comm_stats.retry_count;
-            if (sh3673520_should_recover_port(status) != 0u) {
-                (void)sh3673520_port_recover();
-            }
-            sh3673520_port_delay_ms(SH3673520_RETRY_DELAY_MS);
-        }
+        if (sh3673520_retry_stop(status, attempt) != 0u) break;
     }
 
     return sh3673520_record_final_failure(status);
