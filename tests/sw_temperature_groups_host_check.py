@@ -80,6 +80,8 @@ int main(void){
  assert(g_bms_report.fault_third.bits.mos_otp);
  bms_sw_protection_update_groups(&in,0,1);
  assert(!g_bms_report.fault_third.bits.mos_otp);
+ // 本段临时把 MOS OTP 滤波改为 6 个样本；恢复原现场，后续"单样本即阻断"断言才成立。
+ g_bms_protection_params.mos_otp_filter_10ms=0;
  // Unfitted MOS NTC: invalid or stale-hot values never participate.
  in.mos_temp_required=0;in.mos_temp_valid=0;
  bms_sw_protection_update_groups(&in,0,1);assert(!broken);
