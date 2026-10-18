@@ -79,6 +79,20 @@ int main(void)
     reset_bus(0,0);check(sh3673510_control_init(),1,"初始化");
     unsigned total=operation;decode();
     printf("registers=");for(unsigned r=0x40;r<=0x54;r++)printf("%02x:%02x;",r,regs[r]);puts("");
+    {
+        uint8_t changed=9u;
+        reset_bus(0,0);
+        regs[0x42]=SH3673520_SCONF3_CRLD_CPLUS;
+        check(sh3673510_control_set_load_detection(0u,&changed),1,"C+ 未变");
+        check(operation,1,"未变模式一次读");check(changed,0,"未变模式不重启等待");
+        unsigned before_mode=operation;
+        check(sh3673510_control_set_load_detection(1u,&changed),1,"切 LOAD");
+        check(operation-before_mode,3,"模式变化读写回读");check(changed,1,"变化重启等待");
+        fail_at=operation+1u;
+        check(sh3673510_control_set_load_detection(1u,&changed),0,"首次读失败");
+        fail_at=operation+3u;
+        check(sh3673510_control_set_load_detection(0u,&changed),0,"写后回读失败");
+    }
     /* 每一个配置总线访问返回失败均不得发布初始化成功。 */
     for(unsigned f=1;f<=total;f++){
         reset_bus(f,0);check(sh3673510_control_init(),0,"逐访问失败");
