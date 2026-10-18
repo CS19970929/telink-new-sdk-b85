@@ -51,6 +51,7 @@ typedef struct {
 } sh3673520_comm_stats_t;
 
 /* 绑定端口和配置，复位并初始化 AFE。 */
+/* 仅建立传输就绪；control 完整配置及回读成功前不代表业务采样/输出就绪。 */
 sh3673520_status_t SH3673520_Init(void);
 /* 执行复位并清除驱动就绪状态。 */
 sh3673520_status_t SH3673520_Reset(void);

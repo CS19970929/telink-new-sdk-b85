@@ -568,13 +568,11 @@ sh3673520_status_t SH3673520_Probe(void)
     return SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, status_bytes, sizeof(status_bytes));
 }
 
-/* 绑定端口和配置，复位并初始化 AFE。 */
+/* 建立总线、复位并探测芯片；运行配置和 CADC 使能由 control 层负责。 */
 sh3673520_status_t SH3673520_Init(void)
 {
     sh3673520_port_status_t port_status;
     sh3673520_status_t status;
-    uint8_t sconf5;
-    uint8_t verify;
 
     s_ready = 0u;
 
@@ -593,31 +591,6 @@ sh3673520_status_t SH3673520_Init(void)
     status = SH3673520_Probe();
     if (status != SH3673520_OK) {
         return status;
-    }
-
-    /* 保持产品保护/FET 参数不变；此处仅确保 CADC 使能，保留其它 SCONF5 位。 */
-    status = SH3673520_ReadReg(SH3673520_REG_SCONF5, &sconf5);
-    if (status != SH3673520_OK) {
-        return status;
-    }
-
-    if ((sconf5 & SH3673520_SCONF5_CADC_EN_MASK) == 0u) {
-        status = SH3673520_WriteReg(
-            SH3673520_REG_SCONF5,
-            (uint8_t)(sconf5 | SH3673520_SCONF5_CADC_EN_MASK));
-        if (status != SH3673520_OK) {
-            return status;
-        }
-    }
-
-    status = SH3673520_ReadReg(SH3673520_REG_SCONF5, &verify);
-    if (status != SH3673520_OK) {
-        return status;
-    }
-    if ((verify & SH3673520_SCONF5_CADC_EN_MASK) == 0u) {
-        s_comm_stats.last_error = SH3673520_ERR_VERIFY;
-        ++s_comm_stats.consecutive_failures;
-        return SH3673520_ERR_VERIFY;
     }
 
     s_ready = 1u;

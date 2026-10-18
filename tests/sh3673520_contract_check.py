@@ -352,8 +352,6 @@ static int test_frames_and_retry(void)
 static int test_init_and_measurements(void)
 {
     uint8_t status_pair[2] = {0x03u, 0x80u};
-    uint8_t sconf5_off = 0x30u;
-    uint8_t sconf5_on = 0x38u;
     uint8_t cell_raw[8] = {
         0x10u, 0x00u, 0x20u, 0x00u, 0x30u, 0x00u, 0x40u, 0x00u
     };
@@ -372,9 +370,6 @@ static int test_init_and_measurements(void)
 
     script_reset();
     script_read(SH3673520_REG_BSTATUS1, status_pair, 2u, 0);
-    script_read(SH3673520_REG_SCONF5, &sconf5_off, 1u, 0);
-    script_write(SH3673520_REG_SCONF5, sconf5_on);
-    script_read(SH3673520_REG_SCONF5, &sconf5_on, 1u, 0);
 
     CHECK(SH3673520_Init() == SH3673520_OK, "initialization sequence");
     CHECK(g_mismatch == 0, "init frame/order contract");
