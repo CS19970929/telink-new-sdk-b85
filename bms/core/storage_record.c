@@ -265,16 +265,8 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
                 blank = 1u;
                 for (i = 0u; i < sizeof(h); ++i)
                     if (h[i] != s->port->erased_value) blank = 0u;
-                if (!blank && get32(h + OFF_MAGIC) == s->magic &&
-                    get16(h + OFF_SCHEMA) == s->schema_version) {
-                    if (get32(h + OFF_COMMIT0) == STORAGE_RECORD_COMMIT0 &&
-                        get32(h + OFF_COMMIT1) == STORAGE_RECORD_COMMIT1)
-                        s->load_status = STORAGE_RECORD_LOAD_CORRUPT;
-                    else if (s->load_status != STORAGE_RECORD_LOAD_CORRUPT)
-                        s->load_status = STORAGE_RECORD_LOAD_UNCOMMITTED;
-                }
-                else if (!blank && s->load_status == STORAGE_RECORD_LOAD_EMPTY)
-                    s->load_status = STORAGE_RECORD_LOAD_INCOMPATIBLE;
+                /* 非空白即旧格式、写中断或 CRC 损坏；只有全空才允许建立默认值。 */
+                if (!blank) s->load_status = STORAGE_RECORD_LOAD_INVALID;
             }
         }
     }
@@ -283,7 +275,7 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
         if (s->load_status == STORAGE_RECORD_LOAD_EMPTY) {
             valid = is_erased(s, s->region.base, s->region.size);
             if (valid < 0) goto io_error;
-            if (!valid) s->load_status = STORAGE_RECORD_LOAD_CORRUPT;
+            if (!valid) s->load_status = STORAGE_RECORD_LOAD_INVALID;
         }
         s->latest_addr = INVALID_ADDR;
         s->next_sequence = 1u;

@@ -21,12 +21,10 @@ extern "C" {
 #define STORAGE_RECORD_MAX_WRITE_FAILURES 3u
 
 typedef enum {
-    STORAGE_RECORD_LOAD_EMPTY = 0,
+    STORAGE_RECORD_LOAD_EMPTY = 0,   /* 全空白：只有这里允许建立默认值。 */
     STORAGE_RECORD_LOAD_OK,
-    STORAGE_RECORD_LOAD_INCOMPATIBLE,
-    STORAGE_RECORD_LOAD_CORRUPT,
-    STORAGE_RECORD_LOAD_IO_ERROR,
-    STORAGE_RECORD_LOAD_UNCOMMITTED /* 有当前格式写中断残留，没有已提交的坏记录。 */
+    STORAGE_RECORD_LOAD_INVALID,     /* 非空白但无有效记录：旧格式、写中断或 CRC 坏。 */
+    STORAGE_RECORD_LOAD_IO_ERROR     /* 读失败：不允许用默认值覆盖。 */
 } storage_record_load_status_t;
 
 typedef struct {

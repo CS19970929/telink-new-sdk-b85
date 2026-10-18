@@ -40,19 +40,6 @@ static bms_event_log_ctx_t g_bms_event_log;
 /* SDK 的 -fpack-struct 会压紧 ctx；TC32 整字读取 store->port，不能内嵌到未对齐偏移。 */
 static storage_record_store_t g_bms_event_store __attribute__((aligned(4)));
 
-/* 将 16 位值按小端写入存储缓冲区。 */
-static void bms_event_log_put_u16le(u8 *buf, u16 value)
-{
-    buf[0] = (u8)(value & 0xFFu);
-    buf[1] = (u8)(value >> 8);
-}
-
-/* 从存储缓冲区按小端读取 16 位值。 */
-static u16 bms_event_log_get_u16le(const u8 *buf)
-{
-    return (u16)((u16)buf[0] | ((u16)buf[1] << 8));
-}
-
 /* 清除本次运行的历史事件去重标志。 */
 static void bms_event_log_clear_runtime_flags(void)
 {
@@ -87,7 +74,8 @@ static void bms_event_log_reset_ram_only(void)
 /* 按固定存储格式编码历史事件快照。 */
 static void bms_event_log_encode(u8 payload[BMS_EVENT_PAYLOAD_BYTES])
 {
-    bms_event_log_put_u16le(&payload[0], g_bms_event_log.write_pos);
+    payload[0] = (u8)(g_bms_event_log.write_pos & 0xFFu);
+    payload[1] = (u8)(g_bms_event_log.write_pos >> 8);
     memcpy(&payload[2], g_bms_event_log.records, sizeof(g_bms_event_log.records));
 }
 
@@ -95,7 +83,7 @@ static void bms_event_log_encode(u8 payload[BMS_EVENT_PAYLOAD_BYTES])
 static int bms_event_log_decode(const u8 payload[BMS_EVENT_PAYLOAD_BYTES])
 {
     u16 i;
-    u16 write_pos = bms_event_log_get_u16le(&payload[0]);
+    u16 write_pos = (u16)((u16)payload[0] | ((u16)payload[1] << 8));
     /* 旧事件编号不再触发清空；OTA 窗口始终保留历史事件。 */
     if (write_pos >= BMS_EVENT_LOG_ENTRY_COUNT) return 0;
     for (i = 0u; i < BMS_EVENT_LOG_ENTRY_COUNT; ++i) {

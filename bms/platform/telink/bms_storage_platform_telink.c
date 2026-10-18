@@ -75,7 +75,7 @@ static void bms_storage_telink_end(void *ctx)
     flash_store_end_modify();
 }
 
-/* 检查分区范围后读取 Telink Flash 字节。 */
+/* 读取 Telink Flash 字节；地址由记录层按分区 region 计算，本层不做额外范围判断。 */
 static int bms_storage_telink_read(void *ctx, uint32_t addr, uint8_t *buf, uint32_t len)
 {
     (void)ctx;
