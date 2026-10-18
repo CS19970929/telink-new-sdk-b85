@@ -80,7 +80,7 @@ def check_d008_voltage_recovery_host_check():
         for(i=0;i<10;++i) { tick+=200; dvc_clear_recovered_hw_latches(alarm,1,1,tick, &io_failed); }
         tick+=1000; /* sleep/reinit gap even without an explicitly invalid sample */
         assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick, &io_failed)==alarm && writes==before);
-        for(i=0;i<9;++i) { tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick, &io_failed)==alarm); }
+        for(i=0;i<10;++i) { tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick, &io_failed)==alarm); }
         io_failed=0;tick+=200; clear_ok=0; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick, &io_failed)==alarm && io_failed);
         io_failed=0;clear_ok=1; read_ok=0; tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick, &io_failed)==alarm && io_failed);
         io_failed=0;read_ok=1; profile_ok=0; tick+=200; assert(dvc_clear_recovered_hw_latches(alarm,1,1,tick, &io_failed)==alarm && !io_failed);

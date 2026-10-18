@@ -95,7 +95,7 @@ uint8_t bms_sw_protection_discharge_overcurrent_active(void) { return 0; }
 void bms_sw_protection_clear(void) {}
 void bms_sw_protection_record_fault_edges(void) {}
 static int32_t bms_config_calibrate_current(int32_t ma) { return ma; }
-static uint32_t pm_get_32k_tick(void) { return now; }
+static uint32_t __attribute__((unused)) pm_get_32k_tick(void) { return now; }
 uint32_t bms_time_now_32k(void) { return now; }
 uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=now;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
 
