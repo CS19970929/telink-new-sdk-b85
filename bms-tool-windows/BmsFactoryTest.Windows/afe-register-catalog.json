@@ -7064,9 +7064,9 @@
                   }
                 ]
               ],
-              "logical_width": null,
-              "encoding_input": null,
-              "combine_code": null,
+              "logical_width": 12,
+              "encoding_input": "公式中的编码是完整 12 位阈值，当前行仅为其中一部分；低字节低 4 位另属延时。",
+              "combine_code": "(reg_0x70 << 4) | (reg_0x71 >> 4)",
               "read_side_effect": null,
               "write_side_effect": null,
               "write_1_behavior": null
@@ -7122,9 +7122,9 @@
                   }
                 ]
               ],
-              "logical_width": null,
-              "encoding_input": null,
-              "combine_code": null,
+              "logical_width": 12,
+              "encoding_input": "公式中的编码是完整 12 位阈值，当前行仅为其中一部分；低字节低 4 位另属延时。",
+              "combine_code": "(reg_0x70 << 4) | (reg_0x71 >> 4)",
               "read_side_effect": null,
               "write_side_effect": null,
               "write_1_behavior": null
@@ -7358,9 +7358,9 @@
                   }
                 ]
               ],
-              "logical_width": null,
-              "encoding_input": null,
-              "combine_code": null,
+              "logical_width": 12,
+              "encoding_input": "公式中的编码是完整 12 位阈值，当前行仅为其中一部分；低字节低 4 位另属延时。",
+              "combine_code": "(reg_0x72 << 4) | (reg_0x73 >> 4)",
               "read_side_effect": null,
               "write_side_effect": null,
               "write_1_behavior": null
@@ -7416,9 +7416,9 @@
                   }
                 ]
               ],
-              "logical_width": null,
-              "encoding_input": null,
-              "combine_code": null,
+              "logical_width": 12,
+              "encoding_input": "公式中的编码是完整 12 位阈值，当前行仅为其中一部分；低字节低 4 位另属延时。",
+              "combine_code": "(reg_0x72 << 4) | (reg_0x73 >> 4)",
               "read_side_effect": null,
               "write_side_effect": null,
               "write_1_behavior": null
@@ -21860,5 +21860,5 @@
       "issues": []
     }
   ],
-  "catalog_id": "ba73a635"
+  "catalog_id": "b32fe88c"
 }
