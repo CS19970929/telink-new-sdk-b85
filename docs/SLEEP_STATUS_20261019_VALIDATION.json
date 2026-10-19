@@ -1,0 +1,504 @@
+{
+  "date": "2026-10-19",
+  "base_commit": "cbbc8038496caa531092de4424ab0b0f4453246f",
+  "branch": "codex-bms-deep-simplification-20261016",
+  "dirty_build": true,
+  "source_sha256": {
+    "bms/core/bms_sleep_status.c": "8c9d685e4194820f6a8adad074ff2ce6b5f9e31b0835926bf90012f25f31ef45",
+    "bms/core/bms_sleep_status.h": "c95af5b92d4f14becc3052fafcd973e3ca517eeb947a08fa8a027f6cdcbb9d3a",
+    "bms/app/app_power.c": "02bb0c4a09102a1ff9e2f6b0d174df934b44fe9ef272940f3b2adf3fc2368ea4",
+    "bms/core/bms_diag.c": "e41e1c3ad930349c2bcafa718f51c65736ef87f5d67fe653a973126bee96d54b",
+    "bms/core/bms_diag.h": "eff25ac7b9ae7b05a37488219833eab8bd4cbe43233c70010d6c4e9b1818bf27",
+    "bms/core/bms_sleep_config.h": "3c6dbe1e2b8135f2441fdd882eac1a3627218e538ce25ae0f8b127d7531a3e86",
+    "bms/core/modbus_rtu.c": "4f2dbf12d4685e72540403459a871c9e876b11e5beddf2d81f5f2cafbe011e3e"
+  },
+  "user_configuration_sha256": {
+    "bms/core/bms_afe_registers.h": "92914c3a1e2de140522a3ab0b257545f5811ad9560947ba5450ebc027c7fcef4",
+    "bms/products/d008/afe_register_config.h": "86c874037d37cda02dd48e7a2727882211076d40d89f643d1ad2b2a18e9985f1",
+    "bms/products/d008/d008_protection_config.h": "dd3817bd036eef5e2abb2c22b3d6aacc7598b079bcd7b19c1d97ccf7951ff9ed",
+    "bms/products/d014/afe_register_config.h": "f13006e11ade25b66f479c43d82344a4c6eef1f396f7f1a98f31ab4385060e91",
+    "bms/products/d014/bms_product.h": "bf13c74b5a546f49e5eb9fcf25c332674cdbd3c1602ad82fd6d3be6404f36b7b",
+    "bms/products/d014/d014_protection_config.h": "772e0691c77ce065c65088106c11e32585d3f5f0e295b409e0b8ed88d19de925"
+  },
+  "scope": "四产品常驻休眠状态接口；保留0x3300/schema1及0x2A02的0x0040发现位",
+  "sources_check": "四产品通过，104/103/103/103 个源文件",
+  "host_checks": [
+    {
+      "product": "d008",
+      "check": "sleep_status_host_check",
+      "result": "PASS",
+      "log_sha256": "d428655e2a81987b381c26fc398f9571b16d11a3cd4ec712ca97f9cc82e85c9a",
+      "output_tail": [
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap",
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap",
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap"
+      ]
+    },
+    {
+      "product": "d008",
+      "check": "diagnostics_host_check",
+      "result": "PASS",
+      "log_sha256": "e04fc010109b58158f6d3acf2dca2c57869f6ae10e55faf0f20edee0462092a4",
+      "output_tail": [
+        "PASS diagnostic ingress: endian, bounds, crossing writes atomic rejection, CRC, broadcast, no I/O, boot freeze, MOS history, removed capability, ring overwrite/tick wrap",
+        "CHECK runtime_debug_log_host_check",
+        "PASS real runtime logger: no-evaluation when disabled/filtered, bounds, wire endian, overwrite, u32 wrap, reset",
+        "PASS production runtime diag: same-frame raw/current/tick, invalid zeros, no second aux read, original backend poll cadence"
+      ]
+    },
+    {
+      "product": "d008",
+      "check": "modbus_host_check",
+      "result": "PASS",
+      "log_sha256": "b71fe26951e8dce91cbb430626e04bf7a9842dbcd3358170d442ea4d5a2e4c61",
+      "output_tail": [
+        "PASS production Modbus read frames, bounds, per-request effective profile and SH mapping: d008",
+        "CHECK modbus_fuzz_host_check",
+        "seed=20261005 frames=100000 assertions=3395078",
+        "BMS_EVIDENCE {\"boundary\": \"真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY\", \"domain\": \"protocol\", \"observations\": \"seed=20261005 frames=100000 assertions=3395078\", \"random_frames\": 100000, \"seed\": 20261005}"
+      ]
+    },
+    {
+      "product": "d008",
+      "check": "d008_power_soc_host_check",
+      "result": "PASS",
+      "log_sha256": "3a1542028314f5e76c5f1e00332306313c2608a9407662300911840ddc4d4a65",
+      "output_tail": [
+        "PASS MOS diagnostics: simultaneous independent reasons, requested ON/driver OFF, invalid feedback",
+        "PASS guard: balance/FET/shutdown failures, command OFF, terminal bus hold",
+        "PASS current: +/-199/200 masked, +/-201 reported, both directions and saturation",
+        "PASS SOC diagnostic modes: identical business outputs (off/service/board)"
+      ]
+    },
+    {
+      "product": "d011",
+      "check": "sleep_status_host_check",
+      "result": "PASS",
+      "log_sha256": "d428655e2a81987b381c26fc398f9571b16d11a3cd4ec712ca97f9cc82e85c9a",
+      "output_tail": [
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap",
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap",
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap"
+      ]
+    },
+    {
+      "product": "d011",
+      "check": "diagnostics_host_check",
+      "result": "PASS",
+      "log_sha256": "e04fc010109b58158f6d3acf2dca2c57869f6ae10e55faf0f20edee0462092a4",
+      "output_tail": [
+        "PASS diagnostic ingress: endian, bounds, crossing writes atomic rejection, CRC, broadcast, no I/O, boot freeze, MOS history, removed capability, ring overwrite/tick wrap",
+        "CHECK runtime_debug_log_host_check",
+        "PASS real runtime logger: no-evaluation when disabled/filtered, bounds, wire endian, overwrite, u32 wrap, reset",
+        "PASS production runtime diag: same-frame raw/current/tick, invalid zeros, no second aux read, original backend poll cadence"
+      ]
+    },
+    {
+      "product": "d011",
+      "check": "modbus_host_check",
+      "result": "PASS",
+      "log_sha256": "12b138746010066fea76e86c9df60c65def9e620a94ae665946c4cb7ce02d2fe",
+      "output_tail": [
+        "PASS production Modbus read frames, bounds, per-request effective profile and SH mapping: d011",
+        "CHECK modbus_fuzz_host_check",
+        "seed=20261005 frames=100000 assertions=3395078",
+        "BMS_EVIDENCE {\"boundary\": \"真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY\", \"domain\": \"protocol\", \"observations\": \"seed=20261005 frames=100000 assertions=3395078\", \"random_frames\": 100000, \"seed\": 20261005}"
+      ]
+    },
+    {
+      "product": "d011",
+      "check": "sh_power_host_check",
+      "result": "PASS",
+      "log_sha256": "337de6a5197b7296cebb221f8366655e15311546ff5e99d89eda155c828c1e56",
+      "output_tail": [
+        "SH sleep: 39 assertions, 0 failures",
+        "SH production sleep/control/backend/guard fault injection: PASS",
+        "PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap",
+        "PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap"
+      ]
+    },
+    {
+      "product": "d013",
+      "check": "sleep_status_host_check",
+      "result": "PASS",
+      "log_sha256": "d428655e2a81987b381c26fc398f9571b16d11a3cd4ec712ca97f9cc82e85c9a",
+      "output_tail": [
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap",
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap",
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap"
+      ]
+    },
+    {
+      "product": "d013",
+      "check": "diagnostics_host_check",
+      "result": "PASS",
+      "log_sha256": "e04fc010109b58158f6d3acf2dca2c57869f6ae10e55faf0f20edee0462092a4",
+      "output_tail": [
+        "PASS diagnostic ingress: endian, bounds, crossing writes atomic rejection, CRC, broadcast, no I/O, boot freeze, MOS history, removed capability, ring overwrite/tick wrap",
+        "CHECK runtime_debug_log_host_check",
+        "PASS real runtime logger: no-evaluation when disabled/filtered, bounds, wire endian, overwrite, u32 wrap, reset",
+        "PASS production runtime diag: same-frame raw/current/tick, invalid zeros, no second aux read, original backend poll cadence"
+      ]
+    },
+    {
+      "product": "d013",
+      "check": "modbus_host_check",
+      "result": "PASS",
+      "log_sha256": "bb16289181f32cf054dd23e3ede1bfc9db5316bbffb7f7f2a0613a0aa3e460ae",
+      "output_tail": [
+        "PASS production Modbus read frames, bounds, per-request effective profile and SH mapping: d013",
+        "CHECK modbus_fuzz_host_check",
+        "seed=20261005 frames=100000 assertions=3395078",
+        "BMS_EVIDENCE {\"boundary\": \"真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY\", \"domain\": \"protocol\", \"observations\": \"seed=20261005 frames=100000 assertions=3395078\", \"random_frames\": 100000, \"seed\": 20261005}"
+      ]
+    },
+    {
+      "product": "d013",
+      "check": "sh_power_host_check",
+      "result": "PASS",
+      "log_sha256": "337de6a5197b7296cebb221f8366655e15311546ff5e99d89eda155c828c1e56",
+      "output_tail": [
+        "SH sleep: 39 assertions, 0 failures",
+        "SH production sleep/control/backend/guard fault injection: PASS",
+        "PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap",
+        "PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap"
+      ]
+    },
+    {
+      "product": "d014",
+      "check": "sleep_status_host_check",
+      "result": "PASS",
+      "log_sha256": "d428655e2a81987b381c26fc398f9571b16d11a3cd4ec712ca97f9cc82e85c9a",
+      "output_tail": [
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap",
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap",
+        "PASS sleep status: startup, legacy discovery, countdown, read-only, side effects, clock wrap"
+      ]
+    },
+    {
+      "product": "d014",
+      "check": "diagnostics_host_check",
+      "result": "PASS",
+      "log_sha256": "e04fc010109b58158f6d3acf2dca2c57869f6ae10e55faf0f20edee0462092a4",
+      "output_tail": [
+        "PASS diagnostic ingress: endian, bounds, crossing writes atomic rejection, CRC, broadcast, no I/O, boot freeze, MOS history, removed capability, ring overwrite/tick wrap",
+        "CHECK runtime_debug_log_host_check",
+        "PASS real runtime logger: no-evaluation when disabled/filtered, bounds, wire endian, overwrite, u32 wrap, reset",
+        "PASS production runtime diag: same-frame raw/current/tick, invalid zeros, no second aux read, original backend poll cadence"
+      ]
+    },
+    {
+      "product": "d014",
+      "check": "modbus_host_check",
+      "result": "PASS",
+      "log_sha256": "7250d50c78550319aa175e653f94c127a5a9716ea7a6ac838352d0b55f164653",
+      "output_tail": [
+        "PASS production Modbus read frames, bounds, per-request effective profile and SH mapping: d014",
+        "CHECK modbus_fuzz_host_check",
+        "seed=20261005 frames=100000 assertions=3395078",
+        "BMS_EVIDENCE {\"boundary\": \"真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY\", \"domain\": \"protocol\", \"observations\": \"seed=20261005 frames=100000 assertions=3395078\", \"random_frames\": 100000, \"seed\": 20261005}"
+      ]
+    },
+    {
+      "product": "d014",
+      "check": "sh_power_host_check",
+      "result": "PASS",
+      "log_sha256": "337de6a5197b7296cebb221f8366655e15311546ff5e99d89eda155c828c1e56",
+      "output_tail": [
+        "SH sleep: 39 assertions, 0 failures",
+        "SH production sleep/control/backend/guard fault injection: PASS",
+        "PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap",
+        "PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap"
+      ]
+    }
+  ],
+  "target_resources": [
+    {
+      "product": "d008",
+      "elf_sha256": "061f241613e52b27b0fc8dda7227229b00aeeafa3967f971f46641ea17ff242a",
+      "map_sha256": "c650e5564e2bfe0616ab89aef6cec3261f114928a004a96d982e5ecbe9e78bc9",
+      "flash_bytes": 116676,
+      "flash_free_bytes": 10300,
+      "ram_span_bytes": 22332,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 7364,
+      "image_generated": false,
+      "configuration": {
+        "product": "d008",
+        "build_mode": "development",
+        "production": false,
+        "d008_profile": "16s-lfp",
+        "core_optimization": "-O2",
+        "build_options": {
+          "afe_model": "dvc1124",
+          "capacity_0p1ah": 10,
+          "cell_count": 16,
+          "chemistry": "lfp",
+          "update_groups": [
+            "business"
+          ],
+          "update_id": "0000d836bec65d015188726c"
+        },
+        "parameter_inputs_sha256": "8a36453889840d2990903e34c05b422d31a522123b855ca35a6b36338ebfa21c"
+      },
+      "retained_protocol_symbols": [
+        "bms_sleep_status_publish",
+        "bms_sleep_status_committed",
+        "bms_sleep_status_read",
+        "bms_sleep_status_overlaps"
+      ],
+      "extra_defines": ""
+    },
+    {
+      "product": "d011",
+      "elf_sha256": "03d2634703a477f8951c175891dfd418393bad2f5fab351b3730a60f1acbd7f4",
+      "map_sha256": "cc5596963970ae1a7766d1a1e0b251777bff7825de1aa373182ce77eebce4ba5",
+      "flash_bytes": 112884,
+      "flash_free_bytes": 14092,
+      "ram_span_bytes": 21916,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 7780,
+      "image_generated": false,
+      "configuration": {
+        "product": "d011",
+        "build_mode": "development",
+        "production": false,
+        "d008_profile": null,
+        "core_optimization": "-O2",
+        "build_options": {
+          "afe_model": "sh3673510",
+          "capacity_0p1ah": 116,
+          "cell_count": 10,
+          "chemistry": "lfp"
+        },
+        "parameter_inputs_sha256": "c51b4311369c79c3831911fc99ac07c607dc1b69969a622e5cbd643f0ce00422"
+      },
+      "retained_protocol_symbols": [
+        "bms_sleep_status_publish",
+        "bms_sleep_status_committed",
+        "bms_sleep_status_read",
+        "bms_sleep_status_overlaps"
+      ],
+      "extra_defines": ""
+    },
+    {
+      "product": "d013",
+      "elf_sha256": "b02b2c37c4d7de5a420dac25e0ad18250f604ee0af70b3b7482a7ce5bf7a3f5b",
+      "map_sha256": "4388c3a1788fe0d8dc9ae00d9e241cbcf6c6107f2270678c5d2ade9831b665f3",
+      "flash_bytes": 109492,
+      "flash_free_bytes": 17484,
+      "ram_span_bytes": 21832,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 7864,
+      "image_generated": false,
+      "configuration": {
+        "product": "d013",
+        "build_mode": "development",
+        "production": false,
+        "d008_profile": null,
+        "core_optimization": "-O2",
+        "build_options": {
+          "afe_model": "sh3673510",
+          "capacity_0p1ah": 116,
+          "cell_count": 10,
+          "chemistry": "lfp"
+        },
+        "parameter_inputs_sha256": "c8f748f023b417e2af00e119c6a4ed5b170c089481d85133258d4ea26eb6a6da"
+      },
+      "retained_protocol_symbols": [
+        "bms_sleep_status_publish",
+        "bms_sleep_status_committed",
+        "bms_sleep_status_read",
+        "bms_sleep_status_overlaps"
+      ],
+      "extra_defines": ""
+    },
+    {
+      "product": "d014",
+      "elf_sha256": "05afa884053e99f7cb3406cf5a050b460797821656de6ff3c4355c07f5c9e678",
+      "map_sha256": "ce82f32d5653e404c766deb8e8b57aff7ca081fcc1d39962756cc99a2a1ac550",
+      "flash_bytes": 112596,
+      "flash_free_bytes": 14380,
+      "ram_span_bytes": 21912,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 7784,
+      "image_generated": false,
+      "configuration": {
+        "product": "d014",
+        "build_mode": "development",
+        "production": false,
+        "d008_profile": null,
+        "core_optimization": "-O2",
+        "build_options": {
+          "afe_model": "sh3673510",
+          "capacity_0p1ah": 88,
+          "cell_count": 8,
+          "chemistry": "nmc",
+          "update_groups": [
+            "factory_reset"
+          ],
+          "update_id": "00009e3d2841b90e580e40f8"
+        },
+        "parameter_inputs_sha256": "ce50bd1b34021f7e58e10e7e7b3f03f1b6b55bccae30772101b7a0bfd88dfd99"
+      },
+      "retained_protocol_symbols": [
+        "bms_sleep_status_publish",
+        "bms_sleep_status_committed",
+        "bms_sleep_status_read",
+        "bms_sleep_status_overlaps"
+      ],
+      "extra_defines": ""
+    },
+    {
+      "product": "d008",
+      "elf_sha256": "27861c3838a34483283d553ef411c8dde1603f8f8dcca592ccc2585344a5099e",
+      "map_sha256": "214a956f98dc7a7a78c8dc2ebee2f4c2898e40c2b389e47745fd8e881d59acdf",
+      "flash_bytes": 110644,
+      "flash_free_bytes": 16332,
+      "ram_span_bytes": 22332,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 7364,
+      "image_generated": false,
+      "configuration": {
+        "product": "d008",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": "16s-lfp",
+        "core_optimization": "-Os",
+        "build_options": {
+          "afe_model": "dvc1124",
+          "capacity_0p1ah": 10,
+          "cell_count": 16,
+          "chemistry": "lfp",
+          "update_groups": [
+            "business"
+          ],
+          "update_id": "0000d836bec65d015188726c"
+        },
+        "parameter_inputs_sha256": "8a36453889840d2990903e34c05b422d31a522123b855ca35a6b36338ebfa21c"
+      },
+      "retained_protocol_symbols": [
+        "bms_sleep_status_publish",
+        "bms_sleep_status_committed",
+        "bms_sleep_status_read",
+        "bms_sleep_status_overlaps"
+      ],
+      "extra_defines": "-DBMS_AFE_REGISTER_DEBUG_ENABLE=0"
+    },
+    {
+      "product": "d011",
+      "elf_sha256": "fce74b2c48be0f9a0de66a871d7bb5c5cd6a47fae829e6e91b95caef9024bdd6",
+      "map_sha256": "779705d5afafe871827b57b7e67cce4dbe57deaca8441dff17067d7728944baf",
+      "flash_bytes": 108452,
+      "flash_free_bytes": 18524,
+      "ram_span_bytes": 21916,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 7780,
+      "image_generated": false,
+      "configuration": {
+        "product": "d011",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os",
+        "build_options": {
+          "afe_model": "sh3673510",
+          "capacity_0p1ah": 116,
+          "cell_count": 10,
+          "chemistry": "lfp"
+        },
+        "parameter_inputs_sha256": "c51b4311369c79c3831911fc99ac07c607dc1b69969a622e5cbd643f0ce00422"
+      },
+      "retained_protocol_symbols": [
+        "bms_sleep_status_publish",
+        "bms_sleep_status_committed",
+        "bms_sleep_status_read",
+        "bms_sleep_status_overlaps"
+      ],
+      "extra_defines": ""
+    },
+    {
+      "product": "d013",
+      "elf_sha256": "55979f0bf5d8be0f1e9f08e904966940a3c31308e62cde5244fed4bdb016d9f8",
+      "map_sha256": "7c2357aeeb323066cbd77fc220325785390f6e58a1bfc3e7fcd091fa145044b7",
+      "flash_bytes": 105044,
+      "flash_free_bytes": 21932,
+      "ram_span_bytes": 21832,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 7864,
+      "image_generated": false,
+      "configuration": {
+        "product": "d013",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os",
+        "build_options": {
+          "afe_model": "sh3673510",
+          "capacity_0p1ah": 116,
+          "cell_count": 10,
+          "chemistry": "lfp"
+        },
+        "parameter_inputs_sha256": "c8f748f023b417e2af00e119c6a4ed5b170c089481d85133258d4ea26eb6a6da"
+      },
+      "retained_protocol_symbols": [
+        "bms_sleep_status_publish",
+        "bms_sleep_status_committed",
+        "bms_sleep_status_read",
+        "bms_sleep_status_overlaps"
+      ],
+      "extra_defines": ""
+    },
+    {
+      "product": "d014",
+      "elf_sha256": "e080c4cce12cd8c1ad680ae7ef1bf762dbfad364c1ee5c07cbf354839a7cc018",
+      "map_sha256": "a2967feb36945f4d003400cc0195a3834bb4a2adc5d335f4c00d1c25a8e0dc51",
+      "flash_bytes": 108148,
+      "flash_free_bytes": 18828,
+      "ram_span_bytes": 21912,
+      "main_stack_reserve_bytes": 3072,
+      "ram_growth_headroom_bytes": 7784,
+      "image_generated": false,
+      "configuration": {
+        "product": "d014",
+        "build_mode": "production",
+        "production": true,
+        "d008_profile": null,
+        "core_optimization": "-Os",
+        "build_options": {
+          "afe_model": "sh3673510",
+          "capacity_0p1ah": 88,
+          "cell_count": 8,
+          "chemistry": "nmc",
+          "update_groups": [
+            "factory_reset"
+          ],
+          "update_id": "00009e3d2841b90e580e40f8"
+        },
+        "parameter_inputs_sha256": "ce50bd1b34021f7e58e10e7e7b3f03f1b6b55bccae30772101b7a0bfd88dfd99"
+      },
+      "retained_protocol_symbols": [
+        "bms_sleep_status_publish",
+        "bms_sleep_status_committed",
+        "bms_sleep_status_read",
+        "bms_sleep_status_overlaps"
+      ],
+      "extra_defines": ""
+    }
+  ],
+  "production_d008_note": "用户已有D008寄存器调试开关为1，标准生产门禁正确拒绝；本轮生产链接显式关闭该开关，未修改用户配置，不用于镜像交付。",
+  "windows": {
+    "implementation_changed": false,
+    "executable_rebuilt": false,
+    "source_sha256": {
+      "Shared/BmsClient.Diagnostics.cs": "7a28316efa7761d58900fa8da1295a774fdec2fdb07f495d847be5d7751b6f6c",
+      "Shared/BmsDiagnostics.cs": "53a8caedea45e2fa34661e31fea67993a0dc25d98978d1b15cce62892046b89b"
+    },
+    "result": "PASS current Windows client: sleep-only capability, unchanged addresses, countdown/wrap, stale state and legacy fallback",
+    "boundary": "真实ReadSleepStatusAsync和BmsSleepStatus解码器，传输为替身；非GUI、串口/BLE或实板验证"
+  },
+  "evidence_directory": "%LOCALAPPDATA%/CodexTemp/bms-sleep-protocol-20261019",
+  "firmware_bin_generated": false,
+  "flashed_or_ota": false,
+  "remaining": "实板串口/BLE读取、整板功耗、实际入睡/PAD唤醒与OTA验收未执行。"
+}

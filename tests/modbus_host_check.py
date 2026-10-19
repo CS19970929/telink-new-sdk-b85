@@ -10,7 +10,7 @@ def check_modbus_address_host_check():
     product = os.environ.get('BMS_PRODUCT', 'd014')
     output = run_c(read('tests/fixtures/modbus_read.c'),
                    ['bms/core/' + name + '.c' for name in
-                    ('bms_crc', 'bms_state', 'bms_diag', 'bms_debug_log', 'bms_sw_protection')],
+                    ('bms_crc', 'bms_state', 'bms_diag', 'bms_debug_log', 'bms_sleep_status', 'bms_sw_protection')],
                    ['-I', str(ROOT/'tests/fixtures/d014_safety_loop/include'),
                     '-D__PROJECT_8258_BLE_SAMPLE__=1', '-DCHIP_TYPE=CHIP_TYPE_825x'],
                    name='modbus-read')
@@ -46,7 +46,7 @@ def check_modbus_fuzz_host_check():
     assert words==35, 'profile 格式变化需要重新审查协议场景'
     constants += f'\n#define BMS_AFE_HW_PROFILE_WORD_COUNT {words}u\n'
     code = read('tests/fixtures/modbus_fuzz.c').replace('/* CONSTANTS */',constants).replace('/* PARSER */',parts)
-    output = run_c(code, ['bms/core/bms_crc.c'], ['-Wno-unused-parameter'], 'modbus-fuzz')
+    output = run_c(code, ['bms/core/bms_crc.c','bms/core/bms_sleep_status.c'], ['-Wno-unused-parameter'], 'modbus-fuzz')
     evidence({'domain': 'protocol', 'seed': 20261005, 'random_frames': 100000,
               'observations': output.strip(),
               'boundary': '真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY'})

@@ -24,7 +24,6 @@ typedef struct {
 static const diag_range_t s_diag_ranges[] = {
     {BMS_DIAG_BASE, BMS_DIAG_TRACE_BASE, BMS_DIAG_BASE},
     {BMS_DIAG_TRACE_BASE, BMS_DIAG_END, BMS_DIAG_BASE},
-    {BMS_DIAG_SLEEP_BASE, BMS_DIAG_SLEEP_END, BMS_DIAG_SLEEP_BASE},
     {BMS_DIAG_MOS_BASE, BMS_DIAG_MOS_END, BMS_DIAG_MOS_BASE},
     {BMS_DIAG_AFE_FAILURE_BASE, BMS_DIAG_AFE_FAILURE_END, BMS_DIAG_AFE_FAILURE_BASE},
 #if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
@@ -66,7 +65,6 @@ int bms_diag_overlaps(uint16_t start, uint16_t count)
 
 /* 诊断窗口 RAM 快照；只有主循环生产者更新，读协议不能触发 AFE/Flash 动作。 */
 static uint16_t s_words[256];
-static uint16_t s_sleep_words[BMS_DIAG_SLEEP_WORDS];
 #if BMS_DIAG_TRACE_ENABLE
 static uint16_t s_trace[BMS_DIAG_TRACE_COUNT][BMS_DIAG_TRACE_WORDS];
 static uint32_t s_trace_sequence;
@@ -138,9 +136,6 @@ void bms_diag_init(void)
 {
     bms_debug_log_init();
     memset(s_words, 0, sizeof(s_words));
-    memset(s_sleep_words, 0, sizeof(s_sleep_words));
-    s_sleep_words[0] = 0x534Cu;
-    s_sleep_words[1] = 1u;
 #if BMS_DIAG_TRACE_ENABLE
     memset(s_trace, 0, sizeof(s_trace));
     s_trace_sequence = 0u; s_next = 0u;
@@ -479,34 +474,6 @@ void bms_diag_runtime_faults(uint16_t level1, uint16_t level2, uint16_t level3)
                    level3);
 }
 
-/* 发布电源策略快照；毫秒计数仅复制，不产生轨迹、I/O 或 Flash 写入。 */
-void bms_diag_sleep(uint8_t reason, uint32_t block_mask, uint32_t elapsed_ms,
-                    uint32_t delay_ms, uint32_t retry_ms, uint8_t suspend_allowed)
-{
-    uint32_t remaining_ms = elapsed_ms < delay_ms ? delay_ms - elapsed_ms : 0u;
-    s_sleep_words[2] = reason == DIAG_SLEEP_REASON_NONE ? DIAG_SLEEP_NONE :
-        (block_mask ? DIAG_SLEEP_BLOCKED : (retry_ms ? DIAG_SLEEP_RETRY :
-        (remaining_ms ? DIAG_SLEEP_COUNTING : DIAG_SLEEP_READY)));
-    s_sleep_words[3] = reason;
-    s_sleep_words[4] = suspend_allowed ? 1u : 0u;
-    put32(&s_sleep_words[6], block_mask);
-    put32(&s_sleep_words[8], elapsed_ms);
-    put32(&s_sleep_words[10], delay_ms);
-    put32(&s_sleep_words[12], remaining_ms);
-    put32(&s_sleep_words[14], retry_ms);
-    put32(&s_sleep_words[16], bms_time_now_32k());
-}
-
-void bms_diag_sleep_committed(void)
-{
-    s_sleep_words[2] = DIAG_SLEEP_COMMITTED;
-    put32(&s_sleep_words[8], get32(&s_sleep_words[10]));
-    put32(&s_sleep_words[12], 0u);
-    put32(&s_sleep_words[6], 0u);
-    put32(&s_sleep_words[14], 0u);
-    put32(&s_sleep_words[16], bms_time_now_32k());
-}
-
 /* 窗口取值函数：offset 相对窗口 word_base，now 为本轮统一时钟。 */
 typedef uint16_t (*diag_word_fn)(uint16_t offset, uint32_t now);
 
@@ -522,13 +489,6 @@ static uint16_t diag_word_main(uint16_t offset, uint32_t now)
 #else
     return 0u;
 #endif
-}
-
-/* 休眠快照窗口：读取时刷新末尾时间戳，保持原有只读语义。 */
-static uint16_t diag_word_sleep(uint16_t offset, uint32_t now)
-{
-    put32(&s_sleep_words[18], now);
-    return s_sleep_words[offset];
 }
 
 /* MOS 变化历史窗口。 */
@@ -604,7 +564,7 @@ static uint16_t diag_word_board_test(uint16_t offset, uint32_t now)
 
 /* 与 s_diag_ranges 一一对应：顺序必须同步，长度由下面的编译期断言锁定。 */
 static const diag_word_fn s_diag_words[] = {
-    diag_word_main, diag_word_main, diag_word_sleep, diag_word_mos, diag_word_afe_failure,
+    diag_word_main, diag_word_main, diag_word_mos, diag_word_afe_failure,
 #if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
     diag_word_board_test,
 #endif
@@ -665,7 +625,7 @@ void bms_diag_backend_details(const uint16_t *words)
 #else /* BMS_SERVICE_DIAG_ENABLE */
 
 /*
- * 量产仅保留地址占用与 capability=0 的兼容响应。这里没有运行快照、
+ * 量产仅保留诊断地址占用、标识与休眠协议发现位的兼容响应。这里没有运行快照、
  * Trace、SOC/MOS 历史，也不读取 AFE、Flash 或系统时钟。
  */
 static uint16_t compatibility_word(uint16_t base, uint16_t offset)
@@ -676,7 +636,7 @@ static uint16_t compatibility_word(uint16_t base, uint16_t offset)
     if (base == BMS_DIAG_BASE) {
         if (offset == 0u) return 0x4447u;
         if (offset == 1u) return 1u;
-        if (offset == 2u) return 0u;
+        if (offset == 2u) return BMS_DIAG_CAPABILITIES;
         if (offset == 13u) {
             uint16_t flags = BMS_DIAG_BUILD_DIRTY ? 8u : 0u;
 #if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
@@ -686,9 +646,6 @@ static uint16_t compatibility_word(uint16_t base, uint16_t offset)
         }
         if (offset == 22u) return (uint16_t)BMS_DIAG_BUILD_ID;
         if (offset == 23u) return (uint16_t)(BMS_DIAG_BUILD_ID >> 16);
-    } else if (base == BMS_DIAG_SLEEP_BASE) {
-        if (offset == 0u) return 0x534Cu;
-        if (offset == 1u) return 1u;
     } else if (base == BMS_DIAG_MOS_BASE) {
         if (offset == 0u) return 0x4D48u;
         if (offset == 1u) return 1u;

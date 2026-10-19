@@ -12,7 +12,8 @@ add_library(bms_core STATIC
     bms/core/bms_sw_protection.c
     bms/core/bms_crc.c
     bms/core/bms_afe_hw_access.c
-    bms/core/bms_sleep_config.c)
+    bms/core/bms_sleep_config.c
+    bms/core/bms_sleep_status.c)
 target_include_directories(bms_core PUBLIC bms/core)
 set(BMS_HOST_PRODUCT "d014" CACHE STRING "Host test product defaults: d008/d011/d013/d014")
 if(NOT BMS_HOST_PRODUCT MATCHES "^d0(08|11|13|14)$")

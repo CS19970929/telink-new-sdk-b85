@@ -2,6 +2,14 @@
 
 四产品直接使用同一份 `bms/core` 和 `bms/app`。完整组织见 [BMS_MONOREPO](BMS_MONOREPO.md)，逐步阅读见 [CODE_READING_GUIDE](CODE_READING_GUIDE.md)。
 
+## 常驻休眠状态协议：2026-10-19
+
+`app_power.c` 保有计时和休眠动作，向 `bms_sleep_status.c` 发布已有决策；
+`modbus_rtu.c` 直接读取 `0x3300..0x3313`，不推进计时、不访问 AFE/Flash。
+快照不再属于 `bms_diag.c`，四产品开发/生产均常驻，服务诊断及日志保持原默认关闭。
+旧诊断头仅保留 `0x0040` 发现位以兼容现有 Windows 工具，不因此启用其他诊断快照。
+原协议编码与字序不变，详见 [实时休眠状态](SLEEP_STATUS.md)。
+
 ## AFE1 与输出故障确认：2026-10-18
 
 当前策略见 [AFE 通信确认与活性删除](AFE_COMMUNICATION_POLICY.md)：删除 ADC 年龄、两秒停更、公共 `confirm_sample` 和三次新样本输出资格。正常约 200 ms 完整读取；无转换完成事件也可更新测量，不据此触发 AFE1。用户接受不独立检测通信正常但 ADC 停止更新的异常。

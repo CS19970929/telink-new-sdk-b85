@@ -88,10 +88,10 @@ static int cpu_sleep_wakeup(int mode, int source, u32 tick) {
     assert(!enabled[2]&&!enabled[3]&&!enabled[5]);
     ++sleep_calls; return 0x100; /* SDK PAD 竞争拒睡 */
 }
-void bms_diag_sleep(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed) {
+void bms_sleep_status_publish(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed) {
     (void)e;(void)d;(void)allowed; assert(!b&&!retry); reason=r;
 }
-void bms_diag_sleep_committed(void) {}
+void bms_sleep_status_committed(void) {}
 #include "bms_sleep_config.h"
 static bms_sleep_config_t sleep_config;
 static struct { uint16_t cell_uvp_recover_mv, pack_uvp_recover_10mv; } g_bms_protection_params={2900u,2900u};
@@ -123,25 +123,25 @@ static void reset(void) {
 int main(void) {
     reset();sleep_config.afe_delay_minutes=1u;valid=0;afe_error=1;
     assert(!fixture_sleep_poll(1799u,&sleep_status));assert(fixture_sleep_poll(1u,&sleep_status));
-    assert(reason==DIAG_SLEEP_REASON_AFE); /* 旧配置槽不能改变固定30分钟。 */
+    assert(reason==BMS_SLEEP_REASON_AFE); /* 旧配置槽不能改变固定30分钟。 */
 
     reset();sleep_config.low_delay_minutes=10u;g_bms_report.cell_min_mv=2600u;
     g_bms_report.fault_third.bits.cell_uvp=1u;
     assert(!fixture_sleep_poll(179u,&sleep_status));
     /* AFE 重配清了故障位，但有效电压尚未恢复；固定计时必须保持。 */
     g_bms_report.fault_third.bits.cell_uvp=0u;
-    assert(fixture_sleep_poll(1u,&sleep_status));assert(reason==DIAG_SLEEP_REASON_OVERDISCHARGE);
+    assert(fixture_sleep_poll(1u,&sleep_status));assert(reason==BMS_SLEEP_REASON_OVERDISCHARGE);
     reset();g_bms_report.fault_third.bits.pack_uvp=1u;
     assert(!fixture_sleep_poll(179u,&sleep_status));
     valid=0;g_bms_report.fault_third.bits.pack_uvp=0u;
-    assert(fixture_sleep_poll(1u,&sleep_status));assert(reason==DIAG_SLEEP_REASON_OVERDISCHARGE);
+    assert(fixture_sleep_poll(1u,&sleep_status));assert(reason==BMS_SLEEP_REASON_OVERDISCHARGE);
     reset();g_bms_report.fault_third.bits.cell_uvp=1u;
     assert(!fixture_sleep_poll(179u,&sleep_status));
     g_bms_report.fault_third.bits.cell_uvp=0u;
     assert(!fixture_sleep_poll(1u,&sleep_status));assert(!s_protective_sleep.overdischarge_seconds);
     reset();sleep_config.low_delay_minutes=1u;g_bms_report.cell_min_mv=2500u;
     assert(!fixture_sleep_poll(59u,&sleep_status));assert(fixture_sleep_poll(1u,&sleep_status));
-    assert(reason==DIAG_SLEEP_REASON_LOW); /* 删除2550分段，2500也使用配置的一分钟。 */
+    assert(reason==BMS_SLEEP_REASON_LOW); /* 删除2550分段，2500也使用配置的一分钟。 */
 
     reset(); g_bms_report.cell_min_mv=2600; device_in_connection_state=1;
     assert(!fixture_sleep_poll(1800, &sleep_status));
@@ -153,10 +153,10 @@ int main(void) {
     assert(sleep_calls==2&&saves==1&&events==1&&afe_calls==1&&output_calls==1&&comm_sleep_calls==1);
     reset(); ota_is_working=1; flash_ready=0; valid=0; afe_error=1;
     assert(!fixture_sleep_poll(1799, &sleep_status)); assert(fixture_sleep_poll(1, &sleep_status));
-    assert(reason==DIAG_SLEEP_REASON_AFE&&sleep_calls==1&&!saves&&!events);
+    assert(reason==BMS_SLEEP_REASON_AFE&&sleep_calls==1&&!saves&&!events);
     reset(); g_bms_report.cell_min_mv=2400; afe_error=1;
     assert(!fixture_sleep_poll(1799, &sleep_status)); assert(fixture_sleep_poll(1, &sleep_status));
-    assert(reason==DIAG_SLEEP_REASON_AFE); /* 低压不能遮住 AFE 异常 */
+    assert(reason==BMS_SLEEP_REASON_AFE); /* 低压不能遮住 AFE 异常 */
     reset(); valid=0; assert(!fixture_sleep_poll(900, &sleep_status));
     valid=1; assert(!fixture_sleep_poll(1, &sleep_status)); assert(!s_protective_sleep.afe_error_seconds);
     now+=BMS_SAMPLE_MAX_POLL_GAP_MS+1; assert(!fixture_sleep_poll(1800, &sleep_status));
@@ -190,7 +190,7 @@ int main(void) {
         g_bms_report.cell_min_mv=(step&1u)?2799u:2801u;
         assert(fixture_sleep_poll(1800u, &sleep_status)==(step==48u));
     }
-    assert(reason==DIAG_SLEEP_REASON_NORMAL);
+    assert(reason==BMS_SLEEP_REASON_NORMAL);
     reset(); app_pm_elapsed_ctx_t ctx={UINT32_MAX-999u,1u}; now=0u;
     assert(app_pm_take_elapsed_seconds(&ctx)==1u&&ctx.epoch_ms==0u);
     ctx.epoch_ms=1u;now=0u;
@@ -200,19 +200,19 @@ int main(void) {
     flash_ready=0;
 #if BMS_PRODUCT_SWITCH_SLEEP_ENABLE
     assert(app_sh_explicit_sleep_poll()&&sleep_calls==1&&!saves&&afe_calls==1&&comm_sleep_calls==1);
-    assert(reason==DIAG_SLEEP_REASON_SWITCH);
+    assert(reason==BMS_SLEEP_REASON_SWITCH);
     assert(app_power_before_suspend());
     assert(app_power_prepare_loop()&&sleep_calls==2&&afe_calls==1);
 #else
     assert(!app_sh_explicit_sleep_poll()&&!sleep_calls&&!afe_calls);
     /* 禁用开关休眠不影响命令，OFF时命令仍立即提交。 */
     deepsleep_en=1; tx_busy=device_in_connection_state=0;
-    assert(app_sh_explicit_sleep_poll()&&reason==DIAG_SLEEP_REASON_COMMAND);
+    assert(app_sh_explicit_sleep_poll()&&reason==BMS_SLEEP_REASON_COMMAND);
 #endif
     reset(); assert(!app_sh_explicit_sleep_poll()); /* ON不触发开关休眠。 */
     /* 命令空闲立即睡；通信卡死时最多等500ms应答窗口。 */
     reset(); deepsleep_en=1; assert(app_sh_explicit_sleep_poll());
-    assert(reason==DIAG_SLEEP_REASON_COMMAND);
+    assert(reason==BMS_SLEEP_REASON_COMMAND);
     reset(); deepsleep_en=1; tx_busy=ble_pending=device_in_connection_state=1;
     ota_is_working=1; flash_ready=0;
     assert(!app_sh_explicit_sleep_poll()); now+=499;

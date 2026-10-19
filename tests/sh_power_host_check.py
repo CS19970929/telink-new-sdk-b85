@@ -238,9 +238,9 @@ def check_sh_suspend_current_gates():
     static bool s_low_power_mode, deepsleep_en;
     static u32 s_command_ms;
     typedef struct { u8 reason; u32 elapsed_ms, delay_ms; } app_sleep_status_t;
-    #define DIAG_SLEEP_REASON_NONE 0
-    #define DIAG_SLEEP_REASON_COMMAND 1
-    #define DIAG_SLEEP_REASON_SWITCH 3
+    #define BMS_SLEEP_REASON_NONE 0
+    #define BMS_SLEEP_REASON_COMMAND 1
+    #define BMS_SLEEP_REASON_SWITCH 3
     static int valid=1, flash_locked=1, tx_busy, modbus_busy, ota_is_working;
     static int idle_ready=1;
     static int mask, observed_allowed, mask_calls;
@@ -255,7 +255,7 @@ def check_sh_suspend_current_gates():
     }
     static u8 app_sh_explicit_sleep_poll(void){return 0;}
     static int modbus_uart_suspend_ready(void){return idle_ready&&!tx_busy&&!modbus_busy;}
-    static void bms_diag_sleep(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed){
+    static void bms_sleep_status_publish(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed){
         (void)r;(void)b;(void)e;(void)d;(void)retry;observed_allowed=allowed;
     }
     static int app_flash_lock_restore_enabled(void){return flash_locked;}

@@ -23,6 +23,10 @@ int bms_sleep_config_valid(const bms_sleep_config_t *config);
 #define BMS_SLEEP_OVERDISCHARGE_SECONDS 180u
 typedef enum {
     BMS_SLEEP_REASON_NONE = 0,
+    BMS_SLEEP_REASON_COMMAND = 1,
+    BMS_SLEEP_REASON_ACC = 2,
+    BMS_SLEEP_REASON_SWITCH = 3,
+    BMS_SLEEP_REASON_VERY_LOW = 4, /* 旧协议原因保留；当前策略不产生。 */
     BMS_SLEEP_REASON_LOW = 5,
     BMS_SLEEP_REASON_NORMAL = 6,
     BMS_SLEEP_REASON_AFE = 7,

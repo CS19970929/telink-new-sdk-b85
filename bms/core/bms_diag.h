@@ -23,10 +23,6 @@
 #define BMS_DIAG_END 0x2E00u
 #define BMS_DIAG_TRACE_COUNT 64u
 #define BMS_DIAG_TRACE_WORDS 12u
-/* 独立只读休眠快照；旧诊断及日志地址、schema 均保持。 */
-#define BMS_DIAG_SLEEP_BASE 0x3300u
-#define BMS_DIAG_SLEEP_WORDS 20u
-#define BMS_DIAG_SLEEP_END (BMS_DIAG_SLEEP_BASE + BMS_DIAG_SLEEP_WORDS)
 /* 开发 MOS 专用变化历史，不被 SOC/PM 高频轨迹覆盖；u32 仍低 word 在前。 */
 #define BMS_DIAG_MOS_BASE 0x3400u
 #define BMS_DIAG_MOS_HEADER_WORDS 16u
@@ -64,7 +60,7 @@ enum {
 #define BMS_DIAG_CAP_MOS        0x0008u
 #define BMS_DIAG_CAP_UPGRADE    0x0010u
 #define BMS_DIAG_CAP_RUNTIME    0x0020u
-#define BMS_DIAG_CAP_SLEEP      0x0040u
+#define BMS_DIAG_CAP_SLEEP      0x0040u /* 休眠协议旧发现入口兼容位，常驻 */
 #define BMS_DIAG_CAP_MOS_HISTORY 0x0080u
 /* 能力位 0x0100 已撤销，保留不复用。 */
 #if BMS_SERVICE_DIAG_ENABLE
@@ -73,7 +69,7 @@ enum {
                                  BMS_DIAG_CAP_UPGRADE | BMS_DIAG_CAP_RUNTIME | BMS_DIAG_CAP_SLEEP | \
                                  (BMS_DIAG_TRACE_ENABLE ? BMS_DIAG_CAP_MOS_HISTORY : 0u))
 #else
-#define BMS_DIAG_CAPABILITIES   0u
+#define BMS_DIAG_CAPABILITIES   BMS_DIAG_CAP_SLEEP
 #endif
 
 #define BMS_DIAG_RUNTIME_VERSION 3u
@@ -162,21 +158,6 @@ enum {
     DIAG_PM_BLOCK_POWER_OFF = 64u,
     DIAG_PM_BLOCK_ACC_SLEEP = 128u
 };
-enum { DIAG_SLEEP_INIT=0, DIAG_SLEEP_NONE=1, DIAG_SLEEP_COUNTING=2,
-    DIAG_SLEEP_BLOCKED=3, DIAG_SLEEP_READY=4, DIAG_SLEEP_RETRY=5,
-    DIAG_SLEEP_COMMITTED=6 };
-enum { DIAG_SLEEP_REASON_NONE=0, DIAG_SLEEP_REASON_COMMAND=1,
-    DIAG_SLEEP_REASON_ACC=2, DIAG_SLEEP_REASON_SWITCH=3,
-    DIAG_SLEEP_REASON_VERY_LOW=4, DIAG_SLEEP_REASON_LOW=5,
-    DIAG_SLEEP_REASON_NORMAL=6, DIAG_SLEEP_REASON_AFE=7,
-    DIAG_SLEEP_REASON_OVERDISCHARGE=8 };
-enum { DIAG_SLEEP_BLOCK_OTA=1u, DIAG_SLEEP_BLOCK_FLASH=2u,
-    DIAG_SLEEP_BLOCK_BUS=4u, DIAG_SLEEP_BLOCK_BLE=8u,
-    DIAG_SLEEP_BLOCK_FIXED_UART=16u, DIAG_SLEEP_BLOCK_UART_TX=32u,
-    DIAG_SLEEP_BLOCK_WAKE_PAD=64u, DIAG_SLEEP_BLOCK_SAMPLE=128u,
-    DIAG_SLEEP_BLOCK_STORAGE=256u, DIAG_SLEEP_BLOCK_AFE=512u,
-    DIAG_SLEEP_BLOCK_BLE_CONTROL=1024u };
-
 /* guard 位也由标准 MOS 状态窗口和配置安全检查使用，不属于可裁剪服务诊断。 */
 enum {
     DIAG_GUARD_OUTPUT_ENABLED=1u, DIAG_GUARD_COMM_INHIBIT=2u,
@@ -191,11 +172,6 @@ void bms_diag_afe_failure(uint16_t stage, int16_t io_error, uint16_t flag2,
     uint32_t crc_errors, uint32_t retries);
 /* 记录持久参数升级与迁移诊断。 */
 void bms_diag_upgrade(uint16_t stage, uint16_t invalid_mask);
-/* 由原电源路径发布，只记录已有计数，不推进计时或访问硬件。 */
-void bms_diag_sleep(uint8_t reason, uint32_t block_mask, uint32_t elapsed_ms,
-                    uint32_t delay_ms, uint32_t retry_ms, uint8_t suspend_allowed);
-/* 已完成前置动作，即将调用 SDK 深睡或切断供电；不是实测入睡证明。 */
-void bms_diag_sleep_committed(void);
 /* 初始化诊断窗口和启动快照。 */
 void bms_diag_init(void);
 /* 冻结启动快照，防止运行阶段覆盖启动证据。 */
@@ -265,12 +241,10 @@ void bms_diag_set_boot_result(uint16_t, uint16_t);
 #else
 /*
  * 量产关闭后，生产者在调用点完全消失；只读兼容窗口仍由 bms_diag.c 响应，
- * capability=0，旧地址不复用也不访问 AFE/Flash。
+ * 仅保留休眠协议发现位，旧诊断地址不复用也不访问 AFE/Flash。
  */
 #define bms_diag_afe_failure(...)       ((void)0)
 #define bms_diag_upgrade(...)           ((void)0)
-#define bms_diag_sleep(...)             ((void)0)
-#define bms_diag_sleep_committed(...)   ((void)0)
 #define bms_diag_init(...)              ((void)0)
 #define bms_diag_freeze_boot(...)       ((void)0)
 #define bms_diag_trace(...)             ((void)0)

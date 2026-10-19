@@ -5,7 +5,7 @@
 #ifndef BMS_DIAG_CONFIG_H_
 #define BMS_DIAG_CONFIG_H_
 
-/* 普通开发和正式版本都只保留兼容窗口；现场诊断必须由构建参数显式启用。 */
+/* 开发/生产默认关闭服务诊断；常驻休眠协议独立于本开关，保留旧能力发现位。 */
 #ifndef BMS_SERVICE_DIAG_ENABLE
 #define BMS_SERVICE_DIAG_ENABLE 0
 #endif

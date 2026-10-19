@@ -3,8 +3,10 @@
 #include <assert.h>
 #include <stdio.h>
 #include "bms_diag.h"
+#include "bms_sleep_status.h"
 #include "bms_debug_log.h"
 #include "bms_event_log.h"
+#define bms_afe_register_debug_held() 0u
 typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define MODBUS_RTU_FRAME_CAPACITY 256u
 #define MB_ADDR 1u
@@ -144,22 +146,22 @@ int main(void){
  assert(reads==0 && writes==0);
  /* 休眠快照：倒计时、门禁、回绕、只读和跨边界写入拒绝。 */
  tick=0xfffffff0u;
- bms_diag_sleep(DIAG_SLEEP_REASON_LOW,0u,12000u,60000u,0u,1u);
+ bms_sleep_status_publish(BMS_SLEEP_REASON_LOW,0u,12000u,60000u,0u,1u);
  tick=32u;
- n=request(q,1,3,BMS_DIAG_SLEEP_BASE,BMS_DIAG_SLEEP_WORDS);
+ n=request(q,1,3,BMS_SLEEP_STATUS_BASE,BMS_SLEEP_STATUS_WORDS);
  assert(modbus_on_frame(q,n,r,&l) && l==45u && r[3]==0x53 && r[4]==0x4c);
- assert(u16be(r+7)==DIAG_SLEEP_COUNTING && u16be(r+9)==DIAG_SLEEP_REASON_LOW);
+ assert(u16be(r+7)==BMS_SLEEP_STATE_COUNTING && u16be(r+9)==BMS_SLEEP_REASON_LOW);
  assert(u16be(r+27)==48000u && u16be(r+29)==0u);
- bms_diag_sleep(DIAG_SLEEP_REASON_LOW,DIAG_SLEEP_BLOCK_FIXED_UART,60000u,60000u,3000u,0u);
- assert(modbus_on_frame(q,n,r,&l) && u16be(r+7)==DIAG_SLEEP_BLOCKED);
- assert(u16be(r+15)==DIAG_SLEEP_BLOCK_FIXED_UART && u16be(r+31)==3000u);
- bms_diag_sleep_committed();
- assert(modbus_on_frame(q,n,r,&l) && u16be(r+7)==DIAG_SLEEP_COMMITTED && u16be(r+27)==0u);
+ bms_sleep_status_publish(BMS_SLEEP_REASON_LOW,BMS_SLEEP_BLOCK_FIXED_UART,60000u,60000u,3000u,0u);
+ assert(modbus_on_frame(q,n,r,&l) && u16be(r+7)==BMS_SLEEP_STATE_BLOCKED);
+ assert(u16be(r+15)==BMS_SLEEP_BLOCK_FIXED_UART && u16be(r+31)==3000u);
+ bms_sleep_status_committed();
+ assert(modbus_on_frame(q,n,r,&l) && u16be(r+7)==BMS_SLEEP_STATE_COMMITTED && u16be(r+27)==0u);
  for(unsigned func=6;func<=16;func+=10){
-  n=request(q,1,(u8)func,func==16?BMS_DIAG_SLEEP_BASE-1:BMS_DIAG_SLEEP_BASE,2);
+  n=request(q,1,(u8)func,func==16?BMS_SLEEP_STATUS_BASE-1:BMS_SLEEP_STATUS_BASE,2);
   assert(modbus_on_frame(q,n,r,&l) && r[2]==2 && writes==0);
  }
- n=request(q,1,3,BMS_DIAG_SLEEP_END-1,2);
+ n=request(q,1,3,BMS_SLEEP_STATUS_END-1,2);
  assert(modbus_on_frame(q,n,r,&l) && r[2]==2);
  assert(reads==0 && writes==0);
  /* MOS 独立历史：采样间短暂关/开、有效性与背景、只读和生产关闭。 */

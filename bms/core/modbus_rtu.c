@@ -5,6 +5,7 @@
  */
 #include "bms_debug_log.h"
 #include "bms_diag.h"
+#include "bms_sleep_status.h"
 #include "bms_product.h"
 #include "bms_afe_backend.h"
 #include "modbus_rtu.h"
@@ -496,6 +497,9 @@ static int modbus_read_holding(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
     if (bms_debug_log_overlaps(reg, qty)) {
         if (!bms_debug_log_read(reg, qty, &rsp[3]))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+    } else if (bms_sleep_status_overlaps(reg, qty)) {
+        if (!bms_sleep_status_read(reg, qty, &rsp[3]))
+            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
     } else if (bms_diag_overlaps(reg, qty)) {
         if (!bms_diag_read(reg, qty, &rsp[3]))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
@@ -580,7 +584,7 @@ static int modbus_write_single(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
     val = u16be(&req[4]);
     if (addr == 0u && reg >= BMS_MOS_CONTROL_BASE && reg < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT)
         return 0; /* 多设备广播不得切换 MOS。 */
-    if (bms_diag_overlaps(reg, 1u) || bms_debug_log_overlaps(reg, 1u))
+    if (bms_sleep_status_overlaps(reg, 1u) || bms_diag_overlaps(reg, 1u) || bms_debug_log_overlaps(reg, 1u))
         return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
     if (reg >= 0x2100u && reg <= 0x2140u) {
         candidate = g_bms_protection_params;
@@ -614,7 +618,8 @@ static int modbus_write_multiple(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_l
     if (req_len < 9u) return 0;
     reg = u16be(&req[2]);
     qty = u16be(&req[4]);
-    if ((u32)reg + qty > 65536u || bms_diag_overlaps(reg, qty) || bms_debug_log_overlaps(reg, qty))
+    if ((u32)reg + qty > 65536u || bms_sleep_status_overlaps(reg, qty) ||
+        bms_diag_overlaps(reg, qty) || bms_debug_log_overlaps(reg, qty))
         return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
     bytecnt = req[6];
 

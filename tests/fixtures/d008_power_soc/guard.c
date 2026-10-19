@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#define bms_afe_register_debug_held() 0u
 typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR, BMS_AFE_SAMPLE_READ_ERROR } bms_afe_sample_status_t;
 typedef uint8_t u8; typedef uint16_t u16;
 #define BMS_AFE_BACKEND 1

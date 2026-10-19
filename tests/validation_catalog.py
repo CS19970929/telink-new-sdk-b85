@@ -51,6 +51,7 @@ register('soc', SH, '提取函数场景', 'sh3673510_soc_direction_host_check')
 register('afe', ('d014',), '公共芯片驱动/量化场景', 'sh3673520_contract_check')
 register('afe', SH, '源码 contract', 'sh_backend_contract_check')
 register('power', SH, '生产函数体与环境替身', 'sh_power_host_check')
+register('protocol', PRODUCTS, '真实休眠状态模块及Modbus入口，开发/生产/诊断三种模式', 'sleep_status_host_check')
 register('afe', ('d014',), '公共芯片驱动/量化场景', 'sh_quantize_host_check')
 register('afe', SH, '生产函数体与环境替身', 'sh_recovery_host_check')
 register('afe', SH, '完整 control 函数体与总线模型；原厂SCT四位枚举与完整control函数体；实际SH测量发布函数体与明确协议范围；生产函数体与环境替身', 'sh_register_scenarios_host_check')
@@ -73,7 +74,7 @@ SOURCES = {
     'afe': ['bms/core/bms_afe_guard.c', 'bms/core/bms_afe_hw_profile.c', 'bms/afe'],
     'soc': ['bms/core/bms_soc.c', 'bms/core/bms_soc_eta.c', 'bms/app/app.c'],
     'storage': ['bms/core/storage_record.c', 'bms/core/bms_config_store.c', 'bms/core/bms_state_store.c', 'bms/core/bms_event_log.c'],
-    'protocol': ['bms/core/modbus_rtu.c', 'bms/core/bms_parameter_access.c', 'bms/platform/telink/modbus_uart.c'],
+    'protocol': ['bms/core/modbus_rtu.c', 'bms/core/bms_sleep_status.c', 'bms/core/bms_parameter_access.c', 'bms/platform/telink/modbus_uart.c'],
     'diagnostics': ['bms/core/bms_diag.c', 'bms/core/bms_debug_log.c'],
     'power': ['bms/app/app.c', 'bms/app/app_power.c', 'bms/core/bms_afe_guard.c'],
     'tooling': ['bms_tools', 'tests'],

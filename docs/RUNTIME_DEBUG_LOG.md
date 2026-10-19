@@ -8,8 +8,10 @@
 与 production 均默认 `BMS_SERVICE_DIAG_ENABLE=0`、`BMS_DIAG_TRACE_ENABLE=0`、
 `BMS_STACK_MONITOR_ENABLE=0`、`BMS_DEBUG_LOG_ENABLE=0`；production 另外禁止开启。
 默认关闭服务诊断后，不再维护
-boot/AFE/MOS/storage/fault/SOC/休眠快照及栈水位扫描；既有只读地址仍保留，返回 magic/schema、
-build 标识和 `capability=0`，其余字段为 0，不访问 AFE、Flash 或系统时钟。DVC raw register
+boot/AFE/MOS/storage/fault/SOC诊断快照及栈水位扫描；既有诊断地址仍保留，返回 magic/schema、
+build 标识和休眠协议兼容能力位 `capability=0x0040`，其余诊断字段为 0，不访问 AFE、Flash 或系统时钟。
+2026-10-19 起，[实时休眠状态](SLEEP_STATUS.md) 是独立常驻协议，开发/生产均维护，
+无需开启以上开关。该窗口读取会取得当前32K时间，不推进休眠计时，也不访问AFE/Flash。DVC raw register
 window 同样仅开发启用，production 不编译且读保留窗口返回 `0xFFFF`；raw 写入始终拒绝。
 
 SOC 的 ETA、OCV 展示字段及端点事件记录仅在服务诊断或独立 SOC 板测启用时计算；

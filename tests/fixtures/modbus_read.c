@@ -4,6 +4,9 @@
 #include <stdlib.h>
 /* Compile the whole production module, with no function extraction. */
 #include "modbus_rtu.c"
+#if BMS_AFE_REGISTER_DEBUG_ENABLE
+uint8_t bms_afe_register_debug_held(void) { return 0u; }
+#endif
 
 bms_protection_params_t g_bms_protection_params;
 uint8_t deepsleep_en;

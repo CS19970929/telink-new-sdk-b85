@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#define bms_afe_register_debug_held() 0u
 typedef uint8_t u8;typedef uint32_t u32;
 typedef int GPIO_PinTypeDef;
 #define BMS_AFE_BACKEND 1
@@ -75,12 +76,12 @@ static bms_afe_aux_measurements_t measurement;
 static bool s_low_power_mode;
 static u8 observed_sleep_reason;
 static u32 observed_sleep_block, observed_sleep_elapsed, observed_sleep_delay, observed_sleep_retry;
-void bms_diag_sleep(u8 reason,u32 block,u32 elapsed_ms,u32 delay_ms,u32 retry_ms,u8 allowed){
+void bms_sleep_status_publish(u8 reason,u32 block,u32 elapsed_ms,u32 delay_ms,u32 retry_ms,u8 allowed){
  (void)allowed;
  observed_sleep_reason=reason;observed_sleep_block=block;
  observed_sleep_elapsed=elapsed_ms;observed_sleep_delay=delay_ms;observed_sleep_retry=retry_ms;
 }
-void bms_diag_sleep_committed(void){}
+void bms_sleep_status_committed(void){}
 static struct{uint16_t cell_min_mv, pack_voltage_10mv; struct { struct { uint8_t cell_uvp, pack_uvp; } bits; } fault_third;}g_bms_report={.cell_min_mv=3300};
 static struct{uint8_t soc_estimate_percent,discharge_fraction_percent;uint32_t cycle_count;}g_bms_soc;
 static u32 bms_time_ms(void){return now;}
@@ -174,7 +175,7 @@ static void test_acc_sleep(void){
   if(failure==9)measurement.current_ma=INT32_MIN;
   app_power_process(&s_sample_due);
   assert(s_acc_sleep_committed&&deep_calls==1&&!cut_calls&&ldo_high&&!output_enabled);
-  assert(observed_sleep_reason==DIAG_SLEEP_REASON_ACC&&!observed_sleep_block&&!observed_sleep_retry);
+  assert(observed_sleep_reason==BMS_SLEEP_REASON_ACC&&!observed_sleep_block&&!observed_sleep_retry);
   assert(afe_shutdown_calls==1&&disconnect_calls==1&&seq[0]==3);
   if(failure==1||failure==2)assert(seq_len==3&&seq[1]==4&&seq[2]==5);
   else assert(seq_len==5&&seq[1]==1&&seq[2]==2&&seq[3]==4&&seq[4]==5);
@@ -228,9 +229,9 @@ static void test_low_voltage_sample_wait(void){
 }
 static void test_protective_low_voltage_shutdown(void){
  const struct {uint16_t cell_mv;u32 seconds;u8 reason;} cases[]={
-  {2400u,BMS_SLEEP_LOW_SECONDS,DIAG_SLEEP_REASON_LOW},
-  {2700u,BMS_SLEEP_LOW_SECONDS,DIAG_SLEEP_REASON_LOW},
-  {2900u,BMS_SLEEP_NORMAL_SECONDS,DIAG_SLEEP_REASON_NORMAL}
+  {2400u,BMS_SLEEP_LOW_SECONDS,BMS_SLEEP_REASON_LOW},
+  {2700u,BMS_SLEEP_LOW_SECONDS,BMS_SLEEP_REASON_LOW},
+  {2900u,BMS_SLEEP_NORMAL_SECONDS,BMS_SLEEP_REASON_NORMAL}
  };
  for(unsigned i=0;i<sizeof(cases)/sizeof(cases[0]);i++){
   reset();g_bms_report.cell_min_mv=cases[i].cell_mv;elapsed=cases[i].seconds;
@@ -262,12 +263,12 @@ int main(void){
  sleep_config.low_delay_minutes=20u; /* 改可配置时间不得清除独立180秒。 */
  g_bms_report.fault_third.bits.cell_uvp=0u;
  elapsed=1u;app_power_process(&s_sample_due);
- assert(cut_calls==1&&observed_sleep_reason==DIAG_SLEEP_REASON_OVERDISCHARGE);
+ assert(cut_calls==1&&observed_sleep_reason==BMS_SLEEP_REASON_OVERDISCHARGE);
  reset();g_bms_report.fault_third.bits.pack_uvp=1u;
  elapsed=179u;app_power_process(&s_sample_due);assert(!cut_calls);
  valid=0;g_bms_report.fault_third.bits.pack_uvp=0u;
  elapsed=1u;app_power_process(&s_sample_due);
- assert(cut_calls==1&&observed_sleep_reason==DIAG_SLEEP_REASON_OVERDISCHARGE);
+ assert(cut_calls==1&&observed_sleep_reason==BMS_SLEEP_REASON_OVERDISCHARGE);
  reset();g_bms_report.fault_third.bits.cell_uvp=1u;
  elapsed=179u;app_power_process(&s_sample_due);assert(!cut_calls);
  g_bms_report.fault_third.bits.cell_uvp=0u;
@@ -275,13 +276,13 @@ int main(void){
  reset();sleep_config.low_delay_minutes=1u;g_bms_report.cell_min_mv=2500u;
  elapsed=59u;app_power_process(&s_sample_due);assert(!cut_calls);
  elapsed=1u;app_power_process(&s_sample_due);
- assert(cut_calls==1&&observed_sleep_reason==DIAG_SLEEP_REASON_LOW);
+ assert(cut_calls==1&&observed_sleep_reason==BMS_SLEEP_REASON_LOW);
 
  test_acc_sleep();
  test_low_voltage_sample_wait();
  test_protective_low_voltage_shutdown();
  reset();g_bms_report.cell_min_mv=2770;elapsed=2;app_power_process(&s_sample_due);
- assert(observed_sleep_reason==DIAG_SLEEP_REASON_LOW && observed_sleep_elapsed==2000u);
+ assert(observed_sleep_reason==BMS_SLEEP_REASON_LOW && observed_sleep_elapsed==2000u);
  device_in_connection_state=1;app_power_process(&s_sample_due);
  assert(observed_sleep_elapsed==4000u && observed_sleep_block==0u);
  reset();int currents[]={INT32_MIN,-501,-500,-201,-200,-199,0,199,200,201,500,501,INT32_MAX};
@@ -312,9 +313,9 @@ int main(void){
  assert(seq_len==3&&seq[0]==3&&seq[1]==4&&seq[2]==5); /* OTA/Flash skip saves; AFE failure cannot block */
  int saved=seq_len;app_power_process(&s_sample_due);assert(timer_hold_calls==0&&cut_calls==1&&seq_len==saved);
  reset();valid=0;elapsed=900;app_power_process(&s_sample_due);
- assert(!cut_calls && observed_sleep_reason==DIAG_SLEEP_REASON_NONE);
+ assert(!cut_calls && observed_sleep_reason==BMS_SLEEP_REASON_NONE);
  reset();valid=0;afe_error=1;elapsed=900;g_bms_report.cell_min_mv=2400;app_power_process(&s_sample_due);
- assert(!cut_calls&&!timer_hold_calls&&observed_sleep_reason==DIAG_SLEEP_REASON_AFE);
+ assert(!cut_calls&&!timer_hold_calls&&observed_sleep_reason==BMS_SLEEP_REASON_AFE);
  app_power_process(&s_sample_due);assert(cut_calls==1&&timer_hold_calls==0&&!deep_calls&&s_protective_sleep_committed);
  assert(afe_shutdown_calls==1); /* AFE 异常入口也请求 Shutdown。 */
  reset();g_bms_report.cell_min_mv=2400;afe_error=1;elapsed=900;app_power_process(&s_sample_due);
@@ -333,7 +334,7 @@ int main(void){
   if(failure==7)valid=0;
   app_power_process(&s_sample_due);
   assert(cut_calls==1&&s_protective_sleep_committed&&!output_enabled&&!deep_calls);
-  assert(observed_sleep_reason==DIAG_SLEEP_REASON_COMMAND&&!observed_sleep_block&&!observed_sleep_retry);
+  assert(observed_sleep_reason==BMS_SLEEP_REASON_COMMAND&&!observed_sleep_block&&!observed_sleep_retry);
   assert(afe_shutdown_calls==1);
   assert(seq[0]==3&&seq[seq_len-1]==5); /* AFE先尝试，PC4断电最后执行。 */
   if(failure==1||failure==2)assert(seq_len==3);
@@ -349,7 +350,7 @@ int main(void){
   bus_busy=ota_is_working=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;
   ble_tx_pending=pending==0;uart_busy=pending==1;modbus_tx_busy=pending==2;
   app_power_process(&s_sample_due);assert(!cut_calls&&!seq_len);
-  assert(observed_sleep_reason==DIAG_SLEEP_REASON_COMMAND&&observed_sleep_delay==500u);
+  assert(observed_sleep_reason==BMS_SLEEP_REASON_COMMAND&&observed_sleep_delay==500u);
   now+=499u;app_power_process(&s_sample_due);assert(!cut_calls&&!seq_len);
   assert(observed_sleep_elapsed==499u&&!observed_sleep_block);
   now+=1u;app_power_process(&s_sample_due);

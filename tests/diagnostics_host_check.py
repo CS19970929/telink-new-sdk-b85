@@ -12,6 +12,7 @@ def check_bms_diag_host_check():
             #include <assert.h>
             #include <stdint.h>
             #include "bms_diag.h"
+            #include "bms_sleep_status.h"
             #if BMS_SERVICE_DIAG_ENABLE || BMS_DIAG_TRACE_ENABLE || BMS_STACK_MONITOR_ENABLE
             #error "ordinary development diagnostics must default off"
             #endif
@@ -20,14 +21,13 @@ def check_bms_diag_host_check():
             int main(void) {
                 uint8_t bytes[250];
                 bms_diag_init();
-                assert(BMS_DIAG_CAPABILITIES == 0u);
+                assert(BMS_DIAG_CAPABILITIES == BMS_SLEEP_STATUS_CAPABILITY);
                 assert(bms_diag_read(BMS_DIAG_BASE, 24u, bytes));
                 assert(word(bytes) == 0x4447u && word(bytes + 2u) == 1u);
-                assert(word(bytes + 4u) == 0u);
+                assert(word(bytes + 4u) == BMS_SLEEP_STATUS_CAPABILITY);
                 assert(bms_diag_read(BMS_DIAG_TRACE_BASE, 120u, bytes));
                 for (unsigned i = 0u; i < 240u; ++i) assert(bytes[i] == 0u);
-                assert(bms_diag_read(BMS_DIAG_SLEEP_BASE, BMS_DIAG_SLEEP_WORDS, bytes));
-                assert(word(bytes) == 0x534cu && word(bytes + 2u) == 1u);
+                assert(!bms_diag_overlaps(BMS_SLEEP_STATUS_BASE, BMS_SLEEP_STATUS_WORDS));
                 assert(bms_diag_read(BMS_DIAG_MOS_BASE, 16u, bytes));
                 assert(word(bytes) == 0x4d48u && word(bytes + 4u) == 0u);
                 assert(bms_diag_read(BMS_DIAG_AFE_FAILURE_BASE, 16u, bytes));
@@ -53,7 +53,7 @@ def check_bms_diag_host_check():
                 ['-DBMS_SERVICE_DIAG_ENABLE=1'],
                 ['-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_DEBUG_LOG_ENABLE=1',
                  '-DBMS_DEBUG_LOG_LEVEL=4']):
-            run_c(fixture, ['bms/core/bms_diag.c','bms/core/bms_debug_log.c'],
+            run_c(fixture, ['bms/core/bms_diag.c','bms/core/bms_debug_log.c','bms/core/bms_sleep_status.c'],
                   ['-Wno-unused-parameter','-I',str(ROOT/'tests/fixtures/d014_safety_loop/include'),*defines],
                   name='bms-diag')
     if __name__=='__main__':main()

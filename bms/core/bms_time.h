@@ -13,7 +13,7 @@ void bms_time_init(void);
  * 32K 的一次回绕（约 37 小时）。保留小数 tick，毫秒值自然回绕。
  * 用于硬件最短等待时使用 elapsed > delay_ms，避免量化提前满足。 */
 uint32_t bms_time_ms(void);
-/* 仅供既有诊断、日志、参数窗口保留原始单位。 */
+/* 供休眠状态协议及既有诊断、日志、参数窗口保留原始单位。 */
 uint32_t bms_time_now_32k(void);
 
 #endif /* BMS_TIME_H_ */
