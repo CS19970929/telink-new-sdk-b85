@@ -25,44 +25,44 @@
 /* OTA_SOURCE_POLICY_END */
 
 /* D013 独立软件、AFE、SOC 和业务默认；修改只影响本产品。 */
-#define BMS_SW_CELL_OVP_FIRST_MV_FOR(c)                        ((c) == BMS_SOC_CHEMISTRY_LFP ? 3750u : 4200u)
+#define BMS_SW_CELL_OVP_FIRST_MV_FOR(c)                        ((c) == BMS_SOC_CHEMISTRY_LFP ? 3550u : 4100u)
 #define BMS_SW_CELL_OVP_FIRST_MV                               BMS_SW_CELL_OVP_FIRST_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_CELL_OVP_SECOND_MV_FOR(c)                       ((c) == BMS_SOC_CHEMISTRY_LFP ? 3750u : 4200u)
+#define BMS_SW_CELL_OVP_SECOND_MV_FOR(c)                       ((c) == BMS_SOC_CHEMISTRY_LFP ? 3650u : 4200u)
 #define BMS_SW_CELL_OVP_SECOND_MV                              BMS_SW_CELL_OVP_SECOND_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_CELL_OVP_THIRD_MV_FOR(c)                        ((c) == BMS_SOC_CHEMISTRY_LFP ? 3750u : 4200u)
+#define BMS_SW_CELL_OVP_THIRD_MV_FOR(c)                        ((c) == BMS_SOC_CHEMISTRY_LFP ? 3750u : 4250u)
 #define BMS_SW_CELL_OVP_THIRD_MV                               BMS_SW_CELL_OVP_THIRD_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_CELL_OVP_RECOVER_MV_FOR(c)                      ((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4100u)
+#define BMS_SW_CELL_OVP_RECOVER_MV_FOR(c)                      ((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4150u)
 #define BMS_SW_CELL_OVP_RECOVER_MV                             BMS_SW_CELL_OVP_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY)
 #define BMS_SW_CELL_OVP_FILTER_10MS                            100
 
 /* 单体欠压 / mV：一级、二级、三级、恢复、滤波。 */
-#define BMS_SW_CELL_UVP_FIRST_MV_FOR(c)                        ((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3000u)
+#define BMS_SW_CELL_UVP_FIRST_MV_FOR(c)                        ((c) == BMS_SOC_CHEMISTRY_LFP ? 2900u : 3100u)
 #define BMS_SW_CELL_UVP_FIRST_MV                               BMS_SW_CELL_UVP_FIRST_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_CELL_UVP_SECOND_MV_FOR(c)                       ((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3000u)
+#define BMS_SW_CELL_UVP_SECOND_MV_FOR(c)                       ((c) == BMS_SOC_CHEMISTRY_LFP ? 2800u : 3000u)
 #define BMS_SW_CELL_UVP_SECOND_MV                              BMS_SW_CELL_UVP_SECOND_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_CELL_UVP_THIRD_MV_FOR(c)                        ((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3000u)
+#define BMS_SW_CELL_UVP_THIRD_MV_FOR(c)                        ((c) == BMS_SOC_CHEMISTRY_LFP ? 2700u : 2950u)
 #define BMS_SW_CELL_UVP_THIRD_MV                               BMS_SW_CELL_UVP_THIRD_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_CELL_UVP_RECOVER_MV_FOR(c)                      ((c) == BMS_SOC_CHEMISTRY_LFP ? 3100u : 3100u)
+#define BMS_SW_CELL_UVP_RECOVER_MV_FOR(c)                      ((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3100u)
 #define BMS_SW_CELL_UVP_RECOVER_MV                             BMS_SW_CELL_UVP_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_CELL_UVP_FILTER_10MS                            1000u
+#define BMS_SW_CELL_UVP_FILTER_10MS                            300u
 
 /* 总压过压 / 每串 mV：一级、二级、三级、恢复、滤波。 */
-#define BMS_SW_PACK_OVP_FIRST_CELL_MV_FOR(c)                   ((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4200u)
+#define BMS_SW_PACK_OVP_FIRST_CELL_MV_FOR(c)                   ((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4100u)
 #define BMS_SW_PACK_OVP_FIRST_CELL_MV                          BMS_SW_PACK_OVP_FIRST_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY)
 #define BMS_SW_PACK_OVP_SECOND_CELL_MV_FOR(c)                  ((c) == BMS_SOC_CHEMISTRY_LFP ? 3600u : 4200u)
 #define BMS_SW_PACK_OVP_SECOND_CELL_MV                         BMS_SW_PACK_OVP_SECOND_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_PACK_OVP_THIRD_CELL_MV_FOR(c)                   ((c) == BMS_SOC_CHEMISTRY_LFP ? 3650u : 4200u)
+#define BMS_SW_PACK_OVP_THIRD_CELL_MV_FOR(c)                   ((c) == BMS_SOC_CHEMISTRY_LFP ? 3750u : 4250u)
 #define BMS_SW_PACK_OVP_THIRD_CELL_MV                          BMS_SW_PACK_OVP_THIRD_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_PACK_OVP_RECOVER_CELL_MV_FOR(c)                 ((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4100u)
+#define BMS_SW_PACK_OVP_RECOVER_CELL_MV_FOR(c)                 ((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4150u)
 #define BMS_SW_PACK_OVP_RECOVER_CELL_MV                        BMS_SW_PACK_OVP_RECOVER_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY)
 #define BMS_SW_PACK_OVP_FILTER_10MS                            100
 
 /* 总压欠压 / 每串 mV：一级、二级、三级、恢复、滤波。 */
-#define BMS_SW_PACK_UVP_FIRST_CELL_MV_FOR(c)                   ((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3000u)
+#define BMS_SW_PACK_UVP_FIRST_CELL_MV_FOR(c)                   ((c) == BMS_SOC_CHEMISTRY_LFP ? 2900u : 3100u)
 #define BMS_SW_PACK_UVP_FIRST_CELL_MV                          BMS_SW_PACK_UVP_FIRST_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_PACK_UVP_SECOND_CELL_MV_FOR(c)                  ((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3000u)
+#define BMS_SW_PACK_UVP_SECOND_CELL_MV_FOR(c)                  ((c) == BMS_SOC_CHEMISTRY_LFP ? 2800u : 3000u)
 #define BMS_SW_PACK_UVP_SECOND_CELL_MV                         BMS_SW_PACK_UVP_SECOND_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define BMS_SW_PACK_UVP_THIRD_CELL_MV_FOR(c)                   ((c) == BMS_SOC_CHEMISTRY_LFP ? 2900u : 3000u)
+#define BMS_SW_PACK_UVP_THIRD_CELL_MV_FOR(c)                   ((c) == BMS_SOC_CHEMISTRY_LFP ? 2700u : 2950u)
 #define BMS_SW_PACK_UVP_THIRD_CELL_MV                          BMS_SW_PACK_UVP_THIRD_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY)
 #define BMS_SW_PACK_UVP_RECOVER_CELL_MV_FOR(c)                 ((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3100u)
 #define BMS_SW_PACK_UVP_RECOVER_CELL_MV                        BMS_SW_PACK_UVP_RECOVER_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY)
@@ -72,21 +72,21 @@
 #define BMS_SW_CHARGE_OCP_FIRST_A10                            (100)
 #define BMS_SW_CHARGE_OCP_SECOND_A10                           (150)
 #define BMS_SW_CHARGE_OCP_THIRD_A10                            (200)
-#define BMS_SW_CHARGE_OCP_RECOVER_A10                          (100)
+#define BMS_SW_CHARGE_OCP_RECOVER_A10                          (10)
 #define BMS_SW_CHARGE_OCP_FILTER_10MS                          10
 
 /* 放电过流 / 0.1 A：一级、二级、三级、恢复、滤波。 */
 #define BMS_SW_DISCHARGE_OCP_FIRST_A10                         (100)
 #define BMS_SW_DISCHARGE_OCP_SECOND_A10                        (150)
 #define BMS_SW_DISCHARGE_OCP_THIRD_A10                         (200)
-#define BMS_SW_DISCHARGE_OCP_RECOVER_A10                       (100)
+#define BMS_SW_DISCHARGE_OCP_RECOVER_A10                       (10)
 #define BMS_SW_DISCHARGE_OCP_FILTER_10MS                       10
 
 /* 充电高温 / (℃+40)*10：一级、二级、三级、恢复、滤波。 */
 #define BMS_SW_CHARGE_OTP_FIRST_X10                            ((40 + 40) * 10)
 #define BMS_SW_CHARGE_OTP_SECOND_X10                           ((50 + 40) * 10)
 #define BMS_SW_CHARGE_OTP_THIRD_X10                            ((55 + 40) * 10)
-#define BMS_SW_CHARGE_OTP_RECOVER_X10                          ((50 + 40) * 10)
+#define BMS_SW_CHARGE_OTP_RECOVER_X10                          ((40 + 40) * 10)
 #define BMS_SW_CHARGE_OTP_FILTER_10MS                          100
 
 /* 充电低温 / (℃+40)*10：一级、二级、三级、恢复、滤波。 */
@@ -98,7 +98,7 @@
 
 /* 放电高温 / (℃+40)*10：一级、二级、三级、恢复、滤波。 */
 #define BMS_SW_DISCHARGE_OTP_FIRST_X10                         ((50 + 40) * 10)
-#define BMS_SW_DISCHARGE_OTP_SECOND_X10                        ((50 + 40) * 10)
+#define BMS_SW_DISCHARGE_OTP_SECOND_X10                        ((55 + 40) * 10)
 #define BMS_SW_DISCHARGE_OTP_THIRD_X10                         ((60 + 40) * 10)
 #define BMS_SW_DISCHARGE_OTP_RECOVER_X10                       ((50 + 40) * 10)
 #define BMS_SW_DISCHARGE_OTP_FILTER_10MS                       100
@@ -141,39 +141,39 @@
 #define SH3673510_HW_DEFAULT_ENABLE_SC 1u
 #define SH3673510_HW_DEFAULT_ENABLE_TEMP 1u
 
-#define SH3673510_HW_DEFAULT_COV_MV_FOR(c)                     ((c) == BMS_SOC_CHEMISTRY_LFP ? 3750u : 4200u)
+#define SH3673510_HW_DEFAULT_COV_MV_FOR(c)                     ((c) == BMS_SOC_CHEMISTRY_LFP ? 3760u : 4260u)
 #define SH3673510_HW_DEFAULT_COV_MV                            SH3673510_HW_DEFAULT_COV_MV_FOR(BMS_PRODUCT_CHEMISTRY)
 #define SH3673510_HW_DEFAULT_COV_DELAY_MS          1000u
-#define SH3673510_HW_DEFAULT_COV_RECOVER_MV_FOR(c)             ((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4100u)
+#define SH3673510_HW_DEFAULT_COV_RECOVER_MV_FOR(c)             ((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4150u)
 #define SH3673510_HW_DEFAULT_COV_RECOVER_MV                    SH3673510_HW_DEFAULT_COV_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY)
 #define SH3673510_HW_DEFAULT_COV_RECOVER_MS        1000u
-#define SH3673510_HW_DEFAULT_CUV_MV_FOR(c)                     ((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3000u)
+#define SH3673510_HW_DEFAULT_CUV_MV_FOR(c)                     ((c) == BMS_SOC_CHEMISTRY_LFP ? 2500u : 2500u)
 #define SH3673510_HW_DEFAULT_CUV_MV                            SH3673510_HW_DEFAULT_CUV_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define SH3673510_HW_DEFAULT_CUV_DELAY_MS          10000u
-#define SH3673510_HW_DEFAULT_CUV_RECOVER_MV_FOR(c)             ((c) == BMS_SOC_CHEMISTRY_LFP ? 3100u : 3100u)
+#define SH3673510_HW_DEFAULT_CUV_DELAY_MS          3000u
+#define SH3673510_HW_DEFAULT_CUV_RECOVER_MV_FOR(c)             ((c) == BMS_SOC_CHEMISTRY_LFP ? 2800u : 2800)
 #define SH3673510_HW_DEFAULT_CUV_RECOVER_MV                    SH3673510_HW_DEFAULT_CUV_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY)
 #define SH3673510_HW_DEFAULT_CUV_RECOVER_MS        10000u
-#define SH3673510_HW_DEFAULT_OCD1_A10              100u
-#define SH3673510_HW_DEFAULT_OCD1_DELAY_MS         100u
-#define SH3673510_HW_DEFAULT_OCD2_A10              150u
-#define SH3673510_HW_DEFAULT_OCD2_DELAY_MS         100u
+#define SH3673510_HW_DEFAULT_OCD1_A10              250u
+#define SH3673510_HW_DEFAULT_OCD1_DELAY_MS         140u
+#define SH3673510_HW_DEFAULT_OCD2_A10              450u
+#define SH3673510_HW_DEFAULT_OCD2_DELAY_MS         50u
 #define SH3673510_HW_DEFAULT_OCD_RECOVER_A10       100u
 #define SH3673510_HW_DEFAULT_OCD_RECOVER_MS        2000u
 #define SH3673510_HW_DEFAULT_OCC1_A10              100u
 #define SH3673510_HW_DEFAULT_OCC1_DELAY_MS         100u
 #define SH3673510_HW_DEFAULT_OCC_RECOVER_A10       100u
 #define SH3673510_HW_DEFAULT_OCC_RECOVER_MS        100u
-#define SH3673510_HW_DEFAULT_SC_A10                300u
+#define SH3673510_HW_DEFAULT_SC_A10                900u
 #define SH3673510_HW_DEFAULT_SC_DELAY_US           256u
 #define SH3673510_HW_DEFAULT_SC_RECOVER_MS         2000u
-#define SH3673510_HW_DEFAULT_CHG_OT_X10            950u
-#define SH3673510_HW_DEFAULT_CHG_OT_RECOVER_X10    900u
-#define SH3673510_HW_DEFAULT_CHG_UT_X10            400u
-#define SH3673510_HW_DEFAULT_CHG_UT_RECOVER_X10    430u
-#define SH3673510_HW_DEFAULT_DSG_OT_X10            1000u
-#define SH3673510_HW_DEFAULT_DSG_OT_RECOVER_X10    900u
-#define SH3673510_HW_DEFAULT_DSG_UT_X10            200u
-#define SH3673510_HW_DEFAULT_DSG_UT_RECOVER_X10    300u
+#define SH3673510_HW_DEFAULT_CHG_OT_X10            (65 + 40) * 10
+#define SH3673510_HW_DEFAULT_CHG_OT_RECOVER_X10    (45 + 40) * 10
+#define SH3673510_HW_DEFAULT_CHG_UT_X10            (-5 + 40) * 10
+#define SH3673510_HW_DEFAULT_CHG_UT_RECOVER_X10    (0 + 40) * 10
+#define SH3673510_HW_DEFAULT_DSG_OT_X10            (75 + 40) * 10
+#define SH3673510_HW_DEFAULT_DSG_OT_RECOVER_X10    (65 + 40) * 10
+#define SH3673510_HW_DEFAULT_DSG_UT_X10            (-40 + 40) * 10
+#define SH3673510_HW_DEFAULT_DSG_UT_RECOVER_X10    (-30 + 40) * 10
 #define SH3673510_HW_DEFAULT_TEMP_RECOVER_MS       1000u
 
 /* SOC 调参；OCV 曲线随所选化学体系切换，数值沿用现有通用曲线。 */

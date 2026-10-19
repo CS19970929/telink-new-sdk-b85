@@ -86,8 +86,8 @@
  * 保护仍由持久软件配置和独立 AFE 硬件配置负责。
  */
 #define BMS_PRODUCT_HW_VERSION   "D014"
-#define BMS_PRODUCT_SW_VERSION   "V1.6"
-#define BMS_PRODUCT_DEFAULT_SERIAL      "D014-20260925"
+#define BMS_PRODUCT_SW_VERSION   "V1.0"
+#define BMS_PRODUCT_DEFAULT_SERIAL      "D014-20261019"
 
 /*
  * 遗留 SOC/电流检测兼容字段；
