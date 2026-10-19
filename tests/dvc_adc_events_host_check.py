@@ -72,7 +72,9 @@ static uint8_t dvc_i2c_read_raw(uint8_t addr,uint8_t reg,uint8_t *out,uint16_t c
 # 实际私有ADC状态、CRC、重试读取及测量发布函数体，换算/平台外围是显式替身。
 code+=s[s.index('#define DVC_NTC_VALID_SAMPLES'):s.index('#define DVC_BALANCE_REFRESH_INTERVAL_MS')]
 code+=function(s,'static uint8_t dvc_crc8(')
+code+=function(s,'static uint8_t dvc_read_registers_limited(')
 code+=function(s,'uint8_t DVC1124_ReadRegisters(')
+code+=function(s,'uint8_t DVC1124_ReadRegisterOnce(')
 code+=function(s,'static uint8_t dvc_boot_zero_wait_fresh_cc2(')
 code+=function(s,'static void dvc_publish_current_measurement(')
 code+=function(s,'static void dvc_publish_voltage_measurement(')
@@ -88,6 +90,10 @@ static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;result=DV
 static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));
  now=time_last_raw=time_ms=time_fraction=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
 int main(void){
+ reset();registers[1]=0x50;corrupt_reg=1;corrupt_count=1;
+ uint8_t debug_value=0xA5;
+ assert(!DVC1124_ReadRegisterOnce(1,&debug_value));
+ assert(debug_value==0xA5 && corrupt_count==0 && (registers[1]&0x50u)==0);
  reset();acquire(100,0);assert(s_snapshot.valid && result==BMS_AFE_SAMPLE_OK);
  for(unsigned i=1;i<=100;++i)acquire(100+i*6400u,0);
  assert(s_snapshot.valid && result==BMS_AFE_SAMPLE_OK && s_snapshot.sample_tick_32k==now);

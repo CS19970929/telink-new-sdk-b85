@@ -92,3 +92,5 @@
 
 
 #define BMS_DEFAULT_CUV3_FILTER BMS_SW_CELL_UVP_FILTER_10MS
+
+#include "afe_register_config.h"

@@ -196,7 +196,13 @@ static void check_requested_profile(void)
 #else
         SH3673510_BOARD_SHUNT_UOHM,BMS_PRODUCT_CELL_COUNT,SH3673510_BOARD_WDT_EN?32u:0u,
 #endif
-        1u,2u,3u,BMS_AFE_HW_INTERFACE_VERSION};
+        1u,2u,3u,BMS_AFE_HW_INTERFACE_VERSION,
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+        DVC1124_DEFAULT_SHUNT_UOHM,1u
+#else
+        SH3673510_BOARD_SHUNT_ELEMENT_UOHM,SH3673510_BOARD_SHUNT_PARALLEL_COUNT
+#endif
+    };
     u16 words[BMS_AFE_HW_REQUESTED_REG_COUNT];
     /* 包括数据、元数据及跨两者的全部子区间；RAM 校验失败整段数据未知。 */
     for (unsigned valid=0u; valid<2u; ++valid) {

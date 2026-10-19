@@ -326,6 +326,21 @@ sh3673520_status_t SH3673520_ReadReg(uint8_t reg, uint8_t *value)
     return SH3673520_ReadRegs(reg, value, 1u);
 }
 
+sh3673520_status_t SH3673520_ReadRegOnce(uint8_t reg, uint8_t *value)
+{
+    sh3673520_status_t status;
+    uint8_t candidate;
+    if (value == NULL || reg < SH3673520_REG_READ_MIN || reg > SH3673520_REG_READ_MAX)
+        return SH3673520_ERR_INVALID_PARAM;
+    status = sh3673520_read_regs_once(reg, &candidate, 1u);
+    if (status == SH3673520_OK) { *value = candidate; sh3673520_record_success(); }
+    else {
+        sh3673520_record_attempt_failure(status);
+        return sh3673520_record_final_failure(status);
+    }
+    return status;
+}
+
 /* 写入单个 AFE 寄存器并返回通信结果。 */
 sh3673520_status_t SH3673520_WriteReg(uint8_t reg, uint8_t value)
 {
@@ -503,27 +518,37 @@ sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,
                                                   uint32_t rsense_uohm,
                                                   int32_t *current_ma)
 {
+    return SH3673520_CurrentRawToMilliAmpRatio(raw, rsense_uohm, 1u, current_ma);
+}
+
+sh3673520_status_t SH3673520_CurrentRawToMilliAmpRatio(int32_t raw,
+    uint32_t element_uohm, uint8_t parallel_count, int32_t *current_ma)
+{
     uint32_t magnitude;
     uint32_t scaled;
     uint32_t result;
 
     if ((current_ma == NULL) ||
-        (rsense_uohm == 0u) ||
+        (element_uohm == 0u) || (element_uohm > 60000u && parallel_count != 1u) ||
+        (parallel_count == 0u) || (parallel_count > 16u) ||
         (raw < -32768L) ||
         (raw > 32767L)) {
         return SH3673520_ERR_INVALID_PARAM;
     }
 
     /*
-     * 精确截断 raw * 100000000 / (29127 * rsense_uohm)，不依赖 TC32 64 位运行库。
+     * 精确截断 raw * 100000000 * parallel_count / (29127 * element_uohm)，
+     * 不依赖 TC32 64 位运行库。SH V1.0A p19 CADC 公式；板级方向仍由上层处理。
      * 100000000=3433*29127+7009；幅值不超过 32768，
      * 两乘积分别不超过 112492544、229670912，缩放值不超过 112500429，
-     * 均在 uint32_t 内。正整数满足 floor(floor(n/a)/b)=floor(n/(a*b))；
+     * parallel_count<=16 时两乘积仍在 uint32_t 内。
+     * 正整数满足 floor(floor(n/a)/b)=floor(n/(a*b))；
      * 最后应用符号以保留 C 向零截断。
      */
     magnitude = (raw < 0L) ? (uint32_t)(-raw) : (uint32_t)raw;
-    scaled = magnitude * 3433UL + (magnitude * 7009UL) / 29127UL;
-    result = scaled / rsense_uohm;
+    scaled = magnitude * 3433UL * parallel_count +
+             (magnitude * 7009UL * parallel_count) / 29127UL;
+    result = scaled / element_uohm;
     *current_ma = (raw < 0L) ? -(int32_t)result : (int32_t)result;
     return SH3673520_OK;
 }

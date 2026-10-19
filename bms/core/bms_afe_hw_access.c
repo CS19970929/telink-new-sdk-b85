@@ -8,6 +8,7 @@
 #include <string.h>
 #include "bms_afe_hw_profile.h"
 #include "bms_crc.h"
+#include "bms_afe_registers.h"
 
 static u16 s_token;
 static u32 s_last_activity_ms;
@@ -127,7 +128,9 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
     u16 crc_rx;
     u16 crc_calc;
     u8 command;
-    u8 payload[7];
+    u8 payload[12];
+    u8 payload_length;
+    u8 register_status;
     u16 token;
 
     if (req == 0 || rsp == 0 || rsp_len == 0) return 0;
@@ -139,6 +142,10 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
     if (crc_rx != crc_calc) { s_received = 0u; return 0; }
 
     command = req[2];
+    if (command == 0x10u) {
+        register_status = bms_afe_register_command(req, req_len, payload, &payload_length);
+        return access_response(req[0], command, register_status, payload, payload_length, rsp, rsp_len);
+    }
     if (command == BMS_AFE_HW_ACCESS_CMD_OPEN)
     {
         if (req_len != 9u || access_u32be(&req[3]) != BMS_AFE_HW_ACCESS_UNLOCK_MAGIC)
@@ -156,7 +163,8 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
                                payload, 7u, rsp, rsp_len);
     }
 
-    if (req_len < 7u || (command != BMS_AFE_HW_ACCESS_CMD_STAGE && req_len != 7u)) {
+    if (req_len < 7u || (command < 0x10u &&
+        command != BMS_AFE_HW_ACCESS_CMD_STAGE && req_len != 7u)) {
         s_received = 0u;
         return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_BAD_REQUEST, 0, 0u, rsp, rsp_len);
     }
@@ -165,6 +173,13 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
         s_received = 0u;
         return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_AUTH_REQUIRED, 0, 0u, rsp, rsp_len);
     }
+    if (command >= 0x10u) {
+        register_status = bms_afe_register_command(req, req_len, payload, &payload_length);
+        return access_response(req[0], command, register_status, payload, payload_length, rsp, rsp_len);
+    }
+    if (bms_afe_register_debug_held() &&
+        (command == BMS_AFE_HW_ACCESS_CMD_STAGE || command == BMS_AFE_HW_ACCESS_CMD_COMMIT))
+        return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_BAD_REQUEST, 0, 0u, rsp, rsp_len);
     if (command == BMS_AFE_HW_ACCESS_CMD_STAGE) {
         u8 count;
         u8 i;

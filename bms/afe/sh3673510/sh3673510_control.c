@@ -16,6 +16,7 @@
 #include "sh3673510_project_config.h"
 #include "sh3673510_control.h"
 #include "sh3673510_quantize.h"
+#include "bms_afe_registers.h"
 
 static uint8_t s_control_ready;
 static uint8_t s_afe_sleeping;
@@ -200,15 +201,15 @@ uint8_t sh3673510_control_apply_protection(void)
     ok &= sh3510_write_verify(SH3673520_REG_UVT_UVH, high, 0x73u);
     ok &= sh3510_write_verify(SH3673520_REG_UVL, low, 0xFFu);
 
-    actual_a10 = sh3673510_quantize_current_a10(hw.ocd1_a10,
-        SH3673510_BOARD_SHUNT_UOHM, 5000u, 15u, &code);
+    actual_a10 = sh3673510_quantize_current_ratio_a10(hw.ocd1_a10,
+        SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 5000u, 15u, &code);
     regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, ocd1_delay_ms) << 4) | code);
     ok &= sh3510_write_verify(SH3673520_REG_OCD1V_OCD1T, regv, 0x7Fu);
     s_protection_actual.ocd1_a10 = actual_a10;
     s_protection_actual.ocd1_delay_ms = s_ov_delay_ms[(regv >> 4) & 0x07u];
 
-    actual_a10 = sh3673510_quantize_current_a10(hw.ocd2_a10,
-        SH3673510_BOARD_SHUNT_UOHM, 10000u, 15u, &code);
+    actual_a10 = sh3673510_quantize_current_ratio_a10(hw.ocd2_a10,
+        SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 10000u, 15u, &code);
     {
         uint32_t steps = (ocd2_delay_ms + 24u) / 25u;
         uint8_t dly;
@@ -230,22 +231,28 @@ uint8_t sh3673510_control_apply_protection(void)
         };
         uint8_t mult_code = 0u;
         uint8_t delay_code = 0u;
-        uint32_t base = s_protection_actual.ocd2_a10;
-        if ((hw.enable_mask & BMS_AFE_HW_EN_SC) && base != 0u) {
-            while (mult_code < 3u && (u32)base * sc_mult[mult_code] < hw.sc_a10) ++mult_code;
+        /* regv 此时仍为实际 OCD2 寄存器。用原始感测电压选择 SC 倍数，
+         * 不能再次使用已向上取整到 0.1A 的 effective 电流。 */
+        uint32_t base = ((uint32_t)(regv & 0x0Fu) + 1u) * 10000u *
+                        10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT;
+        if (hw.enable_mask & BMS_AFE_HW_EN_SC) {
+            while (mult_code < 3u && base * sc_mult[mult_code] <
+                (uint32_t)hw.sc_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM) ++mult_code;
             while (delay_code < 15u && sc_delay[delay_code] < hw.sc_delay_us) ++delay_code;
         }
         regv = (uint8_t)((mult_code << 4) | delay_code);
         ok &= sh3510_write_verify(SH3673520_REG_SCV_SCT, regv, 0x3Fu);
         base *= sc_mult[mult_code];
+        base = base / SH3673510_BOARD_SHUNT_ELEMENT_UOHM +
+               ((base % SH3673510_BOARD_SHUNT_ELEMENT_UOHM) != 0u);
         /* 旧参数仍加载，但不能把超出报告位宽的实际阈值回绕成低电流。 */
         if (base > 65535u && (hw.enable_mask & BMS_AFE_HW_EN_SC)) ok = 0u;
         s_protection_actual.sc_a10 = (uint16_t)((base > 65535u) ? 65535u : base);
         s_protection_actual.sc_delay_us = sc_delay[delay_code];
     }
 
-    actual_a10 = sh3673510_quantize_current_a10(hw.occ1_a10,
-        SH3673510_BOARD_SHUNT_UOHM, 1375u, 31u, &code);
+    actual_a10 = sh3673510_quantize_current_ratio_a10(hw.occ1_a10,
+        SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 1375u, 31u, &code);
     regv = (uint8_t)((sh3510_pick_ceiling_code(s_ov_delay_ms, 8u, occ_delay_ms) << 5) | code);
     ok &= sh3510_write_verify(SH3673520_REG_OCCV_OCCT, regv, 0xFFu);
     s_protection_actual.occ_a10 = actual_a10;
@@ -323,7 +330,8 @@ static uint8_t sh3510_configure_runtime(void)
             return 0u;
     }
 
-    return (SH3673520_SetBalanceMask(0u, SH3673510_BOARD_CELL_COUNT) == SH3673520_OK) ? 1u : 0u;
+    if (SH3673520_SetBalanceMask(0u, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return 0u;
+    return bms_afe_register_config_apply();
 }
 
 /* 初始化 SH 控制层并验证固定配置。 */

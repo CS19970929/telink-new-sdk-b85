@@ -130,6 +130,8 @@ uint8_t DVC1124_GetWriteAddress(void);
 
 /* 读取指定范围 DVC 寄存器并返回通信结果。 */
 uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len);
+/* RC 显式诊断：恰好一次总线尝试，CRC/通信失败不能重复消耗标志。 */
+uint8_t DVC1124_ReadRegisterOnce(uint8_t reg, uint8_t *value);
 /* 校验范围后写入 DVC 寄存器。 */
 uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len);
 /* 校验并设置核心过温阈值编码。 */

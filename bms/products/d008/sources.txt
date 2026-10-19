@@ -21,6 +21,7 @@ bms/platform/telink/app_att.c
 bms/platform/telink/ble_ota.c
 bms/core/bms_afe_guard.c
 bms/core/bms_afe_hw_access.c
+bms/core/bms_afe_registers.c
 bms/core/bms_afe_hw_profile.c
 bms/platform/telink/bms_board.c
 bms/core/bms_config_store.c

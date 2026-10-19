@@ -14,6 +14,7 @@
 #include "bms_sw_protection.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_afe_hw_access.h"
+#include "bms_afe_registers.h"
 #include "bms_parameter_access.h"
 #include "bms_config_store.h"
 #include "bms_afe_hw_modbus.h"
@@ -119,9 +120,13 @@ static u16 afe_hw_profile_read_reg(u16 reg, const bms_afe_hw_profile_t *profile,
     case BMS_AFE_HW_META_CELL_COUNT:        return BMS_PRODUCT_CELL_COUNT;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     case BMS_AFE_HW_META_SHUNT_UOHM:        return DVC1124_DEFAULT_SHUNT_UOHM;
+    case BMS_AFE_HW_META_SHUNT_ELEMENT_UOHM: return DVC1124_DEFAULT_SHUNT_UOHM;
+    case BMS_AFE_HW_META_SHUNT_PARALLEL_COUNT: return 1u;
     case BMS_AFE_HW_META_WDT_SECONDS:       return DVC1124_I2C_WATCHDOG_SECONDS;
 #else
     case BMS_AFE_HW_META_SHUNT_UOHM:        return SH3673510_BOARD_SHUNT_UOHM;
+    case BMS_AFE_HW_META_SHUNT_ELEMENT_UOHM: return SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
+    case BMS_AFE_HW_META_SHUNT_PARALLEL_COUNT: return SH3673510_BOARD_SHUNT_PARALLEL_COUNT;
     case BMS_AFE_HW_META_WDT_SECONDS:       return SH3673510_BOARD_WDT_EN ? 32u : 0u;
 #endif
     case BMS_AFE_HW_META_ACCESS_ACTIVE:     return bms_afe_hw_access_is_active() ? 1u : 0u;
@@ -138,6 +143,7 @@ static u16 afe_hw_profile_read_reg(u16 reg, const bms_afe_hw_profile_t *profile,
  */
 static u8 afe_hw_profile_write_block(const u8 *pdata, u16 qty)
 {
+    if (bms_afe_register_debug_held()) return MB_EX_DEVICE_FAILURE;
     switch (bms_afe_hw_profile_commit_be(pdata, qty))
     {
     case BMS_AFE_HW_ERROR_NONE:       return 0u;
@@ -686,6 +692,12 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
 
     addr = req[0];
     func = req[1];
+
+    /* 调试冻结期间只开放读取和专用寄存器会话，避免其它参数写入改变恢复基线。 */
+    if (bms_afe_register_debug_held() && (func == 0x06u || func == 0x10u)) {
+        if (addr == 0u) return 0;
+        return modbus_exception(addr, func, MB_EX_DEVICE_FAILURE, rsp, rsp_len);
+    }
 
     if (func == BMS_AFE_HW_ACCESS_MODBUS_FUNC)
     {

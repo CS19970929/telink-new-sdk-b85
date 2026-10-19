@@ -1,5 +1,6 @@
 /* RAM AFE 只承接总线读写；禁止在此复制产品量化/保护实现。 */
 #include <stdlib.h>
+#include "bms_afe_registers.h"
 typedef unsigned GPIO_PinTypeDef;
 #define AS_GPIO 0
 #define Level_High 1
@@ -60,9 +61,9 @@ static void decode(void)
     check(((regs[0x4b]&3u)*256u+regs[0x4c])*5u,a.uv_mv,"UV 解码");
     check(ov_delay[(regs[0x49]>>4)&7],a.ov_delay_ms,"OV 延时");
     check(uv_delay[(regs[0x4b]>>4)&7],a.uv_delay_ms,"UV 延时");
-    check((unsigned)((((uint64_t)(regs[0x4d]&15)+1)*5000*10+SH3673510_BOARD_SHUNT_UOHM-1)/SH3673510_BOARD_SHUNT_UOHM),a.ocd1_a10,"OCD1 解码");
-    check((unsigned)((((uint64_t)(regs[0x4e]&15)+1)*10000*10+SH3673510_BOARD_SHUNT_UOHM-1)/SH3673510_BOARD_SHUNT_UOHM),a.ocd2_a10,"OCD2 解码");
-    check((unsigned)((((uint64_t)(regs[0x50]&31)+1)*1375*10+SH3673510_BOARD_SHUNT_UOHM-1)/SH3673510_BOARD_SHUNT_UOHM),a.occ_a10,"OCC 解码");
+    check((unsigned)((((uint64_t)(regs[0x4d]&15)+1)*5000*10*SH3673510_BOARD_SHUNT_PARALLEL_COUNT+SH3673510_BOARD_SHUNT_ELEMENT_UOHM-1)/SH3673510_BOARD_SHUNT_ELEMENT_UOHM),a.ocd1_a10,"OCD1 解码");
+    check((unsigned)((((uint64_t)(regs[0x4e]&15)+1)*10000*10*SH3673510_BOARD_SHUNT_PARALLEL_COUNT+SH3673510_BOARD_SHUNT_ELEMENT_UOHM-1)/SH3673510_BOARD_SHUNT_ELEMENT_UOHM),a.ocd2_a10,"OCD2 解码");
+    check((unsigned)((((uint64_t)(regs[0x50]&31)+1)*1375*10*SH3673510_BOARD_SHUNT_PARALLEL_COUNT+SH3673510_BOARD_SHUNT_ELEMENT_UOHM-1)/SH3673510_BOARD_SHUNT_ELEMENT_UOHM),a.occ_a10,"OCC 解码");
     check(regs[0x43]&31u,SH3673510_BOARD_CELL_COUNT,"装配串数");
     check(regs[0x41]&3u,0,"初始化 MOS off");
     check(regs[0x45]&0xc0u,0,"TS3/TS4 不使用电池硬件阈值");

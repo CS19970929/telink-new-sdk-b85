@@ -157,8 +157,9 @@ for needle in (
     require(control, needle)
 
 require(bms, "SH3673520_ReadCurrent(&cadc_raw)")
-require(bms, "SH3673520_CurrentRawToMilliAmp(cadc_raw,")
-require(bms, "SH3673510_BOARD_SHUNT_UOHM")
+require(bms, "SH3673520_CurrentRawToMilliAmpRatio(cadc_raw,")
+require(bms, "SH3673510_BOARD_SHUNT_ELEMENT_UOHM")
+require(bms, "SH3673510_BOARD_SHUNT_PARALLEL_COUNT")
 require(bms, "g_bms_report.charge_current_a10")
 require(bms, "g_bms_report.discharge_current_a10")
 require(bms, "s_aux.current_ma = bms_config_calibrate_current(s_aux.raw_current_ma);")

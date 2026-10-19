@@ -783,8 +783,9 @@ static uint16_t publish_measurements(void)
     if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return DIAG_AFE_FAIL_PACK_READ;
     if (SH3673520_ReadCurrent(&cadc_raw) != SH3673520_OK) return DIAG_AFE_FAIL_CURRENT_READ;
     if (SH3673520_ReadTemperatures(external_raw) != SH3673520_OK) return DIAG_AFE_FAIL_TEMP_READ;
-    if (SH3673520_CurrentRawToMilliAmp(cadc_raw,
-        SH3673510_BOARD_SHUNT_UOHM, &current_ma) != SH3673520_OK) return DIAG_AFE_FAIL_CURRENT_CONVERT;
+    if (SH3673520_CurrentRawToMilliAmpRatio(cadc_raw,
+        SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT,
+        &current_ma) != SH3673520_OK) return DIAG_AFE_FAIL_CURRENT_CONVERT;
 
     /* 修改共享报告前先拒绝整个无效帧。 */
     for (i = 0u; i < SH3673510_BOARD_CELL_COUNT; ++i)
@@ -893,6 +894,9 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
 }
 
 /* 应用独立 AFE 硬件保护配置并返回结果。 */
+#if BMS_AFE_REGISTER_DEBUG_ENABLE
+uint8_t bms_afe_driver_register_config_ready(void) { return sh3673510_control_ready(); }
+#endif
 uint8_t bms_afe_driver_apply_protection_config(void)
 {
     if (!sh3673510_control_ready()) return 0u;

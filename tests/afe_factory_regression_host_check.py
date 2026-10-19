@@ -30,8 +30,8 @@ int main(void) {
  p.cuv_mv=999;assert(!bms_afe_hw_profile_validate_write(&p));p.cuv_mv=3501;assert(!bms_afe_hw_profile_validate_write(&p));
  p=old;p.enable_mask=BMS_AFE_HW_EN_OCD1|BMS_AFE_HW_EN_OCD2;p.ocd_recover_a10=0;
  p.ocd1_delay_ms=140;p.ocd2_delay_ms=25;
- p.ocd1_a10=(50000u+SH3673510_BOARD_SHUNT_UOHM-1u)/SH3673510_BOARD_SHUNT_UOHM;
- p.ocd2_a10=(100000u+SH3673510_BOARD_SHUNT_UOHM-1u)/SH3673510_BOARD_SHUNT_UOHM;
+ p.ocd1_a10=(50000u*SH3673510_BOARD_SHUNT_PARALLEL_COUNT+SH3673510_BOARD_SHUNT_ELEMENT_UOHM-1u)/SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
+ p.ocd2_a10=(100000u*SH3673510_BOARD_SHUNT_PARALLEL_COUNT+SH3673510_BOARD_SHUNT_ELEMENT_UOHM-1u)/SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
  assert(bms_afe_hw_profile_validate_write(&p));
  p.enable_mask=BMS_AFE_HW_EN_OCD2;assert(!bms_afe_hw_profile_validate_write(&p));
  p.enable_mask=BMS_AFE_HW_EN_OCD1|BMS_AFE_HW_EN_OCD2;--p.ocd2_a10;assert(!bms_afe_hw_profile_validate_write(&p));

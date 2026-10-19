@@ -465,7 +465,11 @@ class BuildOptionsTests(unittest.TestCase):
                 'update_groups': ['business'], 'update_id': '0000' + '1234' * 5}, product, profile)['capacity_0p1ah'], 6553)
 
     def test_ota_selection_requires_a_generated_identifier_and_preserve_has_zero_mask(self):
-        self.assertNotIn('update_id', bms.build_options.read_source(REPO_ROOT, 'd014'))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            copy_configuration(root)
+            bms.build_options.save_source(root, 'd014', {'update_groups': []})
+            self.assertNotIn('update_id', bms.build_options.read_source(root, 'd014'))
         self.assertNotIn('update_id', bms.build_options.normalize({'update_groups': []}, 'd014', None))
         for options in ({'update_groups': ['sw']}, {'update_id': '0000' + '1234' * 5},
                         {'update_groups': ['events'], 'update_id': '0000' + '1234' * 5},
@@ -524,6 +528,7 @@ class SourceConfigurationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_configuration(root)
+            bms.build_options.save_source(root, 'd014', {'update_groups': []})
             path = root/'bms/products/d014/d014_protection_config.h'
             text = bms.build_options._replace(path.read_text(encoding='utf-8'), 'BMS_OTA_UPDATE_SW', '1u')
             path.write_text(text, encoding='utf-8')
@@ -578,8 +583,9 @@ class SourceConfigurationTests(unittest.TestCase):
             old = bms.build_options.save_source(root, 'd014', {'update_groups': ['business']})
             commit_configuration(root)
             path = root / 'bms/products/d014/d014_protection_config.h'
-            text = path.read_text(encoding='utf-8').replace('BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 116u',
-                                                         'BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 200u')
+            capacity = old['configuration']['capacity_0p1ah']
+            text = bms.build_options._replace(path.read_text(encoding='utf-8'),
+                    'BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH', str(201 if capacity == 200 else 200) + 'u')
             path.write_text(text, encoding='utf-8')
             with self.assertRaises(ValueError):
                 bms.build_options.verify_source(root, 'd014')

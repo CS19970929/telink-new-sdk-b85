@@ -10,6 +10,7 @@ source += '\n' + function(read('bms/core/bms_afe_hw_profile.c'),
                            'u8 bms_afe_hw_profile_get_effective(')
 code = profile_prefix('d008') + without_includes(read('bms/afe/dvc1124/dvc1124_config_service.h')) + r'''
 #include "dvc1124.h"
+#include "bms_afe_registers.h"
 static u8 regs[256], allowed = 1u;
 static unsigned calls, fail_at;
 static u32 shunt;

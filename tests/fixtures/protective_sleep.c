@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "bms_diag.h"
+#define bms_afe_register_debug_held() 0u
 typedef uint8_t u8;
 typedef uint32_t u32;
 typedef int GPIO_PinTypeDef;

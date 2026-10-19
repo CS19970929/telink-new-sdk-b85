@@ -60,6 +60,8 @@ sh3673520_status_t SH3673520_Probe(void);
 
 /* 读取单个 AFE 寄存器。 */
 sh3673520_status_t SH3673520_ReadReg(uint8_t reg, uint8_t *value);
+/* RC 显式诊断：单次总线尝试，不在 CRC/通信失败后自动重读。 */
+sh3673520_status_t SH3673520_ReadRegOnce(uint8_t reg, uint8_t *value);
 /* 写入单个 AFE 寄存器并返回通信结果。 */
 sh3673520_status_t SH3673520_WriteReg(uint8_t reg, uint8_t value);
 /* 校验长度后读取连续 AFE 寄存器。 */
@@ -96,6 +98,9 @@ int32_t SH3673520_PackRawToMilliVolt(int32_t raw);
 sh3673520_status_t SH3673520_CurrentRawToMilliAmp(int32_t raw,
                                                    uint32_t rsense_uohm,
                                                    int32_t *current_ma);
+/* R = element_uohm / parallel_count；保留精确并联比例。 */
+sh3673520_status_t SH3673520_CurrentRawToMilliAmpRatio(int32_t raw,
+    uint32_t element_uohm, uint8_t parallel_count, int32_t *current_ma);
 /* 将 NTC 原始测量换算为欧姆。 */
 sh3673520_status_t SH3673520_NtcRawToOhm(int32_t raw,
                                          uint32_t *resistance_ohm);

@@ -94,10 +94,10 @@ def check_d014_afe_profile_default_host_check():
             p.occ1_a10 != SH3673510_HW_DEFAULT_OCC1_A10 ||
             p.occ_recover_a10 != SH3673510_HW_DEFAULT_OCC_RECOVER_A10 ||
             !bms_afe_hw_profile_validate(&p)) return 1;
-        p.ocd_recover_a10 = sh3673510_quantize_current_a10(p.ocd1_a10, SH3673510_BOARD_SHUNT_UOHM, 5000u, 15u, 0);
+        p.ocd_recover_a10 = sh3673510_quantize_current_ratio_a10(p.ocd1_a10, SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 5000u, 15u, 0);
         if (bms_afe_hw_profile_validate(&p)) return 2;
         p.ocd_recover_a10 = SH3673510_HW_DEFAULT_OCD_RECOVER_A10;
-        p.occ_recover_a10 = sh3673510_quantize_current_a10(p.occ1_a10, SH3673510_BOARD_SHUNT_UOHM, 1375u, 31u, 0);
+        p.occ_recover_a10 = sh3673510_quantize_current_ratio_a10(p.occ1_a10, SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 1375u, 31u, 0);
         if (bms_afe_hw_profile_validate(&p)) return 3;
         puts("D014 independent AFE defaults and effective recovery boundaries: PASS");
         return 0;
@@ -208,16 +208,12 @@ def check_battery_chemistry_defaults():
             assert(profile.chemistry == expected_chemistry);
             assert(profile.profile_id == expected_chemistry);
             assert(system.series_num == expected_cells);
+        #if BMS_PRODUCT_ID == 8u
             assert(sw.cell_ovp_first_mv == expected_cov && sw.cell_ovp_second_mv == expected_cov);
             assert(sw.cell_ovp_third_mv == expected_cov && sw.cell_ovp_recover_mv == expected_cov_recover);
-        #if BMS_PRODUCT_ID == 8u
             assert(sw.cell_uvp_first_mv == D008_SW_CELL_UVP_FIRST_MV);
             assert(sw.cell_uvp_second_mv == D008_SW_CELL_UVP_SECOND_MV);
             assert(sw.cell_uvp_third_mv == D008_SW_CELL_UVP_THIRD_MV);
-        #else
-            assert(sw.cell_uvp_first_mv == 3000 && sw.cell_uvp_second_mv == 3000);
-            assert(sw.cell_uvp_third_mv == expected_cuv);
-        #endif
             assert(sw.cell_uvp_recover_mv == 3100);
             assert(sw.pack_ovp_first_10mv == expected_pack_ovp1 / 10 * expected_cells);
             assert(sw.pack_ovp_second_10mv == expected_pack_ovp2 / 10 * expected_cells);
@@ -225,19 +221,33 @@ def check_battery_chemistry_defaults():
             assert(sw.pack_ovp_recover_10mv == expected_cov_recover / 10 * expected_cells);
             assert(sw.pack_uvp_first_10mv == 300 * expected_cells);
             assert(sw.pack_uvp_second_10mv == 300 * expected_cells);
-        #if BMS_PRODUCT_ID == 8u
             assert(sw.pack_uvp_third_10mv == D008_SW_PACK_UVP_THIRD_CELL_MV / 10 * expected_cells);
-        #else
-            assert(sw.pack_uvp_third_10mv == expected_pack_uvp3 / 10 * expected_cells);
-        #endif
             assert(sw.pack_uvp_recover_10mv == expected_pack_uv_recover / 10 * expected_cells);
             assert(hw.cov_mv == expected_cov && hw.cov_recover_mv == expected_cov_recover);
-        #if BMS_PRODUCT_ID == 8u
             assert(hw.cuv_mv == D008_AFE_CUV_MV);
             assert(hw.cuv_recover_mv == D008_AFE_CUV_RECOVER_MV);
         #else
-            assert(hw.cuv_mv == expected_cuv);
-            assert(hw.cuv_recover_mv == 3100);
+            /* 可编辑默认值允许三级不同，软件与 AFE 也不要求相同。 */
+            assert(sw.cell_ovp_first_mv == BMS_SW_CELL_OVP_FIRST_MV);
+            assert(sw.cell_ovp_second_mv == BMS_SW_CELL_OVP_SECOND_MV);
+            assert(sw.cell_ovp_third_mv == BMS_SW_CELL_OVP_THIRD_MV);
+            assert(sw.cell_ovp_recover_mv == BMS_SW_CELL_OVP_RECOVER_MV);
+            assert(sw.cell_uvp_first_mv == BMS_SW_CELL_UVP_FIRST_MV);
+            assert(sw.cell_uvp_second_mv == BMS_SW_CELL_UVP_SECOND_MV);
+            assert(sw.cell_uvp_third_mv == BMS_SW_CELL_UVP_THIRD_MV);
+            assert(sw.cell_uvp_recover_mv == BMS_SW_CELL_UVP_RECOVER_MV);
+            assert(sw.pack_ovp_first_10mv == BMS_SW_PACK_OVP_FIRST_CELL_MV / 10 * expected_cells);
+            assert(sw.pack_ovp_second_10mv == BMS_SW_PACK_OVP_SECOND_CELL_MV / 10 * expected_cells);
+            assert(sw.pack_ovp_third_10mv == BMS_SW_PACK_OVP_THIRD_CELL_MV / 10 * expected_cells);
+            assert(sw.pack_ovp_recover_10mv == BMS_SW_PACK_OVP_RECOVER_CELL_MV / 10 * expected_cells);
+            assert(sw.pack_uvp_first_10mv == BMS_SW_PACK_UVP_FIRST_CELL_MV / 10 * expected_cells);
+            assert(sw.pack_uvp_second_10mv == BMS_SW_PACK_UVP_SECOND_CELL_MV / 10 * expected_cells);
+            assert(sw.pack_uvp_third_10mv == BMS_SW_PACK_UVP_THIRD_CELL_MV / 10 * expected_cells);
+            assert(sw.pack_uvp_recover_10mv == BMS_SW_PACK_UVP_RECOVER_CELL_MV / 10 * expected_cells);
+            assert(hw.cov_mv == SH3673510_HW_DEFAULT_COV_MV);
+            assert(hw.cov_recover_mv == SH3673510_HW_DEFAULT_COV_RECOVER_MV);
+            assert(hw.cuv_mv == SH3673510_HW_DEFAULT_CUV_MV);
+            assert(hw.cuv_recover_mv == SH3673510_HW_DEFAULT_CUV_RECOVER_MV);
         #endif
             assert(bms_afe_hw_profile_validate(&hw));
             assert(user.balance_enable == 1 && user.balance_start_mv == expected_balance);
@@ -362,18 +372,28 @@ def check_online_battery_type_defaults():
                 for (u8 chemistry=1u; chemistry<=2u; ++chemistry) {
                     bms_config_store_get_chemistry_protect(chemistry,&sw);
                     bms_afe_hw_profile_build_chemistry_default(chemistry,&hw);
+                #if BMS_PRODUCT_ID == 8u
                     assert(sw.cell_ovp_first_mv==(chemistry==1u?3750u:4200u));
                     assert(sw.cell_ovp_second_mv==sw.cell_ovp_first_mv);
                     assert(sw.cell_ovp_third_mv==sw.cell_ovp_first_mv);
                     assert(sw.cell_ovp_recover_mv==(chemistry==1u?3500u:4100u));
                     assert(hw.cov_mv==sw.cell_ovp_third_mv);
+                #else
+                    assert(sw.cell_ovp_first_mv==BMS_SW_CELL_OVP_FIRST_MV_FOR(chemistry));
+                    assert(sw.cell_ovp_second_mv==BMS_SW_CELL_OVP_SECOND_MV_FOR(chemistry));
+                    assert(sw.cell_ovp_third_mv==BMS_SW_CELL_OVP_THIRD_MV_FOR(chemistry));
+                    assert(sw.cell_ovp_recover_mv==BMS_SW_CELL_OVP_RECOVER_MV_FOR(chemistry));
+                    assert(hw.cov_mv==SH3673510_HW_DEFAULT_COV_MV_FOR(chemistry));
+                #endif
                     assert(bms_afe_hw_profile_validate(&hw));
-                    assert(sw.pack_ovp_third_10mv==(chemistry==1u?365u:420u)*BMS_PRODUCT_CELL_COUNT);
 #if BMS_PRODUCT_ID == 8u
+                    assert(sw.pack_ovp_third_10mv==(chemistry==1u?365u:420u)*BMS_PRODUCT_CELL_COUNT);
                     assert(sw.cell_uvp_third_mv==(chemistry==1u?2600u:3000u));
                     assert(hw.cuv_mv==(chemistry==1u?2500u:3000u));
 #else
-                    assert(sw.cell_uvp_third_mv==3000u && hw.cuv_mv==3000u);
+                    assert(sw.pack_ovp_third_10mv==BMS_SW_PACK_OVP_THIRD_CELL_MV_FOR(chemistry)/10*BMS_PRODUCT_CELL_COUNT);
+                    assert(sw.cell_uvp_third_mv==BMS_SW_CELL_UVP_THIRD_MV_FOR(chemistry));
+                    assert(hw.cuv_mv==SH3673510_HW_DEFAULT_CUV_MV_FOR(chemistry));
 #endif
                 }
                 puts("PASS product runtime LFP/NMC defaults independent of compiled chemistry");

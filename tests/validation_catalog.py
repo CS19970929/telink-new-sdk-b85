@@ -15,6 +15,7 @@ register('afe', ('d014',), '22个原始生产TU与配置回滚故障', 'afe_conf
 register('afe', PRODUCTS, '真实guard/State时间边界及SH原始TU通信/配置/无ADC事件策略', 'afe_health_host_check')
 register('afe', PRODUCTS, '原厂范围独立向量与真实校验函数体', 'afe_factory_regression_host_check')
 register('afe', PRODUCTS, '提取函数故障注入', 'afe_hw_transaction_host_check')
+register('afe', PRODUCTS, '真实寄存器调试 TU 与总线替身；CAS/保留位/RC/失败冻结', 'afe_register_debug_host_check')
 register('power', ('d008',), '提取函数场景', 'app_scheduler_host_check')
 register('storage', ('d014',), '提取函数场景', 'bms_simplification_host_check')
 register('protection', PRODUCTS, '源码 contract', 'core_contract_check')

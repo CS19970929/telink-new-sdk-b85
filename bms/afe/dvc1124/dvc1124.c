@@ -6,6 +6,7 @@
 #include "bms_time.h"
 #include "bms_diag.h"
 #include "bms_afe_driver.h"
+#include "bms_afe_registers.h"
 #include "dvc1124.h"
 #include "bms_config_store.h"
 
@@ -66,6 +67,9 @@ static dvc1124_snapshot_t s_snapshot;
 static uint8_t s_i2c_raw[DVC_I2C_RAW_MAX];
 static uint8_t s_bus_initialized;
 static uint8_t s_need_config = 1u;
+#if BMS_AFE_REGISTER_DEBUG_ENABLE
+uint8_t bms_afe_driver_register_config_ready(void) { return !s_need_config; }
+#endif
 static uint32_t s_balance_last_refresh_ms;
 #define DVC_NTC_VALID_SAMPLES 3u
 static uint8_t s_ntc_valid_samples[4]; /* NTC 恢复滤波，按完整有效读取推进。 */
@@ -1043,7 +1047,8 @@ uint8_t DVC1124_GetWriteAddress(void)
 }
 
 /* 读取指定范围 DVC 寄存器并返回通信结果。 */
-uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len)
+static uint8_t dvc_read_registers_limited(uint8_t reg, uint8_t *data, uint8_t len,
+                                         uint8_t attempts)
 {
     uint8_t write_addr;
     uint8_t read_addr;
@@ -1058,7 +1063,7 @@ uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len)
     read_addr = (uint8_t)(write_addr | 0x01u);
     if (!s_bus_initialized) dvc_bus_init();
 
-    for (attempt = 0u; attempt < DVC1124_I2C_RETRY_COUNT; ++attempt)
+    for (attempt = 0u; attempt < attempts; ++attempt)
     {
         uint8_t first_crc_input[4];
         uint8_t valid = 1u;
@@ -1091,6 +1096,16 @@ uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len)
         dvc_delay_ms(1u);
     }
     return 0u;
+}
+
+uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *data, uint8_t len)
+{
+    return dvc_read_registers_limited(reg, data, len, DVC1124_I2C_RETRY_COUNT);
+}
+
+uint8_t DVC1124_ReadRegisterOnce(uint8_t reg, uint8_t *value)
+{
+    return dvc_read_registers_limited(reg, value, 1u, 1u);
 }
 
 /* 校验范围后写入 DVC 寄存器。 */
@@ -1311,6 +1326,7 @@ void DVC1124_UpdataAfeConfig(void)
     ok = dvc_apply_basic_config();
     if (ok) ok = dvc_apply_protection_from_params();
     if (ok) ok = DVC1124_ApplyProjectOperatingConfig();
+    if (ok) ok = bms_afe_register_config_apply();
     bms_diag_boot_word(25u, ok ? DIAG_OK : DIAG_INVALID);
     if (ok)
     {

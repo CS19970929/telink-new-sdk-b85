@@ -38,6 +38,7 @@
 #include "app_power.h"
 #include "modbus_uart.h"
 #include "bms_afe.h"
+#include "bms_afe_registers.h"
 #include "bms_diag.h"
 #include "bms_error.h"
 #include "bms_state.h"
@@ -386,6 +387,7 @@ static u8 app_sh_explicit_sleep_poll(void)
 int app_power_before_suspend(void)
 {
     if (s_protective_sleep_committed) return 1;
+    if (bms_afe_register_debug_held()) return 0;
     if (!s_low_power_mode || !modbus_uart_suspend_ready()) return 0;
     /* 当前稳定电平不拒绝普通 Suspend；变化仍唤醒，200ms采样定时器保留。 */
 #if BMS_PRODUCT_SWITCH_ENABLE
@@ -416,6 +418,13 @@ void task_sleep_enter(u8 e, u8 *p, int n)
 void app_power_process(const volatile uint8_t *sample_due)
 {
     static app_pm_elapsed_ctx_t elapsed_ctx;
+    if (bms_afe_register_debug_held()) {
+        /* 冻结期间不累计新的保护性休眠时间，也不在恢复后补算这段时间。 */
+        (void)app_pm_take_elapsed_seconds(&elapsed_ctx);
+        s_low_power_mode = false;
+        bls_pm_setSuspendMask(SUSPEND_DISABLE);
+        return;
+    }
     bms_afe_aux_measurements_t m;
     app_sleep_status_t protective;
     u32 elapsed_sec = app_pm_take_elapsed_seconds(&elapsed_ctx);

@@ -1,6 +1,6 @@
 # D014 产品硬件与固件配置基线
 
-> 适用分支：`codex-bms-monorepo`；2026-10-05 修订。
+> 当前分支：`codex-bms-deep-simplification-20261016`；分流器模型于 2026-10-19 更新，其余硬件资料边界仍保留。
 > 依据：用户提供的 `HS-D014-8S15A` 原理图（2026-09-04）+ 当前 monorepo 的 SH 公共实现。硬件原件未随仓库交接，本次未重新核验原件。
 >
 > 原则：原理图只能证明板级连接/器件标注；容量、最终保护阈值、BOM 实装差异和实测时序不能从“8S15A”文件名反推。
@@ -14,7 +14,7 @@
 | MCU | TLSR8251F512ET32 |
 | AFE | SH3673510 |
 | 电芯 | 8S；B0..B8，对应 VC0..VC8 |
-| 电流分流 | RS1/RS2/RS3 均 2mΩ，并联名义值 0.6667mΩ；软件整数模型 667µΩ |
+| 电流分流 | RS1/RS2/RS3 均 2mΩ，计算使用精确 2000/3µΩ；旧协议整数显示 667µΩ |
 | AFE SPI | PB6=MISO、PB7=MOSI、PD7=SCLK、PD2=CS-M；源码配置 Mode 3 / 500kHz，波形仍需实测 |
 | 主通信 | 隔离 RS485；PA1=485-EN，PC2=SCI1-TX，PC3=SCI1-RX，PD4=CMNT-EN，PD3=CMNT-WK |
 | 开关/唤醒 | PA0=DI1/SW1，PB1=INT-WK-MCU，PC0=ALARM，PC1=RESET |
@@ -43,9 +43,14 @@ D014 只把 VC1..VC8 作为有效 cell。SH3673510 的上部未使用 cell 输�
 Rshunt = 2mΩ / 3 = 0.666666...mΩ = 666.666...µΩ
 ```
 
-当前 SH36735xx 电流换算接口使用整数 µΩ，因此 D014 配置为 `667u`。仅由取整造成的模型误差约 +0.05%，远小于实际分流器容差、铜阻、Kelvin 走线和 AFE 增益/零偏误差；量产仍必须做零点、增益、方向和温漂实测。
+当前 SH36735xx 电流换算和保护量化保留 `2000/3 µΩ` 精确比例，`667u` 仅作旧协议元数据。
+取整的电阻模型误差约 +0.05%，但在 OCD/OCC 寄存器选档边界可能进入下一档，不能只按
+0.05% 判断保护影响。源码参数窗口、原厂 p37..38 依据及 15A OCD2 跨档例子见
+[配置与寄存器编辑器](AFE_CONFIGURATION_EDITOR.md)。量产仍须检查分流器容差、铜阻、
+Kelvin 走线、AFE 增益/零偏及零点、方向、温漂和实际保护动作。
 
-AFE OCD/OCC/SC 的 requested -> code -> effective 电流也使用同一 667µΩ 模型，不得沿用 D011 的 250µΩ effective 电流结果。
+AFE OCD/OCC/SC 的 requested -> code -> effective 与采样使用同一精确比例；
+SC 基于实际 OCD2 电压编码选择倍数，不使用已取整的 effective 电流再次放大。
 
 ## 4. GPIO 真值
 
@@ -102,7 +107,7 @@ D014 图中有 B1..B8 的均衡驱动，因此 `SH3673510_PRODUCT_BALANCE_SUPPOR
 D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入区分：
 
 - SCONF4 的 CN 由 10 改为 8；
-- current/OCD/OCC/SC 全部按 667µΩ重新量化；
+- current/OCD/OCC/SC 全部按 2000/3µΩ 比例量化；
 - 软件三级保护与 AFE hardware profile 继续独立持久化；
 - AFE profile 继续执行 validate -> persist -> apply -> readback/effective -> verify/rollback；
 - SC recovery、OCD/OCC physical recovery、communication-loss fail-safe 不因 D014 移植而降级。
@@ -111,7 +116,7 @@ D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入�
 
 原理图没有给出以下产品定义，因此本分支不把它们伪装成 D014 硬件事实：
 
-1. 额定容量；当前 `BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH=116` 只是从 D011 继承的迁移默认值。
+1. 额定容量；当前源码值以 `d014_protection_config.h` 为准，开发输入不代替产品签核。
 2. 最终软件 First/Second/Third OV/UV/OC/温度/压差阈值。
 3. 最终 AFE HW requested/effective OC/SC/温度阈值。
 4. TS4/RN4 的实际 BOM。
@@ -120,11 +125,14 @@ D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入�
 
 这些项必须在量产签核前关闭，但不阻塞当前 8S 板级移植、编译和基础联调。
 
-当前 D014 的 AFE hardware profile 首次初始化使用 `bms/products/d014/bms_product.h`（编码公式在共享 `sh3673510_project_config.h`） 中独立的 `SH3673510_HW_DEFAULT_*` 值，不再复制软件保护的 First/Second/Third 表。`OCD1/OCC1` requested 与 recover 均为 100（0.1A）；D014 的 667µΩ 分流模型经 AFE 量化后，effective 阈值分别为 150 和 104（0.1A），恢复判断仍要求电流严格低于 effective 阈值。这些默认值只用于开发联调，最终保护阈值仍需实板签核。
+当前 AFE 默认值来自 `bms/products/sh3673510_protection_config.h` 的独立
+`SH3673510_HW_DEFAULT_*`，与软件三级参数分开。以 requested=100（0.1A）为例，
+2000/3µΩ 模型下 OCD1/OCC1 effective 分别为 150 和 104（0.1A）；
+恢复仍要求电流严格低于 effective。具体当前默认值读源码，不以此例代替参数签核。
 
 ## 9. 代码入口
 
-- `bms/products/d014/bms_product.h`：D014 8S / 667µΩ / GPIO / feature capability。
+- `bms/products/d014/bms_product.h`：D014 8S / 2000/3µΩ / GPIO / feature capability。
 - `bms/products/d014/bms_product.h`：产品身份、RS485、容量等编译期默认。
 - `bms/afe/sh3673510/sh3673520*.c`：SH36735xx SPI/register driver。
 - `bms/afe/sh3673510/sh3673510_control.c`：静态配置、硬件保护量化、FET/balance。

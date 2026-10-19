@@ -15,7 +15,7 @@
 - MCU：TLSR8251F512ET32。
 - AFE：SH3673510。
 - 有效 cell：8S，VC0..VC8 / B0..B8。
-- Rsense：RS1/RS2/RS3 = 2mΩ 并联；软件整数模型 667µΩ。
+- Rsense：RS1/RS2/RS3 = 2mΩ 并联；计算使用精确 2000/3µΩ，旧协议整数显示保留 667µΩ。修改分流器或寄存器配置先读 `docs/AFE_CONFIGURATION_EDITOR.md`。
 - SPI：PB6 MISO / PB7 MOSI / PD7 SCLK / PD2 CS，Mode 3 / 500kHz。
 - RS485：PA1 485-EN，PC2 SCI1-TX，PC3 SCI1-RX；PD4 CMNT-EN，PD3 CMNT-WK。
 - TS1/TS2：10K-3435。

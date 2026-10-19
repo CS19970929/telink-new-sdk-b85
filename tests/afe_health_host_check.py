@@ -13,12 +13,19 @@ guard = r'''
 #include "bms_parameters.h"
 #include "bms_features.h"
 #include "bms_sw_protection.h"
+#include "bms_afe_registers.h"
 const bms_afe_driver_policy_t bms_afe_driver_policy = {5000u,0u,1u};
 static uint32_t now;
 static unsigned c,d,writes,samples;
 static unsigned set_calls, fail_next_control;
 static uint8_t control_ok=1, balance_ok=1, balance_get_ok=1, balance_used_known, direction_allow_mask;
 static bms_afe_sample_status_t status=BMS_AFE_SAMPLE_OK;
+static int32_t measured_current;
+#if BMS_AFE_REGISTER_DEBUG_ENABLE
+static uint8_t config_ready=1;
+void bms_afe_hw_access_poll(void){}
+uint8_t bms_afe_driver_register_config_ready(void){return config_ready;}
+#endif
 uint32_t bms_time_ms(void){return now;}
 void bms_features_init(void){}
 void bms_features_stop(void){}
@@ -39,7 +46,7 @@ uint8_t bms_afe_driver_set_fets(uint8_t a,uint8_t b){
 uint8_t bms_afe_driver_disable_fets(uint8_t a,uint8_t b){if(!control_ok)return 0;if(a)c=0;if(b)d=0;return 1;}
 uint8_t bms_afe_driver_get_direction_allow_mask(void){return direction_allow_mask;}
 uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *m){
- if(m)memset(m,0,sizeof(*m));return status==BMS_AFE_SAMPLE_OK;
+ if(m){memset(m,0,sizeof(*m));m->current_ma=measured_current;}return status==BMS_AFE_SAMPLE_OK;
 }
 uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *s){(void)s;return 1;}
 uint8_t bms_afe_driver_get_charge_source_present(uint8_t *p){*p=0;return 1;}
@@ -134,12 +141,31 @@ int main(void){
  status=BMS_AFE_SAMPLE_ERROR;poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));
  qualify();bms_afe_invalidate_configuration();assert(!c&&!d);
  for(unsigned i=0;i<20;i++)poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));
+ #if BMS_AFE_REGISTER_DEBUG_ENABLE
+ qualify();measured_current=201;
+ assert(!bms_afe_register_debug_begin() && !bms_afe_register_debug_held() && c && d);
+ measured_current=-201;assert(!bms_afe_register_debug_begin());measured_current=0;
+ assert(bms_afe_set_channel_allowed(0,0));
+ assert(bms_afe_register_debug_begin() && bms_afe_register_debug_held() && !c && !d);
+ assert(!bms_afe_bus_access_allowed() && bms_afe_register_bus_access_allowed());
+ unsigned frozen_samples=samples;
+ for(unsigned i=0;i<10;i++){now+=1000;poll();assert(!c&&!d);}
+ assert(samples==frozen_samples && !bms_afe_get_aux_measurements(&m));
+ assert(!bms_afe_get_fet_status(&bits) && !bms_afe_apply_protection_config());
+ config_ready=0;assert(!bms_afe_register_debug_restore() && bms_afe_register_debug_held());
+ config_ready=1;control_ok=0;assert(!bms_afe_register_debug_restore() && bms_afe_register_debug_held());
+ control_ok=1;assert(bms_afe_register_debug_restore() && !bms_afe_register_debug_held());
+ assert(!c&&!d && bms_afe_get_remote_allowed_mask()==2u);
+ poll();assert(!c&&d); /* 恢复仍保留远程关闭意图，并等待正常样本。 */
+ #endif
  puts("PASS guard：999/1000ms、tick回绕、瞬时/间歇失败无OFF、只关闭不新开、事务持续失败、静默和完整有效读取恢复、配置禁止");
  return 0;
 }
 '''
 run_c(guard, ['bms/core/bms_afe_guard.c', 'bms/core/bms_state.c'],
       ['-Wno-misleading-indentation'], name='afe-health-guard')
+run_c(guard, ['bms/core/bms_afe_guard.c', 'bms/core/bms_state.c'],
+      ['-Wno-misleading-indentation', '-DBMS_AFE_REGISTER_DEBUG_ENABLE=1'], name='afe-health-debug-guard')
 
 if os.environ.get('BMS_PRODUCT') in ('d011', 'd013', 'd014'):
     from d014_safety_loop_host_check import SOURCES

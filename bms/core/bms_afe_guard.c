@@ -3,6 +3,8 @@
  * bms/core/bms_afe_guard.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_afe_driver.h"
+#include "bms_afe_registers.h"
+#include "bms_afe_hw_access.h"
 #include "bms_diag.h"
 #include "bms_features.h"
 #include "bms_error.h"
@@ -39,13 +41,16 @@ typedef struct
 static bms_afe_guard_state_t s_guard;
 /* 主循环独占；AFE 重初始化不清除，MCU reset 后 BSS 恢复为允许。 */
 static uint8_t s_remote_off_mask;
+#if BMS_AFE_REGISTER_DEBUG_ENABLE
+static uint8_t s_register_debug_hold;
+#endif
 
 /* 业务期访问统一受通信隔离/总线静默/测试关机门禁约束；
  * 配置禁止由各自写入事务控制，不能在此悄悄改变配置恢复策略。 */
 static inline uint8_t runtime_access_allowed(void)
 {
     return (!s_guard.comm_inhibit && !s_guard.bus_silenced &&
-            !s_guard.test_shutdown_hold) ? 1u : 0u;
+            !s_guard.test_shutdown_hold && !bms_afe_register_debug_held()) ? 1u : 0u;
 }
 
 /* 完整有效通信解除初始化禁止；配置事务仍拥有独立门禁。 */
@@ -57,7 +62,8 @@ static uint8_t output_ready(void)
 /* 判断当前 guard 阶段是否允许访问 AFE 总线。 */
 uint8_t bms_afe_bus_access_allowed(void)
 {
-    return (s_guard.bus_silenced || s_guard.test_shutdown_hold) ? 0u : 1u;
+    return (s_guard.bus_silenced || s_guard.test_shutdown_hold ||
+            bms_afe_register_debug_held()) ? 0u : 1u;
 }
 
 /* 设置本地输出禁止状态，撤销驱动授权。 */
@@ -75,7 +81,7 @@ static void inhibit_local(void)
 /* 仅尽力关闭均衡/MOS，不发送芯片 Shutdown/Powerdown 模式命令。 */
 static void best_effort_shutdown(void)
 {
-    if (s_guard.bus_silenced || s_guard.test_shutdown_hold) return;
+    if (s_guard.bus_silenced || s_guard.test_shutdown_hold || bms_afe_register_debug_held()) return;
 
     /*
      * 这次软件关闭不是失联安全保证，只是总线可能仍接受命令时的最后尝试。
@@ -228,6 +234,10 @@ bms_afe_sample_status_t bms_afe_sample(void)
 {
     bms_afe_sample_status_t result = BMS_AFE_SAMPLE_NOT_READY;
 
+#if BMS_AFE_REGISTER_DEBUG_ENABLE
+    bms_afe_hw_access_poll();
+#endif
+    if (bms_afe_register_debug_held()) return result;
     if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;
     s_guard.cycle_failed = 0u;
     result = bms_afe_driver_sample();
@@ -295,7 +305,7 @@ uint8_t bms_afe_apply_protection_config(void)
 {
     uint8_t ok;
 
-    if (s_guard.bus_silenced || s_guard.test_shutdown_hold ||
+    if (bms_afe_register_debug_held() || s_guard.bus_silenced || s_guard.test_shutdown_hold ||
         (s_guard.comm_inhibit && !s_guard.config_inhibit)) return 0u;
     s_guard.config_inhibit = 1u;
     ok = bms_afe_driver_apply_protection_config();
@@ -506,6 +516,48 @@ uint8_t bms_afe_test_wake(void)
      */
     bms_afe_driver_init();
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
+    return 1u;
+}
+#endif
+
+#if BMS_AFE_REGISTER_DEBUG_ENABLE
+uint8_t bms_afe_register_debug_held(void) { return s_register_debug_hold; }
+
+uint8_t bms_afe_register_bus_access_allowed(void)
+{
+    return (!s_guard.bus_silenced && !s_guard.test_shutdown_hold) ? 1u : 0u;
+}
+
+uint8_t bms_afe_register_debug_begin(void)
+{
+    bms_afe_aux_measurements_t sample;
+    if (s_register_debug_hold) return 1u;
+    if (!output_ready() || !bms_afe_driver_get_aux_measurements(&sample) ||
+        sample.current_ma < -200 || sample.current_ma > 200) return 0u;
+    bms_features_stop();
+    if (!bms_afe_driver_disable_fets(1u, 1u)) { note_invalid(); return 0u; }
+#if BMS_FEATURE_BALANCE_SUPPORTED
+    if (!bms_afe_driver_set_balance_mask(0u, NULL)) { note_invalid(); return 0u; }
+#endif
+    s_register_debug_hold = 1u;
+    s_guard.cycle_failed = 1u;
+    g_bms_system_status.bits.afe1_status = 0u;
+    bms_afe_publish_fet_status(0u, 0u);
+    return 1u;
+}
+
+uint8_t bms_afe_register_debug_restore(void)
+{
+    if (!s_register_debug_hold) return 1u;
+    if (!bms_afe_register_bus_access_allowed()) return 0u;
+    /* 不调用 bms_afe_init，避免清除软件活动故障、用户请求和远程关闭意图。
+     * 后端完整恢复源码固定配置和持久 profile；失败继续冻结，不能直接恢复输出。 */
+    s_guard.comm_inhibit = 1u;
+    s_guard.cycle_failed = 1u;
+    bms_afe_driver_init();
+    if (!bms_afe_driver_register_config_ready() || !bms_afe_driver_apply_protection_config() ||
+        !bms_afe_driver_disable_fets(1u, 1u)) return 0u;
+    s_register_debug_hold = 0u;
     return 1u;
 }
 #endif

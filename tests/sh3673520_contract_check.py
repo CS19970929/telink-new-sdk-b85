@@ -448,6 +448,12 @@ static int test_current_full_range(void)
             CHECK(actual == expected, "full-range current exact truncation");
         }
     }
+    for (raw = -32768L; raw <= 32767L; ++raw) {
+        int32_t expected = (int32_t)(((int64_t)raw * 100000000LL * 3LL) / (29127LL * 2000LL));
+        CHECK(SH3673520_CurrentRawToMilliAmpRatio(raw, 2000u, 3u, &actual) == SH3673520_OK,
+              "parallel-shunt current status");
+        CHECK(actual == expected, "D014 exact 2000/3 uOhm current");
+    }
     actual = 123L;
     CHECK(SH3673520_CurrentRawToMilliAmp(-32769L, 200u, &actual) ==
           SH3673520_ERR_INVALID_PARAM, "current below signed16");
@@ -495,6 +501,14 @@ static int test_write_length_bounds(void)
 
 int main(void)
 {
+    uint8_t rc_value=0xA5u;
+    const uint8_t rc_data=0x50u;
+    mock_clear();
+    script_read(SH3673520_REG_FLAG2,&rc_data,1u,1);
+    CHECK(SH3673520_ReadRegOnce(SH3673520_REG_FLAG2,&rc_value)==SH3673520_ERR_CRC,
+          "explicit RC CRC error propagated");
+    CHECK(g_transaction==1u && rc_value==0xA5u && !g_mismatch,
+          "explicit RC read must not retry or publish invalid data");
     if (test_current_full_range() != 0 || test_write_length_bounds() != 0) {
         return 1;
     }

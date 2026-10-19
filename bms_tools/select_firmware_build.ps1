@@ -197,6 +197,15 @@ if (-not $Target) {
     $saveStatus.Text = '参数修改后先保存到源码，再点击编译；Git 提交不是门禁。'
     $saveStatus.SetBounds(16, 608, 558, 40)
     $form.Controls.Add($saveStatus)
+    $parameterEditorButton = New-Object System.Windows.Forms.Button
+    $parameterEditorButton.Text = '保护参数 / AFE 位配置'
+    $parameterEditorButton.SetBounds(350, 98, 216, 30)
+    $parameterEditorButton.Add_Click({
+        $editorProduct = $targets[$productList.SelectedIndex].Id
+        & python -X utf8 -B (Join-Path $PSScriptRoot 'configure_parameters.py') --product $editorProduct
+        Update-TargetInputs
+    })
+    $form.Controls.Add($parameterEditorButton)
     $script:loadingInputs = $false
     $script:targetInputsValid = $false
     function Select-LinkedGroups {

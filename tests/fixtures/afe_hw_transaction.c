@@ -10,6 +10,7 @@ typedef uint32_t u32;
 #define MB_EX_ILLEGAL_ADDRESS 2u
 #define MB_EX_ILLEGAL_VALUE 3u
 #define MB_EX_DEVICE_FAILURE 4u
+#define bms_afe_register_debug_held() 0u /* 普通参数事务夹具；冻结由独立 Guard 场景覆盖。 */
 
 static bms_afe_hw_profile_t stored;
 static unsigned get_count, set_count, apply_count, effective_count, close_count;

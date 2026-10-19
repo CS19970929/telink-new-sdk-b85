@@ -4,6 +4,7 @@
 #include <string.h>
 #include "bms_crc.h"
 #include "bms_protection_params.h"
+#define bms_afe_register_debug_held() 0u /* 本夹具验证普通解析边界。 */
 typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define BMS_AFE_BACKEND 1
 #define BMS_AFE_BACKEND_SH3673510 2

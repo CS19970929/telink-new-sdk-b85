@@ -4,6 +4,21 @@
  * 运行时软件保护与 AFE 参数仍独立保存。 */
 #pragma once
 
+/* 未指定装配组合的板保持原有整数模型，不猜测其电阻数量。 */
+#ifndef SH3673510_BOARD_SHUNT_ELEMENT_UOHM
+#define SH3673510_BOARD_SHUNT_ELEMENT_UOHM SH3673510_BOARD_SHUNT_UOHM
+#endif
+#ifndef SH3673510_BOARD_SHUNT_PARALLEL_COUNT
+#define SH3673510_BOARD_SHUNT_PARALLEL_COUNT 1u
+#endif
+#if SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 1u || SH3673510_BOARD_SHUNT_ELEMENT_UOHM > 60000u || \
+    SH3673510_BOARD_SHUNT_PARALLEL_COUNT < 1u || SH3673510_BOARD_SHUNT_PARALLEL_COUNT > 16u
+#error "SH shunt element must be 1..60000 uOhm and parallel count 1..16"
+#endif
+#if SH3673510_BOARD_SHUNT_UOHM != ((SH3673510_BOARD_SHUNT_ELEMENT_UOHM + SH3673510_BOARD_SHUNT_PARALLEL_COUNT / 2u) / SH3673510_BOARD_SHUNT_PARALLEL_COUNT)
+#error "SH legacy shunt metadata must match the rounded exact ratio; use the source parameter editor"
+#endif
+
 /* SH36735XX CV1.0A PDF 第 8 页：共用寄存器/驱动，实装型号决定通道上限。 */
 #ifndef BMS_BUILD_AFE_MODEL
 #define BMS_BUILD_AFE_MODEL 3510u

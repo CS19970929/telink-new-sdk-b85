@@ -59,6 +59,7 @@ static void bms_features_stop(void) { ++invalidations; heater_on = 0; }
 #define APP_PM_MS_PER_SEC 1000u
 
 static uint8_t bms_afe_driver_set_fets(uint8_t c,uint8_t d){return sh3673510_control_set_fets(c,d);}
+static uint8_t bms_afe_driver_set_balance_mask(uint32_t mask,const uint32_t *known){(void)known;return sh3673510_control_set_balance((uint16_t)mask);}
 /* PRODUCTION */
 
 #define CHECK(c) do { ++assertions; if (!(c)) { \

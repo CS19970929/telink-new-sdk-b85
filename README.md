@@ -85,10 +85,11 @@ python bms_tools/bms.py --product d014 resources
 | [四产品参数配置与电池类型切换](docs/BATTERY_TYPE_SWITCH.md) | 独立参数文件、OTA 更新选择、App/Windows 密码与整套 LFP/NMC 切换 |
 | [D011 产品 reference](docs/D011_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d011/AGENTS.md) | SH3673510，10S，250 µΩ，PB5 fuse 安全低电平 |
 | [D013 产品 reference](docs/D013_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d013/AGENTS.md) | 默认 10S/100 µΩ 为代码输入；TS4 MOS 10K-3435 用户确认，含接入影响审查；专属原理图/BOM 尚缺 |
-| [D014 产品 reference](docs/D014_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d014/AGENTS.md) | 8S/667 µΩ，无 heater，TS4 MOS NTC |
+| [D014 产品 reference](docs/D014_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d014/AGENTS.md) | 8S/2000÷3 µΩ，无 heater，TS4 MOS NTC |
 | [AFE 原厂资料库](references/afe/README.md) · [开发使用指南](docs/AFE_REFERENCE_GUIDE.md) | 六份原 PDF、型号/版本边界、检索工具、独立审查及已知问题 |
 | [OTA 参数更新控制](docs/OTA_PARAMETERS.md) | BIN 自带分组更新、一次性执行、持久均衡许可、旧记录保留、回退和启动失败 |
 | [源码配置与固定 OTA 标识](docs/SOURCE_CONFIGURATION_WORKFLOW.md) | 四产品窗口写回源码、固定更新包、提交后构建及追溯 |
+| [源码参数与 AFE 位配置窗口](docs/AFE_CONFIGURATION_EDITOR.md) | 软硬件保护、精确并联分流器、原厂全寄存器目录与内部版临时调试 |
 
 ## 专题与调试
 

@@ -95,3 +95,5 @@
 #define SOC75_PIN              (GPIO_PB7)
 #define SOC100_PIN             (GPIO_PD3)
 #define LED_BLUE_PIN           (GPIO_PB4)
+
+#include "afe_register_config.h"

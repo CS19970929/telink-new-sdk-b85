@@ -119,7 +119,7 @@ def check_sh3673510_sleep_host_check():
         return extract_function(source, match.group(0))
 
     guard = (APP / 'bms_afe_guard.c').read_text(encoding='utf-8')
-    state = guard[guard.index('typedef struct'):guard.index('uint8_t bms_afe_bus_access_allowed')]
+    state = '#include "bms_afe_registers.h"\n' + guard[guard.index('typedef struct'):guard.index('uint8_t bms_afe_bus_access_allowed')]
     policy = re.search(r'typedef struct\s*\{[^}]*\} bms_afe_driver_policy_t;', (ROOT/'bms/core/bms_afe_driver.h').read_text(encoding='utf-8'), re.S).group()
     policy += '\n' + re.search(r'const bms_afe_driver_policy_t bms_afe_driver_policy = [^;]+;', (APP/'sh3673510_bms.c').read_text(encoding='utf-8')).group()
     body = '#include "bms_debug_log.h"\n' + policy + '\n' + state + '\n'.join([
@@ -198,6 +198,8 @@ def check_sh_suspend_current_gates():
     #include <stdbool.h>
     #include <assert.h>
     #include <string.h>
+    static uint8_t register_debug_hold;
+    #define bms_afe_register_debug_held() register_debug_hold
     typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
     typedef struct { int unused; } app_pm_elapsed_ctx_t;
     typedef struct { int32_t current_ma; u32 sample_time_ms; } bms_afe_aux_measurements_t;
@@ -264,6 +266,9 @@ def check_sh_suspend_current_gates():
             assert(mask==(blocked?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
             assert(observed_allowed==!blocked && s_low_power_mode==!blocked && mask_calls==1);
         }
+        register_debug_hold=1;s_low_power_mode=true;mask=-1;mask_calls=0;
+        app_power_process(&due);
+        assert(mask==SUSPEND_DISABLE && !s_low_power_mode && mask_calls==1);
         return 0;
     }
     '''

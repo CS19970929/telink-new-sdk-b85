@@ -39,7 +39,7 @@ def check_afe_hw_profile_contract_check():
     assert 'SH3673510_HW_DEFAULT_COV_MV' in p
     assert 'SH3673510_HW_DEFAULT_OCD1_A10' in p
     assert 'SH3673510_HW_DEFAULT_OCC1_A10' in p
-    assert 'sh3673510_quantize_current_a10' in p
+    assert 'sh3673510_quantize_current_ratio_a10' in p
     assert 'qty != BMS_AFE_HW_PROFILE_WORD_COUNT' in p
     assert 'bms_afe_hw_profile_set(&candidate)' in p
     commit = m[m.index('static u8 commit_protection_update'):m.index('static u16 u16be(', m.index('static u8 commit_protection_update'))]
@@ -48,26 +48,26 @@ def check_afe_hw_profile_contract_check():
     assert 'g_bms_protection_params' not in apply
     assert 'bms_afe_hw_profile_get(&hw)' in b
 
-    # D014 current sense: 667uOhm. Requested values are rounded upward by AFE
+    # D014 current sense: exact 2000/3 uOhm. Requested values are rounded upward by AFE
     # hardware. Recovery must be below the effective encoded threshold, not
     # necessarily below the user's requested threshold.
-    shunt = macro_int(product, 'SH3673510_BOARD_SHUNT_UOHM')
+    element = macro_int(product, 'SH3673510_BOARD_SHUNT_ELEMENT_UOHM')
+    parallel = macro_int(product, 'SH3673510_BOARD_SHUNT_PARALLEL_COUNT')
     ocd1_req = macro_int(product, 'SH3673510_HW_DEFAULT_OCD1_A10')
     ocd_rec = macro_int(product, 'SH3673510_HW_DEFAULT_OCD_RECOVER_A10')
     occ1_req = macro_int(product, 'SH3673510_HW_DEFAULT_OCC1_A10')
     occ_rec = macro_int(product, 'SH3673510_HW_DEFAULT_OCC_RECOVER_A10')
 
     def effective_a10(requested_a10, step_uv, max_code):
-        sense_uv = (requested_a10 * shunt + 5) // 10
-        steps = (sense_uv + step_uv - 1) // step_uv
+        denominator = step_uv * 10 * parallel
+        steps = (requested_a10 * element + denominator - 1) // denominator
         steps = max(1, min(steps, max_code + 1))
         actual_uv = steps * step_uv
-        return (actual_uv * 10 + shunt - 1) // shunt
+        return (actual_uv * 10 * parallel + element - 1) // element
 
-    assert ocd1_req == ocd_rec == 100
-    assert occ1_req == occ_rec == 100
-    assert effective_a10(ocd1_req, 5000, 15) == 150
-    assert effective_a10(occ1_req, 1375, 31) == 104
+    assert element == 2000 and parallel == 3
+    assert effective_a10(75, 5000, 15) == 75
+    assert effective_a10(150, 10000, 15) == 150
     assert ocd_rec < effective_a10(ocd1_req, 5000, 15)
     assert occ_rec < effective_a10(occ1_req, 1375, 31)
 
@@ -166,7 +166,8 @@ def check_sh3673510_d014_integration_check():
     # The 8S profile must actually drive acquisition/balance sizing.
     require(bms, "int32_t cell[SH3673510_BOARD_CELL_COUNT];")
     require(bms, "SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT)")
-    require(bms, "SH3673510_BOARD_SHUNT_UOHM")
+    require(bms, "SH3673510_BOARD_SHUNT_ELEMENT_UOHM")
+    require(bms, "SH3673510_BOARD_SHUNT_PARALLEL_COUNT")
     require(control, "SH3673520_SetBalanceMask")
     require(control, "SH3673510_BOARD_CELL_COUNT")
     require(text("sh3673510_project_config.h"), "SH3673510_BOARD_CELL_COUNT")

@@ -5,6 +5,7 @@
  */
 #include "bms_afe_hw_profile.h"
 #include "bms_afe.h"
+#include "bms_afe_registers.h"
 #include "bms_afe_hw_access.h"
 #include "bms_afe_backend.h"
 #include "bms_config_store.h"
@@ -251,16 +252,16 @@ static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
      */
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
         (p->ocd1_a10 == 0u ||
-         p->ocd_recover_a10 >= sh3673510_quantize_current_a10(p->ocd1_a10,
-             SH3673510_BOARD_SHUNT_UOHM, 5000u, 15u, 0))) return 0u;
+         p->ocd_recover_a10 >= sh3673510_quantize_current_ratio_a10(p->ocd1_a10,
+             SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 5000u, 15u, 0))) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
         (p->ocd2_a10 == 0u ||
-         p->ocd_recover_a10 >= sh3673510_quantize_current_a10(p->ocd2_a10,
-             SH3673510_BOARD_SHUNT_UOHM, 10000u, 15u, 0))) return 0u;
+         p->ocd_recover_a10 >= sh3673510_quantize_current_ratio_a10(p->ocd2_a10,
+             SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 10000u, 15u, 0))) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
         (p->occ1_a10 == 0u ||
-         p->occ_recover_a10 >= sh3673510_quantize_current_a10(p->occ1_a10,
-             SH3673510_BOARD_SHUNT_UOHM, 1375u, 31u, 0))) return 0u;
+         p->occ_recover_a10 >= sh3673510_quantize_current_ratio_a10(p->occ1_a10,
+             SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 1375u, 31u, 0))) return 0u;
 #else
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
         (p->ocd1_a10 == 0u || p->ocd_recover_a10 >= p->ocd1_a10)) return 0u;
@@ -318,12 +319,12 @@ u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *p)
     if (p->cov_delay_ms > 10010u || p->cuv_delay_ms > 10010u ||
         p->ocd1_delay_ms > 10010u || p->occ1_delay_ms > 10010u ||
         p->ocd2_delay_ms > 400u || p->sc_delay_us > 576u) return 0u;
-    sense_uv = ((u32)p->ocd1_a10 * SH3673510_BOARD_SHUNT_UOHM + 5u) / 10u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) && sense_uv > 80000u) return 0u;
-    sense_uv = ((u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_UOHM + 5u) / 10u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) && sense_uv > 160000u) return 0u;
-    sense_uv = ((u32)p->occ1_a10 * SH3673510_BOARD_SHUNT_UOHM + 5u) / 10u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) && sense_uv > 44000u) return 0u;
+    sense_uv = (u32)p->ocd1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) && sense_uv > 80000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return 0u;
+    sense_uv = (u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) && sense_uv > 160000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return 0u;
+    sense_uv = (u32)p->occ1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) && sense_uv > 44000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return 0u;
 #endif
     return 1u;
 }
@@ -358,23 +359,28 @@ u8 bms_afe_hw_profile_validate_write(const bms_afe_hw_profile_t *p)
          p->dsg_ot_x10 < 850u || p->dsg_ot_x10 > 1200u ||
          p->chg_ut_x10 < 200u || p->chg_ut_x10 > 500u || p->dsg_ut_x10 > 500u)) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
-        ((u32)p->ocd1_a10 * SH3673510_BOARD_SHUNT_UOHM < 50000u || p->ocd1_delay_ms < 140u)) return 0u;
+        ((u32)p->ocd1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 50000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT || p->ocd1_delay_ms < 140u)) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
-        ((u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_UOHM < 100000u || p->ocd2_delay_ms < 25u)) return 0u;
+        ((u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 100000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT || p->ocd2_delay_ms < 25u)) return 0u;
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
-        ((u32)p->occ1_a10 * SH3673510_BOARD_SHUNT_UOHM < 13750u || p->occ1_delay_ms < 140u)) return 0u;
+        ((u32)p->occ1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 13750u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT || p->occ1_delay_ms < 140u)) return 0u;
     if (p->enable_mask & BMS_AFE_HW_EN_SC) {
-        u32 sense = (u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_UOHM;
-        u32 base = sh3673510_quantize_current_a10(p->ocd2_a10,
-            SH3673510_BOARD_SHUNT_UOHM, 10000u, 15u, 0);
+        u32 sense = (u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
+        u8 code = 0u;
+        u32 base, requested;
         u32 multiple;
+        (void)sh3673510_quantize_current_ratio_a10(p->ocd2_a10,
+            SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 10000u, 15u, &code);
+        base = ((u32)code + 1u) * 10000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT;
+        requested = (u32)p->sc_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
         /* SC 仍依赖 OCD2V，即使 OCD 未使能也必须有可表示的基准。 */
-        if (sense < 100000u || sense > 1600000u) return 0u;
-        if ((u32)p->sc_a10 < 2u * base || (u32)p->sc_a10 > 6u * base) return 0u;
-        multiple = ((u32)p->sc_a10 <= 2u * base) ? 2u :
-                   ((u32)p->sc_a10 <= 3u * base) ? 3u :
-                   ((u32)p->sc_a10 <= 4u * base) ? 4u : 6u;
-        if (base * multiple > 65535u) return 0u;
+        if (sense < 100000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT ||
+            sense > 1600000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return 0u;
+        if (requested < 2u * base || requested > 6u * base) return 0u;
+        multiple = (requested <= 2u * base) ? 2u :
+                   (requested <= 3u * base) ? 3u :
+                   (requested <= 4u * base) ? 4u : 6u;
+        if (base * multiple > 65535u * SH3673510_BOARD_SHUNT_ELEMENT_UOHM) return 0u;
     }
 #endif
     return 1u;
@@ -399,7 +405,7 @@ static u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *p)
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 {
     bms_afe_hw_profile_t requested;
-    if (p == 0 || !bms_afe_hw_profile_get(&requested)) return 0u;
+    if (p == 0 || bms_afe_register_debug_held() || !bms_afe_hw_profile_get(&requested)) return 0u;
     *p = requested;
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124

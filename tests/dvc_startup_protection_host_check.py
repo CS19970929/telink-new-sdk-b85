@@ -10,6 +10,7 @@ code = r'''
 #include <stdio.h>
 #include <string.h>
 #include "dvc1124.h"
+#include "bms_afe_registers.h"
 #include "bms_diag.h"
 static uint8_t regs[256], stuck_fet, hold_scd;
 static unsigned operations, fail_from, sc_disables;
