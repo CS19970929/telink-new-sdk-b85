@@ -201,15 +201,22 @@ if (-not $Target) {
     $parameterEditorButton.Text = '保护参数 / AFE 位配置'
     $parameterEditorButton.SetBounds(350, 98, 216, 30)
     $parameterEditorButton.Add_Click({
-        $editorProduct = $targets[$productList.SelectedIndex].Id
-        & python -X utf8 -B (Join-Path $PSScriptRoot 'configure_parameters.py') --product $editorProduct
-        Update-TargetInputs
+        try {
+            $inputConfiguration = Get-WindowConfiguration
+            $source = Invoke-SourceConfiguration @('show', '--root', $repositoryRoot,
+                '--product', $inputConfiguration.Product)
+            Assert-WindowConfigurationSaved $inputConfiguration $source
+            & python -X utf8 -B (Join-Path $PSScriptRoot 'configure_parameters.py') --product $inputConfiguration.Product
+            if ($LASTEXITCODE -ne 0) { throw '参数编辑器未正常结束；请检查终端。' }
+            Update-TargetInputs
+        } catch { $saveStatus.Text = "不能打开参数编辑器：$($_.Exception.Message)" }
     })
     $form.Controls.Add($parameterEditorButton)
     $script:loadingInputs = $false
     $script:targetInputsValid = $false
     function Select-LinkedGroups {
-        if (-not $script:loadingInputs) {
+        # 出厂包已覆盖整套默认值，参数联动不能把用户选中的出厂策略改成普通更新。
+        if (-not $script:loadingInputs -and -not $updateChecks['factory_reset'].Checked) {
             foreach ($group in @('sw', 'afe', 'business', 'soc')) { $updateChecks[$group].Checked = $true }
         }
     }
@@ -259,13 +266,26 @@ if (-not $Target) {
     $productList.Add_SelectedIndexChanged({ Update-TargetInputs })
     $chemistryList.Add_SelectedIndexChanged({ Update-CellRange; Select-LinkedGroups })
     $cellInput.Add_ValueChanged({ Select-LinkedGroups })
-    $capacityInput.Add_ValueChanged({ if (-not $script:loadingInputs) { $updateChecks['business'].Checked = $true } })
+    $capacityInput.Add_ValueChanged({
+        if (-not $script:loadingInputs -and -not $updateChecks['factory_reset'].Checked) {
+            $updateChecks['business'].Checked = $true
+        }
+    })
     function Get-WindowConfiguration {
         $id = $targets[$productList.SelectedIndex].Id
         return @{ Product = $id; Chemistry = $(if ($chemistryList.SelectedIndex -eq 1) { 'nmc' } else { 'lfp' });
             Cells = [int]$cellInput.Value; Capacity = [int]($capacityInput.Value * 10);
             Afe = $(if ($id -eq 'd008') { 'dvc1124' } elseif ($afeList.SelectedIndex -eq 1) { 'sh3673520' } else { 'sh3673510' });
             Groups = @($groupChoices | Where-Object { $updateChecks[$_.Id].Checked } | ForEach-Object { $_.Id }) }
+    }
+    function Assert-WindowConfigurationSaved($inputConfiguration, $source) {
+        if ($source.afe_model -ne $inputConfiguration.Afe -or
+            $source.chemistry -ne $inputConfiguration.Chemistry -or
+            $source.cell_count -ne $inputConfiguration.Cells -or
+            $source.capacity_0p1ah -ne $inputConfiguration.Capacity -or
+            (@($source.update_groups) -join ',') -ne ($inputConfiguration.Groups -join ',')) {
+            throw '窗口配置尚未保存，请先保存到源码。'
+        }
     }
     $save = New-Object System.Windows.Forms.Button
     $save.Text = '保存到源码'
@@ -299,13 +319,7 @@ if (-not $Target) {
             if ($newPackageCheck.Checked) { throw '新参数更新包尚未保存，请先保存到源码。' }
             $source = Invoke-SourceConfiguration @('verify', '--root', $repositoryRoot,
                 '--product', $inputConfiguration.Product)
-            if ($source.afe_model -ne $inputConfiguration.Afe -or
-                $source.chemistry -ne $inputConfiguration.Chemistry -or
-                $source.cell_count -ne $inputConfiguration.Cells -or
-                $source.capacity_0p1ah -ne $inputConfiguration.Capacity -or
-                (@($source.update_groups) -join ',') -ne ($inputConfiguration.Groups -join ',')) {
-                throw '窗口配置尚未保存，请先保存到源码。'
-            }
+            Assert-WindowConfigurationSaved $inputConfiguration $source
             $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
             $form.Close()
         } catch { $saveStatus.Text = "不能编译：$($_.Exception.Message)" }

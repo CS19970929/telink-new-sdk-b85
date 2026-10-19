@@ -25,6 +25,18 @@ import json
 static = StaticAnalysis(bms)
 
 
+@unittest.skipUnless(sys.platform == "win32", "Windows 源码配置窗口")
+class SourceConfigurationWindowTests(unittest.TestCase):
+    def test_factory_reset_and_unsaved_parent_survive_real_control_events(self):
+        result = subprocess.run([
+            "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+            "-File", str(REPO_ROOT / "tests/fixtures/source_configuration_window.ps1"),
+            "-RepositoryRoot", str(REPO_ROOT),
+        ], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("PASS real WinForms events", result.stdout)
+
+
 class WorktreeJunctionTests(unittest.TestCase):
     def test_junction_is_stable_and_unique_per_worktree(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -510,6 +522,20 @@ def commit_configuration(root):
 
 
 class SourceConfigurationTests(unittest.TestCase):
+    def test_assembly_changes_include_all_config_groups_and_preserve_factory_reset(self):
+        for product in bms.build_options.PRODUCTS:
+            for factory in (False, True):
+                with self.subTest(product=product, factory=factory), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    copy_configuration(root)
+                    old = bms.build_options.save_source(root, product, {
+                        'update_groups': ['factory_reset'] if factory else ['business']})['configuration']
+                    chemistry = 'nmc' if old['chemistry'] == 'lfp' else 'lfp'
+                    saved = bms.build_options.save_source(root, product, {'chemistry': chemistry})['configuration']
+                    expected = ['factory_reset'] if factory else ['sw', 'afe', 'business', 'soc']
+                    self.assertEqual(saved['update_groups'], expected)
+                    self.assertEqual(bms.build_options.verify_source(root, product), saved)
+
     def test_engineering_profile_validates_the_saved_source_package(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

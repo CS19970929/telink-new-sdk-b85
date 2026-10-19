@@ -23,6 +23,23 @@ def main():
         output = run_c(read('tests/fixtures/d014_safety_loop/loop.c'), SOURCES,
                        ['-I', str(ROOT/'tests/fixtures/d014_safety_loop/include')],
                        name='d014-safety-loop', runs=runs)
+        transition = read('tests/fixtures/d014_safety_loop/loop.c').split('int main(void)')[0]
+        transition += '#include "bms_update_policy.h"\n'
+        transition += read('tests/fixtures/d014_safety_loop/chemistry_transition.c')
+        includes = ['-I', str(ROOT/'tests/fixtures/d014_safety_loop/include'), '-Wno-unused-function']
+        for name, chemistry, mask, identifier, scene in (
+            ('seed-nmc', 'NMC', 0, 101, 'seed'),
+            ('reject-partial-lfp', 'LFP', 4, 202, 'incomplete'),
+            ('update-lfp', 'LFP', 15, 202, 'reload'),
+            ('reboot-lfp', 'LFP', 15, 202, 'reload'),
+            ('update-nmc', 'NMC', 15, 303, 'reload'),
+            ('reboot-nmc', 'NMC', 15, 303, 'reload'),
+        ):
+            flags = includes + [f'-DBMS_PRODUCT_CHEMISTRY=BMS_SOC_CHEMISTRY_{chemistry}',
+                f'-DBMS_OTA_UPDATE_MASK={mask}u', '-DBMS_OTA_UPDATE_ID_0=0u',
+                f'-DBMS_OTA_UPDATE_ID_1={identifier}u', *[f'-DBMS_OTA_UPDATE_ID_{i}=0u' for i in range(2, 6)]]
+            output += run_c(transition, SOURCES, flags, name='d014-chemistry-'+name,
+                runs=[{'BMS_CHEM_SCENE':scene, 'BMS_LOOP_FLASH':image}])
     evidence({'domain': 'safety_chain', 'production_units': SOURCES,
               'observations': output.strip(),
               'boundary': '真实参数/存储记录/SW/feature/guard/SH 控制与驱动；RAM SPI/Flash 和时钟/GPIO，不代表物理 Gate 或 MCU 调度'})

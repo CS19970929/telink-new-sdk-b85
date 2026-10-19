@@ -269,11 +269,37 @@ class Configuration:
             edited[path]+= '#define BMS_SOURCE_CUSTOMER_REVISION '+json.dumps(self.customer_revision,ensure_ascii=False)+'\n'
         return {p: text for p, text in edited.items() if text != self.originals[p].decode("utf-8-sig")}
 
+    def update_groups_for_changes(self, edited: dict):
+        required = set()
+        if any(self.settings[key] != self.baseline_settings[key]
+               for key in ('afe_model', 'cell_count', 'chemistry')):
+            required.update(build_options.CONFIG_UPDATE_GROUPS)
+        if self.settings['capacity_0p1ah'] != self.baseline_settings['capacity_0p1ah']:
+            required.add('business')
+        for row in self.rows:
+            changed = row['edits'] != row['branches'] if row['ternary'] else integer(row['edit']) != row['value']
+            if not changed: continue
+            name = row['name']
+            if name.startswith(('D008_SW_', 'BMS_SW_')): required.add('sw')
+            elif name.startswith(('D008_AFE_', 'SH3673510_HW_DEFAULT_')): required.add('afe')
+            elif name.startswith('BMS_SOC_'): required.add('soc')
+            else: required.add('business')
+        shunt_path = self.folder / ('dvc1124_product_defaults.h' if self.product == 'd008' else 'bms_product.h')
+        before_shunt = self.originals[shunt_path].decode('utf-8-sig')
+        after_shunt = edited.get(shunt_path, before_shunt)
+        shunt_macros = ('DVC1124_DEFAULT_SHUNT_UOHM',) if self.product == 'd008' else (
+            'SH3673510_BOARD_SHUNT_ELEMENT_UOHM', 'SH3673510_BOARD_SHUNT_PARALLEL_COUNT')
+        if any(name not in before_shunt or build_options._number(before_shunt, name) !=
+               build_options._number(after_shunt, name) for name in shunt_macros):
+            required.add('afe')
+        return build_options.linked_update_groups(self.settings.get('update_groups', []), required)
+
     def save(self, edited: dict) -> None:
         # 同时保留摘要更新涉及的产品文件；保存失败按原字节回滚，不碰其它脏文件。
+        groups = self.update_groups_for_changes(edited)
         paths = set(edited) | set(self.originals)
         originals = {p: p.read_bytes() for p in paths}
-        for p in edited:
+        for p in self.originals:
             if p.read_bytes() != self.originals[p]: raise ValueError("源码已被其它程序修改，请重新载入：" + str(p))
         written = {}
         try:
@@ -282,7 +308,7 @@ class Configuration:
                 p.write_bytes(raw); written[p] = raw
             affected = (self.product,)
             for product in affected:
-                result = build_options.save_source(ROOT, product, {})
+                result = build_options.save_source(ROOT, product, {'update_groups': groups})
                 for relative in result["changed_files"]:
                     p = ROOT / relative
                     written[p] = p.read_bytes()
@@ -638,6 +664,9 @@ class Window:
             edited=self.config.replacements(*self.collect())
             if not edited:messagebox.showinfo("源码配置","没有修改");return
             preview=tk.Toplevel(self.root);preview.title("保存前差异（不编译、不 OTA）");preview.geometry("1100x650")
+            groups=self.config.update_groups_for_changes(edited)
+            ttk.Label(preview,text='保存后 OTA 更新组：'+(' / '.join(groups) if groups else '保留设备参数')+
+                      '；更新组和固定标识会随本次源码修改一起保存。',wraplength=1050).pack(padx=10,pady=8)
             text=tk.Text(preview,wrap="none");text.pack(fill="both",expand=True)
             for path,after in edited.items():
                 before=self.config.originals[path].decode("utf-8-sig")

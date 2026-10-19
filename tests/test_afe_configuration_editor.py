@@ -14,6 +14,37 @@ from tests.test_bms_tools import copy_configuration
 
 
 class EditorTests(unittest.TestCase):
+    def test_saved_changes_include_their_ota_groups(self):
+        for product in editor.build_options.PRODUCTS:
+            with self.subTest(product=product), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                copy_configuration(root)
+                editor.build_options.save_source(root, product, {'update_groups': ['business']})
+                with mock.patch.object(editor, 'ROOT', root):
+                    config = editor.Configuration(product, 'lfp')
+                    prefix = 'D008_SW_' if product == 'd008' else 'BMS_SW_'
+                    next(row for row in config.rows if row['name'].startswith(prefix))['edit'] = '3541'
+                    config.save(config.replacements(config.element, config.parallel, config.debug))
+                    self.assertIn('sw', editor.build_options.verify_source(root, product)['update_groups'])
+                    config = editor.Configuration(product, 'lfp')
+                    hardware = next(row for row in config.rows if '_COV_MV' in row['name'] and
+                                    row['name'].startswith(('D008_AFE_', 'SH3673510_HW_DEFAULT_')))
+                    hardware['edit'] = str(hardware['value'] + 1)
+                    edits = config.replacements(config.element, config.parallel, config.debug)
+                    self.assertIn('afe', config.update_groups_for_changes(edits))
+                    config.save(edits)
+                    self.assertIn('afe', editor.build_options.verify_source(root, product)['update_groups'])
+                    config = editor.Configuration(product, 'lfp')
+                    config.settings['chemistry'] = 'nmc' if config.settings['chemistry']=='lfp' else 'lfp'
+                    config.save(config.replacements(config.element, config.parallel, config.debug))
+                    self.assertEqual(editor.build_options.verify_source(root, product)['update_groups'],
+                                     ['sw','afe','business','soc'])
+                    editor.build_options.save_source(root, product, {'update_groups':['factory_reset']})
+                    config = editor.Configuration(product, 'lfp')
+                    config.settings['capacity_0p1ah'] += 1
+                    config.save(config.replacements(config.element, config.parallel, config.debug))
+                    self.assertEqual(editor.build_options.verify_source(root, product)['update_groups'], ['factory_reset'])
+
     def test_ratio_ternary_and_source_preset_compile(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

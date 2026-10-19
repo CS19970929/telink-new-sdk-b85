@@ -16,12 +16,21 @@ MACROS = {
     "capacity_0p1ah": "BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH",
 }
 UPDATE_GROUPS = {"sw": 1, "afe": 2, "business": 4, "soc": 8, "soc_state": 64, "factory_reset": 512}
+CONFIG_UPDATE_GROUPS = ("sw", "afe", "business", "soc")
 OPTION_KEYS = (*MACROS, "update_groups", "update_id")
 
 
 def new_update_id() -> str:
     # 首 word=0 区分旧合法编号；80 位随机标识由工具生成，无需查询客户设备。
     return f"0000{(secrets.randbits(80) or 1):020x}"
+
+
+def linked_update_groups(groups, required):
+    """保留显式出厂策略；普通保存带上本次修改必须更新的组。"""
+    if "factory_reset" in groups:
+        return ["factory_reset"]
+    selected = set(groups) | set(required)
+    return [group for group in UPDATE_GROUPS if group in selected]
 
 
 def normalize(options: dict, product: str, profile: str | None) -> dict:
@@ -285,6 +294,15 @@ def save_source(root: Path, product: str, changes: dict, *, new_package=False) -
     else:
         requested.pop("update_id", None)
     options = normalize(requested, product, "custom" if product == "d008" else None)
+    required = []
+    if any(options[key] != old[key] for key in ("afe_model", "cell_count", "chemistry")):
+        required = CONFIG_UPDATE_GROUPS
+    elif options["capacity_0p1ah"] != old["capacity_0p1ah"]:
+        required = ["business"]
+    groups = linked_update_groups(options.get("update_groups", []), required)
+    if groups:
+        options["update_groups"] = groups
+        options.setdefault("update_id", "000000000000000000000001")
     relative = f"bms/products/{product}/{product}_protection_config.h"
     parameters = _text(root / relative)
     edited = {relative: _replace(parameters, "BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH",
