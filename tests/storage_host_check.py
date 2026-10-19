@@ -23,8 +23,6 @@ def main():
     feature_header=(MOD/'bms_features.h').read_text()
     macros+='\n'+'\n'.join(re.findall(r'^#define BMS_BALANCE_(?:ENABLE_DEFAULT|START_VOLTAGE_MV_DEFAULT|START_DELTA_MV_DEFAULT|STOP_DELTA_MV_DEFAULT|CELL_PLAUSIBLE_MIN_MV|SUSPECT_DELTA_MV)[^\n]*',feature_header,re.M))
     soc_defaults=(MOD/(MOD.product+'_protection_config.h')).read_text(encoding='utf-8')
-    if MOD.product != 'd008':
-        soc_defaults+='\n'+(MOD.root/'bms/products/sh3673510_protection_config.h').read_text(encoding='utf-8')
     macros+='\n'+'\n'.join(re.findall(r'^#define BMS_SOC_[^\n]*(?:\n[ \t]+[^\n]*)*',soc_defaults,re.M))
     headers='\n'.join(source(n) for n in ['bms_timing.h','bms_soc_defs.h','bms_state_store.h','bms_soc.h','bms_soc_profile.h','bms_afe_hw_profile.h','bms_sleep_config.h','bms_config_store.h','bms_event_log.h','bms_storage_platform.h'])
     units='\n'.join(source(n) for n in ['bms_soc_profile.c','bms_config_store.c','bms_sleep_config.c','bms_state_store.c','bms_event_log.c','bms_parameters.c'])

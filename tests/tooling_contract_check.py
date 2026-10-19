@@ -14,11 +14,12 @@ def check_compile_receipt_check():
      d=Path(tmp);sdk=d/'sdk';sdk.mkdir();here=d/'bms_tools';here.mkdir();gen=d/'gen';gen.mkdir()
      for p in (sdk/'app.c',sdk/'config.h',sdk/'boot.inc',sdk/'boot.link',sdk/'vendor.a',here/'source_order.txt',here/'build.mk',here/'bms.py',here/'build_options.py',d/'tool.exe',d/'firmware.elf',d/'firmware.map',d/'firmware.lst',d/'firmware.raw'):
       p.write_text('fixture')
-     with mock.patch.multiple(bms,REPO_ROOT=d,SDK_DIR=sdk,_HERE=here,GEN_DIR=gen,ELF=d/'firmware.elf',MAP=d/'firmware.map',LST=d/'firmware.lst',RAW_BIN=d/'firmware.raw',SOURCE_ORDER_FILE=here/'source_order.txt',LINKER_FILE=sdk/'boot.link',REQUIRED_VENDOR_LIBS=(sdk/'vendor.a',),TL_CHECK_FW2=d/'tool.exe'),mock.patch.object(bms,'_load_source_order_strict',return_value=['sdk/app.c']),mock.patch.object(bms,'_tc32_tool',return_value=str(d/'tool.exe')),mock.patch.object(bms,'_firmware_git_build_id',return_value='0x12345678u'),mock.patch.object(bms,'_firmware_git_dirty',return_value=0),mock.patch.object(bms,'_selected_build_options',return_value={}):
+     with mock.patch.multiple(bms,REPO_ROOT=d,SDK_DIR=sdk,_HERE=here,GEN_DIR=gen,ELF=d/'firmware.elf',MAP=d/'firmware.map',LST=d/'firmware.lst',RAW_BIN=d/'firmware.raw',SOURCE_ORDER_FILE=here/'source_order.txt',LINKER_FILE=sdk/'boot.link',REQUIRED_VENDOR_LIBS=(sdk/'vendor.a',),TL_CHECK_FW2=d/'tool.exe'),mock.patch.object(bms,'_load_source_order_strict',return_value=['sdk/app.c']),mock.patch.object(bms,'_tc32_tool',return_value=str(d/'tool.exe')),mock.patch.object(bms,'_firmware_git_build_id',return_value='0x12345678u'),mock.patch.object(bms,'_firmware_git_dirty',return_value=0),mock.patch.object(bms,'_selected_build_options',return_value={}),mock.patch.object(bms.build_options,'source_customer_profile',return_value={'name':'客户 A','revision':'v2'}):
       bms._write_compile_inputs('-DMODE=1')
       bms._mark_build_complete()
       path=gen/'compile-inputs.json';stamp=path.stat().st_mtime_ns
       receipt=bms._read_compile_inputs()
+      assert receipt['configuration']['customer_profile']=={'name':'客户 A','revision':'v2'}
       bms._write_compile_inputs('-DMODE=1');assert path.stat().st_mtime_ns==stamp
       for target in (sdk/'config.h',sdk/'boot.inc',here/'build_options.py',d/'tool.exe',d/'firmware.elf',d/'firmware.map',d/'firmware.lst',d/'firmware.raw'):
        old=target.read_bytes();target.write_bytes(b'changed')
@@ -86,7 +87,6 @@ def check_monorepo_source_check():
         assert '#include "../sh3673510_defaults.h"' in config
         assert f'#include "{product}_protection_config.h"' in config
         config += (ROOT / "bms/products" / product / f"{product}_protection_config.h").read_text()
-        config += (ROOT / "bms/products/sh3673510_protection_config.h").read_text()
         config += (ROOT / "bms/products/sh3673510_defaults.h").read_text()
         assert "#define SH3673510_BOARD_BAT_NTC1_INDEX" in config
         assert "#define SH3673510_BOARD_SPI_GROUP" in config

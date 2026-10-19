@@ -11,7 +11,7 @@
 | D013 | [d013_protection_config.h](../bms/products/d013/d013_protection_config.h) |
 | D014 | [d014_protection_config.h](../bms/products/d014/d014_protection_config.h) |
 
-D011/D013/D014 的保护、SOC/OCV、加热/均衡和保护性休眠默认值已合并为共用 [sh3673510_protection_config.h](../bms/products/sh3673510_protection_config.h)；三个产品文件只保留容量与 OTA 标识，并包含该共用文件。数值只在一处编辑，改共用文件会同时影响三个产品。
+四产品的保护、SOC/OCV、加热/均衡和保护性休眠默认值分别位于各自 `bms/products/<product>/dXXX_protection_config.h`；修改只影响该产品。SH 三产品仅共用参数范围检查，不共用默认数值。多客户方案见 [客户配置流程](CUSTOMER_CONFIGURATION_WORKFLOW.md)。
 
 文件集中软件保护、独立 AFE 保护、SOC 调参、两种 OCV 曲线、容量、加热/均衡和保护性休眠的首次默认。软件保护按一级、二级、三级、恢复、滤波连续排列。`*_FOR(c)` 条件左侧为 LFP、右侧为 NMC；下方别名选择编译默认，通常只编辑有数值的行。
 

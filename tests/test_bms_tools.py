@@ -580,7 +580,7 @@ class SourceConfigurationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_configuration(root)
-            old = bms.build_options.save_source(root, 'd014', {'update_groups': ['business']})
+            old = bms.build_options.save_source(root, 'd014', {'update_groups': ['business']}, new_package=True)
             commit_configuration(root)
             path = root / 'bms/products/d014/d014_protection_config.h'
             capacity = old['configuration']['capacity_0p1ah']

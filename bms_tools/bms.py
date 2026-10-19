@@ -87,6 +87,9 @@ def _build_configuration():
     if options:
         configuration["build_options"] = options
         configuration["parameter_inputs_sha256"] = build_options.parameter_inputs_hash(REPO_ROOT, PRODUCT, options)
+    customer = build_options.source_customer_profile(REPO_ROOT, PRODUCT)
+    if customer:
+        configuration["customer_profile"] = customer
     return configuration
 
 _HERE = Path(__file__).resolve().parent

@@ -125,7 +125,7 @@ D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入�
 
 这些项必须在量产签核前关闭，但不阻塞当前 8S 板级移植、编译和基础联调。
 
-当前 AFE 默认值来自 `bms/products/sh3673510_protection_config.h` 的独立
+当前 AFE 默认值来自 `bms/products/d014/d014_protection_config.h` 的独立
 `SH3673510_HW_DEFAULT_*`，与软件三级参数分开。以 requested=100（0.1A）为例，
 2000/3µΩ 模型下 OCD1/OCC1 effective 分别为 150 和 104（0.1A）；
 恢复仍要求电流严格低于 effective。具体当前默认值读源码，不以此例代替参数签核。

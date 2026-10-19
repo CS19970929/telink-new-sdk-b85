@@ -205,10 +205,14 @@ void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
     p->dsg_ut_x10 = SH3673510_HW_DEFAULT_DSG_UT_X10;
     p->dsg_ut_recover_x10 = SH3673510_HW_DEFAULT_DSG_UT_RECOVER_X10;
     p->temp_recover_ms = SH3673510_HW_DEFAULT_TEMP_RECOVER_MS;
-    p->enable_mask = (u16)(BMS_AFE_HW_EN_COV | BMS_AFE_HW_EN_CUV |
-                           BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2 |
-                           BMS_AFE_HW_EN_OCC1 | BMS_AFE_HW_EN_SC |
-                           BMS_AFE_HW_EN_TEMP);
+    p->enable_mask = 0u;
+    if (SH3673510_HW_DEFAULT_ENABLE_COV) p->enable_mask |= BMS_AFE_HW_EN_COV;
+    if (SH3673510_HW_DEFAULT_ENABLE_CUV) p->enable_mask |= BMS_AFE_HW_EN_CUV;
+    if (SH3673510_HW_DEFAULT_ENABLE_OCD1) p->enable_mask |= BMS_AFE_HW_EN_OCD1;
+    if (SH3673510_HW_DEFAULT_ENABLE_OCD2) p->enable_mask |= BMS_AFE_HW_EN_OCD2;
+    if (SH3673510_HW_DEFAULT_ENABLE_OCC1) p->enable_mask |= BMS_AFE_HW_EN_OCC1;
+    if (SH3673510_HW_DEFAULT_ENABLE_SC) p->enable_mask |= BMS_AFE_HW_EN_SC;
+    if (SH3673510_HW_DEFAULT_ENABLE_TEMP) p->enable_mask |= BMS_AFE_HW_EN_TEMP;
 #endif
 }
 

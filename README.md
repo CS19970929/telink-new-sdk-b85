@@ -90,6 +90,8 @@ python bms_tools/bms.py --product d014 resources
 | [OTA 参数更新控制](docs/OTA_PARAMETERS.md) | BIN 自带分组更新、一次性执行、持久均衡许可、旧记录保留、回退和启动失败 |
 | [源码配置与固定 OTA 标识](docs/SOURCE_CONFIGURATION_WORKFLOW.md) | 四产品窗口写回源码、固定更新包、提交后构建及追溯 |
 | [源码参数与 AFE 位配置窗口](docs/AFE_CONFIGURATION_EDITOR.md) | [双击打开](bms_tools/configure_parameters.cmd)：软硬件保护、精确并联分流器、原厂全寄存器目录与内部版临时调试 |
+| [同板多客户配置](docs/CUSTOMER_CONFIGURATION_WORKFLOW.md) | 四产品独立默认、客户方案 JSON 另存/载入、预览写回源码与构建追溯 |
+| [AFE 配置窗口寄存器核对](docs/AFE_CONFIGURATION_AUDIT_20261019.md) | 原 PDF 页、跨字节字段、读写副作用、允许配置的边界与未决项 |
 
 ## 专题与调试
 

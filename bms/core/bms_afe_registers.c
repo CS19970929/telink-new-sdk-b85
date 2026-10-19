@@ -38,6 +38,11 @@ static uint8_t register_update(uint8_t reg, uint8_t mask, uint8_t expected,
     if (!register_read(reg, &previous)) return 7u;
     if (compare && previous != expected) return 6u;
     target = (uint8_t)((previous & (uint8_t)~mask) | (value & mask));
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    /* RM p16 DPC=31 为 N/A；p22 COW 自清触发位不能随 RMW 重放。 */
+    if (reg == 0x52u && (target & 0x1Fu) == 0x1Fu) return 5u;
+    if (reg == 0x6Du) target &= (uint8_t)~0x04u;
+#endif
     if (target != previous && !register_write(reg, target)) return 7u;
     if (!register_read(reg, actual)) return 7u;
     return ((*actual & mask) == (target & mask)) ? 0u : 7u;
@@ -115,7 +120,7 @@ uint8_t bms_afe_register_command(const uint8_t *request, uint32_t length,
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
             destructive = DVC1124_RegReadHasSideEffect(reg);
 #else
-            destructive = reg == 0x59u;
+            destructive = reg == 0x59u || reg == 0x5Au;
 #endif
             if (request[6] > 1u || (destructive &&
                 (!request[6] || !bms_afe_register_debug_held()))) return 5u;

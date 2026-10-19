@@ -44,26 +44,43 @@ def catalog(root: Path = ROOT) -> dict:
                     fields.append(dict(name=field["name"], mask=mask,
                                        shift=(mask & -mask).bit_length() - 1,
                                        access=access, reserved=reserved,
-                                       description=description, encoding=encoding))
+                                       description=description, encoding=encoding,
+                                       logical_width=field.get("logical_field_width_bits"),
+                                       encoding_input=field.get("encoding_input"),
+                                       combine_code=field.get("combine_code"),
+                                       read_side_effect=field.get("read_side_effect"),
+                                       write_side_effect=field.get("write_side_effect"),
+                                       write_1_behavior=field.get("write_1_behavior")))
+                    if dvc and field['name'] in ('COVT','CUVT'):
+                        # RM p23..24：高字节含 bit11..4，低字节高半字节含 bit3..0。
+                        high = 0x70 if field['name']=='COVT' else 0x72
+                        fields[-1].update(logical_width=12,
+                            encoding_input='公式中的编码是完整 12 位阈值，当前行仅为其中一部分；低字节低 4 位另属延时。',
+                            combine_code=f'(reg_0x{high:02X} << 4) | (reg_0x{high+1:02X} >> 4)')
                 # 读清除和命令不能走通用 RMW。MODE/FET/均衡/GP 路由须由业务入口拥有。
                 if dvc:
-                    read_clear = address in (0x01, 0x76)
+                    read_clear = read_clear or address in (0x01, 0x76)
                     if address in (0x00, 0x01, 0x51, 0x55, 0x67, 0x68, 0x69,
                                    0x74, 0x75, 0x76, 0x90):
                         writable = 0
+                    # RM p22 COW 是自清触发；p26 V3P3M 是供电超时策略，留给后端。
+                    if address == 0x6D: writable &= ~0x04
+                    if address == 0x77: writable &= ~0x20
                     source_mask = writable if address in (0x52, 0x56, 0x65, 0x66,
-                                                         0x6A, 0x6B, 0x6C, 0x6D,
-                                                         0x6E, 0x77, 0x78, 0x79) else 0
+                                                         0x78, 0x79) else 0
+                    # CM 由装配串数拥有；CMM/CVS/VADC 和 IWT/供电由后端固定策略拥有。
+                    if address == 0x6D: source_mask = writable & 0x38
                     sources = [original["source"]]
                 else:
-                    read_clear = address == 0x59
+                    # V1.0A p40-41：FLAG3.OWD_FLG 也是读清除，不能在普通全读中消耗。
+                    read_clear = read_clear or address in (0x59, 0x5A)
                     if address in (0x40, 0x55, 0x56, 0x57, 0x58, 0x59):
                         writable = 0
                     if address == 0x41:
                         writable &= 0x50  # PD_EN/PUMP_EN；不写 LTCLR/PD_CTL/FET 命令。
                     if address == 0x42:
                         writable &= 0x7E  # 排除 OWD_TRG 和保留位。
-                    source_mask = writable if address in (0x46, 0x47, 0x48) else 0
+                    source_mask = writable if address in (0x46, 0x47, 0x48) else (0x50 if address == 0x41 else 0x40 if address == 0x42 else 0xE0 if address == 0x43 else 0)
                     sources = original["sources"]
                 registers.append(dict(address=address, name=original["name"],
                     reset=original.get("reset_hex", original.get("reset")),

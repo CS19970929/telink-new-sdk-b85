@@ -111,9 +111,8 @@ DEFAULT_INPUTS = ("bms/products/bms_battery_defaults.h", "bms/core/bms_parameter
                   "bms/core/bms_soc_defs.h", "bms/core/bms_soc_profile.h",
                   "bms/core/bms_soc.h", "bms/core/bms_state_store.c", "bms/core/bms_state.h",
                   "bms/app/bms_features.h", "bms/afe/sh3673510/sh3673510_quantize.h",
-                  "bms/core/bms_update_policy.h", "bms/core/bms_afe_register_policy.h")
-# SH3673510 三产品共用默认值；产品文件只保留容量与 OTA 标识，摘要必须覆盖共用输入。
-SHARED_PARAMETERS = "bms/products/sh3673510_protection_config.h"
+                  "bms/core/bms_update_policy.h", "bms/core/bms_afe_register_policy.h",
+                  "bms/products/sh3673510_parameter_checks.h", "bms/afe/sh3673510/sh3673510_ntc.c")
 
 
 def _text(path: Path) -> str:
@@ -136,6 +135,20 @@ def source_profile(root: Path) -> str:
     text = _text(root / "bms/products/d008/d008_product_profile.h")
     name = _macro(text, "D008_PRODUCT_PROFILE", r"D008_PRODUCT_PROFILE_[A-Z0-9_]+")
     return name.removeprefix("D008_PRODUCT_PROFILE_").lower().replace("_", "-")
+
+
+def source_customer_profile(root: Path, product: str) -> dict:
+    """源码中的方案标签只用于构建追溯，不是设备编号或 OTA 更新判据。"""
+    source = _text(root / f"bms/products/{product}/afe_register_config.h")
+    result = {}
+    for key, name in (("name", "BMS_SOURCE_CUSTOMER_NAME"), ("revision", "BMS_SOURCE_CUSTOMER_REVISION")):
+        found = re.search(r"(?m)^#define\s+" + name + r"[ \t]+([^\r\n]+)", source)
+        if found:
+            value = json.loads(found[1])
+            if not isinstance(value, str) or len(value) > 80 or any(ord(ch) < 32 for ch in value):
+                raise ValueError("客户方案标签格式无效")
+            result[key] = value
+    return result if result.get('name') else {}
 
 
 def read_source(root: Path, product: str, profile: str | None = None, *, for_edit=False) -> dict:
@@ -193,8 +206,6 @@ def parameter_inputs_hash(root: Path, product: str, options: dict, replacements=
     paths = list(DEFAULT_INPUTS) + [f"bms/products/{product}/bms_product.h",
                                   f"bms/products/{product}/{product}_protection_config.h",
                                   f"bms/products/{product}/afe_register_config.h"]
-    if product != "d008":
-        paths.append(SHARED_PARAMETERS)
     paths.append("bms/products/d008/d008_product_profile.h" if product == "d008"
                  else "bms/products/sh3673510_defaults.h")
     if product == "d008":

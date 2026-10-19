@@ -20,6 +20,20 @@ def check_sh_register_scenarios_host_check():
         '/* CONTROL */', without_includes(read('bms/afe/sh3673510/sh3673510_control.c')))
     raw = run_c(prefix, ['bms/afe/sh3673510/sh3673510_ntc.c'],
                 flags=['-Wno-unused-parameter', '-Wno-unused-function'], name='sh-registers')
+    import sys
+    from validation_support import ROOT
+    sys.path.insert(0,str(ROOT/'bms_tools'))
+    from configure_parameters import Configuration
+    from afe_source_fields import SourceProtectionFields
+    import build_options
+    config=Configuration(product,build_options.read_source(ROOT,product)['chemistry'])
+    codec=SourceProtectionFields(config)
+    actual={int(a,16):int(v,16) for a,v in re.findall(r'([0-9a-f]{2}):([0-9a-f]{2});',raw)}
+    for address,value in codec.registers().items():
+        register=next(r for r in config.family['registers'] if r['address']==address)
+        mask=sum(f['mask'] for f in register['fields'] if not f['reserved'] and codec.owns(address,f['mask']))
+        assert value is not None and value&mask==actual[address]&mask,(product,address,value,actual[address])
+    print('PASS 源码窗口预计保护编码与真实 SH control 写入逐字段一致')
     evidence({'domain': 'afe_registers', 'product': product, 'trace': raw.strip(),
               'boundary': '默认/量化/完整 control + RAM 寄存器；SPI CRC/时序与芯片模拟量未覆盖'})
 

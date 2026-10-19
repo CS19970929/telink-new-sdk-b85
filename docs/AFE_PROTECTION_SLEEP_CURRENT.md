@@ -21,7 +21,7 @@
 
 ## 2. 参数从哪来（优先级）
 
-1. **编译默认值**：D008 为 `d008_protection_config.h`；D011/D013/D014 的软件保护、AFE 硬件保护、均衡/加热、休眠默认在共用 `sh3673510_protection_config.h`，容量仍在各产品 `dXXX_protection_config.h`。
+1. **编译默认值**：D008 为 `d008_protection_config.h`；D011/D013/D014 的软件保护、AFE 硬件保护、SOC/OCV、均衡/加热、休眠与容量默认分别保存在各产品 `dXXX_protection_config.h`；仅范围检查共用 `sh3673510_parameter_checks.h`。
    电压类默认按 `BMS_PRODUCT_CHEMISTRY` 选 LFP/NMC 表（`*_FOR(c)` 宏）。
 2. **持久配置**：Config journal（schema 4，414 B）中的软件保护、AFE requested profile、
    容量/身份、SOC 曲线、四项休眠、业务许可、校准/SN/BLE 后缀、OTA 标记。

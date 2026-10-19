@@ -75,6 +75,23 @@ int main(void) {
     assert(bms_afe_register_command(req,9,payload,&length)==5 && reads==before);
     held=1;
     assert(bms_afe_register_command(req,9,payload,&length)==0 && reads==before+1);
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    req[2]=0x13;req[5]=0x6D;req[6]=4;req[7]=0;req[8]=4;
+    assert(bms_afe_register_command(req,11,payload,&length)==5);
+    req[6]=0x38;req[7]=4;req[8]=0x28;regs[0x6D]=4;
+    assert(bms_afe_register_command(req,11,payload,&length)==0 && regs[0x6D]==0x28);
+    req[5]=0x77;req[6]=7;req[7]=0x20;req[8]=1;regs[0x77]=0x20;
+    assert(bms_afe_register_command(req,11,payload,&length)==0 && regs[0x77]==0x21);
+    req[5]=0x52;req[6]=31;req[7]=16;req[8]=31;regs[0x52]=16;
+    assert(bms_afe_register_command(req,11,payload,&length)==5 && regs[0x52]==16);
+    req[2]=0x11;req[5]=RC_REG;req[6]=1;
+#endif
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    req[5]=0x5Au;req[6]=0;before=reads;
+    assert(bms_afe_register_command(req,9,payload,&length)==5 && reads==before);
+    req[6]=1;
+    assert(bms_afe_register_command(req,9,payload,&length)==0 && reads==before+1);
+#endif
     io_ok=0;
     assert(bms_afe_register_command(req,9,payload,&length)==7);
     req[2]=0x14;
