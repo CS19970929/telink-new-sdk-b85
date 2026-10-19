@@ -48,6 +48,15 @@ public sealed class AfeRegisterWindow : Window
         AddButton(tools, "导入源码调试文件", Import);
         AddButton(tools, "导出快照", Export);
         AddButton(tools, "打开原 PDF", OpenPdf);
+        AddButton(tools, "用途 / 操作步骤", () => {
+            MessageBox.Show(this,
+                "用途一：离线查地址、每一位定义、原厂编码和 PDF 页。\n"+
+                "用途二：读设备寄存器，确认芯片实际配置是否与参数页的 requested/effective 一致，排查跨档或初始化问题。\n"+
+                "用途三：台架调试时临时改变一个稳定 RW 字段，观察电流、保护延时或 ALARM 行为，再把确认后的设置移回源码客户方案。\n\n"+
+                "流程：读取设备/新会话 → 全部安全地址 → 断开充电和负载 → 进入冻结 → 选中字段输入编码 → 预览 → 写入并读回 → 恢复源码/持久配置。\n\n"+
+                "RC 读取会消耗事件，FLAG2 0x59 与 FLAG3 0x5A 都需要显式读取。写入仅改 AFE RAM；这里不能保存客户出厂方案或替代物理 Gate/保护验收。",
+                "AFE 全寄存器调试用途");return Task.CompletedTask;
+        });
         AddButton(tools, "原厂未决说明", () => {
             MessageBox.Show(this, "原文矛盾不能用目录或 GUI 自动裁定。实装/硅版本、分流器和物理动作须单独核实。\n\n" +
                 _catalog.Issues, "原厂资料边界"); return Task.CompletedTask;
@@ -58,7 +67,7 @@ public sealed class AfeRegisterWindow : Window
         _offlineFamily.SelectionChanged += (_, _) => LoadCatalog();
         _search.TextChanged += (_, _) => Filter();
         _oldSh.Checked += (_, _) => LoadCatalog(); _oldSh.Unchecked += (_, _) => LoadCatalog();
-        top.Children.Add(_status); top.Children.Add(_details);
+        top.Children.Add(_status); top.Children.Add(new ScrollViewer { Content=_details,Height=100,VerticalScrollBarVisibility=ScrollBarVisibility.Auto });
         var bottom = new StackPanel(); DockPanel.SetDock(bottom, Dock.Bottom);root.Children.Add(bottom);
         bottom.Children.Add(new TextBlock { Text = "断连、授权超时和关闭窗口不会解除调试冻结。需显式恢复配置或重启；写入应答丢失时结果未知，先重新读取，禁止盲目重试。快照逐地址读取，非原子采样。", TextWrapping = TextWrapping.Wrap });
         bottom.Children.Add(_log);
@@ -77,6 +86,8 @@ public sealed class AfeRegisterWindow : Window
         AddColumn(_fields, "读回编码", nameof(AfeRegisterField.Actual), 80);
         AddColumn(_fields, "修改编码", nameof(AfeRegisterField.Code), 85, false);
         AddColumn(_fields, "手册含义 / 编码", nameof(AfeRegisterField.Description), 650);
+        _fields.RowHeight=46;
+        _fields.SelectionChanged+=(_,_)=>{if(_fields.SelectedItem is AfeRegisterField field)_details.Text=field.Name+"\n"+field.Description;};
         _registers.SelectionChanged += (_, _) => ShowFields();
         split.Children.Add(_registers);Grid.SetRow(_fields, 1);split.Children.Add(_fields);
         LoadCatalog(); Closing += OnClosing;

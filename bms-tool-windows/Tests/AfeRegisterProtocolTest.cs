@@ -12,6 +12,8 @@ static class Test
         Check(dvc.Rows.Count == 145 && sh.Rows.Count == 90 && old.Rows.Count == 90, "all reference addresses");
         Check(dvc.Rows.Single(r => r.Address == 0x01).ReadClear && !dvc.Rows.Single(r => r.Address == 0x90).Readable, "DVC RC and unresolved address");
         Check(sh.Rows.Single(r => r.Address == 0x59).ReadClear, "SH RC");
+        Check(sh.Rows.Single(r => r.Address == 0x5A).ReadClear, "SH FLAG3 OWD_FLG is also read-clear");
+        Check(sh.Rows.Single(r => r.Address == 0x4A).Fields.Single().Description.Contains("reg_0x49"), "voltage fields preserve full 10-bit combination");
         Check(sh.Rows.All(r => r.Readable), "DVC 0x90 limitation must not affect SH addresses");
         Check(sh.Rows.All(r => r.Fields.Count > 0 && r.Pages.Length > 0), "bit fields have source pages");
         Check(AfeRegisterCatalog.ParseCode("0x0F", 15) == 15, "field encoding parse");

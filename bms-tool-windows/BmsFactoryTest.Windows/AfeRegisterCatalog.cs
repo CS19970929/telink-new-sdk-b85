@@ -65,8 +65,7 @@ public sealed class AfeRegisterCatalog
             foreach (JsonElement f in r.GetProperty("fields").EnumerateArray()) {
                 fields.Add(new AfeRegisterField { Name = f.GetProperty("name").GetString() ?? "", Mask = f.GetProperty("mask").GetByte(),
                     Shift = f.GetProperty("shift").GetInt32(), Access = f.GetProperty("access").GetString() ?? "",
-                    Reserved = f.GetProperty("reserved").GetBoolean(), Description = (f.GetProperty("description").GetString() ?? "") +
-                    " " + f.GetProperty("encoding").GetRawText() });
+                    Reserved = f.GetProperty("reserved").GetBoolean(), Description = DescribeField(f) });
             }
             var sources = r.GetProperty("sources").EnumerateArray().ToArray();
             var source = sources[sources.Length - 1];
@@ -78,6 +77,28 @@ public sealed class AfeRegisterCatalog
                 Pages = string.Join(" / ", sources.Select(s => s.GetProperty("pdf_page").GetInt32())), Pdf = pdf });
         }
         return result;
+    }
+
+    private static string DescribeField(JsonElement field)
+    {
+        var lines = new List<string> { field.GetProperty("description").GetString() ?? "" };
+        void Format(JsonElement item) {
+            if(item.ValueKind==JsonValueKind.Array) { foreach(var value in item.EnumerateArray()) Format(value); }
+            else if(item.ValueKind==JsonValueKind.Object) {
+                if(item.TryGetProperty("code_text",out var code)) lines.Add(code+"："+(item.TryGetProperty("meaning_zh",out var meaning)?meaning.ToString():""));
+                else if(item.TryGetProperty("values",out var values)) {
+                    string unit=item.TryGetProperty("unit",out var u)?u.ToString():"";int index=0;
+                    foreach(var value in values.EnumerateArray())lines.Add($"{index++}：{value} {unit}");
+                } else if(item.TryGetProperty("scale",out var scale)) {
+                    string offset=item.TryGetProperty("offset",out var o)?o.ToString():"0",unit=item.TryGetProperty("unit",out var u)?u.ToString():"";
+                    lines.Add($"完整逻辑值 = 编码 × {scale} + {offset} {unit}");
+                }
+            }
+        }
+        Format(field.GetProperty("encoding"));
+        foreach(string key in new[]{"encoding_input","combine_code","read_side_effect","write_side_effect","write_1_behavior"})
+            if(field.TryGetProperty(key,out var extra) && extra.ValueKind!=JsonValueKind.Null)lines.Add(extra.ToString());
+        return string.Join("\n",lines.Where(line=>line.Length>0));
     }
 
     public static byte ParseCode(string text, int maximum)
