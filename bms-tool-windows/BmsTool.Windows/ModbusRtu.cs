@@ -288,6 +288,9 @@ public static class ModbusRtu
                 0x02 or 0x04 => 10,
                 0x03 or 0x06 => 6,
                 0x05 => 9,
+                0x10 => 18,
+                0x11 or 0x13 => 8,
+                0x12 or 0x14 => 6,
                 _ => 6
             };
         }

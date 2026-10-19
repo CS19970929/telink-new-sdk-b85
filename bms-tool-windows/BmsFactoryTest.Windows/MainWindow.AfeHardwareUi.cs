@@ -111,7 +111,7 @@ public partial class MainWindow
         if (_afeHardwareDeviceInfo is null) return;
         _afeHardwareDeviceInfo.Text =
             $"Backend: {info.BackendName} (0x{info.BackendModel:X4}) · Capability=0x{info.Capabilities:X4} · " +
-            $"Cells={info.CellCount} · Rsense={info.ShuntMicroOhm}uΩ · AFE WDT={info.WatchdogSeconds}s · " +
+            $"Cells={info.CellCount} · Rsense={info.ShuntDisplay} · AFE WDT={info.WatchdogSeconds}s · " +
             $"Interface=v{info.InterfaceVersion} · Apply={info.ApplyStateText} · Error={info.ErrorText}";
     }
 

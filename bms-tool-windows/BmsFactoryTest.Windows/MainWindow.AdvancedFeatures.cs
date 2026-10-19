@@ -49,6 +49,7 @@ public partial class MainWindow
 
         AddLongTermMonitorToolbarToMainPage();
         AddAfeHardwareTab();
+        AddAfeRegisterTab();
         AddEventLogTab();
         AddFlashEnduranceTab();
 

@@ -48,6 +48,20 @@ public sealed record AfeHardwareDeviceInfo(
     ushort LastError,
     ushort InterfaceVersion)
 {
+    public ushort ShuntElementMicroOhm { get; init; }
+    public byte ShuntParallelCount { get; init; }
+    public bool HasExactShunt => ShuntElementMicroOhm != 0 && ShuntParallelCount is >= 1 and <= 16;
+    public string ShuntDisplay => HasExactShunt
+        ? $"{ShuntElementMicroOhm}/{ShuntParallelCount}uΩ ({(decimal)ShuntElementMicroOhm / ShuntParallelCount / 1000m:0.#########}mΩ)"
+        : $"{ShuntMicroOhm}uΩ（旧固件整数模型，精确比例未知）";
+    public uint EffectiveShCurrent(ushort requested, uint stepUv, uint maximumCode)
+    {
+        if (!HasExactShunt) return uint.MaxValue; // 未知比例交由设备校验，不能按667猜测。
+        ulong numerator = (ulong)requested * ShuntElementMicroOhm;
+        ulong denominator = stepUv * 10UL * ShuntParallelCount;
+        ulong steps = Math.Min(maximumCode + 1UL, Math.Max(1UL, (numerator + denominator - 1) / denominator));
+        return (uint)Math.Min(65535UL, (steps * denominator + ShuntElementMicroOhm - 1UL) / ShuntElementMicroOhm);
+    }
     public string BackendName => AfeHardwareProtocolMap.BackendName(BackendModel);
     public string ApplyStateText => ApplyState switch
     {
@@ -207,11 +221,11 @@ public sealed class AfeHardwareParameterModel
         { error = "单体过压恢复值必须小于保护值。"; return false; }
         if ((en & AfeHardwareProtocolMap.CapCuv) != 0 && (raw[6] == 0 || raw[8] <= raw[6]))
         { error = "单体欠压恢复值必须大于保护值。"; return false; }
-        if ((en & AfeHardwareProtocolMap.CapOcd1) != 0 && (raw[10] == 0 || raw[14] >= raw[10]))
+        if ((en & AfeHardwareProtocolMap.CapOcd1) != 0 && (raw[10] == 0 || raw[14] >= (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 ? _deviceInfo.EffectiveShCurrent(raw[10], 5000u, 15u) : raw[10])))
         { error = "放电过流恢复值必须小于 OCD1 阈值。"; return false; }
-        if ((en & AfeHardwareProtocolMap.CapOcd2) != 0 && (raw[12] == 0 || raw[14] >= raw[12]))
+        if ((en & AfeHardwareProtocolMap.CapOcd2) != 0 && (raw[12] == 0 || raw[14] >= (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 ? _deviceInfo.EffectiveShCurrent(raw[12], 10000u, 15u) : raw[12])))
         { error = "放电过流恢复值必须小于 OCD2 阈值。"; return false; }
-        if ((en & AfeHardwareProtocolMap.CapOcc1) != 0 && (raw[16] == 0 || raw[20] >= raw[16]))
+        if ((en & AfeHardwareProtocolMap.CapOcc1) != 0 && (raw[16] == 0 || raw[20] >= (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 ? _deviceInfo.EffectiveShCurrent(raw[16], 1375u, 31u) : raw[16])))
         { error = "充电过流恢复值必须小于 OCC1 阈值。"; return false; }
         if ((en & AfeHardwareProtocolMap.CapOcc2) != 0 && (raw[18] == 0 || raw[20] >= raw[18]))
         { error = "充电过流恢复值必须小于 OCC2 阈值。"; return false; }
@@ -387,6 +401,11 @@ public sealed class AfeHardwareClient
         var info = new AfeHardwareDeviceInfo(
             requested[1], meta[0], meta[1] != 0, meta[2], meta[3], meta[4],
             meta[5] != 0, meta[6], meta[7], meta[8]);
+        try {
+            ushort[] ratio = await _bms.ReadRegistersAsync(0x252C, 2, ct);
+            if (ratio[0] != 0 && ratio[1] is >= 1 and <= 16)
+                info = info with { ShuntElementMicroOhm = ratio[0], ShuntParallelCount = (byte)ratio[1] };
+        } catch (BmsModbusException ex) when (ex.Code == 2) { /* 旧固件不提供追加窗口。 */ }
         return new AfeHardwareSnapshot(requested, effective, info);
     }
 

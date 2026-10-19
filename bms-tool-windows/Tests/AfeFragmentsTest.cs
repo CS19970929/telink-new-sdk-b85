@@ -34,6 +34,25 @@ static class Test {
   m.Rows.Single(x=>x.WireIndex==22).EditValue="100";
   m.Rows.Single(x=>x.WireIndex==23).EditValue="100";
   Check(m.TryBuildCandidate(out var c,out var error)&&c[34]==64,"SCD valid enable: "+error);
+  foreach(var pair in new[]{(Command:(byte)0x10,Length:18),(Command:(byte)0x11,Length:8),
+      (Command:(byte)0x13,Length:8),(Command:(byte)0x12,Length:6),(Command:(byte)0x14,Length:6)}) {
+   var response=new byte[pair.Length-2];response[0]=1;response[1]=0x42;response[2]=pair.Command;
+   byte[] frame=ModbusRtu.Frame(response);
+   Check(ModbusRtu.InferExpectedLength(frame.Take(3).ToArray()) is null,"register fragmented status incomplete");
+   Check(ModbusRtu.InferExpectedLength(frame.Take(4).ToArray())==pair.Length,"register response must not truncate at 6 bytes");
+   response[3]=5;frame=ModbusRtu.Frame(response.Take(4).ToArray());
+   Check(ModbusRtu.InferExpectedLength(frame)==6,"register error response remains six bytes");
+  }
+  var sh=new ushort[35];sh[0]=1;sh[1]=0x3510;sh[10]=100;sh[12]=150;sh[14]=100;
+  sh[16]=100;sh[20]=100;sh[34]=4|8|16;
+  var shInfo=new AfeHardwareDeviceInfo(0x3510,4|8|16,true,667,8,32,false,1,0,2) {
+   ShuntElementMicroOhm=2000,ShuntParallelCount=3
+  };
+  Check(shInfo.EffectiveShCurrent(150,10000,15)==150,"D014 exact OCD2 boundary must remain 15A");
+  m.Load(new(sh,sh,shInfo));
+  Check(m.TryBuildCandidate(out _,out error),"SH recovery is below effective despite equal request: "+error);
+  m.Rows.Single(x=>x.WireIndex==14).EditValue="15.0";
+  Check(!m.TryBuildCandidate(out _,out _),"SH recovery equal to actual threshold rejected");
   Console.WriteLine("PASS AFE MTU23 roundtrip, old firmware, wrong ACK, cancel, SCD, serial delayed response/cancel and per-cell balance mask");
  }
 }

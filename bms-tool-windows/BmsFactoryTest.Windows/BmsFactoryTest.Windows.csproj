@@ -27,4 +27,7 @@
   <ItemGroup>
     <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="afe-register-catalog.json" LogicalName="BmsFactoryTest.AfeRegisterCatalog" />
+  </ItemGroup>
 </Project>
