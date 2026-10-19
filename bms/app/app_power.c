@@ -397,17 +397,11 @@ void task_sleep_enter(u8 e, u8 *p, int n)
 void app_power_process(const volatile uint8_t *sample_due)
 {
     static app_pm_elapsed_ctx_t elapsed_ctx;
-    if (bms_afe_register_debug_held()) {
-        /* 冻结期间不累计新的保护性休眠时间，也不在恢复后补算这段时间。 */
-        (void)app_pm_take_elapsed_seconds(&elapsed_ctx);
-        s_low_power_mode = false;
-        bls_pm_setSuspendMask(SUSPEND_DISABLE);
-        return;
-    }
     bms_afe_aux_measurements_t m;
     app_sleep_status_t protective;
     u32 elapsed_sec = app_pm_take_elapsed_seconds(&elapsed_ctx);
     u8 valid = bms_afe_get_aux_measurements(&m);
+    /* 冻结暂停采样，不暂停强制休眠；无效快照不能撤销已确认的低压/过放。 */
     if (app_protective_sleep_poll(elapsed_sec, &m, valid, &protective)) return;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     u32 pm_block = 0u;
@@ -427,7 +421,7 @@ void app_power_process(const volatile uint8_t *sample_due)
         s_protective_sleep.low_voltage_seconds;
 #endif
 
-    if (!valid) pm_block |= DIAG_PM_BLOCK_SAMPLE_INVALID;
+    if (!valid || bms_afe_register_debug_held()) pm_block |= DIAG_PM_BLOCK_SAMPLE_INVALID;
     if (ota_busy) pm_block |= DIAG_PM_BLOCK_OTA;
     if (flash_busy) pm_block |= DIAG_PM_BLOCK_FLASH;
     if (bus_busy) pm_block |= DIAG_PM_BLOCK_BUS;
@@ -490,7 +484,7 @@ void app_power_process(const volatile uint8_t *sample_due)
     u8 ui_busy = 0u;
     u8 sample_block;
     if (app_sh_explicit_sleep_poll()) return;
-    sample_block = (u8)(!valid || (*sample_due) ||
+    sample_block = (u8)(!valid || bms_afe_register_debug_held() || (*sample_due) ||
         app_current_prevents_suspend(&m, valid));
 #if (UI_KEYBOARD_ENABLE)
     ui_busy = (scan_pin_need || key_not_released) ? 1u : 0u;

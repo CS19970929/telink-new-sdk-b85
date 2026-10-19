@@ -198,6 +198,8 @@ def check_sh_protective_sleep():
     import re
     body = '\n'.join(re.findall(r'^#define APP_SH_SWITCH_WAKE_(?:TAG|MASK)[^\n]*', raw, re.M)) + '\n' + body
     body += '\n' + function(source, 'int app_power_before_suspend(')
+    body += '\n' + function(source, 'static uint8_t app_current_prevents_suspend(')
+    body += '\n' + function(source, 'void app_power_process(')
     fixture = (root / 'tests/fixtures/protective_sleep.c').read_text(encoding='utf-8')
     for enabled in (1, 0):
         run_c('#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE %du\n' % enabled +

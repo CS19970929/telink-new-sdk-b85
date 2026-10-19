@@ -285,6 +285,17 @@ void bms_afe_apply_outputs(void)
 /* 产品低功耗模式固定：DVC 仅用 Shutdown，SH 仅用 Sleep。 */
 uint8_t bms_afe_sleep(void)
 {
+#if BMS_AFE_REGISTER_DEBUG_ENABLE
+    if (s_register_debug_hold) {
+        /* 强制休眠接管调试：只撤销输出和写授权，不恢复配置或开启 MOS。
+         * 之后仍遵守总线静默及其它访问门禁，失败不能恢复调试业务。 */
+        s_guard.output_enabled = 0u;
+        s_register_debug_hold = 0u;
+        bms_afe_hw_access_close();
+        /* 冻结时前一次撤销不能访问 AFE；接管后补做只关闭尝试。 */
+        best_effort_shutdown();
+    }
+#endif
     if (!bms_afe_bus_access_allowed() ||
         (bms_afe_driver_policy.sleep_holds_bus && !runtime_access_allowed())) return 0u;
     inhibit_local();

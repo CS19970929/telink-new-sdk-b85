@@ -28,7 +28,8 @@ static inline uint8_t bms_afe_register_config_apply(void) { return 1u; }
 #if BMS_AFE_REGISTER_DEBUG_ENABLE
 uint8_t bms_afe_register_command(const uint8_t *request, uint32_t length,
                                uint8_t *payload, uint8_t *payload_length);
-/* Guard 拥有调试冻结，断连/超时保持关闭，显式恢复后重新获取完整测量资格。 */
+/* Guard 拥有调试冻结，断连/超时保持关闭；强制休眠可接管，
+ * 普通显式恢复后仍须重新获取完整测量资格。 */
 uint8_t bms_afe_register_debug_held(void);
 uint8_t bms_afe_register_debug_begin(void);
 uint8_t bms_afe_register_debug_restore(void);

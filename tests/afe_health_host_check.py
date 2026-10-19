@@ -16,14 +16,16 @@ guard = r'''
 #include "bms_afe_registers.h"
 const bms_afe_driver_policy_t bms_afe_driver_policy = {5000u,0u,1u};
 static uint32_t now;
-static unsigned c,d,writes,samples;
+static unsigned c,d,writes,samples,initializations,sleep_calls;
 static unsigned set_calls, fail_next_control;
 static uint8_t control_ok=1, balance_ok=1, balance_get_ok=1, balance_used_known, direction_allow_mask;
 static bms_afe_sample_status_t status=BMS_AFE_SAMPLE_OK;
 static int32_t measured_current;
 #if BMS_AFE_REGISTER_DEBUG_ENABLE
 static uint8_t config_ready=1;
+static unsigned access_closes;
 void bms_afe_hw_access_poll(void){}
+void bms_afe_hw_access_close(void){++access_closes;}
 uint8_t bms_afe_driver_register_config_ready(void){return config_ready;}
 #endif
 uint32_t bms_time_ms(void){return now;}
@@ -32,7 +34,7 @@ void bms_features_stop(void){}
 void bms_sw_protection_init(void){}
 void bms_sw_protection_reset_filters(void){}
 uint8_t bms_protection_params_valid(void){return 1;}
-void bms_afe_driver_init(void){}
+void bms_afe_driver_init(void){++initializations;}
 bms_afe_sample_status_t bms_afe_driver_sample(void){
  ++samples;bms_afe_sample_status_t r=status;return r;
 }
@@ -53,7 +55,7 @@ uint8_t bms_afe_driver_get_charge_source_present(uint8_t *p){*p=0;return 1;}
 uint8_t bms_afe_driver_set_balance_mask(uint32_t m,const uint32_t *known_actual){(void)m;balance_used_known=(known_actual!=NULL);return balance_ok;}
 uint8_t bms_afe_driver_get_balance_mask(uint32_t *m){if(!balance_get_ok)return 0;*m=0;return 1;}
 uint8_t bms_afe_driver_apply_protection_config(void){return control_ok;}
-uint8_t bms_afe_driver_sleep(void){return 1;}
+uint8_t bms_afe_driver_sleep(void){++sleep_calls;return 1;}
 static void poll(void){
  bms_afe_sample_status_t r=bms_afe_sample();
  if(r==BMS_AFE_SAMPLE_OK){if(!balance_ok)(void)bms_afe_set_balance_mask(1u, NULL);bms_afe_apply_outputs();}
@@ -157,6 +159,22 @@ int main(void){
  control_ok=1;assert(bms_afe_register_debug_restore() && !bms_afe_register_debug_held());
  assert(!c&&!d && bms_afe_get_remote_allowed_mask()==2u);
  poll();assert(!c&&d); /* 恢复仍保留远程关闭意图，并等待正常样本。 */
+ /* 强制休眠接管冻结，不恢复配置或开MOS；失败仍撤销调试授权。 */
+ for(unsigned restore_failed=0;restore_failed<2;restore_failed++){
+  qualify();assert(bms_afe_register_debug_begin() && !c && !d);
+  if(restore_failed){
+   config_ready=0;assert(!bms_afe_register_debug_restore() && bms_afe_register_debug_held());
+   config_ready=1;
+  }
+  unsigned init_before=initializations, samples_before=samples;
+  unsigned closes_before=access_closes, sleeps_before=sleep_calls;
+  c=d=1u; /* 模拟冻结期间芯片状态变化；强制接管仍须重新尝试关闭。 */
+  assert(bms_afe_sleep()==!restore_failed);
+  assert(!bms_afe_register_debug_held() && access_closes==closes_before+1u);
+  assert(initializations==init_before && samples==samples_before && !c && !d);
+  assert(sleep_calls==sleeps_before+(restore_failed?0u:1u));
+  poll();assert(!c&&!d); /* 恢复通信也不能重新授权输出。 */
+ }
  #endif
  puts("PASS guard：999/1000ms、tick回绕、瞬时/间歇失败无OFF、只关闭不新开、事务持续失败、静默和完整有效读取恢复、配置禁止");
  return 0;

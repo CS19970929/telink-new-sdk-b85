@@ -3,7 +3,8 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
-#define bms_afe_register_debug_held() 0u
+static uint8_t register_debug_hold;
+#define bms_afe_register_debug_held() register_debug_hold
 typedef uint8_t u8;typedef uint32_t u32;
 typedef int GPIO_PinTypeDef;
 #define BMS_AFE_BACKEND 1
@@ -87,7 +88,7 @@ static struct{uint8_t soc_estimate_percent,discharge_fraction_percent;uint32_t c
 static u32 bms_time_ms(void){return now;}
 static unsigned afe_snapshot_reads;
 static int bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*m){
- ++afe_snapshot_reads;*m=measurement;return valid;
+ ++afe_snapshot_reads;*m=measurement;return valid&&!register_debug_hold;
 }
 static int app_flash_lock_restore_enabled(void){return flash_ready;}
 static int bus_mux_get_state(void){return bus_busy;}
@@ -128,6 +129,7 @@ void bms_config_get_sleep(bms_sleep_config_t *config){*config=sleep_config;}
 
 /* PRODUCTION_SOURCE */
 static void reset(void){
+ register_debug_hold=0;
  diag_poll_calls=0;
  acc_high=acc_wake=load_wake=deep_calls=timer_hold_calls=reboot_calls=disconnect_calls=0;ldo_high=adv_enabled=1;
  acc_low_during_shutdown=acc_low_during_sleep=0;
@@ -146,6 +148,41 @@ static void reset(void){
  g_bms_report.cell_min_mv=3300;afe_snapshot_reads=0;
  app_power_process(&s_sample_due);
  assert(afe_snapshot_reads==1u); /* 同一轮深睡/普通Suspend/诊断只采一份快照。 */
+}
+static void test_register_freeze_sleep_priority(void){
+ reset();register_debug_hold=1;app_power_process(&s_sample_due);
+ assert(!s_low_power_mode&&mask==SUSPEND_DISABLE&&!cut_calls&&!deep_calls);
+ /* 命令仍保留500ms应答上限，冻结不能提前返回而丢掉命令。 */
+ now=UINT32_MAX-100u;deepsleep_en=true;uart_busy=1;
+ app_power_process(&s_sample_due);now+=499u;app_power_process(&s_sample_due);
+ assert(!cut_calls);now++;app_power_process(&s_sample_due);
+ assert(cut_calls==1&&afe_shutdown_calls==1&&!output_enabled);
+#if BMS_PRODUCT_SWITCH_SLEEP_ENABLE
+ reset();register_debug_hold=1;acc_high=1;app_power_process(&s_sample_due);
+ assert(deep_calls==1&&s_acc_sleep_committed&&!output_enabled);
+#endif
+ /* 冻结后即使旧报告变为恢复电压，也不能取消既有低压资格。 */
+ for(unsigned upper=0;upper<2;upper++){
+  reset();sleep_config.low_delay_minutes=1u;sleep_config.normal_delay_minutes=upper?1u:2u;
+  g_bms_report.cell_min_mv=upper?2900u:2700u;elapsed=59u;
+  app_power_process(&s_sample_due);assert(!cut_calls);
+  register_debug_hold=1;g_bms_report.cell_min_mv=3300u;elapsed=1u;
+  app_power_process(&s_sample_due);
+  assert(cut_calls==1&&observed_sleep_reason==(upper?BMS_SLEEP_REASON_NORMAL:BMS_SLEEP_REASON_LOW));
+ }
+ reset();g_bms_report.fault_third.bits.cell_uvp=1u;elapsed=179u;
+ app_power_process(&s_sample_due);register_debug_hold=1;
+ g_bms_report.fault_third.bits.cell_uvp=0u;elapsed=1u;app_power_process(&s_sample_due);
+ assert(cut_calls==1&&observed_sleep_reason==BMS_SLEEP_REASON_OVERDISCHARGE);
+ reset();afe_error=1;valid=0;elapsed=1799u;app_power_process(&s_sample_due);
+ register_debug_hold=1;elapsed=1u;app_power_process(&s_sample_due);
+ assert(cut_calls==1&&observed_sleep_reason==BMS_SLEEP_REASON_AFE);
+ /* 无强制请求时冻结继续保留；既有计时没有暂停，也没有伪造AFE故障。 */
+ reset();g_bms_report.cell_min_mv=2700u;elapsed=10u;app_power_process(&s_sample_due);
+ register_debug_hold=1;elapsed=20u;app_power_process(&s_sample_due);
+ assert(register_debug_hold&&s_protective_sleep.low_voltage_seconds==30u&&!afe_error);
+ register_debug_hold=0;g_bms_report.cell_min_mv=3300u;elapsed=0u;app_power_process(&s_sample_due);
+ assert(!s_protective_sleep.low_voltage_seconds);
 }
 static void test_acc_sleep(void){
  reset();acc_high=1;app_power_process(&s_sample_due);
@@ -278,6 +315,7 @@ int main(void){
  elapsed=1u;app_power_process(&s_sample_due);
  assert(cut_calls==1&&observed_sleep_reason==BMS_SLEEP_REASON_LOW);
 
+ test_register_freeze_sleep_priority();
  test_acc_sleep();
  test_low_voltage_sample_wait();
  test_protective_low_voltage_shutdown();

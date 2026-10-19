@@ -23,7 +23,8 @@ typedef enum {
 bms_afe_sample_status_t bms_afe_sample(void);
 /* 应用在功能决策后调用；实际输出仍由 Guard 检查全部授权。 */
 void bms_afe_apply_outputs(void);
-/* DVC 请求 Shutdown，SH 请求 Sleep；门禁拒绝或命令失败返回 0。 */
+/* 强制休眠接管寄存器冻结且保持输出关闭；DVC 请求 Shutdown，SH 请求 Sleep。
+ * 总线静默等门禁拒绝或命令失败返回 0，调用方仍执行 MCU 深睡/断电。 */
 uint8_t bms_afe_sleep(void);
 /* 安全门禁允许时应用独立硬件保护配置。 */
 uint8_t bms_afe_apply_protection_config(void);

@@ -5,7 +5,8 @@
 #include <string.h>
 #include <stdio.h>
 #include "bms_diag.h"
-#define bms_afe_register_debug_held() 0u
+static uint8_t register_debug_hold;
+#define bms_afe_register_debug_held() register_debug_hold
 typedef uint8_t u8;
 typedef uint32_t u32;
 typedef int GPIO_PinTypeDef;
@@ -36,6 +37,8 @@ typedef int GPIO_PinTypeDef;
 #define HCI_ERR_REMOTE_USER_TERM_CONN 19
 #define BLC_ADV_DISABLE 0
 #define SUSPEND_DISABLE 0
+#define SUSPEND_ADV 1
+#define SUSPEND_CONN 2
 typedef struct { u32 epoch_ms; u8 ready; } app_pm_elapsed_ctx_t;
 typedef struct { u32 sample_time_ms; int32_t current_ma; } bms_afe_aux_measurements_t;
 static struct { uint16_t cell_min_mv, pack_voltage_10mv; struct { struct { uint8_t cell_uvp, pack_uvp; } bits; } fault_third; } g_bms_report;
@@ -43,6 +46,8 @@ static struct { u8 soc_estimate_percent, discharge_fraction_percent; u32 cycle_c
 static bms_afe_aux_measurements_t measurement;
 static int valid, afe_error, ota_is_working, device_in_connection_state, flash_ready;
 static bool s_low_power_mode, deepsleep_en;
+static volatile u8 sample_due;
+static int suspend_mask;
 static int tx_busy, ble_pending, uart_ready, uart_entered;
 static u32 reg_irq_src;
 static u8 retained_analog, wakeup_status;
@@ -65,7 +70,7 @@ static void modbus_uart_suspend_enter(void) { ++uart_entered; }
 static void modbus_uart_prepare_deep_sleep(void) { ++comm_sleep_calls; }
 static void gpio_en_interrupt_risc0(int pin,int en) { assert(pin==5&&!en); }
 static u32 bms_time_ms(void) { return now; }
-static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m) { *m=measurement; return valid; }
+static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m) { *m=measurement; return valid&&!register_debug_hold; }
 static u8 bms_error_get(int error) { assert(error==BMS_ERROR_AFE1); return afe_error; }
 static void bms_afe_set_output_enabled(u8 en) { assert(!en); ++output_calls; }
 static u8 bms_afe_sleep(void) { ++afe_calls; return 0u; }
@@ -74,7 +79,8 @@ static u8 bms_state_store_save(u8 s, u8 d, u32 c) { (void)s;(void)d;(void)c; ++s
 static u8 bms_event_log_note_sleep(void) { ++events; return 0u; }
 static int bls_ll_terminateConnection(int r) { assert(r==HCI_ERR_REMOTE_USER_TERM_CONN); return -1; }
 static int bls_ll_setAdvEnable(int en) { assert(!en); return -1; }
-static void bls_pm_setSuspendMask(int mask) { assert(!mask); }
+static void bls_pm_setSuspendMask(int mask) { suspend_mask=mask; }
+static void bls_pm_setManualLatency(int value) { assert(!value); }
 static void bls_pm_setAppWakeupLowPower(u32 t, u8 en) { assert(!t&&!en); }
 /* ALARM/RESET不能在运行时被读取或重新布防。 */
 static int gpio_read(int pin) { assert(pin==0||pin==1); return pins[pin]; }
@@ -107,6 +113,7 @@ static u8 fixture_sleep_poll(u32 seconds, app_sleep_status_t *status)
 }
 static app_sleep_status_t sleep_status;
 static void reset(void) {
+    register_debug_hold=sample_due=0u;s_low_power_mode=0;suspend_mask=-1;
     memset(&s_protective_sleep,0,sizeof(s_protective_sleep));s_protective_sleep_committed=0u;
  sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
  g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
@@ -120,7 +127,42 @@ static void reset(void) {
     pins[0]=0; pins[1]=1; pins[2]=pins[3]=0; /* 全部原有效电平，包括 ON/ALARM/RESET */
     memset(enabled,0,sizeof(enabled));
 }
+static void test_register_freeze_power_process(void) {
+    reset();app_power_process(&sample_due);
+    register_debug_hold=1;s_low_power_mode=1;app_power_process(&sample_due);
+    assert(register_debug_hold&&!s_low_power_mode&&suspend_mask==SUSPEND_DISABLE&&!sleep_calls);
+    assert(!app_power_before_suspend());
+    deepsleep_en=1;tx_busy=1;app_power_process(&sample_due);
+    now+=499u;app_power_process(&sample_due);assert(!sleep_calls);
+    now++;app_power_process(&sample_due);
+    assert(sleep_calls==1u&&afe_calls==1u&&output_calls==1u&&reason==BMS_SLEEP_REASON_COMMAND);
+    assert(app_power_prepare_loop()&&sleep_calls==2u&&afe_calls==1u);
+#if BMS_PRODUCT_SWITCH_SLEEP_ENABLE
+    reset();app_power_process(&sample_due);register_debug_hold=1;pins[0]=1;
+    app_power_process(&sample_due);
+    assert(sleep_calls==1u&&reason==BMS_SLEEP_REASON_SWITCH);
+#endif
+    for(unsigned upper=0;upper<2;upper++) {
+        reset();app_power_process(&sample_due);
+        sleep_config.low_delay_minutes=1u;sleep_config.normal_delay_minutes=upper?1u:2u;
+        g_bms_report.cell_min_mv=upper?2900u:2700u;app_power_process(&sample_due);
+        now+=59000u;app_power_process(&sample_due);assert(!sleep_calls);
+        register_debug_hold=1;g_bms_report.cell_min_mv=3300u;
+        now+=1000u;app_power_process(&sample_due);
+        assert(sleep_calls==1u&&reason==(upper?BMS_SLEEP_REASON_NORMAL:BMS_SLEEP_REASON_LOW));
+    }
+    reset();app_power_process(&sample_due);g_bms_report.fault_third.bits.pack_uvp=1u;
+    app_power_process(&sample_due);now+=179000u;app_power_process(&sample_due);
+    register_debug_hold=1;g_bms_report.fault_third.bits.pack_uvp=0u;
+    now+=1000u;app_power_process(&sample_due);
+    assert(sleep_calls==1u&&reason==BMS_SLEEP_REASON_OVERDISCHARGE);
+    reset();app_power_process(&sample_due);afe_error=1;valid=0;
+    app_power_process(&sample_due);now+=1799000u;app_power_process(&sample_due);
+    register_debug_hold=1;now+=1000u;app_power_process(&sample_due);
+    assert(sleep_calls==1u&&reason==BMS_SLEEP_REASON_AFE);
+}
 int main(void) {
+    test_register_freeze_power_process();
     reset();sleep_config.afe_delay_minutes=1u;valid=0;afe_error=1;
     assert(!fixture_sleep_poll(1799u,&sleep_status));assert(fixture_sleep_poll(1u,&sleep_status));
     assert(reason==BMS_SLEEP_REASON_AFE); /* 旧配置槽不能改变固定30分钟。 */
