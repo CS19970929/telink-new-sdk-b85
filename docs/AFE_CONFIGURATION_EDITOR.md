@@ -5,8 +5,10 @@
 
 ## 源码阶段操作
 
-VS Code 执行任务 **BMS: 修改源码参数与 AFE 寄存器配置**，或在原编译窗口点击
-**保护参数 / AFE 位配置**。也可从仓库根执行：
+双击 [configure_parameters.cmd](../bms_tools/configure_parameters.cmd) 即可打开编译前配置窗口，
+在窗口内选择 D008/D011/D013/D014；启动入口依赖本机 Python 与 Tk。
+也可在 VS Code 执行任务 **BMS: 修改源码参数与 AFE 寄存器配置**，或在原编译窗口点击
+**保护参数 / AFE 位配置**。命令行入口为：
 
 ```powershell
 python -X utf8 -B bms_tools/configure_parameters.py --product d014
