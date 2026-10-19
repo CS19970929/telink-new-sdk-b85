@@ -86,13 +86,13 @@ PM 没有新增无界重试。DVC I2C、SH SPI 保留其 timeout；SDK Flash 擦
 |---|---|---|
 | D008 ACC DeepSleep | PA0 低电平（开关 ON），走完整正常启动 | 无 200 ms 定时采样，无 PB1 负载 PAD，无 UART/一线通/BLE 业务唤醒 |
 | D008 PC4 断电 | 外部电源网络恢复 MCU 供电；具体开关/充电复电条件须板测 | MCU 断电时不能靠内部 tick、BLE 或软件 GPIO 唤醒 |
-| SH DeepSleep，入睡时 OFF | PA0 低电平 ON；PB1/INT_WK、PC0/ALARM、PC1/RESET 相对入睡电平的变化 | 不启用 UART RX PAD；PD3/CMNT_WK 未配置为该深睡入口的独立 PAD；无采样/BLE定时唤醒 |
-| SH DeepSleep，入睡时 ON | 其他三个 PAD 变化仍可启动；开关先 OFF 再 ON 恢复工作 | 开关仅 OFF 不恢复 BLE/AFE/通信业务 |
-| SH 普通 Suspend | 定时采样、BLE 调度、PC3 UART RX 低，以及开关/INT_WK/ALARM/RESET 的配置电平变化 | 不等同于停业务的 DeepSleep |
+| SH DeepSleep，入睡时 OFF | PA0 低电平 ON；PB1/INT_WK 相对入睡电平的变化 | 不启用 UART RX、ALARM、RESET PAD；PD3/CMNT_WK 未配置为该深睡入口的独立 PAD；无采样/BLE定时唤醒 |
+| SH DeepSleep，入睡时 ON | PB1/INT_WK 变化仍可启动；开关先 OFF 再 ON 恢复工作 | 开关仅 OFF 不恢复 BLE/AFE/通信业务 |
+| SH 普通 Suspend | 定时采样、BLE 调度、PC3 UART RX 低，以及开关/INT_WK 的配置电平变化 | 不等同于停业务的 DeepSleep；ALARM/RESET 不参与 |
 
-SH 深睡的三个外部 PAD 使用入睡时相反电平布防，以免稳定的有效电平导致立即拒睡。PAD 是电平唤醒，表中“变化”要求信号到达布防电平并满足实际硬件时序，不是软件保证捕获任意窄脉冲。
+SH 深睡的 INT_WK 使用入睡时相反电平布防，以免稳定的有效电平导致立即拒睡。PAD 是电平唤醒，表中“变化”要求信号到达布防电平并满足实际硬件时序，不是软件保证捕获任意窄脉冲。
 
-SH 在开关 ON 状态下入睡时，`DEEP_ANA_REG6` 保存标记与其他三个 PAD 电平。随后单独 OFF 会产生一次硬件启动，但 `main()` 在 watchdog、BLE、AFE 和业务初始化前重新深睡，改等 ON。其他 PAD 同时改变则保留正常启动。标记仅在 DeepSleep 保留，watchdog/reset/断电不沿用；正常启动清除。宏关闭只关闭开关触发，不擅自修改既有开关唤醒用途。
+SH 在开关 ON 状态下入睡时，`DEEP_ANA_REG6` 保存标记与 INT_WK 电平。随后单独 OFF 会产生一次硬件启动，但 `main()` 在 watchdog、BLE、AFE 和业务初始化前重新深睡，改等 ON。INT_WK 同时改变则保留正常启动。标记仅在 DeepSleep 保留，watchdog/reset/断电不沿用；正常启动清除。宏关闭只关闭开关触发，不擅自修改既有开关唤醒用途。ALARM/RESET 自 2026-10-19 起仅启动时配置高阻、关闭数字输入/上下拉/PAD 唤醒，运行时不参与判定，见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md#未使用的-afe-引脚与-int_wk)。
 
 SH 普通 Suspend 的 UART 首个唤醒帧被整帧丢弃；RX 高且无新边沿超过 5 ms 后清理残帧。主站需发唤醒帧、留帧尾间隔并重发有效请求；可先以 20 ms 联调，最短间隔待板测。定时采样唤醒不会刷新串口 30 秒静默计时，任意 PAD 唤醒则保守刷新。
 
@@ -101,9 +101,9 @@ SH 普通 Suspend 的 UART 首个唤醒帧被整帧丢弃；RX 高且无新边�
 本次回看了以下原 PDF 完整相关页，型号后缀/硅版本及板级连接仍沿用 [AFE资料指南](AFE_REFERENCE_GUIDE.md) 的未决边界：
 
 - [DVC1124-2 DS V1.1](../references/afe/AFE_完整开发参考库_20261005/sources/DVC1124-2数据手册_V1.1.pdf) 物理第 12 页：Shutdown 的芯片唤醒包含 I2C 唤醒信号、PACK 高于 VTOP 2 V 以上、LOAD 高于 2 V；Shutdown 不是 DVC 的 Sleep，不能套用 Sleep 的定时/电流唤醒。本项目选择 Shutdown；MCU 完整启动通过 `dvc1124_boot.c` 的现有 I2C 脉冲/复位流程恢复。AFE 受充电或负载唤醒不能证明 PC4 供电或 PA0 MCU PAD 也恢复。
-- [SH36735XX CV1.0A](../references/afe/AFE_完整开发参考库_20261005/sources/SH36735XX%20CV1.0A.pdf) 物理第 10 页 §7.1.3：`SCONF1=0xAA` 进入 Sleep，关闭 CADC/WDT、电压电流保护、FET/charge pump/均衡；可由 MCU 清 SCONF1、已使能的充电/负载检测退出。当前代码 `CGR_WK=1`、`WK_INT=1`，默认 `LD_WK=OFF`，因此没有启用额外负载连接/断开唤醒。AFE 的 ALARM 脉冲和 MCU PAD 仍需板级链路成立；不是通过 SPI/UART 数据直接唤醒 MCU。
+- [SH36735XX CV1.0A](../references/afe/AFE_完整开发参考库_20261005/sources/SH36735XX%20CV1.0A.pdf) 物理第 10 页 §7.1.3：`SCONF1=0xAA` 进入 Sleep，关闭 CADC/WDT、电压电流保护、FET/charge pump/均衡；可由 MCU 清 SCONF1、已使能的充电/负载检测退出。当前代码 `CGR_WK=1`、`WK_INT=1`，默认 `LD_WK=OFF`，因此没有启用额外负载连接/断开唤醒。AFE 可自行退出 Sleep 并产生 ALARM 脉冲，但当前 PC0 的 MCU PAD 已禁用，不能借此唤醒 MCU；MCU 的开关/INT_WK 路径仍需实际板级链路成立。
 
-本次只改变 PM 的拒睡策略，不改两后端的寄存器命令、保护参数、Flash/协议/OTA 布局、唤醒引脚和恢复资格。深睡期间 MCU 软件保护停止运行，不能把“软件已提交休眠”写成物理保护或零功耗证明。
+原 PM 拒睡策略修改不改变两后端的寄存器命令、保护参数、Flash/协议/OTA 布局和恢复资格；2026-10-19 另按用户要求移除 SH ALARM/RESET 的运行时唤醒用途。深睡期间 MCU 软件保护停止运行，不能把“软件已提交休眠”写成物理保护或零功耗证明。
 
 ## 8. 当前证据与待验证项
 

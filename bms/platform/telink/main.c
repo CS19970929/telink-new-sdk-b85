@@ -88,6 +88,20 @@ _attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
     gpio_write(BMS_BOARD_MCU_LDO_PIN, 1u);
     gpio_set_input_en(BMS_BOARD_MCU_LDO_PIN, 0u);
     gpio_set_output_en(BMS_BOARD_MCU_LDO_PIN, 1u);
+#else
+    /* ALARM/RESET是AFE开漏输出（SH36735XX CV1.0A原PDF第4页），目前不使用。
+     * 每次启动仅配置一次：高阻、无上下拉、关闭数字输入和PAD唤醒。
+     * 必须早于boot_sleep_hold，避免深睡保留的唤醒使能再次参与入睡。 */
+    static const GPIO_PinTypeDef unused_afe_pins[] = {
+        BMS_BOARD_AFE_ALARM_PIN, BMS_BOARD_AFE_RESET_OUT_PIN
+    };
+    for (u8 i = 0u; i < sizeof(unused_afe_pins) / sizeof(unused_afe_pins[0]); ++i) {
+        gpio_set_output_en(unused_afe_pins[i], 0);
+        gpio_set_input_en(unused_afe_pins[i], 0);
+        gpio_set_func(unused_afe_pins[i], AS_GPIO);
+        gpio_setup_up_down_resistor(unused_afe_pins[i], PM_PIN_UP_DOWN_FLOAT);
+        cpu_set_gpio_wakeup(unused_afe_pins[i], Level_Low, 0);
+    }
 #endif
 
 	clock_init(SYS_CLK_TYPE);

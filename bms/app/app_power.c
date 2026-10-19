@@ -125,22 +125,9 @@ static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 /* B85 pm.h：REG6在深睡保留，watchdog/芯片复位/断电清零；本字节仅由PM持有。
- * 低3位保存其他唤醒输入；命令/低压在开关ON时入睡，OFF只允许重新布防ON。 */
+ * bit0保存INT_WK入睡电平；命令/低压在开关ON时入睡，OFF只允许重新布防ON。 */
 #define APP_SH_SWITCH_WAKE_TAG 0xa8u
-#define APP_SH_SWITCH_WAKE_MASK 0xf8u
-static u8 app_sh_other_wakeup_levels(void)
-{
-    return (gpio_read(BMS_BOARD_INT_WK_MCU_PIN) ? 1u : 0u) |
-        (gpio_read(BMS_BOARD_AFE_ALARM_PIN) ? 2u : 0u) |
-        (gpio_read(BMS_BOARD_AFE_RESET_OUT_PIN) ? 4u : 0u);
-}
-
-static void app_sh_set_other_wakeup(u8 levels)
-{
-    cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN, (levels & 1u) ? Level_Low : Level_High, 1);
-    cpu_set_gpio_wakeup(BMS_BOARD_AFE_ALARM_PIN, (levels & 2u) ? Level_Low : Level_High, 1);
-    cpu_set_gpio_wakeup(BMS_BOARD_AFE_RESET_OUT_PIN, (levels & 4u) ? Level_Low : Level_High, 1);
-}
+#define APP_SH_SWITCH_WAKE_MASK 0xfeu
 
 /* GPIO/clock初始化之后、watchdog/BLE/AFE/业务初始化之前调用。
  * 返回1仅重复本保持动作；不读写Flash、不访问AFE、不恢复通信供电。 */
@@ -150,23 +137,24 @@ u8 app_power_boot_sleep_hold(void)
 #if BMS_PRODUCT_SWITCH_ENABLE
     if ((pm_get_wakeup_src() & WAKEUP_STATUS_PAD) &&
         (retained & APP_SH_SWITCH_WAKE_MASK) == APP_SH_SWITCH_WAKE_TAG) {
-        static const GPIO_PinTypeDef inputs[] = { BMS_BOARD_SWITCH_PIN,
-            BMS_BOARD_INT_WK_MCU_PIN, BMS_BOARD_AFE_ALARM_PIN, BMS_BOARD_AFE_RESET_OUT_PIN };
+        static const GPIO_PinTypeDef inputs[] = { BMS_BOARD_SWITCH_PIN, BMS_BOARD_INT_WK_MCU_PIN };
         u8 i;
         for (i = 0u; i < sizeof(inputs) / sizeof(inputs[0]); ++i) {
             gpio_set_func(inputs[i], AS_GPIO);
             gpio_set_input_en(inputs[i], 1);
             gpio_set_output_en(inputs[i], 0);
         }
-        /* 其他PAD同时改变时，保留其正常唤醒；仅过滤单独的开关OFF。 */
-        if (!board_switch_is_on() && app_sh_other_wakeup_levels() == (retained & 7u)) {
+        /* INT_WK同时改变时保留正常唤醒；仅过滤单独的开关OFF。 */
+        if (!board_switch_is_on() &&
+            (gpio_read(BMS_BOARD_INT_WK_MCU_PIN) ? 1u : 0u) == (retained & 1u)) {
             gpio_set_func(BMS_BOARD_CMNT_EN_PIN, AS_GPIO);
             gpio_write(BMS_BOARD_CMNT_EN_PIN, 0);
             gpio_set_input_en(BMS_BOARD_CMNT_EN_PIN, 0);
             gpio_set_output_en(BMS_BOARD_CMNT_EN_PIN, 1);
             cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
             cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 1);
-            app_sh_set_other_wakeup(retained & 7u);
+            cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN,
+                (retained & 1u) ? Level_Low : Level_High, 1);
             (void)cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
             return 1u; /* PAD竞争返回后重新检查；ON或其他输入改变才放行。 */
         }
@@ -191,20 +179,20 @@ static void app_protective_sleep_hold(void)
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     return; /* PC4 已拉低，禁止继续采样、通信或重复保存。 */
 #else
-    u8 levels = app_sh_other_wakeup_levels();
+    u8 wake_high = gpio_read(BMS_BOARD_INT_WK_MCU_PIN) ? 1u : 0u;
     /* UART 只唤醒普通 Suspend，持续串口活动不能打断已提交的深睡。 */
     cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
     gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 0);
     reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
 #if BMS_PRODUCT_SWITCH_ENABLE
     u8 switch_on = board_switch_is_on();
-    analog_write(DEEP_ANA_REG6, switch_on ? APP_SH_SWITCH_WAKE_TAG | levels : 0u);
+    analog_write(DEEP_ANA_REG6, switch_on ? APP_SH_SWITCH_WAKE_TAG | wake_high : 0u);
     cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, switch_on ? Level_High : Level_Low, 1);
 #else
     analog_write(DEEP_ANA_REG6, 0u);
     cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 0);
 #endif
-    app_sh_set_other_wakeup(levels);
+    cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN, wake_high ? Level_Low : Level_High, 1);
     bms_diag_sleep_committed();
     (void)cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
 #endif
@@ -396,8 +384,6 @@ int app_power_before_suspend(void)
     cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 0);
 #endif
     app_protective_wakeup_pin(BMS_BOARD_INT_WK_MCU_PIN);
-    app_protective_wakeup_pin(BMS_BOARD_AFE_ALARM_PIN);
-    app_protective_wakeup_pin(BMS_BOARD_AFE_RESET_OUT_PIN);
     modbus_uart_suspend_enter();
     return 1;
 }

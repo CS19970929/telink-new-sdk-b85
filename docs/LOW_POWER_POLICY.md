@@ -66,7 +66,8 @@ PC4 高，并以 PA0 低电平唤醒。显式命令关机继续拉低 PC4。
 拉低 PC4，软件不检测充电器是否维持供电；实际断电效果取决于板级电源电路。
 本次只完成源码/差异审查并同步回归场景，未运行测试、编译或实板验证，未生成 BIN。
 
-SH 深睡关闭 CMNT_EN；INT_WK、ALARM、RESET 等 PAD 等待输入改变，静态电平不拒睡。
+SH 深睡关闭 CMNT_EN；INT_WK PAD 等待输入改变，静态电平不拒睡。
+ALARM/RESET 仅启动时设高阻并禁用唤醒，运行时不使用。
 开关OFF时等待ON；ON状态下命令/低压入睡后的OFF在业务初始化前重新深睡，
 再ON才恢复工作，具体保留标记及SDK边界见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。SDK 返回后仅重设 PAD 并重试，
 不恢复 BLE/采样业务、不重复保存或发送 AFE 命令。真正 deep sleep 唤醒走完整启动。

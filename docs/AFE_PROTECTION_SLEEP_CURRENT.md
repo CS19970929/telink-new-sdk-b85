@@ -192,10 +192,11 @@ guard 只有在"完整业务轮次成功 + 配置一致 + 完整测量 + 必要�
 - **保护性深睡**：一旦提交就**锁存**，不再回到业务；只执行一次收尾（关输出、通知 AFE、
   需要时保存 State/Event、断 BLE、关广播、禁 Suspend）。
 - D008：AFE 发 Shutdown 后拉低 `MCU_LDO`，MCU 断电；唤醒走完整启动。
-- SH：AFE 发 Sleep，关闭 CMNT_EN，强制 DeepSleep；开关 OFF 时用 `DEEP_ANA_REG6` 存
-  "开关唤醒标签 + 其他 PAD 电平"，单独开关 OFF 不入睡，直到其他输入也稳定。
-- 唤醒源：32 kHz 定时器（下一次采样）、PAD（开关/ACC/负载检测/INT_WK/ALARM/RESET_OUT）；
-  UART 只唤醒普通 Suspend，不打断已提交的深睡。
+- SH：尝试 AFE Sleep，关闭 CMNT_EN，强制 DeepSleep；入睡时开关 ON 才用 `DEEP_ANA_REG6` 存
+  "开关唤醒标签 + INT_WK 电平"。随后单独 OFF 会在业务初始化前重新深睡，再 ON 或 INT_WK 改变才正常启动。
+- SH 普通 Suspend 保留 200 ms 采样、BLE 调度、开关/INT_WK/UART PAD；DeepSleep 只保留开关/INT_WK，
+  ALARM/RESET_OUT 当前不使用，仅启动时配置高阻并禁用唤醒。UART 不打断已提交的深睡。
+  D008 的 ACC/断电恢复边界见 [休眠梳理](SLEEP_LOGIC_REVIEW.md)。
 
 ### 7.3 失败与边界
 

@@ -27,15 +27,16 @@ AFE、存储、BLE 控制失败不撤销请求；watchdog 总线静默期间不�
 OTA 可被中断，未保存的状态可能丢失，这属于强制深睡的明确取舍。
 
 UART RX 的 PAD 唤醒与 RISC0 中断在强制深睡入口关闭，持续串口不能取消深睡。
-INT_WK、ALARM、RESET 的 PAD 唤醒继续等待输入变化。开关按“OFF保持休眠，ON恢复工作”处理：
+INT_WK 的 PAD 唤醒继续等待输入变化。ALARM、RESET 不参与任何运行时判断或唤醒。
+开关按“OFF保持休眠，ON恢复工作”处理：
 
 - 入睡时开关 OFF：直接设 PA0 低电平（ON）唤醒。
 - 命令或低压入睡时开关 ON：不能直接设低电平，否则立即拒睡。先设高电平，
-  用 B85 `DEEP_ANA_REG6`（0x35）保存过滤标记与其他三个 PAD 的入睡电平。
+  用 B85 `DEEP_ANA_REG6`（0x35）保存过滤标记与 INT_WK 的入睡电平（bit0）。
 - 后续 OFF 会使 MCU 短暂硬件启动。`main()` 在 GPIO/clock 初始化后、watchdog 启动及
   `user_init_normal()` 前调用 `app_power_boot_sleep_hold()`。若只有开关变为 OFF，
   保持通信供电关闭，不初始化 BLE/AFE/业务、不保存 Flash，改为低电平唤醒并重新深睡。
-  再次 ON 才放行正常启动；其他 PAD 同时改变仍保留正常唤醒。
+  再次 ON 才放行正常启动；INT_WK 同时改变仍保留正常唤醒。
 - SDK 若因竞争返回，启动保持入口重新检查输入；OFF继续尝试深睡，ON或其他输入变化
   才放行。这里保证不恢复业务，并非宣称 OFF 完全不产生 MCU 硬件启动电流脉冲。
 
@@ -44,6 +45,33 @@ watchdog、芯片复位、RESET和断电清零；不是旧的 `USED_DEEP_ANA_REG
 正常启动清除标记；无有效标记或非 PAD 启动不套用该过滤。
 若 SDK 因 PAD 竞争返回，仅重设 PAD 并重试深睡，不返回业务，也不重复保存或发送 AFE 命令。
 真正深睡唤醒走完整启动、AFE 重配及保护资格恢复；不能凭旧缓存恢复 MOS。
+
+## 未使用的 AFE 引脚与 INT_WK
+
+2026-10-19 按用户确认，D011/D013/D014 的 PC0/`BMS_BOARD_AFE_ALARM_PIN`、
+PC1/`BMS_BOARD_AFE_RESET_OUT_PIN` 当前不使用。`main()` 在 `gpio_init()` 之后、
+启动休眠保持之前只配置一次：GPIO、高阻、输出关闭、数字输入关闭、无内部上下拉、
+PAD 唤醒禁用。运行时不再读取、重新配置、布防或保存其电平；AFE 重初始化也不再操作它们。
+依据 [SH36735XX CV1.0A 原 PDF](../references/afe/AFE_完整开发参考库_20261005/sources/SH36735XX%20CV1.0A.pdf)
+物理第 4 页表 1，ALARM（29 脚）和 RESET（34 脚）均为 AFE 开漏输出，MCU 不得驱动。
+固定电气配置不表示网络必须为固定高/低电平；外部电压仍由实际板级网络决定。
+这里取消的是 MCU 对两个引脚的用途；AFE 内部保护、ALARM 寄存器配置与 SPI 故障/复位标志恢复保持原流程。
+
+PB1/`BMS_BOARD_INT_WK_MCU_PIN` 是板级输入，当前软件用途如下：
+
+| 场景 | 当前逻辑 |
+|---|---|
+| AFE 初始化 | 配置 MCU 输入、关闭输出，初始启用高电平 PAD 唤醒；入睡前会重新布防 |
+| 普通 Suspend / MCU DeepSleep | 采样当前电平，低则等高、高则等低；稳定高电平本身不阻止 MCU 睡眠 |
+| 开关 ON 入睡后再拨 OFF | 用保留的 PB1 电平过滤单独 OFF；PB1 同时改变则允许完整启动 |
+| 尝试 AFE Sleep | `sh3673510_control_sleep()` 发现 PB1 为高即返回失败，不发送 Sleep；PB1 低且控制层就绪才继续芯片休眠流程 |
+
+最后一项不阻止已提交的 MCU DeepSleep：应用不因 AFE Sleep 失败撤销深睡。
+PB1 高时可能出现 MCU 已睡而 AFE 仍运行，整板电流需据此区分。PB1 未用于采样有效性、
+AFE 通信故障确认、MOS 保护恢复判据，也没有独立 ISR 或软件去抖；实际入睡前的相反电平布防由 PM 持有。
+软件不能仅凭网络名证明 PB1 的充电/负载来源，具体电路、电平与脉冲持续时间仍须各板验证。
+AFE 的充电器唤醒及 ALARM 输出见原 PDF 物理第 10 页 §7.1.3；取消 ALARM PAD 后，
+AFE 自行唤醒不再通过 PC0 唤醒 MCU，MCU 须由开关或 PB1 的有效布防电平恢复。
 
 ## 开关休眠宏
 
@@ -94,6 +122,22 @@ AFE 依据 SH36735XX CV1.0A 原 PDF 第 10 页，见 [AFE资料指南](AFE_REFER
 SDK 接口/库调用、异常路径与差异审查；
 未执行编译、host 回归、资源检查或生成 BIN。后续按授权执行 `sh_power_host_check.py`、
 `uart_ownership_host_check.py`、`sh3673510_comm_mode_check.py` 及公共改动四产品检查。
+
+2026-10-19 取消 ALARM/RESET 运行时用途后的验证（工作树基于 `08656c09`，dirty=1）：
+
+- D011/D013/D014 各执行 `sh_power_host_check.py` 通过。新增真实启动配置代码执行，
+  检查继承的输入/输出/上下拉/唤醒使能被关闭；ALARM/RESET 全部四种电平组合及翻转
+  不释放 OFF 启动保持，运行时读取/布防这两个脚会令夹具失败；INT_WK 两种入睡电平、
+  开关休眠宏 0/1、命令、失败重试、普通 Suspend 与 tick 回绕场景通过。
+- D011 `sh3673510_d011_integration_check.py`、D014 `d014_configuration_contract_check.py`、
+  D011/D014 `sh3673510_comm_mode_check.py`、D014 `uart_ownership_host_check.py` 通过。
+  使用当前 `tests/validation_catalog.py` 的入口；产品文档中旧名 D013/D014 integration 脚本并不存在，未计作执行项。
+- 四产品当前源码 `sources --check`、开发模式 `link --jobs 4`、`resources` 通过；
+  四产品链接均 0 errors / 0 warnings，未生成 BIN，未烧录/OTA。
+  D008 使用源码选择的 16S LFP；D014 为当时源码的 8S NMC。构建包含用户已有配置修改，
+  本轮提交只包含引脚逻辑、相关测试和说明，不收录这些预先暂存的参数文件。
+- 日志位于本机 `%LOCALAPPDATA%/CodexTemp/bms-sh-unused-pins-20261019/`；
+  这是软件与链接证据，不是实板功耗、PAD 竞争或物理保护验收。
 
 实板须覆盖三个产品：开关关闭立即请求、宏0/1、低压到期与持续串口/OTA并发；AFE失联与保存失败；
 命令ON入睡→OFF不恢复通信/MOS→ON正常启动、其他PAD并发以及watchdog/reset标记清除；

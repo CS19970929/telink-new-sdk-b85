@@ -152,8 +152,33 @@ def check_sh_protective_sleep():
     root = Path(__file__).resolve().parents[1]
     source = selected_source(root / 'bms/app/app_power.c')
     startup = (root / 'bms/platform/telink/main.c').read_text(encoding='utf-8')
+    unused_start = startup.index('static const GPIO_PinTypeDef unused_afe_pins[]')
+    unused_config = startup[unused_start:startup.index('#endif', unused_start)]
+    assert startup.index('gpio_init(!deepRetWakeUp)') < unused_start < startup.index('while (app_power_boot_sleep_hold())')
     assert startup.index('clock_init(SYS_CLK_TYPE)') < startup.index('while (app_power_boot_sleep_hold())')
     assert startup.index('while (app_power_boot_sleep_hold())') < startup.index('wd_start()') < startup.index('user_init_normal()')
+    run_c(r'''
+    #include <stdint.h>
+    #include <assert.h>
+    typedef uint8_t u8;
+    typedef int GPIO_PinTypeDef;
+    #define BMS_BOARD_AFE_ALARM_PIN 0
+    #define BMS_BOARD_AFE_RESET_OUT_PIN 1
+    #define AS_GPIO 1
+    #define PM_PIN_UP_DOWN_FLOAT 0
+    #define Level_Low 0
+    static int input[2]={1,1}, output[2]={1,1}, pull[2]={1,1}, wake[2]={1,1}, calls[2];
+    static void gpio_set_output_en(int pin,int en) { assert(!en); output[pin]=en; ++calls[pin]; }
+    static void gpio_set_input_en(int pin,int en) { assert(!en); input[pin]=en; ++calls[pin]; }
+    static void gpio_set_func(int pin,int func) { assert(!output[pin]&&func==AS_GPIO); ++calls[pin]; }
+    static void gpio_setup_up_down_resistor(int pin,int value) { pull[pin]=value; ++calls[pin]; }
+    static void cpu_set_gpio_wakeup(int pin,int level,int en) { (void)level; wake[pin]=en; ++calls[pin]; }
+    int main(void) {
+    /* STARTUP */
+        for(int pin=0;pin<2;++pin) assert(!input[pin]&&!output[pin]&&!pull[pin]&&!wake[pin]&&calls[pin]==5);
+        return 0;
+    }
+    '''.replace('/* STARTUP */', unused_config), name='sh-unused-afe-pins')
     start = source.index('#define APP_COMMAND_REPLY_MS')
     end = source.index('static app_protective_sleep_t s_protective_sleep;', start)
     body = source[start:end] + 'static app_protective_sleep_t s_protective_sleep;\n'
@@ -161,7 +186,6 @@ def check_sh_protective_sleep():
     body += policy[policy.index('static uint32_t sleep_elapsed_limit('):]
     body += '\n'.join(function(source, signature) for signature in (
         'static u32 app_pm_take_elapsed_seconds(',
-        'static u8 app_sh_other_wakeup_levels(', 'static void app_sh_set_other_wakeup(',
         'u8 app_power_boot_sleep_hold(',
         'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
         'static void app_prepare_deep_sleep(',

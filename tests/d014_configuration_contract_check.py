@@ -189,8 +189,6 @@ def check_sh3673510_d014_integration_check():
     for token in (
         "BMS_BOARD_SWITCH_PIN",
         "BMS_BOARD_INT_WK_MCU_PIN",
-        "BMS_BOARD_AFE_ALARM_PIN",
-        "BMS_BOARD_AFE_RESET_OUT_PIN",
         "BMS_BOARD_CMNT_EN_PIN",
         "BMS_BOARD_CMNT_WK_PIN",
     ):

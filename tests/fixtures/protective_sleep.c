@@ -76,15 +76,16 @@ static int bls_ll_terminateConnection(int r) { assert(r==HCI_ERR_REMOTE_USER_TER
 static int bls_ll_setAdvEnable(int en) { assert(!en); return -1; }
 static void bls_pm_setSuspendMask(int mask) { assert(!mask); }
 static void bls_pm_setAppWakeupLowPower(u32 t, u8 en) { assert(!t&&!en); }
-static int gpio_read(int pin) { assert(pin>=0&&pin<4); return pins[pin]; }
+/* ALARM/RESET不能在运行时被读取或重新布防。 */
+static int gpio_read(int pin) { assert(pin==0||pin==1); return pins[pin]; }
 static void gpio_write(int pin, int en) { assert(pin==BMS_BOARD_CMNT_EN_PIN&&!en); }
 static void cpu_set_gpio_wakeup(int pin, int level, int en) {
-    assert(pin>=0&&pin<6&&pin!=4); if(pin==5) assert(!en); levels[pin]=level; enabled[pin]=en; ++pad_calls;
+    assert(pin==0||pin==1||pin==5); if(pin==5) assert(!en); levels[pin]=level; enabled[pin]=en; ++pad_calls;
 }
 static int cpu_sleep_wakeup(int mode, int source, u32 tick) {
     assert(mode==DEEPSLEEP_MODE&&source==PM_WAKEUP_PAD&&!tick);
     for (int pin=0;pin<4;++pin) if(enabled[pin]) assert(levels[pin]!=pins[pin]);
-    assert(!enabled[5]);
+    assert(!enabled[2]&&!enabled[3]&&!enabled[5]);
     ++sleep_calls; return 0x100; /* SDK PAD 竞争拒睡 */
 }
 void bms_diag_sleep(u8 r,u32 b,u32 e,u32 d,u32 retry,u8 allowed) {
@@ -226,7 +227,25 @@ int main(void) {
     assert(saves==saved_saves&&afe_calls==saved_afe);
     assert(app_power_boot_sleep_hold()&&sleep_calls==3); /* SDK拒睡仅重试。 */
     pins[0]=0; assert(!app_power_boot_sleep_hold()&&!retained_analog);
-    /* 独立AFE/INT变化不被OFF过滤；上电/其他复位不采用旧标记。 */
+    /* ALARM/RESET无论何种电平都不布防、不释放OFF启动保持。 */
+    for(unsigned unused_levels=0;unused_levels<4u;++unused_levels) {
+        reset(); pins[2]=unused_levels&1u; pins[3]=(unused_levels>>1u)&1u;
+        deepsleep_en=1; assert(app_sh_explicit_sleep_poll());
+        assert(!enabled[2]&&!enabled[3]);
+        wakeup_status=WAKEUP_STATUS_PAD; pins[0]=1;
+        pins[2]^=1; pins[3]^=1;
+        assert(app_power_boot_sleep_hold()&&sleep_calls==2);
+        assert(!enabled[2]&&!enabled[3]);
+    }
+    /* INT变化不被OFF过滤，两种初始电平都按相反电平布防。 */
+    for(int wake_high=0;wake_high<=1;++wake_high) {
+        reset(); pins[1]=wake_high; deepsleep_en=1;
+        assert(app_sh_explicit_sleep_poll());
+        assert(enabled[1]&&levels[1]!=wake_high);
+        wakeup_status=WAKEUP_STATUS_PAD; pins[0]=1; pins[1]^=1;
+        assert(!app_power_boot_sleep_hold()&&!retained_analog);
+    }
+    /* 上电/其他复位不采用旧标记。 */
     reset(); deepsleep_en=1; assert(app_sh_explicit_sleep_poll());
     wakeup_status=WAKEUP_STATUS_PAD; pins[0]=1; pins[1]=0;
     assert(!app_power_boot_sleep_hold()&&!retained_analog);
@@ -239,7 +258,8 @@ int main(void) {
     reset(); s_low_power_mode=1; assert(!app_power_before_suspend());
     uart_ready=1; assert(app_power_before_suspend()&&uart_entered==1);
     assert(!comm_sleep_calls); /* 普通 Suspend 保留 UART 唤醒，不释放通信域 GPIO。 */
-    for(int pin=0;pin<4;pin++) assert(enabled[pin]&&levels[pin]!=pins[pin]);
+    for(int pin=0;pin<2;pin++) assert(enabled[pin]&&levels[pin]!=pins[pin]);
+    assert(!enabled[2]&&!enabled[3]);
     s_low_power_mode=0; assert(!app_power_before_suspend());
     puts("PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap");
     return 0;

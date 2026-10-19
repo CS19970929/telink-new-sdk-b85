@@ -58,8 +58,8 @@ TS1/TS2 仍为必需电池温度，任一无效仍阻断输出；TS4 不计入�
 | PB5 | `BMS_BOARD_HEATER_FUSE_TRIGGER_PIN` | fuse trigger，safe level 0 | **未验证；不得在 D013 上假设存在同一不可逆硬件** |
 | PB6 | `BMS_BOARD_AFE_MISO_PIN` | SPI MISO | **未验证** |
 | PB7 | `BMS_BOARD_AFE_MOSI_PIN` | SPI MOSI | **未验证** |
-| PC0 | `BMS_BOARD_AFE_ALARM_PIN` | AFE ALARM | **未验证** |
-| PC1 | `BMS_BOARD_AFE_RESET_OUT_PIN` | AFE RESET network | **未验证** |
+| PC0 | `BMS_BOARD_AFE_ALARM_PIN` | 当前未使用；仅启动时配置高阻、关闭输入/输出/上下拉/PAD 唤醒 | **连接未验证** |
+| PC1 | `BMS_BOARD_AFE_RESET_OUT_PIN` | 当前未使用；仅启动时配置高阻、关闭输入/输出/上下拉/PAD 唤醒 | **连接未验证** |
 | PC2 | `BMS_BOARD_SCI1_TX_PIN` | UART TX | **未验证** |
 | PC3 | `BMS_BOARD_SCI1_RX_PIN` | UART RX | **未验证** |
 | PC4 | `BMS_BOARD_DEBUG_LED_PIN` | debug LED | **未验证** |

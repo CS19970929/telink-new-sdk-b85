@@ -17,7 +17,7 @@
 | 电流分流 | RS1/RS2/RS3 均 2mΩ，计算使用精确 2000/3µΩ；旧协议整数显示 667µΩ |
 | AFE SPI | PB6=MISO、PB7=MOSI、PD7=SCLK、PD2=CS-M；源码配置 Mode 3 / 500kHz，波形仍需实测 |
 | 主通信 | 隔离 RS485；PA1=485-EN，PC2=SCI1-TX，PC3=SCI1-RX，PD4=CMNT-EN，PD3=CMNT-WK |
-| 开关/唤醒 | PA0=DI1/SW1，PB1=INT-WK-MCU，PC0=ALARM，PC1=RESET |
+| 开关/唤醒 | PA0=DI1/SW1，PB1=INT-WK-MCU；PC0=ALARM、PC1=RESET 当前不使用，仅启动时配置高阻并禁用唤醒 |
 | LED | PC4=DB-LED1 |
 | 均衡 | B1..B8 均有均衡驱动，软件允许 8S balance |
 | 加热 | D014 原理图没有 D011 的 PB4/HT-CHG、PB5/HT-RF-EN 证据，TS3 标为 NC；固件强制关闭 heater |
@@ -64,8 +64,8 @@ SC 基于实际 OCD2 电压编码选择倍数，不使用已取整的 effective 
 | PB1 | INT-WK-MCU | 外部唤醒 |
 | PB6 | MISO | AFE SPI MISO |
 | PB7 | MOSI | AFE SPI MOSI |
-| PC0 | ALARM | AFE ALARM |
-| PC1 | RESET | AFE RESET 网络 |
+| PC0 | ALARM | 当前未使用；启动时配置高阻、关闭输入/输出/上下拉/PAD 唤醒 |
+| PC1 | RESET | 当前未使用；启动时配置高阻、关闭输入/输出/上下拉/PAD 唤醒 |
 | PC2 | SCI1-TX | RS485 UART TX |
 | PC3 | SCI1-RX | RS485 UART RX |
 | PC4 | DB-LED1 | 调试 LED |

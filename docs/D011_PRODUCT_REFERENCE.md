@@ -47,8 +47,8 @@ SH36735XX CV1.0A 明确覆盖 SH3673510/3514/3517/3520；当前仓库以 `sh3673
 | PB5 | `HT-RF-EN` | `BMS_BOARD_HEATER_FUSE_TRIGGER_PIN` | **不可逆加热保险丝触发路径**；安全电平=0 | 已对照；常规运行不得拉高 |
 | PB6 | `MISO` | `BMS_BOARD_AFE_MISO_PIN` | SPI MISO 输入 | 已对照 |
 | PB7 | `MOSI` | `BMS_BOARD_AFE_MOSI_PIN` | SPI MOSI 输出 | 已对照 |
-| PC0 | `ALARM` | `BMS_BOARD_AFE_ALARM_PIN` | AFE ALARM 输入，代码作为唤醒/告警来源 | 已对照 |
-| PC1 | `RESET` | `BMS_BOARD_AFE_RESET_OUT_PIN` | 网络接 AFE RESET；**当前宏名带 OUT 不能作为方向证据** | 原理图已对照；当前运行方向必须以 control/port 代码和实板为准 |
+| PC0 | `ALARM` | `BMS_BOARD_AFE_ALARM_PIN` | 当前未使用；仅启动时配置高阻、关闭输入/输出/上下拉/PAD 唤醒 | 网络已对照；MCU 不驱动 |
+| PC1 | `RESET` | `BMS_BOARD_AFE_RESET_OUT_PIN` | 当前未使用；仅启动时配置高阻、关闭输入/输出/上下拉/PAD 唤醒 | 网络接 AFE 开漏输出；宏名 OUT 不表示 MCU 输出 |
 | PC2 | `SCI1-TX` | `BMS_BOARD_SCI1_TX_PIN` | UART TX -> 隔离 RS485 DI | 已对照 |
 | PC3 | `SCI1-RX` | `BMS_BOARD_SCI1_RX_PIN` | UART RX <- 隔离 RS485 RO | 已对照 |
 | PC4 | `DB-LED1` | `BMS_BOARD_DEBUG_LED_PIN` | 调试 LED；原图连接推导为低电平点亮 | 已对照 |
@@ -66,7 +66,7 @@ SH36735XX CV1.0A 明确覆盖 SH3673510/3514/3517/3520；当前仓库以 `sh3673
 - PD7 -> AFE SCK；
 - PD2 -> AFE CS；
 - PC0 <- AFE ALARM；
-- PC1 <-> AFE RESET 网络（方向语义需按实际代码/手册验证）。
+- PC1 <- AFE RESET 开漏输出（SH36735XX CV1.0A 原 PDF 物理第 4 页表 1）；PC0/PC1 当前只做启动配置，见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md#未使用的-afe-引脚与-int_wk)。
 
 系列协议源码使用：write command `0x01`、read `0x02`、reset `0x0B + 0xBB + 0xCC`、ACK `0xA5`、CRC8 poly `0x07`/init `0x00`。这些常量集中在 `sh3673520_reg.h`。
 

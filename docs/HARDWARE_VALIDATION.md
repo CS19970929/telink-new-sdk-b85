@@ -88,7 +88,7 @@
 ### 5. 低功耗 / 唤醒
 
 - [ ] PA0/DI1/SW1 有效电平和去抖。
-- [ ] PB1/INT-WK-MCU、PC0/ALARM、PC1/RESET 的有效电平与重复唤醒。
+- [ ] PB1/INT-WK-MCU 两种入睡电平的唤醒、抖动与重复唤醒；PC0/ALARM、PC1/RESET 仅启动时高阻且禁用唤醒，电平变化不应释放休眠或启动保持（2026-10-19 用户确认当前不使用）。
 - [ ] PD3/CMNT-WK 的有效电平；普通入口通信互锁与保护性深睡到期优先分别验证。
 - [ ] SH3673510 Sleep/Wake 与 MCU deep sleep 无竞态，wake 失败保持 fail-safe。
 - [ ] BLE connected/advertising/idle 三种状态的 suspend/deep-sleep 电流。

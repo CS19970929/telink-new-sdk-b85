@@ -137,10 +137,11 @@ assert literal(reg, "SH3673520_RESET_ALARML") == 0xFF
 assert literal(reg, "SH3673520_SCONF7_CONFIG_MASK") == 0x77
 assert literal(reg, "SH3673520_ALARML_ALL_MASK") == 0xFF
 
-require(control, "sh3510_gpio_input(BMS_BOARD_AFE_RESET_OUT_PIN)")
-require(control, "sh3510_gpio_input(BMS_BOARD_AFE_ALARM_PIN)")
-if "sh3510_gpio_output_low(BMS_BOARD_AFE_RESET_OUT_PIN)" in control:
-    raise AssertionError("AFE RESET output net must not be driven by MCU")
+startup = text("main.c")
+for pin in ("BMS_BOARD_AFE_RESET_OUT_PIN", "BMS_BOARD_AFE_ALARM_PIN"):
+    require(startup, pin)
+    if pin in control or pin in text("app_power.c"):
+        raise AssertionError(f"unused AFE pin must only be configured at startup: {pin}")
 
 for needle in (
     "SH3673510_BOARD_CELL_COUNT",

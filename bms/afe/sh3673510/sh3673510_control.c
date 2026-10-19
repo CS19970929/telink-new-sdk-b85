@@ -23,7 +23,7 @@ static uint8_t s_afe_sleeping;
 static sh3673510_protection_actual_t s_protection_actual;
 
 
-/* 配置 SH 板级 GPIO 为输入并设置上下拉。 */
+/* 配置 SH 板级 GPIO 为输入，沿用启动时的上下拉。 */
 static void sh3510_gpio_input(GPIO_PinTypeDef pin)
 {
     gpio_set_func(pin, AS_GPIO);
@@ -342,9 +342,6 @@ uint8_t sh3673510_control_init(void)
     s_control_ready = 0u;
     s_afe_sleeping = 0u;
 
-    /* RESET 和 ALARM 是 AFE 开漏输出，MCU 绝不能驱动为输出。 */
-    sh3510_gpio_input(BMS_BOARD_AFE_RESET_OUT_PIN);
-    sh3510_gpio_input(BMS_BOARD_AFE_ALARM_PIN);
     sh3510_gpio_input(BMS_BOARD_INT_WK_MCU_PIN);
 
 #if SH3673510_PRODUCT_HEATER_SUPPORTED
@@ -352,10 +349,8 @@ uint8_t sh3673510_control_init(void)
     sh3673510_board_force_heater_fuse_safe();
 #endif
 
-    /* 板级唤醒高有效，AFE 告警/复位脉冲低有效。 */
+    /* 板级 INT_WK 高有效；实际入睡前按当前电平重新布防。 */
     cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN, Level_High, 1);
-    cpu_set_gpio_wakeup(BMS_BOARD_AFE_ALARM_PIN, Level_Low, 1);
-    cpu_set_gpio_wakeup(BMS_BOARD_AFE_RESET_OUT_PIN, Level_Low, 1);
 
     port_status = SH3673520_PortConfigure(SH3673510_BOARD_SPI_GROUP);
     if (port_status != SH3673520_PORT_OK) return 0u;
