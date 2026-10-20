@@ -89,6 +89,8 @@ def check_d014_afe_profile_default_host_check():
     {
         bms_afe_hw_profile_t p;
         bms_afe_hw_profile_build_default(&p);
+        /* 出厂默认必须能原样通过完整在线写入，不能依靠旧读取宽松规则。 */
+        assert(bms_afe_hw_profile_validate_write(&p));
         if (p.ocd1_a10 != SH3673510_HW_DEFAULT_OCD1_A10 ||
             p.ocd_recover_a10 != SH3673510_HW_DEFAULT_OCD_RECOVER_A10 ||
             p.occ1_a10 != SH3673510_HW_DEFAULT_OCC1_A10 ||
