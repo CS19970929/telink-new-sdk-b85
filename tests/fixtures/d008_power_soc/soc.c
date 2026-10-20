@@ -252,9 +252,50 @@ static int replay_csv(const char *input_path,const char *output_path){
  }
  fclose(in);fclose(out);return 0;
 }
+/* 用 host 的64位计算独立核对目标端32位运算，不在固件中引入运行库。 */
+static void check_integer_arithmetic(void){
+ const int32_t currents[]={INT32_MIN,INT32_MIN+1,-100001,-100000,-99999,-1,0,1,99999,100000,100001,INT32_MAX};
+ const int32_t remainders[]={-99999,-1,0,1,99999};
+ const uint32_t intervals[]={1,199,200,399,400};
+ const uint32_t full=BMS_SOC_CAPACITY_MAX_0P1AH*3600u;
+ setup(1,50,3330);
+ assert(soc_scale_remaining_capacity(0u,full,3600u)==0u);
+ assert(soc_scale_remaining_capacity(full,full,3600u)==3600u);
+ assert(soc_scale_remaining_capacity(3599u,3600u,full)==(uint64_t)3599u*full/3600u);
+ for(unsigned i=0;i<sizeof(currents)/sizeof(currents[0]);i++)
+ for(unsigned j=0;j<sizeof(remainders)/sizeof(remainders[0]);j++)
+ for(unsigned k=0;k<sizeof(intervals)/sizeof(intervals[0]);k++){
+  int64_t sum=(int64_t)currents[i]*intervals[k]+remainders[j];
+  int32_t delta=(int32_t)(sum/100000),remainder=(int32_t)(sum%100000);
+  g_bms_soc.effective_capacity_as10=full;g_bms_soc.remaining_capacity_as10=full/2u;
+  g_bms_soc.soc_estimate_percent=50;g_bms_soc.discharge_fraction_percent=0;
+  g_soc_input_current_ma=currents[i];g_soc_integral_remainder=remainders[j];
+  soc_integrate(intervals[k]);
+  assert(g_bms_soc.remaining_capacity_as10==(uint32_t)((int64_t)(full/2u)-delta));
+  assert(g_soc_integral_remainder==remainder);
+ }
+ uint32_t random=1234567u;
+ for(unsigned i=0;i<10000u;i++){
+  random=random*1664525u+1013904223u;uint32_t old=(random%6553u+1u)*3600u;
+  random=random*1664525u+1013904223u;uint32_t remaining=random%(old+1u);
+  random=random*1664525u+1013904223u;stored_profile.capacity_factory=(uint16_t)(random%6553u+1u);
+  uint32_t new_full=(uint32_t)stored_profile.capacity_factory*3600u;
+  g_bms_soc.cycle_count=0;g_bms_soc.effective_capacity_as10=old;g_bms_soc.remaining_capacity_as10=remaining;
+  bms_soc_nominal_capacity_changed();
+  assert(g_bms_soc.remaining_capacity_as10==(uint32_t)((uint64_t)remaining*new_full/old));
+  assert(get_soc_real()==(uint64_t)g_bms_soc.remaining_capacity_as10*100u/new_full);
+ }
+ g_bms_soc.effective_capacity_as10=full;g_bms_soc.remaining_capacity_as10=full;
+ g_bms_soc.full_confirmed=1;soc_update_percent();assert(get_soc_real()==100&&g_bms_soc.full_confirmed);
+ g_bms_soc.remaining_capacity_as10=full*99u/100u;soc_update_percent();assert(g_bms_soc.full_confirmed);
+ --g_bms_soc.remaining_capacity_as10;soc_update_percent();assert(!g_bms_soc.full_confirmed);
+ puts("PASS SOC integer arithmetic: signed extrema, fractional direction changes, 10000 capacity rescalings, 99% boundary");
+}
 int main(int argc,char **argv){
+ if(argc==2&&!strcmp(argv[1],"--arithmetic")){check_integer_arithmetic();return 0;}
  if(argc==2&&!strcmp(argv[1],"--trajectory"))return write_trajectory();
  if(argc==4&&!strcmp(argv[1],"--replay"))return replay_csv(argv[2],argv[3]);
+ check_integer_arithmetic();
  /* 小于200mA的实测电流也完整积分，充电不再折减。 */
  assert(integrate(1u,199,6400u,18000u)==7164u);
  assert(integrate(1u,-199,6400u,18000u)==7164u);

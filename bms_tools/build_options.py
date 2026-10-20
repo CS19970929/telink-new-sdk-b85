@@ -117,7 +117,7 @@ OTA_END = "/* OTA_SOURCE_POLICY_END */"
 # 保守包含默认值构造代码；这些输入改变时，已有更新包必须重新保存并固定标识。
 DEFAULT_INPUTS = ("bms/products/bms_battery_defaults.h", "bms/core/bms_parameters.c",
                   "bms/core/bms_config_store.c", "bms/core/bms_afe_hw_profile.c",
-                  "bms/core/bms_soc_defs.h", "bms/core/bms_soc_profile.h",
+                  "bms/core/bms_soc_defs.h", "bms/core/bms_soc_profile.h", "bms/core/bms_soc_profile.c",
                   "bms/core/bms_soc.h", "bms/core/bms_state_store.c", "bms/core/bms_state.h",
                   "bms/app/bms_features.h", "bms/afe/sh3673510/sh3673510_quantize.h",
                   "bms/core/bms_update_policy.h", "bms/core/bms_afe_register_policy.h",

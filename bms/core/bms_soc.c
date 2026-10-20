@@ -20,6 +20,13 @@
 #define SOC_MINUTE_MS 60000u
 #define SOC_MAX_CELLS 24u
 #define SOC_INTEGRAL_DENOMINATOR 100000
+/* 容量上限6553*3600=23590800；乘100仍在uint32_t内，TC32无需64位库。 */
+#if BMS_SOC_CAPACITY_MAX_0P1AH > (0xFFFFFFFFu / SOC_CAPACITY_UNITS_PER_FACTORY / 100u)
+#error SOC_capacity_exceeds_32_bit_arithmetic_bounds
+#endif
+#if BMS_SOC_MAX_SAMPLE_GAP_MS > 400u
+#error SOC_sample_gap_exceeds_reviewed_integer_arithmetic_bounds
+#endif
 
 typedef enum { SOC_INTEGRAL_DIR_NONE, SOC_INTEGRAL_DIR_CHG, SOC_INTEGRAL_DIR_DSG } soc_integral_dir_t;
 typedef struct {
@@ -127,23 +134,23 @@ static void soc_recalc_full_capacity(void)
     g_bms_soc.nominal_capacity_as10 = soc_nominal_capacity_0p1ah() * SOC_CAPACITY_UNITS_PER_FACTORY;
     g_bms_soc.soh = bms_soh_from_cycle((uint16_t)soc_limit_cycle_u32(g_bms_soc.cycle_count));
     g_bms_soc.effective_capacity_as10 =
-        (uint32_t)((uint64_t)g_bms_soc.nominal_capacity_as10 * g_bms_soc.soh / 100u);
+        g_bms_soc.nominal_capacity_as10 * g_bms_soc.soh / 100u;
     if (!g_bms_soc.effective_capacity_as10) g_bms_soc.effective_capacity_as10 = 1u;
 }
 
 static void soc_recalc_now_capacity(void)
 {
     g_bms_soc.remaining_capacity_as10 =
-        (uint32_t)((uint64_t)get_soc_real() * g_bms_soc.effective_capacity_as10 / 100u);
+        (uint32_t)get_soc_real() * g_bms_soc.effective_capacity_as10 / 100u;
 }
 
 static void soc_update_percent(void)
 {
     uint32_t full = g_bms_soc.effective_capacity_as10;
     g_bms_soc.soc_estimate_percent = full ?
-        (uint8_t)((uint64_t)g_bms_soc.remaining_capacity_as10 * 100u / full) : 0u;
+        (uint8_t)(g_bms_soc.remaining_capacity_as10 * 100u / full) : 0u;
     /* 不从整数 SOC 判断 99% 资格边界。 */
-    if ((uint64_t)g_bms_soc.remaining_capacity_as10 * 100u < (uint64_t)full * 99u) {
+    if (g_bms_soc.remaining_capacity_as10 * 100u < full * 99u) {
         g_bms_soc.full_confirmed = 0u;
         g_bms_soc.full_basis = 0u;
     }
@@ -223,14 +230,31 @@ static void soc_profile_refresh(void)
     }
 }
 
+/* 精确求floor(remaining*new_full/old_full)，不构造可能溢出的乘积。
+ * remaining<=old_full<=23590800，逐位余数的临时值小于3*old_full。 */
+static uint32_t soc_scale_remaining_capacity(uint32_t remaining, uint32_t old_full, uint32_t new_full)
+{
+    uint32_t quotient = 0u, remainder = 0u;
+    uint8_t bit = 32u;
+    if (remaining >= old_full) return new_full;
+    while (bit) {
+        uint32_t next;
+        --bit;
+        next = remainder * 2u + (((new_full >> bit) & 1u) ? remaining : 0u);
+        quotient = quotient * 2u + next / old_full;
+        remainder = next % old_full;
+    }
+    return quotient;
+}
+
 /* 只在容量基准变化时按 As*10 比例换算；模型重载保留电量及积分余数。 */
 static void soc_resize_capacity(void)
 {
     uint32_t before = g_bms_soc.effective_capacity_as10;
     soc_recalc_full_capacity();
     if (before && before != g_bms_soc.effective_capacity_as10) {
-        g_bms_soc.remaining_capacity_as10 = (uint32_t)(
-            (uint64_t)g_bms_soc.remaining_capacity_as10 * g_bms_soc.effective_capacity_as10 / before);
+        g_bms_soc.remaining_capacity_as10 = soc_scale_remaining_capacity(
+            g_bms_soc.remaining_capacity_as10, before, g_bms_soc.effective_capacity_as10);
         soc_reset_integral_accumulator();
     }
     soc_update_percent();
@@ -361,11 +385,22 @@ void soc_param_lib_init(const bms_state_store_data_t *state)
 
 static void soc_integrate(uint32_t elapsed_ms)
 {
-    int64_t sum = (int64_t)g_soc_input_current_ma * elapsed_ms + g_soc_integral_remainder;
-    int32_t delta = (int32_t)(sum / SOC_INTEGRAL_DENOMINATOR);
+    /* 合格间隔<=400ms。先拆电流商/余数，使int32电流全范围也不溢出。 */
+    int32_t fractional = (g_soc_input_current_ma % SOC_INTEGRAL_DENOMINATOR) * (int32_t)elapsed_ms +
+                         g_soc_integral_remainder;
+    int32_t delta = (g_soc_input_current_ma / SOC_INTEGRAL_DENOMINATOR) * (int32_t)elapsed_ms +
+                    fractional / SOC_INTEGRAL_DENOMINATOR;
     uint8_t before = get_soc_real();
     uint32_t amount;
-    g_soc_integral_remainder = (int32_t)(sum % SOC_INTEGRAL_DENOMINATOR);
+    g_soc_integral_remainder = fractional % SOC_INTEGRAL_DENOMINATOR;
+    /* C除法向零截断；方向切换时必须把异号商/余数归一化。 */
+    if (delta > 0 && g_soc_integral_remainder < 0) {
+        --delta;
+        g_soc_integral_remainder += SOC_INTEGRAL_DENOMINATOR;
+    } else if (delta < 0 && g_soc_integral_remainder > 0) {
+        ++delta;
+        g_soc_integral_remainder -= SOC_INTEGRAL_DENOMINATOR;
+    }
     if (delta > 0) {
         amount = (uint32_t)delta;
         if (amount >= g_bms_soc.remaining_capacity_as10) {
@@ -558,7 +593,7 @@ static uint8_t soc_ocv_window(const bms_soc_sample_t *sample, uint32_t elapsed)
             if (value < low) low = value;
             if (value > high) high = value;
         }
-        if (high - low > BMS_SOC_OCV_DRIFT_MAX_MV ||
+        if ((uint16_t)(high - low) > BMS_SOC_OCV_DRIFT_MAX_MV ||
             sample->cell_mv[i] + BMS_SOC_OCV_DRIFT_MAX_MV < low ||
             sample->cell_mv[i] > high + BMS_SOC_OCV_DRIFT_MAX_MV) return 0u;
     }
@@ -599,7 +634,7 @@ static void soc_ocv(const bms_soc_sample_t *sample, uint16_t mean, uint32_t elap
     g_soc_runtime.ocv_state = BMS_SOC_OCV_READY;
     g_soc_runtime.ocv_confidence = 25u; /* 工程模型，非统计置信度。 */
 #endif
-    target = (uint32_t)(((uint64_t)g_bms_soc.effective_capacity_as10 * g_soc_runtime.ocv_high + 99u) / 100u);
+    target = (g_bms_soc.effective_capacity_as10 * g_soc_runtime.ocv_high + 99u) / 100u;
     if (g_bms_soc.remaining_capacity_as10 <= target) {
         g_soc_runtime.ocv_correction_ms = 0u; return;
     }

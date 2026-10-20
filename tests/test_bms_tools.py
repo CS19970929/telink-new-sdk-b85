@@ -522,6 +522,21 @@ def commit_configuration(root):
 
 
 class SourceConfigurationTests(unittest.TestCase):
+    def test_soc_curve_source_change_invalidates_saved_parameter_package(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            copy_configuration(root)
+            path = root / 'bms/core/bms_soc_profile.c'
+            if not path.exists():
+                path.write_bytes((REPO_ROOT / 'bms/core/bms_soc_profile.c').read_bytes())
+            old = bms.build_options.save_source(root, 'd008', {'update_groups': ['soc']})
+            path.write_bytes(path.read_bytes() + b'\n/* OCV curve edit */\n')
+            with self.assertRaisesRegex(ValueError, '不匹配'):
+                bms.build_options.verify_source(root, 'd008')
+            new = bms.build_options.save_source(root, 'd008', {})
+            self.assertNotEqual(old['configuration']['update_id'], new['configuration']['update_id'])
+            self.assertNotEqual(old['parameter_inputs_sha256'], new['parameter_inputs_sha256'])
+
     def test_assembly_changes_include_all_config_groups_and_preserve_factory_reset(self):
         for product in bms.build_options.PRODUCTS:
             for factory in (False, True):

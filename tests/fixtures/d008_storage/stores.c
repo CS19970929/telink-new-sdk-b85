@@ -155,6 +155,9 @@ static void test_config_schema(void){
  fresh();malformed=g_bms_config;malformed.soc.profile_id=0x100u;
  assert(bms_config_save_cache(&malformed));reboot();assert(!bms_config_store_init());
  assert(!bms_config_current_soc_profile() && !bms_config_store_validate_startup());
+ fresh();malformed=g_bms_config;malformed.soc.ocv_rest_prepare_s=777u;
+ assert(bms_config_save_cache(&malformed));reboot();assert(!bms_config_store_init());
+ assert(!bms_config_current_soc_profile() && !bms_config_store_validate_startup());
  /* 系统入口保存选型，SOC getter 读取同一来源；失败不能发布新值。 */
  fresh();bms_config_system_params_t selection;assert(bms_config_store_get_system(&selection));
  selection.battery_chemistry=2u;selection.soc_profile_id=2u;
@@ -165,7 +168,7 @@ static void test_config_schema(void){
  assert(g_bms_config.system.capacity_factory==1000);
  bms_config_cache_t old=g_bms_config,next=old;
  next.protect.cell_ovp_third_mv=3999;next.afe_hw.cov_mv=4100;
- next.soc.ocv_rest_prepare_s=777;strcpy(next.bt_name_suffix,"persist-name");
+ next.soc.profile_version=2u;next.soc.ocv_rest_prepare_s=777;strcpy(next.bt_name_suffix,"persist-name");
  memcpy(backup,flash,sizeof(flash));
  for(int byte=0;byte<(int)(32+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u));byte++){
   memcpy(flash,backup,sizeof(flash));reboot();assert(bms_config_store_init());cut=byte;
@@ -454,6 +457,8 @@ static bms_config_cache_t configured(void)
     cfg.user.heater_enable = 0u;
     cfg.user.balance_enable = 0u; /* 用户禁止不随任何 OTA 组重新允许。 */
     cfg.user.balance_start_mv = 3500u;
+    /* 模拟客户保留的v2模型；v3固定静置3600秒，777不能冒充合法v3。 */
+    cfg.soc.profile_version = 2u;
     cfg.soc.ocv_rest_prepare_s = 777u;
     cfg.user.current_offset_ma = -123;
     cfg.user.current_gain_ppm = 1100000u;
@@ -470,7 +475,8 @@ static void assert_update_groups(unsigned mask)
     assert(g_bms_config.user.heater_enable == ((mask & 4u) ? 1u : 0u));
     assert(g_bms_config.user.balance_enable == 0u);
     assert(g_bms_config.user.balance_start_mv == ((mask & 4u) ? BMS_BALANCE_START_VOLTAGE_MV_DEFAULT : 3500u));
-    assert(g_bms_config.soc.ocv_rest_prepare_s == ((mask & 8u) ? 600u : 777u));
+    assert(g_bms_config.soc.ocv_rest_prepare_s == ((mask & 8u) ? BMS_SOC_OCV_REST_MS / 1000u : 777u));
+    assert(g_bms_config.soc.profile_version == ((mask & 8u) ? BMS_SOC_POLICY_VERSION : 2u));
     assert(g_bms_config.user.current_offset_ma == -123);
     assert(g_bms_config.user.current_gain_ppm == 1100000u);
     assert(!strcmp(g_bms_config.user.serial, "KEEP-SN"));
