@@ -203,6 +203,8 @@ SDK唤醒回调只交付事件：纯Timer或BLE返回不请求上电。PAD返回
 
 ### 9.3 产品隔离和验证状态
 
+功耗测试开发版默认关闭D014的`BMS_BOARD_DEBUG_LED_ENABLE`和`DEBUG_GPIO_ENABLE`，避免原200ms调试灯翻转及SDK调试GPIO影响测量；继续使用development/`-O2`，不通过production模式改变优化策略。其余服务诊断、trace、运行日志、栈监测和主动RS485诊断沿用默认关闭。具体构建、host与OTA结果以本轮源码树外收据为准。
+
 仅D014启用`BMS_PRODUCT_RS485_POWER_GATING_ENABLE`。D011/D013默认0，D008保持原总线复用路径；主动RS485线路诊断构建绕过按需供电，保持原常供电/主动发送。普通供电收尾保留PD3，不能调用释放PD3输入的强制DeepSleep收尾。
 
 没有修改200ms采样期限、SOC实际时间积分/400ms GAP、AFE运行模式/寄存器、MOS保护、BLE连接参数或Flash/OTA格式。`tests/uart_ownership_host_check.py`增加断电期间多次定时/无事件返回、短PD3事件、PAD退出时脉冲已结束、启动期限/回绕、唤醒残帧、连续多秒会话、忙接收不关电、周期RX维护不偷开DMA、强制深睡后不重启等用例源码；原TX停止位/超时路径继续保留。
