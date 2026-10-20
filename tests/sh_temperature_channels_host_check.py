@@ -44,6 +44,10 @@ int main(void) {
             ((original.enable_mask&BMS_AFE_HW_EN_SC)?8u:0u);
         assert((regs[0x45]>>4)==channels);assert((regs[0x45]&15u)==expected_low);
         assert(sh3673510_control_get_protection_actual(&actual));assert(actual.temperature_channels==channels);
+        if(channels) {
+            assert(regs[0x51]==106u && actual.chg_ot_x10==1049u);
+            assert(regs[0x53]==192u && actual.chg_ut_x10==198u);
+        }
     }
     requested=original;requested.enable_mask=BMS_AFE_HW_TEMP_CHANNEL_SELECT;
     requested.chg_ot_x10=0u;requested.chg_ut_x10=1450u;

@@ -25,8 +25,10 @@
 /* 可选追加元数据，旧地址/35-word payload 不变；R=element/parallel uOhm。 */
 #define BMS_AFE_HW_META_SHUNT_ELEMENT_UOHM       0x252Cu
 #define BMS_AFE_HW_META_SHUNT_PARALLEL_COUNT     0x252Du
+#define BMS_AFE_HW_META_FEATURES                 0x252Eu
+#define BMS_AFE_HW_FEATURE_TEMP_EFFECTIVE         0x0001u
 #define BMS_AFE_HW_INTERFACE_VERSION             0x0002u
-#define BMS_AFE_HW_REQUESTED_REG_COUNT           46u
+#define BMS_AFE_HW_REQUESTED_REG_COUNT           47u
 
 /* 0x2540..0x2562 为 AFE 实际可表示的只读值。 */
 #define BMS_AFE_HW_EFFECTIVE_REG_BASE            0x2540u

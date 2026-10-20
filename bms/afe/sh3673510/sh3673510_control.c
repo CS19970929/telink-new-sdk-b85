@@ -156,6 +156,26 @@ static uint8_t sh3510_low_temp_code(uint16_t temp_x10, uint8_t *code)
     return 1u;
 }
 
+/* 按已核对的寄存器编码反算标称 NTC 温度；全程保留电阻分数，避免高温处整数欧姆放大误差。
+ * p38..39: OT=512*R/(R+10k), UT=256*(R-10k)/(R+10k)。不是实测动作温度。 */
+static uint16_t sh3510_temperature_from_code(uint8_t code, uint8_t low)
+{
+    uint32_t numerator = low ? 100u * (256u + code) : 100u * code;
+    uint32_t denominator = low ? 256u - code : 512u - code;
+    uint8_t i;
+    if (numerator >= (uint32_t)sh3673510_ntc_10k[0] * denominator) return sh3673510_ntc_10k[1];
+    for (i = 0u; i < 29u; ++i) {
+        uint32_t r1 = (uint32_t)sh3673510_ntc_10k[i * 2u] * denominator;
+        uint32_t r2 = (uint32_t)sh3673510_ntc_10k[(i + 1u) * 2u] * denominator;
+        if (numerator >= r2) {
+            uint16_t t1 = sh3673510_ntc_10k[i * 2u + 1u];
+            uint16_t t2 = sh3673510_ntc_10k[(i + 1u) * 2u + 1u];
+            return (uint16_t)(t1 + ((r1 - numerator) * (t2 - t1) + (r1 - r2) / 2u) / (r1 - r2));
+        }
+    }
+    return sh3673510_ntc_10k[59];
+}
+
 /* 把独立硬件 profile 量化为本芯片寄存器并验证；effective 值用于报告真实可表示阈值。 */
 uint8_t sh3673510_control_apply_protection(void)
 {
@@ -261,12 +281,16 @@ uint8_t sh3673510_control_apply_protection(void)
     if (bms_afe_hw_profile_temperature_channels(&hw)) {
         if (!sh3510_high_temp_code(hw.chg_ot_x10, &code)) return 0u;
         ok &= sh3510_write_verify(SH3673520_REG_OTC, code, 0xFFu);
+        s_protection_actual.chg_ot_x10 = sh3510_temperature_from_code(code, 0u);
         if (!sh3510_high_temp_code(hw.dsg_ot_x10, &code)) return 0u;
         ok &= sh3510_write_verify(SH3673520_REG_OTD, code, 0xFFu);
+        s_protection_actual.dsg_ot_x10 = sh3510_temperature_from_code(code, 0u);
         if (!sh3510_low_temp_code(hw.chg_ut_x10, &code)) return 0u;
         ok &= sh3510_write_verify(SH3673520_REG_UTC, code, 0xFFu);
+        s_protection_actual.chg_ut_x10 = sh3510_temperature_from_code(code, 1u);
         if (!sh3510_low_temp_code(hw.dsg_ut_x10, &code)) return 0u;
         ok &= sh3510_write_verify(SH3673520_REG_UTD, code, 0xFFu);
+        s_protection_actual.dsg_ut_x10 = sh3510_temperature_from_code(code, 1u);
     }
 
     /* 硬件保护使能归独立 AFE 配置负责。 */

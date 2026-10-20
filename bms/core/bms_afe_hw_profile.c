@@ -461,6 +461,12 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
         p->enable_mask |= (u16)(BMS_AFE_HW_TEMP_CHANNEL_SELECT |
                                    ((u16)actual.temperature_channels << 8));
         if (actual.temperature_channels) p->enable_mask |= BMS_AFE_HW_EN_TEMP;
+        if (actual.temperature_channels) {
+            p->chg_ot_x10 = actual.chg_ot_x10;
+            p->chg_ut_x10 = actual.chg_ut_x10;
+            p->dsg_ot_x10 = actual.dsg_ot_x10;
+            p->dsg_ut_x10 = actual.dsg_ut_x10;
+        }
         /* p34：旧请求可单独置一位，但已验证的硬件OCD使能实际同时控制两级。 */
         if (p->enable_mask & (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2))
             p->enable_mask |= BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2;

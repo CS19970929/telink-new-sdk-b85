@@ -30,6 +30,7 @@ typedef struct
     uint16_t occ_delay_ms;
     uint16_t sc_a10;
     uint16_t sc_delay_us;
+    uint16_t chg_ot_x10, chg_ut_x10, dsg_ot_x10, dsg_ut_x10;
     uint8_t temperature_channels;
     uint8_t valid;
 } sh3673510_protection_actual_t;
