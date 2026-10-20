@@ -290,8 +290,12 @@ int main(void){
 '''
 
 products = (os.environ['BMS_PRODUCT'],) if 'BMS_PRODUCT' in os.environ else ('d008', 'd011', 'd013', 'd014')
-for product in products:
-    source = selected_source(ROOT / 'bms/platform/telink/modbus_uart.c', product)
+for product, production in ((p, mode) for p in products for mode in ((0, 1) if p == 'd014' else (0,))):
+    source = selected_source(ROOT / 'bms/platform/telink/modbus_uart.c', product,
+                             defines=('-DBMS_PRODUCTION_BUILD=%d' % production,
+                                      '-DBMS_DIAG_BUILD_ID=0x12345678u',
+                                      '-DBMS_SERVICE_DIAG_ENABLE=0', '-DBMS_DIAG_TRACE_ENABLE=0',
+                                      '-DBMS_STACK_MONITOR_ENABLE=0'))
     source = re.sub(r'^#include[^\n]*', '', source, flags=re.M)
     # 外设模型模拟GPIO中断W1C；不改生产状态机/判断。
     source = source.replace('reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;', 'clear_gpio_irq();')
@@ -321,7 +325,8 @@ for product in products:
             115200: (9, 13, 50000, 25000),
         }[baud_rate]
         defines += '#define TEST_SH_UART %d\n' % (product != 'd008')
-        defines += '#define TEST_POWER_GATING %d\n#define BMS_PRODUCT_RS485_POWER_GATING_ENABLE %d\n' % ((product=='d014'),(product=='d014'))
+        power_gating = product == 'd014' and production
+        defines += '#define TEST_POWER_GATING %d\n#define BMS_PRODUCT_RS485_POWER_GATING_ENABLE %d\n' % (power_gating, power_gating)
         defines += '#define BMS_PRODUCT_RS485_POWER_SETTLE_MS 20u\n'
         expected = ('#define TEST_UART_BAUD_RATE %du\n#define TEST_UART_DIVIDER %du\n'
                     '#define TEST_UART_BWPC %du\n#define TEST_RS485_TIMEOUT_US %du\n'
@@ -331,4 +336,4 @@ for product in products:
         subprocess.run(shlex.split(os.environ.get('CC','cc')) + ['-std=c99','-Wall','-Wextra','-Werror',
                         '-Wno-unused-function',str(c),'-o',str(exe)],check=True)
         subprocess.run([str(exe)],check=True)
-    print('PASS '+product+' UART RX ownership, bounds, busy rejection and bounded RS485 abort')
+    print('PASS '+product+(' production' if production else ' development')+' UART RX ownership, bounds, busy rejection and bounded RS485 abort')

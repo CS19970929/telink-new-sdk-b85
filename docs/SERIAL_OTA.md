@@ -95,7 +95,34 @@ D008会话期间保持UART所有权，不因1秒静默切回一线通。
 A/B、重复/乱序、CRC、写入故障、提交逐字节中断、回绕和BLE占用拒绝。
 相关四产品storage/Modbus/Flash/UART/PM、D008复用、开发/生产link/resources按本轮收据记录。
 Windows新增`test-telink-serial-ota.ps1`并保留原`test-ota-protocol.ps1`；客户/内部/CLI均检查net8.0与net48。
-本轮只生成host和ELF/MAP验证产物，不生成固件BIN或操作设备。
+初始实现固定提交`9a38c13a`仅完成host和ELF/MAP验证，未生成固件BIN或操作设备。
 
 未执行实板UART/RS485吞吐及唤醒、BLE互斥、AFE采样/保护最坏时延、SDK Flash忙等待和watchdog、
 真实Flash/低电压掉电、双槽物理升级、Gate输出及低功耗恢复验收。软件模型、编译和MAP不代替这些结论。
+
+## 2026-10-21 D014 开发板串口实测
+
+用户随后授权对`BT_cs001`（`A4:C1:38:6C:DD:23`）、`COM3 / 115200 8N1`进行开发版实测，
+并明确要求暂停全部休眠以避免 AFE 通信故障触发深睡。生产板和生产镜像不在本次操作范围。
+
+D014 的`BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP`当前在开发构建默认开启：暂停普通 Suspend、
+保护性/命令/开关深睡及启动深睡保持，并令 RS485 通信域保持供电。采样、AFE 故障确认与输出禁止保留。
+生产构建默认关闭此开关，且禁止强制开启；其余三个产品默认关闭。该测试状态持续耗电，
+不能用于低功耗验收；恢复正常 D014 开发策略须把该源码开关改为0并重新升级。
+
+先经 BLE 从`2b35e1ee`升级到含串口 OTA 的开发测试镜像`9a38c13a / dirty`，收到成功确认并用 COM3
+读取到新 Build。随后通过串口传输**同一份116164字节 BIN**，镜像 SHA-256 为
+`d7905493ee82727a92955880c5172b6effcde421afe067d8fa67951e08307ba6`，尾部CRC为`e2b2ffc9`。
+串口完整读回/CRC、启动标志提交、新程序IDLE/产品/Build/CRC及原Modbus通信均已确认；
+COM3后续10次通信检查全部通过，BLE和串口升级前后参数内容一致（仅采集时间变化）。
+串口升级后BLE身份/实时数据复查通过；中途Windows GATT AccessDenied在用户断开其它上位机连接后消失。
+
+首次串口传输在72.6%丢失应答并取消未提交会话；补齐与普通Modbus相同的20ms应答后转换间隔后，
+还观测到擦除阶段QUERY丢失。客户端对擦除/校验阶段仅重试无副作用QUERY，保持阶段总超时，
+不重发DATA/COMMIT。前两次失败均未执行COMMIT，修正后的同镜像升级成功。
+现有Windows入口和CLI复用`Shared/TelinkSerialOta.cs`；CLI串口必须显式`--target telink`，
+串口auto继续保留STM32 IAP选择。
+
+本次完成四产品sources/link/resources、串口core/端口故障注入、UART所有权、SH休眠与禁休眠回归、
+Windows串口/BLE OTA测试及客户版/内部版/CLI的net8/net48构建。实板仅D014开发测试板；
+不代表其余产品、真实掉电、AFE故障修复、物理MOS保护或量产低功耗验收。

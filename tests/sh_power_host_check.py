@@ -164,7 +164,7 @@ def check_sh_protective_sleep():
     from project_paths import selected_source
     from validation_support import function, run_c
     root = Path(__file__).resolve().parents[1]
-    source = selected_source(root / 'bms/app/app_power.c')
+    source = selected_source(root / 'bms/app/app_power.c', defines=('-DBMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP=0',))
     startup = (root / 'bms/platform/telink/main.c').read_text(encoding='utf-8')
     unused_start = startup.index('static const GPIO_PinTypeDef unused_afe_pins[]')
     unused_config = startup[unused_start:startup.index('#endif', unused_start)]
@@ -217,6 +217,41 @@ def check_sh_protective_sleep():
     for enabled in (1, 0):
         run_c('#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE %du\n' % enabled +
               fixture.replace('/* PRODUCTION */', body), flags=('-DBMS_SERVICE_DIAG_ENABLE=1',), name='sh-protective-sleep')
+    # D014 开发测试固件暂停所有 PM 入口；正常策略仍由上面的场景完整覆盖。
+    import os
+    if os.environ.get('BMS_PRODUCT', 'd014') == 'd014':
+        development = selected_source(root / 'bms/app/app_power.c', defines=('-DBMS_PRODUCTION_BUILD=0',))
+        test_body = body
+        for signature in ('u8 app_power_boot_sleep_hold(', 'int app_power_before_suspend(',
+                          'void app_power_process('):
+            test_body = test_body.replace(function(source, signature), function(development, signature))
+        test_fixture = fixture[:fixture.index('int main(void)')]
+        test_fixture += r'''
+int main(void) {
+    reset(); retained_analog=APP_SH_SWITCH_WAKE_TAG|1u; wakeup_status=WAKEUP_STATUS_PAD;
+    pins[0]=1; assert(!app_power_boot_sleep_hold()&&!retained_analog);
+    for(unsigned bits=0;bits<32u;bits++) {
+        reset(); valid=0; afe_error=1; uart_ready=1;
+        deepsleep_en=(bits&1u)!=0; pins[0]=(bits&2u)!=0;
+        ota_is_working=(bits&4u)!=0; register_debug_hold=(bits&8u)!=0;
+        g_bms_report.fault_third.bits.cell_uvp=(bits&16u)!=0;
+        g_bms_report.cell_min_mv=2000u;
+        for(unsigned second=0;second<3601u;second++) {
+            now+=1000u; s_low_power_mode=true; app_power_process(&sample_due);
+            assert(!s_low_power_mode&&suspend_mask==SUSPEND_DISABLE);
+            assert(!app_power_before_suspend()&&!app_power_prepare_loop());
+            assert(!sleep_calls&&!comm_sleep_calls&&!afe_calls&&!saves&&!events);
+            assert(!s_protective_sleep_committed&&reason==BMS_SLEEP_REASON_NONE);
+        }
+    }
+    puts("PASS D014 development OTA no-sleep: AFE fault, UVP, command, switch, OTA, freeze and one hour");
+    return 0;
+}
+'''
+        run_c('#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE 1u\n' +
+              test_fixture.replace('/* PRODUCTION */', test_body),
+              flags=('-DBMS_SERVICE_DIAG_ENABLE=1', '-Wno-unused-function', '-Wno-unused-variable'),
+              name='d014-development-ota-no-sleep')
 
 def check_sh_suspend_current_gates():
     """运行真实 SH 普通 suspend 入口；串口静默资格与其他安全条件独立。"""
@@ -225,7 +260,7 @@ def check_sh_suspend_current_gates():
     from project_paths import selected_source
     from validation_support import function, run_c
     root = Path(__file__).resolve().parents[1]
-    source = selected_source(root / 'bms/app/app_power.c', defines=('-DBMS_SERVICE_DIAG_ENABLE=1',))
+    source = selected_source(root / 'bms/app/app_power.c', defines=('-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP=0'))
     defines = re.search(r'^#define APP_SUSPEND_CURRENT_THRESHOLD_MA[^\n]*', source, re.M).group()
     defines += '\n' + re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                                (root / 'bms/core/bms_soc.h').read_text(), re.M).group()
