@@ -49,10 +49,7 @@ class SourceProtectionFields:
         if self.shunt<=0: raise ValueError('分流器比例必须大于零')
         self.rows = {r['name']: r for r in config.rows}
         # 温度阈值沿真实生产 NTC 表插值；不将其它 B 值替换为这一张表。
-        text = (config.root / 'bms/afe/sh3673510/sh3673510_ntc.c').read_text(encoding='utf8')
-        table = text[text.index('{') + 1:text.index('}')]
-        values = [int(v) for v in re.findall(r'(\d+)u', table)]
-        self.ntc = list(zip(values[::2], values[1::2]))
+        self.ntc = None
 
     def row(self, name):
         full = ('D008_AFE_' if self.dvc else 'SH3673510_HW_DEFAULT_') + name
@@ -66,6 +63,11 @@ class SourceProtectionFields:
         self.row(name)['edit'] = str(value)
 
     def temp_code(self, temp, low):
+        if self.ntc is None:
+            text = (self.config.root / 'bms/afe/sh3673510/sh3673510_ntc.c').read_text(encoding='utf8')
+            table = text[text.index('{') + 1:text.index('}')]
+            values = [int(v) for v in re.findall(r'(\d+)u', table)]
+            self.ntc = list(zip(values[::2], values[1::2]))
         r = self.ntc[0][0] if temp <= self.ntc[0][1] else self.ntc[-1][0]
         for (r1, t1), (r2, t2) in zip(self.ntc, self.ntc[1:]):
             if t1 <= temp <= t2:
@@ -81,6 +83,73 @@ class SourceProtectionFields:
         value = Fraction(self.value(name)) * self.shunt / (10 * step)
         count = ceil_fraction(value) if up else value.numerator // value.denominator
         return max(1, min(maximum + 1, count)) - 1
+
+    def sh_write_validation_errors(self, chemistry):
+        """SH 完整语义参数按在线严格写入规则检查；不修改旧值或替用户选阈值。
+
+        依据 SH CV1.0A 原 PDF p34/36..39/49 与
+        bms_afe_hw_profile_validate()/validate_write()。schema/model 不是源码表的编辑项。
+        """
+        if self.dvc:
+            return []
+        errors = []
+        def value(name):
+            row = self.row(name)
+            return row['edits'][chemistry] if row['ternary'] else int(row['edit'])
+        def enabled(name):
+            return value('ENABLE_' + name) != 0
+        def require(condition, message):
+            if not condition:
+                errors.append(f'{chemistry.upper()} / {message}')
+        for name, minimum, maximum in (('COV', 3000, 4500), ('CUV', 1000, 3500)):
+            if enabled(name):
+                require(minimum <= value(name + '_MV') <= maximum,
+                        f'{name}_MV={value(name + "_MV")} mV，允许 {minimum}..{maximum} mV')
+                trip, recover = value(name + '_MV'), value(name + '_RECOVER_MV')
+                require(recover < trip if name == 'COV' else recover > trip,
+                        f'{name}_RECOVER_MV 必须' + ('低于' if name == 'COV' else '高于') + '保护电压')
+        for name, minimum, maximum in (('COV', 140, 10010), ('CUV', 490, 10010),
+                ('OCD1', 140, 10010), ('OCD2', 25, 400), ('OCC1', 140, 10010), ('SC', 0, 576)):
+            field = name + ('_DELAY_US' if name == 'SC' else '_DELAY_MS')
+            unit = 'us' if name == 'SC' else 'ms'
+            minimum = minimum if enabled(name) else 0
+            require(minimum <= value(field) <= maximum,
+                    f'{field}={value(field)} {unit}，允许 {minimum}..{maximum} {unit}')
+        require(enabled('OCD1') == enabled('OCD2'), 'OCD1/OCD2 共用硬件使能，必须同时开或关')
+        for name, step, count, recover in (('OCD1', 5000, 16, 'OCD'),
+                ('OCD2', 10000, 16, 'OCD'), ('OCC1', 1375, 32, 'OCC')):
+            if not enabled(name):
+                continue
+            sense = Fraction(value(name + '_A10')) * self.shunt / 10
+            minimum = ceil_fraction(Fraction(step * 10) / self.shunt)
+            maximum = min(65535, int(Fraction(step * count * 10) / self.shunt))
+            require(step <= sense <= step * count,
+                    f'{name}_A10={value(name + "_A10")}，允许 {minimum}..{maximum}（0.1 A）')
+            steps = max(1, min(count, ceil_fraction(sense / step)))
+            actual = min(65535, ceil_fraction(Fraction(steps * step * 10) / self.shunt))
+            require(value(recover + '_RECOVER_A10') < actual,
+                    f'{recover}_RECOVER_A10 必须低于 {name} 量化后的有效电流 {actual}（0.1 A）')
+        if enabled('SC'):
+            sense = Fraction(value('OCD2_A10')) * self.shunt / 10
+            require(10000 <= sense <= 160000, 'SC 依赖 OCD2，OCD2 基准必须落在 10..160 mV')
+            base = Fraction(max(1, min(16, ceil_fraction(sense / 10000))) * 100000) / self.shunt
+            requested = value('SC_A10')
+            require(2 * base <= requested <= 6 * base, 'SC_A10 必须落在量化后 OCD2 基准的 2..6 倍内')
+            multiple = next((m for m in (2, 3, 4, 6) if requested <= m * base), 6)
+            require(base * multiple <= 65535, 'SC 量化后的有效电流超出 16 位 0.1 A 报告范围')
+        for name in ('CHG_OT', 'CHG_UT', 'DSG_OT', 'DSG_UT'):
+            for suffix in ('_X10', '_RECOVER_X10'):
+                field = name + suffix
+                require(0 <= value(field) <= 1450, f'{field} 超出协议温度范围 −40..105℃')
+        if enabled('TEMP'):
+            for name, minimum, maximum in (('CHG_OT', 800, 1100), ('CHG_UT', 200, 500),
+                    ('DSG_OT', 850, 1200), ('DSG_UT', 0, 500)):
+                trip, recover = value(name + '_X10'), value(name + '_RECOVER_X10')
+                require(minimum <= trip <= maximum,
+                        f'{name}_X10={trip}（{trip / 10 - 40:g}℃），允许 {minimum / 10 - 40:g}..{maximum / 10 - 40:g}℃')
+                require(recover < trip if name.endswith('OT') else recover > trip,
+                        f'{name}_RECOVER_X10 必须' + ('低于' if name.endswith('OT') else '高于') + '保护温度')
+        return errors
 
     def registers(self):
         v = self.value
@@ -167,7 +236,8 @@ class SourceProtectionFields:
             else: self.set('SC_A10', int(Fraction(((regs[0x4E] & 15) + 1) * 100000 * (2, 3, 4, 6)[code], 1) / self.shunt))
         elif 0x51 <= address <= 0x54:
             name = {0x51: 'CHG_OT_X10', 0x52: 'DSG_OT_X10', 0x53: 'CHG_UT_X10', 0x54: 'DSG_UT_X10'}[address]
-            allowed = range(200, 501) if address == 0x53 else range(0, 501) if address == 0x54 else range(850, 1201)
+            allowed = {0x51: range(800, 1101), 0x52: range(850, 1201),
+                       0x53: range(200, 501), 0x54: range(0, 501)}[address]
             matches = [t for t in allowed if self.temp_code(t, address >= 0x53) == code]
             if not matches: raise ValueError('该编码在本板 10K NTC 表和固件允许温度范围内没有对应值；可查手册或做内部版临时调试')
             self.set(name, min(matches, key=lambda t: abs(t - self.value(name))))

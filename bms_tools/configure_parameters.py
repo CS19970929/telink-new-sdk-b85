@@ -182,6 +182,7 @@ class Configuration:
         if not name.strip() or not revision.strip(): raise ValueError('请填写客户/方案名称与版本；另存新版本可避免覆盖旧客户方案')
         self.customer_name, self.customer_revision = name.strip(), revision.strip()
         self.replacements(element, parallel, debug)  # 复用源码保存的范围和预设校验。
+        self.validate_afe_write(element, parallel)
         return dict(schema=1, product=self.product, afe_model=self.settings['afe_model'],
                     name=self.customer_name, revision=self.customer_revision, view_chemistry=self.chemistry,
                     created_utc=datetime.now(timezone.utc).isoformat(), catalog_id=CATALOG['catalog_id'],
@@ -222,6 +223,16 @@ class Configuration:
             if a in presets or not m or m & ~policies.get(a,0) or v & ~m: raise ValueError('预设含重复、禁止或保留字段')
             if self.product=='d008' and a==0x52 and m&31==31 and v&31==31: raise ValueError('DPC=31 为 N/A')
             presets[a]=(m,v)
+        # 在更改当前窗口前检查完整导入参数，两种类型均须可在线写入。
+        draft = copy.copy(self)
+        draft.rows = copy.deepcopy(self.rows)
+        for row in draft.rows:
+            value = data['parameters'][row['name']]
+            if row['ternary']:
+                row['edits'] = dict(value)
+                value = value[data['view_chemistry']]
+            row['edit'] = str(value)
+        draft.validate_afe_write(element, parallel)
         self.settings=normalized;self.change_chemistry(data['view_chemistry'])
         for row in self.rows:
             value=data['parameters'][row['name']]
@@ -229,6 +240,15 @@ class Configuration:
             row['edit']=str(value)
         self.element,self.parallel,self.debug=element,parallel,data['debug_enabled'];self.presets=presets
         self.customer_name,self.customer_revision=data['name'].strip(),data['revision'].strip()
+
+    def validate_afe_write(self, element, parallel):
+        if self.product == 'd008':
+            return
+        codec = SourceProtectionFields(self, element, parallel)
+        errors = [error for chemistry in ('lfp', 'nmc')
+                  for error in codec.sh_write_validation_errors(chemistry)]
+        if errors:
+            raise ValueError('完整 AFE 参数不能通过固件在线写入校验，尚未保存：\n' + '\n'.join(errors))
 
     def replacements(self, element: int, parallel: int, debug: bool) -> dict:
         self.sync_branches()
@@ -266,6 +286,14 @@ class Configuration:
                 return match[1] + body
             edited[row["path"]], count = pattern.subn(replace, edited[row["path"]])
             if count != 1: raise ValueError("参数定义不唯一：" + row["name"])
+        afe_changed = any(row['name'].startswith('SH3673510_HW_DEFAULT_') and
+                          (row['edits'] != row['branches'] if row['ternary'] else integer(row['edit']) != row['value'])
+                          for row in self.rows)
+        # 未修改的旧工程仍可保存无关设置；编辑 AFE、分流器或切换装配类型时，
+        # 必须检查完整 profile，避免生成只能启动却不能在线修改的默认参数。
+        if afe_changed or (element, parallel) != (self.element, self.parallel) or any(
+                self.settings[key] != self.baseline_settings[key] for key in ('cell_count', 'chemistry')):
+            self.validate_afe_write(element, parallel)
         board_path = self.folder / "bms_product.h"
         protection_path=self.folder/f'{self.product}_protection_config.h'
         edited[protection_path]=build_options._replace(edited[protection_path],'BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH',str(self.settings['capacity_0p1ah'])+'u')

@@ -14,6 +14,26 @@ from tests.test_bms_tools import copy_configuration
 
 
 class EditorTests(unittest.TestCase):
+    @staticmethod
+    def writable_sh_fixture(config):
+        """测试保存流程使用显式合法候选，不依赖产品保留的历史默认。"""
+        if config.product == 'd008':
+            return
+        from fractions import Fraction
+        from afe_source_fields import ceil_fraction
+        shunt = Fraction(config.element, config.parallel)
+        values = dict(OCD1_A10=ceil_fraction(50000 / shunt), OCD1_DELAY_MS=140,
+                      OCD2_A10=ceil_fraction(100000 / shunt), OCD2_DELAY_MS=25,
+                      OCC1_A10=ceil_fraction(13750 / shunt), OCC1_DELAY_MS=140,
+                      OCD_RECOVER_A10=0, OCC_RECOVER_A10=0,
+                      CHG_UT_X10=200, CHG_UT_RECOVER_X10=300)
+        base = ceil_fraction(Fraction(values['OCD2_A10']) * shunt / 100000) * 100000 / shunt
+        values['SC_A10'] = ceil_fraction(base * 2)
+        for row in config.rows:
+            name = row['name'].removeprefix('SH3673510_HW_DEFAULT_')
+            if name in values:
+                row['edit'] = str(values[name])
+
     def test_display_units_preserve_source_integers(self):
         cases = (
             ('BMS_SW_CHARGE_OCP_FIRST_A10', 125, '12.5', 'A'),
@@ -48,6 +68,7 @@ class EditorTests(unittest.TestCase):
                     config.save(config.replacements(config.element, config.parallel, config.debug))
                     self.assertIn('sw', editor.build_options.verify_source(root, product)['update_groups'])
                     config = editor.Configuration(product, 'lfp')
+                    self.writable_sh_fixture(config)
                     hardware = next(row for row in config.rows if '_COV_MV' in row['name'] and
                                     row['name'].startswith(('D008_AFE_', 'SH3673510_HW_DEFAULT_')))
                     hardware['edit'] = str(hardware['value'] + 1)
@@ -141,6 +162,7 @@ class EditorTests(unittest.TestCase):
             root=Path(directory);copy_configuration(root)
             with mock.patch.object(editor,'ROOT',root):
                 config=editor.Configuration('d014','lfp')
+                self.writable_sh_fixture(config)
                 next(r for r in config.rows if r['name']=='BMS_SW_CELL_OVP_FIRST_MV_FOR')['edit']='3561'
                 config.presets[0x46]=(1,1)
                 profile=config.profile(2000,3,False,'客户 A','v2')
@@ -154,14 +176,82 @@ class EditorTests(unittest.TestCase):
                 self.assertEqual(editor.build_options.source_customer_profile(root,'d014'),{'name':'客户 A','revision':'v2'})
                 other=editor.Configuration('d011','lfp')
                 with self.assertRaisesRegex(ValueError,'产品'):other.load_profile(profile)
-                for mutation in ('unknown_parameter','bad_preset','wrong_catalog','missing_chemistry'):
+                for mutation in ('unknown_parameter','bad_preset','wrong_catalog','missing_chemistry','invalid_temperature'):
                     broken=copy.deepcopy(profile)
                     if mutation=='unknown_parameter':broken['parameters']['BMS_PRODUCT_DEFAULT_SERIAL']=1
                     elif mutation=='bad_preset':broken['presets']=[{'address':0x41,'mask':3,'value':3}]
                     elif mutation=='wrong_catalog':broken['catalog_id']='00000000'
-                    else:del broken['parameters']['BMS_SW_CELL_OVP_FIRST_MV_FOR']['nmc']
+                    elif mutation=='missing_chemistry':del broken['parameters']['BMS_SW_CELL_OVP_FIRST_MV_FOR']['nmc']
+                    else:broken['parameters']['SH3673510_HW_DEFAULT_CHG_UT_X10']=150
                     candidate=editor.Configuration('d014','lfp')
+                    previous=[r['edit'] for r in candidate.rows]
                     with self.assertRaises(ValueError):candidate.load_profile(broken)
+                    self.assertEqual([r['edit'] for r in candidate.rows],previous)
+
+    def test_d014_complete_write_rejects_unrelated_invalid_temperature(self):
+        config = editor.Configuration('d014', 'lfp')
+        self.writable_sh_fixture(config)
+        rows = {r['name']: r for r in config.rows}
+        rows['SH3673510_HW_DEFAULT_CHG_UT_X10']['edit'] = '150'
+        rows['SH3673510_HW_DEFAULT_OCC1_DELAY_MS']['edit'] = '100'
+        rows['SH3673510_HW_DEFAULT_CUV_MV_FOR']['edit'] = '2500'
+        before = {p: p.read_bytes() for p in config.paths}
+        with self.assertRaises(ValueError) as result:
+            config.replacements(2000, 3, False)
+        self.assertIn('CHG_UT_X10=150', str(result.exception))
+        self.assertIn('OCC1_DELAY_MS=100', str(result.exception))
+        self.assertEqual({p: p.read_bytes() for p in config.paths}, before)
+        rows['SH3673510_HW_DEFAULT_CHG_UT_X10']['edit'] = '200'
+        rows['SH3673510_HW_DEFAULT_OCC1_DELAY_MS']['edit'] = '140'
+        self.assertTrue(config.replacements(2000, 3, False))
+        rows['SH3673510_HW_DEFAULT_CUV_MV_FOR']['edits']['nmc'] = 3501
+        with self.assertRaisesRegex(ValueError, 'NMC / CUV_MV'):
+            config.replacements(2000, 3, False)
+
+    def test_sh_write_scalar_boundaries_and_current_dependencies(self):
+        from afe_source_fields import SourceProtectionFields
+        config = editor.Configuration('d014', 'lfp')
+        self.writable_sh_fixture(config)
+        codec = SourceProtectionFields(config)
+        # 消除边界测试的回差干扰，恢复字段仍通过真实范围检查。
+        for name, value in dict(COV_RECOVER_MV_FOR=0, CUV_RECOVER_MV_FOR=65535,
+                CHG_OT_RECOVER_X10=0, DSG_OT_RECOVER_X10=0,
+                CHG_UT_RECOVER_X10=1450, DSG_UT_RECOVER_X10=1450).items():
+            row = next(r for r in config.rows if r['name']=='SH3673510_HW_DEFAULT_'+name)
+            if row['ternary']:
+                row['edits'] = dict(lfp=value, nmc=value)
+            row['edit'] = str(value)
+        limits = [('COV_MV',3000,4500),('CUV_MV',1000,3500),('COV_DELAY_MS',140,10010),
+                  ('CUV_DELAY_MS',490,10010),('OCD1_DELAY_MS',140,10010),('OCD2_DELAY_MS',25,400),
+                  ('OCC1_DELAY_MS',140,10010),('SC_DELAY_US',0,576),('CHG_OT_X10',800,1100),
+                  ('CHG_UT_X10',200,500),('DSG_OT_X10',850,1200),('DSG_UT_X10',0,500)]
+        for name, minimum, maximum in limits:
+            row = codec.row(name)
+            original = row['edit'], dict(row['edits'])
+            for value in (minimum-1, minimum, maximum, maximum+1):
+                with self.subTest(name=name, value=value):
+                    row['edit'] = str(value)
+                    if row['ternary']:
+                        row['edits']['lfp'] = value
+                    self.assertEqual(not codec.sh_write_validation_errors('lfp'), minimum <= value <= maximum)
+            row['edit'], row['edits'] = original
+        codec.set('OCD2_A10', 450)
+        codec.set('SC_A10', 600)
+        self.assertTrue(any('SC_A10' in e for e in codec.sh_write_validation_errors('lfp')))
+        codec.set('SC_A10', 900)
+        self.assertFalse(codec.sh_write_validation_errors('lfp'))
+        codec.set('ENABLE_OCD1', 0)
+        self.assertTrue(any('共用' in e for e in codec.sh_write_validation_errors('lfp')))
+
+    def test_sh_charge_temperature_register_field_uses_own_range(self):
+        from afe_source_fields import SourceProtectionFields
+        config=editor.Configuration('d014','lfp')
+        codec=SourceProtectionFields(config)
+        # OTC允许40..70℃；以前错误地沿用OTD的45..80℃搜索范围。
+        code=codec.temp_code(800, False)
+        codec.edit(0x51,255,0,code)
+        self.assertTrue(800 <= codec.value('CHG_OT_X10') <= 1100)
+        self.assertEqual(codec.registers()[0x51], code)
 
     def test_register_field_bits_update_physical_owner(self):
         from afe_source_fields import SourceProtectionFields
