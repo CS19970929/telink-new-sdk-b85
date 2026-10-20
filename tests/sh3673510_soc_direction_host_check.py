@@ -48,12 +48,18 @@ int main(void) {
     }
     g_soc_input_current_ma=INT32_MIN;
     assert(soc_current_direction(&magnitude)==SOC_INTEGRAL_DIR_CHG && magnitude==65535u);
+    g_soc_input_current_ma=INT32_MAX;
+    assert(soc_current_direction(&magnitude)==SOC_INTEGRAL_DIR_DSG && magnitude==65535u);
+    assert(soc_current_direction(0)==SOC_INTEGRAL_DIR_DSG);
     g_soc_input_valid=0;
-    assert(soc_current_direction(&magnitude)==SOC_INTEGRAL_DIR_NONE && magnitude==0);
+    /* 无效输入不能授予方向；幅值本身不表达样本有效性。 */
+    assert(soc_current_direction(&magnitude)==SOC_INTEGRAL_DIR_NONE);
+    assert(soc_current_direction(0)==SOC_INTEGRAL_DIR_NONE);
     return 0;
 }
 '''
-code = code.replace('/* PRODUCTION */', extract(soc, 'static soc_integral_dir_t soc_current_direction('))
+code = code.replace('/* PRODUCTION */', extract(soc, 'static uint32_t current_magnitude(') + '\n' +
+                    extract(soc, 'static soc_integral_dir_t soc_current_direction('))
 with tempfile.TemporaryDirectory(prefix='sh3510-soc-direction-') as tmp:
     c = Path(tmp) / 'check.c'
     c.write_text(code, encoding='utf-8')

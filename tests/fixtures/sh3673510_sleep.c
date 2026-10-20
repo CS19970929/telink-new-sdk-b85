@@ -22,6 +22,8 @@ static unsigned bus_calls, balance_calls, fet_calls, sleep_writes, normal_writes
 static unsigned command_fail_at;
 static uint8_t control_wake_active, heater_on, physical_sleep, last_c, last_d;
 static uint8_t configure_ok, protection_ok;
+static uint8_t voltage_cleanup_ok;
+static unsigned voltage_cleanup_calls;
 static u32 fake_tick;
 uint32_t bms_time_ms(void) { return fake_tick; }
 static uint8_t io_ok(void) { ++bus_calls; return bus_calls != command_fail_at; }
@@ -53,6 +55,9 @@ static void note_comm_error(uint8_t stage) { (void)stage; ++comm_errors; }
 static uint8_t bms_error_get(unsigned e) { (void)e; return errors != 0; }
 static void bms_error_raise(unsigned e) { (void)e; ++errors; }
 static void bms_features_stop(void) { ++invalidations; heater_on = 0; }
+static uint8_t bms_afe_driver_stop_voltage_check(void) {
+    ++voltage_cleanup_calls; return voltage_cleanup_ok;
+}
 #define AFE_SLEEP() bms_afe_driver_sleep()
 #define AFE_BAL_SET(m) sh3673510_control_set_balance(m)
 #define AFE_FETS(c,d) sh3673510_control_set_fets(c,d)
@@ -78,6 +83,7 @@ static void reset(void) {
     command_fail_at = 0;
     control_wake_active = 0;
     configure_ok = protection_ok = 1;
+    voltage_cleanup_ok = 1u; voltage_cleanup_calls = 0u;
     heater_on = last_c = last_d = 1;
 }
 int main(void) {
@@ -95,6 +101,7 @@ int main(void) {
 
     /* 对实际AFE链逐个注入SPI失败；应用层强制深睡另有独立场景。 */
     reset(); CHECK(bms_afe_sleep()); n = bus_calls;
+    CHECK(voltage_cleanup_calls == 1u);
     CHECK(sleep_writes == 1 && !heater_on && !last_c && !last_d);
     CHECK(!s_snapshot_valid && !s_fet_command_valid);
     for (i = 1; i <= n; ++i) {
@@ -102,6 +109,9 @@ int main(void) {
         CHECK(!bms_afe_sleep());
         CHECK(!s_snapshot_valid && !s_fet_command_valid);
     }
+    reset(); voltage_cleanup_ok = 0u;
+    CHECK(bms_afe_sleep() && voltage_cleanup_calls == 1u && sleep_writes == 1u);
+    CHECK(!heater_on && !last_c && !last_d);
     reset(); control_wake_active = 1; CHECK(!bms_afe_sleep());
     CHECK(!sleep_writes);
     reset(); s_guard.bus_silenced = 1; s_guard.failsafe_start_tick_ms = 90;

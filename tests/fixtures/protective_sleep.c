@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "bms_diag.h"
+#include "bms_state_store.h"
 static uint8_t register_debug_hold;
 #define bms_afe_register_debug_held() register_debug_hold
 typedef uint8_t u8;
@@ -42,7 +43,7 @@ typedef int GPIO_PinTypeDef;
 typedef struct { u32 epoch_ms; u8 ready; } app_pm_elapsed_ctx_t;
 typedef struct { u32 sample_time_ms; int32_t current_ma; } bms_afe_aux_measurements_t;
 static struct { uint16_t cell_min_mv, pack_voltage_10mv; struct { struct { uint8_t cell_uvp, pack_uvp; } bits; } fault_third; } g_bms_report;
-static struct { u8 soc_estimate_percent, discharge_fraction_percent; u32 cycle_count; } g_bms_soc;
+static const bms_state_store_data_t soc_state = {54u, 7u, 12u, 1u, 123456u};
 static bms_afe_aux_measurements_t measurement;
 static int valid, afe_error, ota_is_working, device_in_connection_state, flash_ready;
 static bool s_low_power_mode, deepsleep_en;
@@ -77,7 +78,13 @@ static u8 bms_error_get(int error) { assert(error==BMS_ERROR_AFE1); return afe_e
 static void bms_afe_set_output_enabled(u8 en) { assert(!en); ++output_calls; }
 static u8 bms_afe_sleep(void) { ++afe_calls; return 0u; }
 static int app_flash_lock_restore_enabled(void) { return flash_ready; }
-static u8 bms_state_store_save(u8 s, u8 d, u32 c) { (void)s;(void)d;(void)c; ++saves; return 0u; }
+static bms_state_store_data_t bms_soc_state_snapshot(void) { return soc_state; }
+int bms_state_store_save_snapshot(const bms_state_store_data_t *state) {
+    assert(state && state->soc==soc_state.soc && state->dsg==soc_state.dsg &&
+           state->cycle==soc_state.cycle && state->full_confirmed==soc_state.full_confirmed &&
+           state->full_basis==soc_state.full_basis);
+    ++saves; return 0;
+}
 static u8 bms_event_log_note_sleep(void) { ++events; return 0u; }
 static int bls_ll_terminateConnection(int r) { assert(r==HCI_ERR_REMOTE_USER_TERM_CONN); return -1; }
 static int bls_ll_setAdvEnable(int en) { assert(!en); return -1; }
