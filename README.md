@@ -1,5 +1,7 @@
 # BMS monorepo：D008 / D011 / D013 / D014
 
+四产品 TLSR8251 串口／RS485 升级、Windows 共用 OTA 入口及验证边界见 [串口升级说明](docs/SERIAL_OTA.md)。
+
 基线分支为 `codex-bms-deep-simplification-20261016`；当前精简分支为 `refactor/full-project-simplification-20261018`。此前 `codex-remove-openwire` 从 `ee284189` 裁剪主动断线检测，见 [删除与回归说明](docs/OPENWIRE_REMOVAL.md)。
 
 四产品固件的主开发分支是 `codex-bms-monorepo`。公共代码只维护一份，产品通过编译配置和 `sources.txt` 选择硬件输入与 AFE 后端。Windows 上位机仍在 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/` 维护。

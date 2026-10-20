@@ -67,6 +67,7 @@ register('storage', PRODUCTS, '生产 journal/语义存储与 RAM Flash', 'stora
 register('protection', PRODUCTS, '生产 TU 场景', 'sw_temperature_groups_host_check')
 register('tooling', ('d014',), '工具行为/源码 contract', 'tooling_contract_check')
 register('protocol', PRODUCTS, 'UART DMA/IRQ 软件模型', 'uart_ownership_host_check')
+register('protocol', PRODUCTS, '真实升级core和Telink端口；RAM Flash掉电、CRC、A/B及超时模型', 'serial_ota_host_check')
 register('tooling', ('d014',), '故意变异检验', 'validation_mutation_check')
 
 SOURCES = {

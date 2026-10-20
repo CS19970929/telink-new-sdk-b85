@@ -5,6 +5,9 @@ from project_paths import selected_source
 
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = r'''
+static unsigned char bms_serial_ota_busy(void){return 0;}
+static void bms_serial_ota_poll(void){}
+static int bms_serial_ota_on_frame(const unsigned char*p,unsigned n,unsigned char*r,unsigned*l){(void)p;(void)n;(void)r;(void)l;return 0;}
 #include <stdint.h>
 #include <string.h>
 #include <assert.h>

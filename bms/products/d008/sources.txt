@@ -102,3 +102,5 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/app/usbkb.c
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/app/usbmouse.c
 bms/platform/telink/bms_time.c
 bms/core/bms_crc.c
+bms/core/bms_serial_ota.c
+bms/platform/telink/bms_serial_ota_telink.c

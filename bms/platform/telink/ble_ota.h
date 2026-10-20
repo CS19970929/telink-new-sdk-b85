@@ -13,6 +13,8 @@
 void app_enter_ota_mode(void);
 /* 处理 OTA 结束结果并执行现有恢复或重启策略。 */
 void app_ota_end_result(int result);
+/* 串口会话占有Flash时，不将BLE OTA请求交给SDK。 */
+int app_ble_ota_write(void *packet);
 #endif
 
 #endif /* 条件编译结束： BLE_OTA_H_ */

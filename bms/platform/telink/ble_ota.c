@@ -9,9 +9,15 @@
 
 #include "app.h"
 #include "ble_ota.h"
+#include "bms_serial_ota.h"
 
 
 #if (BLE_OTA_SERVER_ENABLE)
+int app_ble_ota_write(void *packet)
+{
+    if (bms_serial_ota_busy()) return 0;
+    return otaWrite(packet);
+}
 /* 进入 OTA 状态并切换升级所需连接与电源设置。 */
 void app_enter_ota_mode(void)
 {

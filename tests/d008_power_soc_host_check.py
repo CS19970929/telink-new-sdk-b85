@@ -97,7 +97,7 @@ def main():
                 policy = re.search(r'typedef struct\s*\{[^}]*\} bms_afe_driver_policy_t;', (ROOT/'bms/core/bms_afe_driver.h').read_text(encoding='utf-8'), re.S).group()
                 fixture = policy + '\n' + fixture
             if name == 'power':
-                fixture = '#include "' + (ROOT/'bms/core/bms_diag.h').as_posix() + '"\n' + fixture
+                fixture = '#include "' + (ROOT/'bms/core/bms_diag.h').as_posix() + '"\n' + '#include "bms_sleep_status.h"\n' + fixture
             assert fixture.count('/* PRODUCTION_SOURCE */') == 1
             path = Path(directory) / (name + '.c')
             path.write_text(fixture.replace('/* PRODUCTION_SOURCE */', code)

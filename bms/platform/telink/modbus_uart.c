@@ -8,6 +8,7 @@
 #include "bms_afe_backend.h"
 
 #include "modbus_uart.h"
+#include "bms_serial_ota.h"
 #include "app_config.h"
 #include "tl_common.h"
 #include "drivers.h"
@@ -591,7 +592,7 @@ void modbus_uart_init(void)
 /* 调用方已关闭中断，判定与切换之间不得再交付 RX 或启动 TX。 */
 u8 modbus_uart_bus_idle(void)
 {
-    return !modbus_uart_tx_active() && !s_rx_ready &&
+    return !bms_serial_ota_busy() && !modbus_uart_tx_active() && !s_rx_ready &&
            !(dma_chn_irq_status_get() & FLD_DMA_CHN_UART_RX) &&
            gpio_read(BMS_BOARD_OWC_RX_PIN);
 }
@@ -878,6 +879,7 @@ static void modbus_uart_diag_send_next(void)
 /* 接收帧解析、应答与 RX 恢复的主循环所有者；日志读取走同一 TX 路径，不插入裸文本。 */
 void main_loop_modbus(void)
 {
+    bms_serial_ota_poll();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     /* 一线通期间不解析旧帧，也不让周期 RX 恢复重新开启 DMA。 */
     if (bus_mux_get_state() != BUS_STATE_UART_MODBUS) return;
@@ -903,7 +905,10 @@ void main_loop_modbus(void)
     if (modbus_uart_poll(&req, &req_len))
     {
         u32 rsp_len = 0u;
-        int ok = modbus_on_frame(req, req_len, rsp_buf, &rsp_len);
+        uint32_t ota_rsp_len = 0u;
+        int ok = bms_serial_ota_on_frame(req, req_len, rsp_buf, &ota_rsp_len);
+        rsp_len = ota_rsp_len;
+        if (!ok) ok = modbus_on_frame(req, req_len, rsp_buf, &rsp_len);
 #if BMS_DEBUG_LOG_ENABLE
         if (!bms_debug_log_is_read(req, req_len))
             BMS_LOG(ok ? BMS_LOG_DEBUG : BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_UART_FRAME,
