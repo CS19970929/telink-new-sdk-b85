@@ -4,6 +4,14 @@ using System.Text;
 
 namespace BmsTool.Windows;
 
+public sealed class BmsAfeHardwareException : IOException
+{
+    public byte Command { get; }
+    public byte Status { get; }
+    public BmsAfeHardwareException(byte command, byte status)
+        : base($"AFE hardware access command 0x{command:X2} failed with status 0x{status:X2}.") { Command=command; Status=status; }
+}
+
 public sealed class BmsModbusException : IOException
 {
     public byte Function { get; }
@@ -330,7 +338,7 @@ public static class ModbusRtu
             frame[1] != BmsRegisters.AfeHardwareFunction || frame[2] != command)
             throw new IOException("Invalid AFE hardware access response header.");
         if (frame[3] != 0)
-            throw new IOException($"AFE hardware access command 0x{command:X2} failed with status 0x{frame[3]:X2}.");
+            throw new BmsAfeHardwareException(command,frame[3]);
     }
 
     public static void ValidateSocHilResponse(ReadOnlySpan<byte> frame, byte command)

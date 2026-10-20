@@ -100,6 +100,22 @@ static class Test {
   try{await client.WriteAllAsync(channels);throw new Exception("通道有效位不一致未报告");}
   catch(IOException ex){Check(ex.Message.Contains("温度通道"),"通道有效位必须独立核对");}
   Check(t.Commits==1,"通道核对失败不得自动重复提交");t.ChangeTemperatureOnCommit=false;
+  t.HardwareRequested=customer.ToArray();t.HardwareEffective=customer.ToArray();t.Reset();
+  before=await client.ReadAllAsync();t.ChangeOnOpen=true;
+  try{await client.WriteAllAsync(before,customer);throw new Exception("完整窗口过期快照仍提交");}
+  catch(AfeWriteException ex){Check(ex.Outcome==AfeWriteOutcome.NotApplied,"冲突发生在提交前");}
+  Check(t.Commits==0&&t.Stages==0,"完整窗口也必须进行冲突检查");t.ChangeOnOpen=false;
+  foreach(var state in new[]{(Apply:0,Error:2,Outcome:AfeWriteOutcome.NotApplied),
+      (Apply:2,Error:4,Outcome:AfeWriteOutcome.RollbackSucceeded),(Apply:3,Error:5,Outcome:AfeWriteOutcome.ConfigurationInconsistent)}) {
+    t.Reset();t.CommitStatus=4;t.ApplyState=(ushort)state.Apply;t.LastError=(ushort)state.Error;
+    try{await client.WriteAllAsync(customer);throw new Exception("失败未报告");}
+    catch(AfeWriteException ex){Check(ex.Outcome==state.Outcome,"按明确拒绝和元数据区分结果");}
+    Check(t.Commits==1,"失败无自动重发");
+  }
+  t.Reset();t.CommitStatus=0;t.ApplyState=0;t.LastError=2;t.DropCommitAck=true;
+  try{await client.WriteAllAsync(customer);throw new Exception("丢失COMMIT确认未报告");}
+  catch(AfeWriteException ex){Check(ex.Outcome==AfeWriteOutcome.Unconfirmed,"超时不能把旧Validation元数据当作本次拒绝");}
+  Check(t.Commits==1,"结果未确认不重发");t.DropCommitAck=false;t.ApplyState=1;t.LastError=0;
   var off=customer.ToArray();off[34]&=unchecked((ushort)~64);t.Reset();
   try{await client.WriteShortCircuitAsync(new(off,off,shInfo with {Capabilities=0xdf}),1350,64);throw new Exception("客户隐式开启短路");}catch(InvalidOperationException){}
   Check(t.Opens==0&&t.Stages==0&&t.Commits==0,"本地非法候选不得开启会话");
@@ -112,7 +128,7 @@ namespace BmsTool.Windows {
   public string DiscoveryDescription=>"host";public bool Serial,BadAck,CancelAfterStage,BatteryRead,BalanceOff,HardwareRead,EffectiveUnavailable;public CancellationTokenSource? Stop;
   public ushort[]? HardwareRequested,HardwareEffective;
   public bool ChangeOnOpen,ChangeEffectiveOnCommit,ChangeShuntOnOpen;public ushort ShuntElement=2000;
-  public byte CommitStatus;public ushort ApplyState=1,LastError,MetadataCapabilities=0xdf;public int EffectiveReads;public bool ChangeTemperatureOnCommit;
+  public byte CommitStatus;public ushort ApplyState=1,LastError,MetadataCapabilities=0xdf;public int EffectiveReads;public bool ChangeTemperatureOnCommit,DropCommitAck;
   public int Opens,Closes,Stages,Commits,MaxLength,Reads,DropReads,Reconnects;public List<byte> Frame=new();
   public event Action<ReadOnlyMemory<byte>>? DataReceived;public event Action<string>? ConnectionProgress{add{}remove{}}
   public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;return Task.CompletedTask;}
@@ -152,9 +168,11 @@ namespace BmsTool.Windows {
    else if(q[2]==5){Stages++;Frame.AddRange(q.Skip(7).Take(q[6]));body=new byte[]{1,0x42,5,0,q[3],q[4],(byte)(BadAck?0:Frame.Count)};if(CancelAfterStage)Stop!.Cancel();}
    else{Commits++;body=new byte[]{1,0x42,6,CommitStatus};
     if(CommitStatus==0 && HardwareRequested is not null){for(int i=0;i<35;i++)HardwareRequested[i]=BinaryPrimitives.ReadUInt16BigEndian(Frame.ToArray().AsSpan(7+2*i));
-     HardwareEffective![22]=HardwareRequested[22];HardwareEffective[23]=HardwareRequested[23];
+     HardwareEffective![3]=2030;HardwareEffective[7]=3010;HardwareEffective[10]=225;HardwareEffective[16]=104;
+     HardwareEffective[12]=HardwareRequested[12];HardwareEffective[22]=HardwareRequested[22];HardwareEffective[23]=HardwareRequested[23];
      HardwareEffective[34]=HardwareRequested[34];if(ChangeTemperatureOnCommit)HardwareEffective[34]^=0x100;
      if(ChangeEffectiveOnCommit)HardwareEffective[12]++;}}
+   if(q[1]==0x42 && q[2]==6 && DropCommitAck)return Task.CompletedTask;
    DataReceived?.Invoke(ModbusRtu.Frame(body));return Task.CompletedTask;
   }
   private static void CheckBatteryCount(int count){if(count!=63)throw new Exception("battery read window changed");}

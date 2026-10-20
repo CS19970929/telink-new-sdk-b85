@@ -16,6 +16,7 @@ public partial class MainWindow
     private TextBlock? _afeHardwareStatus;
     private TextBlock? _afeHardwareDeviceInfo;
     private BmsClient? _afeHardwareSource;
+    private bool _afeHardwareOperationBusy;
 
     private void AddAfeHardwareTab()
     {
@@ -157,6 +158,8 @@ public partial class MainWindow
     {
         if (_currentCalibrationOwner is not null) return;
         _afeHardwareSource = null;
+        if (_afeHardwareOperationBusy) return;
+        _afeHardwareOperationBusy=true;
         try
         {
             EnsureAfeHardwareEditorAuthorized();
@@ -181,6 +184,7 @@ public partial class MainWindow
         }
         finally
         {
+            _afeHardwareOperationBusy=false;
             StartAutomaticRefresh();
         }
     }
@@ -188,6 +192,8 @@ public partial class MainWindow
     private async void ApplyAfeHardware_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCalibrationOwner is not null) return;
+        if (_afeHardwareOperationBusy) return;
+        _afeHardwareOperationBusy=true;
         try
         {
             EnsureAfeHardwareEditorAuthorized();
@@ -235,8 +241,10 @@ public partial class MainWindow
             _afeHardwareStatus!.Text = "正在执行AFE硬件参数原子事务...";
             AppendLog($"AFE_HW_V2_WRITE_BEGIN backend=0x{info.BackendModel:X4}; transport={transportText}; words={candidate.Length}", "AFE");
 
+            if (!ReferenceEquals(_afeHardwareSource,bms)) throw new InvalidOperationException("连接已改变，请重新读取AFE参数。");
+            AfeHardwareSnapshot expected=_afeHardwareModel.CurrentSnapshot;
             _afeHardwareSource = null;
-            AfeHardwareSnapshot readback = await client.WriteAllAsync(candidate);
+            AfeHardwareSnapshot readback = await client.WriteAllAsync(expected,candidate);
             _afeHardwareModel.Load(readback);
             _afeHardwareSource = bms;
             ApplyAfeDeviceInfo(readback.Info);
@@ -246,12 +254,13 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            if (_afeHardwareStatus is not null) _afeHardwareStatus.Text = "保存失败 / 请重新读取状态";
+            if (_afeHardwareStatus is not null) _afeHardwareStatus.Text = ex is AfeWriteException afe ? afe.OutcomeText : "参数未应用 / 请核对输入";
             ShowError("保存AFE硬件参数失败", ex,
                 "以下为本次失败原因；此提示不代表设备已进入 CONFIG_INCONSISTENT。若提交结果不确定，请重新读取 requested/effective 和 apply_state/last_error，不要直接重复写入。");
         }
         finally
         {
+            _afeHardwareOperationBusy=false;
             StartAutomaticRefresh();
         }
     }

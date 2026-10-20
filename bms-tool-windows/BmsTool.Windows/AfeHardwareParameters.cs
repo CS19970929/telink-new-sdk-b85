@@ -291,6 +291,9 @@ public sealed class AfeHardwareParameterModel
         }
     }
 
+    public AfeHardwareSnapshot CurrentSnapshot => new(_requested.ToArray(), _effective.ToArray(),
+        _deviceInfo ?? throw new InvalidOperationException("请先读取完整 AFE 参数。"));
+
     public bool TryBuildCandidate(out ushort[] raw, out string error)
     {
         raw = _requested.ToArray();
@@ -666,6 +669,18 @@ public sealed class AfeHardwareParameterModel
         }
     }
 
+    public bool VerifyHardwareReadback(ushort[] candidate, ushort[] effective, out string error)
+    {
+        ushort mask=(ushort)(_deviceInfo!.Capabilities&0x7f);
+        if ((candidate[34]&mask)!=(effective[34]&mask)) { error="硬件保护使能位回读不一致。"; return false; }
+        foreach(var row in Rows.Where(r=>!r.IsSwitch && (candidate[34]&r.CapabilityMask)!=0))
+            if(PredictHardwareWord(row.WireIndex,candidate,out ushort expected) && expected!=effective[row.WireIndex]) {
+                error=$"{row.Group}/{row.Name} 硬件档位回读不一致：期望 {row.Decode(expected)}，读回 {row.Decode(effective[row.WireIndex])} {row.Unit}。";
+                return false;
+            }
+        error=string.Empty;return true;
+    }
+
     public string DescribeHardwareQuantization(ushort[] candidate)
     {
         var changes=new List<string>();
@@ -901,6 +916,16 @@ public sealed class AfeHardwareParameterModel
     };
 }
 
+public enum AfeWriteOutcome { NotApplied, RollbackSucceeded, ConfigurationInconsistent, Unconfirmed }
+public sealed class AfeWriteException : IOException {
+    public AfeWriteOutcome Outcome { get; }
+    public string OutcomeText => Outcome switch {
+        AfeWriteOutcome.NotApplied=>"参数未应用", AfeWriteOutcome.RollbackSucceeded=>"应用失败，旧配置已恢复",
+        AfeWriteOutcome.ConfigurationInconsistent=>"配置不一致，输出禁止", _=>"结果未确认，请重新读取"
+    };
+    public AfeWriteException(AfeWriteOutcome outcome,string message,Exception? inner=null):base(message,inner) {Outcome=outcome;}
+}
+
 public sealed class AfeHardwareClient
 {
     private readonly BmsClient _bms;
@@ -934,6 +959,9 @@ public sealed class AfeHardwareClient
     public Task<AfeHardwareSnapshot> WriteAllAsync(ushort[] candidate, CancellationToken ct = default) =>
         WriteCandidateAsync(candidate, null, ct);
 
+    public Task<AfeHardwareSnapshot> WriteAllAsync(AfeHardwareSnapshot snapshot, ushort[] candidate, CancellationToken ct=default) =>
+        WriteCandidateAsync(candidate,new(snapshot.Requested.ToArray(),snapshot.Effective.ToArray(),snapshot.Info),ct);
+
     public Task<AfeHardwareSnapshot> WriteShortCircuitAsync(AfeHardwareSnapshot snapshot,
         ushort currentA10, ushort delayUs, CancellationToken ct = default)
     {
@@ -942,15 +970,17 @@ public sealed class AfeHardwareClient
         model.Load(expected);
         if (!model.TryBuildShortCircuitCandidate(currentA10, delayUs, out var candidate, out string error))
             throw new InvalidOperationException(error);
-        return WriteCandidateAsync(candidate, expected, ct);
+        return WriteCandidateAsync(candidate, expected, ct, preserveOcd2:true);
     }
 
     private async Task<AfeHardwareSnapshot> WriteCandidateAsync(ushort[] candidate,
-        AfeHardwareSnapshot? expected, CancellationToken ct)
+        AfeHardwareSnapshot? expected, CancellationToken ct, bool preserveOcd2=false)
     {
         if (candidate.Length != AfeHardwareProtocolMap.ProfileWordCount)
             throw new ArgumentException("AFE hardware profile write must contain exactly 35 words.", nameof(candidate));
 
+        candidate=candidate.ToArray();
+        bool writeStarted=false;
         AfeHardwareAccessSession? session = null;
         try
         {
@@ -966,19 +996,23 @@ public sealed class AfeHardwareClient
                     latest.Info.BackendModel != expected.Info.BackendModel || latest.Info.Capabilities != expected.Info.Capabilities ||
                     latest.Info.ShuntMicroOhm != expected.Info.ShuntMicroOhm ||
                     latest.Info.ShuntElementMicroOhm != expected.Info.ShuntElementMicroOhm ||
-                    latest.Info.ShuntParallelCount != expected.Info.ShuntParallelCount)
-                    throw new IOException("AFE 参数或分流器信息已改变，短路参数未提交；请重新读取并确认档位。");
+                    latest.Info.ShuntParallelCount != expected.Info.ShuntParallelCount ||
+                    latest.Info.HardwareFeatures != expected.Info.HardwareFeatures)
+                    throw new IOException("AFE 参数或分流器信息已改变，本次参数未提交；请重新读取并确认档位。");
             }
             try
             {
+                writeStarted=true;
                 await _bms.WriteAfeProfileAsync(candidate, session, ct);
             }
             catch (Exception ex) when (!ct.IsCancellationRequested && (ex is IOException || ex is TimeoutException))
             {
                 // 0x42 COMMIT 把校验/存储/应用/回滚错误合并为 status=4。
                 // 失败后只读元数据，即使 effective 不可读也能报告实际失败阶段。
-                string detail = await ReadFailureStateAsync(candidate[1], ct);
-                throw new IOException(ex.Message + "\n" + detail, ex);
+                bool rejected=ex is BmsAfeHardwareException access && access.Command==6 && access.Status==4 ||
+                    ex is BmsModbusException mb && mb.Function==0x90;
+                var detail = await ReadFailureStateAsync(candidate[1], rejected, ct);
+                throw new AfeWriteException(detail.Outcome,ex.Message+"\n"+detail.Text,ex);
             }
             AfeHardwareSnapshot readback = await ReadAllAsync(ct);
             if (!readback.Requested.SequenceEqual(candidate))
@@ -986,15 +1020,23 @@ public sealed class AfeHardwareClient
                 int mismatch = Enumerable.Range(0, candidate.Length).First(i => candidate[i] != readback.Requested[i]);
                 throw new IOException($"AFE硬件参数回读不一致：word[{mismatch}] target={candidate[mismatch]}, actual={readback.Requested[mismatch]}。");
             }
-            if (readback.Info.ApplyState != 1 || readback.Info.LastError != 0)
+            if (!readback.Info.ProfileValid || readback.Info.ApplyState != 1 || readback.Info.LastError != 0)
                 throw new IOException($"AFE apply state={readback.Info.ApplyStateText}, error={readback.Info.ErrorText}.");
             if ((readback.Info.Capabilities & AfeHardwareProtocolMap.TempChannelSelect) != 0 &&
                 AfeHardwareProtocolMap.TemperatureChannels(readback.Requested[34]) !=
                 AfeHardwareProtocolMap.TemperatureChannels(readback.Effective[34]))
                 throw new IOException("温度通道 requested/effective 不一致，请重新读取；不要重复提交。");
-            if (expected is not null && readback.Effective[12] != expected.Effective[12])
+            if (preserveOcd2 && expected is not null && readback.Effective[12] != expected.Effective[12])
                 throw new IOException("短路保存后 OCD2 有效值与读取基准不一致，请重新读取设备，不要重复提交。");
+            var verification=new AfeHardwareParameterModel();verification.Load(readback);
+            if (!verification.VerifyHardwareReadback(candidate,readback.Effective,out string verificationError))
+                throw new IOException(verificationError);
             return readback;
+        }
+        catch (AfeWriteException) { throw; }
+        catch (Exception ex) when (ex is IOException || ex is TimeoutException || ex is OperationCanceledException) {
+            throw new AfeWriteException(writeStarted?AfeWriteOutcome.Unconfirmed:AfeWriteOutcome.NotApplied,
+                ex.Message+(writeStarted?"\n提交结果未确认；重新读取前不得重发。":"\n未发送完整参数提交。"),ex);
         }
         finally
         {
@@ -1003,7 +1045,7 @@ public sealed class AfeHardwareClient
         }
     }
 
-    private async Task<string> ReadFailureStateAsync(ushort backend, CancellationToken ct)
+    private async Task<(AfeWriteOutcome Outcome,string Text)> ReadFailureStateAsync(ushort backend, bool rejected, CancellationToken ct)
     {
         try
         {
@@ -1019,13 +1061,17 @@ public sealed class AfeHardwareClient
                 5 => "设备报告回滚失败，必须保持输出禁止并排查硬件配置。",
                 _ => "当前元数据不能确认本次提交结果，请重新读取 requested/effective；不要重复提交。"
             };
-            return $"失败后读回：apply_state={info.ApplyStateText} ({info.ApplyState})，" +
+            AfeWriteOutcome outcome = !rejected ? AfeWriteOutcome.Unconfirmed :
+                info.ApplyState==3 && info.LastError==5 ? AfeWriteOutcome.ConfigurationInconsistent :
+                info.ApplyState==2 && info.LastError==4 ? AfeWriteOutcome.RollbackSucceeded :
+                info.LastError is 1 or 2 or 3 ? AfeWriteOutcome.NotApplied : AfeWriteOutcome.Unconfirmed;
+            return (outcome,$"失败后读回：apply_state={info.ApplyStateText} ({info.ApplyState})，" +
                 $"last_error={info.ErrorText} ({info.LastError})。\n" + reason +
-                "\n元数据记录最近一次固件事务；通信结果不确定时，仍须重新读取 requested/effective 确认。";
+                "\n元数据记录最近一次固件事务；通信结果不确定时，仍须重新读取 requested/effective 确认。");
         }
         catch (Exception ex) when (ex is IOException || ex is TimeoutException)
         {
-            return "失败后状态读回未完成，提交结果未确认；请重新读取设备，不要重复提交。";
+            return (AfeWriteOutcome.Unconfirmed,"失败后状态读回未完成，提交结果未确认；请重新读取设备，不要重复提交。");
         }
     }
 }
