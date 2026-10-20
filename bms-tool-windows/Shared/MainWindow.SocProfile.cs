@@ -48,7 +48,7 @@ public partial class MainWindow
         },refresh:false,operation:null,requiresUnlock:false));
         panel.Children.Add(new TextBlock{Text="LFP 3200～3400mV禁止普通OCV校正；普通OCV只向下，连续静置60分钟，最近15分钟逐串变化≤5mV，电流≤200mA、压差≤200mV。SOC不作温度修正。",
             TextWrapping=TextWrapping.Wrap,Margin=new Thickness(4)});
-        panel.Children.Add(new TextBlock{Text="只有电压判满才允许目标显示100%；人工设置100%不会授予资格。运行显示每5秒最多变化1个百分点，保护不等待显示。工程候选须验证后才能发布客户。",
+        panel.Children.Add(new TextBlock{Text="自动SOC须经电压判满才显示100%；人工设置0～100%立即显示并保存，人工100%重启后仍恢复100%。自动积分和校准显示每5秒最多变化1个百分点，保护不等待显示。工程候选须验证后才能发布客户。",
             TextWrapping=TextWrapping.Wrap,Margin=new Thickness(4)});
         panel.Children.Add(_socOcvPoints);
         Button("保存所选完整模型并核对",()=>{
