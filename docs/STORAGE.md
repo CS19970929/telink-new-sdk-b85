@@ -1,6 +1,7 @@
 # Flash、SOC 持久化与低功耗
 
-当前采用 Config/State/Event 三个 journal，内部 schema 4。**不读取或迁移旧参数格式**。
+当前采用Config/State/Event三个journal：Config/Event为schema4，State为schema5。
+**Config不读取旧格式；State仅显式导入同产品ST4/schema4**，规则见 [SOC v3重构说明](SOC_REFACTOR_20261020.md)。
 旧板刷入新程序时必须走明确的恢复出厂路径：有线烧录擦除业务扇区，或选择带一次性 ID 的
 `factory_reset` 固件包。普通保参镜像遇非空白旧格式或损坏 Config 均禁止输出。
 实施、逐轮提交及固定源码验证见 [存储精简记录](STORAGE_SIMPLIFICATION_20261017.md)。
@@ -16,7 +17,7 @@ Config（全部低频参数） / State（SOC/循环） / Event（历史）
 | 域 | 当前数据 | magic / schema / payload | 写入时机 |
 |---|---|---|---|
 | Config | 软件保护、AFE requested、容量/产品身份、完整 SOC 曲线与参数、四项休眠、业务许可、校准/SN/BLE 后缀、OTA 标记 | CFG4 / 4 / 414 bytes | 完整候选有变化，或启动默认/选中更新待提交 |
-| State | 整数 SOC、放电累计、cycle、本域 OTA 标记 | ST4 + product ID / 4 / 24 bytes | 一秒任务检查，通常 60 s checkpoint，或显式设置/休眠 |
+| State | 整数SOC、放电累计、cycle、原OTA标记、判满资格/basis | ST5 + product ID / 5 / 32 bytes | 一秒检查，通常60s；资格变化、显式设置或休眠保存完整组合 |
 | Event | 写位置及 100 条事件 ID/时间码 | EV4 + product ID / 4 / 202 bytes | 新事件 dirty 且检查点到期，或入睡前 |
 
 Config 的 chemistry/profile 和算法阈值只保存一次。SOC 消费 Config 内稳定只读视图，曲线提交改变后
@@ -54,10 +55,10 @@ TLSR8251 512 KiB 分区：
 | 域 | 槽大小 | 每 sector 槽数 | 全区域槽数 |
 |---|---:|---:|---:|
 | Config | 448 B | 9 | 36 |
-| State | 56 B | 73 | 584 |
+| State | 64 B | 64 | 512 |
 | Event | 236 B | 17 | 272 |
 
-Config 是低频参数，其槽数从 44 降至 36；State 从 424 增至 584，Event 从 144 增至 272。
+Config和Event保持当前几何；State为支持判满资格从ST4的584槽变为ST5的512槽，分区不变。
 无变化不写 Flash。寿命仍须按实装器件擦写保证、温度、电源、写频率和保持要求计算，不承诺固定年限。
 
 ## 启动、恢复出厂与故障
@@ -97,7 +98,7 @@ SDK `flash_read_page` 没有错误返回；当前端口不能识别所有物理�
 
 ## 协议、OTA、事件和 SOC
 
-外部参数协议仍为 v2，`0x2E05=2` 保留，与内部 schema 4 独立。
+外部参数协议仍为 v2，`0x2E05=2` 保留，与内部各域schema独立。
 35-word AFE 事务、50-word SOC profile、五 word 休眠、地址、缩放、字序与授权均保留。
 旧修订编号只读槽有现有客户端，保留但不参与 OTA 决策。
 同格式普通 OTA 按 BIN 的选择和一次性标记更新；SOC 组恢复完整曲线和算法默认，未选中保留定制曲线。
@@ -112,7 +113,9 @@ Startup/Sleep 不合并，重启不合并上一启动；正常均衡开启不记
 Sleep 是进入低功耗的尝试，不证明硬件已睡；同次失败重试不重复追加。
 采样约一秒，可能漏掉更短瞬态；突然 reset 会丢失未提交 RAM 窗口。详细运行日志仍仅存 RAM。
 
-State 保存 SOC 0..100、放电累计 0..100、cycle 0..65535。
+State保存SOC0..100、放电累计0..100、cycle0..65535，以及判满资格和配置basis。
+同产品ST4迁移保留原三项和OTA标记，旧100%不自动授予满电资格；第一条ST5提交前保护旧最新扇区。
+直接回退到不识别ST5的旧固件不能保证恢复最新状态，须走兼容版本或显式恢复流程。
 积分余量、显示跟随、OCV 静置与 ETA 重新建立；未持久化每笔库仑积分或当前保护 latch。
 突然断电可能丢失约 60 s 检查点窗口及不足整数百分比的积分余量。State/Event 历史不替代当前保护恢复资格。
 

@@ -5,7 +5,7 @@
 首次接手读 `docs/ONBOARDING.md`；修改配置读 `docs/CONFIGURATION_AND_BUILD_GUIDE.md` 和 `docs/OTA_PARAMETERS.md`；
 构建/测试读 `docs/BUILD_AND_TEST.md`；追调用与状态读 `docs/CODE_READING_GUIDE.md`、`docs/ARCHITECTURE.md`。
 `docs/history/BMS_MONOREPO_VALIDATION.md` 仅为初次迁移的固定提交记录，不作为当前测试结果。
-全局嵌入式规则继续适用；当前 Config/State/Event 使用 schema 4；不解析旧格式；旧板刷出厂包须明确选择 `factory_reset` 或有线烧录擦除全部业务扇区；普通镜像遇非空白旧存储/损坏数据禁止输出。详见 `docs/STORAGE.md`；OTA 按 BIN 内参数组选择和一次性标记处理，详见 `docs/OTA_PARAMETERS.md`，不读取客户旧编号。
+全局嵌入式规则继续适用；当前 Config/Event 使用 schema 4、State 使用 schema 5；State 仅显式导入同产品 ST4/schema 4 的 SOC/累计/循环/OTA 标记，不导入其它旧格式；旧板刷出厂包须明确选择 `factory_reset` 或有线烧录擦除全部业务扇区；普通镜像遇非空白旧存储/损坏数据禁止输出。详见 `docs/STORAGE.md`；OTA 按 BIN 内参数组选择和一次性标记处理，详见 `docs/OTA_PARAMETERS.md`，不读取客户旧编号。
 
 ## 本机验证约定
 
@@ -25,7 +25,7 @@
 - 无效串位发送 61001，不计入有效串数、min/max、SOC、保护、balance/open-wire。
 - D011 PB5 fuse 安全电平不得改变；D013 heater/balance 都不支持；D014 无 heater、TS3 NC、TS4 为 MOS NTC。
 - D014 原理图/BOM 与板级阻断详见产品目录 AGENTS 和 `docs/HARDWARE_VALIDATION.md`。
-- 外部参数协议 v2 保持；Config/State/Event 内部 schema 4 和三域布局按 `docs/STORAGE.md` 维护，出厂重置只有 Config/State/Event 完成持久提交后才取得输出资格；wire product ID、外部地址、缩放、Flash/OTA/APP 边界不能擅自改变。
+- 外部参数协议 v2 保持；Config/Event schema 4、State schema 5 和三域布局按 `docs/STORAGE.md` 维护，出厂重置只有 Config/State/Event 完成持久提交后才取得输出资格；wire product ID、外部地址、缩放、Flash/OTA/APP 边界不能擅自改变。
 - 用户要求测试且未限定更小范围时，公共改动至少执行四产品 `sources --check`、`link`、`resources` 和相关 host 回归。
 - `link` 只产生 ELF/MAP/LST；没有明确镜像请求不得自动使用 `build`/`rebuild`/`objcopy`/`check-fw`。
 - host/链接/MAP 不替代实板、Flash 掉电、低功耗、物理保护或 OTA 验收。
@@ -41,3 +41,5 @@
 - 新增、删除或改名项目文档时同步根 README 的直接链接；历史验证注明固定提交，不写成当前验收结论。
 
 - 运行日志、串口/BLE 日志读取或调试开关改动，先读 `docs/RUNTIME_DEBUG_LOG.md`；保持量产关闭和原通信/低功耗门禁。
+
+- SOC 策略、模型 v3、采样线诊断及 State 4→5 迁移修改前，读 `docs/SOC_REFACTOR_20261020.md`；工程候选与未执行实板验收须明确区分。

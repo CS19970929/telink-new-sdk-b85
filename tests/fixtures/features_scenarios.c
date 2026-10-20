@@ -302,6 +302,12 @@ int main(void)
         charger_present=0;step(1);assert(!heater && s_feature.heater_state==BMS_HEATER_IDLE);
 #endif
     } else assert(!heater && !charger_queries);
+    /* 主动电压检查期间强制关闭均衡；结束后重新积累电压可信资格。 */
+    reset();step(5);snapshot.voltage_check_active=1u;step(1);
+    assert(!balance && !s_feature.balance_trust_samples);
+    step(10);assert(!balance);
+    snapshot.voltage_check_active=0u;step(5);
+    assert(balance==(bms_board_balance_supported()?1u:0u));
     printf("PASS cells=%u heater=%u fuse=%u balance=%u：边界/迟滞/资格/故障/冷启动静置\n",
            (unsigned)BMS_PRODUCT_CELL_COUNT,bms_board_heater_supported(),bms_board_heater_fuse_supported(),bms_board_balance_supported());
     return 0;

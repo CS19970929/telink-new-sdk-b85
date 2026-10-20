@@ -108,7 +108,8 @@ python bms_tools/bms.py --product d014 resources
 | [AFE 硬件保护](docs/AFE_HARDWARE_PROTECTION_V2.md) | 授权、35-word profile、requested/effective、回滚 |
 | [SH 恢复证据与采样资格](docs/SH_RECOVERY_AND_FRESHNESS.md) | C+/负载检测互斥、转换完成标志、清除失败与验证边界 |
 | [D014 保护与恢复软件闭环](docs/D014_SAFETY_LOOP.md) | 真实参数/存储到 SPI MOS 命令、软件过流物理恢复、重初始化与测试边界 |
-| [SOC](docs/SOC.md) | 200 ms 应用时间积分、采样资格、OCV、循环 SOH 与状态保存 |
+| [SOC](docs/SOC.md) | 安时积分、可信端点、平台禁校、严格100%资格与状态保存 |
+| [SOC v3重构说明（2026-10-20）](docs/SOC_REFACTOR_20261020.md) | 已确认参数、候选曲线、State4→5迁移、配套上位机及未执行验收 |
 | [Flash 与持久化](docs/STORAGE.md) | Config/State/Event、SOC 持久化、低功耗及事务 |
 | [运行阶段日志](docs/RUNTIME_DEBUG_LOG.md) | 开发日志、只读协议、开关及固定提交资源记录 |
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 开关/低压强制深睡、UART静默30秒Suspend及首帧唤醒 |
@@ -138,7 +139,7 @@ python bms_tools/bms.py --product d014 resources
 | [硬件验证清单](docs/HARDWARE_VALIDATION.md) | 四产品共同与各自的未关闭项 |
 | [项目待办](docs/TODO.md) | 待资料或后续开发项；D013 TS4 MOS 温度已接入，待实板验收 |
 
-2026-10-06 已导入六份 AFE 原始手册及 D008 24S 原理图，见 [资料使用指南](docs/AFE_REFERENCE_GUIDE.md)；D011/D013/D014 原始图纸/BOM仍缺。四产品容量/保护参数及实板验收仍需签核；D008 20S NMC 已关联确认的三元锂开发默认。Ctrl+Shift+B 可选择板型、AFE、串数、类型、容量及 OTA 更新组；BIN 自带选择和一次性标记，无需查询客户编号，见 [配置指南](docs/CONFIGURATION_AND_BUILD_GUIDE.md)。Config/State/Event 内部 schema 4，低频参数统一由 Config 保存；有效旧 CFG2 整套恢复新默认，当前格式损坏保持输出禁止，详见 [存储说明](docs/STORAGE.md)。开发默认不代替产品签核，源码、host、ELF、读回及实板波形分别留证。
+2026-10-06 已导入六份 AFE 原始手册及 D008 24S 原理图，见 [资料使用指南](docs/AFE_REFERENCE_GUIDE.md)；D011/D013/D014 原始图纸/BOM仍缺。四产品容量/保护参数及实板验收仍需签核；D008 20S NMC 已关联确认的三元锂开发默认。Ctrl+Shift+B 可选择板型、AFE、串数、类型、容量及 OTA 更新组；BIN 自带选择和一次性标记，无需查询客户编号，见 [配置指南](docs/CONFIGURATION_AND_BUILD_GUIDE.md)。Config/Event schema 4、State schema 5，低频参数统一由 Config 保存；State仅显式导入同产品ST4，非空白旧Config或当前格式损坏保持输出禁止，详见 [存储说明](docs/STORAGE.md)。开发默认不代替产品签核，源码、host、ELF、读回及实板波形分别留证。
 
 <details>
 <summary>历史审计与固定提交证据（需要追溯时展开）</summary>

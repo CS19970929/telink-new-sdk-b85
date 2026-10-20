@@ -7,38 +7,40 @@ const bms_soc_profile_config_t g_soc_profile_lfp = {
     .chemistry = BMS_SOC_CHEMISTRY_LFP,
     .profile_id = BMS_SOC_PROFILE_GENERIC_LFP,
     .profile_version = BMS_SOC_PROFILE_GENERIC_LFP_VERSION,
-    .point_count = sizeof((bms_soc_ocv_config_point_t[]){BMS_SOC_OCV_LFP_POINTS}) /
-                   sizeof(bms_soc_ocv_config_point_t),
+    .point_count = 14u,
     .current_deadband_ma = BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT,
-    .ocv_rest_prepare_s = BMS_SOC_OCV_REST_PREPARE_S_DEFAULT,
-    .ocv_error_band_percent = BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT,
-    .valid_min_mv = 2500u, .valid_max_mv = 3800u,
-    .full_sync_mv = 3500u, .full_min_margin_mv = 100u,
-    .empty_sync_mv = 3000u, .empty_max_margin_mv = 150u,
-    .ocv_min_error_band_percent = 7u, .full_cell_delta_max_mv = 80u,
+    .ocv_rest_prepare_s = BMS_SOC_OCV_REST_MS / 1000u,
+    .ocv_error_band_percent = 7u,
+    .valid_min_mv = 2000u, .valid_max_mv = 3800u,
+    .full_sync_mv = 3500u, .full_min_margin_mv = 200u,
+    .empty_sync_mv = 2850u, .empty_max_margin_mv = 300u,
+    .ocv_min_error_band_percent = 7u, .full_cell_delta_max_mv = 200u,
     .terminal_cell_delta_max_mv = 50u,
     .terminal_start_offset_mv = 150u, .terminal_l1_offset_mv = 100u,
     .terminal_l2_offset_mv = 50u, .terminal_l3_offset_mv = 20u,
-    .points = {BMS_SOC_OCV_LFP_POINTS},
+    .points = {{2844u,0u},{3163u,5u},{3204u,10u},{3223u,15u},{3245u,20u},
+               {3259u,25u},{3277u,30u},{3288u,35u},{3291u,55u},{3294u,60u},
+               {3315u,65u},{3328u,75u},{3330u,95u},{3445u,100u}},
 };
 
 const bms_soc_profile_config_t g_soc_profile_nmc = {
     .chemistry = BMS_SOC_CHEMISTRY_NMC,
     .profile_id = BMS_SOC_PROFILE_GENERIC_NMC,
     .profile_version = BMS_SOC_PROFILE_GENERIC_NMC_VERSION,
-    .point_count = sizeof((bms_soc_ocv_config_point_t[]){BMS_SOC_OCV_NMC_POINTS}) /
-                   sizeof(bms_soc_ocv_config_point_t),
+    .point_count = 13u,
     .current_deadband_ma = BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT,
-    .ocv_rest_prepare_s = BMS_SOC_OCV_REST_PREPARE_S_DEFAULT,
-    .ocv_error_band_percent = BMS_SOC_OCV_ERROR_BAND_PERCENT_DEFAULT,
-    .valid_min_mv = 2600u, .valid_max_mv = 4300u,
+    .ocv_rest_prepare_s = BMS_SOC_OCV_REST_MS / 1000u,
+    .ocv_error_band_percent = 5u,
+    .valid_min_mv = 2000u, .valid_max_mv = 4300u,
     .full_sync_mv = 4180u, .full_min_margin_mv = 200u,
-    .empty_sync_mv = 3000u, .empty_max_margin_mv = 200u,
-    .ocv_min_error_band_percent = 5u, .full_cell_delta_max_mv = 80u,
+    .empty_sync_mv = 3100u, .empty_max_margin_mv = 300u,
+    .ocv_min_error_band_percent = 5u, .full_cell_delta_max_mv = 200u,
     .terminal_cell_delta_max_mv = 50u,
     .terminal_start_offset_mv = 300u, .terminal_l1_offset_mv = 200u,
     .terminal_l2_offset_mv = 150u, .terminal_l3_offset_mv = 50u,
-    .points = {BMS_SOC_OCV_NMC_POINTS},
+    .points = {{3000u,0u},{3300u,5u},{3450u,10u},{3550u,20u},{3650u,30u},
+               {3700u,40u},{3750u,50u},{3800u,60u},{3850u,70u},{3900u,80u},
+               {4000u,90u},{4100u,96u},{4180u,100u}},
 };
 
 static const bms_soc_profile_config_t *profile_for_chemistry(uint8_t chemistry)
@@ -74,6 +76,9 @@ int bms_soc_profile_valid(const bms_soc_profile_config_t *c)
         c->terminal_start_offset_mv < c->terminal_l1_offset_mv ||
         c->terminal_l1_offset_mv < c->terminal_l2_offset_mv ||
         c->terminal_l2_offset_mv < c->terminal_l3_offset_mv) return 0;
+    /* v3 静置时长属于固定策略，拒绝接受后被悄悄忽略的旧时间值。 */
+    if (c->profile_version == BMS_SOC_POLICY_VERSION &&
+        c->ocv_rest_prepare_s != BMS_SOC_OCV_REST_MS / 1000u) return 0;
     if (c->points[0].soc_percent != 0u ||
         c->points[c->point_count - 1u].soc_percent != 100u) return 0;
     for (i = 0u; i < c->point_count; ++i) {

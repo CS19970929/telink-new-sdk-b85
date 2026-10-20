@@ -12,7 +12,7 @@
 #include "bms_soc_defs.h"
 #include "bms_diag.h"
 
-/* D008 测量可信下限，AFE 发布和 SOC 积分采用同一固定值。 */
+/* 充放电方向和恢复的证据门槛；不屏蔽 SOC 电流积分。 */
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 
 /* 实板临时积分测试只改变 SOC 输入；正常固件不编译测试状态。 */
@@ -51,6 +51,13 @@ typedef struct
     uint16_t cell_min_mv;
     uint16_t cell_max_mv;
     uint16_t cell_delta_mv;
+    uint16_t pack_voltage_10mv;
+    /* 全部配置串位，不能将断线/失效串位当成未装配而跳过。 */
+    uint16_t cell_mv[24];
+    uint8_t cell_count;
+    uint8_t voltage_calibration_valid;
+    uint8_t voltage_check_active;
+    uint8_t balance_active;
     uint16_t temperature_min_x10;
     uint16_t temperature_max_x10;
     uint8_t sample_valid;
@@ -62,6 +69,7 @@ typedef struct
     uint8_t pack_fault;
     uint8_t third_cell_ovp;
     uint8_t third_cell_uvp;
+    uint8_t third_pack_uvp;
 } bms_soc_sample_t;
 
 typedef struct {
@@ -72,6 +80,8 @@ typedef struct {
     uint32_t cycle_count;
     uint32_t effective_capacity_as10;          /* As*10 */
     uint8_t soh;
+    uint8_t full_confirmed;
+    uint32_t full_basis;
 } bms_soc_state_t;
 
 extern bms_soc_state_t g_bms_soc;
@@ -99,7 +109,7 @@ uint8_t bms_soc_board_test_active(void);
 uint8_t bms_soc_board_test_keep_awake(void);
 uint16_t bms_soc_board_test_word(uint16_t offset);
 #endif
-/* 更新 SOC、相关容量状态并同步显示值。 */
+/* 人工重建内部电量并撤销判满资格；显示按统一限速追赶。 */
 void set_soc_param(uint8_t soc);
 /* 取得内部计算的真实 SOC 百分比。 */
 uint8_t get_soc_real(void);
@@ -110,5 +120,11 @@ uint8_t bms_soh_from_cycle(uint16_t cycle);
 
 /* 名义容量变更后重算容量并重建积分与显示状态。 */
 void bms_soc_nominal_capacity_changed(void);
+/* 只读运行状态快照；存储不得自行向 SOC 取值或改变资格。 */
+bms_state_store_data_t bms_soc_state_snapshot(void);
+/* 电压校准候选需要一次新诊断；应用只转交请求，不在 SOC 内操作硬件。 */
+uint8_t bms_soc_voltage_check_requested(void);
+/* 循环服务操作独立于人工设置 SOC，保留高精度比例。 */
+void bms_soc_cycle_count_changed(uint32_t cycle);
 
 #endif /* 头文件保护：BMS_SOC_H_。 */

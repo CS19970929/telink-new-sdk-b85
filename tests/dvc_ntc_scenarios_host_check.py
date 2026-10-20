@@ -13,6 +13,9 @@ state = driver[driver.index('#define DVC_NTC_VALID_SAMPLES'):
 table_start = driver.index('static const uint16_t s_ntc_10k_table')
 table = driver[table_start:driver.index('};', table_start) + 2]
 production = constants + '\n' + table + '\n'
+check_end = backend.index('} s_voltage_check;') + len('} s_voltage_check;')
+check_start = backend.rfind('static struct {', 0, check_end)
+production += backend[check_start:check_end] + '\n'
 for signature in ('uint8_t DVC1124_GetSnapshot(',
                   'static uint16_t dvc_ntc_temp_report(',
                   'static uint8_t dvc_ntc_resistance(',

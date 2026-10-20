@@ -57,15 +57,20 @@ uint8_t bms_afe_test_wake(void);
 typedef struct {
     int32_t raw_current_ma;
     int32_t current_ma; /* mA：正放电，负充电 */
+    uint8_t voltage_check_active;
+    uint8_t voltage_calibration_valid; /* 本轮主动检查完成且未检出异常；普通通信成功不足以置位。 */
     uint32_t sample_time_ms;
     uint32_t sample_tick_32k; /* 对外兼容观测，不参与业务超时。 */
 } bms_afe_aux_measurements_t;
 /* 取得选定后端的辅助测量快照。 */
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *sample);
+/* 只排队，实际诊断由后端有界推进；不改变 MOS 意图或低功耗门禁。 */
+void bms_afe_request_voltage_check(void);
 #define BMS_AFE_FEATURE_MAX_CELLS 24u
 /* 温度字段均使用 (摄氏度 + 40) * 10。 */
 typedef struct {
     uint8_t cell_count;
+    uint8_t voltage_check_active;
     uint8_t battery_temp_valid;
     uint8_t heater_temp_valid;
     uint8_t mos_temp_valid;

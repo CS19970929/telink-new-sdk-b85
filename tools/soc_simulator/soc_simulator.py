@@ -27,7 +27,7 @@ TEMP_ROOT = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) 
     "CodexTemp/telink-bms/soc-simulator"
 GOLDEN_TRACE_DIR = ROOT / "tests/soc/traces"
 
-# balancing/heating 仅保留为环境记录，和 charger/load 一样不提交给 SOC。
+# balancing 作为普通OCV排除条件；heating、charger/load保留为环境记录。
 INPUT_COLUMNS = (
     "scenario", "step", "timestamp_32k", "current_ma", "cell_min_mv",
     "cell_max_mv", "cell_delta_mv", "pack_voltage_mv", "temp_min_x10",
@@ -40,7 +40,7 @@ INPUT_COLUMNS = (
 
 SCENARIOS = (
     "standard_discharge", "standard_charge", "ebike", "storage_low_power",
-    "rest_10m", "rest_30m", "rest_2h", "deadzone_24h", "ocv_large_deviation",
+    "rest_10m", "rest_30m", "rest_2h", "deadzone_24h", "ocv_large_deviation", "ocv_low_wing",
     "mcu_reset", "flash_restore", "power_cycle_50", "temperature_change",
     "high_rate_sag", "near_uv_load", "charger_toggle", "regenerative_charge",
     "current_zero_offset", "current_offset_step", "capacity_aging",
@@ -202,7 +202,7 @@ def scenario_shape(name: str) -> tuple[float, float, float]:
         "ebike": (3600, 95, 100), "storage_low_power": (12 * 3600, 80, 100),
         "rest_10m": (11 * 60, 60, 100), "rest_30m": (31 * 60, 60, 100),
         "rest_2h": (2 * 3600, 60, 100), "deadzone_24h": (24 * 3600, 80, 100),
-        "ocv_large_deviation": (45 * 60, 45, 100), "mcu_reset": (45 * 60, 70, 100),
+        "ocv_large_deviation": (2 * 3600, 45, 100), "ocv_low_wing": (2 * 3600, 5, 100), "mcu_reset": (45 * 60, 70, 100),
         "flash_restore": (45 * 60, 70, 100), "power_cycle_50": (30 * 60, 50, 100),
         "temperature_change": (2 * 3600, 80, 100), "high_rate_sag": (20 * 60, 60, 100),
         "near_uv_load": (20 * 60, 12, 100), "charger_toggle": (30 * 60, 45, 100),
@@ -216,7 +216,7 @@ def scenario_shape(name: str) -> tuple[float, float, float]:
 
 
 def scenario_current_a(name: str, t: float, progress: float) -> float:
-    if name in ("rest_10m", "rest_30m", "rest_2h", "ocv_large_deviation",
+    if name in ("rest_10m", "rest_30m", "rest_2h", "ocv_large_deviation", "ocv_low_wing",
                 "balancing_active", "heating_active"):
         return 0.0
     if name in ("standard_discharge", "capacity_aging"):
@@ -247,7 +247,7 @@ def generate_scenario(name: str, scenario_id: int, seed: int) -> Iterator[dict]:
     steps = int(duration_s / dt_s) + 1
     rng = random.Random(seed + scenario_id * 7919)
     timestamp = 0
-    seed_soc = 85 if name == "ocv_large_deviation" else round(true_soc)
+    seed_soc = 85 if name in ("ocv_large_deviation", "ocv_low_wing") else round(true_soc)
     for step in range(steps):
         progress = step / max(1, steps - 1)
         t = step * dt_s
@@ -416,6 +416,9 @@ def calculate_metrics(output: Path, names: dict[int, str] | None = None) -> dict
         if item["name"].startswith("fuzz_"):
             accuracy_pass = True
         elif item["name"] == "ocv_large_deviation":
+            # 平台区故意保持积分值；不能把没有电压可观测性误当算法必须收敛。
+            accuracy_pass = item["ocv_corrections"] == 0
+        elif item["name"] == "ocv_low_wing":
             accuracy_pass = item["ocv_corrections"] >= 1 and item["final_soc_error"] < item["max_soc_error"]
         else:
             accuracy_pass = item["max_soc_error"] <= 20

@@ -750,6 +750,8 @@ static uint16_t sh3510_update_protection(const sh3673510_control_status_t *statu
     return DIAG_AFE_FAIL_NONE;
 }
 
+static uint8_t sh_voltage_check_service(const sh3673510_control_status_t *status, uint32_t now);
+
 /* 完整读取和资格确认后按原顺序发布测量，再评估保护；失败交回采样入口。 */
 static uint16_t publish_measurements(void)
 {
@@ -803,11 +805,120 @@ static uint16_t publish_measurements(void)
         uint16_t failure = sh3510_update_protection(&status);
         if (failure != DIAG_AFE_FAIL_NONE) return failure;
     }
+    if (!sh_voltage_check_service(&status, now)) return DIAG_AFE_FAIL_RELEASE_READ;
     s_snapshot_valid = 1u;
     bms_afe_publish_fet_status(
         (uint8_t)((g_bms_system_status.bits.charge_mos_status ? 1u : 0u) |
                   (g_bms_system_status.bits.discharge_mos_status ? 2u : 0u)), 1u);
     return DIAG_AFE_FAIL_NONE;
+}
+
+/* CV1.0A p16/32/40-41/44：FLAG3 读清，后端独占；必须收齐两种 IND。
+ * p16 奇偶示例与 p44 位号冲突，故保留两阶段全部有效位并集，不按奇偶过滤。
+ * 诊断只限制校准，不增加 MOS 意图、不修改保护阈值。 */
+/* 校准电压检查：阶段只由本后端推进，睡眠/重初始化显式清理。 */
+enum {
+    VOLTAGE_CHECK_IDLE = 0u,
+    VOLTAGE_CHECK_QUEUED,
+    VOLTAGE_CHECK_STIMULATING,
+    VOLTAGE_CHECK_NORMAL_RECOVERY,
+    VOLTAGE_CHECK_CLEANUP
+};
+#define VOLTAGE_CHECK_RECOVERY_MS 2000u
+#define VOLTAGE_CHECK_RETRY_MS 5000u
+#define VOLTAGE_CHECK_TRIGGER_MS 2000u
+#define VOLTAGE_CHECK_MAX_ATTEMPTS 4u
+static struct {
+    uint32_t started_ms, retry_ms, abnormal;
+    uint8_t state, phases, attempts, healthy, normal_frames, failed;
+} s_voltage_check;
+
+void bms_afe_driver_reset_voltage_check(void)
+{
+    memset(&s_voltage_check, 0, sizeof(s_voltage_check));
+}
+
+static uint8_t sh_voltage_check_control(uint8_t enabled, uint8_t trigger)
+{
+    uint8_t value, target, verify;
+    if (SH3673520_ReadReg(SH3673520_REG_SCONF3, &value) != SH3673520_OK) return 0u;
+    target = value & (uint8_t)~(SH3673520_SCONF3_OWD_EN_MASK | SH3673520_SCONF3_OWD_TRG_MASK);
+    if (enabled) target |= SH3673520_SCONF3_OWD_EN_MASK;
+    if (trigger) target |= SH3673520_SCONF3_OWD_TRG_MASK;
+    if (SH3673520_WriteReg(SH3673520_REG_SCONF3, target) != SH3673520_OK ||
+        SH3673520_ReadReg(SH3673520_REG_SCONF3, &verify) != SH3673520_OK) return 0u;
+    return (verify & (uint8_t)~SH3673520_SCONF3_OWD_TRG_MASK) ==
+           (target & (uint8_t)~SH3673520_SCONF3_OWD_TRG_MASK);
+}
+
+void bms_afe_driver_request_voltage_check(void)
+{
+    if (s_voltage_check.state || (s_voltage_check.failed &&
+        (uint32_t)(bms_time_ms() - s_voltage_check.retry_ms) < VOLTAGE_CHECK_RETRY_MS)) return;
+    s_voltage_check.healthy = 0u;
+    s_voltage_check.state = VOLTAGE_CHECK_QUEUED;
+}
+
+uint8_t bms_afe_driver_stop_voltage_check(void)
+{
+    uint8_t ok = !s_voltage_check.state || sh_voltage_check_control(0u, 0u);
+    bms_afe_driver_reset_voltage_check();
+    return ok;
+}
+
+static uint8_t sh_voltage_check_service(const sh3673510_control_status_t *status, uint32_t now)
+{
+    uint8_t flag, raw[3];
+    if (!s_voltage_check.state) return 1u;
+    if (s_voltage_check.state == VOLTAGE_CHECK_QUEUED) {
+#if BMS_FEATURE_BALANCE_SUPPORTED
+        if (!bms_afe_driver_set_balance_mask(0u, NULL)) goto failed;
+#endif
+        if (SH3673520_ReadRegOnce(SH3673520_REG_FLAG3, &flag) != SH3673520_OK ||
+            !sh_voltage_check_control(1u, 1u)) goto failed;
+        s_voltage_check.started_ms = now;
+        s_voltage_check.phases = s_voltage_check.attempts = 0u;
+        s_voltage_check.abnormal = 0u;
+        s_voltage_check.state = VOLTAGE_CHECK_STIMULATING;
+        return 1u;
+    }
+    if (s_voltage_check.state == VOLTAGE_CHECK_STIMULATING) {
+        if ((uint32_t)(now - s_voltage_check.started_ms) >= VOLTAGE_CHECK_TRIGGER_MS) goto failed;
+        if (SH3673520_ReadRegOnce(SH3673520_REG_FLAG3, &flag) != SH3673520_OK) goto failed;
+        if (!(flag & SH3673520_FLAG3_OWD_FLG_MASK)) return 1u;
+        if (SH3673520_ReadRegs(SH3673520_REG_OWDH, raw, sizeof(raw)) != SH3673520_OK) goto failed;
+        s_voltage_check.abnormal |= (((uint32_t)raw[0] << 16) | ((uint32_t)raw[1] << 8) | raw[2]) &
+            ((1u << SH3673510_BOARD_CELL_COUNT) - 1u);
+        s_voltage_check.phases |= (flag & SH3673520_FLAG3_OWD_IND_MASK) ? 2u : 1u;
+        ++s_voltage_check.attempts;
+        if (s_voltage_check.phases != 3u) {
+            if (s_voltage_check.attempts >= VOLTAGE_CHECK_MAX_ATTEMPTS || !sh_voltage_check_control(1u, 1u)) goto failed;
+            return 1u;
+        }
+        if (!sh_voltage_check_control(0u, 0u)) goto failed;
+        s_voltage_check.healthy = s_voltage_check.abnormal == 0u;
+        s_voltage_check.normal_frames = 0u;
+        s_voltage_check.started_ms = now;
+        s_voltage_check.state = VOLTAGE_CHECK_NORMAL_RECOVERY;
+        return 1u;
+    }
+    if (s_voltage_check.state == VOLTAGE_CHECK_NORMAL_RECOVERY) {
+        if ((status->flag2 & SH3673520_FLAG2_VADC_MASK) && ++s_voltage_check.normal_frames >= 2u) {
+            s_voltage_check.state = VOLTAGE_CHECK_IDLE;
+            s_voltage_check.failed = !s_voltage_check.healthy;
+            s_voltage_check.retry_ms = now;
+            return 1u;
+        }
+        if ((uint32_t)(now - s_voltage_check.started_ms) < VOLTAGE_CHECK_RECOVERY_MS) return 1u;
+    }
+failed:
+    s_voltage_check.healthy = 0u;
+    s_voltage_check.failed = 1u;
+    s_voltage_check.retry_ms = now;
+    s_voltage_check.state = VOLTAGE_CHECK_CLEANUP;
+    if (!sh_voltage_check_control(0u, 0u)) return 0u;
+    s_voltage_check.state = VOLTAGE_CHECK_IDLE;
+    return 0u;
 }
 
 /* 初始化选定 AFE 后端并应用产品配置。 */
@@ -922,6 +1033,7 @@ uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
     memset(out, 0, sizeof(*out));
     if (!s_snapshot_valid) return 0u;
     out->cell_count = SH3673510_BOARD_CELL_COUNT;
+    out->voltage_check_active = s_voltage_check.state != 0u;
     out->battery_temp_valid = battery_temperature_snapshot(&out->battery_temp_min_x10,
                                                             &out->battery_temp_max_x10);
 #if SH3673510_PRODUCT_HEATER_NTC_SUPPORTED
@@ -942,7 +1054,11 @@ uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *m)
         if (m != NULL) memset(m, 0, sizeof(*m));
         return 0u;
     }
-    if (m != NULL) *m = s_aux;
+    if (m != NULL) {
+        *m = s_aux;
+        m->voltage_check_active = s_voltage_check.state != 0u;
+        m->voltage_calibration_valid = !s_voltage_check.state && s_voltage_check.healthy;
+    }
     return 1u;
 }
 

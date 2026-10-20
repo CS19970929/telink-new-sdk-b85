@@ -64,7 +64,7 @@ uint32_t bms_time_now_32k(void){return now*32u;}
 /* PRODUCTION */
 static void reboot(void){
  bms_diag_init();region_ok=1;read_ok=1;erase_ok=1;config_read_fail=0;
- g_bms_config_ready=0;g_bms_state_ready=0;
+ g_bms_config_ready=0;g_bms_state_ready=0;s_state_loaded=0;s_migration_pending=0;
  memset(&g_bms_config_store,0,sizeof(g_bms_config_store));
  memset(&g_bms_state_store,0,sizeof(g_bms_state_store));
  g_bms_state_last_failed=0;
@@ -205,8 +205,8 @@ static void test_state(void){
  bms_state_store_poll(64,8,9);assert(g_bms_state.soc==64);
  assert(bms_state_store_save(65,9,10));reboot();assert(bms_state_store_init());assert(g_bms_state.soc==65);
 
- /* schema 4 仅保存 SOC/累计/循环和本域 OTA 标记。 */
- assert(BMS_STATE_PAYLOAD_BYTES==24u);
+ /* schema 5 原24字节后追加满电资格和依据。 */
+ assert(BMS_STATE_PAYLOAD_BYTES==32u);
  u8 state_payload[BMS_STATE_PAYLOAD_BYTES];bms_state_encode(&g_bms_state,state_payload);
  for(unsigned i=12;i<24;++i)assert(state_payload[i]==0);
  assert(!bms_state_store_save(101,0,0));assert(!bms_state_store_save(60,101,0));
@@ -223,6 +223,44 @@ static void test_state(void){
  now=UINT32_MAX-1000;g_bms_state_last_attempt_ms=now;
  bms_state_store_poll(78,0,0);now+=(60*1000);bms_state_store_poll(79,0,0);assert(g_bms_state.soc==79);
  puts("PASS State: coalescing, failure/backoff, compact cycle state, atomic rollback, all byte cuts, wrap");
+}
+/* 独立构造旧ST4，验证首条ST5落盘前旧最新扇区不会被擦掉。 */
+static void test_state_v4_migration(void){
+ fresh();storage_region_t region={4u*4096u,8u*4096u};storage_record_store_t legacy;
+ memset(flash+region.base,255,region.size);memset(&legacy,0,sizeof(legacy));
+ assert(storage_record_open(&legacy,&port,region,0x53543400u+BMS_PRODUCT_ID,4u,24u));
+ uint8_t bytes[24]={0};codec_expect_le(bytes,100u,4u);codec_expect_le(bytes+4,23u,4u);codec_expect_le(bytes+8,456u,4u);
+ for(unsigned i=12;i<24;i++)bytes[i]=(uint8_t)(i+11u);
+ assert(storage_record_save(&legacy,bytes));uint32_t old_addr=legacy.latest_addr;
+ memcpy(backup,flash,sizeof(flash));
+ for(int byte=0;byte<(int)(24u+BMS_STATE_PAYLOAD_BYTES+8u);byte++){
+  memcpy(flash,backup,sizeof(flash));reboot();cut=byte;
+  assert(!bms_state_store_init());bms_state_store_data_t state=bms_state_store_get();
+  assert(state.soc==100u&&state.dsg==23u&&state.cycle==456u&&!state.full_confirmed);
+  assert(!memcmp(flash+old_addr,backup+old_addr,56u));
+  reboot();assert(bms_state_store_init());state=bms_state_store_get();
+  assert(state.soc==100u&&state.cycle==456u&&!state.full_confirmed&&!state.full_basis);
+  for(unsigned i=0;i<BMS_OTA_UPDATE_ID_WORDS;i++)assert(g_bms_state.ota_update_id[i]==(uint16_t)(bytes[12+2*i]|((uint16_t)bytes[13+2*i]<<8)));
+  assert((g_bms_state_store.latest_addr-region.base)/4096u!=(old_addr-region.base)/4096u);
+ }
+ /* 同一启动迁移失败保留写游标；三次后不继续物理写，不重复擦同一扇区。 */
+ memcpy(flash,backup,sizeof(flash));reboot();cut=0;assert(!bms_state_store_init());
+ uint32_t erase_count=erases;
+ for(unsigned attempt=0;attempt<2u;attempt++){now+=5000u;cut=0;assert(!bms_state_store_init());assert(erases==erase_count);}
+ uint32_t program_count=programs;now+=5000u;assert(!bms_state_store_init());assert(programs==program_count&&erases==erase_count);
+ memcpy(flash,backup,sizeof(flash));reboot();assert(bms_state_store_init());
+ /* 资格和SOC必须同一记录提交；失败只恢复旧的完整组合。 */
+ bms_state_store_data_t qualified={100u,23u,456u,1u,0x12345678u};
+ assert(bms_state_store_save_snapshot(&qualified));memcpy(backup,flash,sizeof(flash));
+ bms_state_store_data_t cleared=qualified;cleared.soc=98u;cleared.full_confirmed=0u;cleared.full_basis=0u;
+ for(int byte=0;byte<(int)(24u+BMS_STATE_PAYLOAD_BYTES+8u);byte++){
+  memcpy(flash,backup,sizeof(flash));reboot();assert(bms_state_store_init());cut=byte;
+  assert(!bms_state_store_save_snapshot(&cleared));reboot();assert(bms_state_store_init());
+  bms_state_store_data_t state=bms_state_store_get();assert(state.soc==100u&&state.full_confirmed==1u&&state.full_basis==qualified.full_basis);
+ }
+ now+=1u;cut=-1;qualified.full_confirmed=0u;qualified.full_basis=0u;
+ bms_state_store_poll_snapshot(&qualified);assert(g_bms_state.full_confirmed==0u);
+ puts("PASS State v5: v4 migration, first-save byte cuts, legacy sector retention, OTA ID and atomic full qualification");
 }
 static void test_events(void){
  fresh();bms_event_log_sample_t sample={0};sample.vcell_ovp=1;
@@ -300,6 +338,7 @@ static u8 bms_afe_hw_access_is_active(void){return access_active;}
 u8 get_soc_real(void){return live_soc;}
 void set_soc_param(u8 soc){live_soc=soc;}
 void bms_soc_nominal_capacity_changed(void){capacity_updates++;}
+void bms_soc_cycle_count_changed(uint32_t cycle){g_bms_soc.cycle_count=cycle;capacity_updates++;}
 static u8 bms_reset_software_parameters(void){return 0;}
 static u8 bms_reset_afe_parameters(void){return access_active?0:2;}
 void bms_product_info_refresh(void){identity_updates++;}
@@ -517,7 +556,7 @@ static void test_ota_state_events(void)
             if (reset_state) {
                 u8 payload[BMS_STATE_PAYLOAD_BYTES]; bms_state_persist_t persisted;
                 assert(storage_record_load(&g_bms_state_store, payload));
-                bms_state_decode(&persisted, payload);
+                bms_state_decode(&persisted, payload, 0u);
                 assert(persisted.soc == 88u && persisted.cycle == 99u);
                 assert(!bms_ota_update_id_matches(persisted.ota_update_id));
             }
@@ -838,4 +877,4 @@ static void test_merged_profile(void)
  puts("PASS merged profile: all 448 write-byte cuts, stable view, cache/generation rollback, duplicate suppression, reboot");
 }
 
-int main(void){test_merged_profile();test_chemistry_switch();test_sleep_config();test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_balance_permission();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_events();test_boot_gate();return 0;}
+int main(void){test_merged_profile();test_chemistry_switch();test_sleep_config();test_storage_reliability();test_event_semantics();test_config_codec_layout();test_config_cache_equality();test_protection_commit();test_ota_config_policy();test_ota_state_events();test_parameter_protocol();test_user_parameters();test_balance_permission();test_diag_boot();test_config_failure_preserves_state_cache();test_config_schema();test_state();test_state_v4_migration();test_events();test_boot_gate();return 0;}

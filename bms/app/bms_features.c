@@ -528,6 +528,13 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
     uint8_t temperature_safe = balance_temperature_safe(s);
     uint8_t allowed;
 
+    if (s->voltage_check_active) {
+        s_feature.balance_trust_samples = 0u;
+        if (!apply_balance_mask(0u, known_actual) && !bms_error_get(BMS_ERROR_BALANCE))
+            bms_error_raise(BMS_ERROR_BALANCE);
+        return;
+    }
+
     /* 冷启动静置可均衡；只检查当前放电，不保留充电经历。 */
     allowed = (uint8_t)(s->cell_count > 0u && s->cell_count <= BMS_AFE_FEATURE_MAX_CELLS &&
                         !s_feature.balance_off_pending &&

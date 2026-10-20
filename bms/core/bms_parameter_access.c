@@ -100,7 +100,7 @@ static u16 parameter_read_word(u16 r, parameter_read_snapshot_t *s)
     if (r == BMS_PARAM_REG_MAGIC) return BMS_PARAMETER_INTERFACE_MAGIC;
     if (r == BMS_PARAM_REG_VERSION) return 2u;
     if (r == BMS_PARAM_REG_CAPABILITIES) return 0x00FFu | BMS_PARAM_CAP_CHEMISTRY_SWITCH |
-        BMS_PARAM_CAP_SOC_PROFILE | BMS_PARAM_CAP_CURRENT_CALIBRATION_LINEAR; /*
+        BMS_PARAM_CAP_SOC_PROFILE | BMS_PARAM_CAP_CURRENT_CALIBRATION_LINEAR | BMS_PARAM_CAP_SOC_POLICY_V3; /*
      * 容量、SN、加热、校准、重置、State 同步、均衡及两档休眠。
      */
     if (r >= BMS_PARAM_REG_CHEMISTRY_BASE && r <= BMS_PARAM_REG_CHEMISTRY_LAST) {
@@ -280,6 +280,7 @@ static u8 soc_profile_command(const u8 *data, u16 qty)
             (u32)(bms_time_ms() - s_soc_profile_stage_tick) > 60u * 1000u ||
             !bms_soc_profile_valid(&s_soc_profile_stage)) return 3u;
         s_soc_profile_stage_status = 3u;
+        if (s_soc_profile_stage.profile_version != BMS_SOC_POLICY_VERSION) return 3u;
         if (!bms_config_set_soc_profile(&s_soc_profile_stage) || !bms_soc_reload_configuration()) return 4u;
         s_soc_profile_stage_status = 2u;
         return 0u;
@@ -333,8 +334,8 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
         if (qty != 1u || soc > 100u) return finish(3u);
         if (!bms_state_store_save(soc, g_bms_soc.discharge_fraction_percent, cycle))
             return finish(4u);
-        g_bms_soc.cycle_count = cycle;
-        set_soc_param((u8)soc);
+        if (r == BMS_PARAM_REG_SOC) set_soc_param((u8)soc);
+        else bms_soc_cycle_count_changed(cycle);
         return finish(0u);
     }
     if (r == BMS_PARAM_REG_CAPACITY)

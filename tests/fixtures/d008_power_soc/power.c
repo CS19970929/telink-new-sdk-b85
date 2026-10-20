@@ -92,7 +92,11 @@ static int bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*m){
 }
 static int app_flash_lock_restore_enabled(void){return flash_ready;}
 static int bus_mux_get_state(void){return bus_busy;}
-static int bms_state_store_save(int s,int d,uint32_t c){seq[seq_len++]=1;return storage_ok;}
+typedef struct { uint32_t soc,dsg,cycle,full_confirmed,full_basis; } bms_state_store_data_t;
+static bms_state_store_data_t bms_soc_state_snapshot(void){
+ bms_state_store_data_t s={g_bms_soc.soc_estimate_percent,g_bms_soc.discharge_fraction_percent,g_bms_soc.cycle_count,0u,0u};return s;
+}
+static int bms_state_store_save_snapshot(const bms_state_store_data_t *s){(void)s;seq[seq_len++]=1;return storage_ok;}
 static int bms_event_log_note_sleep(void){seq[seq_len++]=2;return event_ok;}
 static int bms_afe_sleep(void){afe_shutdown_calls++;seq[seq_len++]=3;if(acc_low_during_shutdown)acc_high=0;return shutdown_ok;}
 static void bls_pm_setAppWakeupLowPower(u32 t,int en){assert(en==0);seq[seq_len++]=4;}

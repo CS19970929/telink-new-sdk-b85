@@ -34,6 +34,9 @@ void bms_features_stop(void){}
 void bms_sw_protection_init(void){}
 void bms_sw_protection_reset_filters(void){}
 uint8_t bms_protection_params_valid(void){return 1;}
+void bms_afe_driver_request_voltage_check(void){}
+void bms_afe_driver_reset_voltage_check(void){}
+uint8_t bms_afe_driver_stop_voltage_check(void){return 1u;}
 void bms_afe_driver_init(void){++initializations;}
 bms_afe_sample_status_t bms_afe_driver_sample(void){
  ++samples;bms_afe_sample_status_t r=status;return r;
@@ -247,3 +250,24 @@ int main(void){
 
 evidence({'domain': 'afe_health', 'product': os.environ.get('BMS_PRODUCT'),
           'boundary': '真实guard/State与后端契约替身；SH另含原始采样/控制/CRC/SW/feature/存储TU，SPI/Flash/时间为替身，不代表物理Gate'})
+
+# 新校准资格检查直接执行两个后端的原函数体，不将寄存器替身称为实板验证。
+from validation_support import function
+for backend, define, signatures in (
+    ('dvc1124/dvc1124_bms.c', '1', ('void bms_afe_driver_reset_voltage_check(',
+      'void bms_afe_driver_request_voltage_check(', 'uint8_t bms_afe_driver_stop_voltage_check(',
+      'static uint8_t dvc_voltage_check_service(')),
+    ('sh3673510/sh3673510_bms.c', '0', ('void bms_afe_driver_reset_voltage_check(',
+      'static uint8_t sh_voltage_check_control(', 'void bms_afe_driver_request_voltage_check(',
+      'uint8_t bms_afe_driver_stop_voltage_check(', 'static uint8_t sh_voltage_check_service(')),
+):
+    source = read('bms/afe/' + backend)
+    end = source.index('} s_voltage_check;') + len('} s_voltage_check;')
+    start = source.index('/* 校准电压检查：阶段只由本后端推进')
+    production = source[start:end] + '\n' + '\n'.join(function(source, signature) for signature in signatures)
+    fixture = read('tests/fixtures/soc_voltage_check.c').replace('/* PRODUCTION */', production)
+    # SH mock实现与真实头的外部声明一致，DVC没有引入目标SDK头。
+    fixture = fixture.replace('static sh3673520_status_t SH3673520_', 'sh3673520_status_t SH3673520_')
+    run_c(fixture, flags=['-DCHECK_DVC='+define, '-Wno-unused-function', '-Wno-unused-variable',
+          '-I', str(ROOT/'bms/afe/dvc1124'), '-I', str(ROOT/'bms/afe/sh3673510')],
+          name='soc-voltage-check-'+define)

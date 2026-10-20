@@ -65,6 +65,7 @@
 /* 类型切换 v1：能力发现/当前类型只读，命令只接受完整 4 word。 */
 #define BMS_PARAM_CAP_CHEMISTRY_SWITCH             0x0100u
 #define BMS_PARAM_CAP_SOC_PROFILE                  0x0200u
+#define BMS_PARAM_CAP_SOC_POLICY_V3                0x0800u /* 新策略可用，地址/50-word 布局保持。 */
 /* 追加只读能力；旧地址、v2 帧及 CFG2 校准字段保持不变。 */
 #define BMS_PARAM_CAP_CURRENT_CALIBRATION_LINEAR   0x0400u
 #define BMS_PARAM_REG_CHEMISTRY_BASE               0x2EA0u

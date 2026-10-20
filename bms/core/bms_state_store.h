@@ -27,6 +27,8 @@ typedef struct {
     uint32_t soc;
     uint32_t dsg;
     uint32_t cycle;
+    uint32_t full_confirmed;
+    uint32_t full_basis;
 } bms_state_store_data_t;
 
 /* 加载并验证持久状态，建立当前缓存。 */
@@ -41,6 +43,9 @@ bms_state_store_data_t bms_state_store_get(void);
 int  bms_state_store_save(uint32_t soc, uint32_t dsg, uint32_t cycle);
 /* 仅在状态变化且策略允许时提交检查点。 */
 void bms_state_store_poll(uint32_t soc, uint32_t dsg, uint32_t cycle);
+/* SOC、资格及其配置依据一起提交；旧三参数服务入口不授予满电资格。 */
+int bms_state_store_save_snapshot(const bms_state_store_data_t *data);
+void bms_state_store_poll_snapshot(const bms_state_store_data_t *data);
 
 #ifdef __cplusplus
 }

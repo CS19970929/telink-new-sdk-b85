@@ -1,9 +1,10 @@
 /* 同一生产 SOC 函数体在三种诊断宏下的业务输出；不以诊断缓存作为期望值。 */
 static void init_case(uint8_t chemistry, uint8_t seed)
 {
-    bms_state_store_data_t state = {seed, 0u, 5u};
+    bms_state_store_data_t state = {seed, 0u, 5u, 0u, 0u};
     memset(&g_bms_report, 0, sizeof(g_bms_report));
     memset(&g_bms_system_status, 0, sizeof(g_bms_system_status));
+    diagnostic_phase=0u;diagnostic_healthy=1;stored_profile.capacity_factory=1000u;
     stored_profile.battery_chemistry = chemistry;
     stored_profile.soc_profile_id = chemistry;
     bms_soc_profile_defaults(chemistry, &committed_profile);
@@ -11,7 +12,7 @@ static void init_case(uint8_t chemistry, uint8_t seed)
     g_bms_protection_params.cell_ovp_third_mv = chemistry == 1u ? 3650u : 4250u;
     g_bms_protection_params.cell_uvp_third_mv = 2500u;
     soc_param_lib_init(&state);
-    assert(get_soc_real() == seed && g_bms_report.soc.soc_percent == seed);
+    assert(get_soc_real() == seed && g_bms_report.soc.soc_percent == (seed==100u?99u:seed));
 }
 
 int main(void)
@@ -46,7 +47,7 @@ int main(void)
                     sample.cell_max_mv = 2410u;
                     sample.third_cell_uvp = 1u;
                     sample.current_ma = n < 100u ? 1000 : -5000;
-                } else if (scenario == 3u) { /* 连续静置空电。 */
+                } else if (scenario == 3u) { /* 静置低压不再走旧的快清零捷径。 */
                     sample.cell_min_mv = sample.cell_max_mv = 2400u;
                     sample.cell_delta_mv = 0u;
                 } else if (scenario == 4u) { /* 方向转换、缺帧、长间隔、重复时间与重启。 */
@@ -54,12 +55,18 @@ int main(void)
                     if (n % 173u == 0u) sample.sample_valid = 0u;
                     if (n % 211u == 0u) { sample.timestamp_ms += BMS_SOC_MAX_SAMPLE_GAP_MS + 1u; sample.timestamp_32k += (BMS_SOC_MAX_SAMPLE_GAP_MS + 1u)*32u; }
                     if (n == 1200u) {
-                        bms_state_store_data_t saved = {get_soc_real(), g_bms_soc.discharge_fraction_percent,
-                                                       g_bms_soc.cycle_count};
+                        bms_state_store_data_t saved = bms_soc_state_snapshot();
                         soc_param_lib_init(&saved);
                     }
                 }
+                sample.cell_count=BMS_PRODUCT_CELL_COUNT;
+                for(unsigned j=0;j<sample.cell_count;j++)sample.cell_mv[j]=j+1u==sample.cell_count?sample.cell_max_mv:sample.cell_min_mv;
+                unsigned phase=diagnostic_phase;
+                sample.voltage_check_active=phase==1u;
+                sample.voltage_calibration_valid=phase==2u;
                 bms_soc_process_sample(&sample);
+                if(phase==1u)diagnostic_phase=2u;else if(phase==2u)diagnostic_phase=0u;
+                if(bms_soc_voltage_check_requested())bms_afe_request_voltage_check();
                 if (scenario == 4u && n % 127u == 0u) bms_soc_process_sample(&sample);
                 assert(get_soc_real() <= 100u && g_bms_report.soc.soc_percent <= 100u);
                 assert(g_bms_soc.remaining_capacity_as10 <= g_bms_soc.effective_capacity_as10);
@@ -72,7 +79,7 @@ int main(void)
             }
             if (scenario == 1u) assert(get_soc_real() == 100u && g_bms_report.soc.soc_percent == 100u);
             if (scenario == 2u) assert(g_bms_soc.remaining_capacity_as10 != 0u);
-            if (scenario == 3u) assert(get_soc_real() == 0u && g_bms_report.soc.soc_percent == 0u);
+            if (scenario == 3u) assert(get_soc_real() == seed && g_bms_report.soc.soc_percent == seed);
         }
     }
 #if BMS_SOC_BOARD_TEST_ENABLE

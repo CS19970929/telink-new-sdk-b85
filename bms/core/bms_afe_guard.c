@@ -123,6 +123,7 @@ static uint8_t service_failsafe_wait(void)
     /* SH 重建观察窗口，不能把 AFE 恢复当成电压/温度故障已经解除。 */
     if (bms_afe_driver_policy.reset_protection_before_init)
         bms_sw_protection_reset_filters();
+    bms_afe_driver_reset_voltage_check();
     bms_afe_driver_init();
 
     /* 后端初始化可清自身通信错误，但尚未完成资格确认，因此系统 AFE 故障仍保持置位。 */
@@ -216,6 +217,7 @@ void bms_afe_init(void)
     s_guard.config_inhibit = config_inhibit;
     if (bms_afe_driver_policy.reset_protection_before_init)
         bms_sw_protection_init();
+    bms_afe_driver_reset_voltage_check();
     bms_afe_driver_init();
     /* 同进程重初始化不能仅靠 RAM 清零解除未验证配置；完整应用成功才解除。 */
     if (config_inhibit && bms_afe_driver_apply_protection_config()) s_guard.config_inhibit = 0u;
@@ -305,6 +307,7 @@ uint8_t bms_afe_sleep(void)
 #endif
         if (!bms_afe_driver_set_fets(0u, 0u)) { note_invalid(); return 0u; }
     }
+    (void)bms_afe_driver_stop_voltage_check(); /* 清理失败不能取消保护性电源动作。 */
     if (!bms_afe_driver_sleep()) { note_invalid(); return 0u; }
     if (bms_afe_driver_policy.sleep_holds_bus) s_guard.test_shutdown_hold = 1u;
     s_guard.comm_failures = 0u;
@@ -453,6 +456,11 @@ uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m)
     return 1u;
 }
 
+void bms_afe_request_voltage_check(void)
+{
+    if (runtime_access_allowed()) bms_afe_driver_request_voltage_check();
+}
+
 /* 取得公共功能所需的后端采样快照。 */
 uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *s)
 {
@@ -525,6 +533,7 @@ uint8_t bms_afe_test_wake(void)
      * 正常后端初始化负责完整 shutdown 唤醒/复位、持久硬件配置、编译期策略与回读；
      * 公共门禁确认完整有效测量前保持请求阻断。
      */
+    bms_afe_driver_reset_voltage_check();
     bms_afe_driver_init();
     if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
     return 1u;
@@ -565,6 +574,7 @@ uint8_t bms_afe_register_debug_restore(void)
      * 后端完整恢复源码固定配置和持久 profile；失败继续冻结，不能直接恢复输出。 */
     s_guard.comm_inhibit = 1u;
     s_guard.cycle_failed = 1u;
+    bms_afe_driver_reset_voltage_check();
     bms_afe_driver_init();
     if (!bms_afe_driver_register_config_ready() || !bms_afe_driver_apply_protection_config() ||
         !bms_afe_driver_disable_fets(1u, 1u)) return 0u;

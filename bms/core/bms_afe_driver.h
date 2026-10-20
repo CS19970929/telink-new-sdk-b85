@@ -30,6 +30,9 @@ uint8_t bms_afe_driver_disable_fets(uint8_t charge_off, uint8_t discharge_off);
 uint8_t bms_afe_driver_get_direction_allow_mask(void);
 /* 主循环只读 RAM；sample 为 NULL 时仅查询当前有效性，不复制、不改变资格。 */
 uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *sample);
+void bms_afe_driver_request_voltage_check(void);
+void bms_afe_driver_reset_voltage_check(void);
+uint8_t bms_afe_driver_stop_voltage_check(void);
 uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *snapshot);
 uint8_t bms_afe_driver_get_charge_source_present(uint8_t *present);
 /* 成功必须已回读确认实际掩码；失败不能发布请求值为已应用值。

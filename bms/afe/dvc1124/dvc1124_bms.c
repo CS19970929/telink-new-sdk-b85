@@ -455,6 +455,105 @@ uint8_t bms_afe_driver_set_fets(uint8_t charge_on,
     return 0u;
 }
 
+/* DVC1124-2 DS V1.1 p15 / RM V1.2 p22：COW 下拉最多 1s。
+ * 仅校准候选排队；不操作主回路 MOS。600..900ms 内取新 VADC，
+ * 清激励后再收两个完整 VADC，避免把正在转换的诊断结果当正常样本。
+ * 这些为工程时序，板级 RC/端点覆盖仍须按文档验收。 */
+/* 校准电压检查：阶段只由本后端推进，睡眠/重初始化显式清理。 */
+enum {
+    VOLTAGE_CHECK_IDLE = 0u,
+    VOLTAGE_CHECK_QUEUED,
+    VOLTAGE_CHECK_STIMULATING,
+    VOLTAGE_CHECK_NORMAL_RECOVERY,
+    VOLTAGE_CHECK_CLEANUP
+};
+#define VOLTAGE_CHECK_RECOVERY_MS 2000u
+#define VOLTAGE_CHECK_RETRY_MS 5000u
+#define VOLTAGE_CHECK_OBSERVE_MIN_MS 600u
+#define VOLTAGE_CHECK_OBSERVE_MAX_MS 900u
+static struct {
+    uint32_t started_ms, retry_ms;
+    uint8_t state, healthy, normal_frames, failed;
+} s_voltage_check;
+
+void bms_afe_driver_reset_voltage_check(void)
+{
+    memset(&s_voltage_check, 0, sizeof(s_voltage_check));
+}
+
+void bms_afe_driver_request_voltage_check(void)
+{
+    if (s_voltage_check.state || (s_voltage_check.failed &&
+        (uint32_t)(bms_time_ms() - s_voltage_check.retry_ms) < VOLTAGE_CHECK_RETRY_MS)) return;
+    s_voltage_check.state = VOLTAGE_CHECK_QUEUED;
+    s_voltage_check.healthy = 0u;
+}
+
+uint8_t bms_afe_driver_stop_voltage_check(void)
+{
+    uint8_t ok = 1u;
+    if (s_voltage_check.state)
+        ok = DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CP_CTRL, DVC1124_COW_MASK, 2u, 0u);
+    bms_afe_driver_reset_voltage_check();
+    return ok;
+}
+
+static uint8_t dvc_voltage_check_service(const dvc1124_snapshot_t *snapshot, uint32_t now)
+{
+    uint8_t cp, i;
+    uint32_t elapsed;
+    if (!s_voltage_check.state) return 1u;
+    if (s_voltage_check.state == VOLTAGE_CHECK_QUEUED) {
+#if BMS_FEATURE_BALANCE_SUPPORTED
+        if (!bms_afe_driver_set_balance_mask(0u, NULL)) goto io_error;
+#endif
+        if (!DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CP_CTRL, DVC1124_COW_MASK, 2u, 1u)) goto io_error;
+        s_voltage_check.started_ms = now;
+        s_voltage_check.normal_frames = 0u;
+        s_voltage_check.state = VOLTAGE_CHECK_STIMULATING;
+        return 1u;
+    }
+    elapsed = now - s_voltage_check.started_ms;
+    if (s_voltage_check.state == VOLTAGE_CHECK_STIMULATING) {
+        if (!DVC1124_ReadRegisters(DVC1124_REG_CP_CTRL, &cp, 1u)) goto io_error;
+        if (elapsed >= VOLTAGE_CHECK_OBSERVE_MAX_MS || !(cp & DVC1124_COW_MASK)) {
+            s_voltage_check.healthy = 0u;
+        } else if (elapsed >= VOLTAGE_CHECK_OBSERVE_MIN_MS && snapshot->voltage_fresh) {
+            s_voltage_check.healthy = 1u;
+            for (i = 0u; i < BMS_PRODUCT_CELL_COUNT; ++i) {
+                uint16_t mv = g_bms_report.cell_voltage_mv[i];
+                /* 低于批准模型最低工作电压或超出普通单体范围，只拒绝校准，
+                 * 不宣称区分真实深欠压和开线，更不修改硬件保护阈值。 */
+                if (mv < 2000u || mv > 5000u) s_voltage_check.healthy = 0u;
+            }
+        } else return 1u;
+        if (!DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CP_CTRL, DVC1124_COW_MASK, 2u, 0u)) goto io_error;
+        s_voltage_check.state = VOLTAGE_CHECK_NORMAL_RECOVERY;
+        s_voltage_check.started_ms = now;
+        return 1u;
+    }
+    if (s_voltage_check.state == VOLTAGE_CHECK_NORMAL_RECOVERY) {
+        if (snapshot->voltage_fresh && ++s_voltage_check.normal_frames >= 2u) {
+            s_voltage_check.state = VOLTAGE_CHECK_IDLE;
+            if (!s_voltage_check.healthy) {
+                s_voltage_check.failed = 1u;
+                s_voltage_check.retry_ms = now;
+            } else s_voltage_check.failed = 0u;
+            return 1u;
+        }
+        if (elapsed < VOLTAGE_CHECK_RECOVERY_MS) return 1u;
+    }
+io_error:
+    s_voltage_check.healthy = 0u;
+    s_voltage_check.failed = 1u;
+    s_voltage_check.retry_ms = now;
+    /* 下一轮只清理，不重复触发；失败继续交给既有通信门禁。 */
+    s_voltage_check.state = VOLTAGE_CHECK_CLEANUP;
+    if (!DVC1124_WriteRegisterFieldSafe(DVC1124_REG_CP_CTRL, DVC1124_COW_MASK, 2u, 0u)) return 0u;
+    s_voltage_check.state = VOLTAGE_CHECK_IDLE;
+    return 0u;
+}
+
 /* 采样后发布测量、合并保护并更新 DVC FET 仲裁。 */
 bms_afe_sample_status_t bms_afe_driver_sample(void)
 {
@@ -469,6 +568,7 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
     bms_afe_sample_status_t result = DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
     poll_tick = bms_time_ms();
+    if (snapshot.valid && !dvc_voltage_check_service(&snapshot, poll_tick)) io_failed = 1u;
     dvc_observe_current_recovery(&snapshot, poll_tick);
     if (!snapshot.valid) {
 #if DVC1124_HW_PROTECT_ENABLE
@@ -554,6 +654,8 @@ uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *measurem
 
     if (!DVC1124_GetSnapshot(&snapshot)) return 0u;
 
+    measurements->voltage_check_active = s_voltage_check.state != 0u;
+    measurements->voltage_calibration_valid = !s_voltage_check.state && s_voltage_check.healthy;
     measurements->raw_current_ma = snapshot.raw_current_ma;
     measurements->current_ma = snapshot.current_ma;
     measurements->sample_time_ms = snapshot.sample_time_ms;
@@ -574,6 +676,7 @@ uint8_t bms_afe_driver_get_feature_snapshot(bms_afe_feature_snapshot_t *out)
     DVC1124_GetConfig(&cfg);
 
     out->cell_count = cfg.cell_count;
+    out->voltage_check_active = s_voltage_check.state != 0u;
 
     /* HS-D008 温度职责：GP1 加热 MOS，GP2/GP3 电池，GP4 功率 MOS。 */
     out->battery_temp_valid = dvc_get_battery_temperature_range(&s,

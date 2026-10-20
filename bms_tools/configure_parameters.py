@@ -125,6 +125,9 @@ class Configuration:
             text = raw.decode("utf-8-sig")
             for match in DEFINE.finditer(text):
                 name, argument, expression = match.groups()
+                # SOC v3由完整profile配置；旧产品宏不再作为散参数编辑入口。
+                if name.startswith("BMS_SOC_"):
+                    continue
                 if not name.startswith(("D008_SW_", "D008_AFE_", "BMS_SW_", "SH3673510_HW_DEFAULT_",
                                         "BMS_SLEEP_", "BMS_BALANCE_", "BMS_HEATER_", "BMS_BATTERY_", "BMS_SOC_")):
                     continue

@@ -343,38 +343,36 @@ def check_soc_contract_check():
             self.assertIn("soc_current_direction", C)
             self.assertIn("g_soc_integral_remainder", C)
 
-        def test_ocv_uses_direction_dependent_rest_and_band(self):
-            self.assertIn("g_soc_profile->ocv_rest_prepare_s", C)
+        def test_ocv_uses_shared_rest_and_only_downward_model_bound(self):
+            from validation_support import function
+            ocv_fn = function(C, "static void soc_ocv(")
+            self.assertIn("BMS_SOC_OCV_REST_MS", ocv_fn)
+            self.assertIn("BMS_SOC_OCV_POINT_MS", ocv_fn)
             self.assertIn("g_soc_profile->ocv_error_band_percent", C)
-            self.assertIn("g_soc_runtime.ocv_low", C)
-            self.assertIn("g_soc_runtime.ocv_high", C)
-            self.assertIn("soc_step_down_to(g_soc_runtime.ocv_high)", C)
-            ocv_fn = C[C.index("static uint8_t soc_idle_ocv_tracking"):C.index("static uint16_t soc_discharge_natural_1pct_ticks")]
+            self.assertIn("BMS_SOC_LFP_PLATEAU_MIN_MV", ocv_fn)
             self.assertNotIn("soc_step_up_to", ocv_fn)
 
-        def test_display_soc_has_one_owner_and_retains_step_policy(self):
+        def test_display_has_one_owner_and_strict_full_qualification(self):
             self.assertNotIn("g_soc_display_soc", C)
-            self.assertIn("SOC_DISPLAY_STEP_TICKS              SOC_TICKS_PER_SECOND", C)
-            self.assertIn("g_bms_report.soc.soc_percent = soc_limit_percent_u32(soc);", C)
+            self.assertIn("BMS_SOC_DISPLAY_STEP_MS", C)
+            self.assertIn("full_confirmed", H)
+            self.assertIn("soc_display_target", C)
 
-        def test_endpoints_and_lfp_terminal_knee_are_chemistry_specific(self):
+        def test_legacy_terminal_words_have_no_active_algorithm_consumer(self):
+            self.assertIn("terminal_start_offset_mv", PROFILE)
+            self.assertNotIn("g_soc_profile->terminal_", C)
+            self.assertIn("BMS_SOC_POLICY_VERSION 3u", DEFS)
+
+        def test_voltage_anchors_require_measurement_chain_evidence(self):
             self.assertIn("g_bms_report.fault_third.bits.cell_ovp", APP)
             self.assertIn("g_bms_report.fault_third.bits.cell_uvp", APP)
-            for value in (".terminal_start_offset_mv = 150u", ".terminal_l1_offset_mv = 100u",
-                          ".terminal_l2_offset_mv = 50u", ".terminal_l3_offset_mv = 20u",
-                          ".terminal_start_offset_mv = 300u", ".terminal_l1_offset_mv = 200u",
-                          ".terminal_l2_offset_mv = 150u", ".terminal_l3_offset_mv = 50u"):
-                self.assertIn(value, PROFILE)
-
-        def test_upward_calibration_requires_confirmed_charging_full_anchor(self):
-            start = C.index("static uint8_t soc_apply_full_anchor(")
-            end = C.index("static uint8_t soc_apply_forced_empty_anchor(", start)
-            full_fn = C[start:end]
-            self.assertIn("(sample->cell_max_mv >= full_mv) && (sample->cell_min_mv >= full_min)", full_fn)
-            self.assertIn("(sample->cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv) && (dir == SOC_INTEGRAL_DIR_CHG)", full_fn)
-            self.assertIn("if (voltage_ready && sample->third_cell_ovp)", full_fn)
-            self.assertNotIn("if ((dir == SOC_INTEGRAL_DIR_CHG) && sample->third_cell_ovp)", full_fn)
-            self.assertNotIn("&& !isDSG()", full_fn)
+            self.assertIn("soc_require_voltage_check", C)
+            self.assertIn("voltage_calibration_valid", H)
+            self.assertIn("sample->cell_delta_mv <= g_soc_profile->full_cell_delta_max_mv", C)
+            self.assertIn("BMS_SOC_FULL_HOLD_MS", C)
+            self.assertIn("BMS_SOC_EMPTY_HOLD_MS", C)
+            self.assertIn("BMS_STATE_SCHEMA_VERSION      5u", STATE_C)
+            self.assertIn("BMS_STATE_LEGACY_MAGIC", STATE_C)
 
         def test_soc_low_faults_are_implemented_without_mos_policy(self):
             self.assertIn("soc_update_low_faults", C)

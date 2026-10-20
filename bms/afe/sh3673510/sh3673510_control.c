@@ -424,9 +424,8 @@ uint8_t sh3673510_control_set_load_detection(uint8_t enabled, uint8_t *changed)
     if (!s_control_ready || s_afe_sleeping || changed == 0) return 0u;
     *changed = 0u;
     if (SH3673520_ReadReg(SH3673520_REG_SCONF3, &value) != SH3673520_OK) return 0u;
-    /* p16/p32：主动诊断已删除；切换物理恢复检测模式也保持 EN/TRG 关闭。 */
-    target = (uint8_t)((value & (uint8_t)~(SH3673520_SCONF3_CRLD_EN_MASK |
-                         SH3673520_SCONF3_OWD_EN_MASK | SH3673520_SCONF3_OWD_TRG_MASK)) | bits);
+    /* p16/p32：保留正在进行的诊断 EN；TRG 为自清命令，不能随恢复模式重触发。 */
+    target = (uint8_t)((value & (uint8_t)~(SH3673520_SCONF3_CRLD_EN_MASK | SH3673520_SCONF3_OWD_TRG_MASK)) | bits);
     if ((target & (SH3673520_SCONF3_CONFIG_MASK & (uint8_t)~SH3673520_SCONF3_OWD_TRG_MASK)) ==
         (value & (SH3673520_SCONF3_CONFIG_MASK & (uint8_t)~SH3673520_SCONF3_OWD_TRG_MASK)))
         return 1u; /* 本轮首次有效读取已确认配置，未写入无需再次回读。 */

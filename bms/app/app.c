@@ -67,7 +67,7 @@
 /* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
 static void app_sample_task(void);
 /* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
-static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma);
+static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma, uint8_t calibration_valid, uint8_t check_active);
 /* 采样唤醒回调只置位，由主循环执行 AFE 和 SOC 处理。 */
 static void app_sample_wakeup(int type);
 static u32 s_sample_tick;
@@ -118,7 +118,10 @@ static void app_storage_1s_task(void)
     /* 假电流结果不能进入正常 State checkpoint。 */
     if (!bms_soc_board_test_active())
 #endif
-	bms_state_store_poll(g_bms_soc.soc_estimate_percent, g_bms_soc.discharge_fraction_percent, g_bms_soc.cycle_count);
+	{
+        bms_state_store_data_t state = bms_soc_state_snapshot();
+        bms_state_store_poll_snapshot(&state);
+    }
 #if BMS_DEBUG_LOG_ENABLE
     {
         static u32 previous_exits;
@@ -268,7 +271,7 @@ static void app_sample_task(void)
         bms_afe_apply_outputs();
     }
     valid = bms_afe_get_aux_measurements(&m);
-    app_update_soc_from_sample(valid, valid ? m.current_ma : 0);
+    app_update_soc_from_sample(valid, valid ? m.current_ma : 0, valid ? m.voltage_calibration_valid : 0u, valid ? m.voltage_check_active : 0u);
 
 #if BMS_SERVICE_DIAG_ENABLE
     app_diag_poll_runtime(valid, valid ? m.raw_current_ma : 0,
@@ -295,7 +298,7 @@ static void app_sample_wakeup(int type)
 
 
 /* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
-static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma)
+static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma, uint8_t calibration_valid, uint8_t check_active)
 {
     bms_afe_feature_snapshot_t feature;
     bms_soc_sample_t sample;
@@ -309,6 +312,12 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma)
     sample.cell_min_mv = g_bms_report.cell_min_mv;
     sample.cell_max_mv = g_bms_report.cell_max_mv;
     sample.cell_delta_mv = g_bms_report.cell_delta_mv;
+    sample.pack_voltage_10mv = g_bms_report.pack_voltage_10mv;
+    sample.cell_count = BMS_PRODUCT_CELL_COUNT;
+    memcpy(sample.cell_mv, g_bms_report.cell_voltage_mv, sample.cell_count * sizeof(sample.cell_mv[0]));
+    sample.voltage_calibration_valid = calibration_valid;
+    sample.voltage_check_active = check_active;
+    sample.balance_active = (g_bms_report.balance_bits_low || g_bms_report.balance_bits_high) ? 1u : 0u;
     sample.sample_valid = valid ? 1u : 0u;
     sample.voltage_valid = (valid && sample.cell_min_mv != 0u &&
                             sample.cell_max_mv >= sample.cell_min_mv) ? 1u : 0u;
@@ -329,11 +338,17 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma)
         g_bms_report.fault_third.bits.cell_ovp;
     sample.third_cell_uvp =
         g_bms_report.fault_third.bits.cell_uvp;
+    sample.third_pack_uvp = g_bms_report.fault_third.bits.pack_uvp;
 #if BMS_SOC_BOARD_TEST_ENABLE
     bms_soc_board_test_suspend_exits(app_ble_suspend_exit_count());
     bms_soc_board_test_prepare(&sample, pm_get_32k_tick());
 #endif
     bms_soc_process_sample(&sample);
+    /* 板测伪电压只用于算法观察，不得触发真实 AFE 激励。 */
+#if BMS_SOC_BOARD_TEST_ENABLE
+    if (!bms_soc_board_test_active())
+#endif
+        if (bms_soc_voltage_check_requested()) bms_afe_request_voltage_check();
 #if BMS_SOC_BOARD_TEST_ENABLE
     bms_soc_board_test_note();
 #endif

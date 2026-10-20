@@ -32,6 +32,9 @@ static void bms_sw_protection_init(void){++protection_inits;}
 static void bms_sw_protection_reset_filters(void){}
 static void bms_features_service(void){}
 static int bms_features_charge_direction_blocked(void){return 0;}
+static void bms_afe_driver_request_voltage_check(void){}
+static void bms_afe_driver_reset_voltage_check(void){}
+static uint8_t bms_afe_driver_stop_voltage_check(void){return 1u;}
 static void bms_afe_driver_init(void){}
 static bms_afe_sample_status_t bms_afe_driver_sample(void){bms_afe_sample_status_t r=BMS_AFE_SAMPLE_OK;sample_calls++;return r;}
 static int bms_afe_driver_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
