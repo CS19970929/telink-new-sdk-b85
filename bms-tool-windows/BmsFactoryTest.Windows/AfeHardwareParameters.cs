@@ -104,6 +104,8 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
 {
     private string _requestedValue = "—";
     private string _effectiveValue = "—";
+    public string PreviewValue { get; private set; } = "—";
+    internal void UpdatePreview(string value) { PreviewValue=value; OnPropertyChanged(nameof(PreviewValue)); }
     private string _editValue = string.Empty;
     private string _enabledText = "—";
 
@@ -257,6 +259,7 @@ public sealed class AfeHardwareParameterModel
 
         LoadRows();
         RefreshValueGuidance();
+        RefreshPreviews();
     }
 
     public void ResetEditsToCurrent()
@@ -364,12 +367,6 @@ public sealed class AfeHardwareParameterModel
         if (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 &&
             ocdPair != 0 && ocdPair != (AfeHardwareProtocolMap.CapOcd1 | AfeHardwareProtocolMap.CapOcd2))
             rangeErrors.Add("SH OCD1/OCD2 共用硬件使能，必须同时开启或同时关闭。");
-        if (rangeErrors.Count != 0)
-        {
-            error = "完整 AFE 参数中有以下不合规项，整组未发送：\n" + string.Join("\n", rangeErrors) +
-                "\n请显式修正这些项目；温度有效显示值不是独立寄存器反算结果，不能据此自动改写温度。";
-            return false;
-        }
         foreach (var limit in DvcCurrentLimits)
         {
             if ((en & limit.Capability) == 0 ||
@@ -377,46 +374,50 @@ public sealed class AfeHardwareParameterModel
             if (raw[limit.Word] < minimumA10 || raw[limit.Word] > maximumA10)
             {
                 var row = Rows.Single(r => r.WireIndex == limit.Word);
-                error = $"{row.Group} / {row.Name}：输入 {row.Decode(raw[limit.Word])} A，" +
+                rangeErrors.Add($"{row.Group} / {row.Name}：输入 {row.Decode(raw[limit.Word])} A，" +
                     $"允许请求范围 {FormatCurrent(minimumA10)}～{FormatCurrent(maximumA10)} A" +
-                    $"（分流器 {_deviceInfo.ShuntDisplay}）；未发送写入。";
-                return false;
+                    $"（分流器 {_deviceInfo.ShuntDisplay}）；未发送写入。");
             }
         }
         if ((en & AfeHardwareProtocolMap.CapSc) != 0 && CanCalculateShortRange)
         {
             if (!TryGetShortRange(raw[12], out uint minimumA10, out uint maximumA10, out string hint))
-            { error = "短路保护：" + hint + "；未发送写入。"; return false; }
-            if (raw[22] < minimumA10 || raw[22] > maximumA10)
+            { rangeErrors.Add("短路保护：" + hint + "；未发送写入。"); }
+            else if (raw[22] < minimumA10 || raw[22] > maximumA10)
             {
-                error = $"短路电流允许请求范围 {FormatCurrent(minimumA10)}～{FormatCurrent(maximumA10)} A；" +
-                    hint + "；未发送写入。";
-                return false;
+                rangeErrors.Add($"短路电流允许请求范围 {FormatCurrent(minimumA10)}～{FormatCurrent(maximumA10)} A；" +
+                    hint + "；未发送写入。");
             }
         }
         if ((en & AfeHardwareProtocolMap.CapCov) != 0 && (raw[2] == 0 || raw[4] >= raw[2]))
-        { error = "单体过压恢复值必须小于保护值。"; return false; }
+        { rangeErrors.Add("单体过压恢复值必须小于保护值。"); }
         if ((en & AfeHardwareProtocolMap.CapCuv) != 0 && (raw[6] == 0 || raw[8] <= raw[6]))
-        { error = "单体欠压恢复值必须大于保护值。"; return false; }
+        { rangeErrors.Add("单体欠压恢复值必须大于保护值。"); }
         if ((en & AfeHardwareProtocolMap.CapOcd1) != 0 && (raw[10] == 0 || raw[14] >= (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 ? _deviceInfo.EffectiveShCurrent(raw[10], 5000u, 15u) : raw[10])))
-        { error = "放电过流恢复值必须小于 OCD1 阈值。"; return false; }
+        { rangeErrors.Add("放电过流恢复值必须小于 OCD1 阈值。"); }
         if ((en & AfeHardwareProtocolMap.CapOcd2) != 0 && (raw[12] == 0 || raw[14] >= (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 ? _deviceInfo.EffectiveShCurrent(raw[12], 10000u, 15u) : raw[12])))
-        { error = "放电过流恢复值必须小于 OCD2 阈值。"; return false; }
+        { rangeErrors.Add("放电过流恢复值必须小于 OCD2 阈值。"); }
         if ((en & AfeHardwareProtocolMap.CapOcc1) != 0 && (raw[16] == 0 || raw[20] >= (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 ? _deviceInfo.EffectiveShCurrent(raw[16], 1375u, 31u) : raw[16])))
-        { error = "充电过流恢复值必须小于 OCC1 阈值。"; return false; }
+        { rangeErrors.Add("充电过流恢复值必须小于 OCC1 阈值。"); }
         if ((en & AfeHardwareProtocolMap.CapOcc2) != 0 && (raw[18] == 0 || raw[20] >= raw[18]))
-        { error = "充电过流恢复值必须小于 OCC2 阈值。"; return false; }
+        { rangeErrors.Add("充电过流恢复值必须小于 OCC2 阈值。"); }
         if ((en & AfeHardwareProtocolMap.CapTemp) != 0)
         {
             if (raw[26] >= raw[25] || raw[30] >= raw[29] || raw[28] <= raw[27] || raw[32] <= raw[31])
-            { error = "硬件温度保护恢复阈值与触发阈值的迟滞关系不合法。"; return false; }
+            { rangeErrors.Add("硬件温度保护恢复阈值与触发阈值的迟滞关系不合法。"); }
         }
 
         if ((en & AfeHardwareProtocolMap.CapSc)!=0 && _deviceInfo.BackendModel==AfeHardwareProtocolMap.ModelDvc1124) {
             uint senseUv=(uint)raw[22]*_deviceInfo.ShuntMicroOhm/10u;
             if (_deviceInfo.ShuntMicroOhm==0 || senseUv<10000u || senseUv>630000u) {
-                error="DVC 短路启用需有效电流（分流压降 10~630 mV）；按芯片档位向下量化，请核对有效值。";return false;
+                rangeErrors.Add("DVC 短路启用需有效电流（分流压降 10~630 mV）；按芯片档位向下量化，请核对有效值。");
             }
+        }
+        if (rangeErrors.Count != 0)
+        {
+            error = "完整 AFE 参数中有以下不合规项，整组未发送：\n" + string.Join("\n", rangeErrors) +
+                "\n请显式修正这些项目；温度有效显示值不是独立寄存器反算结果，不能据此自动改写温度。";
+            return false;
         }
         error = string.Empty;
         return true;
@@ -435,6 +436,8 @@ public sealed class AfeHardwareParameterModel
             string range = limit.Capability != 0
                 ? $"{row.Decode(limit.Minimum)}～{row.Decode(limit.Maximum)} {row.Unit}"
                 : row.Unit == "℃" ? "−40～105 ℃，并满足恢复回差"
+                : row.WireIndex is 4 or 8 or 14 or 20 ? "MCU 恢复值，须满足回差"
+                : row.WireIndex is 5 or 9 or 15 or 21 or 33 ? "0～65535 ms（MCU 确认）"
                 : row.WireIndex == 34 ? "当前芯片能力位" : $"0～65535 {row.Unit}";
             string hint = row.Hint;
             if (row.Unit == "℃") hint = "协议编码为 (℃+40)×10；温度有效显示值沿用请求值，未独立反算寄存器。";
@@ -602,7 +605,63 @@ public sealed class AfeHardwareParameterModel
         if (ocd2 is not null) ocd2.PropertyChanged += (_, e) => {
             if (e.PropertyName == nameof(AfeParameterRow.EditValue)) RefreshShortGuidance();
         };
+        foreach (var row in Rows) row.PropertyChanged += (_, e) => {
+            if (e.PropertyName == nameof(AfeParameterRow.EditValue)) RefreshPreviews();
+        };
         RefreshShortGuidance();
+        RefreshPreviews();
+    }
+
+    private bool PredictHardwareWord(int word, ushort[] raw, out ushort value)
+    {
+        value=raw[word];
+        if (_deviceInfo?.BackendModel != AfeHardwareProtocolMap.ModelSh3673510) return false;
+        ushort[]? choices=word switch {
+            3 or 11 or 17 => new ushort[]{140,280,490,980,2030,3010,4970,10010},
+            7 => new ushort[]{490,770,980,1470,2030,3010,4970,10010},
+            23 => new ushort[]{0,32,64,96,128,192,224,256,288,320,384,448,480,512,544,576},
+            _=>null
+        };
+        if (choices is not null) { value=choices.Where(v=>v>=raw[word]).DefaultIfEmpty(choices.Last()).First(); return true; }
+        if (word is 2 or 6) { value=(ushort)Math.Min(5115,((uint)raw[word]+2)/5*5); return true; }
+        if (word==13) { value=(ushort)(Math.Min(16,Math.Max(1,((uint)raw[word]+24)/25))*25); return true; }
+        if (!_deviceInfo.HasExactShunt) return false;
+        if (word is 10 or 12 or 16) {
+            uint step=word==10?5000u:word==12?10000u:1375u;
+            value=(ushort)_deviceInfo.EffectiveShCurrent(raw[word],step,word==16?31u:15u); return true;
+        }
+        if (word==22) {
+            ulong step=10000UL*10UL*_deviceInfo.ShuntParallelCount, element=_deviceInfo.ShuntElementMicroOhm;
+            ulong baseSense=Math.Min(16UL,Math.Max(1UL,((ulong)raw[12]*element+step-1)/step))*step;
+            uint multiple=new uint[]{2,3,4,6}.Where(k=>baseSense*k >= (ulong)raw[22]*element).DefaultIfEmpty(6u).First();
+            value=(ushort)Math.Min(65535UL,(baseSense*multiple+element-1)/element); return true;
+        }
+        return false;
+    }
+
+    private void RefreshPreviews()
+    {
+        if (_deviceInfo is null || _requested.Length!=35) return;
+        var raw=_requested.ToArray();
+        foreach(var row in Rows.Where(r=>!r.IsSwitch)) {
+            var encoded=row.Encode(row.EditValue); if(encoded.Ok)raw[row.WireIndex]=encoded.Wire;
+        }
+        foreach(var row in Rows) {
+            var encoded=row.Encode(row.EditValue);
+            row.UpdatePreview(!encoded.Ok?"输入无效":row.IsSwitch?(row.SwitchValue?"开启":"关闭"):
+                PredictHardwareWord(row.WireIndex,raw,out ushort value)?row.Decode(value)+" "+row.Unit:
+                row.WireIndex is 25 or 27 or 29 or 31?"写后核对 NTC 编码":
+                _deviceInfo.BackendModel==AfeHardwareProtocolMap.ModelSh3673510?row.EditValue+"（MCU）":"写后读回核对");
+        }
+    }
+
+    public string DescribeHardwareQuantization(ushort[] candidate)
+    {
+        var changes=new List<string>();
+        foreach(var row in Rows.Where(r=>!r.IsSwitch))
+            if(PredictHardwareWord(row.WireIndex,candidate,out ushort actual) && actual!=candidate[row.WireIndex])
+                changes.Add($"{row.Group}/{row.Name}：{row.Decode(candidate[row.WireIndex])} → {row.Decode(actual)} {row.Unit}");
+        return changes.Count==0?string.Empty:"预计硬件选档（写后仍需核对）：\n"+string.Join("\n",changes)+"\n\n";
     }
 
     private bool CanCalculateShortRange => _deviceInfo is not null &&

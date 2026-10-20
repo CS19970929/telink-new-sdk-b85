@@ -230,6 +230,13 @@ static class AfeWriteCompatibilityTest
             toggle.SwitchValue=true;Check(model.TryBuildCandidate(out candidate,out error),error);
             Check(candidate.SequenceEqual(currentProfile),"再次开启恢复原完整候选");
         }
+        model.Load(new(currentProfile,effective,info));
+        model.Rows.Single(r=>r.WireIndex==10).EditValue="20";
+        Check(model.Rows.Single(r=>r.WireIndex==10).PreviewValue.StartsWith("22.5"),"20A 预览实际22.5A");
+        model.Rows.Single(r=>r.WireIndex==3).EditValue="1000";
+        Check(model.Rows.Single(r=>r.WireIndex==3).PreviewValue.StartsWith("2030"),"延时预览跨到2030ms");
+        Check(model.TryBuildCandidate(out candidate,out error),error);
+        Check(model.DescribeHardwareQuantization(candidate).Contains("2030"),"选档变化进入确认");
         var channelInfo=info with {Capabilities=0x1bdf}; // D014: TS1/TS2/TS4，TS3 NC。
         model.Load(new(currentProfile,effective,channelInfo));
         Check(model.Rows.Count(r=>r.IsTemperatureChannel)==4,"四个通道分别显示");

@@ -89,6 +89,7 @@ public partial class MainWindow
             Binding = new Binding(nameof(AfeParameterRow.EditValue)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
             Width = 105
         });
+        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header="预计生效", Binding=new Binding(nameof(AfeParameterRow.PreviewValue)), Width=150, IsReadOnly=true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "单位", Binding = new Binding(nameof(AfeParameterRow.Unit)), Width = 60, IsReadOnly = true });
         var switchControl = new FrameworkElementFactory(typeof(CheckBox));
         switchControl.SetBinding(CheckBox.IsCheckedProperty, new Binding(nameof(AfeParameterRow.SwitchValue)) { Mode=BindingMode.TwoWay, UpdateSourceTrigger=UpdateSourceTrigger.PropertyChanged });
@@ -192,7 +193,7 @@ public partial class MainWindow
                     $"确认修改 {info.BackendName} AFE硬件保护参数？\n\n" +
                     $"通信：{transportText}\n" +
                     legacyCorrections +
-                    temperatureChanges + switchChanges +
+                    temperatureChanges + switchChanges + _afeHardwareModel.DescribeHardwareQuantization(candidate) +
                     "这与软件 First/Second/Third 参数完全独立。\n\n" +
                     "将执行：打开60秒授权会话 → 完整35-word原子写入 → 固件校验/持久化 → AFE应用 → requested/effective回读 → 失败自动回滚。\n\n" +
                     "BLE MTU=23 可使用新固件的暂存/提交事务，无需修改 MTU。请确认 SCD 使能、电流和延时。是否继续？",
