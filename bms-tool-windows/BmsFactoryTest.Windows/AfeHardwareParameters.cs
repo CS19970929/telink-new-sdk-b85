@@ -53,6 +53,7 @@ public sealed record AfeHardwareDeviceInfo(
     public bool HasExactShunt => ShuntElementMicroOhm != 0 && ShuntParallelCount is >= 1 and <= 16;
     public string ShuntDisplay => HasExactShunt
         ? $"{ShuntElementMicroOhm}/{ShuntParallelCount}uΩ ({(decimal)ShuntElementMicroOhm / ShuntParallelCount / 1000m:0.#########}mΩ)"
+        : BackendModel == AfeHardwareProtocolMap.ModelDvc1124 ? $"{ShuntMicroOhm}uΩ"
         : $"{ShuntMicroOhm}uΩ（旧固件整数模型，精确比例未知）";
     public uint EffectiveShCurrent(ushort requested, uint stepUv, uint maximumCode)
     {
@@ -152,6 +153,8 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
+public sealed record AfeShortCircuitChoice(ushort RequestedA10, ushort EffectiveA10, string Label);
+
 public sealed class AfeHardwareParameterModel
 {
     // SH CV1.0A 原 PDF p36–38；与固件新写入的最小延时及上界保持一致。
@@ -168,6 +171,12 @@ public sealed class AfeHardwareParameterModel
         (10,AfeHardwareProtocolMap.CapOcd1,5000,15),
         (12,AfeHardwareProtocolMap.CapOcd2,10000,15),
         (16,AfeHardwareProtocolMap.CapOcc1,1375,31)
+    };
+    private static readonly (int Word, ushort Capability, uint MinimumUv, uint MaximumUv)[] DvcCurrentLimits = {
+        (10,AfeHardwareProtocolMap.CapOcd1,250,63750),
+        (12,AfeHardwareProtocolMap.CapOcd2,4000,256000),
+        (16,AfeHardwareProtocolMap.CapOcc1,250,63750),
+        (18,AfeHardwareProtocolMap.CapOcc2,4000,256000)
     };
     private ushort[] _requested = new ushort[AfeHardwareProtocolMap.ProfileWordCount];
     private ushort[] _effective = new ushort[AfeHardwareProtocolMap.ProfileWordCount];
@@ -265,10 +274,10 @@ public sealed class AfeHardwareParameterModel
                 }
             }
         }
-        foreach (var limit in ShCurrentLimits)
+        foreach (var limit in DvcCurrentLimits)
         {
             if ((en & limit.Capability) == 0 ||
-                !TryGetShCurrentRange(limit.Word, out uint minimumA10, out uint maximumA10)) continue;
+                !TryGetCurrentRange(limit.Word, out uint minimumA10, out uint maximumA10)) continue;
             if (raw[limit.Word] < minimumA10 || raw[limit.Word] > maximumA10)
             {
                 var row = Rows.Single(r => r.WireIndex == limit.Word);
@@ -278,6 +287,9 @@ public sealed class AfeHardwareParameterModel
                 return false;
             }
         }
+        if ((en & AfeHardwareProtocolMap.CapSc) != 0 &&
+            raw[23] > (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelDvc1124 ? 1992 : 576))
+        { error = "短路延时超出当前芯片范围；未发送写入。"; return false; }
         if ((en & AfeHardwareProtocolMap.CapSc) != 0 && CanCalculateShortRange)
         {
             if (!TryGetShortRange(raw[12], out uint minimumA10, out uint maximumA10, out string hint))
@@ -463,6 +475,66 @@ public sealed class AfeHardwareParameterModel
         return maximumA10 >= minimumA10;
     }
 
+    // 客户窗口只提供可由现有 0.1 A 协议选中的硬件档位，不联动修改 OCD2。
+    public IReadOnlyList<AfeShortCircuitChoice> GetShortCircuitChoices()
+    {
+        var result = new List<AfeShortCircuitChoice>();
+        if (!TryGetShortRange(_requested[12], out uint minimum, out uint maximum, out _)) return result;
+        if (_deviceInfo!.BackendModel == AfeHardwareProtocolMap.ModelDvc1124)
+        {
+            ulong shunt = _deviceInfo.ShuntMicroOhm;
+            for (uint code = 1; code <= 63; code++)
+            {
+                ulong requested = (code * 100000UL + shunt - 1UL) / shunt;
+                ulong effective = code * 100000UL / shunt;
+                if (requested < minimum || requested > maximum || effective > ushort.MaxValue) continue;
+                if (requested * shunt / 100000UL != code) continue;
+                result.Add(new((ushort)requested, (ushort)effective,
+                    $"{FormatCurrent((uint)effective)} A（{code * 10} mV，保存请求 {FormatCurrent((uint)requested)} A）"));
+            }
+        }
+        else
+        {
+            ulong element = _deviceInfo.ShuntElementMicroOhm;
+            ulong step = 10000UL * 10UL * _deviceInfo.ShuntParallelCount;
+            ulong sense = ((_requested[12] * element + step - 1UL) / step) * step;
+            uint[] multiples = { 2, 3, 4, 6 };
+            foreach (uint multiple in multiples)
+            {
+                ulong requested = sense * multiple / element;
+                ulong effective = (sense * multiple + element - 1UL) / element;
+                if (requested < minimum || requested > maximum || effective > ushort.MaxValue) continue;
+                uint selected = multiples.First(k => requested * element <= sense * k);
+                if (selected != multiple) continue;
+                result.Add(new((ushort)requested, (ushort)effective,
+                    $"{FormatCurrent((uint)effective)} A（{multiple} × OCD2，保存请求 {FormatCurrent((uint)requested)} A）"));
+            }
+        }
+        return result;
+    }
+
+    public bool TryBuildShortCircuitCandidate(ushort currentA10, ushort delayUs, out ushort[] candidate, out string error)
+    {
+        candidate = Array.Empty<ushort>();
+        error = "请先读取当前设备的完整有效配置。";
+        if (_deviceInfo is null) return false;
+        if ((_deviceInfo.Capabilities & AfeHardwareProtocolMap.CapSc) == 0)
+        { error = "当前设备不支持短路参数设置。"; return false; }
+        if ((_requested[34] & AfeHardwareProtocolMap.CapSc) == 0)
+        { error = "设备短路保护当前关闭；本窗口保持使能状态，请由内部工具先启用。"; return false; }
+        if (!CanCalculateShortRange)
+        { error = "缺少计算短路档位所需的分流器信息，请先升级配套固件。"; return false; }
+        var draft = new AfeHardwareParameterModel();
+        draft.Load(new(_requested, _effective, _deviceInfo));
+        draft.Rows.Single(r => r.WireIndex == 22).EditValue = FormatCurrent(currentA10);
+        draft.Rows.Single(r => r.WireIndex == 23).EditValue = delayUs.ToString(CultureInfo.InvariantCulture);
+        if (!draft.TryBuildCandidate(out candidate, out error)) return false;
+        for (int i = 0; i < candidate.Length; i++)
+            if (i != 22 && i != 23 && candidate[i] != _requested[i])
+            { error = "设备有需内部工具处理的历史 AFE 参数；本窗口不会附带修改 OCD2 或其它参数。请先使用内部工具读取并处理。"; return false; }
+        return true;
+    }
+
     private void RefreshShortGuidance()
     {
         var row = Rows.FirstOrDefault(r => r.WireIndex == 22);
@@ -500,9 +572,21 @@ public sealed class AfeHardwareParameterModel
         }
     };
 
-    private bool TryGetShCurrentRange(int index, out uint minimumA10, out uint maximumA10)
+    private bool TryGetCurrentRange(int index, out uint minimumA10, out uint maximumA10)
     {
         minimumA10 = maximumA10 = 0;
+        if (_deviceInfo?.BackendModel == AfeHardwareProtocolMap.ModelDvc1124 && _deviceInfo.ShuntMicroOhm != 0)
+        {
+            foreach (var limit in DvcCurrentLimits)
+            {
+                if (limit.Word != index) continue;
+                ulong shunt = _deviceInfo.ShuntMicroOhm;
+                minimumA10 = (uint)((limit.MinimumUv * 10UL + shunt - 1UL) / shunt);
+                maximumA10 = (uint)Math.Min(ushort.MaxValue, limit.MaximumUv * 10UL / shunt);
+                return true;
+            }
+            return false;
+        }
         if (_deviceInfo?.BackendModel != AfeHardwareProtocolMap.ModelSh3673510 || !_deviceInfo.HasExactShunt)
             return false;
         foreach (var limit in ShCurrentLimits)
@@ -522,14 +606,16 @@ public sealed class AfeHardwareParameterModel
         (currentA10 / 10m).ToString("0.0", CultureInfo.InvariantCulture);
 
     private string CurrentRange(int index) =>
-        TryGetShCurrentRange(index, out uint minimumA10, out uint maximumA10)
+        TryGetCurrentRange(index, out uint minimumA10, out uint maximumA10)
             ? $"{FormatCurrent(minimumA10)}～{FormatCurrent(maximumA10)} A"
             : "由设备校验";
 
     private string CurrentHint(int index) =>
-        TryGetShCurrentRange(index, out uint minimumA10, out uint maximumA10)
+        TryGetCurrentRange(index, out uint minimumA10, out uint maximumA10)
             ? $"允许请求范围 {FormatCurrent(minimumA10)}～{FormatCurrent(maximumA10)} A（分流器 {_deviceInfo!.ShuntDisplay}）。" +
-                "电流最多保留 0.1 A；按硬件档位向上量化，实际值见“AFE有效值”。"
+                (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelDvc1124
+                    ? "电流最多保留 0.1 A；固件按感测压降向下选档，实际值见“AFE有效值”。"
+                    : "电流最多保留 0.1 A；按硬件档位向上量化，实际值见“AFE有效值”。")
             : "电流最多保留 0.1 A；范围由固件校验，实际硬件量化结果见“AFE有效值”。";
 
     private AfeParameterRow CurrentRow(int index, ushort cap, string group, string name) => new()
@@ -603,7 +689,22 @@ public sealed class AfeHardwareClient
         return new AfeHardwareSnapshot(requested, effective, info);
     }
 
-    public async Task<AfeHardwareSnapshot> WriteAllAsync(ushort[] candidate, CancellationToken ct = default)
+    public Task<AfeHardwareSnapshot> WriteAllAsync(ushort[] candidate, CancellationToken ct = default) =>
+        WriteCandidateAsync(candidate, null, ct);
+
+    public Task<AfeHardwareSnapshot> WriteShortCircuitAsync(AfeHardwareSnapshot snapshot,
+        ushort currentA10, ushort delayUs, CancellationToken ct = default)
+    {
+        var expected = new AfeHardwareSnapshot(snapshot.Requested.ToArray(), snapshot.Effective.ToArray(), snapshot.Info);
+        var model = new AfeHardwareParameterModel();
+        model.Load(expected);
+        if (!model.TryBuildShortCircuitCandidate(currentA10, delayUs, out var candidate, out string error))
+            throw new InvalidOperationException(error);
+        return WriteCandidateAsync(candidate, expected, ct);
+    }
+
+    private async Task<AfeHardwareSnapshot> WriteCandidateAsync(ushort[] candidate,
+        AfeHardwareSnapshot? expected, CancellationToken ct)
     {
         if (candidate.Length != AfeHardwareProtocolMap.ProfileWordCount)
             throw new ArgumentException("AFE hardware profile write must contain exactly 35 words.", nameof(candidate));
@@ -615,6 +716,17 @@ public sealed class AfeHardwareClient
             if (session.BackendModel != candidate[1])
                 throw new IOException($"AFE access backend mismatch: session=0x{session.BackendModel:X4}, profile=0x{candidate[1]:X4}.");
 
+            if (expected is not null)
+            {
+                AfeHardwareSnapshot latest = await ReadAllAsync(ct);
+                if (!latest.Info.ProfileValid || !latest.Requested.SequenceEqual(expected.Requested) ||
+                    latest.Effective[12] != expected.Effective[12] ||
+                    latest.Info.BackendModel != expected.Info.BackendModel || latest.Info.Capabilities != expected.Info.Capabilities ||
+                    latest.Info.ShuntMicroOhm != expected.Info.ShuntMicroOhm ||
+                    latest.Info.ShuntElementMicroOhm != expected.Info.ShuntElementMicroOhm ||
+                    latest.Info.ShuntParallelCount != expected.Info.ShuntParallelCount)
+                    throw new IOException("AFE 参数或分流器信息已改变，短路参数未提交；请重新读取并确认档位。");
+            }
             await _bms.WriteAfeProfileAsync(candidate, session, ct);
             AfeHardwareSnapshot readback = await ReadAllAsync(ct);
             if (!readback.Requested.SequenceEqual(candidate))
@@ -624,6 +736,8 @@ public sealed class AfeHardwareClient
             }
             if (readback.Info.ApplyState != 1 || readback.Info.LastError != 0)
                 throw new IOException($"AFE apply state={readback.Info.ApplyStateText}, error={readback.Info.ErrorText}.");
+            if (expected is not null && readback.Effective[12] != expected.Effective[12])
+                throw new IOException("短路保存后 OCD2 有效值与读取基准不一致，请重新读取设备，不要重复提交。");
             return readback;
         }
         finally

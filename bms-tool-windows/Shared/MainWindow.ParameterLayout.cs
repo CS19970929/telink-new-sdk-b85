@@ -66,6 +66,12 @@ public partial class MainWindow
         var browser = CreateParameterBrowser(ProtectionGrid, item => ((ProtectionParameterRow)item).Group,
             _protectionRows.Select(row => row.Group));
         Grid.SetRow(browser, 1); parent.Children.Add(browser);
+        var header = parent.Children.OfType<StackPanel>().Single();
+        var buttons = header.Children.OfType<StackPanel>().Single(p => p.Orientation == Orientation.Horizontal);
+        var shortCircuit = new Button { Content = "硬件短路保护", MinWidth = 125, Height = 30,
+            Margin = new Thickness(8, 0, 0, 0), ToolTip = "设置 AFE 短路电流和延时；保持放电过流2及其它参数。" };
+        shortCircuit.Click += OpenShortCircuitSettings_Click;
+        buttons.Children.Insert(3, shortCircuit);
     }
 
     private void ShowParameterSaved(string message)

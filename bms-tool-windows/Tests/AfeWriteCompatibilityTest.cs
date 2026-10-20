@@ -136,6 +136,54 @@ static class AfeWriteCompatibilityTest
         shortRow.EditValue="3150.1";Check(!model.TryBuildCandidate(out _,out error),"DVC 短路超过630mV对应电流时拒绝");
         model.Load(new(dvc,dvcEffective,dvcInfo with {ShuntMicroOhm=400}));
         Check(model.Rows.Single(r=>r.WireIndex==22).AllowedCurrentRange=="25.0～1575.0 A","DVC 分流器变化须刷新短路范围");
-        Console.WriteLine("PASS D014 AFE write compatibility: captured 10A/1A, unchanged effective-equivalent legacy delays, explicit invalid edit rejection, unrelated words and cancel preserved; SH current limits and exact shunt; dynamic SH/DVC short-circuit ranges, width limits and reserved fields checked");
+        foreach(var limit in new[]{(Word:10,Min:13,Max:3187),(Word:12,Min:200,Max:12800),
+            (Word:16,Min:13,Max:3187),(Word:18,Min:200,Max:12800)}) {
+            var profile=dvc.ToArray();profile[34]=0x3c;profile[18]=450;profile[20]=0;profile[14]=0;
+            model.Load(new(profile,dvcEffective,dvcInfo));
+            Check(model.Rows.Single(r=>r.WireIndex==limit.Word).AllowedCurrentRange==
+                $"{limit.Min/10m:0.0}～{limit.Max/10m:0.0} A","DVC 四种过流范围均须可见");
+            foreach(int value in new[]{limit.Min-1,limit.Min,limit.Max,limit.Max+1}) {
+                model.Rows.Single(r=>r.WireIndex==limit.Word).EditValue=(value/10m).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                Check(model.TryBuildCandidate(out _,out error)==(value>=limit.Min&&value<=limit.Max),"DVC 电流边界："+error);
+            }
+        }
+        model.Load(new(dvc,dvcEffective,dvcInfo with {ShuntMicroOhm=400}));
+        Check(model.Rows.Single(r=>r.WireIndex==10).AllowedCurrentRange=="0.7～159.3 A","DVC 范围不能固定为默认200µΩ");
+        model.Load(new(dvc,dvcEffective,dvcInfo with {ShuntMicroOhm=0}));
+        Check(model.Rows.Single(r=>r.WireIndex==10).AllowedCurrentRange=="由设备校验"&&model.GetShortCircuitChoices().Count==0,"未知DVC分流器不得猜测档位");
+        var scProfile=currentProfile.ToArray();scProfile[17]=140;
+        model.Load(new(scProfile,effective,info));
+        var choices=model.GetShortCircuitChoices();
+        Check(choices.Select(c=>c.EffectiveA10).SequenceEqual(new ushort[]{900,1350,1800,2700}),"45A OCD2应提供90/135/180/270A四档");
+        foreach(var choice in choices) {
+            Check(model.TryBuildShortCircuitCandidate(choice.RequestedA10,64,out candidate,out error),error);
+            var expectedShort=scProfile.ToArray();expectedShort[22]=choice.RequestedA10;expectedShort[23]=64;
+            Check(candidate.SequenceEqual(expectedShort),"客户短路候选只能修改22/23，OCD2/使能/隐藏字段均保持");
+        }
+        Check(scProfile[22]==900&&model.Rows.Single(r=>r.WireIndex==22).EditValue=="90.0","客户组装候选不修改源快照或编辑值");
+        Check(!model.TryBuildShortCircuitCandidate(1350,577,out _,out _),"SH短路延时上限576µs");
+        model.Load(new(currentProfile.Select((v,i)=>i==17?(ushort)100:v).ToArray(),effective,info));
+        Check(!model.TryBuildShortCircuitCandidate(1350,64,out _,out error)&&error.Contains("内部工具"),"客户窗口不能夹带历史OCC延时规范化");
+        model.Load(new(disabledShort,effective,info));
+        Check(!model.TryBuildShortCircuitCandidate(1350,64,out _,out _),"客户短路编辑不能开启原来关闭的保护");
+        model.Load(new(scProfile,effective,unknownShunt));
+        Check(!model.TryBuildShortCircuitCandidate(1350,64,out _,out _),"未知SH精确比例不能提供客户档位");
+        model.Load(new(scProfile,effective,integerRatio));choices=model.GetShortCircuitChoices();
+        Check(choices.Count==3&&choices[0].EffectiveA10==1800,"667µΩ下最低2倍档不能由有效0.1A请求选中，应隐藏而非跳到3倍");
+        foreach(var choice in choices) {
+            ulong baseSense=400000;uint[] multiples={2,3,4,6};
+            uint selected=multiples.First(k=>(ulong)choice.RequestedA10*667<=baseSense*k);
+            Check(choice.EffectiveA10==(baseSense*selected+666)/667,"SH选项必须与固件向上选档一致");
+        }
+        model.Load(new(dvc,dvcEffective,dvcInfo));choices=model.GetShortCircuitChoices();
+        Check(choices.Count==63&&choices[0].EffectiveA10==500&&choices[62].EffectiveA10==31500,"DVC200µΩ应提供63个独立短路档位");
+        Check(model.TryBuildShortCircuitCandidate(1000,1992,out candidate,out error)&&candidate[12]==dvc[12],error);
+        Check(!model.TryBuildShortCircuitCandidate(1000,1993,out _,out _),"DVC延时上限1992µs");
+        model.Load(new(dvc,dvcEffective,dvcInfo with {ShuntMicroOhm=667}));
+        foreach(var choice in model.GetShortCircuitChoices()) {
+            uint code=(uint)choice.RequestedA10*667/100000;
+            Check(choice.EffectiveA10==code*100000/667,"DVC选项须按现有固件向下量化，而非套用SH向上规则");
+        }
+        Console.WriteLine("PASS AFE compatibility: SH/DVC current and short ranges; customer short choices, only 22/23 changed, OCD2/enable/reserved words preserved; old delays and unknown shunts rejected");
     }
 }
