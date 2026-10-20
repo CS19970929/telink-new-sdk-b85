@@ -1,5 +1,9 @@
 /* SH 产品参数范围检查；不含产品默认值。 */
 #pragma once
+#if SH3673510_HW_DEFAULT_ENABLE_TS1 > 1u || SH3673510_HW_DEFAULT_ENABLE_TS2 > 1u || \
+    SH3673510_HW_DEFAULT_ENABLE_TS3 > 1u || SH3673510_HW_DEFAULT_ENABLE_TS4 > 1u
+#error "SH temperature channel defaults must be 0 or 1"
+#endif
 #if SH3673510_HW_DEFAULT_ENABLE_OCD1 != SH3673510_HW_DEFAULT_ENABLE_OCD2
 #error "SH OCD1/OCD2 share one hardware enable bit"
 #endif

@@ -425,6 +425,27 @@ static uint8_t hw_recovery_stable(sh3510_hw_recovery_id_t id,
     return (s_hw_recovery_count[id] >= needed) ? 1u : 0u;
 }
 
+/* 温度锁存由所有已启用的硬件通道共同产生，恢复不能只检查 TS1/TS2。
+ * 软件电池/MOS/加热温度角色保持独立；通道关闭不改变采样与断线诊断。 */
+static uint8_t hardware_temperature_snapshot(const bms_afe_hw_profile_t *hw,
+                                              uint16_t *minimum, uint16_t *maximum)
+{
+    uint8_t channels = bms_afe_hw_profile_temperature_channels(hw);
+    uint8_t i;
+    *minimum = 1450u;
+    *maximum = 0u;
+    for (i = 0u; i < 4u; ++i) {
+        uint16_t temperature;
+        if (!(channels & (uint8_t)(1u << i))) continue;
+        if (s_ntc_ohm[i] == 0u) return 0u;
+        temperature = ntc_temp(s_ntc_ohm[i]);
+        if (temperature < *minimum) *minimum = temperature;
+        if (temperature > *maximum) *maximum = temperature;
+    }
+    /* 明确关闭所有通道后，可撤销旧温度锁存；仍需本轮 VADC、清除与读回。 */
+    return 1u;
+}
+
 /* 推进已满足恢复条件的硬件标志清除，保留失败结果。 */
 static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s,
                                         const bms_sw_protection_inputs_t *sample)
@@ -434,6 +455,8 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s,
     uint8_t actual_ok;
     uint8_t c1 = 0u, c2 = 0u;
     uint16_t ocd_recover_10ms, temp_recover_10ms;
+    uint16_t hw_temp_min, hw_temp_max;
+    uint8_t hw_temp_valid;
     if (s == 0 || sample == 0) return 0u;
     if (!(s->flag2 & (SH3673520_FLAG2_VADC_MASK | SH3673520_FLAG2_CADC_MASK)))
         return 1u;
@@ -472,28 +495,28 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s,
                     (u16)((hw.cuv_recover_ms + 5u) / 10u))) c1 |= SH3673520_FLAG1_UV_MASK;
         } else s_hw_recovery_count[HW_REC_UV] = 0u;
 
-        /* SCONF6 仅为 TS1/TS2 启用硬件温度保护，因此恢复 TEMP 标志只能使用电池传感器。 */
+        hw_temp_valid = hardware_temperature_snapshot(&hw, &hw_temp_min, &hw_temp_max);
         if (s->flag2 & SH3673520_FLAG2_OTC_MASK) {
             if (hw_recovery_stable(HW_REC_OTC,
-                    sample->battery_temp_valid && sample->battery_temp_max <= hw.chg_ot_recover_x10,
+                    hw_temp_valid && hw_temp_max <= hw.chg_ot_recover_x10,
                     temp_recover_10ms)) c2 |= SH3673520_FLAG2_OTC_MASK;
         } else s_hw_recovery_count[HW_REC_OTC] = 0u;
 
         if (s->flag2 & SH3673520_FLAG2_OTD_MASK) {
             if (hw_recovery_stable(HW_REC_OTD,
-                    sample->battery_temp_valid && sample->battery_temp_max <= hw.dsg_ot_recover_x10,
+                    hw_temp_valid && hw_temp_max <= hw.dsg_ot_recover_x10,
                     temp_recover_10ms)) c2 |= SH3673520_FLAG2_OTD_MASK;
         } else s_hw_recovery_count[HW_REC_OTD] = 0u;
 
         if (s->flag2 & SH3673520_FLAG2_UTC_MASK) {
             if (hw_recovery_stable(HW_REC_UTC,
-                    sample->battery_temp_valid && sample->battery_temp_min >= hw.chg_ut_recover_x10,
+                    hw_temp_valid && hw_temp_min >= hw.chg_ut_recover_x10,
                     temp_recover_10ms)) c2 |= SH3673520_FLAG2_UTC_MASK;
         } else s_hw_recovery_count[HW_REC_UTC] = 0u;
 
         if (s->flag2 & SH3673520_FLAG2_UTD_MASK) {
             if (hw_recovery_stable(HW_REC_UTD,
-                    sample->battery_temp_valid && sample->battery_temp_min >= hw.dsg_ut_recover_x10,
+                    hw_temp_valid && hw_temp_min >= hw.dsg_ut_recover_x10,
                     temp_recover_10ms)) c2 |= SH3673520_FLAG2_UTD_MASK;
         } else s_hw_recovery_count[HW_REC_UTD] = 0u;
     }

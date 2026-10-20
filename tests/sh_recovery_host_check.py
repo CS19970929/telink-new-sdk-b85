@@ -70,8 +70,7 @@ def check_sh_recovery_evidence_host_check(defines=None):
 
     ROOT = Path(__file__).resolve().parents[1]
     fixture = (ROOT / 'tests/fixtures/sh_recovery_evidence.c').read_text(encoding='utf8')
-    profile_header = (ROOT / 'bms/core/bms_afe_hw_profile.h').read_text(encoding='utf8')
-    profile_type = re.search(r'typedef struct\s*\{.*?\} bms_afe_hw_profile_t;', profile_header, re.S).group()
+    profile_type = '#include "bms_afe_hw_profile.h"'
     fixture = fixture.replace('/* PROFILE TYPE */', profile_type)
     def run(defines=()):
         products = (os.environ['BMS_PRODUCT'],) if 'BMS_PRODUCT' in os.environ else ('d011', 'd013', 'd014')

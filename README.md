@@ -93,6 +93,7 @@ python bms_tools/bms.py --product d014 resources
 | [同板多客户配置](docs/CUSTOMER_CONFIGURATION_WORKFLOW.md) | 四产品独立默认、客户方案 JSON 另存/载入、预览写回源码与构建追溯 |
 | [AFE 配置窗口寄存器核对](docs/AFE_CONFIGURATION_AUDIT_20261019.md) | 原 PDF 页、跨字节字段、读写副作用、允许配置的边界与未决项 |
 | [D014 AFE 参数逐字段排查](docs/D014_AFE_PARAMETER_WRITE_AUDIT_20261020.md) | 完整 35-word 拒绝原因、温度/延时范围、源码和上位机修复及未执行验证 |
+| [AFE 四路温度保护开关](docs/AFE_TEMPERATURE_CHANNELS.md) | TS1～TS4 独立使能、旧参数兼容、共享阈值、配置窗口和恢复边界 |
 
 ## 专题与调试
 

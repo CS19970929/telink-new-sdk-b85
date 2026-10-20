@@ -44,7 +44,10 @@ u16 bms_afe_hw_profile_capabilities(void)
     return (u16)(BMS_AFE_HW_EN_COV | BMS_AFE_HW_EN_CUV |
                  BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2 |
                  BMS_AFE_HW_EN_OCC1 | BMS_AFE_HW_EN_SC |
-                 BMS_AFE_HW_EN_TEMP);
+                 BMS_AFE_HW_EN_TEMP | BMS_AFE_HW_TEMP_CHANNEL_SELECT |
+                 BMS_AFE_HW_EN_TS1 | BMS_AFE_HW_EN_TS2 |
+                 (SH3673510_PRODUCT_HEATER_NTC_SUPPORTED ? BMS_AFE_HW_EN_TS3 : 0u) |
+                 (SH3673510_PRODUCT_MOS_NTC_SUPPORTED ? BMS_AFE_HW_EN_TS4 : 0u));
 #else
     return 0u;
 #endif
@@ -212,7 +215,14 @@ void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p)
     if (SH3673510_HW_DEFAULT_ENABLE_OCD2) p->enable_mask |= BMS_AFE_HW_EN_OCD2;
     if (SH3673510_HW_DEFAULT_ENABLE_OCC1) p->enable_mask |= BMS_AFE_HW_EN_OCC1;
     if (SH3673510_HW_DEFAULT_ENABLE_SC) p->enable_mask |= BMS_AFE_HW_EN_SC;
-    if (SH3673510_HW_DEFAULT_ENABLE_TEMP) p->enable_mask |= BMS_AFE_HW_EN_TEMP;
+    p->enable_mask |= BMS_AFE_HW_TEMP_CHANNEL_SELECT;
+    if (SH3673510_HW_DEFAULT_ENABLE_TEMP) {
+        if (SH3673510_HW_DEFAULT_ENABLE_TS1) p->enable_mask |= BMS_AFE_HW_EN_TS1;
+        if (SH3673510_HW_DEFAULT_ENABLE_TS2) p->enable_mask |= BMS_AFE_HW_EN_TS2;
+        if (SH3673510_HW_DEFAULT_ENABLE_TS3) p->enable_mask |= BMS_AFE_HW_EN_TS3;
+        if (SH3673510_HW_DEFAULT_ENABLE_TS4) p->enable_mask |= BMS_AFE_HW_EN_TS4;
+    }
+    if (p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_MASK) p->enable_mask |= BMS_AFE_HW_EN_TEMP;
 #endif
 }
 
@@ -294,6 +304,12 @@ u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *p)
     if (p->schema_version != BMS_AFE_HW_PROFILE_SCHEMA_VERSION) return 0u;
     if (p->afe_model != bms_afe_hw_profile_expected_model()) return 0u;
     if ((p->enable_mask & (u16)~bms_afe_hw_profile_capabilities()) != 0u) return 0u;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    if (p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_SELECT) {
+        if (((p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_MASK) != 0u) !=
+            ((p->enable_mask & BMS_AFE_HW_EN_TEMP) != 0u)) return 0u;
+    } else if (p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_MASK) return 0u;
+#endif
     if (!validate_hysteresis(p)) return 0u;
     if (p->chg_ot_x10 > 1450u || p->chg_ot_recover_x10 > 1450u ||
         p->chg_ut_x10 > 1450u || p->chg_ut_recover_x10 > 1450u ||
@@ -441,6 +457,10 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
     {
         sh3673510_protection_actual_t actual;
         if (!sh3673510_control_get_protection_actual(&actual)) return 0u;
+        p->enable_mask &= (u16)~(BMS_AFE_HW_EN_TEMP | BMS_AFE_HW_TEMP_CHANNEL_MASK);
+        p->enable_mask |= (u16)(BMS_AFE_HW_TEMP_CHANNEL_SELECT |
+                                   ((u16)actual.temperature_channels << 8));
+        if (actual.temperature_channels) p->enable_mask |= BMS_AFE_HW_EN_TEMP;
         /* p34：旧请求可单独置一位，但已验证的硬件OCD使能实际同时控制两级。 */
         if (p->enable_mask & (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2))
             p->enable_mask |= BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2;

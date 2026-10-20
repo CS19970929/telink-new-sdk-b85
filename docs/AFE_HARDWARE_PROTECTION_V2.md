@@ -37,6 +37,11 @@ D014 当前从产品配置建立独立 AFE 默认 profile；schema/model 不匹�
 
 不支持的 capability bit 必须拒绝，不能静默忽略。
 
+2026-10-20：SH 使用 word34 预留位扩展 TS1～TS4 选择，保留35-word和Flash布局。
+bit12 标记新通道语义，bit8..11 选择通道，bit7 表示至少一路开启；旧记录仍按原 TS1/TS2
+联动解码，不因读取而迁移。实际 owned 位写回、通道 effective 和恢复判断配套更新。
+原厂依据、产品能力、旧客户端及降级限制见 [四路温度保护开关](AFE_TEMPERATURE_CHANNELS.md)。
+
 ## 4. Modbus map
 
 ### Requested / persisted

@@ -38,6 +38,7 @@ register('afe', ('d008',), '原厂编码与逐块故障注入', 'dvc_effective_p
 register('storage', PRODUCTS, '完整 profile/journal 与逐字节掉电', 'soc_profile_store_host_check')
 register('protocol', PRODUCTS, '生产参数读取与每请求快照计数', 'parameter_read_block_host_check')
 register('afe', SH, '完整 SH TU 与九组恢复计数/失败次序', 'sh_recovery_counters_host_check')
+register('afe', SH, '旧profile/四通道组合/未接入拒绝及完整control寄存器替身', 'sh_temperature_channels_host_check')
 register('protection', PRODUCTS, '完整 feature 与真实板级能力', 'features_scenarios_host_check')
 register('storage', PRODUCTS, '生产 journal/语义存储与 RAM Flash', 'flash_quick_check')
 register('protocol', PRODUCTS, '完整 Modbus 模块与真实 CRC/State/diag/logger，寄存器所有者替身；真实 parser/CRC 与寄存器替身', 'modbus_host_check')

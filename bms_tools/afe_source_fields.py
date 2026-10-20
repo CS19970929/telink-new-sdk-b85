@@ -58,6 +58,10 @@ class SourceProtectionFields:
     def value(self, name):
         return int(self.row(name)['edit'])
 
+    def temperature_channels(self):
+        if self.dvc or not self.value('ENABLE_TEMP'): return 0
+        return sum(self.value(f'ENABLE_TS{i+1}') << i for i in range(4))
+
     def set(self, name, value):
         if not 0 <= value <= 65535: raise ValueError('该编码超出源码参数的 16 位表示范围')
         self.row(name)['edit'] = str(value)
@@ -97,10 +101,13 @@ class SourceProtectionFields:
             row = self.row(name)
             return row['edits'][chemistry] if row['ternary'] else int(row['edit'])
         def enabled(name):
+            if name == 'TEMP': return self.temperature_channels() != 0
             return value('ENABLE_' + name) != 0
         def require(condition, message):
             if not condition:
                 errors.append(f'{chemistry.upper()} / {message}')
+        for i, supported in enumerate(self.config.temperature_channels_supported):
+            require(not value(f'ENABLE_TS{i+1}') or supported, f'TS{i+1} 未接入，禁止启用硬件温度保护')
         for name, minimum, maximum in (('COV', 3000, 4500), ('CUV', 1000, 3500)):
             if enabled(name):
                 require(minimum <= value(name + '_MV') <= maximum,
@@ -185,17 +192,17 @@ class SourceProtectionFields:
         result[0x4F] = ((ceiling(v('SC_A10'), [base_a10 * m for m in (2, 3, 4, 6)]) << 4) |
                         ceiling(v('SC_DELAY_US'), SH_SC_DELAY)) if v('ENABLE_SC') else 0
         result[0x45] = (v('ENABLE_COV') | (v('ENABLE_CUV') << 1) |
-                        ((v('ENABLE_OCD1') or v('ENABLE_OCD2')) << 2) | (v('ENABLE_SC') << 3) | (v('ENABLE_TEMP') * 0x30))
+                        ((v('ENABLE_OCD1') or v('ENABLE_OCD2')) << 2) | (v('ENABLE_SC') << 3) | (self.temperature_channels() << 4))
         # SCONF5 这里只拥有 OCC_EN，不能把其余位显示为已知源码值。
         result[0x44] = v('ENABLE_OCC1') << 4
         for address, name, low in ((0x51, 'CHG_OT_X10', False), (0x52, 'DSG_OT_X10', False),
                                    (0x53, 'CHG_UT_X10', True), (0x54, 'DSG_UT_X10', True)):
-            result[address] = self.temp_code(v(name), low)
+            if self.temperature_channels(): result[address] = self.temp_code(v(name), low)
         return result
 
     def owns(self, address, mask):
         if self.dvc: return address in (0x59, 0x5A, 0x5B, 0x5C, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x70, 0x71, 0x72, 0x73)
-        return (address == 0x44 and mask == 0x10 or address == 0x45 and mask < 0x40 or 0x49 <= address <= 0x54)
+        return (address == 0x44 and mask == 0x10 or address == 0x45 or 0x49 <= address <= 0x54)
 
     def edit(self, address, mask, shift, code):
         """字段编码反解到唯一参数所有者；无法精确往返时拒绝静默换成别的编码。"""
@@ -243,8 +250,15 @@ class SourceProtectionFields:
             self.set(name, min(matches, key=lambda t: abs(t - self.value(name))))
         elif address == 0x44: self.set('ENABLE_OCC1', code)
         elif address == 0x45:
-            names = {1: ('COV',), 2: ('CUV',), 4: ('OCD1', 'OCD2'), 8: ('SC',), 16: ('TEMP',), 32: ('TEMP',)}[mask]
-            for name in names: self.set('ENABLE_' + name, code)
+            if mask >= 0x10:
+                channel = (mask.bit_length() - 1) - 4
+                if code and not self.config.temperature_channels_supported[channel]:
+                    raise ValueError(f'TS{channel+1} 未接入，禁止启用硬件温度保护')
+                for i in range(4): self.set(f'ENABLE_TS{i+1}', int(bool(target & (0x10 << i))))
+                self.set('ENABLE_TEMP', int(bool(target & 0xf0)))
+            else:
+                names = {1: ('COV',), 2: ('CUV',), 4: ('OCD1', 'OCD2'), 8: ('SC',)}[mask]
+                for name in names: self.set('ENABLE_' + name, code)
 
     def edit_dvc(self, address, mask, code, target, regs):
         if address in (0x70, 0x71, 0x72, 0x73):

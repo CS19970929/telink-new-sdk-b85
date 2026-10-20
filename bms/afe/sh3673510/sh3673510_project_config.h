@@ -12,6 +12,12 @@
 /* 共用 SH3673510 寄存器公式，物理量由所选产品提供。 */
 #include "bms_product.h"
 
+/* 产品头先导入参数，再定义传感器能力；必须在完整产品头之后检查装配。 */
+#if (SH3673510_HW_DEFAULT_ENABLE_TS3 && !SH3673510_PRODUCT_HEATER_NTC_SUPPORTED) || \
+    (SH3673510_HW_DEFAULT_ENABLE_TS4 && !SH3673510_PRODUCT_MOS_NTC_SUPPORTED)
+#error "Cannot enable an unfitted SH temperature channel"
+#endif
+
 /*
  * 保护路径隔离开关：1/1 为软件加硬件保护的量产行为；1/0 为仅软件台架测试；
  * 0/1 为仅硬件台架测试；0/0 仅测量/通信调试，无阈值保护。

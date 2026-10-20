@@ -86,7 +86,7 @@ def check_sh_current_report_range_host_check():
     from project_paths import selected_source
     from validation_support import ROOT, read, run_c, evidence
     fixture=read('tests/fixtures/sh_recovery_evidence.c').split('#if defined(MODE_TEST)')[0]
-    profile=re.search(r'typedef struct\s*\{.*?\} bms_afe_hw_profile_t;',read('bms/core/bms_afe_hw_profile.h'),re.S).group()
+    profile='#include "bms_afe_hw_profile.h"'
     fixture=fixture.replace('/* PROFILE TYPE */',profile)
     fixture=fixture.replace('static int32_t bms_config_calibrate_current(int32_t ma) { return ma; }',
      'static int32_t calibration_result;\nstatic int32_t bms_config_calibrate_current(int32_t ma) { (void)ma;return calibration_result; }')

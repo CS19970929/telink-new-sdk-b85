@@ -21,6 +21,14 @@
 #define BMS_AFE_HW_EN_OCC2  (1u << 5)
 #define BMS_AFE_HW_EN_SC    (1u << 6)
 #define BMS_AFE_HW_EN_TEMP  (1u << 7)
+/* SH 通道选择使用原 enable_mask 预留位，不改变 35-word/Flash 布局。
+ * SELECT=0 的旧记录仍按 TEMP 控制 TS1/TS2；SELECT=1 时使用四个独立通道位。 */
+#define BMS_AFE_HW_EN_TS1   (1u << 8)
+#define BMS_AFE_HW_EN_TS2   (1u << 9)
+#define BMS_AFE_HW_EN_TS3   (1u << 10)
+#define BMS_AFE_HW_EN_TS4   (1u << 11)
+#define BMS_AFE_HW_TEMP_CHANNEL_SELECT (1u << 12)
+#define BMS_AFE_HW_TEMP_CHANNEL_MASK   0x0F00u
 
 typedef struct
 {
@@ -60,6 +68,14 @@ typedef struct
     u16 temp_recover_ms;
     u16 enable_mask;
 } bms_afe_hw_profile_t;
+
+/* 返回 SCONF6 高半字节对应的 TS1..TS4 掩码；TEMP 仍表示至少一路已启用。 */
+static inline u8 bms_afe_hw_profile_temperature_channels(const bms_afe_hw_profile_t *p)
+{
+    if (p == 0 || !(p->enable_mask & BMS_AFE_HW_EN_TEMP)) return 0u;
+    if (!(p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_SELECT)) return 0x03u;
+    return (u8)((p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_MASK) >> 8);
+}
 
 #define BMS_AFE_HW_PROFILE_WORD_COUNT ((u16)(sizeof(bms_afe_hw_profile_t) / sizeof(u16)))
 

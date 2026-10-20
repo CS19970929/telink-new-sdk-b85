@@ -21,7 +21,6 @@
 #include "sh3673510_ntc.h"
 #include "sh3673520.h"
 #include "sh3673520_reg.h"
-typedef uint16_t u16;
 /* PROFILE TYPE */
 const uint16_t sh3673510_ntc_10k[60] = {0};
 bms_report_t g_bms_report;
@@ -127,6 +126,7 @@ uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *a
 }
 uint8_t bms_afe_hw_profile_get(bms_afe_hw_profile_t *p) {
     memset(p,0,sizeof(*p)); p->cov_recover_mv=4000; p->cuv_recover_mv=2800;
+    p->enable_mask=BMS_AFE_HW_EN_TEMP;
     p->occ_recover_a10=10; p->ocd_recover_a10=10;
     p->occ_recover_ms=100; p->ocd_recover_ms=2000; return 1;
 }

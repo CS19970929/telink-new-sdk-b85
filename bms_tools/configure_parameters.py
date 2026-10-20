@@ -93,6 +93,10 @@ def unit(name: str) -> str:
 
 
 def label(name: str) -> str:
+    if name == 'SH3673510_HW_DEFAULT_ENABLE_TEMP':
+        return 'AFE 温度保护总使能'
+    if re.fullmatch(r'SH3673510_HW_DEFAULT_ENABLE_TS[1-4]', name):
+        return 'AFE ' + name[-3:] + ' 通道硬件温度保护'
     text = name
     replacements = (("SH3673510_HW_DEFAULT_", "AFE "), ("D008_AFE_", "AFE "),
         ("D008_SW_", "软件 "), ("BMS_SW_", "软件 "), ("CELL_OVP", "单体过压"),
@@ -142,6 +146,10 @@ class Configuration:
                     ternary=bool(ternary), edit=str(value), scope=product.upper(), branches=branches, edits=dict(branches)))
         self.family = CATALOG["families"][0 if product == "d008" else 1]
         board = self.originals[self.folder / "bms_product.h"].decode("utf-8-sig")
+        self.temperature_channels_supported = (False,) * 4 if product == 'd008' else (
+            True, True, bool(build_options._number(board, 'SH3673510_PRODUCT_HEATER_NTC_SUPPORTED')),
+            bool(build_options._number(board, 'SH3673510_PRODUCT_MOS_NTC_SUPPORTED')))
+        self.legacy_temperature_channels_imported = False
         if product == "d008":
             fixed = self.originals[self.folder / "dvc1124_product_defaults.h"].decode("utf-8-sig")
             self.element = build_options._number(fixed, "DVC1124_DEFAULT_SHUNT_UOHM")
@@ -201,7 +209,15 @@ class Configuration:
         for key in ('name','revision'):
             if not isinstance(data[key],str) or not 1 <= len(data[key].strip()) <= 80 or any(ord(ch)<32 for ch in data[key]): raise ValueError('方案名称/版本须为 1..80 个普通字符')
         if data['view_chemistry'] not in ('lfp','nmc') or type(data['debug_enabled']) is not bool: raise ValueError('方案类型或调试开关无效')
-        if not isinstance(data['parameters'],dict) or set(data['parameters']) != {r['name'] for r in self.rows}: raise ValueError('参数集合与当前产品源码不一致，不能用旧方案静默覆盖新参数')
+        if not isinstance(data['parameters'],dict): raise ValueError('参数集合格式错误')
+        expected_parameters = {r['name'] for r in self.rows}
+        channel_parameters = {f'SH3673510_HW_DEFAULT_ENABLE_TS{i}' for i in range(1,5)}
+        legacy_channels = self.product != 'd008' and set(data['parameters']) == expected_parameters - channel_parameters
+        if legacy_channels:
+            data = copy.deepcopy(data)
+            # 旧源码只支持总开关联动 TS1/TS2；不能套用当前窗口的 TS3/TS4 选择。
+            for i in range(1,5): data['parameters'][f'SH3673510_HW_DEFAULT_ENABLE_TS{i}'] = int(i <= 2)
+        if set(data['parameters']) != expected_parameters: raise ValueError('参数集合与当前产品源码不一致，不能用旧方案静默覆盖新参数')
         for row in self.rows:
             values=data['parameters'][row['name']]
             values=list(values.values()) if row['ternary'] and isinstance(values,dict) and set(values)=={'lfp','nmc'} else [values] if not row['ternary'] else []
@@ -240,6 +256,7 @@ class Configuration:
             row['edit']=str(value)
         self.element,self.parallel,self.debug=element,parallel,data['debug_enabled'];self.presets=presets
         self.customer_name,self.customer_revision=data['name'].strip(),data['revision'].strip()
+        self.legacy_temperature_channels_imported = legacy_channels
 
     def validate_afe_write(self, element, parallel):
         if self.product == 'd008':
@@ -432,6 +449,11 @@ class Window:
             values=("全部参数","软件保护","AFE 硬件保护","休眠 / 加热 / 均衡","SOC / 容量"))
         groups.pack(side="left",padx=8);groups.bind("<<ComboboxSelected>>",lambda _:self.populate())
         ttk.Label(parameter_bar,text="双击数值编辑；电流 A、温度 ℃、休眠分钟，保存时精确换回源码单位。").pack(side="left")
+        self.temperature_switch_frames = []
+        for parent in (self.parameters, self.registers):
+            frame = ttk.LabelFrame(parent, text='AFE 温度保护通道（不控制采样及软件保护）', padding=5)
+            frame.pack(fill='x', padx=5, pady=3)
+            self.temperature_switch_frames.append(frame)
         self.table = self.tree(self.parameters, ("名称", "当前源码", "修改值", "单位", "影响范围", "宏"), (280,100,100,70,100,330))
         self.table.bind("<Double-1>", self.edit_parameter)
         bar = ttk.Frame(self.registers); bar.pack(fill="x")
@@ -503,6 +525,7 @@ class Window:
         except Exception as error: messagebox.showerror("载入失败",str(error))
 
     def populate(self):
+        self.refresh_temperature_switches()
         self.table.delete(*self.table.get_children())
         group=self.parameter_group.get()
         for index,row in enumerate(self.config.rows):
@@ -514,6 +537,34 @@ class Window:
             self.table.insert('','end',iid=str(index),values=(label(name),display_value(name,row['value']),display_value(name,row['edit']),unit(name),row['scope'],name))
         self.status.config(text=f"{self.config.product.upper()} 独立参数 · {self.config.settings['afe_model']} · 正在编辑 {self.config.chemistry.upper()} 参数表 · {self.config.family['revision']} · 目录 {CATALOG['catalog_id']} · 尚未写入源码")
         self.load_registers()
+
+    def refresh_temperature_switches(self):
+        for frame in self.temperature_switch_frames:
+            for widget in frame.winfo_children(): widget.destroy()
+        if not self.config or self.config.product == 'd008':
+            for frame in self.temperature_switch_frames:
+                ttk.Label(frame, text='当前 DVC 后端不提供 SH 的四通道硬件温度开关。').pack(anchor='w')
+            return
+        channels = SourceProtectionFields(self.config).temperature_channels()
+        self.temperature_switch_vars = {i: tk.IntVar(value=int(bool(channels & (1 << i)))) for i in range(4)}
+        for frame in self.temperature_switch_frames:
+            controls = ttk.Frame(frame); controls.pack(fill='x')
+            for i, role in enumerate(('电池1', '电池2', '加热', 'MOS')):
+                supported = self.config.temperature_channels_supported[i]
+                title = f'TS{i+1} / {role}' + ('' if supported else '（未接入）')
+                ttk.Checkbutton(controls, text=title, variable=self.temperature_switch_vars[i],
+                    state='normal' if supported else 'disabled',
+                    command=self.change_temperature_channel).pack(side='left', padx=9)
+            ttk.Label(frame, text='各开关同时控制本通道充/放电高低温；已启用通道共用四个阈值。TS4 启用后也受电池低温阈值约束。',
+                      wraplength=1150).pack(anchor='w')
+
+    def change_temperature_channel(self):
+        codec = SourceProtectionFields(self.config)
+        for i, variable in self.temperature_switch_vars.items():
+            enabled = variable.get() if self.config.temperature_channels_supported[i] else 0
+            codec.set(f'ENABLE_TS{i+1}', enabled)
+        codec.set('ENABLE_TEMP', int(any(v.get() for v in self.temperature_switch_vars.values())))
+        self.populate()
 
     def collect(self):
         options={**self.config.settings,'cell_count':integer(self.cells.get()),'capacity_0p1ah':integer(self.capacity.get()),'chemistry':self.build_chemistry.get()}
@@ -552,7 +603,8 @@ class Window:
             self.customer_name.set(candidate.customer_name);self.customer_revision.set(candidate.customer_revision)
             self.cells.set(str(candidate.settings['cell_count']));self.capacity.set(str(candidate.settings['capacity_0p1ah']));self.build_chemistry.set(candidate.settings['chemistry'])
             self.register_edits={'profile':True};self.populate()
-            messagebox.showinfo('方案已载入','已载入窗口，源码尚未修改。检查参数、分流器和装配后，点击“预览 Git 差异 / 保存源码”。设备覆盖组仍在原编译窗口明确选择。')
+            legacy = '\n旧方案的温度通道已按原规则展开：总开关控制 TS1/TS2，TS3/TS4 保持关闭。' if candidate.legacy_temperature_channels_imported else ''
+            messagebox.showinfo('方案已载入','已载入窗口，源码尚未修改。检查参数、分流器和装配后，点击“预览 Git 差异 / 保存源码”。设备覆盖组仍在原编译窗口明确选择。'+legacy)
         except Exception as error:messagebox.showerror('载入方案失败',str(error))
 
     def update_shunt(self):
@@ -572,7 +624,7 @@ class Window:
         from tkinter.simpledialog import askstring
         value=askstring(label(row["name"]),f"单位：{unit(row['name'])}；范围与恢复关系由固件继续校验。\n影响：{row['scope']}\n{row['name']}",initialvalue=display_value(row['name'],row['edit']),parent=self.root)
         if value is not None:
-            try:row["edit"]=source_value(row['name'],value);values=list(self.table.item(item,"values"));values[2]=display_value(row['name'],row['edit']);self.table.item(item,values=values);self.load_registers()
+            try:row["edit"]=source_value(row['name'],value);values=list(self.table.item(item,"values"));values[2]=display_value(row['name'],row['edit']);self.table.item(item,values=values);self.refresh_temperature_switches();self.load_registers()
             except Exception as error:messagebox.showerror("无效值",str(error))
 
     def load_registers(self):

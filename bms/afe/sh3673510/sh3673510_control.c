@@ -258,14 +258,16 @@ uint8_t sh3673510_control_apply_protection(void)
     s_protection_actual.occ_a10 = actual_a10;
     s_protection_actual.occ_delay_ms = s_ov_delay_ms[(regv >> 5) & 0x07u];
 
-    if (!sh3510_high_temp_code(hw.chg_ot_x10, &code)) return 0u;
-    ok &= sh3510_write_verify(SH3673520_REG_OTC, code, 0xFFu);
-    if (!sh3510_high_temp_code(hw.dsg_ot_x10, &code)) return 0u;
-    ok &= sh3510_write_verify(SH3673520_REG_OTD, code, 0xFFu);
-    if (!sh3510_low_temp_code(hw.chg_ut_x10, &code)) return 0u;
-    ok &= sh3510_write_verify(SH3673520_REG_UTC, code, 0xFFu);
-    if (!sh3510_low_temp_code(hw.dsg_ut_x10, &code)) return 0u;
-    ok &= sh3510_write_verify(SH3673520_REG_UTD, code, 0xFFu);
+    if (bms_afe_hw_profile_temperature_channels(&hw)) {
+        if (!sh3510_high_temp_code(hw.chg_ot_x10, &code)) return 0u;
+        ok &= sh3510_write_verify(SH3673520_REG_OTC, code, 0xFFu);
+        if (!sh3510_high_temp_code(hw.dsg_ot_x10, &code)) return 0u;
+        ok &= sh3510_write_verify(SH3673520_REG_OTD, code, 0xFFu);
+        if (!sh3510_low_temp_code(hw.chg_ut_x10, &code)) return 0u;
+        ok &= sh3510_write_verify(SH3673520_REG_UTC, code, 0xFFu);
+        if (!sh3510_low_temp_code(hw.dsg_ut_x10, &code)) return 0u;
+        ok &= sh3510_write_verify(SH3673520_REG_UTD, code, 0xFFu);
+    }
 
     /* 硬件保护使能归独立 AFE 配置负责。 */
     ok &= sh3510_update_reg(SH3673520_REG_SCONF5,
@@ -276,8 +278,9 @@ uint8_t sh3673510_control_apply_protection(void)
     if (hw.enable_mask & BMS_AFE_HW_EN_CUV)  regv |= SH3673520_SCONF6_UV_EN_MASK;
     if (hw.enable_mask & (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2)) regv |= SH3673520_SCONF6_OCD_EN_MASK;
     if (hw.enable_mask & BMS_AFE_HW_EN_SC)   regv |= SH3673520_SCONF6_SC_EN_MASK;
-    if (hw.enable_mask & BMS_AFE_HW_EN_TEMP) regv |= (SH3673520_SCONF6_TS1_EN_MASK | SH3673520_SCONF6_TS2_EN_MASK);
+    regv |= (uint8_t)(bms_afe_hw_profile_temperature_channels(&hw) << 4);
     ok &= sh3510_write_verify(SH3673520_REG_SCONF6, regv, SH3673520_SCONF6_ALL_MASK);
+    s_protection_actual.temperature_channels = (uint8_t)(regv >> 4);
 
     s_protection_actual.ov_mv = (uint16_t)(ov_code * 5u);
     s_protection_actual.uv_mv = (uint16_t)(uv_code * 5u);

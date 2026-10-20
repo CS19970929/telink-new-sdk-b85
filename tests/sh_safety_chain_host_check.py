@@ -25,7 +25,7 @@ uint16_t bms_lookup_u16(const uint16_t *p,uint16_t n,uint16_t x) {
 ''')
 fixture=fixture.replace('t[i]=(i==invalid_ntc)?0:10000;',
     't[i]=(i==invalid_ntc)?0:((i==SH3673510_BOARD_MOS_NTC_INDEX)?mos_ntc_ohm:10000);')
-profile=re.search(r'typedef struct\s*\{.*?\} bms_afe_hw_profile_t;',read('bms/core/bms_afe_hw_profile.h'),re.S).group()
+profile='#include "bms_afe_hw_profile.h"'
 fixture=fixture.replace('/* PROFILE TYPE */',profile)
 fixture=fixture.replace('/* PRODUCTION */',selected_source(ROOT/'bms/afe/sh3673510/sh3673510_bms.c'))
 fixture=fixture.replace('/* GUARD */',selected_source(ROOT/'bms/core/bms_afe_guard.c'))

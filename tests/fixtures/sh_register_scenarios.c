@@ -66,12 +66,16 @@ static void decode(void)
     check((unsigned)((((uint64_t)(regs[0x50]&31)+1)*1375*10*SH3673510_BOARD_SHUNT_PARALLEL_COUNT+SH3673510_BOARD_SHUNT_ELEMENT_UOHM-1)/SH3673510_BOARD_SHUNT_ELEMENT_UOHM),a.occ_a10,"OCC 解码");
     check(regs[0x43]&31u,SH3673510_BOARD_CELL_COUNT,"装配串数");
     check(regs[0x41]&3u,0,"初始化 MOS off");
-    check(regs[0x45]&0xc0u,0,"TS3/TS4 不使用电池硬件阈值");
+    check(regs[0x45]>>4,bms_afe_hw_profile_temperature_channels(&requested),"TS1..TS4 独立选择");
+    check(a.temperature_channels,regs[0x45]>>4,"已验证温度通道 effective");
     check(a.ov_mv,((requested.cov_mv+2u)/5u)*5u,"requested/effective OV");
     check(a.uv_mv,((requested.cuv_mv+2u)/5u)*5u,"requested/effective UV");
     check(a.ocd1_a10>=requested.ocd1_a10,1,"OCD1 不向下量化");
     check(a.occ_a10>=requested.occ1_a10,1,"OCC 不向下量化");
-    for(unsigned r=0x49;r<=0x54;r++)check(written[r]>0,1,"保护寄存器必须写入");
+    for(unsigned r=0x49;r<=0x54;r++) {
+        unsigned needed=(r<0x51u || bms_afe_hw_profile_temperature_channels(&requested))?1u:0u;
+        check(written[r]>0,needed,"仅启用的温度阈值寄存器需要写入");
+    }
 }
 int main(void)
 {

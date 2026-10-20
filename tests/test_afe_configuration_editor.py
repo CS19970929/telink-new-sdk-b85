@@ -26,7 +26,8 @@ class EditorTests(unittest.TestCase):
                       OCD2_A10=ceil_fraction(100000 / shunt), OCD2_DELAY_MS=25,
                       OCC1_A10=ceil_fraction(13750 / shunt), OCC1_DELAY_MS=140,
                       OCD_RECOVER_A10=0, OCC_RECOVER_A10=0,
-                      CHG_UT_X10=200, CHG_UT_RECOVER_X10=300)
+                      CHG_UT_X10=200, CHG_UT_RECOVER_X10=300,
+                      ENABLE_TEMP=1, ENABLE_TS1=1, ENABLE_TS2=1, ENABLE_TS3=0, ENABLE_TS4=0)
         base = ceil_fraction(Fraction(values['OCD2_A10']) * shunt / 100000) * 100000 / shunt
         values['SC_A10'] = ceil_fraction(base * 2)
         for row in config.rows:
@@ -252,6 +253,44 @@ class EditorTests(unittest.TestCase):
         codec.edit(0x51,255,0,code)
         self.assertTrue(800 <= codec.value('CHG_OT_X10') <= 1100)
         self.assertEqual(codec.registers()[0x51], code)
+
+    def test_sh_temperature_channels_have_independent_source_owners(self):
+        from afe_source_fields import SourceProtectionFields
+        config=editor.Configuration('d014','lfp')
+        self.writable_sh_fixture(config)
+        codec=SourceProtectionFields(config)
+        self.assertEqual(codec.temperature_channels(), 3)
+        for mask, code, expected in ((0x10,0,2),(0x80,1,10),(0x20,0,8),(0x80,0,0),(0x10,1,1)):
+            codec.edit(0x45,mask,mask.bit_length()-1,code)
+            self.assertEqual(codec.temperature_channels(), expected)
+            self.assertEqual(codec.registers()[0x45] >> 4, expected)
+        before=[r['edit'] for r in config.rows]
+        with self.assertRaisesRegex(ValueError, 'TS3'):
+            codec.edit(0x45,0x40,6,1)
+        self.assertEqual([r['edit'] for r in config.rows], before)
+        self.assertTrue(codec.owns(0x45,0x80))
+        # 全部关闭时不强制改变未启用的历史 -25℃ 阈值。
+        codec.set('ENABLE_TS1',0);codec.set('CHG_UT_X10',150)
+        self.assertFalse(codec.sh_write_validation_errors('lfp'))
+        codec.set('ENABLE_TS4',1)
+        self.assertTrue(any('CHG_UT_X10' in e for e in codec.sh_write_validation_errors('lfp')))
+
+    def test_legacy_customer_temperature_channels_are_explicitly_expanded(self):
+        import copy
+        config=editor.Configuration('d014','lfp')
+        self.writable_sh_fixture(config)
+        data=config.profile(2000,3,False,'温度兼容','v1')
+        legacy=copy.deepcopy(data)
+        for i in range(1,5): del legacy['parameters'][f'SH3673510_HW_DEFAULT_ENABLE_TS{i}']
+        other=editor.Configuration('d014','lfp');other.load_profile(legacy)
+        self.assertTrue(other.legacy_temperature_channels_imported)
+        from afe_source_fields import SourceProtectionFields
+        self.assertEqual(SourceProtectionFields(other).temperature_channels(),3)
+        self.assertEqual(len(legacy['parameters']),len(data['parameters'])-4)
+        broken=copy.deepcopy(data);broken['parameters']['SH3673510_HW_DEFAULT_ENABLE_TS3']=1
+        before=[r['edit'] for r in other.rows]
+        with self.assertRaisesRegex(ValueError,'TS3'): other.load_profile(broken)
+        self.assertEqual([r['edit'] for r in other.rows],before)
 
     def test_register_field_bits_update_physical_owner(self):
         from afe_source_fields import SourceProtectionFields
