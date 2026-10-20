@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import ast
+import copy
 import difflib
 import json
 import os
 import re
 from datetime import datetime, timezone
 from fractions import Fraction
+from decimal import Decimal, localcontext
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -46,11 +48,46 @@ def integer(expression: str) -> int:
     return visit(tree.body)
 
 
+def display_scale(name: str):
+    """仅在界面边界换算；Configuration、JSON 和寄存器编码仍保存源码整数。"""
+    name = name.removesuffix("_FOR").removesuffix("_DEFAULT")
+    if name.endswith("_A10"): return Fraction(1, 10), 0
+    if name.endswith("_MA"): return Fraction(1, 1000), 0
+    if name.endswith("_X10"): return Fraction(1, 10), -40
+    if name.endswith("_0P1AH"): return Fraction(1, 10), 0
+    if name.endswith("_10MS"): return Fraction(10), 0
+    if name.startswith("BMS_SLEEP_") and name.endswith(("_SECONDS", "_S")):
+        return Fraction(1, 60), 0
+    return Fraction(1), 0
+
+
+def display_value(name: str, raw) -> str:
+    scale, offset = display_scale(name)
+    value = integer(str(raw)) * scale + offset
+    denominator = value.denominator
+    for factor in (2, 5):
+        while denominator % factor == 0: denominator //= factor
+    if denominator != 1: return str(value)  # 非整分钟保留精确分数，避免读写时无意取整。
+    with localcontext() as context:
+        context.prec = 40
+        text = format(Decimal(value.numerator) / Decimal(value.denominator), "f")
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def source_value(name: str, text: str) -> str:
+    scale, offset = display_scale(name)
+    value = (Fraction(text.strip()) - offset) / scale
+    if value.denominator != 1 or value < 0:
+        raise ValueError("数值不能精确表示为源码非负整数，请按该参数精度输入；不会自动四舍五入。")
+    return str(value.numerator)
+
+
 def unit(name: str) -> str:
-    name = name.removesuffix("_FOR")
-    for suffix, text in (("_10MS", "10 ms"), ("_A10", "0.1 A"), ("_X10", "(℃+40)×10"),
+    name = name.removesuffix("_FOR").removesuffix("_DEFAULT")
+    if name.startswith("BMS_SLEEP_") and name.endswith(("_SECONDS", "_S")): return "分钟"
+    for suffix, text in (("_10MS", "ms"), ("_A10", "A"), ("_X10", "℃"),
                          ("_UOHM", "µΩ"), ("_MV", "mV"), ("_MS", "ms"), ("_US", "µs"),
-                         ("_MA", "mA"), ("_0P1AH", "0.1 Ah")):
+                         ("_MA", "A"), ("_0P1AH", "Ah"), ("_PERCENT", "%")):
         if name.endswith(suffix): return text
     return "整数/编码"
 
@@ -329,6 +366,7 @@ class Window:
         self.customer_name=tk.StringVar();self.customer_revision=tk.StringVar(value='v1')
         self.capacity=tk.StringVar();self.cells=tk.StringVar();self.build_chemistry=tk.StringVar()
         self.only_configurable=tk.BooleanVar(value=True)
+        self.parameter_group=tk.StringVar(value="全部参数")
         self.config = None; self.row_edits = {}; self.register_edits = {}
         top = ttk.Frame(self.root, padding=8); top.pack(fill="x")
         for name, variable, values in (("产品", self.product, build_options.PRODUCTS), ("参数表类型", self.chemistry, ("lfp", "nmc"))):
@@ -357,7 +395,13 @@ class Window:
             reference_text.insert("end", family["model"] + " " + family["revision"] + "\n" +
                                   "\n".join(str(item) for item in family["issues"]) + "\n\n")
         reference_text.config(state="disabled")
-        self.table = self.tree(self.parameters, ("名称", "当前源码", "修改值", "单位", "影响范围", "宏"), (250,90,90,125,170,330))
+        parameter_bar=ttk.Frame(self.parameters,padding=6);parameter_bar.pack(fill="x")
+        ttk.Label(parameter_bar,text="参数分类").pack(side="left")
+        groups=ttk.Combobox(parameter_bar,textvariable=self.parameter_group,state="readonly",width=20,
+            values=("全部参数","软件保护","AFE 硬件保护","休眠 / 加热 / 均衡","SOC / 容量"))
+        groups.pack(side="left",padx=8);groups.bind("<<ComboboxSelected>>",lambda _:self.populate())
+        ttk.Label(parameter_bar,text="双击数值编辑；电流 A、温度 ℃、休眠分钟，保存时精确换回源码单位。").pack(side="left")
+        self.table = self.tree(self.parameters, ("名称", "当前源码", "修改值", "单位", "影响范围", "宏"), (280,100,100,70,100,330))
         self.table.bind("<Double-1>", self.edit_parameter)
         bar = ttk.Frame(self.registers); bar.pack(fill="x")
         ttk.Label(bar, text="搜索地址 / 寄存器名 / 位名").pack(side="left")
@@ -429,7 +473,14 @@ class Window:
 
     def populate(self):
         self.table.delete(*self.table.get_children())
-        for index,row in enumerate(self.config.rows):self.table.insert('','end',iid=str(index),values=(label(row['name']),row['value'],row['edit'],unit(row['name']),row['scope'],row['name']))
+        group=self.parameter_group.get()
+        for index,row in enumerate(self.config.rows):
+            name=row['name']
+            category=("软件保护" if name.startswith(('BMS_SW_','D008_SW_')) else
+                "AFE 硬件保护" if name.startswith(('D008_AFE_','SH3673510_HW_DEFAULT_')) else
+                "休眠 / 加热 / 均衡" if name.startswith(('BMS_SLEEP_','BMS_HEATER_','BMS_BALANCE_')) else "SOC / 容量")
+            if group!="全部参数" and group!=category:continue
+            self.table.insert('','end',iid=str(index),values=(label(name),display_value(name,row['value']),display_value(name,row['edit']),unit(name),row['scope'],name))
         self.status.config(text=f"{self.config.product.upper()} 独立参数 · {self.config.settings['afe_model']} · 正在编辑 {self.config.chemistry.upper()} 参数表 · {self.config.family['revision']} · 目录 {CATALOG['catalog_id']} · 尚未写入源码")
         self.load_registers()
 
@@ -488,9 +539,9 @@ class Window:
         if not item:return
         row=self.config.rows[int(item)]
         from tkinter.simpledialog import askstring
-        value=askstring(label(row["name"]),f"单位：{unit(row['name'])}；范围与恢复关系由固件继续校验。\n影响：{row['scope']}\n{row['name']}",initialvalue=row["edit"],parent=self.root)
+        value=askstring(label(row["name"]),f"单位：{unit(row['name'])}；范围与恢复关系由固件继续校验。\n影响：{row['scope']}\n{row['name']}",initialvalue=display_value(row['name'],row['edit']),parent=self.root)
         if value is not None:
-            try:row["edit"]=str(integer(value));values=list(self.table.item(item,"values"));values[2]=row["edit"];self.table.item(item,values=values);self.load_registers()
+            try:row["edit"]=source_value(row['name'],value);values=list(self.table.item(item,"values"));values[2]=display_value(row['name'],row['edit']);self.table.item(item,values=values);self.load_registers()
             except Exception as error:messagebox.showerror("无效值",str(error))
 
     def load_registers(self):
@@ -595,6 +646,18 @@ class Window:
                 box.pack(side='left',padx=5)
                 if not editable:box.state(['disabled'])
             entry=ttk.Entry(dialog,textvariable=code,width=22);entry.pack(pady=5);code.trace_add('write',update_bits)
+            if route=='保护参数 ↔ 编码':
+                preview=ttk.Label(dialog,wraplength=720);preview.pack(padx=10,pady=5)
+                def physical_preview(*_):
+                    try:
+                        candidate=copy.copy(self.config);candidate.rows=[dict(row) for row in self.config.rows]
+                        proposed=SourceProtectionFields(candidate,integer(self.element.get()),integer(self.parallel.get()))
+                        proposed.edit(register['address'],field['mask'],field['shift'],integer(code.get()))
+                        changes=[f"{label(row['name'])} = {display_value(row['name'],row['edit'])} {unit(row['name'])}"
+                            for row,old in zip(candidate.rows,self.config.rows) if row['edit']!=old['edit']]
+                        preview.config(text='源码参数预览：'+('；'.join(changes) if changes else '与当前待编辑值相同'))
+                    except Exception as error:preview.config(text='该编码不能应用：'+str(error))
+                code.trace_add('write',physical_preview);physical_preview()
             if not editable:
                 entry.state(['disabled'])
                 ttk.Label(dialog,text='当前值未知，位按钮仅表示位位置。该项不能当作静态客户参数。只读/状态/清除/命令由硬件或后端拥有；可在内部版读取状态，稳定 RW 字段可导出临时调试文件。',wraplength=720).pack(padx=10,pady=8)
@@ -645,6 +708,7 @@ class Window:
             if not matches:
                 raise ValueError("该寄存器没有独立持久保护字段。固定字段可设置源码预设；运行时命令/RO/保留位只查阅或用原业务入口。")
             self.tabs.select(self.parameters)
+            self.parameter_group.set("AFE 硬件保护");self.populate()
             self.table.selection_set(matches)
             self.table.see(matches[0])
         except ValueError as error:

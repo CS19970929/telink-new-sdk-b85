@@ -31,7 +31,7 @@
 
 ## 一键切换与密码
 
-App、Windows 和公共客户端代码都在 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 维护。App 客户版原“进入服务设置”增加密码 `hs456`，断开后退出；Windows 客户版复用现有高级功能密码。内部 Windows/Android 的类型切换也要求密码。当前是代码默认密码，没有新增可修改密码的 Flash 字段。
+App、Windows 和公共客户端代码都在 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 维护。App 客户版原“进入服务设置”增加密码 `hs456`，断开后退出；Windows 客户版先解锁高级功能，每次类型切换还须单独输入一次服务密码，取消或密码错误不发送切换命令。内部 Windows/Android 的类型切换也要求密码。当前是代码默认密码，没有新增可修改密码的 Flash 字段。2026-10-20 Windows 交互调整尚未编译或实机验收。
 
 切换前确认实际电芯类型，断开充电器和负载。固件检查启动参数有效、AFE 总线访问资格、三次新鲜采样资格、最新样本年龄及电流是否在当前 SOC 死区内。这是配置操作门禁，不是过流/短路物理恢复证据。
 

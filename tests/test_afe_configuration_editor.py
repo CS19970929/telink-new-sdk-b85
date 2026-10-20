@@ -14,6 +14,27 @@ from tests.test_bms_tools import copy_configuration
 
 
 class EditorTests(unittest.TestCase):
+    def test_display_units_preserve_source_integers(self):
+        cases = (
+            ('BMS_SW_CHARGE_OCP_FIRST_A10', 125, '12.5', 'A'),
+            ('BMS_SOC_CURRENT_DEADBAND_MA_DEFAULT', 200, '0.2', 'A'),
+            ('BMS_SW_CHARGE_UTP_THIRD_X10', 350, '-5', '℃'),
+            ('BMS_HEATER_START_TEMP_X10', 400, '0', '℃'),
+            ('BMS_SLEEP_LOW_SECONDS', 3600, '60', '分钟'),
+            ('BMS_SLEEP_LOW_SECONDS', 1, '1/60', '分钟'),
+            ('BMS_SW_CELL_OVP_FILTER_10MS', 100, '1000', 'ms'),
+            ('SH3673510_HW_DEFAULT_COV_MV_FOR', 3650, '3650', 'mV'),
+        )
+        for name, raw, display, unit in cases:
+            with self.subTest(name=name, raw=raw):
+                self.assertEqual(editor.unit(name), unit)
+                self.assertEqual(editor.display_value(name, raw), display)
+                self.assertEqual(editor.source_value(name, display), str(raw))
+        for name, value in (('D008_AFE_OCD1_A10', '1.23'),
+                            ('BMS_HEATER_START_TEMP_X10', '-40.1'),
+                            ('BMS_SLEEP_LOW_SECONDS', '0.001')):
+            with self.assertRaises(ValueError): editor.source_value(name, value)
+
     def test_saved_changes_include_their_ota_groups(self):
         for product in editor.build_options.PRODUCTS:
             with self.subTest(product=product), tempfile.TemporaryDirectory() as directory:
