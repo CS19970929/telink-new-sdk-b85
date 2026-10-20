@@ -180,15 +180,18 @@ static void board_init(void)
 	gpio_set_input_en(BMS_BOARD_SWITCH_PIN, 1);
 	gpio_set_output_en(BMS_BOARD_SWITCH_PIN, 0);
 
-	/* 正常运行保持所选通信电源开启；D013 沿用映射，等待原理图验证。 */
+	/* D014由UART所有者按独立唤醒供电；其余板保持原有通信供电。 */
 	gpio_set_func(BMS_BOARD_CMNT_EN_PIN, AS_GPIO);
+#if BMS_PRODUCT_RS485_POWER_GATING_ENABLE && !BMS_RS485_TX_DIAG_ENABLE
+	gpio_write(BMS_BOARD_CMNT_EN_PIN, 0);
+#else
 	gpio_write(BMS_BOARD_CMNT_EN_PIN, 1);
+#endif
 	gpio_set_input_en(BMS_BOARD_CMNT_EN_PIN, 0);
 	gpio_set_output_en(BMS_BOARD_CMNT_EN_PIN, 1);
 
 	/*
-	 * PD3 是原理图 CMNT-WK 输入；有效极性尚未实板确认，只配置输入，
-	 * 不擅自定义唤醒极性。
+	 * D014的PD3光耦高电平唤醒由UART所有者配置；不推定其余板的极性。
 	 */
 	gpio_set_func(BMS_BOARD_CMNT_WK_PIN, AS_GPIO);
 	gpio_set_output_en(BMS_BOARD_CMNT_WK_PIN, 0);

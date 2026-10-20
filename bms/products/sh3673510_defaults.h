@@ -4,6 +4,11 @@
  * 运行时软件保护与 AFE 参数仍独立保存。 */
 #pragma once
 
+/* 仅有独立常供通信唤醒电路的已核对产品开启。 */
+#ifndef BMS_PRODUCT_RS485_POWER_GATING_ENABLE
+#define BMS_PRODUCT_RS485_POWER_GATING_ENABLE 0
+#endif
+
 /* 未指定装配组合的板保持原有整数模型，不猜测其电阻数量。 */
 #ifndef SH3673510_BOARD_SHUNT_ELEMENT_UOHM
 #define SH3673510_BOARD_SHUNT_ELEMENT_UOHM SH3673510_BOARD_SHUNT_UOHM

@@ -69,12 +69,43 @@ typedef char modbus_dma_packet_size_must_be_272[
 #if BMS_RS485_TX_DIAG_ENABLE && !BMS_PRODUCT_RS485_ENABLE
 #error "RS485 TX diagnostics require BMS_PRODUCT_RS485_ENABLE"
 #endif
+#ifndef BMS_PRODUCT_RS485_POWER_GATING_ENABLE
+#define BMS_PRODUCT_RS485_POWER_GATING_ENABLE 0
+#endif
+#if BMS_PRODUCT_RS485_POWER_GATING_ENABLE != 0 && BMS_PRODUCT_RS485_POWER_GATING_ENABLE != 1
+#error "RS485 power gating must be 0 or 1"
+#endif
+#if BMS_PRODUCT_RS485_POWER_GATING_ENABLE && \
+    (!BMS_PRODUCT_RS485_ENABLE || BMS_AFE_BACKEND != BMS_AFE_BACKEND_SH3673510)
+#error "RS485 power gating requires the reviewed SH RS485 board"
+#endif
+/* 主动线路诊断保持原有常供电，不能因没有主机请求而停止发送。 */
+#define MODBUS_RS485_POWER_GATING (BMS_PRODUCT_RS485_POWER_GATING_ENABLE && !BMS_RS485_TX_DIAG_ENABLE)
+#if MODBUS_RS485_POWER_GATING
+#if BMS_PRODUCT_RS485_POWER_SETTLE_MS < 1u || BMS_PRODUCT_RS485_POWER_SETTLE_MS > 100u
+#error "RS485 power settle time must be 1..100 ms"
+#endif
+typedef enum {
+    MODBUS_COMM_POWER_OFF,
+    MODBUS_COMM_POWER_STARTING,
+    MODBUS_COMM_POWER_READY,
+    MODBUS_COMM_POWER_STOPPED
+} modbus_comm_power_state_t;
+static volatile modbus_comm_power_state_t s_comm_power_state;
+static volatile u8 s_comm_wake_pending;
+static u32 s_comm_power_start_tick;
+#endif
 
 volatile bms_rs485_tx_diag_t g_bms_rs485_tx_diag;
 
 static volatile u8 s_rx_ready = 0u;
 static mb_dma_pkt_t s_rx_pkt;
 static mb_dma_pkt_t s_tx_pkt;
+#if !BMS_RS485_TX_DIAG_ENABLE
+/* 正常应答/周期接收维护的时间基准；D014完成上电隔离时也建立新基准。 */
+static _attribute_data_retention_ u32 mb_last_ok_tick = 0u;
+static _attribute_data_retention_ u32 mb_bad_cnt = 0u;
+#endif
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 /* 总线检测在帧中途才取得UART所有权，首个DMA包只能用于唤醒。 */
@@ -232,7 +263,7 @@ u8 modbus_uart_tx_active(void)
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 /* RISC0仅在SH产品归UART RX所有。每轮最多一个边沿IRQ，避免按每个数据位中断。 */
-int modbus_uart_suspend_ready(void)
+static int modbus_uart_rx_idle(void)
 {
     return s_uart_idle_ready && !s_uart_activity && !s_rx_ready &&
         !s_uart_resume_pending && !s_uart_wake_discard &&
@@ -242,10 +273,25 @@ int modbus_uart_suspend_ready(void)
         !uart_tx_is_busy() && !modbus_uart_tx_active();
 }
 
+int modbus_uart_suspend_ready(void)
+{
+#if MODBUS_RS485_POWER_GATING
+    /* 掉电RX没有有效电平；只依据常供PD3和它的独立事件判断。 */
+    return s_comm_power_state == MODBUS_COMM_POWER_OFF && !s_comm_wake_pending &&
+        !(reg_irq_src & FLD_IRQ_GPIO_RISC1_EN) && !gpio_read(BMS_BOARD_CMNT_WK_PIN);
+#else
+    return modbus_uart_rx_idle();
+#endif
+}
+
 void modbus_uart_suspend_enter(void)
 {
     s_uart_suspending = 1u;
+#if MODBUS_RS485_POWER_GATING
+    cpu_set_gpio_wakeup(BMS_BOARD_CMNT_WK_PIN, Level_High, 1);
+#else
     cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 1);
+#endif
 }
 
 /* SDK回调只交付唤醒状态；PAD不能定位具体管脚，保守按通信唤醒保持运行。 */
@@ -253,12 +299,19 @@ void modbus_uart_suspend_exit(u8 wakeup_status)
 {
     if (!s_uart_suspending) return;
     s_uart_suspending = 0u;
+#if MODBUS_RS485_POWER_GATING
+    /* PAD状态不区分引脚，保守接纳短PD3脉冲（回调时可能已变低）。
+     * 其它PAD变化也可临时开启通信；纯采样/BLE定时唤醒绝不置位。 */
+    if (s_comm_power_state == MODBUS_COMM_POWER_OFF && (wakeup_status & WAKEUP_STATUS_PAD))
+        s_comm_wake_pending = 1u;
+#else
     s_uart_resume_pending = 1u;
     if ((wakeup_status & WAKEUP_STATUS_PAD) || s_uart_activity ||
         (reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) || !gpio_read(BMS_BOARD_SCI1_RX_PIN)) {
         s_uart_wake_discard = 1u;
         s_uart_activity = 1u;
     }
+#endif
 }
 
 /* Suspend前没有TX；只在主循环恢复UART/DMA，不在SDK回调中解析或发送。 */
@@ -287,10 +340,93 @@ static void modbus_uart_resume_rx(void)
     irq_restore(irq_state);
 }
 
+#if MODBUS_RS485_POWER_GATING
+/* 调用方关闭中断且确认收发已空闲。PD3保持输入/PAD，不能用强制深睡收尾代替。 */
+static void modbus_rs485_power_off(void)
+{
+    cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
+    gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 0);
+    reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
+    dma_chn_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 0);
+    dma_chn_irq_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 0);
+    dma_chn_irq_status_clr(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX);
+    uart_dma_enable(0, 0);
+    uart_irq_enable(0, 0);
+    uart_reset();
+    uart_ndma_clear_tx_index();
+    uart_ndma_clear_rx_index();
+    modbus_rs485_receive_mode();
+    modbus_uart_float_comm_pin(BMS_BOARD_SCI1_TX_PIN);
+    modbus_uart_float_comm_pin(BMS_BOARD_SCI1_RX_PIN);
+    s_rx_pkt.dma_len = 0u;
+    s_rx_ready = s_uart_activity = s_uart_resume_pending = s_uart_wake_discard = 0u;
+    s_uart_suspending = 0u;
+    s_uart_idle_ready = 1u;
+    cpu_set_gpio_wakeup(BMS_BOARD_CMNT_WK_PIN, Level_High, 1);
+    gpio_write(BMS_BOARD_CMNT_EN_PIN, 0);
+    s_comm_power_state = MODBUS_COMM_POWER_OFF;
+    /* 关断边界来的活动仍由常供光耦/IRQ交付，下一轮立即上电。 */
+    if (gpio_read(BMS_BOARD_CMNT_WK_PIN) || (reg_irq_src & FLD_IRQ_GPIO_RISC1_EN))
+        s_comm_wake_pending = 1u;
+}
+
+/* 主循环非阻塞推进电源；返回1表示尚不能交付协议帧。 */
+static u8 modbus_rs485_service_power(void)
+{
+    u8 irq_state = irq_disable();
+    u8 activity;
+    u8 gpio_pending;
+    if (s_comm_power_state == MODBUS_COMM_POWER_STOPPED) {
+        irq_restore(irq_state);
+        return 1u;
+    }
+    gpio_pending = (reg_irq_src & FLD_IRQ_GPIO_RISC1_EN) ? 1u : 0u;
+    activity = s_comm_wake_pending || gpio_read(BMS_BOARD_CMNT_WK_PIN) || gpio_pending;
+    s_comm_wake_pending = 0u;
+    /* 只清已观察到的事件，避免先读到0、后来的短脉冲被无条件W1C抹掉。 */
+    if (gpio_pending) reg_irq_src = FLD_IRQ_GPIO_RISC1_EN;
+    gpio_en_interrupt_risc1(BMS_BOARD_CMNT_WK_PIN, 1);
+    s_uart_suspending = 0u; /* SDK许可后取消入睡也必须撤销。 */
+    if (s_comm_power_state == MODBUS_COMM_POWER_OFF) {
+        if (activity) {
+            gpio_write(BMS_BOARD_CMNT_EN_PIN, 1);
+            s_comm_power_start_tick = clock_time();
+            s_comm_power_state = MODBUS_COMM_POWER_STARTING;
+            s_uart_idle_ready = 0u;
+        }
+        irq_restore(irq_state);
+        return 1u;
+    }
+    if (s_comm_power_state == MODBUS_COMM_POWER_STARTING) {
+        if (!clock_time_exceed(s_comm_power_start_tick, BMS_PRODUCT_RS485_POWER_SETTLE_MS * 1000u)) {
+            irq_restore(irq_state);
+            return 1u;
+        }
+        /* CA-IS2092A v1.01 p20要求上电期间不传数据；稳定后才恢复复用及DMA。
+         * 20ms是板级工程初值，非芯片保证上限，后续仍须帧尾静默隔离。 */
+        uart_gpio_set(BMS_BOARD_SCI1_TX_PIN, BMS_BOARD_SCI1_RX_PIN);
+        gpio_set_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, POL_FALLING);
+        irq_set_mask(FLD_IRQ_DMA_EN);
+        dma_chn_irq_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 1);
+        modbus_uart_resume_rx();
+        s_uart_wake_discard = 1u;
+        s_uart_activity = 1u;
+        s_comm_power_state = MODBUS_COMM_POWER_READY;
+    } else if (activity) {
+        s_uart_activity = 1u;
+    }
+    irq_restore(irq_state);
+    return 0u;
+}
+#endif
+
 /* SDK返回后先恢复接收；协议消费前再次处理期间新到的活动与残帧。
  * 这里只维护UART/DMA和唤醒资格，不解析命令、不访问AFE或Flash。 */
 u8 modbus_uart_service_wakeup(void)
 {
+#if MODBUS_RS485_POWER_GATING
+    if (modbus_rs485_service_power()) return 1u;
+#endif
     u8 irq_state = irq_disable();
     u8 activity = s_uart_activity;
     u8 resume = s_uart_resume_pending;
@@ -323,12 +459,25 @@ u8 modbus_uart_service_wakeup(void)
         /* 等待帧尾静默再重新装载RX；整个唤醒帧均不执行Modbus写命令。 */
         irq_state = irq_disable();
         if (!s_uart_activity && !(reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) &&
+#if MODBUS_RS485_POWER_GATING
+            !s_comm_wake_pending && !(reg_irq_src & FLD_IRQ_GPIO_RISC1_EN) &&
+            !gpio_read(BMS_BOARD_CMNT_WK_PIN) &&
+#endif
             gpio_read(BMS_BOARD_SCI1_RX_PIN) &&
             clock_time_exceed(s_uart_last_edge_tick, MODBUS_UART_WAKE_GAP_US)) {
             modbus_uart_resume_rx();
             /* 重新装载期间若又出现起始位，仍按残帧处理，不能提前交给协议。 */
             s_uart_wake_discard = (reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) ||
                 !gpio_read(BMS_BOARD_SCI1_RX_PIN);
+#if MODBUS_RS485_POWER_GATING
+            if (s_comm_wake_pending || (reg_irq_src & FLD_IRQ_GPIO_RISC1_EN) ||
+                gpio_read(BMS_BOARD_CMNT_WK_PIN)) s_uart_wake_discard = 1u;
+            if (!s_uart_wake_discard) {
+                /* OFF可能持续很久；不能让旧的1秒维护期限立即重置刚恢复的RX。 */
+                mb_last_ok_tick = clock_time();
+                mb_bad_cnt = 0u;
+            }
+#endif
             if (s_uart_wake_discard) s_uart_activity = 1u;
         }
         irq_restore(irq_state);
@@ -336,6 +485,16 @@ u8 modbus_uart_service_wakeup(void)
     }
     if ((u32)(bms_time_ms() - s_uart_last_activity_ms) >= MODBUS_UART_IDLE_MS)
         s_uart_idle_ready = 1u;
+#if MODBUS_RS485_POWER_GATING
+    irq_state = irq_disable();
+    if (modbus_uart_rx_idle() && !s_comm_wake_pending &&
+        !(reg_irq_src & FLD_IRQ_GPIO_RISC1_EN) && !gpio_read(BMS_BOARD_CMNT_WK_PIN)) {
+        modbus_rs485_power_off();
+        irq_restore(irq_state);
+        return 1u; /* 禁止后段周期RX维护重新启动已掉电DMA。 */
+    }
+    irq_restore(irq_state);
+#endif
     return 0u;
 }
 #endif
@@ -343,6 +502,23 @@ u8 modbus_uart_service_wakeup(void)
 /* 初始化产品 UART、DMA 缓冲区及 RS485 方向。 */
 void modbus_uart_init(void)
 {
+#if MODBUS_RS485_POWER_GATING
+    u8 irq_state = irq_disable();
+    s_comm_wake_pending = 0u;
+    gpio_set_func(BMS_BOARD_RS485_EN_PIN, AS_GPIO);
+    gpio_write(BMS_BOARD_RS485_EN_PIN, 0);
+    gpio_set_input_en(BMS_BOARD_RS485_EN_PIN, 0);
+    gpio_set_output_en(BMS_BOARD_RS485_EN_PIN, 1);
+    s_rs485_tx_active = s_rs485_tx_dma_done = s_rs485_tx_uart_done = 0u;
+    s_rs485_tx_start_tick = s_rs485_tx_min_hold_us = 0u;
+    gpio_set_func(BMS_BOARD_CMNT_WK_PIN, AS_GPIO);
+    gpio_set_input_en(BMS_BOARD_CMNT_WK_PIN, 1);
+    gpio_set_output_en(BMS_BOARD_CMNT_WK_PIN, 0);
+    gpio_setup_up_down_resistor(BMS_BOARD_CMNT_WK_PIN, PM_PIN_UP_DOWN_FLOAT);
+    gpio_set_interrupt_risc1(BMS_BOARD_CMNT_WK_PIN, POL_RISING);
+    modbus_rs485_power_off();
+    irq_restore(irq_state);
+#else
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     u8 irq_state = irq_disable();
     s_uart_wake_rx_pending = 1u;
@@ -408,6 +584,7 @@ void modbus_uart_init(void)
 #else
     irq_enable();
 #endif
+#endif
 }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -443,6 +620,13 @@ void modbus_uart_disable(void)
 void modbus_uart_prepare_deep_sleep(void)
 {
     u8 irq_state = irq_disable();
+#if MODBUS_RS485_POWER_GATING
+    s_comm_power_state = MODBUS_COMM_POWER_STOPPED;
+    s_comm_wake_pending = 0u;
+    gpio_en_interrupt_risc1(BMS_BOARD_CMNT_WK_PIN, 0);
+    cpu_set_gpio_wakeup(BMS_BOARD_CMNT_WK_PIN, Level_High, 0);
+    reg_irq_src = FLD_IRQ_GPIO_RISC1_EN;
+#endif
 
     gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 0);
     cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
@@ -476,6 +660,9 @@ void modbus_uart_prepare_deep_sleep(void)
     modbus_uart_float_comm_pin(BMS_BOARD_SCI1_TX_PIN);
     modbus_uart_float_comm_pin(BMS_BOARD_SCI1_RX_PIN);
     modbus_uart_float_comm_pin(BMS_BOARD_CMNT_WK_PIN);
+#if MODBUS_RS485_POWER_GATING
+    gpio_write(BMS_BOARD_CMNT_EN_PIN, 0);
+#endif
 
     irq_restore(irq_state);
 }
@@ -485,6 +672,18 @@ void modbus_uart_prepare_deep_sleep(void)
 void modbus_uart_irq_proc(void)
 {
     u8 irqsrc = dma_chn_irq_status_get();
+#if MODBUS_RS485_POWER_GATING
+    if (reg_irq_src & FLD_IRQ_GPIO_RISC1_EN) {
+        gpio_en_interrupt_risc1(BMS_BOARD_CMNT_WK_PIN, 0);
+        reg_irq_src = FLD_IRQ_GPIO_RISC1_EN;
+        if (s_comm_power_state != MODBUS_COMM_POWER_STOPPED)
+            s_comm_wake_pending = 1u; /* 一轮最多一次，避免每个光耦脉冲都进入ISR。 */
+    }
+    if (s_comm_power_state != MODBUS_COMM_POWER_READY) {
+        dma_chn_irq_status_clr(irqsrc & (FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX));
+        return;
+    }
+#endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (bus_mux_get_state() != BUS_STATE_UART_MODBUS) {
         dma_chn_irq_status_clr(irqsrc & (FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX));
@@ -540,6 +739,9 @@ void modbus_uart_irq_proc(void)
 int modbus_uart_poll(u8 **p, u32 *len)
 {
     u32 l;
+#if MODBUS_RS485_POWER_GATING
+    if (s_comm_power_state != MODBUS_COMM_POWER_READY || s_uart_wake_discard) return 0;
+#endif
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (bus_mux_get_state() != BUS_STATE_UART_MODBUS) return 0;
@@ -565,6 +767,9 @@ int modbus_uart_poll(u8 **p, u32 *len)
 /* 检查发送状态与长度后启动 UART DMA，不覆盖活动缓冲区。 */
 u8 modbus_uart_send(const u8 *p, u32 len)
 {
+#if MODBUS_RS485_POWER_GATING
+    if (s_comm_power_state != MODBUS_COMM_POWER_READY || s_uart_wake_discard) return 0u;
+#endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (bus_mux_get_state() != BUS_STATE_UART_MODBUS) return 0u;
 #endif
@@ -616,8 +821,6 @@ static void modbus_uart_rx_reset(void)
 }
 
 static u8 rsp_buf[MODBUS_RTU_FRAME_CAPACITY];
-static _attribute_data_retention_ u32 mb_last_ok_tick = 0u;
-static _attribute_data_retention_ u32 mb_bad_cnt = 0u;
 #endif
 
 #if BMS_RS485_TX_DIAG_ENABLE

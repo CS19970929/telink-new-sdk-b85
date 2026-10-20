@@ -1,7 +1,7 @@
 # D014 产品硬件与固件配置基线
 
 > 当前分支：`codex-bms-deep-simplification-20261016`；分流器模型于 2026-10-19 更新，其余硬件资料边界仍保留。
-> 依据：用户提供的 `HS-D014-8S15A` 原理图（2026-09-04）+ 当前 monorepo 的 SH 公共实现。硬件原件未随仓库交接，本次未重新核验原件。
+> 依据：用户提供的 `HS-D014-8S15A` 原理图（2026-09-04）+ 当前 monorepo 的 SH 公共实现。2026-10-20已在用户本机重新打开原件核对通信供电/光耦/MCU连接，原件仍在仓库外；身份及页码见[通信供电实现](MCU_SUSPEND_POWER_RESEARCH_20261020.md#9-d014独立pd3唤醒与485按需供电2026-10-20)。
 >
 > 原则：原理图只能证明板级连接/器件标注；容量、最终保护阈值、BOM 实装差异和实测时序不能从“8S15A”文件名反推。
 
@@ -56,7 +56,7 @@ SC 基于实际 OCD2 电压编码选择倍数，不使用已取整的 effective 
 
 | TLSR8251 GPIO | D014 网络 | 用途 |
 |---|---|---|
-| PD4 | CMNT-EN | 隔离通信电源控制 |
+| PD4 | CMNT-EN | 高电平经Q4/Q2开启C-3V3；正常按通信活动供电，20ms启动工程门限待实测 |
 | PD7 | SCLK | AFE SPI SCK |
 | PA0 | DI1 / SW1 | 开关输入 |
 | PA1 | 485-EN | RS485 DE//RE |
@@ -69,7 +69,7 @@ SC 基于实际 OCD2 电压编码选择倍数，不使用已取整的 effective 
 | PC2 | SCI1-TX | RS485 UART TX |
 | PC3 | SCI1-RX | RS485 UART RX |
 | PC4 | DB-LED1 | 调试 LED |
-| PD3 | CMNT-WK | 通信唤醒 |
+| PD3 | CMNT-WK | U4光耦输出，高电平有效；常供3V3独立于C-3V3，普通Suspend的PAD/RISC1通信唤醒 |
 | PD2 | CS-M | AFE SPI CS |
 
 产品输入使用 `BMS_BOARD_*` 与 `SH3673510_BOARD_*` 中性宏，由 D014 产品头文件提供；共享 AFE 代码不再持有 GPIO、NTC 角色与默认阈值。
@@ -120,7 +120,7 @@ D014 与 D011/D013 直接编译同一个 SH3673510 后端，通过产品输入�
 2. 最终软件 First/Second/Third OV/UV/OC/温度/压差阈值。
 3. 最终 AFE HW requested/effective OC/SC/温度阈值。
 4. TS4/RN4 的实际 BOM。
-5. RS485/CMNT-WK 实际唤醒有效电平和通信电源时序。
+5. RS485/CMNT-WK的实板电平、最短有效脉宽和供电恢复时序；原图已确认PD3高电平有效，但20ms启动工程值及完整请求恢复仍未实测。
 6. D014 独立协议产品 ID。当前 `BMS_PRODUCT_WIRE_ID=2u` 保留历史 wire ID；内部存储 `BMS_PRODUCT_ID=14u` 已独立，不能把两种 ID 混为一谈。硬件字符串和 BLE 名称为 D014。
 
 这些项必须在量产签核前关闭，但不阻塞当前 8S 板级移植、编译和基础联调。

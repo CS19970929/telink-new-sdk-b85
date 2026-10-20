@@ -89,7 +89,7 @@
 
 - [ ] PA0/DI1/SW1 有效电平和去抖。
 - [ ] PB1/INT-WK-MCU 两种入睡电平的唤醒、抖动与重复唤醒；PC0/ALARM、PC1/RESET 仅启动时高阻且禁用唤醒，电平变化不应释放休眠或启动保持（2026-10-19 用户确认当前不使用）。
-- [ ] PD3/CMNT-WK 的有效电平；普通入口通信互锁与保护性深睡到期优先分别验证。
+- [ ] PD3/CMNT-WK原图已确认高电平有效、U4常供3V3；实测最短脉宽及PD3→PD4→C-3V3/ISO-5V→RX恢复。验证20ms启动工程值、5ms残帧静默、连续会话不反复断电、纯200ms采样/BLE唤醒PD4持续低、断电边界新活动及强制深睡关闭PD3唤醒。源码记录见[按需供电](MCU_SUSPEND_POWER_RESEARCH_20261020.md#9-d014独立pd3唤醒与485按需供电2026-10-20)，不能替代实板验收。
 - [ ] SH3673510 Sleep/Wake 与 MCU deep sleep 无竞态，wake 失败保持 fail-safe。
 - [ ] BLE connected/advertising/idle 三种状态的 suspend/deep-sleep 电流。
 - [ ] 按 [保护性深睡](LOW_POWER_POLICY.md) 验证低压/AFE异常到期，BLE/UART/OTA、Flash/AFE失败及静态有效PAD均不阻止；SDK拒睡只重试深睡，实测功耗和唤醒后的保护恢复。

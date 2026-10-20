@@ -32,11 +32,12 @@ int  modbus_uart_poll(u8 **p, u32 *len);
 u8 modbus_uart_send(const u8 *p, u32 len);
 /* 查询 UART 发送或 DE 保持阶段是否仍活动。 */
 u8 modbus_uart_tx_active(void);
-/* SH 普通Suspend：1秒静默资格、SDK进入/退出通知；D008由bus_mux负责。 */
+/* SH普通Suspend：D014只在485断电监听时许可，PD3高电平唤醒；
+ * 其它SH保留1秒UART静默/RX唤醒。D008由bus_mux负责。 */
 int modbus_uart_suspend_ready(void);
 void modbus_uart_suspend_enter(void);
 void modbus_uart_suspend_exit(u8 wakeup_status);
-/* SH主循环在SDK返回后、采样/存储前调用；返回1表示仍隔离唤醒残帧。
+/* SH主循环在SDK返回后、采样/存储前调用；返回1表示断电、启动或隔离唤醒残帧。
  * 不解析协议。main_loop_modbus消费前仍会复核新到活动。 */
 u8 modbus_uart_service_wakeup(void);
 /* 主循环解析接收帧、发送协议应答并重新启用 RX。 */
