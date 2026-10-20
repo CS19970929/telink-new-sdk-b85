@@ -90,6 +90,16 @@ public partial class MainWindow
             Width = 105
         });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "单位", Binding = new Binding(nameof(AfeParameterRow.Unit)), Width = 60, IsReadOnly = true });
+        var switchControl = new FrameworkElementFactory(typeof(CheckBox));
+        switchControl.SetBinding(CheckBox.IsCheckedProperty, new Binding(nameof(AfeParameterRow.SwitchValue)) { Mode=BindingMode.TwoWay, UpdateSourceTrigger=UpdateSourceTrigger.PropertyChanged });
+        switchControl.SetBinding(CheckBox.IsEnabledProperty, new Binding(nameof(AfeParameterRow.CanEdit)));
+        switchControl.SetBinding(CheckBox.VisibilityProperty, new Binding(nameof(AfeParameterRow.IsSwitch)) { Converter=new BooleanToVisibilityConverter() });
+        switchControl.SetValue(CheckBox.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        _afeHardwareGrid.Columns.Add(new DataGridTemplateColumn { Header="开关", Width=55, IsReadOnly=true,
+            CellTemplate=new DataTemplate { VisualTree=switchControl } });
+        _afeHardwareGrid.BeginningEdit += (_, e) => {
+            if (e.Row.Item is AfeParameterRow row && (row.IsSwitch || !row.CanEdit)) e.Cancel=true;
+        };
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "允许输入范围", Binding = new Binding(nameof(AfeParameterRow.AllowedCurrentRange)), Width = 150, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "说明", Binding = new Binding(nameof(AfeParameterRow.Hint)), Width = new DataGridLength(1, DataGridLengthUnitType.Star), IsReadOnly = true });
         var browser = CreateParameterBrowser(_afeHardwareGrid, item => ((AfeParameterRow)item).Group,
@@ -99,7 +109,7 @@ public partial class MainWindow
 
         var bottom = new TextBlock
         {
-            Text = "安全边界：页面只显示设备 capability 声明支持的语义参数；仅允许显式编辑 SCD 使能（0/1），其他使能位保持现状；启用前必须确认短路电流和延时。WDT/Body-Diode 保持固定配置。写入成功后必须同时满足 requested 回读一致、AFE effective 可读、apply_state=OK。",
+            Text = "SCD 与 TS1～TS4 可通过开关显式修改，未接入通道及旧固件通道开关只读。每个 TS 开关同时控制该通道充/放电高低温，所有启用通道共用四个阈值；关闭不停止采样及软件保护。WDT/Body-Diode 保持固定配置。写入成功须 requested 一致、effective 已回读、apply_state=OK。",
             TextWrapping = TextWrapping.Wrap,
             Foreground = Brushes.DimGray
         };
@@ -176,10 +186,12 @@ public partial class MainWindow
             AfeHardwareDeviceInfo info = _afeHardwareModel.DeviceInfo ?? throw new InvalidOperationException("请先读取AFE参数。");
             string transportText = _connectionMode == ConnectionMode.Serial ? "直连串口" : "BLE透明通道";
             string legacyCorrections = _afeHardwareModel.DescribeLegacyDelayCorrections(candidate);
+            string temperatureChanges = _afeHardwareModel.DescribeTemperatureChannelChanges(candidate);
             if (MessageBox.Show(
                     $"确认修改 {info.BackendName} AFE硬件保护参数？\n\n" +
                     $"通信：{transportText}\n" +
                     legacyCorrections +
+                    temperatureChanges +
                     "这与软件 First/Second/Third 参数完全独立。\n\n" +
                     "将执行：打开60秒授权会话 → 完整35-word原子写入 → 固件校验/持久化 → AFE应用 → requested/effective回读 → 失败自动回滚。\n\n" +
                     "BLE MTU=23 可使用新固件的暂存/提交事务，无需修改 MTU。请确认 SCD 使能、电流和延时。是否继续？",

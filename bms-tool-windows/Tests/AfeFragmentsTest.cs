@@ -92,6 +92,14 @@ static class Test {
   catch(IOException ex){Check(ex.Message.Contains("Validation (2)")&&ex.Message.Contains("Idle (0)"),"0x04 后须读回真实校验错误与状态");}
   Check(t.Commits==1&&t.Closes==1&&t.EffectiveReads==effectiveReads,"失败诊断只读元数据，不依赖有效值且不重复提交");
   t.CommitStatus=0;t.ApplyState=1;t.LastError=0;t.EffectiveUnavailable=false;
+  t.Reset();t.MetadataCapabilities=0x1bdf;t.HardwareRequested=customer.ToArray();t.HardwareEffective=customer.ToArray();
+  var channels=customer.ToArray();channels[34]=0x18df; // 仅 TS4；保留其它硬件保护。
+  after=await client.WriteAllAsync(channels);
+  Check(after.Effective[34]==0x18df&&t.Commits==1,"通道开关沿用完整35-word事务并核对有效位");
+  t.Reset();t.ChangeTemperatureOnCommit=true;
+  try{await client.WriteAllAsync(channels);throw new Exception("通道有效位不一致未报告");}
+  catch(IOException ex){Check(ex.Message.Contains("温度通道"),"通道有效位必须独立核对");}
+  Check(t.Commits==1,"通道核对失败不得自动重复提交");t.ChangeTemperatureOnCommit=false;
   var off=customer.ToArray();off[34]&=unchecked((ushort)~64);t.Reset();
   try{await client.WriteShortCircuitAsync(new(off,off,shInfo with {Capabilities=0xdf}),1350,64);throw new Exception("客户隐式开启短路");}catch(InvalidOperationException){}
   Check(t.Opens==0&&t.Stages==0&&t.Commits==0,"本地非法候选不得开启会话");
@@ -104,7 +112,7 @@ namespace BmsTool.Windows {
   public string DiscoveryDescription=>"host";public bool Serial,BadAck,CancelAfterStage,BatteryRead,BalanceOff,HardwareRead,EffectiveUnavailable;public CancellationTokenSource? Stop;
   public ushort[]? HardwareRequested,HardwareEffective;
   public bool ChangeOnOpen,ChangeEffectiveOnCommit,ChangeShuntOnOpen;public ushort ShuntElement=2000;
-  public byte CommitStatus;public ushort ApplyState=1,LastError;public int EffectiveReads;
+  public byte CommitStatus;public ushort ApplyState=1,LastError,MetadataCapabilities=0xdf;public int EffectiveReads;public bool ChangeTemperatureOnCommit;
   public int Opens,Closes,Stages,Commits,MaxLength,Reads,DropReads,Reconnects;public List<byte> Frame=new();
   public event Action<ReadOnlyMemory<byte>>? DataReceived;public event Action<string>? ConnectionProgress{add{}remove{}}
   public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;return Task.CompletedTask;}
@@ -119,7 +127,7 @@ namespace BmsTool.Windows {
      if(address==0x2540)EffectiveReads++;
      var source=address==0x2500?HardwareRequested:HardwareEffective;if(source is not null)Array.Copy(source,values,count);
      if(address==0x2540 && EffectiveUnavailable)Array.Fill(values,ushort.MaxValue); }
-    else if(address==0x2523) { values[0]=0xdf;values[1]=1;values[2]=667;values[3]=8;values[4]=32;values[6]=ApplyState;values[7]=LastError;values[8]=2; }
+    else if(address==0x2523) { values[0]=MetadataCapabilities;values[1]=1;values[2]=667;values[3]=8;values[4]=32;values[6]=ApplyState;values[7]=LastError;values[8]=2; }
     else if(address==0x252c) { values[0]=ShuntElement;values[1]=3; }
     else throw new Exception("Unexpected AFE read address");
     body=new byte[3+2*count];body[0]=1;body[1]=3;body[2]=(byte)(2*count);
@@ -143,7 +151,9 @@ namespace BmsTool.Windows {
    else if(q[2]==5){Stages++;Frame.AddRange(q.Skip(7).Take(q[6]));body=new byte[]{1,0x42,5,0,q[3],q[4],(byte)(BadAck?0:Frame.Count)};if(CancelAfterStage)Stop!.Cancel();}
    else{Commits++;body=new byte[]{1,0x42,6,CommitStatus};
     if(CommitStatus==0 && HardwareRequested is not null){for(int i=0;i<35;i++)HardwareRequested[i]=BinaryPrimitives.ReadUInt16BigEndian(Frame.ToArray().AsSpan(7+2*i));
-     HardwareEffective![22]=HardwareRequested[22];HardwareEffective[23]=HardwareRequested[23];if(ChangeEffectiveOnCommit)HardwareEffective[12]++;}}
+     HardwareEffective![22]=HardwareRequested[22];HardwareEffective[23]=HardwareRequested[23];
+     HardwareEffective[34]=HardwareRequested[34];if(ChangeTemperatureOnCommit)HardwareEffective[34]^=0x100;
+     if(ChangeEffectiveOnCommit)HardwareEffective[12]++;}}
    DataReceived?.Invoke(ModbusRtu.Frame(body));return Task.CompletedTask;
   }
   private static void CheckBatteryCount(int count){if(count!=63)throw new Exception("battery read window changed");}

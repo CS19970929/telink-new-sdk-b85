@@ -219,6 +219,31 @@ static class AfeWriteCompatibilityTest
         var reserved=dvc.ToArray();reserved[19]=1025;reserved[34]&=unchecked((ushort)~AfeHardwareProtocolMap.CapOcc2);
         model.Load(new(reserved,dvcEffective,dvcInfo with {Capabilities=0x5f}));
         Check(!model.TryBuildCandidate(out _,out error)&&error.Contains("word[19]"),"隐藏延时超限须显示错误，不得因找不到行而崩溃");
+        var channelInfo=info with {Capabilities=0x1bdf}; // D014: TS1/TS2/TS4，TS3 NC。
+        model.Load(new(currentProfile,effective,channelInfo));
+        Check(model.Rows.Count(r=>r.IsTemperatureChannel)==4,"四个通道分别显示");
+        Check(!model.Rows.Single(r=>r.CapabilityMask==AfeHardwareProtocolMap.CapTs3).CanEdit,"TS3 NC 开关只读");
+        Check(model.TryBuildCandidate(out candidate,out error)&&candidate.SequenceEqual(currentProfile),"旧设备读出后不编辑通道，不隐式改写旧mask："+error);
+        for(int channels=0;channels<16;channels++) {
+            model.Load(new(currentProfile,effective,channelInfo));
+            for(int i=0;i<4;i++) model.Rows.Single(r=>r.CapabilityMask==(1<<(8+i))).SwitchValue=(channels&(1<<i))!=0;
+            model.Rows.Single(r=>r.WireIndex==34&&r.CapabilityMask==AfeHardwareProtocolMap.CapSc).SwitchValue=false;
+            bool valid=(channels&4)==0;
+            Check(model.TryBuildCandidate(out candidate,out error)==valid,$"通道组合 {channels}：{error}");
+            if(!valid)continue;
+            Check(AfeHardwareProtocolMap.TemperatureChannels(candidate[34])==(channels<<8),"通道位独立组合");
+            Check((candidate[34]&AfeHardwareProtocolMap.CapSc)==0,"SCD 与通道同时编辑不能互相覆盖同一个word");
+            Check(candidate.Take(34).SequenceEqual(currentProfile.Take(34)),"开关不改变其它参数及隐藏字段");
+        }
+        model.Load(new(currentProfile,effective,info));
+        Check(model.Rows.Where(r=>r.IsTemperatureChannel).All(r=>!r.CanEdit),"旧固件显示原通道但禁止独立写入");
+        model.Rows.Single(r=>r.CapabilityMask==AfeHardwareProtocolMap.CapTs1).SwitchValue=false;
+        Check(!model.TryBuildCandidate(out _,out error)&&error.Contains("只读"),"旧固件不静默忽略用户通道修改");
+        var onlyOff=currentProfile.ToArray();onlyOff[27]=150;
+        model.Load(new(onlyOff,effective,channelInfo));
+        foreach(var row in model.Rows.Where(r=>r.IsTemperatureChannel))row.SwitchValue=false;
+        Check(model.TryBuildCandidate(out candidate,out error)&&candidate[27]==150&&candidate[34]==0x105f,error);
+        Check(model.DescribeTemperatureChannelChanges(candidate).Contains("所有外部通道"),"确认框明确告知全关范围");
         Console.WriteLine("PASS AFE compatibility: complete scalar/current/short/temperature ranges, shared OCD enable, legacy delay evidence, finite decimal input and preserved hidden words");
     }
 }

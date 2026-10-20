@@ -27,6 +27,17 @@ public static class AfeHardwareProtocolMap
     public const ushort CapOcc2 = 1 << 5;
     public const ushort CapSc = 1 << 6;
     public const ushort CapTemp = 1 << 7;
+    public const ushort CapTs1 = 1 << 8;
+    public const ushort CapTs2 = 1 << 9;
+    public const ushort CapTs3 = 1 << 10;
+    public const ushort CapTs4 = 1 << 11;
+    public const ushort TempChannelSelect = 1 << 12;
+    public const ushort TempChannelMask = 0x0f00;
+
+    public static ushort TemperatureChannels(ushort enableMask) =>
+        (enableMask & CapTemp) == 0 ? (ushort)0 :
+        (enableMask & TempChannelSelect) == 0 ? (ushort)(CapTs1 | CapTs2) :
+        (ushort)(enableMask & TempChannelMask);
 
     public static string BackendName(ushort model) => model switch
     {
@@ -101,6 +112,10 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
     public required string Group { get; init; }
     public required string Name { get; init; }
     public required string Unit { get; init; }
+    public bool IsSwitch { get; init; }
+    public bool CanEdit { get; init; } = true;
+    public bool IsTemperatureChannel => WireIndex == 34 && (CapabilityMask & AfeHardwareProtocolMap.TempChannelMask) != 0;
+    public bool SwitchValue { get => EditValue == "1"; set => EditValue = value ? "1" : "0"; }
     private string _hint = string.Empty;
     private string _allowedCurrentRange = "—";
     public required string Hint { get => _hint; init => _hint = value; }
@@ -131,7 +146,7 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
     public string EditValue
     {
         get => _editValue;
-        set { _editValue = value; OnPropertyChanged(); }
+        set { _editValue = value; OnPropertyChanged(); OnPropertyChanged(nameof(SwitchValue)); }
     }
 
     public string EnabledText
@@ -238,17 +253,26 @@ public sealed class AfeHardwareParameterModel
         _effective = snapshot.Effective.ToArray();
         if (rebuild) BuildRows(snapshot.Info.Capabilities);
 
-        ushort enableMask = _requested[34];
-        foreach (AfeParameterRow row in Rows)
-            row.Load(_requested[row.WireIndex], _effective[row.WireIndex], enableMask);
+        LoadRows();
         RefreshValueGuidance();
     }
 
     public void ResetEditsToCurrent()
     {
+        LoadRows();
+    }
+
+    private void LoadRows()
+    {
         ushort enableMask = _requested[34];
         foreach (AfeParameterRow row in Rows)
-            row.Load(_requested[row.WireIndex], _effective[row.WireIndex], enableMask);
+        {
+            if (row.IsTemperatureChannel)
+                row.Load(AfeHardwareProtocolMap.TemperatureChannels(enableMask),
+                    AfeHardwareProtocolMap.TemperatureChannels(_effective[34]),
+                    AfeHardwareProtocolMap.TemperatureChannels(enableMask));
+            else row.Load(_requested[row.WireIndex], _effective[row.WireIndex], enableMask);
+        }
     }
 
     public bool TryBuildCandidate(out ushort[] raw, out string error)
@@ -260,15 +284,33 @@ public sealed class AfeHardwareParameterModel
             return false;
         }
 
+        ushort temperatureChannels = 0;
         foreach (AfeParameterRow row in Rows)
         {
+            if (row.IsTemperatureChannel && !row.CanEdit && row.EditValue != row.RequestedValue)
+            {
+                error = $"{row.Name} 当前只读；旧固件需升级，未接入通道禁止启用。";
+                return false;
+            }
             var encoded = row.Encode(row.EditValue);
             if (!encoded.Ok)
             {
                 error = $"{row.Group} / {row.Name}: {encoded.Error}";
                 return false;
             }
-            raw[row.WireIndex] = encoded.Wire;
+            if (row.IsTemperatureChannel)
+                temperatureChannels |= (ushort)(encoded.Wire & row.CapabilityMask);
+            else if (row.WireIndex == 34)
+                raw[34] = (ushort)((raw[34] & ~row.CapabilityMask) | (encoded.Wire & row.CapabilityMask));
+            else raw[row.WireIndex] = encoded.Wire;
+        }
+        if ((_deviceInfo.Capabilities & AfeHardwareProtocolMap.TempChannelSelect) != 0 &&
+            ((_requested[34] & AfeHardwareProtocolMap.TempChannelSelect) != 0 ||
+             temperatureChannels != AfeHardwareProtocolMap.TemperatureChannels(_requested[34])))
+        {
+            raw[34] = (ushort)((raw[34] & ~(AfeHardwareProtocolMap.TempChannelMask | AfeHardwareProtocolMap.CapTemp)) |
+                AfeHardwareProtocolMap.TempChannelSelect | temperatureChannels |
+                (temperatureChannels != 0 ? AfeHardwareProtocolMap.CapTemp : 0));
         }
 
         if (raw[0] != 1 || raw[1] != _deviceInfo.BackendModel)
@@ -386,7 +428,7 @@ public sealed class AfeHardwareParameterModel
             ? ShValueLimits : DvcValueLimits;
         foreach (var row in Rows)
         {
-            if (row.WireIndex == 22 || row.Unit == "A") continue;
+            if (row.IsSwitch || row.WireIndex == 22 || row.Unit == "A") continue;
             var limit = limits.FirstOrDefault(l => l.Word == row.WireIndex);
             string range = limit.Capability != 0
                 ? $"{row.Decode(limit.Minimum)}～{row.Decode(limit.Maximum)} {row.Unit}"
@@ -417,6 +459,21 @@ public sealed class AfeHardwareParameterModel
         return changes.Count == 0 ? string.Empty :
             "本次将同时规范化以下历史请求，与设备已读回的实际延时一致：\n" +
             string.Join("\n", changes) + "\n这些项目的硬件延时档位保持不变。\n\n";
+    }
+
+    public string DescribeTemperatureChannelChanges(ushort[] candidate)
+    {
+        ushort before = AfeHardwareProtocolMap.TemperatureChannels(_requested[34]);
+        ushort after = AfeHardwareProtocolMap.TemperatureChannels(candidate[34]);
+        if (before == after) return string.Empty;
+        var changes = new List<string>();
+        for (int i = 0; i < 4; i++) {
+            int bit = 1 << (8 + i);
+            if (((before ^ after) & bit) != 0)
+                changes.Add($"TS{i+1}：{((after & bit) != 0 ? "启用" : "关闭")}硬件温度保护");
+        }
+        return string.Join("\n", changes) + "\n各通道同时控制充/放电高低温，并共用电池温度阈值。" +
+            (after == 0 ? "\n所有外部通道硬件温度保护将关闭；软件保护与温度采样仍独立运行。" : string.Empty) + "\n\n";
     }
 
     private void BuildRows(ushort caps)
@@ -473,7 +530,7 @@ public sealed class AfeHardwareParameterModel
         if ((caps & AfeHardwareProtocolMap.CapSc) != 0)
         {
             Rows.Add(new AfeParameterRow {
-                WireIndex=34, CapabilityMask=AfeHardwareProtocolMap.CapSc,
+                WireIndex=34, CapabilityMask=AfeHardwareProtocolMap.CapSc, IsSwitch=true,
                 Group="短路保护", Name="SCD 使能", Unit="0/1",
                 Hint="0=关闭，1=启用；仅改变短路位，其他保护使能保持不变。",
                 Decode=v=>(v&AfeHardwareProtocolMap.CapSc)!=0?"1":"0",
@@ -489,6 +546,26 @@ public sealed class AfeHardwareParameterModel
         }
         if ((caps & AfeHardwareProtocolMap.CapTemp) != 0)
         {
+            bool selectionSupported = (caps & AfeHardwareProtocolMap.TempChannelSelect) != 0;
+            string[] roles = { "电池1", "电池2", "加热", "MOS" };
+            for (int i = 0; i < 4; i++) {
+                ushort bit = (ushort)(1 << (8 + i));
+                bool canEdit = selectionSupported && (caps & bit) != 0;
+                Rows.Add(new AfeParameterRow {
+                    WireIndex=34, CapabilityMask=bit, IsSwitch=true, CanEdit=canEdit,
+                    Group="温度保护", Name=$"TS{i+1} / {roles[i]} 硬件保护", Unit="0/1",
+                    AllowedCurrentRange=canEdit ? "0=关闭 / 1=启用" : "只读",
+                    Hint=!selectionSupported ? "旧固件只有温度总开关：TS1/TS2 联动；需升级配套固件才能独立修改通道。" :
+                        !canEdit ? "固件未声明该温度通道已接入，禁止启用。" :
+                        "同时控制该通道的充电高温、充电低温、放电高温、放电低温；所有启用通道共用四个阈值。关闭不停止采样及软件保护。",
+                    Decode=v=>(v & bit)!=0 ? "1" : "0",
+                    Encode=text=>text.Trim() switch {
+                        "0"=>(true,(ushort)0,string.Empty),
+                        "1"=>(true,bit,string.Empty),
+                        _=>(false,(ushort)0,"温度通道使能只能为 0 或 1。")
+                    }
+                });
+            }
             Rows.Add(TemperatureRow(25, AfeHardwareProtocolMap.CapTemp, "充电温度", "高温保护"));
             Rows.Add(TemperatureRow(26, AfeHardwareProtocolMap.CapTemp, "充电温度", "高温恢复"));
             Rows.Add(TemperatureRow(27, AfeHardwareProtocolMap.CapTemp, "充电温度", "低温保护"));
@@ -815,6 +892,10 @@ public sealed class AfeHardwareClient
             }
             if (readback.Info.ApplyState != 1 || readback.Info.LastError != 0)
                 throw new IOException($"AFE apply state={readback.Info.ApplyStateText}, error={readback.Info.ErrorText}.");
+            if ((readback.Info.Capabilities & AfeHardwareProtocolMap.TempChannelSelect) != 0 &&
+                AfeHardwareProtocolMap.TemperatureChannels(readback.Requested[34]) !=
+                AfeHardwareProtocolMap.TemperatureChannels(readback.Effective[34]))
+                throw new IOException("温度通道 requested/effective 不一致，请重新读取；不要重复提交。");
             if (expected is not null && readback.Effective[12] != expected.Effective[12])
                 throw new IOException("短路保存后 OCD2 有效值与读取基准不一致，请重新读取设备，不要重复提交。");
             return readback;
