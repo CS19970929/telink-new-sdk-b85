@@ -59,6 +59,7 @@ public sealed record AfeHardwareDeviceInfo(
     ushort LastError,
     ushort InterfaceVersion)
 {
+    public ushort HardwareFeatures { get; init; }
     public ushort ShuntElementMicroOhm { get; init; }
     public byte ShuntParallelCount { get; init; }
     public bool HasExactShunt => ShuntElementMicroOhm != 0 && ShuntParallelCount is >= 1 and <= 16;
@@ -114,6 +115,9 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
     public required string Group { get; init; }
     public required string Name { get; init; }
     public required string Unit { get; init; }
+    private string _valueSource = "芯片编码";
+    public string ValueSource { get=>_valueSource; internal set { _valueSource=value; OnPropertyChanged(); } }
+    internal void MarkNotApplied() { EffectiveValue="未启用"; }
     public bool IsSwitch { get; init; }
     internal bool IsEdited { get; private set; }
     public bool CanEdit { get; init; } = true;
@@ -257,6 +261,10 @@ public sealed class AfeHardwareParameterModel
         _effective = snapshot.Effective.ToArray();
         if (rebuild) BuildRows(snapshot.Info.Capabilities);
 
+        foreach (var row in Rows) row.ValueSource = row.IsSwitch ? "已核对使能位" :
+            snapshot.Info.BackendModel==AfeHardwareProtocolMap.ModelSh3673510 && row.WireIndex is 4 or 5 or 8 or 9 or 14 or 15 or 20 or 21 or 26 or 28 or 30 or 32 or 33 ? "MCU 恢复参数" :
+            snapshot.Info.BackendModel==AfeHardwareProtocolMap.ModelSh3673510 && row.WireIndex is 25 or 27 or 29 or 31 ?
+                ((snapshot.Info.HardwareFeatures&1)!=0 ? "NTC 寄存器反算" : "旧固件请求副本") : "芯片编码";
         LoadRows();
         RefreshValueGuidance();
         RefreshPreviews();
@@ -277,6 +285,9 @@ public sealed class AfeHardwareParameterModel
                     AfeHardwareProtocolMap.TemperatureChannels(_effective[34]),
                     AfeHardwareProtocolMap.TemperatureChannels(enableMask));
             else row.Load(_requested[row.WireIndex], _effective[row.WireIndex], enableMask);
+            if (_deviceInfo!.BackendModel==AfeHardwareProtocolMap.ModelSh3673510 &&
+                row.WireIndex is 25 or 27 or 29 or 31 && (_effective[34]&AfeHardwareProtocolMap.CapTemp)==0)
+                row.MarkNotApplied();
         }
     }
 
@@ -440,9 +451,9 @@ public sealed class AfeHardwareParameterModel
                 : row.WireIndex is 5 or 9 or 15 or 21 or 33 ? "0～65535 ms（MCU 确认）"
                 : row.WireIndex == 34 ? "当前芯片能力位" : $"0～65535 {row.Unit}";
             string hint = row.Hint;
-            if (row.Unit == "℃") hint = "协议编码为 (℃+40)×10；温度有效显示值沿用请求值，未独立反算寄存器。";
+            if (row.Unit == "℃") hint = "协议编码为 (℃+40)×10；来源见来源列，NTC反算值为标称值，不代表实测动作精度。";
             if (limit.Capability != 0) hint = $"启用时允许输入 {range}；完整参数会一起校验。" +
-                (row.Unit == "℃" ? "温度有效显示值未独立反算寄存器，不能作为自动修正依据。" :
+                (row.Unit == "℃" ? "温度来源见来源列；旧固件请求副本不能作为自动修正依据。" :
                  "芯片离散档位由固件量化，实际值见“AFE有效值”。");
             row.UpdateGuidance(hint, range);
         }
@@ -913,6 +924,10 @@ public sealed class AfeHardwareClient
             if (ratio[0] != 0 && ratio[1] is >= 1 and <= 16)
                 info = info with { ShuntElementMicroOhm = ratio[0], ShuntParallelCount = (byte)ratio[1] };
         } catch (BmsModbusException ex) when (ex.Code == 2) { /* 旧固件不提供追加窗口。 */ }
+        try {
+            ushort[] features = await _bms.ReadRegistersAsync(0x252E, 1, ct);
+            if (features[0]!=ushort.MaxValue) info=info with {HardwareFeatures=features[0]};
+        } catch (BmsModbusException ex) when (ex.Code==2) { /* 可选追加只读能力，兼容旧固件。 */ }
         return new AfeHardwareSnapshot(requested, effective, info);
     }
 

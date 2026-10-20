@@ -128,6 +128,7 @@ namespace BmsTool.Windows {
      var source=address==0x2500?HardwareRequested:HardwareEffective;if(source is not null)Array.Copy(source,values,count);
      if(address==0x2540 && EffectiveUnavailable)Array.Fill(values,ushort.MaxValue); }
     else if(address==0x2523) { values[0]=MetadataCapabilities;values[1]=1;values[2]=667;values[3]=8;values[4]=32;values[6]=ApplyState;values[7]=LastError;values[8]=2; }
+    else if(address==0x252e) { values[0]=0; }
     else if(address==0x252c) { values[0]=ShuntElement;values[1]=3; }
     else throw new Exception("Unexpected AFE read address");
     body=new byte[3+2*count];body[0]=1;body[1]=3;body[2]=(byte)(2*count);

@@ -82,13 +82,14 @@ public partial class MainWindow
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "AFE硬件参数", Binding = new Binding(nameof(AfeParameterRow.Name)), Width = 135, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "启用", Binding = new Binding(nameof(AfeParameterRow.EnabledText)), Width = 64, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "请求/保存值", Binding = new Binding(nameof(AfeParameterRow.RequestedValue)), Width = 100, IsReadOnly = true });
-        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "AFE有效值", Binding = new Binding(nameof(AfeParameterRow.EffectiveValue)), Width = 100, IsReadOnly = true });
+        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "已验证值 / MCU值", Binding = new Binding(nameof(AfeParameterRow.EffectiveValue)), Width = 100, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "修改值",
             Binding = new Binding(nameof(AfeParameterRow.EditValue)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
             Width = 105
         });
+        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header="来源", Binding=new Binding(nameof(AfeParameterRow.ValueSource)), Width=135, IsReadOnly=true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header="预计生效", Binding=new Binding(nameof(AfeParameterRow.PreviewValue)), Width=150, IsReadOnly=true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "单位", Binding = new Binding(nameof(AfeParameterRow.Unit)), Width = 60, IsReadOnly = true });
         var switchControl = new FrameworkElementFactory(typeof(CheckBox));

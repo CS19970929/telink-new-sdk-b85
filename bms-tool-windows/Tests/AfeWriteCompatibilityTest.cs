@@ -237,6 +237,11 @@ static class AfeWriteCompatibilityTest
         Check(model.Rows.Single(r=>r.WireIndex==3).PreviewValue.StartsWith("2030"),"延时预览跨到2030ms");
         Check(model.TryBuildCandidate(out candidate,out error),error);
         Check(model.DescribeHardwareQuantization(candidate).Contains("2030"),"选档变化进入确认");
+        model.Load(new(currentProfile,effective,info));
+        Check(model.Rows.Single(r=>r.WireIndex==25).ValueSource.Contains("请求副本"),"旧固件不声称芯片温度读回");
+        model.Load(new(currentProfile,effective,info with {HardwareFeatures=1}));
+        Check(model.Rows.Single(r=>r.WireIndex==25).ValueSource.Contains("反算"),"新能力声明温度来源");
+        Check(model.Rows.Single(r=>r.WireIndex==26).ValueSource.Contains("MCU"),"恢复值标明MCU所有权");
         var channelInfo=info with {Capabilities=0x1bdf}; // D014: TS1/TS2/TS4，TS3 NC。
         model.Load(new(currentProfile,effective,channelInfo));
         Check(model.Rows.Count(r=>r.IsTemperatureChannel)==4,"四个通道分别显示");
