@@ -890,8 +890,9 @@ public partial class MainWindow : Window
         if (_otaRunning || _shBusy || _diagBusy) return;
         try
         {
-            if(_bms?.IsSh3520==true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
             string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
+            if (_bms?.IsSh3520 == true && !FirmwareImage.Inspect(firmwarePath).LooksLikeTelink)
+                throw new InvalidOperationException("已识别 3520：当前 STM32 IAP 地址不匹配，请使用该工程的安全 App 烧录脚本。");
             ulong address = _connectedAddress ?? 0;
             if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)
                 throw new InvalidOperationException("请先连接 BMS。");
@@ -907,7 +908,8 @@ public partial class MainWindow : Window
             OtaVerifyText.Text = string.Empty;
             _otaCts = new CancellationTokenSource();
             OtaTargetKind target = _connectionMode == ConnectionMode.Serial
-                ? OtaTargetKind.Stm32SerialIap
+                ? (GetOtaTargetKind() != OtaTargetKind.Auto ? GetOtaTargetKind() :
+                    FirmwareImage.Inspect(firmwarePath).LooksLikeTelink ? OtaTargetKind.Telink : OtaTargetKind.Stm32SerialIap)
                 : await OtaTargetDetector.DetectAsync(address, GetOtaTargetKind(), _otaCts.Token);
             FirmwareImage image = FirmwareImage.LoadForTarget(firmwarePath, target);
             AppendLog($"OTA architecture detected={target}; firmware={image.FileName}; bytes={image.ImageSize}", "OTA");
@@ -931,7 +933,7 @@ public partial class MainWindow : Window
             {
                 serverConfirmed = await RunOtaOnceAsync(address, image, target, requested, _otaCts.Token);
             }
-            catch (Exception ex) when (requested == OtaTransferMode.Auto && IsExtendCompatibilityFailure(ex) && !_otaCts.IsCancellationRequested)
+            catch (Exception ex) when (_connectionMode == ConnectionMode.Ble && requested == OtaTransferMode.Auto && IsExtendCompatibilityFailure(ex) && !_otaCts.IsCancellationRequested)
             {
                 AppendLog("Extend64 rejected; fallback to Legacy Fast: " + ex.Message, "OTA");
                 await Task.Delay(700, _otaCts.Token);
@@ -963,7 +965,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _sessionLog.WriteException("OTA", "OTA/Verify", ex);
-            OtaVerifyText.Text = "升级失败：" + ex.Message;
+            OtaVerifyText.Text = "升级未完成确认：" + ex.Message;
             MessageBox.Show(ex.Message, "OTA failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -979,6 +981,8 @@ public partial class MainWindow : Window
 
     private async Task<bool> RunOtaOnceAsync(ulong address, FirmwareImage image, OtaTargetKind target, OtaTransferMode mode, CancellationToken ct)
     {
+        if (target == OtaTargetKind.Telink && _connectionMode == ConnectionMode.Serial)
+            return await RunTelinkSerialOtaAsync(image, ct);
         if (target == OtaTargetKind.Stm32SerialIap)
         {
             if (_connectionMode == ConnectionMode.Serial)

@@ -33,5 +33,6 @@
     <Compile Include="..\Shared\BmsClient.ParameterRead.cs" Link="BmsClient.ParameterRead.cs" />
     <Compile Include="..\Shared\ProtectionBatch.cs" Link="ProtectionBatch.cs" />
     <Compile Include="..\Shared\TelinkOtaCore.cs" Link="TelinkOtaCore.cs" />
+    <Compile Include="..\Shared\TelinkSerialOta.cs" Link="TelinkSerialOta.cs" />
   </ItemGroup>
 </Project>
