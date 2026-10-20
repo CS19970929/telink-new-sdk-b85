@@ -160,13 +160,13 @@ static class MosMonitorUiTest
         owWords[3] = 3; owWords[4] = 52; owWords[22] = 5;
         Call(window, "ApplyMainOpenWireStatus", BmsOpenWireStatus.Decode(owWords));
         Check(mainStatus.Text.Contains("C1, C3") && mainStatus.Foreground == Brushes.Firebrick,
-            "main page shows latched channels in red with SH mapping qualification");
+            "hidden compatibility text retains decoded latched channels with SH mapping qualification");
         foreach (var size in new[] { (1360,900), (1180,760) }) foreach (double scale in new[] { 1d,1.25,1.5 }) {
             content.LayoutTransform = new ScaleTransform(scale,scale);
             content.Measure(new Size(size.Item1,size.Item2)); content.Arrange(new Rect(0,0,size.Item1,size.Item2)); content.UpdateLayout();
-            Check(tabs.SelectedIndex == 0 && mainStatus.Visibility == Visibility.Visible && mainStatus.ActualHeight > 0 && mainStatus.ActualWidth > 200,
-                "main page open-wire channels visible at supported sizes/scales");
-            Console.WriteLine($"PASS Main OpenWire UI layout {size.Item1}x{size.Item2} scale={scale}");
+            Check(tabs.SelectedIndex == 0 && mainStatus.Visibility == Visibility.Collapsed,
+                "home page keeps open-wire explanation hidden at supported sizes/scales");
+            Console.WriteLine($"PASS hidden Main OpenWire UI {size.Item1}x{size.Item2} scale={scale}");
             if (args.Length > 0 && scale == 1) {
                 var bitmap = new RenderTargetBitmap(size.Item1,size.Item2,96,96,PixelFormats.Pbgra32); bitmap.Render(content);
                 var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
