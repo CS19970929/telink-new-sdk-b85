@@ -27,6 +27,14 @@ static class Test {
   t.BalanceOff=true;battery=await b.ReadBatteryAsync();
   Check(battery.BalanceCellMask==0&&!battery.IsCellBalancing(0),"next snapshot clears stopped balance");
   t.BatteryRead=false;
+  // 2026-10-20 现场：持久请求正常，effective 整组 0xFFFF，不能显示读取成功。
+  t.HardwareRead=true;t.EffectiveUnavailable=true;
+  try { await new AfeHardwareClient(b).ReadAllAsync();throw new Exception("无效 AFE effective 被当成读取成功"); }
+  catch(IOException ex) { Check(ex.Message.Contains("AFE") && ex.Message.Contains("有效"),"有效值不可用必须给出明确提示"); }
+  t.EffectiveUnavailable=false;
+  var hardware=await new AfeHardwareClient(b).ReadAllAsync();
+  Check(hardware.Effective[0]==1 && hardware.Effective[1]==0x3510,"恢复后可重新读取有效配置");
+  t.HardwareRead=false;
   var m=new AfeHardwareParameterModel();var p=new ushort[35];p[0]=1;p[1]=0x1124;
   m.Load(new(p,p,new(0x1124,64,true,100,16,4,false,1,0,2)));
   m.Rows.Single(x=>x.WireIndex==34).EditValue="1";
@@ -53,20 +61,32 @@ static class Test {
   Check(m.TryBuildCandidate(out _,out error),"SH recovery is below effective despite equal request: "+error);
   m.Rows.Single(x=>x.WireIndex==14).EditValue="15.0";
   Check(!m.TryBuildCandidate(out _,out _),"SH recovery equal to actual threshold rejected");
-  Console.WriteLine("PASS AFE MTU23 roundtrip, old firmware, wrong ACK, cancel, SCD, serial delayed response/cancel and per-cell balance mask");
+  Console.WriteLine("PASS AFE MTU23 roundtrip, old firmware, wrong ACK, cancel, SCD, serial delayed response/cancel and per-cell balance mask; unavailable AFE effective rejected");
  }
 }
 namespace BmsTool.Windows {
  sealed class BmsBleTransport:IBmsTransport,IBmsMtuTransport {
   public int? NegotiatedMtu=>23;public bool IsConnected=>true;public bool RequiresSerialWakeup=>Serial;
-  public string DiscoveryDescription=>"host";public bool Serial,BadAck,CancelAfterStage,BatteryRead,BalanceOff;public CancellationTokenSource? Stop;
+  public string DiscoveryDescription=>"host";public bool Serial,BadAck,CancelAfterStage,BatteryRead,BalanceOff,HardwareRead,EffectiveUnavailable;public CancellationTokenSource? Stop;
   public int Stages,Commits,MaxLength,Reads,DropReads,Reconnects;public List<byte> Frame=new();
   public event Action<ReadOnlyMemory<byte>>? DataReceived;public event Action<string>? ConnectionProgress{add{}remove{}}
   public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;return Task.CompletedTask;}
   public void Reset(){Stages=Commits=MaxLength=0;Frame.Clear();}
   public Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default){
    ct.ThrowIfCancellationRequested();var q=data.ToArray();MaxLength=Math.Max(MaxLength,q.Length);byte[] body;
-   if(q[1]==3 && BatteryRead){
+   if(q[1]==3 && HardwareRead){
+    ushort address=BinaryPrimitives.ReadUInt16BigEndian(q.AsSpan(2));
+    ushort count=BinaryPrimitives.ReadUInt16BigEndian(q.AsSpan(4));
+    var values=new ushort[count];
+    if(address is 0x2500 or 0x2540) { values[0]=1;values[1]=0x3510;
+     if(address==0x2540 && EffectiveUnavailable)Array.Fill(values,ushort.MaxValue); }
+    else if(address==0x2523) { values[0]=0xdf;values[1]=1;values[2]=667;values[3]=8;values[4]=32;values[6]=1;values[8]=2; }
+    else if(address==0x252c) { values[0]=2000;values[1]=3; }
+    else throw new Exception("Unexpected AFE read address");
+    body=new byte[3+2*count];body[0]=1;body[1]=3;body[2]=(byte)(2*count);
+    for(int i=0;i<count;i++)BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3+2*i),values[i]);
+   }
+   else if(q[1]==3 && BatteryRead){
     ushort address=BinaryPrimitives.ReadUInt16BigEndian(q.AsSpan(2));
     ushort count=BinaryPrimitives.ReadUInt16BigEndian(q.AsSpan(4));
     var values=new ushort[count];

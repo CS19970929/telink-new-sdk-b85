@@ -15,6 +15,7 @@ public partial class MainWindow
     private DataGrid? _afeHardwareGrid;
     private TextBlock? _afeHardwareStatus;
     private TextBlock? _afeHardwareDeviceInfo;
+    private BmsClient? _afeHardwareSource;
 
     private void AddAfeHardwareTab()
     {
@@ -142,6 +143,7 @@ public partial class MainWindow
     private async void ReadAfeHardware_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCalibrationOwner is not null) return;
+        _afeHardwareSource = null;
         try
         {
             EnsureAfeHardwareEditorAuthorized();
@@ -154,6 +156,7 @@ public partial class MainWindow
             var client = new AfeHardwareClient(bms);
             AfeHardwareSnapshot snapshot = await client.ReadAllAsync();
             _afeHardwareModel.Load(snapshot);
+            _afeHardwareSource = bms;
             ApplyAfeDeviceInfo(snapshot.Info);
             _afeHardwareStatus.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}";
             AppendLog($"AFE_HW_V2_READ_OK backend=0x{snapshot.Info.BackendModel:X4}; caps=0x{snapshot.Info.Capabilities:X4}; apply={snapshot.Info.ApplyState}; error={snapshot.Info.LastError}", "AFE");
@@ -175,6 +178,8 @@ public partial class MainWindow
         try
         {
             EnsureAfeHardwareEditorAuthorized();
+            if (_bms is null || !ReferenceEquals(_afeHardwareSource, _bms))
+                throw new InvalidOperationException("请先成功读取当前设备的完整 AFE 请求值和有效值，再修改参数。上次读取或提交结果未确认，不能继续写入。");
             _afeHardwareGrid?.CommitEdit(DataGridEditingUnit.Cell, true);
             _afeHardwareGrid?.CommitEdit(DataGridEditingUnit.Row, true);
 
@@ -209,8 +214,10 @@ public partial class MainWindow
             _afeHardwareStatus!.Text = "正在执行AFE硬件参数原子事务...";
             AppendLog($"AFE_HW_V2_WRITE_BEGIN backend=0x{info.BackendModel:X4}; transport={transportText}; words={candidate.Length}", "AFE");
 
+            _afeHardwareSource = null;
             AfeHardwareSnapshot readback = await client.WriteAllAsync(candidate);
             _afeHardwareModel.Load(readback);
+            _afeHardwareSource = bms;
             ApplyAfeDeviceInfo(readback.Info);
             _afeHardwareStatus.Text = $"保存成功 · requested一致 · effective已回读 · {DateTime.Now:HH:mm:ss}";
             AppendLog($"AFE_HW_V2_WRITE_VERIFY_OK backend=0x{readback.Info.BackendModel:X4}; apply={readback.Info.ApplyState}; error={readback.Info.LastError}", "AFE");

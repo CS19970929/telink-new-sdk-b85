@@ -151,6 +151,13 @@ public sealed class AfeHardwareParameterModel
         (13,AfeHardwareProtocolMap.CapOcd2,25,400),
         (17,AfeHardwareProtocolMap.CapOcc1,140,10010)
     };
+    // SH CV1.0A 原 PDF p37–38。电流范围由芯片压降与设备精确分流比例计算，
+    // 不能用显示用的整数 µΩ 或已取整的有效电流反推。
+    private static readonly (int Word, ushort Capability, uint StepUv, uint MaximumCode)[] ShCurrentLimits = {
+        (10,AfeHardwareProtocolMap.CapOcd1,5000,15),
+        (12,AfeHardwareProtocolMap.CapOcd2,10000,15),
+        (16,AfeHardwareProtocolMap.CapOcc1,1375,31)
+    };
     private ushort[] _requested = new ushort[AfeHardwareProtocolMap.ProfileWordCount];
     private ushort[] _effective = new ushort[AfeHardwareProtocolMap.ProfileWordCount];
     private AfeHardwareDeviceInfo? _deviceInfo;
@@ -175,7 +182,9 @@ public sealed class AfeHardwareParameterModel
 
         bool rebuild = _deviceInfo is null ||
                        _deviceInfo.BackendModel != snapshot.Info.BackendModel ||
-                       _deviceInfo.Capabilities != snapshot.Info.Capabilities;
+                       _deviceInfo.Capabilities != snapshot.Info.Capabilities ||
+                       _deviceInfo.ShuntElementMicroOhm != snapshot.Info.ShuntElementMicroOhm ||
+                       _deviceInfo.ShuntParallelCount != snapshot.Info.ShuntParallelCount;
         _deviceInfo = snapshot.Info;
         _requested = snapshot.Requested.ToArray();
         _effective = snapshot.Effective.ToArray();
@@ -242,6 +251,19 @@ public sealed class AfeHardwareParameterModel
                         "旧请求仅能在未编辑且已读回相同实际档位时修正。";
                     return false;
                 }
+            }
+        }
+        foreach (var limit in ShCurrentLimits)
+        {
+            if ((en & limit.Capability) == 0 ||
+                !TryGetShCurrentRange(limit.Word, out uint minimumA10, out uint maximumA10)) continue;
+            if (raw[limit.Word] < minimumA10 || raw[limit.Word] > maximumA10)
+            {
+                var row = Rows.Single(r => r.WireIndex == limit.Word);
+                error = $"{row.Group} / {row.Name}：输入 {row.Decode(raw[limit.Word])} A，" +
+                    $"允许请求范围 {FormatCurrent(minimumA10)}～{FormatCurrent(maximumA10)} A" +
+                    $"（分流器 {_deviceInfo.ShuntDisplay}）；未发送写入。";
+                return false;
             }
         }
         if ((en & AfeHardwareProtocolMap.CapCov) != 0 && (raw[2] == 0 || raw[4] >= raw[2]))
@@ -389,14 +411,41 @@ public sealed class AfeHardwareParameterModel
         }
     };
 
-    private static AfeParameterRow CurrentRow(int index, ushort cap, string group, string name) => new()
+    private bool TryGetShCurrentRange(int index, out uint minimumA10, out uint maximumA10)
+    {
+        minimumA10 = maximumA10 = 0;
+        if (_deviceInfo?.BackendModel != AfeHardwareProtocolMap.ModelSh3673510 || !_deviceInfo.HasExactShunt)
+            return false;
+        foreach (var limit in ShCurrentLimits)
+        {
+            if (limit.Word != index) continue;
+            ulong firstStep = limit.StepUv * 10UL * _deviceInfo.ShuntParallelCount;
+            ulong element = _deviceInfo.ShuntElementMicroOhm;
+            // 请求的 0.1 A 整数必须落在固件的闭区间，最小向上、最大向下取整。
+            minimumA10 = (uint)((firstStep + element - 1UL) / element);
+            maximumA10 = (uint)Math.Min(ushort.MaxValue, firstStep * (limit.MaximumCode + 1UL) / element);
+            return true;
+        }
+        return false;
+    }
+
+    private static string FormatCurrent(uint currentA10) =>
+        (currentA10 / 10m).ToString("0.0", CultureInfo.InvariantCulture);
+
+    private string CurrentHint(int index) =>
+        TryGetShCurrentRange(index, out uint minimumA10, out uint maximumA10)
+            ? $"允许请求范围 {FormatCurrent(minimumA10)}～{FormatCurrent(maximumA10)} A（分流器 {_deviceInfo!.ShuntDisplay}）。" +
+                "电流最多保留 0.1 A；按硬件档位向上量化，实际值见“AFE有效值”。"
+            : "电流最多保留 0.1 A；范围由固件校验，实际硬件量化结果见“AFE有效值”。";
+
+    private AfeParameterRow CurrentRow(int index, ushort cap, string group, string name) => new()
     {
         WireIndex = index,
         CapabilityMask = cap,
         Group = group,
         Name = name,
         Unit = "A",
-        Hint = "0.1A/LSB 语义值；实际硬件量化结果见“AFE有效值”。",
+        Hint = CurrentHint(index),
         Decode = v => (v / 10.0).ToString("0.0", CultureInfo.InvariantCulture),
         Encode = s =>
         {
@@ -443,6 +492,9 @@ public sealed class AfeHardwareClient
         ushort[] requested = await _bms.ReadRegistersAsync(AfeHardwareProtocolMap.RequestedBase, AfeHardwareProtocolMap.ProfileWordCount, ct);
         ushort[] meta = await _bms.ReadRegistersAsync(AfeHardwareProtocolMap.MetadataBase, AfeHardwareProtocolMap.MetadataWordCount, ct);
         ushort[] effective = await _bms.ReadRegistersAsync(AfeHardwareProtocolMap.EffectiveBase, AfeHardwareProtocolMap.EffectiveWordCount, ct);
+        if (effective[0] != 1 || effective[1] != requested[1])
+            throw new IOException("AFE 有效配置读取失败（设备返回无效标记或型号不一致）。" +
+                "这不表示请求/保存参数已损坏；请核对 AFE 通信与初始化状态，重新读取后再写入。");
         var info = new AfeHardwareDeviceInfo(
             requested[1], meta[0], meta[1] != 0, meta[2], meta[3], meta[4],
             meta[5] != 0, meta[6], meta[7], meta[8]);
