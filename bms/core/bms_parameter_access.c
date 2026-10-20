@@ -332,10 +332,15 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
         u16 soc = (r == BMS_PARAM_REG_SOC) ? value : get_soc_real();
         u32 cycle = (r == BMS_PARAM_REG_CYCLE) ? value : g_bms_soc.cycle_count;
         if (qty != 1u || soc > 100u) return finish(3u);
-        if (!bms_state_store_save(soc, g_bms_soc.discharge_fraction_percent, cycle))
-            return finish(4u);
-        if (r == BMS_PARAM_REG_SOC) set_soc_param((u8)soc);
-        else bms_soc_cycle_count_changed(cycle);
+        if (r == BMS_PARAM_REG_SOC) {
+            bms_state_store_data_t state = bms_soc_manual_state_snapshot((u8)soc);
+            if (!bms_state_store_save_snapshot(&state)) return finish(4u);
+            set_soc_param((u8)soc);
+        } else {
+            if (!bms_state_store_save(soc, g_bms_soc.discharge_fraction_percent, cycle))
+                return finish(4u);
+            bms_soc_cycle_count_changed(cycle);
+        }
         return finish(0u);
     }
     if (r == BMS_PARAM_REG_CAPACITY)

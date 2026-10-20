@@ -312,10 +312,22 @@ int main(int argc,char **argv){
  assert(g_bms_soc.remaining_capacity_as10==q&&g_soc_integral_remainder==remainder);
  stored_profile.capacity_factory=2000;bms_soc_nominal_capacity_changed();
  assert(g_bms_soc.remaining_capacity_as10==q*2u);
- /* 人工100不授予满电，所有运行期显示按5s1pp追赶。 */
- setup(1,60,3330);set_soc_param(100);assert(!g_bms_soc.full_confirmed&&display_soc()==60);
+ /* 人工设置立即发布；清除之前尚未完成的显示步进。 */
+ setup(1,60,3330);g_soc_display_ms=4800u;
+ set_soc_param(80);assert(get_soc_real()==80&&display_soc()==80&&g_soc_display_ms==0u);
+ set_soc_param(20);assert(get_soc_real()==20&&display_soc()==20);
+ set_soc_param(0);assert(get_soc_real()==0&&display_soc()==0);
+ set_soc_param(99);assert(get_soc_real()==99&&display_soc()==99);
+ bms_state_store_data_t manual=bms_soc_manual_state_snapshot(100);
+ assert(manual.soc==100&&manual.full_confirmed&&manual.full_basis==soc_full_basis());
+ assert(get_soc_real()==99&&display_soc()==99&&!g_bms_soc.full_confirmed);
+ set_soc_param(100);assert(g_bms_soc.full_confirmed&&display_soc()==100);
+ simulated_reboot();assert(get_soc_real()==100&&display_soc()==100);
+ sample(1,0,1);run_ms(0,10000);assert(display_soc()==100);
+ set_soc_param(40);assert(get_soc_real()==40&&display_soc()==40&&!g_bms_soc.full_confirmed);
+ /* 自动满电端点仍按5s1pp追赶，人工设置不改变后续自动校准节奏。 */
+ setup(1,60,3330);soc_apply_endpoint(1u);assert(display_soc()==60);
  sample(1,0,1);run_ms(0,4800);assert(display_soc()==60);run_ms(0,200);assert(display_soc()==61);
- simulated_reboot();assert(get_soc_real()==100&&display_soc()==99);
  for(unsigned chem=1;chem<=2;chem++){
   setup((uint8_t)chem,60,chem==1?3500:4180);
   set_core_voltage(chem==1?3300:3980,chem==1?3500:4180,200);

@@ -339,7 +339,13 @@ u8 bms_afe_hw_profile_apply_committed(void){return switch_apply_ok;}
 static u8 bms_board_heater_supported(void){return 1;}
 static u8 bms_afe_hw_access_is_active(void){return access_active;}
 u8 get_soc_real(void){return live_soc;}
-void set_soc_param(u8 soc){live_soc=soc;}
+bms_state_store_data_t bms_soc_manual_state_snapshot(u8 soc){
+ bms_state_store_data_t data={soc,g_bms_soc.discharge_fraction_percent,g_bms_soc.cycle_count,soc==100u,soc==100u?0x11223344u:0u};
+ return data;
+}
+void set_soc_param(u8 soc){
+ live_soc=soc;g_bms_soc.full_confirmed=soc==100u;g_bms_soc.full_basis=soc==100u?0x11223344u:0u;
+}
 void bms_soc_nominal_capacity_changed(void){capacity_updates++;}
 void bms_soc_cycle_count_changed(uint32_t cycle){g_bms_soc.cycle_count=cycle;capacity_updates++;}
 static u8 bms_reset_software_parameters(void){return 0;}
@@ -382,7 +388,15 @@ static void test_parameter_protocol(void){
  now=UINT32_MAX-100;assert(bms_parameter_write(0x2e40,1,begin)==0);now+=61u*1000u;
  assert(bms_parameter_write(0x2e50,4,chunk)==3);
  assert(bms_parameter_write(0x2e24,4,0)==3);assert(bms_parameter_write(0x2e20,0,heat)==3);
- u8 soc[]={0,88};cut=0;assert(bms_parameter_write(0x1005,1,soc)==4);assert(live_soc==60);cut=-1;
+ /* 人工100%的SOC/许可/basis必须原子持久化，再发布运行值。 */
+ live_soc=60u;g_bms_soc.full_confirmed=0u;g_bms_soc.full_basis=0u;
+ u8 soc[]={0,100};cut=0;assert(bms_parameter_write(0x1005,1,soc)==4);
+ assert(live_soc==60&&!g_bms_soc.full_confirmed&&g_bms_state.soc==60u);
+ cut=-1;now+=5000u;assert(bms_parameter_write(0x1005,1,soc)==0);
+ assert(live_soc==100u&&g_bms_soc.full_confirmed&&g_bms_state.soc==100u&&g_bms_state.full_confirmed);
+ reboot();bms_parameters_init();assert(g_bms_state.soc==100u&&g_bms_state.full_confirmed&&g_bms_state.full_basis==0x11223344u);
+ soc[1]=40u;assert(bms_parameter_write(0x1005,1,soc)==0);
+ assert(live_soc==40u&&!g_bms_state.full_confirmed&&!g_bms_state.full_basis);
  puts("PASS parameter protocol: atomic heater, failed-save rollback, SN authorization/full bitmap/commit/reboot/expiry/wrap, no staging Flash, null/zero length, SOC RAM unchanged on failure");
 }
 static void test_user_parameters(void){

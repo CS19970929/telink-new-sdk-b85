@@ -80,7 +80,7 @@ typedef struct {
     uint32_t cycle_count;
     uint32_t effective_capacity_as10;          /* As*10 */
     uint8_t soh;
-    uint8_t full_confirmed;
+    uint8_t full_confirmed;                   /* 100%显示许可：电压判满或人工100%。 */
     uint32_t full_basis;
 } bms_soc_state_t;
 
@@ -109,7 +109,7 @@ uint8_t bms_soc_board_test_active(void);
 uint8_t bms_soc_board_test_keep_awake(void);
 uint16_t bms_soc_board_test_word(uint16_t offset);
 #endif
-/* 人工重建内部电量并撤销判满资格；显示按统一限速追赶。 */
+/* 持久化成功后发布人工SOC，显示立即同步；人工100%授予100%显示许可。 */
 void set_soc_param(uint8_t soc);
 /* 取得内部计算的真实 SOC 百分比。 */
 uint8_t get_soc_real(void);
@@ -122,6 +122,8 @@ uint8_t bms_soh_from_cycle(uint16_t cycle);
 void bms_soc_nominal_capacity_changed(void);
 /* 只读运行状态快照；存储不得自行向 SOC 取值或改变资格。 */
 bms_state_store_data_t bms_soc_state_snapshot(void);
+/* 人工SOC的完整持久化候选；只读当前状态，不提前修改电量或显示。 */
+bms_state_store_data_t bms_soc_manual_state_snapshot(uint8_t soc);
 /* 电压校准候选需要一次新诊断；应用只转交请求，不在 SOC 内操作硬件。 */
 uint8_t bms_soc_voltage_check_requested(void);
 /* 循环服务操作独立于人工设置 SOC，保留高精度比例。 */

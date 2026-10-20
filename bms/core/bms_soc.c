@@ -332,15 +332,27 @@ bms_state_store_data_t bms_soc_state_snapshot(void)
     return state;
 }
 
+/* 只生成候选；State完整提交成功后，调用者才能发布人工设置。 */
+bms_state_store_data_t bms_soc_manual_state_snapshot(uint8_t soc)
+{
+    bms_state_store_data_t state = bms_soc_state_snapshot();
+    state.soc = soc_limit_percent_u32(soc);
+    state.full_confirmed = state.soc == 100u;
+    state.full_basis = state.full_confirmed ? soc_full_basis() : 0u;
+    return state;
+}
+
 void set_soc_param(uint8_t soc)
 {
-    g_bms_soc.soc_estimate_percent = soc_limit_percent_u32(soc);
+    bms_state_store_data_t state = bms_soc_manual_state_snapshot(soc);
+    g_bms_soc.soc_estimate_percent = (uint8_t)state.soc;
     soc_recalc_full_capacity();
     soc_recalc_now_capacity();
-    g_bms_soc.full_confirmed = 0u;
-    g_bms_soc.full_basis = 0u;
+    g_bms_soc.full_confirmed = (uint8_t)state.full_confirmed;
+    g_bms_soc.full_basis = state.full_basis;
     soc_reset_integral_accumulator();
     soc_invalidate_sample_interval();
+    set_dispsoc(get_soc_real()); /* 人工服务操作立即发布，不等待运行期显示追赶。 */
     SOC_Result_Pass();
 }
 
@@ -379,7 +391,7 @@ void soc_param_lib_init(const bms_state_store_data_t *state)
     soc_reset_integral_accumulator();
     soc_invalidate_sample_interval();
     g_soc_initialized = 1u;
-    set_dispsoc(get_soc_real()); /* 只有冷启动确定初值，运行期设置不直接改显示。 */
+    set_dispsoc(get_soc_real()); /* 冷启动直接恢复显示；自动校准仍走限速追赶。 */
     SOC_Result_Pass();
 }
 
