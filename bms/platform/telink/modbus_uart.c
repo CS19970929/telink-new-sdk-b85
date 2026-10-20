@@ -76,6 +76,11 @@ static volatile u8 s_rx_ready = 0u;
 static mb_dma_pkt_t s_rx_pkt;
 static mb_dma_pkt_t s_tx_pkt;
 
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+/* 总线检测在帧中途才取得UART所有权，首个DMA包只能用于唤醒。 */
+static volatile u8 s_uart_wake_rx_pending;
+#endif
+
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
 #define MODBUS_UART_IDLE_MS 1000u
 #define MODBUS_UART_WAKE_GAP_US 5000u /* 大于最低9600波特的3.5字符间隔。 */
@@ -282,13 +287,20 @@ static void modbus_uart_resume_rx(void)
     irq_restore(irq_state);
 }
 
-/* RX边沿、坏帧、TX都刷新静默期；定时唤醒和周期RX维护不能刷新它。 */
-static u8 modbus_uart_service_suspend(void)
+/* SDK返回后先恢复接收；协议消费前再次处理期间新到的活动与残帧。
+ * 这里只维护UART/DMA和唤醒资格，不解析命令、不访问AFE或Flash。 */
+u8 modbus_uart_service_wakeup(void)
 {
     u8 irq_state = irq_disable();
     u8 activity = s_uart_activity;
     u8 resume = s_uart_resume_pending;
     s_uart_activity = 0u;
+    /* SDK许可后也可能取消入睡且不交付exit；返回主循环必须撤销临睡状态，
+     * 否则后续每个RX边沿都会被当作唤醒残帧，导致持续通信一直被丢弃。 */
+    if (s_uart_suspending || resume) {
+        s_uart_suspending = 0u;
+        cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
+    }
     gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 1);
     if (resume) {
         modbus_uart_resume_rx();
@@ -333,6 +345,7 @@ void modbus_uart_init(void)
 {
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     u8 irq_state = irq_disable();
+    s_uart_wake_rx_pending = 1u;
 #endif
 #if !BMS_RS485_TX_DIAG_ENABLE
     /* 保留已验证的 new-new-master 初始化顺序。 */
@@ -468,7 +481,7 @@ void modbus_uart_prepare_deep_sleep(void)
 }
 #endif
 
-/* 中断只清 DMA 标志并交付状态；运行日志在主循环生成，避免格式化和额外发送影响时序。 */
+/* 中断交付正常RX；D008首次唤醒包只丢弃并重装DMA，不解析/发送或访问AFE。 */
 void modbus_uart_irq_proc(void)
 {
     u8 irqsrc = dma_chn_irq_status_get();
@@ -491,13 +504,21 @@ void modbus_uart_irq_proc(void)
     {
         dma_chn_enable(FLD_DMA_CHN_UART_RX, 0);
         dma_chn_irq_status_clr(FLD_DMA_CHN_UART_RX);
-        /* 无效/零长度也必须经过 poll，以重新启用 RX。 */
-        s_rx_ready = 1u;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+        /* 无效/零长度也必须经过poll，以重新启用RX。 */
+        s_rx_ready = 1u;
         s_uart_activity = 1u;
-#endif
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+#else
         if (s_rx_pkt.dma_len > 0u) bus_mux_on_uart_rx_byte();
+        if (s_uart_wake_rx_pending) {
+            /* 已知不交付主循环的残帧，立即重装，避免AFE/Flash期间停住RX
+             * 而再丢主机重发。B85 uart_recbuff_init只写固定DMA寄存器。 */
+            s_uart_wake_rx_pending = 0u;
+            s_rx_pkt.dma_len = 0u;
+            uart_recbuff_init((u8 *)&s_rx_pkt, sizeof(s_rx_pkt));
+        } else {
+            s_rx_ready = 1u;
+        }
 #endif
     }
 
@@ -659,7 +680,7 @@ void main_loop_modbus(void)
     if (bus_mux_get_state() != BUS_STATE_UART_MODBUS) return;
 #endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    if (modbus_uart_service_suspend()) return;
+    if (modbus_uart_service_wakeup()) return;
 #endif
 #if BMS_RS485_TX_DIAG_ENABLE
     modbus_rs485_service_tx_done();

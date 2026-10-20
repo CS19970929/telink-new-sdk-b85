@@ -36,5 +36,8 @@ u8 modbus_uart_tx_active(void);
 int modbus_uart_suspend_ready(void);
 void modbus_uart_suspend_enter(void);
 void modbus_uart_suspend_exit(u8 wakeup_status);
+/* SH主循环在SDK返回后、采样/存储前调用；返回1表示仍隔离唤醒残帧。
+ * 不解析协议。main_loop_modbus消费前仍会复核新到活动。 */
+u8 modbus_uart_service_wakeup(void);
 /* 主循环解析接收帧、发送协议应答并重新启用 RX。 */
 void main_loop_modbus(void);

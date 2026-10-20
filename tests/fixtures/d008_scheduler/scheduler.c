@@ -89,13 +89,13 @@ static struct {int soc_estimate_percent,discharge_fraction_percent,cycle_count;}
 /* PRODUCTION_SOURCE */
 static void expect(const char *s){assert(!strcmp(calls,s));n=0;calls[0]=0;}
 int main(void){
- main_loop();expect("123BXUP");
- now=3200000;main_loop();expect("123BXUP"); /* SDK uses strict >. */
- now++;main_loop();expect("123BATMVSWLXUP");assert(s_sample_tick==now&&!s_sample_due);
- s_sample_due=1;main_loop();expect("123BATMVSWLXUP");
- valid=0;s_sample_due=1;main_loop();expect("123BATMVSWLXUP");valid=1;
- now=16000001;now_ms=1001u;main_loop();expect("123BATMVSWLEFXUP");
- main_loop();expect("123BXUP"); /* no repeated event or sample */
+ main_loop();expect("123BXXUP");
+ now=3200000;main_loop();expect("123BXXUP"); /* SDK uses strict >. */
+ now++;main_loop();expect("123BXATMVSWLXUP");assert(s_sample_tick==now&&!s_sample_due);
+ s_sample_due=1;main_loop();expect("123BXATMVSWLXUP");
+ valid=0;s_sample_due=1;main_loop();expect("123BXATMVSWLXUP");valid=1;
+ now=16000001;now_ms=1001u;main_loop();expect("123BXATMVSWLEFXUP");
+ main_loop();expect("123BXXUP"); /* no repeated event or sample */
  now=0x100; s_sample_tick=0xffc00000u;app_sample_task();expect("ATMVSWL");
  sample_cost=3200001;s_sample_due=1;app_sample_task();expect("ATMVSWL");assert(s_sample_due);
  sample_cost=0;s_sample_due=1;callback_during_sample=1;app_sample_task();expect("ATMVSWL");assert(s_sample_due);

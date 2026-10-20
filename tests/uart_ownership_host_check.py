@@ -85,15 +85,24 @@ static void check_suspend(void){
  assert(!modbus_uart_suspend_ready());
  now_32k=32000u-1u;main_loop_modbus();assert(!modbus_uart_suspend_ready());
  ++now_32k;main_loop_modbus();assert(modbus_uart_suspend_ready());
+ /* SDK许可后未实际入睡，不能把suspending遗留给之后的每一帧。 */
+ modbus_uart_suspend_enter();assert(rx_pad_enabled&&s_uart_suspending);
+ assert(!modbus_uart_service_wakeup());assert(!rx_pad_enabled&&!s_uart_suspending);
+ int abort_parsed=parsed;receive(0x20,8);main_loop_modbus();assert(parsed==abort_parsed+1);
+ now_32k+=32000u;main_loop_modbus();assert(modbus_uart_suspend_ready());
  // 定时唤醒恢复UART，但不重新开始1秒静默。
  modbus_uart_suspend_enter();assert(rx_pad_enabled);
  modbus_uart_suspend_exit(WAKEUP_STATUS_TIMER);assert(!modbus_uart_suspend_ready());
- main_loop_modbus();assert(modbus_uart_suspend_ready());
+ int previous_resets=resets,previous_parsed=parsed;
+ assert(!modbus_uart_service_wakeup()&&resets==previous_resets+1);
+ assert(!s_uart_resume_pending&&parsed==previous_parsed&&modbus_uart_suspend_ready());
+ /* 模拟恢复后在AFE/存储任务期间收到重发，晚到的协议消费不得再次清RX。 */
+ receive(0x21,8);main_loop_modbus();assert(parsed==previous_parsed+1);
  // PAD唤醒帧只能唤醒，完整有效帧也不允许进入协议层。
  modbus_uart_suspend_enter();modbus_uart_suspend_exit(WAKEUP_STATUS_PAD);
  int count=parsed;receive(0x11,8);main_loop_modbus();assert(parsed==count&&!modbus_uart_suspend_ready());
  now+=4000u*16u;rx_edge();main_loop_modbus();assert(s_uart_wake_discard);
- now+=5001u*16u;main_loop_modbus();assert(!s_uart_wake_discard);
+ now+=5001u*16u;assert(modbus_uart_service_wakeup());assert(!s_uart_wake_discard);
  receive(0x22,8);main_loop_modbus();assert(parsed==count+1);
  // 坏帧也属于通信，刷新1秒；RX持续低不能许可Suspend。
  now_32k+=32000u;receive(0x33,0);main_loop_modbus();assert(!modbus_uart_suspend_ready());
@@ -135,12 +144,18 @@ int main(void){
  assert(!modbus_uart_poll(&p,&n)&&!modbus_uart_send(data,8));
  irqsrc=1;modbus_uart_irq_proc();assert(!s_rx_ready&&!irqsrc);
  bus_mode=BUS_STATE_UART_MODBUS;modbus_uart_init();
+ int wake_parsed=parsed;receive(0x55,8);
+ assert((channels&1)&&!s_rx_ready&&!s_uart_wake_rx_pending&&parsed==wake_parsed);
  assert(modbus_uart_bus_idle());busy=1;assert(!modbus_uart_bus_idle());busy=0;
  rx_high=0;assert(!modbus_uart_bus_idle());rx_high=1;
  irqsrc=1;assert(!modbus_uart_bus_idle());irqsrc=0;
  receive(0x11,8);assert(!modbus_uart_bus_idle());
 #endif
- modbus_uart_init();receive(0x11,8);assert(!(channels&1));
+ modbus_uart_init();
+#if !TEST_SH_UART
+ receive(0x55,8);assert((channels&1)&&!s_rx_ready); /* 首包在IRQ丢弃，接收不等主循环。 */
+#endif
+ receive(0x11,8);assert(!(channels&1));
  assert(modbus_uart_poll(&p,&n)&&n==8);saved=p;
  receive(0x22,8);assert(saved[0]==0x11); // frozen consumer buffer
  modbus_uart_rx_reset();receive(0x33,268);assert(modbus_uart_poll(&p,&n)&&n==268&&p[267]==0x33);

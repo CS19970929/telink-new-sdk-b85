@@ -196,16 +196,20 @@ static void board_init(void)
 }
 
 #endif
-/* 一条主循环：BLE → 到期采样 → 状态检查点 → 通信 → 板级低功耗。 */
+/* BLE → 通信接收恢复 → 到期采样 → 状态检查点 → 协议通信 → 低功耗。 */
 _attribute_no_inline_ void main_loop(void)
 {
     if (app_power_prepare_loop()) return;
     /*
-     * 协作顺序：先服务 BLE，到期只采样一次，再处理持久化和通信；
-     * 最后根据新状态评估 suspend。
+     * SDK唤醒后先恢复UART接收/通信引脚所有权，避免等AFE和Flash任务后
+     * 才开始接收主机重发。采样/保护仍优先于协议命令解析。
      */
 	blt_sdk_main_loop();
-
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    bus_mux_task();
+#elif BMS_PRODUCT_UART_ENABLE
+    (void)modbus_uart_service_wakeup();
+#endif
 
 #if BMS_DEBUG_LOG_ENABLE
     /* 在此观察 SDK 回调负责的标志，ISR 不格式化或生产日志。 */
@@ -225,6 +229,7 @@ _attribute_no_inline_ void main_loop(void)
     app_storage_1s_task();
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+	/* 处理采样/存储期间到来的接管边沿，避免再多等一轮SDK。 */
 	bus_mux_task();
     sif_prepare_task(s_sample_tick);
 #endif
