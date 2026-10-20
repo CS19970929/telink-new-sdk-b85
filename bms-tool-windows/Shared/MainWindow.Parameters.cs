@@ -57,6 +57,7 @@ public partial class MainWindow
         Field("当前 SOC / %",_parameterSoc);
         Button("设置并保存 SOC",()=>ParameterRunAsync((c,t)=>{
             ushort value=ushort.Parse(_parameterSoc.Text);if(value>100)throw new ArgumentException("SOC 必须为 0～100");
+            if(value==100 && MessageBox.Show(this,"人工设置只更新内部参考电量，不授予电压满电资格。配套v3固件显示最高99%，仍须电压判满后才能显示100%。是否继续？","人工SOC服务操作",MessageBoxButton.YesNo,MessageBoxImage.Information)!=MessageBoxResult.Yes)return Task.CompletedTask;
             return c.WriteD008VerifiedAsync(0x1005,new[]{value},false,t);
         }));
         Field("循环次数",_parameterCycle);
