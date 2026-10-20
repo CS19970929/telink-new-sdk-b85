@@ -188,9 +188,11 @@ public partial class MainWindow
 
             AfeHardwareDeviceInfo info = _afeHardwareModel.DeviceInfo ?? throw new InvalidOperationException("请先读取AFE参数。");
             string transportText = _connectionMode == ConnectionMode.Serial ? "直连串口" : "BLE透明通道";
+            string legacyCorrections = _afeHardwareModel.DescribeLegacyDelayCorrections(candidate);
             if (MessageBox.Show(
                     $"确认修改 {info.BackendName} AFE硬件保护参数？\n\n" +
                     $"通信：{transportText}\n" +
+                    legacyCorrections +
                     "这与软件 First/Second/Third 参数完全独立。\n\n" +
                     "将执行：打开60秒授权会话 → 完整35-word原子写入 → 固件校验/持久化 → AFE应用 → requested/effective回读 → 失败自动回滚。\n\n" +
                     "BLE MTU=23 可使用新固件的暂存/提交事务，无需修改 MTU。请确认 SCD 使能、电流和延时。是否继续？",

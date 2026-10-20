@@ -143,6 +143,14 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
 
 public sealed class AfeHardwareParameterModel
 {
+    // SH CV1.0A 原 PDF p36–38；与固件新写入的最小延时及上界保持一致。
+    private static readonly (int Word, ushort Capability, ushort Minimum, ushort Maximum)[] ShDelayLimits = {
+        (3,AfeHardwareProtocolMap.CapCov,140,10010),
+        (7,AfeHardwareProtocolMap.CapCuv,490,10010),
+        (11,AfeHardwareProtocolMap.CapOcd1,140,10010),
+        (13,AfeHardwareProtocolMap.CapOcd2,25,400),
+        (17,AfeHardwareProtocolMap.CapOcc1,140,10010)
+    };
     private ushort[] _requested = new ushort[AfeHardwareProtocolMap.ProfileWordCount];
     private ushort[] _effective = new ushort[AfeHardwareProtocolMap.ProfileWordCount];
     private AfeHardwareDeviceInfo? _deviceInfo;
@@ -217,6 +225,25 @@ public sealed class AfeHardwareParameterModel
         }
 
         ushort en = raw[34];
+        if (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510)
+        {
+            foreach (var limit in ShDelayLimits)
+            {
+                if ((en & limit.Capability) == 0) continue;
+                // 历史请求可低于首档，但实际已量化为首档。只有本项未编辑且设备有效值
+                // 明确等于首档时才规范化候选；不修改模型，不掩盖用户新输入的非法值。
+                if (raw[limit.Word] == _requested[limit.Word] && raw[limit.Word] < limit.Minimum &&
+                    _effective[limit.Word] == limit.Minimum)
+                    raw[limit.Word] = limit.Minimum;
+                if (raw[limit.Word] < limit.Minimum || raw[limit.Word] > limit.Maximum)
+                {
+                    var row = Rows.Single(r => r.WireIndex == limit.Word);
+                    error = $"{row.Group} / {row.Name} 必须为 {limit.Minimum}～{limit.Maximum} ms；" +
+                        "旧请求仅能在未编辑且已读回相同实际档位时修正。";
+                    return false;
+                }
+            }
+        }
         if ((en & AfeHardwareProtocolMap.CapCov) != 0 && (raw[2] == 0 || raw[4] >= raw[2]))
         { error = "单体过压恢复值必须小于保护值。"; return false; }
         if ((en & AfeHardwareProtocolMap.CapCuv) != 0 && (raw[6] == 0 || raw[8] <= raw[6]))
@@ -246,6 +273,24 @@ public sealed class AfeHardwareParameterModel
     }
 
     public bool HasChanges(ushort[] candidate) => !_requested.SequenceEqual(candidate);
+
+    public string DescribeLegacyDelayCorrections(ushort[] candidate)
+    {
+        if (_deviceInfo?.BackendModel != AfeHardwareProtocolMap.ModelSh3673510) return string.Empty;
+        var changes = new List<string>();
+        foreach (var limit in ShDelayLimits)
+        {
+            if ((candidate[34] & limit.Capability) == 0 || _requested[limit.Word] >= limit.Minimum ||
+                candidate[limit.Word] != limit.Minimum || _effective[limit.Word] != limit.Minimum) continue;
+            var row = Rows.Single(r => r.WireIndex == limit.Word);
+            var edited = row.Encode(row.EditValue);
+            if (!edited.Ok || edited.Wire != _requested[limit.Word]) continue;
+            changes.Add($"{row.Group} / {row.Name}：{_requested[limit.Word]} → {candidate[limit.Word]} ms");
+        }
+        return changes.Count == 0 ? string.Empty :
+            "本次将同时规范化以下历史请求，与设备已读回的实际延时一致：\n" +
+            string.Join("\n", changes) + "\n这些项目的硬件延时档位保持不变。\n\n";
+    }
 
     private void BuildRows(ushort caps)
     {

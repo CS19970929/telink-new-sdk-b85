@@ -44,7 +44,7 @@ static class Test {
    Check(ModbusRtu.InferExpectedLength(frame)==6,"register error response remains six bytes");
   }
   var sh=new ushort[35];sh[0]=1;sh[1]=0x3510;sh[10]=100;sh[12]=150;sh[14]=100;
-  sh[16]=100;sh[20]=100;sh[34]=4|8|16;
+  sh[16]=100;sh[20]=100;sh[34]=4|8|16;sh[11]=140;sh[13]=25;sh[17]=140;
   var shInfo=new AfeHardwareDeviceInfo(0x3510,4|8|16,true,667,8,32,false,1,0,2) {
    ShuntElementMicroOhm=2000,ShuntParallelCount=3
   };
