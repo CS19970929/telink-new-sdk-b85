@@ -22,10 +22,11 @@ static class SerialOtaTests
             FirmwareImage image = FirmwareImage.LoadStrictTelink(path);
             TelinkSerialImage info = TelinkSerialImage.Inspect(image);
             Check(info.Product == 14 && info.BuildId == 0x12345678 && info.DescriptorOffset == 128, "descriptor decode");
-            var success = new Peer(info) { AddNoise = true };
-            using (var client = new TelinkSerialOtaClient(success))
+            var success = new Peer(info) { AddNoise = true, RequireTurnaround = true, DropWaitQueryOnce = true };
+            using (var client = new TelinkSerialOtaClient(success) { RequestTimeout = TimeSpan.FromMilliseconds(50) })
                 Check(await client.UpgradeAsync(image, CancellationToken.None), "serial upgrade confirmation");
-            Check(success.DataWrites == 4 && success.Commits == 1 && success.Image.SequenceEqual(data), "same canonical BIN and one commit");
+            Check(success.DataWrites == 4 && success.Commits == 1 && success.Image.SequenceEqual(data) && success.WaitQueryDropped,
+                "same canonical BIN, one commit and read-only QUERY retry");
             var cross = new Peer(info with { Product = 11 });
             await ExpectStop(cross, image);
             Check(cross.Begins == 0, "cross product began erase");
@@ -65,11 +66,13 @@ static class SerialOtaTests
         readonly TelinkSerialImage _info;
         byte _state;
         uint _session, _offset;
+        long _lastResponse;
         public Peer(TelinkSerialImage info) { _info = info; }
         public bool IsConnected => true;
         public string DiscoveryDescription => "RAM peer";
         public bool RequiresSerialWakeup => true;
-        public bool AddNoise, DropDataAck, DropCommitAck, BadOffset, RejectBegin, Silent;
+        public bool AddNoise, DropDataAck, DropCommitAck, BadOffset, RejectBegin, Silent, RequireTurnaround, DropWaitQueryOnce;
+        public bool WaitQueryDropped;
         public int Begins, DataWrites, Commits;
         public byte[] Image = new byte[512];
         public event Action<ReadOnlyMemory<byte>>? DataReceived;
@@ -78,9 +81,13 @@ static class SerialOtaTests
         public ValueTask DisposeAsync() => default;
         public Task WriteAsync(ReadOnlyMemory<byte> memory, CancellationToken ct = default)
         {
+            if (RequireTurnaround && _lastResponse != 0 && BmsRuntime.Elapsed(_lastResponse).TotalMilliseconds < 20)
+                throw new IOException("RS485 response turnaround too short");
             byte[] req = memory.ToArray();
             Check(ModbusRtu.Crc16(req.AsSpan(0, req.Length - 2)) == BinaryPrimitives.ReadUInt16LittleEndian(req.AsSpan(req.Length - 2)), "request CRC");
             byte cmd = req[2];
+            if (cmd == 0 && _state == 2 && DataWrites == 0 && DropWaitQueryOnce && !WaitQueryDropped)
+            { WaitQueryDropped = true; return Task.CompletedTask; }
             byte error = 0;
             switch (cmd)
             {
@@ -109,6 +116,7 @@ static class SerialOtaTests
                 byte[] stale = rsp.ToArray(); stale[3] ^= 0x80; Seal(stale); DataReceived?.Invoke(stale);
                 byte[] corrupt = rsp.ToArray(); corrupt[28] ^= 1; DataReceived?.Invoke(corrupt);
             }
+            _lastResponse = System.Diagnostics.Stopwatch.GetTimestamp();
             for (int i = 0; i < rsp.Length; i++) DataReceived?.Invoke(rsp.AsMemory(i, 1));
             return Task.CompletedTask;
         }

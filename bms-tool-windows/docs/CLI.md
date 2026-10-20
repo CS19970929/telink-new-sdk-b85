@@ -64,6 +64,16 @@ bms-cli ota .\825x_ble_sample.bin --mac A4:C1:38:12:34:56 --target telink --mode
 
 D008 当前 MTU=23，因此 Auto 实际使用 Legacy 16B。
 
+TLSR8251 已安装支持串口升级的固件后，可复用同一份 Telink BIN：
+
+```powershell
+bms-cli ota .\825x_ble_sample.bin --serial COM3 --baud 115200 --target telink --yes --json --evidence-dir C:\Evidence\uart-ota
+```
+
+串口必须显式指定 `--target telink`；原串口 `auto` 仍选择 STM32 IAP。设备先通过只读 QUERY 核对产品，
+每次应答后至少等待 20 ms；擦除/校验阶段丢失 QUERY 可以重试，DATA/COMMIT 结果未知立即停止。
+串口成功要求提交确认、重启后新程序 IDLE/产品/Build ID/镜像 CRC 一致，以及原 Modbus 身份回读成功。
+
 ## AI / Codex 使用
 
 机器调用必须优先使用 `--json`。stdout 只保留最终 JSON；`--verbose` 的通信细节写到 stderr，不污染 JSON。

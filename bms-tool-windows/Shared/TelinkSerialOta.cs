@@ -42,6 +42,9 @@ public sealed class TelinkSerialOtaClient : IDisposable
     private ushort _sequence, _expectedSequence;
     private byte _expectedCommand;
     private uint _expectedSession;
+    private long _lastResponseTimestamp;
+    // 与普通串口 Modbus 相同，给半双工收发器和板端主循环留出应答后转换时间。
+    private const int ResponseTurnaroundMs = 20;
     private bool _disposed;
     public event Action<string>? Log;
     public event Action<OtaProgress>? Progress;
@@ -147,7 +150,10 @@ public sealed class TelinkSerialOtaClient : IDisposable
         while (watch.Elapsed < TimeSpan.FromSeconds(30))
         {
             await Task.Delay(30, ct);
-            TelinkSerialStatus status = await ExchangeAsync(0, session, Array.Empty<byte>(), ct);
+            TelinkSerialStatus status;
+            // 擦除 Flash 期间 SDK 可屏蔽中断并丢弃收到的 QUERY；只重试无副作用查询。
+            try { status = await ExchangeAsync(0, session, Array.Empty<byte>(), ct); }
+            catch (TimeoutException) { continue; }
             if (status.Error != 0) throw new IOException($"设备升级失败：error={status.Error}; state={status.State}。");
             if (status.State == wanted) return;
             if (status.State != 1 && status.State != 3) throw new IOException($"升级阶段异常：state={status.State}。");
@@ -177,22 +183,30 @@ public sealed class TelinkSerialOtaClient : IDisposable
         ct.ThrowIfCancellationRequested();
         TaskCompletionSource<TelinkSerialStatus> completion;
         ushort sequence;
+        long lastResponse;
         lock (_sync)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(TelinkSerialOtaClient));
             if (_pending is not null) throw new InvalidOperationException("串口升级命令不能并发。");
             _sequence++; sequence = _sequence;
+            lastResponse = _lastResponseTimestamp;
             _expectedSequence = sequence; _expectedCommand = command; _expectedSession = session;
             _rx.Clear();
             completion = _pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
         try
         {
+            if (lastResponse != 0)
+            {
+                double remainingMs = ResponseTurnaroundMs - BmsRuntime.Elapsed(lastResponse).TotalMilliseconds;
+                if (remainingMs > 0) await Task.Delay((int)Math.Ceiling(remainingMs), ct);
+            }
             await _transport.WriteAsync(BuildRequest(command, sequence, session, payload), ct);
             Task delay = Task.Delay(RequestTimeout, ct);
             if (await Task.WhenAny(completion.Task, delay) != completion.Task)
             {
                 ct.ThrowIfCancellationRequested();
+                Log?.Invoke($"UART OTA timeout: command={command}; sequence={sequence}; payloadBytes={payload.Length}");
                 throw new TimeoutException(command == 0 ? "TLSR8251 串口升级查询无响应。" : "升级命令结果未知，已停止，不自动重发。");
             }
             TelinkSerialStatus status = await completion.Task;
@@ -220,6 +234,7 @@ public sealed class TelinkSerialOtaClient : IDisposable
                 if (p[2] != _expectedCommand || BinaryPrimitives.ReadUInt16LittleEndian(p.AsSpan(3)) != _expectedSequence) continue;
                 uint session = BinaryPrimitives.ReadUInt32LittleEndian(p.AsSpan(8));
                 if (p[6] == 0 && _expectedSession != 0 && session != _expectedSession) continue;
+                _lastResponseTimestamp = Stopwatch.GetTimestamp();
                 _pending.TrySetResult(new(p[5], p[6], p[7], session,
                     BinaryPrimitives.ReadUInt32LittleEndian(p.AsSpan(12)), BinaryPrimitives.ReadUInt32LittleEndian(p.AsSpan(16)),
                     BinaryPrimitives.ReadUInt32LittleEndian(p.AsSpan(20)), BinaryPrimitives.ReadUInt32LittleEndian(p.AsSpan(24))));

@@ -852,9 +852,8 @@ Safety:
         OtaTargetKind target;
         if (endpoint.IsSerial)
         {
-            if (requestedTarget == OtaTargetKind.Telink)
-                throw new CliException(ExitCodes.Usage, "usage", "Telink OTA requires BLE; --serial can only use STM32 serial IAP.");
-            target = OtaTargetKind.Stm32SerialIap;
+            // 保持原串口 auto 的 STM32 行为；TLSR8251 必须显式选择 --target telink。
+            target = requestedTarget == OtaTargetKind.Telink ? OtaTargetKind.Telink : OtaTargetKind.Stm32SerialIap;
         }
         else
         {
@@ -872,6 +871,8 @@ Safety:
         try
         {
             image = FirmwareImage.LoadForTarget(firmwarePath, target);
+            if (endpoint.IsSerial && target == OtaTargetKind.Telink)
+                _ = TelinkSerialImage.Inspect(image);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1111,6 +1112,7 @@ Safety:
             return await RunOtaOnceAsync(endpoint, image, target, requested, reporter, ct);
         }
         catch (Exception ex) when (
+            !endpoint.IsSerial &&
             requested == OtaTransferMode.Auto &&
             IsExtendCompatibilityFailure(ex) &&
             !ct.IsCancellationRequested)
@@ -1129,6 +1131,16 @@ Safety:
         CliReporter reporter,
         CancellationToken ct)
     {
+        if (endpoint.IsSerial && target == OtaTargetKind.Telink)
+        {
+            await using var transport = new BmsSerialTransport();
+            transport.ConnectionProgress += reporter.VerboseLog;
+            await transport.ConnectAsync(endpoint.PortName!, endpoint.BaudRate, ct);
+            using var serialOta = new TelinkSerialOtaClient(transport);
+            serialOta.Log += reporter.VerboseLog;
+            serialOta.Progress += p => reporter.Progress($"Telink UART {p.Percent:F1}% {p.BytesPerSecond / 1024.0:F1} KiB/s");
+            return await serialOta.UpgradeAsync(image, ct);
+        }
         if (target == OtaTargetKind.Stm32SerialIap)
         {
             if (endpoint.IsSerial)
