@@ -39,6 +39,18 @@ public static class BmsSleepParameters
 
 public static class D008Parameters
 {
+    public static string FeatureStatusText(ushort[] s)
+    {
+        if(s.Length!=6 || s[0]!=1 || (s[1]&~3)!=0 || (s[4]&0xff00)!=0) return "功能状态：未确认";
+        string[] reasons={"本产品不支持","持久许可禁止","采样/配置待确认","正在放电","温度限制","保护故障",
+            "采样线诊断中","关闭尚未确认","未达到起始电压/压差","加热互斥","均衡通信/核对失败"};
+        var blocks=Enumerable.Range(0,reasons.Length).Where(i=>(s[2]&(1<<i))!=0).Select(i=>reasons[i]).ToArray();
+        uint mask=(uint)s[3]|((uint)s[4]<<16);
+        string cells=string.Join(",",Enumerable.Range(0,24).Where(i=>(mask&(1u<<i))!=0).Select(i=>(i+1).ToString()));
+        return "加热："+((s[1]&1)==0?"本产品不支持":s[5]!=0?"运行中":"停止")+
+            "；均衡："+((s[1]&2)==0?"本产品不支持":blocks.Length!=0?string.Join("、",blocks):mask!=0?"运行中":"条件满足，暂无活动通道")+
+            "；最后确认活动串："+(cells.Length==0?"无":cells)+"（读取时快照）";
+    }
     public const ushort Base=0x2E00, Magic=0xD008, MinimumProtocolVersion=1, CurrentProtocolVersion=2;
     public const ushort BalanceCapability=0x0040;
     public const ushort HeaterCapability=0x0004, HeaterBase=0x2E20, BalanceBase=0x2E70;

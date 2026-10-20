@@ -125,6 +125,9 @@ static class Test {
   var off=customer.ToArray();off[34]&=unchecked((ushort)~64);t.Reset();
   try{await client.WriteShortCircuitAsync(new(off,off,shInfo with {Capabilities=0xdf}),1350,64);throw new Exception("客户隐式开启短路");}catch(InvalidOperationException){}
   Check(t.Opens==0&&t.Stages==0&&t.Commits==0,"本地非法候选不得开启会话");
+  Check(D008Parameters.FeatureStatusText(new ushort[]{1,2,16,1,0,0}).Contains("温度限制"),"温度阻止原因");
+  Check(D008Parameters.FeatureStatusText(new ushort[]{1,2,0,1,0,0}).Contains("运行中"),"实际活动通道");
+  Check(D008Parameters.FeatureStatusText(new ushort[]{0,2,0,1,0,0}).Contains("未确认"),"未知状态版本不误报");
   Console.WriteLine("PASS AFE MTU23 roundtrip, old firmware, wrong ACK, cancel, SCD, serial response and balance mask; unavailable effective rejected; customer short complete transaction, stale snapshot, invalid effective and OCD2 readback guards");
  }
 }

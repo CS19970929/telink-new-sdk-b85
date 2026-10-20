@@ -60,6 +60,7 @@ public sealed record AfeHardwareDeviceInfo(
     ushort InterfaceVersion)
 {
     public ushort HardwareFeatures { get; init; }
+    public ushort[]? FeatureStatus { get; init; }
     public ushort ShuntElementMicroOhm { get; init; }
     public byte ShuntParallelCount { get; init; }
     public bool HasExactShunt => ShuntElementMicroOhm != 0 && ShuntParallelCount is >= 1 and <= 16;
@@ -952,6 +953,10 @@ public sealed class AfeHardwareClient
         try {
             ushort[] features = await _bms.ReadRegistersAsync(0x252E, 1, ct);
             if (features[0]!=ushort.MaxValue) info=info with {HardwareFeatures=features[0]};
+            if(features[0]!=ushort.MaxValue && (features[0]&4)!=0) {
+                ushort[] status=await _bms.ReadRegistersAsync(0x253A,6,ct);
+                if(status[0]==1)info=info with {FeatureStatus=status};
+            }
         } catch (BmsModbusException ex) when (ex.Code==2) { /* 可选追加只读能力，兼容旧固件。 */ }
         return new AfeHardwareSnapshot(requested, effective, info);
     }
