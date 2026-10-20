@@ -95,7 +95,7 @@ public partial class MainWindow
             Width = 105
         });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "单位", Binding = new Binding(nameof(AfeParameterRow.Unit)), Width = 60, IsReadOnly = true });
-        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "电流允许范围", Binding = new Binding(nameof(AfeParameterRow.AllowedCurrentRange)), Width = 150, IsReadOnly = true });
+        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "允许输入范围", Binding = new Binding(nameof(AfeParameterRow.AllowedCurrentRange)), Width = 150, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "说明", Binding = new Binding(nameof(AfeParameterRow.Hint)), Width = new DataGridLength(1, DataGridLengthUnitType.Star), IsReadOnly = true });
         var browser = CreateParameterBrowser(_afeHardwareGrid, item => ((AfeParameterRow)item).Group,
             new[] { "单体过压", "单体欠压", "放电过流", "充电过流", "短路保护", "充电温度", "放电温度", "温度保护" });

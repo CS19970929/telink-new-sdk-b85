@@ -165,6 +165,33 @@ public sealed class AfeHardwareParameterModel
         (13,AfeHardwareProtocolMap.CapOcd2,25,400),
         (17,AfeHardwareProtocolMap.CapOcc1,140,10010)
     };
+    // 完整 35-word 候选按固件 validate/validate_write 的全部范围检查，
+    // 不只检查正在编辑的组。延时上限即使保护关闭也由固件检查。
+    private static readonly (int Word, ushort Capability, ushort Minimum, ushort Maximum, bool AlwaysCheckMaximum)[] ShValueLimits = {
+        (2,AfeHardwareProtocolMap.CapCov,3000,4500,false),
+        (6,AfeHardwareProtocolMap.CapCuv,1000,3500,false),
+        (3,AfeHardwareProtocolMap.CapCov,140,10010,true),
+        (7,AfeHardwareProtocolMap.CapCuv,490,10010,true),
+        (11,AfeHardwareProtocolMap.CapOcd1,140,10010,true),
+        (13,AfeHardwareProtocolMap.CapOcd2,25,400,true),
+        (17,AfeHardwareProtocolMap.CapOcc1,140,10010,true),
+        (23,AfeHardwareProtocolMap.CapSc,0,576,true),
+        (25,AfeHardwareProtocolMap.CapTemp,800,1100,false),
+        (27,AfeHardwareProtocolMap.CapTemp,200,500,false),
+        (29,AfeHardwareProtocolMap.CapTemp,850,1200,false),
+        (31,AfeHardwareProtocolMap.CapTemp,0,500,false)
+    };
+    private static readonly (int Word, ushort Capability, ushort Minimum, ushort Maximum, bool AlwaysCheckMaximum)[] DvcValueLimits = {
+        (2,AfeHardwareProtocolMap.CapCov,501,4595,false),
+        (6,AfeHardwareProtocolMap.CapCuv,1,4095,false),
+        (3,AfeHardwareProtocolMap.CapCov,200,8000,true),
+        (7,AfeHardwareProtocolMap.CapCuv,200,8000,true),
+        (11,AfeHardwareProtocolMap.CapOcd1,8,2048,true),
+        (13,AfeHardwareProtocolMap.CapOcd2,4,1024,true),
+        (17,AfeHardwareProtocolMap.CapOcc1,8,2048,true),
+        (19,AfeHardwareProtocolMap.CapOcc2,4,1024,true),
+        (23,AfeHardwareProtocolMap.CapSc,0,1992,false)
+    };
     // SH CV1.0A 原 PDF p37–38。电流范围由芯片压降与设备精确分流比例计算，
     // 不能用显示用的整数 µΩ 或已取整的有效电流反推。
     private static readonly (int Word, ushort Capability, uint StepUv, uint MaximumCode)[] ShCurrentLimits = {
@@ -214,6 +241,7 @@ public sealed class AfeHardwareParameterModel
         ushort enableMask = _requested[34];
         foreach (AfeParameterRow row in Rows)
             row.Load(_requested[row.WireIndex], _effective[row.WireIndex], enableMask);
+        RefreshValueGuidance();
     }
 
     public void ResetEditsToCurrent()
@@ -265,14 +293,38 @@ public sealed class AfeHardwareParameterModel
                 if (raw[limit.Word] == _requested[limit.Word] && raw[limit.Word] < limit.Minimum &&
                     _effective[limit.Word] == limit.Minimum)
                     raw[limit.Word] = limit.Minimum;
-                if (raw[limit.Word] < limit.Minimum || raw[limit.Word] > limit.Maximum)
-                {
-                    var row = Rows.Single(r => r.WireIndex == limit.Word);
-                    error = $"{row.Group} / {row.Name} 必须为 {limit.Minimum}～{limit.Maximum} ms；" +
-                        "旧请求仅能在未编辑且已读回相同实际档位时修正。";
-                    return false;
-                }
             }
+        }
+        var rangeErrors = new List<string>();
+        var valueLimits = _deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510
+            ? ShValueLimits : DvcValueLimits;
+        foreach (var limit in valueLimits)
+        {
+            bool enabled = (en & limit.Capability) != 0;
+            if ((!enabled || raw[limit.Word] >= limit.Minimum) &&
+                ((!enabled && !limit.AlwaysCheckMaximum) || raw[limit.Word] <= limit.Maximum)) continue;
+            var row = Rows.FirstOrDefault(r => r.WireIndex == limit.Word);
+            if (row is null)
+            {
+                rangeErrors.Add($"保留字段 word[{limit.Word}]={raw[limit.Word]} 超出固件允许上限 {limit.Maximum}。");
+                continue;
+            }
+            string minimum = row.Decode(enabled ? limit.Minimum : (ushort)0);
+            rangeErrors.Add($"{row.Group} / {row.Name}：当前 {row.Decode(raw[limit.Word])} {row.Unit}，" +
+                $"允许 {minimum}～{row.Decode(limit.Maximum)} {row.Unit}（word[{limit.Word}]）。");
+        }
+        // 固件对全部温度字段（含恢复值和未启用字段）检查协议编码上限。
+        for (int i = 25; i <= 32; i++)
+            if (raw[i] > 1450) rangeErrors.Add($"温度 word[{i}] 超出协议范围 −40～105℃。");
+        ushort ocdPair = (ushort)(en & (AfeHardwareProtocolMap.CapOcd1 | AfeHardwareProtocolMap.CapOcd2));
+        if (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 &&
+            ocdPair != 0 && ocdPair != (AfeHardwareProtocolMap.CapOcd1 | AfeHardwareProtocolMap.CapOcd2))
+            rangeErrors.Add("SH OCD1/OCD2 共用硬件使能，必须同时开启或同时关闭。");
+        if (rangeErrors.Count != 0)
+        {
+            error = "完整 AFE 参数中有以下不合规项，整组未发送：\n" + string.Join("\n", rangeErrors) +
+                "\n请显式修正这些项目；温度有效显示值不是独立寄存器反算结果，不能据此自动改写温度。";
+            return false;
         }
         foreach (var limit in DvcCurrentLimits)
         {
@@ -287,9 +339,6 @@ public sealed class AfeHardwareParameterModel
                 return false;
             }
         }
-        if ((en & AfeHardwareProtocolMap.CapSc) != 0 &&
-            raw[23] > (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelDvc1124 ? 1992 : 576))
-        { error = "短路延时超出当前芯片范围；未发送写入。"; return false; }
         if ((en & AfeHardwareProtocolMap.CapSc) != 0 && CanCalculateShortRange)
         {
             if (!TryGetShortRange(raw[12], out uint minimumA10, out uint maximumA10, out string hint))
@@ -321,8 +370,8 @@ public sealed class AfeHardwareParameterModel
 
         if ((en & AfeHardwareProtocolMap.CapSc)!=0 && _deviceInfo.BackendModel==AfeHardwareProtocolMap.ModelDvc1124) {
             uint senseUv=(uint)raw[22]*_deviceInfo.ShuntMicroOhm/10u;
-            if (_deviceInfo.ShuntMicroOhm==0 || senseUv<10000u || senseUv>630000u || raw[23]<8 || raw[23]>1999) {
-                error="DVC 短路启用需有效电流（分流压降 10~630 mV）及 8~1999 us 延时；按芯片档位向下量化，请核对有效值。";return false;
+            if (_deviceInfo.ShuntMicroOhm==0 || senseUv<10000u || senseUv>630000u) {
+                error="DVC 短路启用需有效电流（分流压降 10~630 mV）；按芯片档位向下量化，请核对有效值。";return false;
             }
         }
         error = string.Empty;
@@ -330,6 +379,27 @@ public sealed class AfeHardwareParameterModel
     }
 
     public bool HasChanges(ushort[] candidate) => !_requested.SequenceEqual(candidate);
+
+    private void RefreshValueGuidance()
+    {
+        var limits = _deviceInfo!.BackendModel == AfeHardwareProtocolMap.ModelSh3673510
+            ? ShValueLimits : DvcValueLimits;
+        foreach (var row in Rows)
+        {
+            if (row.WireIndex == 22 || row.Unit == "A") continue;
+            var limit = limits.FirstOrDefault(l => l.Word == row.WireIndex);
+            string range = limit.Capability != 0
+                ? $"{row.Decode(limit.Minimum)}～{row.Decode(limit.Maximum)} {row.Unit}"
+                : row.Unit == "℃" ? "−40～105 ℃，并满足恢复回差"
+                : row.WireIndex == 34 ? "当前芯片能力位" : $"0～65535 {row.Unit}";
+            string hint = row.Hint;
+            if (row.Unit == "℃") hint = "协议编码为 (℃+40)×10；温度有效显示值沿用请求值，未独立反算寄存器。";
+            if (limit.Capability != 0) hint = $"启用时允许输入 {range}；完整参数会一起校验。" +
+                (row.Unit == "℃" ? "温度有效显示值未独立反算寄存器，不能作为自动修正依据。" :
+                 "芯片离散档位由固件量化，实际值见“AFE有效值”。");
+            row.UpdateGuidance(hint, range);
+        }
+    }
 
     public string DescribeLegacyDelayCorrections(ushort[] candidate)
     {
@@ -354,15 +424,15 @@ public sealed class AfeHardwareParameterModel
         Rows.Clear();
         if ((caps & AfeHardwareProtocolMap.CapCov) != 0)
         {
-            Rows.Add(U16Row(2, AfeHardwareProtocolMap.CapCov, "单体过压", "保护电压", "mV", 1, 6000));
-            Rows.Add(U16Row(4, AfeHardwareProtocolMap.CapCov, "单体过压", "恢复电压", "mV", 1, 6000));
+            Rows.Add(U16Row(2, AfeHardwareProtocolMap.CapCov, "单体过压", "保护电压", "mV", 0, ushort.MaxValue));
+            Rows.Add(U16Row(4, AfeHardwareProtocolMap.CapCov, "单体过压", "恢复电压", "mV", 0, ushort.MaxValue));
             Rows.Add(U16Row(3, AfeHardwareProtocolMap.CapCov, "单体过压", "保护延时", "ms", 0, ushort.MaxValue));
             Rows.Add(U16Row(5, AfeHardwareProtocolMap.CapCov, "单体过压", "恢复确认", "ms", 0, ushort.MaxValue));
         }
         if ((caps & AfeHardwareProtocolMap.CapCuv) != 0)
         {
-            Rows.Add(U16Row(6, AfeHardwareProtocolMap.CapCuv, "单体欠压", "保护电压", "mV", 1, 6000));
-            Rows.Add(U16Row(8, AfeHardwareProtocolMap.CapCuv, "单体欠压", "恢复电压", "mV", 1, 6000));
+            Rows.Add(U16Row(6, AfeHardwareProtocolMap.CapCuv, "单体欠压", "保护电压", "mV", 0, ushort.MaxValue));
+            Rows.Add(U16Row(8, AfeHardwareProtocolMap.CapCuv, "单体欠压", "恢复电压", "mV", 0, ushort.MaxValue));
             Rows.Add(U16Row(7, AfeHardwareProtocolMap.CapCuv, "单体欠压", "保护延时", "ms", 0, ushort.MaxValue));
             Rows.Add(U16Row(9, AfeHardwareProtocolMap.CapCuv, "单体欠压", "恢复确认", "ms", 0, ushort.MaxValue));
         }
@@ -632,10 +702,10 @@ public sealed class AfeHardwareParameterModel
         Decode = v => (v / 10.0).ToString("0.0", CultureInfo.InvariantCulture),
         Encode = s =>
         {
-            if (!double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double value) || value < 0 || value > 6553.5)
+            if (!decimal.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out decimal value) || value < 0 || value > 6553.5m)
                 return (false, (ushort)0, "请输入合法电流值(A)。");
-            int wire = (int)Math.Round(value * 10.0, MidpointRounding.AwayFromZero);
-            if (Math.Abs(value * 10.0 - wire) > 0.0001)
+            decimal wire = value * 10m;
+            if (wire != decimal.Truncate(wire))
                 return (false, (ushort)0, "电流最多保留 0.1A。 ");
             return (true, checked((ushort)wire), string.Empty);
         }
@@ -652,11 +722,10 @@ public sealed class AfeHardwareParameterModel
         Decode = v => (v / 10.0 - 40.0).ToString("0.0", CultureInfo.InvariantCulture),
         Encode = s =>
         {
-            if (!double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double c) || c < -40 || c > 105)
+            if (!decimal.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out decimal c) || c < -40 || c > 105)
                 return (false, (ushort)0, "请输入 -40~105℃。");
-            double raw = (c + 40.0) * 10.0;
-            int wire = (int)Math.Round(raw, MidpointRounding.AwayFromZero);
-            if (Math.Abs(raw - wire) > 0.0001)
+            decimal wire = (c + 40m) * 10m;
+            if (wire != decimal.Truncate(wire))
                 return (false, (ushort)0, "温度最多保留 0.1℃。 ");
             return (true, checked((ushort)wire), string.Empty);
         }
@@ -727,7 +796,17 @@ public sealed class AfeHardwareClient
                     latest.Info.ShuntParallelCount != expected.Info.ShuntParallelCount)
                     throw new IOException("AFE 参数或分流器信息已改变，短路参数未提交；请重新读取并确认档位。");
             }
-            await _bms.WriteAfeProfileAsync(candidate, session, ct);
+            try
+            {
+                await _bms.WriteAfeProfileAsync(candidate, session, ct);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested && (ex is IOException || ex is TimeoutException))
+            {
+                // 0x42 COMMIT 把校验/存储/应用/回滚错误合并为 status=4。
+                // 失败后只读元数据，即使 effective 不可读也能报告实际失败阶段。
+                string detail = await ReadFailureStateAsync(candidate[1], ct);
+                throw new IOException(ex.Message + "\n" + detail, ex);
+            }
             AfeHardwareSnapshot readback = await ReadAllAsync(ct);
             if (!readback.Requested.SequenceEqual(candidate))
             {
@@ -744,6 +823,32 @@ public sealed class AfeHardwareClient
         {
             if (session is not null)
                 await _bms.TryCloseAfeHardwareAccessAsync(session.Token, CancellationToken.None);
+        }
+    }
+
+    private async Task<string> ReadFailureStateAsync(ushort backend, CancellationToken ct)
+    {
+        try
+        {
+            ushort[] meta = await _bms.ReadRegistersAsync(AfeHardwareProtocolMap.MetadataBase,
+                AfeHardwareProtocolMap.MetadataWordCount, ct);
+            var info = new AfeHardwareDeviceInfo(backend, meta[0], meta[1] != 0, meta[2], meta[3],
+                meta[4], meta[5] != 0, meta[6], meta[7], meta[8]);
+            string reason = info.LastError switch {
+                1 => "设备报告授权校验失败。",
+                2 => "设备报告完整参数校验拒绝；请核对全部启用参数的范围与恢复关系。",
+                3 => "设备报告参数存储失败。",
+                4 => "设备报告 AFE 应用或核对失败；请检查回滚状态。",
+                5 => "设备报告回滚失败，必须保持输出禁止并排查硬件配置。",
+                _ => "当前元数据不能确认本次提交结果，请重新读取 requested/effective；不要重复提交。"
+            };
+            return $"失败后读回：apply_state={info.ApplyStateText} ({info.ApplyState})，" +
+                $"last_error={info.ErrorText} ({info.LastError})。\n" + reason +
+                "\n元数据记录最近一次固件事务；通信结果不确定时，仍须重新读取 requested/effective 确认。";
+        }
+        catch (Exception ex) when (ex is IOException || ex is TimeoutException)
+        {
+            return "失败后状态读回未完成，提交结果未确认；请重新读取设备，不要重复提交。";
         }
     }
 }

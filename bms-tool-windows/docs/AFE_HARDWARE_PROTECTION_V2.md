@@ -73,3 +73,23 @@ The editor also does not authorize unvalidated product values. In particular, D0
 - the customer UI remains launch-gated;
 - the internal UI uses the same V2 transaction but is not launch-gated;
 - neither editor reintroduces a BLE-only requirement for AFE hardware writes.
+
+## D014 完整参数预检查（2026-10-20）
+
+欠压 2400→2500 mV 本身符合 SH3673510 的 1000..3500 mV 范围。当前 D014 源码中的
+AFE 充电低温 −25℃低于原厂 SH CV1.0A p49 的 −20..10℃保证范围，完整 35-word
+候选夹带该值时会被固件拒绝；旧 OCC1=100 ms 同样低于 p38 的 140 ms 首档。
+本次仅取得源码和截图证据，未读取该次失败后的完整设备参数或状态。
+
+客户版和内部版补齐 SH 电压、四类温度、全部延时和 OCD1/OCD2 共用使能检查；原有
+电流、SC/OCD2 基准和恢复关系检查继续使用。整组标量范围错误一次列出，表格显示
+“允许输入范围”。不根据沿用请求值的温度 effective 字段自动改写用户温度。
+公共 DVC 页面同步补齐固件现有电压/延时检查及 1992 us 短路延时上限。
+
+电流和温度使用 decimal 检查 0.1 单位精度，拒绝 NaN/Infinity 等非法输入。
+设备返回失败时独立读取元数据，显示最近事务的 apply_state/last_error，区分校验、
+存储、AFE 应用及回滚错误。effective 不可读不阻止元数据诊断；通信结果不确定时
+仍要求重新读取，保持单次提交、不自动重发。
+
+新增边界、截图参数候选、共用使能、非法数值和失败元数据回归断言。本轮仅完成源码及
+Git 差异审查，未执行测试、编译、EXE 发布或设备写入；已有 EXE 不因源码修改而更新。
