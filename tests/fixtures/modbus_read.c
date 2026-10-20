@@ -51,6 +51,7 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 u16 bms_afe_hw_profile_capabilities(void) { return 0x1234u; }
 u16 bms_afe_hw_profile_apply_state(void) { return 2u; }
 u16 bms_afe_hw_profile_last_error(void) { return 3u; }
+u16 bms_afe_hw_profile_diagnostic_word(u16 offset) { return (u16)(0x3400u+offset); }
 u8 bms_afe_hw_access_is_active(void) { return 1u; }
 u16 bms_event_log_read_reg(u16 r) { ++event_reads; return (u16)(0x4000u+r); }
 const char *btname_get(void) { return "BT_TEST"; }

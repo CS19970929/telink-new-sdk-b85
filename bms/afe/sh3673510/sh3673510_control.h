@@ -34,6 +34,9 @@ typedef struct
     uint8_t temperature_channels;
     uint8_t valid;
 } sh3673510_protection_actual_t;
+typedef struct { uint16_t reg, expected, actual, reason; } sh3673510_write_failure_t;
+void sh3673510_control_clear_write_failure(void);
+void sh3673510_control_get_write_failure(sh3673510_write_failure_t *failure);
 
 /* 初始化 SH 控制层并验证固定配置。 */
 uint8_t sh3673510_control_init(void);

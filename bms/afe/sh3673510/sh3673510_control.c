@@ -43,29 +43,50 @@ static void sh3510_gpio_output_low(GPIO_PinTypeDef pin)
 #endif
 
 /* 按字段掩码读改写 SH 寄存器。 */
+static uint8_t note_write_failure(uint8_t reg, uint16_t expected, uint16_t actual, uint16_t reason);
+
 static uint8_t sh3510_update_reg(uint8_t reg, uint8_t mask, uint8_t bits)
 {
     uint8_t value;
     uint8_t target;
     uint8_t verify;
 
-    if (SH3673520_ReadReg(reg, &value) != SH3673520_OK) return 0u;
+    if (SH3673520_ReadReg(reg, &value) != SH3673520_OK) return note_write_failure(reg,bits & mask,0xFFFFu,2u);
     target = (uint8_t)((value & (uint8_t)~mask) | (bits & mask));
     if (target != value)
     {
-        if (SH3673520_WriteReg(reg, target) != SH3673520_OK) return 0u;
+        if (SH3673520_WriteReg(reg, target) != SH3673520_OK) return note_write_failure(reg,target,0xFFFFu,1u);
     }
-    if (SH3673520_ReadReg(reg, &verify) != SH3673520_OK) return 0u;
-    return ((verify & mask) == (target & mask)) ? 1u : 0u;
+    if (SH3673520_ReadReg(reg, &verify) != SH3673520_OK) return note_write_failure(reg,target,0xFFFFu,2u);
+    return ((verify & mask) == (target & mask)) ? 1u : note_write_failure(reg,target,verify,3u);
+}
+
+static sh3673510_write_failure_t s_write_failure = {0xFFFFu,0xFFFFu,0xFFFFu,0u};
+void sh3673510_control_clear_write_failure(void)
+{
+    s_write_failure.reg=s_write_failure.expected=s_write_failure.actual=0xFFFFu;
+    s_write_failure.reason=0u;
+}
+void sh3673510_control_get_write_failure(sh3673510_write_failure_t *failure)
+{
+    if(failure) *failure=s_write_failure;
+}
+static uint8_t note_write_failure(uint8_t reg, uint16_t expected, uint16_t actual, uint16_t reason)
+{
+    if(s_write_failure.reg==0xFFFFu) {
+        s_write_failure.reg=reg;s_write_failure.expected=expected;
+        s_write_failure.actual=actual;s_write_failure.reason=reason;
+    }
+    return 0u;
 }
 
 /* 写入寄存器并回读确认实际值。 */
 static uint8_t sh3510_write_verify(uint8_t reg, uint8_t value, uint8_t mask)
 {
     uint8_t verify;
-    if (SH3673520_WriteReg(reg, value) != SH3673520_OK) return 0u;
-    if (SH3673520_ReadReg(reg, &verify) != SH3673520_OK) return 0u;
-    return ((verify & mask) == (value & mask)) ? 1u : 0u;
+    if (SH3673520_WriteReg(reg, value) != SH3673520_OK) return note_write_failure(reg,value,0xFFFFu,1u);
+    if (SH3673520_ReadReg(reg, &verify) != SH3673520_OK) return note_write_failure(reg,value,0xFFFFu,2u);
+    return ((verify & mask) == (value & mask)) ? 1u : note_write_failure(reg,value,verify,3u);
 }
 
 static const uint16_t s_ov_delay_ms[8] = {
@@ -197,6 +218,7 @@ uint8_t sh3673510_control_apply_protection(void)
     uint8_t ok = 1u;
 
     s_protection_actual.valid = 0u;
+    sh3673510_control_clear_write_failure();
     if (!s_control_ready || !bms_afe_hw_profile_get(&hw)) return 0u;
     ov_delay_ms = hw.cov_delay_ms;
     uv_delay_ms = hw.cuv_delay_ms;

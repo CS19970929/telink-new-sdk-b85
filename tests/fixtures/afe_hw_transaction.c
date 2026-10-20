@@ -44,6 +44,8 @@ void bms_afe_invalidate_configuration(void) { event('I'); }
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p) {
     event('E'); ++effective_count; *p = stored; return effective_count != fail_effective;
 }
+u16 bms_afe_hw_profile_validation_word(void) {return 27u;}
+static void capture_register_failure(u16 *fields) {(void)fields;}
 /* PRODUCTION_SOURCE */
 
 typedef struct {

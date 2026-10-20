@@ -32,6 +32,10 @@ int main(void) {
  const char *scenario=getenv("GATE_CASE");assert(scenario);
  int persistent=!strcmp(scenario,"rollback-failure");corrupt_remaining=persistent?-1:1;
  unsigned error=bms_afe_hw_profile_commit_be(payload,35);
+ assert(bms_afe_hw_profile_diagnostic_word(0)==1u);
+ assert(bms_afe_hw_profile_diagnostic_word(3)==SH3673520_REG_OVL);
+ assert(bms_afe_hw_profile_diagnostic_word(6)==3u);
+ if(persistent) {assert(bms_afe_hw_profile_diagnostic_word(7)==SH3673520_REG_OVL);assert(bms_afe_hw_profile_diagnostic_word(10)==3u);}
  corrupt_read_reg=-1;corrupt_remaining=0;
  assert(bms_afe_hw_profile_get(&after) && !memcmp(&before,&after,sizeof(before)));
  assert(!discharge_on());

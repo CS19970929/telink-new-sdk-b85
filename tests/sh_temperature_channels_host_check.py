@@ -49,6 +49,11 @@ int main(void) {
             assert(regs[0x53]==192u && actual.chg_ut_x10==198u);
         }
     }
+    requested=original;requested.enable_mask=BMS_AFE_HW_TEMP_CHANNEL_SELECT|BMS_AFE_HW_EN_TEMP|BMS_AFE_HW_EN_TS1;
+    requested.chg_ut_x10=150u;assert(!bms_afe_hw_profile_validate_write(&requested));
+    assert(bms_afe_hw_profile_validation_word()==27u);
+    requested=original;requested.occ1_delay_ms=100u;
+    assert(!bms_afe_hw_profile_validate_write(&requested));assert(bms_afe_hw_profile_validation_word()==17u);
     requested=original;requested.enable_mask=BMS_AFE_HW_TEMP_CHANNEL_SELECT;
     requested.chg_ot_x10=0u;requested.chg_ut_x10=1450u;
     assert(bms_afe_hw_profile_validate_write(&requested)); /* 全关时不要求未启用阈值可量化。 */

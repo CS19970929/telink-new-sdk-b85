@@ -90,6 +90,9 @@ u16 bms_afe_hw_profile_capabilities(void);
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *profile);
 /* 新授权写入的保证范围/硬件能力校验；不重置旧持久参数。 */
 u8 bms_afe_hw_profile_validate_write(const bms_afe_hw_profile_t *profile);
+u16 bms_afe_hw_profile_validation_word(void);
+/* 最近一次提交的只读诊断，offset 0..10；未知字段/寄存器返回 0xFFFF。 */
+u16 bms_afe_hw_profile_diagnostic_word(u16 offset);
 /* 取得缓存的请求硬件保护配置。 */
 u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *profile);
 /* 返回当前 AFE 量化后实际可表示的值。 */

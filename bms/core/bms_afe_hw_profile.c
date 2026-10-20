@@ -247,6 +247,10 @@ void bms_afe_hw_profile_build_chemistry_default(u8 chemistry, bms_afe_hw_profile
 #endif
 }
 
+static u16 s_validation_word = 0xFFFFu;
+static u8 reject_profile_word(u16 word) { if (s_validation_word==0xFFFFu) s_validation_word=word; return 0u; }
+u16 bms_afe_hw_profile_validation_word(void) { return s_validation_word; }
+
 /* 验证保护触发与恢复阈值的回差关系。 */
 /* TC32多点内联会突破D008生产Flash预留；保留单一函数实体，见AFE修复记录。 */
 #if defined(__GNUC__)
@@ -255,9 +259,9 @@ static u8 validate_hysteresis(const bms_afe_hw_profile_t *p) __attribute__((noin
 static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
 {
     if ((p->enable_mask & BMS_AFE_HW_EN_COV) &&
-        (p->cov_mv == 0u || p->cov_recover_mv >= p->cov_mv)) return 0u;
+        (p->cov_mv == 0u || p->cov_recover_mv >= p->cov_mv)) return reject_profile_word(p->cov_mv==0u?2u:4u);
     if ((p->enable_mask & BMS_AFE_HW_EN_CUV) &&
-        (p->cuv_mv == 0u || p->cuv_recover_mv <= p->cuv_mv)) return 0u;
+        (p->cuv_mv == 0u || p->cuv_recover_mv <= p->cuv_mv)) return reject_profile_word(p->cuv_mv==0u?6u:8u);
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     /*
@@ -267,31 +271,31 @@ static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
         (p->ocd1_a10 == 0u ||
          p->ocd_recover_a10 >= sh3673510_quantize_current_ratio_a10(p->ocd1_a10,
-             SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 5000u, 15u, 0))) return 0u;
+             SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 5000u, 15u, 0))) return reject_profile_word(14u);
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
         (p->ocd2_a10 == 0u ||
          p->ocd_recover_a10 >= sh3673510_quantize_current_ratio_a10(p->ocd2_a10,
-             SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 10000u, 15u, 0))) return 0u;
+             SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 10000u, 15u, 0))) return reject_profile_word(14u);
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
         (p->occ1_a10 == 0u ||
          p->occ_recover_a10 >= sh3673510_quantize_current_ratio_a10(p->occ1_a10,
-             SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 1375u, 31u, 0))) return 0u;
+             SH3673510_BOARD_SHUNT_ELEMENT_UOHM, SH3673510_BOARD_SHUNT_PARALLEL_COUNT, 1375u, 31u, 0))) return reject_profile_word(20u);
 #else
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
-        (p->ocd1_a10 == 0u || p->ocd_recover_a10 >= p->ocd1_a10)) return 0u;
+        (p->ocd1_a10 == 0u || p->ocd_recover_a10 >= p->ocd1_a10)) return reject_profile_word(14u);
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
-        (p->ocd2_a10 == 0u || p->ocd_recover_a10 >= p->ocd2_a10)) return 0u;
+        (p->ocd2_a10 == 0u || p->ocd_recover_a10 >= p->ocd2_a10)) return reject_profile_word(14u);
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
-        (p->occ1_a10 == 0u || p->occ_recover_a10 >= p->occ1_a10)) return 0u;
+        (p->occ1_a10 == 0u || p->occ_recover_a10 >= p->occ1_a10)) return reject_profile_word(20u);
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC2) &&
-        (p->occ2_a10 == 0u || p->occ_recover_a10 >= p->occ2_a10)) return 0u;
+        (p->occ2_a10 == 0u || p->occ_recover_a10 >= p->occ2_a10)) return reject_profile_word(20u);
 #endif
 
     if (p->enable_mask & BMS_AFE_HW_EN_TEMP) {
-        if (p->chg_ot_recover_x10 >= p->chg_ot_x10 ||
-            p->dsg_ot_recover_x10 >= p->dsg_ot_x10 ||
-            p->chg_ut_recover_x10 <= p->chg_ut_x10 ||
-            p->dsg_ut_recover_x10 <= p->dsg_ut_x10) return 0u;
+        if(p->chg_ot_recover_x10>=p->chg_ot_x10) return reject_profile_word(26u);
+        if(p->dsg_ot_recover_x10>=p->dsg_ot_x10) return reject_profile_word(30u);
+        if(p->chg_ut_recover_x10<=p->chg_ut_x10) return reject_profile_word(28u);
+        if(p->dsg_ut_recover_x10<=p->dsg_ut_x10) return reject_profile_word(32u);
     }
     return 1u;
 }
@@ -300,51 +304,58 @@ static u8 validate_hysteresis(const bms_afe_hw_profile_t *p)
 u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *p)
 {
     u32 sense_uv;
-    if (p == 0) return 0u;
-    if (p->schema_version != BMS_AFE_HW_PROFILE_SCHEMA_VERSION) return 0u;
-    if (p->afe_model != bms_afe_hw_profile_expected_model()) return 0u;
-    if ((p->enable_mask & (u16)~bms_afe_hw_profile_capabilities()) != 0u) return 0u;
+    if (p == 0) return reject_profile_word(0xFFFFu);
+    if (p->schema_version != BMS_AFE_HW_PROFILE_SCHEMA_VERSION) return reject_profile_word(0u);
+    if (p->afe_model != bms_afe_hw_profile_expected_model()) return reject_profile_word(1u);
+    if ((p->enable_mask & (u16)~bms_afe_hw_profile_capabilities()) != 0u) return reject_profile_word(34u);
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     if (p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_SELECT) {
         if (((p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_MASK) != 0u) !=
-            ((p->enable_mask & BMS_AFE_HW_EN_TEMP) != 0u)) return 0u;
-    } else if (p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_MASK) return 0u;
+            ((p->enable_mask & BMS_AFE_HW_EN_TEMP) != 0u)) return reject_profile_word(34u);
+    } else if (p->enable_mask & BMS_AFE_HW_TEMP_CHANNEL_MASK) return reject_profile_word(34u);
 #endif
     if (!validate_hysteresis(p)) return 0u;
-    if (p->chg_ot_x10 > 1450u || p->chg_ot_recover_x10 > 1450u ||
-        p->chg_ut_x10 > 1450u || p->chg_ut_recover_x10 > 1450u ||
-        p->dsg_ot_x10 > 1450u || p->dsg_ot_recover_x10 > 1450u ||
-        p->dsg_ut_x10 > 1450u || p->dsg_ut_recover_x10 > 1450u) return 0u;
+    {
+        const u16 *words=(const u16 *)p;
+        u8 i;
+        for(i=25u;i<=32u;++i) if(words[i]>1450u) return reject_profile_word(i);
+    }
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && (p->cov_mv < 501u || p->cov_mv > 4595u)) return 0u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && p->cuv_mv > 4095u) return 0u;
-    if (p->cov_delay_ms > 8000u || p->cuv_delay_ms > 8000u ||
-        p->ocd1_delay_ms > 2048u || p->occ1_delay_ms > 2048u ||
-        p->ocd2_delay_ms > 1024u || p->occ2_delay_ms > 1024u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && (p->cov_mv < 501u || p->cov_mv > 4595u)) return reject_profile_word(2u);
+    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && p->cuv_mv > 4095u) return reject_profile_word(6u);
+    if (p->cov_delay_ms > 8000u) return reject_profile_word(3u);
+    if (p->cuv_delay_ms > 8000u) return reject_profile_word(7u);
+    if (p->ocd1_delay_ms > 2048u) return reject_profile_word(11u);
+    if (p->occ1_delay_ms > 2048u) return reject_profile_word(17u);
+    if (p->ocd2_delay_ms > 1024u) return reject_profile_word(13u);
+    if (p->occ2_delay_ms > 1024u) return reject_profile_word(19u);
     sense_uv = ((u32)p->ocd1_a10 * DVC1124_DEFAULT_SHUNT_UOHM) / 10u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) && sense_uv > 63750u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) && sense_uv > 63750u) return reject_profile_word(10u);
     sense_uv = ((u32)p->occ1_a10 * DVC1124_DEFAULT_SHUNT_UOHM) / 10u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) && sense_uv > 63750u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) && sense_uv > 63750u) return reject_profile_word(16u);
     sense_uv = ((u32)p->ocd2_a10 * DVC1124_DEFAULT_SHUNT_UOHM) / 10u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) && sense_uv > 256000u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) && sense_uv > 256000u) return reject_profile_word(12u);
     sense_uv = ((u32)p->occ2_a10 * DVC1124_DEFAULT_SHUNT_UOHM) / 10u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCC2) && sense_uv > 256000u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCC2) && sense_uv > 256000u) return reject_profile_word(18u);
     sense_uv = ((u32)p->sc_a10 * DVC1124_DEFAULT_SHUNT_UOHM) / 10u;
     if ((p->enable_mask & BMS_AFE_HW_EN_SC) &&
-        (sense_uv < 10000u || sense_uv > 630000u)) return 0u;
+        (sense_uv < 10000u || sense_uv > 630000u)) return reject_profile_word(22u);
 #elif BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && (p->cov_mv == 0u || p->cov_mv > 5115u)) return 0u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && (p->cuv_mv == 0u || p->cuv_mv > 5115u)) return 0u;
-    if (p->cov_delay_ms > 10010u || p->cuv_delay_ms > 10010u ||
-        p->ocd1_delay_ms > 10010u || p->occ1_delay_ms > 10010u ||
-        p->ocd2_delay_ms > 400u || p->sc_delay_us > 576u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && (p->cov_mv == 0u || p->cov_mv > 5115u)) return reject_profile_word(2u);
+    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && (p->cuv_mv == 0u || p->cuv_mv > 5115u)) return reject_profile_word(6u);
+    if (p->cov_delay_ms > 10010u) return reject_profile_word(3u);
+    if (p->cuv_delay_ms > 10010u) return reject_profile_word(7u);
+    if (p->ocd1_delay_ms > 10010u) return reject_profile_word(11u);
+    if (p->occ1_delay_ms > 10010u) return reject_profile_word(17u);
+    if (p->ocd2_delay_ms > 400u) return reject_profile_word(13u);
+    if (p->sc_delay_us > 576u) return reject_profile_word(23u);
     sense_uv = (u32)p->ocd1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) && sense_uv > 80000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) && sense_uv > 80000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return reject_profile_word(10u);
     sense_uv = (u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) && sense_uv > 160000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) && sense_uv > 160000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return reject_profile_word(12u);
     sense_uv = (u32)p->occ1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
-    if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) && sense_uv > 44000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) && sense_uv > 44000u * 10u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return reject_profile_word(16u);
 #endif
     return 1u;
 }
@@ -352,38 +363,41 @@ u8 bms_afe_hw_profile_validate(const bms_afe_hw_profile_t *p)
 /* 新写入按原厂保证范围与最小档位校验；旧参数读取保留原有兼容规则。 */
 u8 bms_afe_hw_profile_validate_write(const bms_afe_hw_profile_t *p)
 {
+    s_validation_word=0xFFFFu;
     if (!bms_afe_hw_profile_validate(p)) return 0u;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     /* DVC RM V1.2 p18–20：OC1最低250uV、OC2最低4mV，延时200/8/4ms。 */
-    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && p->cov_delay_ms < 200u) return 0u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && p->cuv_delay_ms < 200u) return 0u;
+    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && p->cov_delay_ms < 200u) return reject_profile_word(3u);
+    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && p->cuv_delay_ms < 200u) return reject_profile_word(7u);
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
-        ((u32)p->ocd1_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 2500u || p->ocd1_delay_ms < 8u)) return 0u;
+        ((u32)p->ocd1_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 2500u || p->ocd1_delay_ms < 8u)) return reject_profile_word((p->ocd1_delay_ms<8u?11u:10u));
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
-        ((u32)p->occ1_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 2500u || p->occ1_delay_ms < 8u)) return 0u;
+        ((u32)p->occ1_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 2500u || p->occ1_delay_ms < 8u)) return reject_profile_word((p->occ1_delay_ms<8u?17u:16u));
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
-        ((u32)p->ocd2_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 40000u || p->ocd2_delay_ms < 4u)) return 0u;
+        ((u32)p->ocd2_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 40000u || p->ocd2_delay_ms < 4u)) return reject_profile_word((p->ocd2_delay_ms<4u?13u:12u));
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC2) &&
-        ((u32)p->occ2_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 40000u || p->occ2_delay_ms < 4u)) return 0u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_SC) && p->sc_delay_us > 1992u) return 0u;
+        ((u32)p->occ2_a10 * DVC1124_DEFAULT_SHUNT_UOHM < 40000u || p->occ2_delay_ms < 4u)) return reject_profile_word((p->occ2_delay_ms<4u?19u:18u));
+    if ((p->enable_mask & BMS_AFE_HW_EN_SC) && p->sc_delay_us > 1992u) return reject_profile_word(23u);
 #else
     u32 pair = p->enable_mask & (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2);
     /* SH p34：OCD1/2 共用使能；p49给出保证范围，不按位宽扩展工作范围。 */
-    if (pair != 0u && pair != (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2)) return 0u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && (p->cov_mv < 3000u || p->cov_mv > 4500u)) return 0u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && (p->cuv_mv < 1000u || p->cuv_mv > 3500u)) return 0u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && p->cov_delay_ms < 140u) return 0u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && p->cuv_delay_ms < 490u) return 0u;
-    if ((p->enable_mask & BMS_AFE_HW_EN_TEMP) &&
-        (p->chg_ot_x10 < 800u || p->chg_ot_x10 > 1100u ||
-         p->dsg_ot_x10 < 850u || p->dsg_ot_x10 > 1200u ||
-         p->chg_ut_x10 < 200u || p->chg_ut_x10 > 500u || p->dsg_ut_x10 > 500u)) return 0u;
+    if (pair != 0u && pair != (BMS_AFE_HW_EN_OCD1 | BMS_AFE_HW_EN_OCD2)) return reject_profile_word(34u);
+    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && (p->cov_mv < 3000u || p->cov_mv > 4500u)) return reject_profile_word(2u);
+    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && (p->cuv_mv < 1000u || p->cuv_mv > 3500u)) return reject_profile_word(6u);
+    if ((p->enable_mask & BMS_AFE_HW_EN_COV) && p->cov_delay_ms < 140u) return reject_profile_word(3u);
+    if ((p->enable_mask & BMS_AFE_HW_EN_CUV) && p->cuv_delay_ms < 490u) return reject_profile_word(7u);
+    if (p->enable_mask & BMS_AFE_HW_EN_TEMP) {
+        if(p->chg_ot_x10<800u || p->chg_ot_x10>1100u) return reject_profile_word(25u);
+        if(p->dsg_ot_x10<850u || p->dsg_ot_x10>1200u) return reject_profile_word(29u);
+        if(p->chg_ut_x10<200u || p->chg_ut_x10>500u) return reject_profile_word(27u);
+        if(p->dsg_ut_x10>500u) return reject_profile_word(31u);
+    }
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD1) &&
-        ((u32)p->ocd1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 50000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT || p->ocd1_delay_ms < 140u)) return 0u;
+        ((u32)p->ocd1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 50000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT || p->ocd1_delay_ms < 140u)) return reject_profile_word((p->ocd1_delay_ms<140u?11u:10u));
     if ((p->enable_mask & BMS_AFE_HW_EN_OCD2) &&
-        ((u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 100000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT || p->ocd2_delay_ms < 25u)) return 0u;
+        ((u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 100000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT || p->ocd2_delay_ms < 25u)) return reject_profile_word((p->ocd2_delay_ms<25u?13u:12u));
     if ((p->enable_mask & BMS_AFE_HW_EN_OCC1) &&
-        ((u32)p->occ1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 13750u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT || p->occ1_delay_ms < 140u)) return 0u;
+        ((u32)p->occ1_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM < 13750u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT || p->occ1_delay_ms < 140u)) return reject_profile_word((p->occ1_delay_ms<140u?17u:16u));
     if (p->enable_mask & BMS_AFE_HW_EN_SC) {
         u32 sense = (u32)p->ocd2_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
         u8 code = 0u;
@@ -395,12 +409,12 @@ u8 bms_afe_hw_profile_validate_write(const bms_afe_hw_profile_t *p)
         requested = (u32)p->sc_a10 * SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
         /* SC 仍依赖 OCD2V，即使 OCD 未使能也必须有可表示的基准。 */
         if (sense < 100000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT ||
-            sense > 1600000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return 0u;
-        if (requested < 2u * base || requested > 6u * base) return 0u;
+            sense > 1600000u * SH3673510_BOARD_SHUNT_PARALLEL_COUNT) return reject_profile_word(12u);
+        if (requested < 2u * base || requested > 6u * base) return reject_profile_word(22u);
         multiple = (requested <= 2u * base) ? 2u :
                    (requested <= 3u * base) ? 3u :
                    (requested <= 4u * base) ? 4u : 6u;
-        if (base * multiple > 65535u * SH3673510_BOARD_SHUNT_ELEMENT_UOHM) return 0u;
+        if (base * multiple > 65535u * SH3673510_BOARD_SHUNT_ELEMENT_UOHM) return reject_profile_word(22u);
     }
 #endif
     return 1u;
@@ -489,8 +503,28 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
     return 1u;
 }
 
+/* 分开保存初次应用与回滚的首个总线错误；回滚不得覆盖原始失败证据。 */
+static void capture_register_failure(u16 *fields)
+{
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    sh3673510_write_failure_t failure;
+    if(fields==0) { sh3673510_control_clear_write_failure(); return; }
+    sh3673510_control_get_write_failure(&failure);
+    fields[0]=failure.reg;fields[1]=failure.expected;fields[2]=failure.actual;fields[3]=failure.reason;
+#else
+    if(fields) { fields[0]=fields[1]=fields[2]=0xFFFFu;fields[3]=0u; }
+#endif
+}
+
 static u16 s_afe_hw_apply_state = BMS_AFE_HW_APPLY_IDLE;
 static u16 s_afe_hw_last_error = BMS_AFE_HW_ERROR_NONE;
+/* version, sequence, word, apply(reg/expected/actual/reason), rollback(同前)。 */
+static u16 s_hw_diagnostic[11] = {1u,0u,0xFFFFu,0xFFFFu,0xFFFFu,0xFFFFu,0u,0xFFFFu,0xFFFFu,0xFFFFu,0u};
+u16 bms_afe_hw_profile_diagnostic_word(u16 offset)
+{
+    return offset<11u?s_hw_diagnostic[offset]:0xFFFFu;
+}
+
 
 u8 bms_afe_hw_profile_apply_committed(void)
 {
@@ -530,6 +564,7 @@ static u8 afe_hw_profile_words_equal(const bms_afe_hw_profile_t *a,
 static u8 afe_hw_profile_apply_verified(const bms_afe_hw_profile_t *expected)
 {
     bms_afe_hw_profile_t verify;
+    capture_register_failure(0);
 
     if (!bms_afe_apply_protection_config() ||
         !bms_afe_hw_profile_get(&verify) ||
@@ -543,6 +578,10 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
     bms_afe_hw_profile_t before;
     bms_afe_hw_profile_t candidate;
     u16 i;
+    u8 rollback_stored;
+    ++s_hw_diagnostic[1];
+    for(i=2u;i<11u;++i) s_hw_diagnostic[i]=0xFFFFu;
+    s_hw_diagnostic[6]=s_hw_diagnostic[10]=0u;
 
     if (!bms_afe_hw_access_is_active())
     {
@@ -566,6 +605,7 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
 
     if (!bms_afe_hw_profile_validate_write(&candidate))
     {
+        s_hw_diagnostic[2]=bms_afe_hw_profile_validation_word();
         s_afe_hw_last_error = BMS_AFE_HW_ERROR_VALIDATION;
         return BMS_AFE_HW_ERROR_VALIDATION;
     }
@@ -586,14 +626,18 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
         return BMS_AFE_HW_ERROR_NONE;
     }
 
+    capture_register_failure(&s_hw_diagnostic[3]);
     /* 回滚成功仍返回原提交错误，并保留写授权供调用者重试。 */
     s_afe_hw_last_error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
-    if (bms_afe_hw_profile_set(&before) && afe_hw_profile_apply_verified(&before))
+    rollback_stored=bms_afe_hw_profile_set(&before);
+    if (rollback_stored && afe_hw_profile_apply_verified(&before))
     {
         s_afe_hw_apply_state = BMS_AFE_HW_APPLY_ROLLBACK_OK;
     }
     else
     {
+        if(rollback_stored) capture_register_failure(&s_hw_diagnostic[7]);
+        else s_hw_diagnostic[10]=4u; /* 回滚持久化失败，没有发起二次硬件应用。 */
         s_afe_hw_apply_state = BMS_AFE_HW_APPLY_INCONSISTENT;
         bms_afe_invalidate_configuration();
         s_afe_hw_last_error = BMS_AFE_HW_ERROR_ROLLBACK;
