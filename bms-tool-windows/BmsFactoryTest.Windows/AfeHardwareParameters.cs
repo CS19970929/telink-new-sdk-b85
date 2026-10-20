@@ -1045,6 +1045,27 @@ public sealed class AfeHardwareClient
         }
     }
 
+    public static string DescribeFailureDetail(ushort[] d)
+    {
+        if(d.Length!=11 || d[0]!=1) return string.Empty;
+        string[] names={"Schema","AFE型号","过压保护电压","过压延时","过压恢复电压","过压恢复确认",
+            "欠压保护电压","欠压延时","欠压恢复电压","欠压恢复确认","OCD1电流","OCD1延时","OCD2电流","OCD2延时",
+            "放电过流恢复电流","放电过流恢复确认","OCC1电流","OCC1延时","OCC2电流","OCC2延时","充电过流恢复电流",
+            "充电过流恢复确认","短路电流","短路延时","保留短路恢复","充电高温保护","充电高温恢复","充电低温保护",
+            "充电低温恢复","放电高温保护","放电高温恢复","放电低温保护","放电低温恢复","温度恢复确认","保护使能组合"};
+        string text=$"\n固件事务序号：{d[1]}";
+        if(d[2]<names.Length) text+=$"\n校验失败字段：word[{d[2]}] {names[d[2]]}（含范围/回差/依赖检查）。";
+        for(int i=3;i<=7;i+=4) {
+            string stage=i==3?"应用":"回滚";
+            if(d[i+3]==4) {text+=$"\n{stage}持久化失败，未发起硬件应用。";continue;}
+            if(d[i+3]==0 || d[i]==ushort.MaxValue)continue;
+            string reason=d[i+3]==1?"写入失败":d[i+3]==2?"读回失败":"读回不一致";
+            string actual=d[i+2]==ushort.MaxValue?"未读到":$"0x{d[i+2]:X2}";
+            text+=$"\n{stage}寄存器 0x{d[i]:X2}：{reason}，期望0x{d[i+1]:X2}，实际{actual}。";
+        }
+        return text;
+    }
+
     private async Task<(AfeWriteOutcome Outcome,string Text)> ReadFailureStateAsync(ushort backend, bool rejected, CancellationToken ct)
     {
         try
@@ -1061,13 +1082,21 @@ public sealed class AfeHardwareClient
                 5 => "设备报告回滚失败，必须保持输出禁止并排查硬件配置。",
                 _ => "当前元数据不能确认本次提交结果，请重新读取 requested/effective；不要重复提交。"
             };
+            string detail=string.Empty;
+            try {
+                ushort[] features=await _bms.ReadRegistersAsync(0x252E,1,ct);
+                if (features[0]!=ushort.MaxValue && (features[0]&2)!=0) {
+                    ushort[] diagnostic=await _bms.ReadRegistersAsync(0x252F,11,ct);
+                    if(diagnostic[0]==1) detail=DescribeFailureDetail(diagnostic);
+                }
+            } catch(Exception ex) when(ex is IOException || ex is TimeoutException) { detail="\n可选诊断明细读取未完成。"; }
             AfeWriteOutcome outcome = !rejected ? AfeWriteOutcome.Unconfirmed :
                 info.ApplyState==3 && info.LastError==5 ? AfeWriteOutcome.ConfigurationInconsistent :
                 info.ApplyState==2 && info.LastError==4 ? AfeWriteOutcome.RollbackSucceeded :
                 info.LastError is 1 or 2 or 3 ? AfeWriteOutcome.NotApplied : AfeWriteOutcome.Unconfirmed;
             return (outcome,$"失败后读回：apply_state={info.ApplyStateText} ({info.ApplyState})，" +
                 $"last_error={info.ErrorText} ({info.LastError})。\n" + reason +
-                "\n元数据记录最近一次固件事务；通信结果不确定时，仍须重新读取 requested/effective 确认。");
+                detail+"\n元数据记录最近一次固件事务；通信结果不确定时，仍须重新读取 requested/effective 确认。");
         }
         catch (Exception ex) when (ex is IOException || ex is TimeoutException)
         {

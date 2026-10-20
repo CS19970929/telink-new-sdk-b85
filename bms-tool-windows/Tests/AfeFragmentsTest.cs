@@ -112,6 +112,12 @@ static class Test {
     catch(AfeWriteException ex){Check(ex.Outcome==state.Outcome,"按明确拒绝和元数据区分结果");}
     Check(t.Commits==1,"失败无自动重发");
   }
+  t.Reset();t.CommitStatus=4;t.ApplyState=0;t.LastError=2;t.HardwareFeatures=2;
+  try{await client.WriteAllAsync(customer);throw new Exception("明细拒绝未报告");}
+  catch(AfeWriteException ex){Check(ex.Message.Contains("word[27]")&&ex.Message.Contains("充电低温"),"读取并显示具体字段");}
+  t.HardwareFeatures=0;
+  string registerDetail=AfeHardwareClient.DescribeFailureDetail(new ushort[]{1,8,65535,0x45,0x3f,0x7f,3,0x44,0x3c,65535,2});
+  Check(registerDetail.Contains("0x45")&&registerDetail.Contains("0x44")&&registerDetail.Contains("未读到"),"分开显示应用与回滚错误");
   t.Reset();t.CommitStatus=0;t.ApplyState=0;t.LastError=2;t.DropCommitAck=true;
   try{await client.WriteAllAsync(customer);throw new Exception("丢失COMMIT确认未报告");}
   catch(AfeWriteException ex){Check(ex.Outcome==AfeWriteOutcome.Unconfirmed,"超时不能把旧Validation元数据当作本次拒绝");}
@@ -128,7 +134,7 @@ namespace BmsTool.Windows {
   public string DiscoveryDescription=>"host";public bool Serial,BadAck,CancelAfterStage,BatteryRead,BalanceOff,HardwareRead,EffectiveUnavailable;public CancellationTokenSource? Stop;
   public ushort[]? HardwareRequested,HardwareEffective;
   public bool ChangeOnOpen,ChangeEffectiveOnCommit,ChangeShuntOnOpen;public ushort ShuntElement=2000;
-  public byte CommitStatus;public ushort ApplyState=1,LastError,MetadataCapabilities=0xdf;public int EffectiveReads;public bool ChangeTemperatureOnCommit,DropCommitAck;
+  public byte CommitStatus;public ushort ApplyState=1,LastError,MetadataCapabilities=0xdf,HardwareFeatures;public int EffectiveReads;public bool ChangeTemperatureOnCommit,DropCommitAck;
   public int Opens,Closes,Stages,Commits,MaxLength,Reads,DropReads,Reconnects;public List<byte> Frame=new();
   public event Action<ReadOnlyMemory<byte>>? DataReceived;public event Action<string>? ConnectionProgress{add{}remove{}}
   public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;return Task.CompletedTask;}
@@ -144,7 +150,8 @@ namespace BmsTool.Windows {
      var source=address==0x2500?HardwareRequested:HardwareEffective;if(source is not null)Array.Copy(source,values,count);
      if(address==0x2540 && EffectiveUnavailable)Array.Fill(values,ushort.MaxValue); }
     else if(address==0x2523) { values[0]=MetadataCapabilities;values[1]=1;values[2]=667;values[3]=8;values[4]=32;values[6]=ApplyState;values[7]=LastError;values[8]=2; }
-    else if(address==0x252e) { values[0]=0; }
+    else if(address==0x252e) { values[0]=HardwareFeatures; }
+    else if(address==0x252f) { values[0]=1;values[1]=5;values[2]=27;values[3]=ushort.MaxValue;values[7]=ushort.MaxValue; }
     else if(address==0x252c) { values[0]=ShuntElement;values[1]=3; }
     else throw new Exception("Unexpected AFE read address");
     body=new byte[3+2*count];body[0]=1;body[1]=3;body[2]=(byte)(2*count);
