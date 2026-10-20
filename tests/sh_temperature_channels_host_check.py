@@ -52,7 +52,9 @@ int main(void) {
     requested=original;requested.enable_mask=BMS_AFE_HW_TEMP_CHANNEL_SELECT|BMS_AFE_HW_EN_TEMP|BMS_AFE_HW_EN_TS1;
     requested.chg_ut_x10=150u;assert(!bms_afe_hw_profile_validate_write(&requested));
     assert(bms_afe_hw_profile_validation_word()==27u);
-    requested=original;requested.occ1_delay_ms=100u;
+    requested=original;requested.enable_mask=BMS_AFE_HW_EN_OCC1;requested.occ_recover_a10=0u;
+    requested.occ1_a10=(uint16_t)((13750u*SH3673510_BOARD_SHUNT_PARALLEL_COUNT+SH3673510_BOARD_SHUNT_ELEMENT_UOHM-1u)/SH3673510_BOARD_SHUNT_ELEMENT_UOHM);
+    requested.occ1_delay_ms=100u;
     assert(!bms_afe_hw_profile_validate_write(&requested));assert(bms_afe_hw_profile_validation_word()==17u);
     requested=original;requested.enable_mask=BMS_AFE_HW_TEMP_CHANNEL_SELECT;
     requested.chg_ot_x10=0u;requested.chg_ut_x10=1450u;

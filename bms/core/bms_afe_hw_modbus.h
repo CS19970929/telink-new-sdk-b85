@@ -30,8 +30,11 @@
 #define BMS_AFE_HW_DIAGNOSTIC_BASE              0x252Fu
 #define BMS_AFE_HW_DIAGNOSTIC_COUNT             11u
 #define BMS_AFE_HW_FEATURE_DIAGNOSTIC           0x0002u
+#define BMS_AFE_HW_FEATURE_STATUS_BASE           0x253Au
+#define BMS_AFE_HW_FEATURE_STATUS_COUNT          6u
+#define BMS_AFE_HW_FEATURE_RUNTIME_STATUS        0x0004u
 #define BMS_AFE_HW_INTERFACE_VERSION             0x0002u
-#define BMS_AFE_HW_REQUESTED_REG_COUNT           58u
+#define BMS_AFE_HW_REQUESTED_REG_COUNT           64u
 
 /* 0x2540..0x2562 为 AFE 实际可表示的只读值。 */
 #define BMS_AFE_HW_EFFECTIVE_REG_BASE            0x2540u

@@ -82,6 +82,17 @@
 #define BMS_BALANCE_SUSPECT_DELTA_MV 1000u
 #endif
 
+/* 只读运行原因，不属于持久参数；同轮可同时出现多个门禁。 */
+enum {
+    BMS_BALANCE_BLOCK_UNSUPPORTED=1u<<0, BMS_BALANCE_BLOCK_DISABLED=1u<<1,
+    BMS_BALANCE_BLOCK_SAMPLE=1u<<2, BMS_BALANCE_BLOCK_DISCHARGE=1u<<3,
+    BMS_BALANCE_BLOCK_TEMPERATURE=1u<<4, BMS_BALANCE_BLOCK_FAULT=1u<<5,
+    BMS_BALANCE_BLOCK_VOLTAGE_CHECK=1u<<6, BMS_BALANCE_BLOCK_OFF_PENDING=1u<<7,
+    BMS_BALANCE_BLOCK_NO_CELL=1u<<8, BMS_BALANCE_BLOCK_HEATER=1u<<9,
+    BMS_BALANCE_BLOCK_BUS=1u<<10
+};
+uint16_t bms_features_status_word(uint16_t offset);
+
 /* 初始化、推进和撤销加热/均衡资格。 */
 void bms_features_init(void);
 void bms_features_service(void);

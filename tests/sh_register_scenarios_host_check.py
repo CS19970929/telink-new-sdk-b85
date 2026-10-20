@@ -141,13 +141,18 @@ def check_sh3673510_board_host_check():
     #define GPIO_PA0 0
     #define GPIO_PD3 3
     #define GPIO_PD4 4
+    #if BMS_PRODUCT_RS485_POWER_GATING_ENABLE && !BMS_RS485_TX_DIAG_ENABLE
+    #define EXPECTED_CMNT_POWER 0
+    #else
+    #define EXPECTED_CMNT_POWER 1
+    #endif
     static int function[8], input[8], output[8], value[8], output_inhibit;
     static void bms_afe_set_output_enabled(int enabled){output_inhibit=!enabled;}
     static void gpio_set_func(int p,int v){function[p]=v;}
     static void gpio_write(int p,int v){value[p]=v;}
     static void gpio_set_input_en(int p,int v){input[p]=v;}
     static void gpio_set_output_en(int p,int v){
-     if(p==GPIO_PD4 && v)assert(function[p]==AS_GPIO && value[p]==1 && input[p]==0);
+     if(p==GPIO_PD4 && v)assert(function[p]==AS_GPIO && value[p]==EXPECTED_CMNT_POWER && input[p]==0);
      output[p]=v;
     }
     ''' + board + r'''
@@ -166,7 +171,7 @@ def check_sh3673510_board_host_check():
      for(int i=0;i<8;++i)function[i]=input[i]=output[i]=value[i]=-1;
      board_init();
      assert(output_inhibit);
-     assert(function[GPIO_PD4]==AS_GPIO && value[GPIO_PD4]==1);
+     assert(function[GPIO_PD4]==AS_GPIO && value[GPIO_PD4]==EXPECTED_CMNT_POWER);
      assert(input[GPIO_PD4]==0 && output[GPIO_PD4]==1);
      assert(input[GPIO_PA0]==1 && output[GPIO_PA0]==0);
      assert(input[GPIO_PD3]==1 && output[GPIO_PD3]==0);

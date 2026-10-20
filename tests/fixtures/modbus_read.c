@@ -51,6 +51,7 @@ u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 u16 bms_afe_hw_profile_capabilities(void) { return 0x1234u; }
 u16 bms_afe_hw_profile_apply_state(void) { return 2u; }
 u16 bms_afe_hw_profile_last_error(void) { return 3u; }
+uint16_t bms_features_status_word(uint16_t offset) { return (uint16_t)(0x3500u+offset); }
 u16 bms_afe_hw_profile_diagnostic_word(u16 offset) { return (u16)(0x3400u+offset); }
 u8 bms_afe_hw_access_is_active(void) { return 1u; }
 u16 bms_event_log_read_reg(u16 r) { ++event_reads; return (u16)(0x4000u+r); }
@@ -202,9 +203,10 @@ static void check_requested_profile(void)
 #endif
         1u,2u,3u,BMS_AFE_HW_INTERFACE_VERSION,
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-        DVC1124_DEFAULT_SHUNT_UOHM,1u
+        DVC1124_DEFAULT_SHUNT_UOHM,1u,BMS_AFE_HW_FEATURE_DIAGNOSTIC|BMS_AFE_HW_FEATURE_RUNTIME_STATUS
 #else
-        SH3673510_BOARD_SHUNT_ELEMENT_UOHM,SH3673510_BOARD_SHUNT_PARALLEL_COUNT
+        SH3673510_BOARD_SHUNT_ELEMENT_UOHM,SH3673510_BOARD_SHUNT_PARALLEL_COUNT,
+        BMS_AFE_HW_FEATURE_TEMP_EFFECTIVE|BMS_AFE_HW_FEATURE_DIAGNOSTIC|BMS_AFE_HW_FEATURE_RUNTIME_STATUS
 #endif
     };
     u16 words[BMS_AFE_HW_REQUESTED_REG_COUNT];
@@ -215,7 +217,8 @@ static void check_requested_profile(void)
             for (unsigned qty=1u; qty<=BMS_AFE_HW_REQUESTED_REG_COUNT-start; ++qty) {
                 for (unsigned i=0u; i<qty; ++i) {
                     unsigned offset=start+i;
-                    words[i]=offset<35u ? (valid?(u16)(requested_base+offset):0xffffu) : metadata[offset-35u];
+                    words[i]=offset<35u ? (valid?(u16)(requested_base+offset):0xffffu) : offset<47u ? metadata[offset-35u] :
+                        offset<58u ? (u16)(0x3400u+offset-47u) : (u16)(0x3500u+offset-58u);
                     if (offset==36u) words[i]=(u16)valid;
                 }
                 requested_reads=effective_reads=0u;

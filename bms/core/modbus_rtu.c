@@ -19,6 +19,7 @@
 #include "bms_parameter_access.h"
 #include "bms_config_store.h"
 #include "bms_afe_hw_modbus.h"
+#include "bms_features.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124.h"
 #else
@@ -114,6 +115,8 @@ static u16 afe_hw_profile_read_reg(u16 reg, const bms_afe_hw_profile_t *profile,
     if (offset < BMS_AFE_HW_PROFILE_WORD_COUNT)
         return valid ? ((const u16 *)profile)[offset] : 0xFFFFu;
 
+    if(reg>=BMS_AFE_HW_FEATURE_STATUS_BASE && reg<BMS_AFE_HW_FEATURE_STATUS_BASE+BMS_AFE_HW_FEATURE_STATUS_COUNT)
+        return bms_features_status_word((u16)(reg-BMS_AFE_HW_FEATURE_STATUS_BASE));
     if(reg>=BMS_AFE_HW_DIAGNOSTIC_BASE && reg<BMS_AFE_HW_DIAGNOSTIC_BASE+BMS_AFE_HW_DIAGNOSTIC_COUNT)
         return bms_afe_hw_profile_diagnostic_word((u16)(reg-BMS_AFE_HW_DIAGNOSTIC_BASE));
     switch (reg)
@@ -122,14 +125,14 @@ static u16 afe_hw_profile_read_reg(u16 reg, const bms_afe_hw_profile_t *profile,
     case BMS_AFE_HW_META_VALID:             return valid ? 1u : 0u;
     case BMS_AFE_HW_META_CELL_COUNT:        return BMS_PRODUCT_CELL_COUNT;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
-    case BMS_AFE_HW_META_FEATURES:          return BMS_AFE_HW_FEATURE_DIAGNOSTIC;
+    case BMS_AFE_HW_META_FEATURES:          return BMS_AFE_HW_FEATURE_DIAGNOSTIC | BMS_AFE_HW_FEATURE_RUNTIME_STATUS;
     case BMS_AFE_HW_META_SHUNT_UOHM:        return DVC1124_DEFAULT_SHUNT_UOHM;
     case BMS_AFE_HW_META_SHUNT_ELEMENT_UOHM: return DVC1124_DEFAULT_SHUNT_UOHM;
     case BMS_AFE_HW_META_SHUNT_PARALLEL_COUNT: return 1u;
     case BMS_AFE_HW_META_WDT_SECONDS:       return DVC1124_I2C_WATCHDOG_SECONDS;
 #else
     case BMS_AFE_HW_META_SHUNT_UOHM:        return SH3673510_BOARD_SHUNT_UOHM;
-    case BMS_AFE_HW_META_FEATURES:          return BMS_AFE_HW_FEATURE_TEMP_EFFECTIVE | BMS_AFE_HW_FEATURE_DIAGNOSTIC;
+    case BMS_AFE_HW_META_FEATURES:          return BMS_AFE_HW_FEATURE_TEMP_EFFECTIVE | BMS_AFE_HW_FEATURE_DIAGNOSTIC | BMS_AFE_HW_FEATURE_RUNTIME_STATUS;
     case BMS_AFE_HW_META_SHUNT_ELEMENT_UOHM: return SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
     case BMS_AFE_HW_META_SHUNT_PARALLEL_COUNT: return SH3673510_BOARD_SHUNT_PARALLEL_COUNT;
     case BMS_AFE_HW_META_WDT_SECONDS:       return SH3673510_BOARD_WDT_EN ? 32u : 0u;

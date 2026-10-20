@@ -36,6 +36,7 @@ typedef struct {
     uint8_t balance_temperature_paused; /* 仅温度回落确认可解除，AFE 重初始化不清除。 */
     uint8_t balance_off_pending; /* 必须确认关闭后才能重新选择通道。 */
     uint16_t balance_trust_samples;
+    uint16_t balance_block_reasons;
     uint8_t balance_prev_cell_count;
     uint16_t balance_prev_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
 #if BMS_DEBUG_LOG_ENABLE
@@ -526,6 +527,21 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
     uint32_t desired = 0u;
     /* 即使其他门禁阻断，也持续记录过热/降温，不能丢失暂停回差。 */
     uint8_t temperature_safe = balance_temperature_safe(s);
+    uint8_t hard_fault=balance_hard_fault();
+    uint16_t reasons=0u;
+    if(!bms_board_balance_supported()) reasons|=BMS_BALANCE_BLOCK_UNSUPPORTED;
+    if(config && !config->balance_enable) reasons|=BMS_BALANCE_BLOCK_DISABLED;
+    if(!config || !balance_voltage_trusted() || !s->cell_count || s->cell_count>BMS_AFE_FEATURE_MAX_CELLS)
+        reasons|=BMS_BALANCE_BLOCK_SAMPLE;
+    if(g_bms_report.discharge_current_a10) reasons|=BMS_BALANCE_BLOCK_DISCHARGE;
+    if(!temperature_safe) reasons|=BMS_BALANCE_BLOCK_TEMPERATURE;
+    if(hard_fault) reasons|=BMS_BALANCE_BLOCK_FAULT;
+    if(s->voltage_check_active) reasons|=BMS_BALANCE_BLOCK_VOLTAGE_CHECK;
+    if(s_feature.balance_off_pending) reasons|=BMS_BALANCE_BLOCK_OFF_PENDING;
+#if BMS_FEATURE_HEATER_SUPPORTED
+    if(s_feature.heater_state!=BMS_HEATER_IDLE) reasons|=BMS_BALANCE_BLOCK_HEATER;
+#endif
+    s_feature.balance_block_reasons=reasons;
     uint8_t allowed;
 
     if (s->voltage_check_active) {
@@ -546,12 +562,16 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
 #endif
                         g_bms_report.discharge_current_a10 == 0u &&
                         temperature_safe &&
-                        !balance_hard_fault());
+                        !hard_fault);
 
-    if (allowed) desired = select_balance_mask(s, config);
+    if (allowed) {
+        desired = select_balance_mask(s, config);
+        if(desired==0u) s_feature.balance_block_reasons|=BMS_BALANCE_BLOCK_NO_CELL;
+    }
 
     if (!apply_balance_mask(desired, known_actual))
     {
+        s_feature.balance_block_reasons|=BMS_BALANCE_BLOCK_BUS;
         /* 非零应用失败后仅追加一次关闭尝试；关闭未确认时以后只重试 OFF。
          * 受 guard 总线静默约束，不在这里重初始化 AFE，也不忙等。 */
         if (desired != 0u) (void)apply_balance_mask(0u, NULL);
@@ -572,6 +592,7 @@ void bms_features_init(void)
 #if BMS_FEATURE_BALANCE_SUPPORTED
     /* 温度暂停和未确认关闭状态保留，不能用重初始化绕过恢复条件。 */
     s_feature.balance_trust_samples = 0u;
+    s_feature.balance_block_reasons = BMS_BALANCE_BLOCK_SAMPLE;
     s_feature.balance_prev_cell_count = 0u;
 #if BMS_DEBUG_LOG_ENABLE
     s_feature.balance_requested_mask = 0u;
@@ -613,6 +634,7 @@ void bms_features_service(void)
     {
         bms_features_stop();
         (void)apply_balance_mask(0u, NULL);
+        s_feature.balance_block_reasons|=BMS_BALANCE_BLOCK_BUS;
         if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
         return;
     }
@@ -641,6 +663,7 @@ void bms_features_stop(void)
 #endif
     s_feature.balance_off_pending = 1u;
     s_feature.balance_trust_samples = 0u;
+    s_feature.balance_block_reasons = BMS_BALANCE_BLOCK_SAMPLE;
     s_feature.balance_prev_cell_count = 0u;
     /*
      * 输出撤销时物理均衡状态可能未知；不能把期望关闭状态当成硬件反馈。
@@ -668,4 +691,21 @@ uint8_t bms_features_charge_direction_blocked(void)
 #else
     return 0u;
 #endif
+}
+
+/* 主循环生成的状态快照；读取不会触发总线、改变资格或驱动输出。 */
+uint16_t bms_features_status_word(uint16_t offset)
+{
+    if(offset==0u) return 1u;
+    if(offset==1u) return (bms_board_heater_supported()?1u:0u) | (bms_board_balance_supported()?2u:0u);
+#if BMS_FEATURE_BALANCE_SUPPORTED
+    if(offset==2u) return s_feature.balance_block_reasons;
+    if(offset==3u) return g_bms_report.balance_bits_low;
+    if(offset==4u) return g_bms_report.balance_bits_high;
+#else
+    if(offset==2u) return BMS_BALANCE_BLOCK_UNSUPPORTED;
+    if(offset==3u || offset==4u) return 0u;
+#endif
+    if(offset==5u) return g_bms_system_status.bits.heater_status;
+    return 0xFFFFu;
 }

@@ -62,6 +62,8 @@ int main(void)
     /* 缓存轮次不累计可信度，但已运行的均衡必须响应停止条件。 */
     reset();step(20);assert(balance_voltage_trusted());
     step(5);user.balance_enable=0;bms_features_service();assert(!balance);
+    assert(bms_features_status_word(2)&BMS_BALANCE_BLOCK_DISABLED);
+    assert(bms_features_status_word(0)==1u);
     /* 功能只报告自己的 MOS 阻断；参数失效仍停功能输出，MOS 由 guard 独立阻断。 */
     reset();params_valid=0;step(5);
     assert(!balance && !heater);
@@ -83,6 +85,7 @@ int main(void)
     step(1);assert(balance==(bms_board_balance_supported()?1u:0u));
     assert(!charger_queries && !heater);
     g_bms_report.discharge_current_a10=1;step(1);assert(!balance);
+    assert(bms_features_status_word(2)&BMS_BALANCE_BLOCK_DISCHARGE);
     g_bms_report.discharge_current_a10=0;step(1);
     assert(balance==(bms_board_balance_supported()?1u:0u));
     bms_features_stop();bms_features_init();step(4);assert(!balance);
