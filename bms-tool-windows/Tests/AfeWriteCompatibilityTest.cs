@@ -66,6 +66,8 @@ static class AfeWriteCompatibilityTest
         Check(model.Rows.Single(r=>r.WireIndex==10).EditValue=="5" && currentProfile[10]==200,
             "非法电流只提示，不自动调整用户输入或已读值");
         Check(model.Rows.Single(r=>r.WireIndex==10).Hint.Contains("7.5"),"选中阈值行应显示当前分流器对应的范围");
+        Check(model.Rows.Single(r=>r.WireIndex==10).AllowedCurrentRange=="7.5～120.0 A","表格必须直接显示 D014 OCD1 的硬件允许范围");
+        Check(model.Rows.Single(r=>r.WireIndex==14).AllowedCurrentRange=="由设备校验","恢复电流不能误用 OCD1 阈值范围");
         foreach(var limit in new[]{(Word:10,Min:75,Max:1200),(Word:12,Min:150,Max:2400),(Word:16,Min:21,Max:660)}) {
             foreach(int value in new[]{limit.Min-1,limit.Min,limit.Max,limit.Max+1}) {
                 model.Load(new(currentProfile,effective,info));
@@ -80,6 +82,7 @@ static class AfeWriteCompatibilityTest
         var anotherShunt=info with { ShuntElementMicroOhm=250, ShuntParallelCount=1 };
         model.Load(new(currentProfile,effective,anotherShunt));
         Check(model.Rows.Single(r=>r.WireIndex==10).Hint.Contains("20.0"),"分流器改变时必须刷新范围，不能固定 D014 的 7.5 A");
+        Check(model.Rows.Single(r=>r.WireIndex==10).AllowedCurrentRange=="20.0～320.0 A","更换设备后表格范围必须同步刷新");
         model.Rows.Single(r=>r.WireIndex==10).EditValue="19.9";
         Check(!model.TryBuildCandidate(out _,out error) && error.Contains("20.0"),"250µΩ 的 OCD1 最小值为 20 A");
         model.Rows.Single(r=>r.WireIndex==10).EditValue="20";
@@ -89,6 +92,7 @@ static class AfeWriteCompatibilityTest
         model.Rows.Single(r=>r.WireIndex==10).EditValue="5";
         Check(model.TryBuildCandidate(out _,out error),"无精确分流器比例时保留固件判断，不能按667µΩ猜测范围："+error);
         Check(!model.Rows.Single(r=>r.WireIndex==10).Hint.Contains("7.5"),"不能遗留上一设备的范围说明");
+        Check(model.Rows.Single(r=>r.WireIndex==10).AllowedCurrentRange=="由设备校验","未知精确分流器时不得显示猜测的范围");
         var disabledOcd=currentProfile.ToArray();disabledOcd[34]&=unchecked((ushort)~AfeHardwareProtocolMap.CapOcd1);
         model.Load(new(disabledOcd,effective,info));model.Rows.Single(r=>r.WireIndex==10).EditValue="5";
         Check(model.TryBuildCandidate(out _,out error),"关闭的保护不参与电流档位检查："+error);

@@ -101,6 +101,7 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
     public required string Name { get; init; }
     public required string Unit { get; init; }
     public required string Hint { get; init; }
+    public string AllowedCurrentRange { get; init; } = "—";
     public required Func<ushort, string> Decode { get; init; }
     public required Func<string, (bool Ok, ushort Wire, string Error)> Encode { get; init; }
 
@@ -432,6 +433,11 @@ public sealed class AfeHardwareParameterModel
     private static string FormatCurrent(uint currentA10) =>
         (currentA10 / 10m).ToString("0.0", CultureInfo.InvariantCulture);
 
+    private string CurrentRange(int index) =>
+        TryGetShCurrentRange(index, out uint minimumA10, out uint maximumA10)
+            ? $"{FormatCurrent(minimumA10)}～{FormatCurrent(maximumA10)} A"
+            : "由设备校验";
+
     private string CurrentHint(int index) =>
         TryGetShCurrentRange(index, out uint minimumA10, out uint maximumA10)
             ? $"允许请求范围 {FormatCurrent(minimumA10)}～{FormatCurrent(maximumA10)} A（分流器 {_deviceInfo!.ShuntDisplay}）。" +
@@ -446,6 +452,7 @@ public sealed class AfeHardwareParameterModel
         Name = name,
         Unit = "A",
         Hint = CurrentHint(index),
+        AllowedCurrentRange = CurrentRange(index),
         Decode = v => (v / 10.0).ToString("0.0", CultureInfo.InvariantCulture),
         Encode = s =>
         {

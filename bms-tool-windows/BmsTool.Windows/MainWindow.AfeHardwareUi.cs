@@ -95,6 +95,7 @@ public partial class MainWindow
             Width = 105
         });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "单位", Binding = new Binding(nameof(AfeParameterRow.Unit)), Width = 60, IsReadOnly = true });
+        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "电流允许范围", Binding = new Binding(nameof(AfeParameterRow.AllowedCurrentRange)), Width = 150, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "说明", Binding = new Binding(nameof(AfeParameterRow.Hint)), Width = new DataGridLength(1, DataGridLengthUnitType.Star), IsReadOnly = true });
         var browser = CreateParameterBrowser(_afeHardwareGrid, item => ((AfeParameterRow)item).Group,
             new[] { "单体过压", "单体欠压", "放电过流", "充电过流", "短路保护", "充电温度", "放电温度", "温度保护" });
@@ -184,7 +185,12 @@ public partial class MainWindow
             _afeHardwareGrid?.CommitEdit(DataGridEditingUnit.Row, true);
 
             if (!_afeHardwareModel.TryBuildCandidate(out ushort[] candidate, out string validationError))
-                throw new InvalidOperationException(validationError);
+            {
+                _afeHardwareStatus!.Text = "输入不合法 · 未发送写入";
+                MessageBox.Show(validationError + "\n\n请修改输入后重新保存；当前参数未写入设备。",
+                    "参数未发送", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
             if (!_afeHardwareModel.HasChanges(candidate))
             {
                 _afeHardwareStatus!.Text = "没有待写入的AFE硬件参数修改";
