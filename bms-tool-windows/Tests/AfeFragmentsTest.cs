@@ -37,7 +37,7 @@ static class Test {
   t.HardwareRead=false;
   var m=new AfeHardwareParameterModel();var p=new ushort[35];p[0]=1;p[1]=0x1124;
   m.Load(new(p,p,new(0x1124,64,true,100,16,4,false,1,0,2)));
-  m.Rows.Single(x=>x.WireIndex==34).EditValue="1";
+  m.Rows.Single(x=>x.WireIndex==34 && x.CapabilityMask==AfeHardwareProtocolMap.CapSc).EditValue="1";
   Check(!m.TryBuildCandidate(out _,out _),"zero SCD cannot enable");
   m.Rows.Single(x=>x.WireIndex==22).EditValue="100";
   m.Rows.Single(x=>x.WireIndex==23).EditValue="100";

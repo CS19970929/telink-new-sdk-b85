@@ -219,6 +219,17 @@ static class AfeWriteCompatibilityTest
         var reserved=dvc.ToArray();reserved[19]=1025;reserved[34]&=unchecked((ushort)~AfeHardwareProtocolMap.CapOcc2);
         model.Load(new(reserved,dvcEffective,dvcInfo with {Capabilities=0x5f}));
         Check(!model.TryBuildCandidate(out _,out error)&&error.Contains("word[19]"),"隐藏延时超限须显示错误，不得因找不到行而崩溃");
+        model.Load(new(currentProfile,effective,info));
+        foreach(ushort cap in new ushort[]{1,2,12,16,64}) {
+            model.Load(new(currentProfile,effective,info));
+            var toggle=model.Rows.Single(r=>r.IsSwitch && r.CapabilityMask==cap);
+            toggle.SwitchValue=false;
+            Check(model.TryBuildCandidate(out candidate,out error),error);
+            Check(candidate[34]==(currentProfile[34]&~cap),"保护开关只改变所属位");
+            Check(model.DescribeProtectionSwitchChanges(candidate).Contains("关闭"),"关闭须进入确认清单");
+            toggle.SwitchValue=true;Check(model.TryBuildCandidate(out candidate,out error),error);
+            Check(candidate.SequenceEqual(currentProfile),"再次开启恢复原完整候选");
+        }
         var channelInfo=info with {Capabilities=0x1bdf}; // D014: TS1/TS2/TS4，TS3 NC。
         model.Load(new(currentProfile,effective,channelInfo));
         Check(model.Rows.Count(r=>r.IsTemperatureChannel)==4,"四个通道分别显示");

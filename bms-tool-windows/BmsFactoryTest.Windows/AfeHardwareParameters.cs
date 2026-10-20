@@ -113,6 +113,7 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
     public required string Name { get; init; }
     public required string Unit { get; init; }
     public bool IsSwitch { get; init; }
+    internal bool IsEdited { get; private set; }
     public bool CanEdit { get; init; } = true;
     public bool IsTemperatureChannel => WireIndex == 34 && (CapabilityMask & AfeHardwareProtocolMap.TempChannelMask) != 0;
     public bool SwitchValue { get => EditValue == "1"; set => EditValue = value ? "1" : "0"; }
@@ -146,7 +147,7 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
     public string EditValue
     {
         get => _editValue;
-        set { _editValue = value; OnPropertyChanged(); OnPropertyChanged(nameof(SwitchValue)); }
+        set { if (_editValue != value) IsEdited=true; _editValue = value; OnPropertyChanged(); OnPropertyChanged(nameof(SwitchValue)); }
     }
 
     public string EnabledText
@@ -160,6 +161,7 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
         RequestedValue = Decode(requested);
         EffectiveValue = Decode(effective);
         EditValue = RequestedValue;
+        IsEdited = false;
         EnabledText = CapabilityMask == 0 ? "—" : ((enableMask & CapabilityMask) != 0 ? "启用" : "关闭");
     }
 
@@ -300,9 +302,9 @@ public sealed class AfeHardwareParameterModel
             }
             if (row.IsTemperatureChannel)
                 temperatureChannels |= (ushort)(encoded.Wire & row.CapabilityMask);
-            else if (row.WireIndex == 34)
-                raw[34] = (ushort)((raw[34] & ~row.CapabilityMask) | (encoded.Wire & row.CapabilityMask));
-            else raw[row.WireIndex] = encoded.Wire;
+            else if (row.WireIndex == 34) {
+                if (row.IsEdited) raw[34] = (ushort)((raw[34] & ~row.CapabilityMask) | (encoded.Wire & row.CapabilityMask));
+            } else raw[row.WireIndex] = encoded.Wire;
         }
         if ((_deviceInfo.Capabilities & AfeHardwareProtocolMap.TempChannelSelect) != 0 &&
             ((_requested[34] & AfeHardwareProtocolMap.TempChannelSelect) != 0 ||
@@ -476,9 +478,39 @@ public sealed class AfeHardwareParameterModel
             (after == 0 ? "\n所有外部通道硬件温度保护将关闭；软件保护与温度采样仍独立运行。" : string.Empty) + "\n\n";
     }
 
+    private static AfeParameterRow ProtectionSwitch(ushort cap, string group, string name) => new() {
+        WireIndex=34, CapabilityMask=cap, IsSwitch=true, Group=group, Name=name, Unit="0/1",
+        AllowedCurrentRange="0=关闭 / 1=启用",
+        Hint="关闭会撤销该项 AFE 自主保护，软件保护独立。SH 的 OCD1/OCD2 共用开关，改变开关会同步设置两级。",
+        Decode=v=>(v&cap)!=0?"1":"0",
+        Encode=text=>text.Trim() switch {
+            "0"=>(true,(ushort)0,string.Empty), "1"=>(true,cap,string.Empty),
+            _=>(false,(ushort)0,"保护开关只能为 0 或 1。")
+        }
+    };
+
+    public string DescribeProtectionSwitchChanges(ushort[] candidate)
+    {
+        var changes = Rows.Where(r=>r.IsSwitch && !r.IsTemperatureChannel &&
+            (_requested[34]&r.CapabilityMask)!=(candidate[34]&r.CapabilityMask))
+            .Select(r=>$"{r.Name}：{((candidate[34]&r.CapabilityMask)!=0?"启用":"关闭")}（软件保护独立）").ToArray();
+        return changes.Length==0 ? string.Empty : string.Join("\n",changes)+"\n\n";
+    }
+
     private void BuildRows(ushort caps)
     {
         Rows.Clear();
+        if ((caps & AfeHardwareProtocolMap.CapCov) != 0) Rows.Add(ProtectionSwitch(AfeHardwareProtocolMap.CapCov, "单体过压", "过压使能"));
+        if ((caps & AfeHardwareProtocolMap.CapCuv) != 0) Rows.Add(ProtectionSwitch(AfeHardwareProtocolMap.CapCuv, "单体欠压", "欠压使能"));
+        ushort ocdCaps = (ushort)(caps & (AfeHardwareProtocolMap.CapOcd1 | AfeHardwareProtocolMap.CapOcd2));
+        if (_deviceInfo!.BackendModel == AfeHardwareProtocolMap.ModelSh3673510) {
+            if (ocdCaps != 0) Rows.Add(ProtectionSwitch(ocdCaps, "放电过流", "OCD1/OCD2 联动使能"));
+        } else {
+            if ((ocdCaps & AfeHardwareProtocolMap.CapOcd1) != 0) Rows.Add(ProtectionSwitch(AfeHardwareProtocolMap.CapOcd1, "放电过流", "OCD1 使能"));
+            if ((ocdCaps & AfeHardwareProtocolMap.CapOcd2) != 0) Rows.Add(ProtectionSwitch(AfeHardwareProtocolMap.CapOcd2, "放电过流", "OCD2 使能"));
+        }
+        if ((caps & AfeHardwareProtocolMap.CapOcc1) != 0) Rows.Add(ProtectionSwitch(AfeHardwareProtocolMap.CapOcc1, "充电过流", "OCC1 使能"));
+        if ((caps & AfeHardwareProtocolMap.CapOcc2) != 0) Rows.Add(ProtectionSwitch(AfeHardwareProtocolMap.CapOcc2, "充电过流", "OCC2 使能"));
         if ((caps & AfeHardwareProtocolMap.CapCov) != 0)
         {
             Rows.Add(U16Row(2, AfeHardwareProtocolMap.CapCov, "单体过压", "保护电压", "mV", 0, ushort.MaxValue));
@@ -529,17 +561,7 @@ public sealed class AfeHardwareParameterModel
         }
         if ((caps & AfeHardwareProtocolMap.CapSc) != 0)
         {
-            Rows.Add(new AfeParameterRow {
-                WireIndex=34, CapabilityMask=AfeHardwareProtocolMap.CapSc, IsSwitch=true,
-                Group="短路保护", Name="SCD 使能", Unit="0/1",
-                Hint="0=关闭，1=启用；仅改变短路位，其他保护使能保持不变。",
-                Decode=v=>(v&AfeHardwareProtocolMap.CapSc)!=0?"1":"0",
-                Encode=text=>text.Trim() switch {
-                    "0"=>(true,(ushort)(_requested[34]&~AfeHardwareProtocolMap.CapSc),string.Empty),
-                    "1"=>(true,(ushort)(_requested[34]|AfeHardwareProtocolMap.CapSc),string.Empty),
-                    _=>(false,(ushort)0,"短路使能只能输入 0 或 1。")
-                }
-            });
+            Rows.Add(ProtectionSwitch(AfeHardwareProtocolMap.CapSc, "短路保护", "SCD 使能"));
             Rows.Add(CurrentRow(22, AfeHardwareProtocolMap.CapSc, "短路保护", "短路电流"));
             Rows.Add(U16Row(23, AfeHardwareProtocolMap.CapSc, "短路保护", "短路延时", "us", 0, ushort.MaxValue));
             // sc_recover_ms 为协议保留字段；当前两后端恢复流程均不消费，不提供无效编辑项。

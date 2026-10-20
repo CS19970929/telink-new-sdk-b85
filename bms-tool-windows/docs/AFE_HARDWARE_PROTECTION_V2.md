@@ -53,7 +53,7 @@ The firmware backend owns validation, chip-specific quantization, register encod
 
 ## Enable mask
 
-Windows V2 页面允许显式修改 SCD 和设备声明支持的 TS1～TS4 温度通道，其余使能位保持原值。
+Windows V2 页面允许显式修改设备支持的 COV/CUV/OCD/OCC/SCD 和 TS1～TS4 通道；SH OCD1/OCD2 共用开关，DVC 两级独立。
 温度通道按产品的实装能力开放，未接入的点和旧固件通道开关只读；不自动启用任何新通道。
 每个 TS 开关同时控制本点的充放电高低温，所有启用点共用 OTC/UTC/OTD/UTD 阈值，
 关闭不停止采样或软件温保。产品硬件动作仍需独立实板验收。
@@ -112,3 +112,7 @@ SCD 和通道编辑按各自掩码合并，保存确认列出通道变化以及�
 
 相关组合、旧记录、新旧固件能力、NC拒绝、同word多开关与有效位不一致断言已补充，尚未运行。
 本轮未编译或发布 EXE，没有访问设备。
+
+## 第二轮：完整保护开关
+
+按 capabilities 显示所有阈值保护开关，SH OCD1/2 联动。未编辑的使能原样保留，旧单级 OCD 不会因读取而隐式开启另一级；显式改变开关才合并所属位。确认框列出开关变化。模型兼容回归和真实传输分片回归已通过，未作实板验收。

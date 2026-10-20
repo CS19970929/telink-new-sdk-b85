@@ -114,7 +114,7 @@ public partial class MainWindow
 
         var bottom = new TextBlock
         {
-            Text = "SCD 与 TS1～TS4 可通过开关显式修改，未接入通道及旧固件通道开关只读。每个 TS 开关同时控制该通道充/放电高低温，所有启用通道共用四个阈值；关闭不停止采样及软件保护。WDT/Body-Diode 保持固定配置。写入成功须 requested 一致、effective 已回读、apply_state=OK。",
+            Text = "过压、欠压、过流、SCD 与 TS1～TS4 可通过开关显式修改，未接入通道及旧固件通道开关只读。每个 TS 开关同时控制该通道充/放电高低温，所有启用通道共用四个阈值；关闭不停止采样及软件保护。WDT/Body-Diode 保持固定配置。写入成功须 requested 一致、effective 已回读、apply_state=OK。",
             TextWrapping = TextWrapping.Wrap,
             Foreground = Brushes.DimGray
         };
@@ -211,11 +211,12 @@ public partial class MainWindow
             string transportText = _connectionMode == ConnectionMode.Serial ? "直连串口" : "BLE透明通道";
             string legacyCorrections = _afeHardwareModel.DescribeLegacyDelayCorrections(candidate);
             string temperatureChanges = _afeHardwareModel.DescribeTemperatureChannelChanges(candidate);
+            string switchChanges = _afeHardwareModel.DescribeProtectionSwitchChanges(candidate);
             if (MessageBox.Show(
                     $"确认修改 {info.BackendName} AFE硬件保护参数？\n\n" +
                     $"通信：{transportText}\n" +
                     legacyCorrections +
-                    temperatureChanges +
+                    temperatureChanges + switchChanges +
                     "这与软件 First/Second/Third 参数完全独立。\n\n" +
                     "将执行：打开60秒授权会话 → 完整35-word原子写入 → 固件校验/持久化 → AFE应用 → requested/effective回读 → 失败自动回滚。\n\n" +
                     "BLE MTU=23 可使用新固件的暂存/提交事务，无需修改 MTU。请确认 SCD 使能、电流和延时。是否继续？",
