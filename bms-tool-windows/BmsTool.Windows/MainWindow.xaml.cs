@@ -46,6 +46,7 @@ public partial class MainWindow : Window
         DeviceList.ItemsSource = _devices;
         SerialPortList.ItemsSource = _serialPorts;
         ProtectionGrid.ItemsSource = _protectionRows;
+        InitializeProtectionLayout();
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _pollTimer.Tick += async (_, _) => await PollTickAsync();
 
@@ -485,6 +486,7 @@ public partial class MainWindow : Window
             row.LoadFromDevice(readback);
             ProtectionStatusText.Text = $"{row.CustomerName} 写入并校验成功";
             AppendLog($"PROTECTION_WRITE_OK name='{row.CustomerName}'; address=0x{row.Address:X4}; raw={readback}", "PARAM");
+            ShowParameterSaved(ProtectionStatusText.Text);
         }
         catch (Exception ex) { ShowError("写保护参数失败", ex); }
         finally { StartAutomaticRefresh(); }
@@ -527,8 +529,9 @@ public partial class MainWindow : Window
                     AppendLog($"PROTECTION_GROUP_WRITE_OK address=0x{address:X4}; words=5", "PARAM");
                 });
             ProtectionStatusText.Text = $"{changed.Count} 项全部写入并校验成功";
+            ShowParameterSaved(ProtectionStatusText.Text);
         }
-        catch (Exception ex) { ShowError("批量写保护参数失败", ex); }
+        catch (Exception ex) { ShowError("批量写保护参数失败", ex, "不同保护组依次提交，已完成组可能已保存；请重新读取全部参数确认，不要直接重发。"); }
         finally { StartAutomaticRefresh(); }
     }
 
@@ -551,6 +554,7 @@ public partial class MainWindow : Window
             ApplyBatterySnapshot(snapshot);
             BmsParamResultText.Text = $"SOC 已写入并校验：{soc}%";
             AppendLog($"SOC_SET_VERIFY_OK value={soc}", "PARAM");
+            ShowParameterSaved(BmsParamResultText.Text);
         }
         catch (Exception ex) { ShowError("SOC 校准失败", ex); }
         finally { StartAutomaticRefresh(); }
@@ -568,6 +572,7 @@ public partial class MainWindow : Window
             ApplyBatterySnapshot(snapshot);
             BmsParamResultText.Text = $"循环次数已写入并校验：{cycle}";
             AppendLog($"CYCLE_SET_VERIFY_OK value={cycle}", "PARAM");
+            ShowParameterSaved(BmsParamResultText.Text);
         }
         catch (Exception ex) { ShowError("修改循环次数失败", ex); }
         finally { StartAutomaticRefresh(); }

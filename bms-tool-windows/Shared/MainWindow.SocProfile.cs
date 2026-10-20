@@ -13,6 +13,7 @@ public partial class MainWindow
 
     private void AddSocProfileControls(Panel root)
     {
+#if BMS_FACTORY_APP
         var group = new GroupBox { Header="SOC / OCV 算法参数", Margin=new Thickness(4,12,4,4), Padding=new Thickness(8) };
         var panel = new StackPanel(); group.Content=panel; root.Children.Add(group);
         void Button(string label, Func<Task> action)
@@ -30,7 +31,7 @@ public partial class MainWindow
         }
         Button("读取 SOC / OCV 参数",()=>ParameterRunAsync(async(c,t)=>{
             _socProfile=await c.ReadSocProfileAsync(t);ShowSocProfile(_socProfile);
-        },refresh:false));
+        },refresh:false,operation:null,requiresUnlock:false));
         panel.Children.Add(_socProfileStatus);
         Field("deadband","静置电流死区 / mA");Field("rest","OCV 静置准备 / s");Field("band","OCV 误差带 / %");
         Field("validMin","有效电压下限 / mV");Field("validMax","有效电压上限 / mV");
@@ -48,10 +49,12 @@ public partial class MainWindow
             if(MessageBox.Show(this,"仅恢复当前电池类型的 SOC 算法参数与 OCV 曲线，不改变当前 SOC、容量或历史。是否继续？","恢复 SOC / OCV 默认",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return Task.CompletedTask;
             return ParameterRunAsync(async(c,t)=>{_socProfile=await c.ResetSocProfileAsync(BmsServiceAccess.DefaultPassword,t);ShowSocProfile(_socProfile);},refresh:false);
         });
+#endif
     }
 
     private void ShowSocProfile(SocProfileParameters p)
     {
+#if BMS_FACTORY_APP
         _socProfileStatus.Text=$"{(p.Chemistry==1?"磷酸铁锂":"三元锂")} · profile v{p.ProfileVersion} · {p.OcvPoints.Count} 个 OCV 点 · {(p.Persisted?"设备已保存":"使用编译默认")}";
         void Set(string key,ushort value)=>_socProfileFields[key].Text=value.ToString(CultureInfo.InvariantCulture);
         Set("deadband",p.CurrentDeadbandMa);Set("rest",p.RestPrepareSeconds);Set("band",p.ErrorBandPercent);
@@ -60,10 +63,14 @@ public partial class MainWindow
         Set("fullDelta",p.FullCellDeltaMaxMv);Set("terminalDelta",p.TerminalCellDeltaMaxMv);Set("terminalStart",p.TerminalStartOffsetMv);
         Set("terminalL1",p.TerminalL1OffsetMv);Set("terminalL2",p.TerminalL2OffsetMv);Set("terminalL3",p.TerminalL3OffsetMv);
         _socOcvPoints.Text=string.Join(Environment.NewLine,p.OcvPoints.Select(x=>$"{x.Millivolts}={x.Percent}"));
+#endif
     }
 
     private SocProfileParameters ReadSocProfileEditor()
     {
+#if !BMS_FACTORY_APP
+        throw new InvalidOperationException("客户版不提供 SOC / OCV 参数编辑。");
+#else
         if(_socProfile is null)throw new InvalidOperationException("请先读取设备当前 SOC / OCV 参数。");
         ushort U(string key)=>ushort.Parse(_socProfileFields[key].Text.Trim(),CultureInfo.InvariantCulture);
         var p=new SocProfileParameters{Chemistry=_socProfile.Chemistry,ProfileId=_socProfile.ProfileId,ProfileVersion=_socProfile.ProfileVersion,
@@ -77,5 +84,6 @@ public partial class MainWindow
             p.OcvPoints.Add(new SocOcvPoint(ushort.Parse(pair[0].Trim(),CultureInfo.InvariantCulture),ushort.Parse(pair[1].Trim().TrimEnd('%'),CultureInfo.InvariantCulture)));
         }
         return p;
+#endif
     }
 }

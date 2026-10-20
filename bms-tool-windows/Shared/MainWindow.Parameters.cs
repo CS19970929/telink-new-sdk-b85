@@ -11,7 +11,7 @@ public partial class MainWindow
     private BmsClient? _parameterProbedClient;
     private bool _parameterBusy;
     private readonly TextBlock _parameterStatus=new(){TextWrapping=TextWrapping.Wrap,Margin=new Thickness(6)};
-    private readonly TextBox _parameterCapacity=new(),_parameterSoc=new(),_parameterCycle=new(),_parameterSn=new();
+    private readonly TextBox _parameterCapacity=new(),_parameterSoc=new(),_parameterCycle=new();
     private readonly TextBox _parameterHeatStart=new(),_parameterHeatStop=new();
     private readonly CheckBox _parameterHeatEnable=new(){Content="启用加热"};
     private readonly TextBox _parameterBalanceStart=new(),_parameterBalanceDeltaStart=new(),_parameterBalanceDeltaStop=new();
@@ -21,8 +21,17 @@ public partial class MainWindow
     private readonly TextBox _parameterReadback=new(){IsReadOnly=true,AcceptsReturn=true,TextWrapping=TextWrapping.Wrap,MinHeight=150};
     private void AddParameterTab()
     {
-        var root=new StackPanel{Margin=new Thickness(14)};
-        root.Children.Add(_parameterStatus);
+        var page=new DockPanel{Margin=new Thickness(14)};
+        var statusCard=new Border{Padding=new Thickness(10),Margin=new Thickness(0,0,0,12),
+            Background=System.Windows.Media.Brushes.AliceBlue,Child=_parameterStatus};
+        DockPanel.SetDock(statusCard,Dock.Top);page.Children.Add(statusCard);
+        var sections=new TabControl();page.Children.Add(sections);
+        StackPanel Section(string title) {
+            var panel=new StackPanel{Margin=new Thickness(12),MaxWidth=850,HorizontalAlignment=HorizontalAlignment.Left};
+            sections.Items.Add(new TabItem{Header=title,Content=new ScrollViewer{Content=panel,VerticalScrollBarVisibility=ScrollBarVisibility.Auto}});
+            return panel;
+        }
+        var root=Section("基本参数");
         void Button(string label,Func<Task> action) {
             var button=new Button{Content=label,Margin=new Thickness(4),Padding=new Thickness(10,4,10,4),HorizontalAlignment=HorizontalAlignment.Left};
             button.Click+=async(_,_)=>await action();root.Children.Add(button);
@@ -39,8 +48,10 @@ public partial class MainWindow
             if(dialog.ShowDialog(this)==true)try{D008Parameters.Export(dialog.FileName,_parameterCapture);_parameterStatus.Text="参数包已导出";}catch(Exception e){ShowError("导出失败",e);}
             return Task.CompletedTask;
         });
-        AddBatteryTypeControls(root);
-        AddSocProfileControls(root);
+        AddBatteryTypeControls(Section("电池类型"));
+#if BMS_FACTORY_APP
+        AddSocProfileControls(Section("SOC / OCV"));
+#endif
         Field("额定容量 / Ah",_parameterCapacity);
         Button("保存额定容量",()=>ParameterRunAsync((c,t)=>c.WriteD008VerifiedAsync(0x2318,new[]{D008Parameters.Capacity(_parameterCapacity.Text)},false,t)));
         Field("当前 SOC / %",_parameterSoc);
@@ -50,13 +61,8 @@ public partial class MainWindow
         }));
         Field("循环次数",_parameterCycle);
         Button("保存循环次数",()=>ParameterRunAsync((c,t)=>c.WriteD008VerifiedAsync(0x2319,new[]{ushort.Parse(_parameterCycle.Text)},false,t)));
-        Field("设备 SN / ASCII 32字符",_parameterSn);
-#if BMS_FACTORY_APP
-        Button("保存 SN",()=>ParameterRunAsync((c,t)=>c.WriteD008SerialAsync(_parameterSn.Text,t)));
-#else
-        _parameterSn.IsReadOnly=true;
-#endif
         root.Children.Add(_parameterBusinessReadback);
+        root=Section("加热");
         root.Children.Add(new TextBlock{Text="加热参数",FontWeight=FontWeights.Bold,Margin=new Thickness(4,12,4,4)});
         root.Children.Add(_parameterHeatEnable);
         Field("加热启动温度 / ℃",_parameterHeatStart);Field("加热停止温度 / ℃",_parameterHeatStop);
@@ -68,6 +74,7 @@ public partial class MainWindow
         SaveButton(_parameterHeatSave,"保存加热参数",()=>ParameterRunAsync((c,t)=>
             c.WriteD008VerifiedAsync(D008Parameters.HeaterBase,D008Parameters.Heater(
                 _parameterHeatEnable.IsChecked==true,_parameterHeatStart.Text,_parameterHeatStop.Text),false,t)));
+        root=Section("均衡");
         root.Children.Add(new TextBlock{Text="均衡参数",FontWeight=FontWeights.Bold,Margin=new Thickness(4,12,4,4)});
         root.Children.Add(_parameterBalancePermission);
         SaveButton(_parameterBalanceDisable,"禁止均衡",()=>ParameterRunAsync((c,t)=>c.SetD008BalanceAllowedAsync(false,t)));
@@ -78,9 +85,11 @@ public partial class MainWindow
         SaveButton(_parameterBalanceSave,"保存均衡参数",()=>ParameterRunAsync((c,t)=>
             c.WriteD008BalanceThresholdsAsync(_parameterBalanceStart.Text,
                 _parameterBalanceDeltaStart.Text,_parameterBalanceDeltaStop.Text,t)));
+        root=Section("休眠");
         AddSleepParameterControls(root,Field,SaveButton);
         UpdateBusinessParameterControls();
-        AddCurrentCalibrationControls(root);
+        AddCurrentCalibrationControls(Section("电流校准"));
+        root=Section("恢复默认");
         foreach(var g in new[]{(Id:(ushort)1,Name:"软件保护"),(Id:(ushort)2,Name:"AFE 硬件保护"),(Id:(ushort)3,Name:"业务参数（容量、加热及均衡）")})
             Button("恢复默认："+g.Name,()=>{
                 if(MessageBox.Show(this,"仅恢复"+g.Name+"，不会清除 SN、校准或日志。是否继续？","恢复分组默认",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return Task.CompletedTask;
@@ -89,7 +98,7 @@ public partial class MainWindow
 #if BMS_FACTORY_APP
         root.Children.Add(new Expander{Header="原始读回",Content=_parameterReadback,Margin=new Thickness(4)});
 #endif
-        MainTabs.Items.Add(new TabItem{Header="业务参数",Content=new ScrollViewer{Content=root,VerticalScrollBarVisibility=ScrollBarVisibility.Auto}});
+        MainTabs.Items.Add(new TabItem{Header="业务参数",Content=page});
         var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
         timer.Tick+=async(_,_)=>{
             if(_bms is null){_batteryTypeStatus.Text="电池类型：未连接";_parameterProbedClient=null;_parameterCapture=null;_parameterStatus.Text="未连接";_parameterBusinessReadback.Text="设备参数：未连接";UpdateBusinessParameterControls();return;}
@@ -97,14 +106,21 @@ public partial class MainWindow
         };
         timer.Start();Closed+=(_,_)=>timer.Stop();
     }
-    private async Task ParameterRunAsync(Func<BmsClient,CancellationToken,Task>? action,bool refresh=true)
+    private async Task ParameterRunAsync(Func<BmsClient,CancellationToken,Task>? action,bool refresh=true,
+        string? operation="保存参数",bool requiresUnlock=true)
     {
-        if(_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || ShFactoryBusy() || _autoReconnectRunning)return;
-        var client=_bms;if(client is null){_parameterStatus.Text="请先连接";return;}
+        bool modifying=action is not null && operation is not null;
+        void Reject(string message) {
+            _parameterStatus.Text=message;
+            DeviceSerialStatusText.Text=message;
+            if(modifying)MessageBox.Show(this,message,"操作未执行",MessageBoxButton.OK,MessageBoxImage.Warning);
+        }
+        if(_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || ShFactoryBusy() || _autoReconnectRunning){Reject("设备正忙，请等待当前操作完成后再试。");return;}
+        var client=_bms;if(client is null){Reject("请先连接设备。");return;}
 #if !BMS_FACTORY_APP
-        if(action is not null && !_protectedFeaturesUnlocked){_parameterStatus.Text="请先解锁高级功能，才能修改参数";return;}
+        if(modifying && requiresUnlock && !_protectedFeaturesUnlocked){Reject("请先解锁高级功能，才能修改参数。");return;}
 #endif
-        if(action is not null && (!ReferenceEquals(client,_parameterProbedClient) || _parameterCapture?.Supported!=true)){_parameterStatus.Text="请先读取当前设备参数并确认支持，再执行修改";return;}
+        if(modifying && (!ReferenceEquals(client,_parameterProbedClient) || _parameterCapture?.Supported!=true)){Reject("请先读取当前设备参数并确认支持，再执行修改。");return;}
         _parameterBusy=true;_diagBusy=true;_eventLogReadInProgress=true;
         UpdateBusinessParameterControls();
         using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -120,16 +136,26 @@ public partial class MainWindow
                 _parameterProbedClient=client;ShowD008ParameterCapture(_parameterCapture);
                 if(action is not null && _parameterCapture.Errors.Count==0 && _parameterCapture.Supported)_parameterStatus.Text="设备已确认保存；参数读回完成";
             }
+            if(modifying) {
+                if(refresh && (_parameterCapture?.Supported!=true || _parameterCapture.Errors.Count!=0)) {
+                    _parameterStatus.Text="写入事务已完成，但参数复查不完整；请重新读取确认设备状态。";
+                    MessageBox.Show(this,_parameterStatus.Text,"结果需要确认",MessageBoxButton.OK,MessageBoxImage.Warning);
+                } else {
+                    _parameterStatus.Text=operation+"：设备已应答，参数复查完成 · "+DateTime.Now.ToString("HH:mm:ss");
+                    ShowParameterSaved(_parameterStatus.Text);
+                }
+            }
         } catch(Exception ex){
             _parameterCapture=null;_parameterProbedClient=null;
             _parameterBusinessReadback.Text="设备参数：读取失败";
-            _parameterStatus.Text="参数操作失败："+ex.Message+"；请重新读取确认设备状态";
+            _parameterStatus.Text="参数操作失败或结果未确认："+ex.Message+"；请重新读取确认设备状态";
+            if(modifying)MessageBox.Show(this,_parameterStatus.Text,"操作失败 / 结果未确认",MessageBoxButton.OK,MessageBoxImage.Error);
         }
-        finally{_parameterBusy=false;_diagBusy=false;_eventLogReadInProgress=false;UpdateBusinessParameterControls();StartAutomaticRefresh();}
+        finally{DeviceSerialStatusText.Text=_parameterStatus.Text;_parameterBusy=false;_diagBusy=false;_eventLogReadInProgress=false;UpdateBusinessParameterControls();StartAutomaticRefresh();}
     }
     private void ShowD008ParameterCapture(D008ParameterCapture c)
     {
-        _parameterCapacity.Clear();_parameterSoc.Clear();_parameterCycle.Clear();_parameterSn.Clear();
+        _parameterCapacity.Clear();_parameterSoc.Clear();_parameterCycle.Clear();DeviceSerialBox.Clear();
         _parameterHeatStart.Clear();_parameterHeatStop.Clear();_parameterHeatEnable.IsChecked=false;
         _parameterBalanceStart.Clear();_parameterBalanceDeltaStart.Clear();_parameterBalanceDeltaStop.Clear();_parameterBalancePermission.Text="均衡：未确认";
         _parameterStatus.Text=c.Status+"；"+string.Join("；",c.Errors);
@@ -155,7 +181,8 @@ public partial class MainWindow
         _parameterBusinessReadback.Text=string.Join(Environment.NewLine,business);
         if(c.Blocks.TryGetValue("Capacity",out var cap)){_parameterCapacity.Text=(cap[0]/10m).ToString();_parameterCycle.Text=cap[1].ToString();}
         if(c.Blocks.TryGetValue("SOC",out var soc))_parameterSoc.Text=soc[0].ToString();
-        if(c.Blocks.TryGetValue("Serial",out var sn))_parameterSn.Text=D008Parameters.Serial(sn);
+        if(c.Blocks.TryGetValue("Serial",out var sn))DeviceSerialBox.Text=D008Parameters.Serial(sn);
+        DeviceSerialStatusText.Text=_parameterStatus.Text;
         _parameterReadback.Text=string.Join(Environment.NewLine,c.Blocks.Select(b=>b.Key+": "+string.Join(" ",b.Value.Select(v=>v.ToString("X4")))));
     }
     private void UpdateBusinessParameterControls()

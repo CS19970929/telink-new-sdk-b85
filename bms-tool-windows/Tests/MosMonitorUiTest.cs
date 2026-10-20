@@ -22,6 +22,18 @@ static class MosMonitorUiTest
         var app = new Application(); var window = new MainWindow();
         Call(window, "AddDiagnosticTab");
         var tabs = (TabControl)window.FindName("MainTabs");
+        if (typeof(MainWindow).GetField("_protectedFeaturesUnlocked", Private) is not null) {
+            Check(!tabs.Items.OfType<TabItem>().Any(t => t.Header?.ToString() == "MOS 监控"), "customer edition has no MOS monitor page");
+            Check(((CheckBox)Get(window, "_mosAuto")!).IsChecked == false, "customer edition disables background MOS recording");
+            var customerClient = new BmsClient(new NoIoTransport());
+            Set(window, "_bms", customerClient);
+            Call(window, "ApplyBatterySnapshot", new BatterySnapshot { SystemStatus = 12, MinCellMv = 3300, MaxCellMv = 3301 });
+            Check(Get(window, "_mosJournal") is null, "customer snapshots do not open a MOS journal");
+            Check(((TextBlock)window.FindName("CustomerOpenWireText")).Visibility == Visibility.Collapsed, "home page hides open-wire explanation");
+            window.Close();
+            Console.WriteLine("PASS actual WPF customer: MOS page removed, background journal disabled, home explanation hidden");
+            return 0;
+        }
         var page = tabs.Items.OfType<TabItem>().Single(t => t.Header?.ToString() == "MOS 监控");
         tabs.SelectedItem = page;
         var grid = ((DockPanel)page.Content).Children.OfType<DataGrid>().Single();

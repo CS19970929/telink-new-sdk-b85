@@ -76,9 +76,7 @@
                                     <TextBlock x:Name="CustomerCellCountText" VerticalAlignment="Center" Text="—"/>
                                 </StackPanel>
                             </Grid>
-                            <TextBlock x:Name="CustomerOpenWireText" Grid.Row="1" Margin="5,0,5,8" Text="断线检测：未连接，当前串号未知"
-                                       TextWrapping="Wrap" FontWeight="SemiBold" Foreground="DimGray"
-                                       ToolTip="C1、C2…来自固件已锁存故障掩码，不由单体电压猜测。SH 通道映射待逐路实板确认；具体物理采样线需核对原始结果。更多状态、倒计时和记录见断线检测页。"/>
+                            <TextBlock x:Name="CustomerOpenWireText" Visibility="Collapsed"/>
                             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <WrapPanel x:Name="CustomerCellPanel" Margin="5" ItemWidth="205"/>
                             </ScrollViewer>
@@ -317,7 +315,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0">
-                        <TextBlock Text="保护参数修改后会立即写入设备并保存。请确认参数符合当前电池规格。" TextWrapping="Wrap"/>
+                        <TextBlock Text="按左侧类别选择保护项，在蓝色数值栏编辑。点击写入后才保存到设备；写入全部包含其它类别中的修改。" TextWrapping="Wrap"/>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,8">
                             <Button Width="105" Click="ReadProtection_Click">读取全部</Button>
                             <Button Width="115" Margin="8,0,0,0" Click="WriteSelectedProtection_Click">写入选中项</Button>
@@ -370,6 +368,17 @@
                 <StackPanel Margin="16">
                     <Button Width="120" HorizontalAlignment="Left" Click="RefreshIdentity_Click">刷新设备信息</Button>
                     <TextBlock x:Name="IdentityText" Margin="0,14,0,20" FontSize="15" Text="—"/>
+                    <GroupBox Header="设备 SN" Margin="0,0,0,14">
+                        <StackPanel Margin="12">
+                            <TextBlock Text="支持 1～32 个可打印 ASCII 字符。连接后先读取参数，再保存并读回确认。" TextWrapping="Wrap"/>
+                            <WrapPanel Margin="0,10,0,0">
+                                <TextBox x:Name="DeviceSerialBox" Width="300" Height="32" MaxLength="32" Margin="0,0,10,6"/>
+                                <Button Padding="12,5" Margin="0,0,8,6" Click="ReadDeviceSerial_Click">读取参数 / SN</Button>
+                                <Button Padding="12,5" Margin="0,0,0,6" Click="WriteDeviceSerial_Click">保存 SN 并确认</Button>
+                            </WrapPanel>
+                            <TextBlock x:Name="DeviceSerialStatusText" Text="尚未读取" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
                     <GroupBox Header="修改蓝牙名">
                         <StackPanel Margin="12">
                             <TextBlock Text="设备名称固定以 BT_ 开头。此处只填写后缀，支持字母、数字、下划线和短横线。" TextWrapping="Wrap"/>

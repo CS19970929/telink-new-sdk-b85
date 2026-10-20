@@ -51,11 +51,16 @@ static class BusinessParametersUiTest
         var tabs=(TabControl)window.FindName("MainTabs");
         var tab=tabs.Items.OfType<TabItem>().Single(x=>Equals(x.Header,"业务参数"));
         tabs.SelectedItem=tab;
-        var scroll=(ScrollViewer)tab.Content;
-        var root=(FrameworkElement)scroll.Content;
-        // 展开整页保存离屏预览，检查低于首屏的均衡编辑区也能访问。
-        root.Measure(new Size(980,double.PositiveInfinity));
-        root.Arrange(new Rect(0,0,980,root.DesiredSize.Height));root.UpdateLayout();
+        var page=(DockPanel)tab.Content;
+        var sections=page.Children.OfType<TabControl>().Single();
+        sections.SelectedItem=sections.Items.OfType<TabItem>().Single(x=>Equals(x.Header,"均衡"));
+        bool customer=type.GetField("_protectedFeaturesUnlocked",Private)!=null;
+        Check(sections.Items.OfType<TabItem>().Any(x=>Equals(x.Header,"SOC / OCV"))!=customer,"只有内部版提供 SOC / OCV 参数入口");
+        Check(Field<TextBox>("DeviceSerialBox").MaxLength==32,"设备信息页 SN 限制为 32 字符");
+        var root=(FrameworkElement)page;
+        // 分区页面只布局当前分类，状态条保持可见。
+        root.Measure(new Size(980,720));
+        root.Arrange(new Rect(0,0,980,720));root.UpdateLayout();
         Check(Field<TextBox>("_parameterBalanceDeltaStop").ActualWidth>0,"均衡输入框参与布局");
         if(args.Length>0){
             Directory.CreateDirectory(args[0]);
@@ -84,6 +89,6 @@ static class BusinessParametersUiTest
         capture.Blocks.Remove("Sleep");Load(capture);
         Check(!Field<Button>("_sleepSave").IsEnabled && Field<TextBox>("_sleepLowMv").Text=="","休眠读取失败清旧值并禁止保存");
         window.Close();
-        Console.WriteLine("PASS business parameters UI: actual/candidate separation, 30/15 and temperature display, two save groups, missing/invalid/v1/unsupported/disconnect gates, offscreen layout");
+        Console.WriteLine("PASS business parameters UI: grouped layout, edition-specific SOC / OCV, SN editor, actual/candidate separation and write gates");
     }
 }

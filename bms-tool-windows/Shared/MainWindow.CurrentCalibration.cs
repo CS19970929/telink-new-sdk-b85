@@ -197,6 +197,7 @@ public partial class MainWindow
             session.Outcome = (zeroOnly ? "仅零点已保存，原增益未修改；" : "两点参数已保存；") + $"参数读回及新样本公式核对完成；当前电流 {final} mA。多点、温升和重新上电精度尚待验证。";
             _currentCalibrationStatus.Text = (zeroOnly ? "零点已保存并读回，原增益保持不变。" : "两点校准已保存并读回。") + $"当前电流 {Math.Abs(final)/1000d:F3} A。请另行检查小电流、相反方向及重新上电后的结果。";
             await FinishCurrentCalibrationAsync();
+            ShowParameterSaved(_currentCalibrationStatus.Text);
         });
     }
     private async Task RestoreCurrentCalibrationAsync()
@@ -222,6 +223,7 @@ public partial class MainWindow
             previous.Outcome += "\n已恢复并读回本次校准前参数。";
             previous.WriteAttempted = false;
             _currentCalibrationStatus.Text = "已恢复本次校准前参数。";
+            ShowParameterSaved(_currentCalibrationStatus.Text);
             await FinishCurrentCalibrationAsync();
         });
     }
@@ -247,6 +249,7 @@ public partial class MainWindow
             if (_currentCalibrationRecord is { } record) record.Outcome += "\n" + result;
             _currentCalibrationStatus.Text = result;
             await FinishCurrentCalibrationAsync();
+            MessageBox.Show(this, result, "校准操作未完成", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally { _currentCalibrationBusy = false; UpdateCurrentCalibrationControls(); }
     }

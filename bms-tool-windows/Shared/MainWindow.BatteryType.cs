@@ -19,7 +19,7 @@ public partial class MainWindow
         read.Click += async (_,_) => await ParameterRunAsync(async (client,ct) => {
             var state = await client.ReadBatteryTypeAsync(ct);
             _batteryTypeStatus.Text = state[2] == 1 ? "当前类型：磷酸铁锂" : state[2] == 2 ? "当前类型：三元锂" : "当前类型：自动选择，请核对实际电芯";
-        });
+        }, operation: null, requiresUnlock: false);
         root.Children.Add(read);
         foreach (ushort chemistry in new ushort[] { 1, 2 })
         {
@@ -35,22 +35,23 @@ public partial class MainWindow
         if (expectedClient is null) { _batteryTypeStatus.Text = "请先连接设备"; return; }
 #if !BMS_FACTORY_APP
         if (!_protectedFeaturesUnlocked) { _batteryTypeStatus.Text = "请先通过密码解锁高级功能"; return; }
-#else
+#endif
         var input = new PasswordBox { Margin = new Thickness(16), MinWidth = 220 };
         var panel = new StackPanel();
-        panel.Children.Add(new TextBlock { Text = "请输入服务密码", Margin = new Thickness(16,12,16,0) });
+        panel.Children.Add(new TextBlock { Text = "本次切换需要再次输入服务密码", Margin = new Thickness(16,12,16,0) });
         panel.Children.Add(input);
-        var dialog = new Window { Title = "服务权限验证", Content = panel, Owner = this,
+        var dialog = new Window { Title = "确认本次电池类型切换", Content = panel, Owner = this,
             SizeToContent = SizeToContent.WidthAndHeight, WindowStartupLocation = WindowStartupLocation.CenterOwner,
             ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false };
         var confirm = new Button { Content = "确认", IsDefault = true, Margin = new Thickness(16,0,16,16) };
         confirm.Click += (_,_) => dialog.DialogResult = true;
         panel.Children.Add(confirm);
-        if (dialog.ShowDialog() != true) return;
+        dialog.Loaded += (_,_) => input.Focus();
+        panel.Children.Add(new Button { Content = "取消", IsCancel = true, Margin = new Thickness(16,0,16,16) });
+        if (dialog.ShowDialog() != true) { input.Clear(); return; }
         bool authorized = BmsServiceAccess.PasswordValid(input.Password);
         input.Clear();
-        if (!authorized) { _batteryTypeStatus.Text = "服务密码错误"; return; }
-#endif
+        if (!authorized) { _batteryTypeStatus.Text = "服务密码错误"; MessageBox.Show(this,"服务密码错误，本次切换未执行。","验证失败",MessageBoxButton.OK,MessageBoxImage.Warning); return; }
         string name = chemistry == 1 ? "磷酸铁锂" : "三元锂";
         if (MessageBox.Show(this, $"将当前设备整套参数切换为{name}。请确认实际电芯类型匹配，且已断开充电器和负载。是否继续？",
             "切换电池类型", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
@@ -82,6 +83,6 @@ public partial class MainWindow
                 _batteryTypeStatus.Text = "本次结果未确认；请重新读取电池类型与保护参数。";
                 throw;
             }
-        });
+        }, operation: "切换电池类型");
     }
 }

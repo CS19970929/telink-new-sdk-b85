@@ -49,12 +49,12 @@ public partial class MainWindow
         };
         top.Children.Add(_afeHardwareDeviceInfo);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 8) };
+        var buttons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 8) };
         var readButton = new Button { Content = "读取AFE硬件参数", Width = 138, Height = 30 };
         readButton.Click += ReadAfeHardware_Click;
         buttons.Children.Add(readButton);
 
-        var applyButton = new Button { Content = "保存 / 原子应用", Width = 132, Height = 30, Margin = new Thickness(8, 0, 0, 0) };
+        var applyButton = new Button { Content = "保存并读回确认", Width = 132, Height = 30, Margin = new Thickness(8, 0, 0, 0) };
         applyButton.Click += ApplyAfeHardware_Click;
         buttons.Children.Add(applyButton);
 
@@ -95,8 +95,10 @@ public partial class MainWindow
         });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "单位", Binding = new Binding(nameof(AfeParameterRow.Unit)), Width = 60, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "说明", Binding = new Binding(nameof(AfeParameterRow.Hint)), Width = new DataGridLength(1, DataGridLengthUnitType.Star), IsReadOnly = true });
-        Grid.SetRow(_afeHardwareGrid, 1);
-        root.Children.Add(_afeHardwareGrid);
+        var browser = CreateParameterBrowser(_afeHardwareGrid, item => ((AfeParameterRow)item).Group,
+            new[] { "单体过压", "单体欠压", "放电过流", "充电过流", "短路保护", "充电温度", "放电温度", "温度保护" });
+        Grid.SetRow(browser, 1);
+        root.Children.Add(browser);
 
         var bottom = new TextBlock
         {
@@ -210,6 +212,7 @@ public partial class MainWindow
             ApplyAfeDeviceInfo(readback.Info);
             _afeHardwareStatus.Text = $"保存成功 · requested一致 · effective已回读 · {DateTime.Now:HH:mm:ss}";
             AppendLog($"AFE_HW_V2_WRITE_VERIFY_OK backend=0x{readback.Info.BackendModel:X4}; apply={readback.Info.ApplyState}; error={readback.Info.LastError}", "AFE");
+            ShowParameterSaved("AFE 硬件参数已保存，请求值一致，有效值已读回。\n" + _afeHardwareStatus.Text);
         }
         catch (Exception ex)
         {

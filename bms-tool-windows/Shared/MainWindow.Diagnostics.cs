@@ -38,7 +38,11 @@ public partial class MainWindow
     {
         AddParameterTab();
         AddRuntimeLogTab();
+#if BMS_FACTORY_APP
         AddMosMonitorTab();
+#else
+        _mosAuto.IsChecked = false;
+#endif
         AddOpenWireTab();
 #if BMS_FACTORY_APP
         var root=new DockPanel {Margin=new Thickness(12)};
