@@ -5,7 +5,8 @@ from project_paths import selected_source
 
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = r'''
-static unsigned char bms_serial_ota_busy(void){return 0;}
+static unsigned char ota_busy;
+static unsigned char bms_serial_ota_busy(void){return ota_busy;}
 static void bms_serial_ota_poll(void){}
 static int bms_serial_ota_on_frame(const unsigned char*p,unsigned n,unsigned char*r,unsigned*l){(void)p;(void)n;(void)r;(void)l;return 0;}
 #include <stdint.h>
@@ -208,6 +209,10 @@ static void check_power_gating(void){
  assert(!modbus_uart_service_wakeup()&&comm_supply&&s_rx_ready);main_loop_modbus();
  advance_us(1100000u);reg_irq_src|=FLD_IRQ_GPIO_RISC1_EN;
  assert(!modbus_uart_service_wakeup()&&comm_supply); /* 尚未分派IRQ的接入也刷新会话。 */
+ /* OTA 擦除/校验期间可能超过普通静默期限，必须保持通信域供电。 */
+ ota_busy=1;
+ for(int i=0;i<3;++i){advance_us(1100000u);main_loop_modbus();assert(comm_supply&&(channels&1));}
+ ota_busy=0;
  advance_us(1100000u);main_loop_modbus();
  assert(!comm_supply&&!channels&&modbus_uart_suspend_ready());
  assert(!(input_pins&((1u<<1)|(1u<<2)))&&(input_pins&(1u<<4)));
@@ -325,7 +330,7 @@ for product, production in ((p, mode) for p in products for mode in ((0, 1) if p
             115200: (9, 13, 50000, 25000),
         }[baud_rate]
         defines += '#define TEST_SH_UART %d\n' % (product != 'd008')
-        power_gating = product == 'd014' and production
+        power_gating = product == 'd014'
         defines += '#define TEST_POWER_GATING %d\n#define BMS_PRODUCT_RS485_POWER_GATING_ENABLE %d\n' % (power_gating, power_gating)
         defines += '#define BMS_PRODUCT_RS485_POWER_SETTLE_MS 20u\n'
         expected = ('#define TEST_UART_BAUD_RATE %du\n#define TEST_UART_DIVIDER %du\n'

@@ -51,15 +51,7 @@
 #define SH3673510_PRODUCT_MOS_NTC_SUPPORTED 1u
 
 /* 原图U4独立3V3光耦：PD3高电平唤醒；PD4控制U2的C-3V3。 */
-/* BT_cs001 串口 OTA 开发测试：保持 MCU/AFE 通信恢复及隔离 RS485 供电。
- * 仅开发构建暂停所有休眠入口，生产构建始终使用原低功耗策略。 */
-#ifndef BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP
-#define BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP (!BMS_PRODUCTION_BUILD)
-#endif
-#if BMS_PRODUCTION_BUILD && BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP
-#error "Serial OTA no-sleep test is forbidden in production"
-#endif
-#define BMS_PRODUCT_RS485_POWER_GATING_ENABLE (!BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP)
+#define BMS_PRODUCT_RS485_POWER_GATING_ENABLE 1
 /* 工程初值，非CA-IS2092A保证的启动上限；量产须测C-3V3/ISO-5V。 */
 #define BMS_PRODUCT_RS485_POWER_SETTLE_MS 20u
 /* 开发版也用于功耗测试，默认移除调试灯闪烁及SDK调试GPIO负载。 */

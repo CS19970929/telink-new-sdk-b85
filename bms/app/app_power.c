@@ -51,10 +51,6 @@
 #include "bms_sleep_status.h"
 #include <string.h>
 
-#ifndef BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP
-#define BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP 0u
-#endif
-
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "bus_mux.h"
 #endif
@@ -125,12 +121,6 @@ static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
  * 返回1仅重复本保持动作；不读写Flash、不访问AFE、不恢复通信供电。 */
 u8 app_power_boot_sleep_hold(void)
 {
-#if BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP
-    {
-        analog_write(DEEP_ANA_REG6, 0u);
-        return 0u;
-    }
-#endif
     u8 retained = analog_read(DEEP_ANA_REG6);
 #if BMS_PRODUCT_SWITCH_ENABLE
     if ((pm_get_wakeup_src() & WAKEUP_STATUS_PAD) &&
@@ -374,9 +364,6 @@ static u8 app_sh_explicit_sleep_poll(void)
 /* SDK 最后一道普通 Suspend 检查；直接深睡已提交时绝不被此回调否决。 */
 int app_power_before_suspend(void)
 {
-#if BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP
-    return 0;
-#endif
     if (s_protective_sleep_committed) return 1;
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (s_acc_sleep_committed) return 1;
@@ -410,16 +397,6 @@ void task_sleep_enter(u8 e, u8 *p, int n)
 /* 共用一次测量、保护性休眠计时和原因选择，再处理板级入口与Suspend门禁。 */
 void app_power_process(const volatile uint8_t *sample_due)
 {
-    /* 开发板串口 OTA 专用：保留采样/AFE 故障及输出禁止，只暂停休眠。 */
-#if BMS_PRODUCT_SERIAL_OTA_TEST_NO_SLEEP
-    {
-        s_low_power_mode = false;
-        bls_pm_setSuspendMask(SUSPEND_DISABLE);
-        bms_sleep_status_publish(BMS_SLEEP_REASON_NONE, 0u, 0u, 0u, 0u, 0u);
-        if (ota_is_working) bls_pm_setManualLatency(0);
-        return;
-    }
-#endif
     static app_pm_elapsed_ctx_t elapsed_ctx;
     bms_afe_aux_measurements_t m;
     app_sleep_status_t protective;

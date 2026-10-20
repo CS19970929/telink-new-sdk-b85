@@ -488,7 +488,8 @@ u8 modbus_uart_service_wakeup(void)
         s_uart_idle_ready = 1u;
 #if MODBUS_RS485_POWER_GATING
     irq_state = irq_disable();
-    if (modbus_uart_rx_idle() && !s_comm_wake_pending &&
+    /* OTA 擦除/校验时仍需要应答，会话结束后恢复正常静默断电。 */
+    if (!bms_serial_ota_busy() && modbus_uart_rx_idle() && !s_comm_wake_pending &&
         !(reg_irq_src & FLD_IRQ_GPIO_RISC1_EN) && !gpio_read(BMS_BOARD_CMNT_WK_PIN)) {
         modbus_rs485_power_off();
         irq_restore(irq_state);

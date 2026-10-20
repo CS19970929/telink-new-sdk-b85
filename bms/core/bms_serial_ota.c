@@ -51,11 +51,14 @@ static void close_update(uint8_t error)
 static uint8_t begin_update(const uint8_t *p, uint32_t session)
 {
     uint32_t size = read32(p + 1u), descriptor = read32(p + 9u);
+    uint32_t candidate_base;
     if (!session || p[0] != BMS_PRODUCT_ID || size < 64u ||
         size > BMS_SERIAL_OTA_SLOT_BYTES || descriptor > size - 20u)
         return OTA_IMAGE;
     if (update.opened) return OTA_BUSY;
-    if (!bms_serial_ota_flash_open(&update.base)) return OTA_BUSY;
+    /* TC32 使用 packed struct/short enum；不能把未对齐成员地址作为普通 u32 指针传出。 */
+    if (!bms_serial_ota_flash_open(&candidate_base)) return OTA_BUSY;
+    update.base = candidate_base;
     update.opened = 1u;
     update.session = session;
     update.size = size;
