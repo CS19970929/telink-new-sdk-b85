@@ -59,6 +59,8 @@ void user_init_deepRetn(void);
 
 /* 应用协作主循环。 */
 void main_loop(void);
+/* 采样回调标志或200ms期限任一到期即返回1；供任务与最终入睡检查共用。 */
+uint8_t app_sample_is_due(void);
 
 /* 应用与 OTA 路径使用的 Flash 保护回调，地址区间为 [op_addr_begin, op_addr_end)。 */
 void app_flash_protection_operation(u8 flash_op_evt, u32 op_addr_begin, u32 op_addr_end);

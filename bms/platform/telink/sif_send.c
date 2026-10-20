@@ -16,15 +16,14 @@
 
 #define SIF_TIMER_INTERVAL_US 500u
 
-/* 初始化 SIF 波形使用的硬件定时器。 */
+/* 初始化后保持停止，避免被动监听/UART期间每500us运行空ISR。 */
 void sif_timer_init(void)
 {
-    reg_irq_mask |= FLD_IRQ_TMR0_EN;
+    reg_tmr_ctrl &= ~FLD_TMR0_EN;
+    reg_irq_mask &= ~FLD_IRQ_TMR0_EN;
     reg_tmr0_tick = 0;
     reg_tmr0_capt = SIF_TIMER_INTERVAL_US * CLOCK_SYS_CLOCK_1US;
     reg_tmr_sta = FLD_TMR_STA_TMR0;
-    reg_tmr_ctrl |= FLD_TMR0_EN;
-    irq_enable();
 }
 
 /* 按已准备数据推进单线位波形与结束阶段。 */
@@ -96,6 +95,26 @@ static uint8_t s_code_packet_due;
 static volatile uint8_t s_restart_packets;
 static volatile uint8_t s_return_to_idle;
 static uint32_t s_prepared_sample_tick;
+static volatile uint16_t s_idle_ticks;
+
+void sif_set_bus_active(uint8_t active)
+{
+    reg_tmr_ctrl &= ~FLD_TMR0_EN;
+    reg_irq_mask &= ~FLD_IRQ_TMR0_EN;
+    reg_tmr_sta = FLD_TMR_STA_TMR0;
+    s_idle_ticks = 0u;
+    sif_sync_tosc = sif_send_tosc = byte_cnt = 0u;
+    bit_cnt = 0;
+    state_mode = SIF_IDLE;
+    s_packet_ready = 0u;
+    s_return_to_idle = 0u;
+    s_restart_packets = 1u;
+    if (active) {
+        reg_tmr0_tick = 0u;
+        reg_irq_mask |= FLD_IRQ_TMR0_EN;
+        reg_tmr_ctrl |= FLD_TMR0_EN;
+    }
+}
 
 /* 将 16 位值按 SIF 小端线格式写入包。 */
 static void sif_put_u16le(uint8_t *p, uint16_t value)
@@ -154,13 +173,12 @@ static uint8_t sif_fault_code(void)
 /* 处理 SIF 包发送状态；未启用产品保留空入口。 */
 void sif_send_data_handle(void)
 {
-    static uint16_t cnt = 0;
     uint8_t count = SIF_SEND_COUNT;
     const uint8_t *p = s_packets[s_active_packet];
 
     if (BUS_STATE_OWC_TX != bus_mux_get_state())
     {
-        cnt = 0;
+        s_idle_ticks = 0u;
         sif_sync_tosc = 0u;
         sif_send_tosc = 0u;
         bit_cnt = 0;
@@ -186,15 +204,15 @@ void sif_send_data_handle(void)
         if (!gpio_read(BMS_BOARD_OWC_RX_PIN))
         {
             s_return_to_idle = 1u;
-            cnt = 0;
+            s_idle_ticks = 0u;
             state_mode = SIF_IDLE;
             s_restart_packets = 1u;
             return;
         }
 
-        if (++cnt >= 2 * 1000)
+        if (++s_idle_ticks >= 2 * 1000)
         {
-            cnt = 0;
+            s_idle_ticks = 0u;
             state_mode = SYNC_SIGNAL;
         }
         // sif_turn_off();
@@ -301,9 +319,9 @@ void sif_send_data_handle(void)
         break;
     }
     case SEND_DATA_COMPLETE:
-        if (++cnt >= 2 * 1500)
+        if (++s_idle_ticks >= 2 * 1500)
         {
-            cnt = 0;
+            s_idle_ticks = 0u;
             state_mode = SYNC_SIGNAL;
         }
         sif_turn_on();
@@ -539,6 +557,7 @@ static void sif_send_private_battery_code(void)
 }
 
 #else
+void sif_set_bus_active(uint8_t active) { (void)active; }
 /* 主循环准备待发送 SIF 包；未启用产品保留空入口。 */
 /* 启用 SIF 时重建待发送包并发布 ready；关闭时为空入口。 */
 void sif_prepare_task(uint32_t sample_tick) { (void)sample_tick; }

@@ -75,6 +75,12 @@ static u32 s_sample_tick;
 /* 低功耗唤醒回调只置位；主循环消费后执行采样，不在回调中跑保护/SOC。 */
 static volatile u8 s_sample_due;
 
+/* SDK 临睡回调也检查期限，覆盖主循环许可后才到期的窗口。 */
+uint8_t app_sample_is_due(void)
+{
+    return s_sample_due || clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US);
+}
+
 #define SOC_SAMPLE_PACK_FAULT_MASK         0x000Cu
 #define SOC_SAMPLE_CURRENT_FAULT_MASK      0x0030u
 #define SOC_SAMPLE_TEMP_FAULT_MASK         0x2BC0u
@@ -261,7 +267,7 @@ static void app_sample_task(void)
     bms_afe_sample_status_t result;
     u8 valid;
 
-    if (!s_sample_due && !clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) return;
+    if (!app_sample_is_due()) return;
 
     s_sample_due = 0u;
     s_sample_tick = clock_time();

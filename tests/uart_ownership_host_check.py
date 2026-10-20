@@ -83,9 +83,9 @@ static void rx_edge(void){
 static void check_suspend(void){
  busy=irqsrc=0;now=now_32k=0;rx_high=1;modbus_uart_init();
  assert(!modbus_uart_suspend_ready());
- now_32k=30u*32000u-1u;main_loop_modbus();assert(!modbus_uart_suspend_ready());
+ now_32k=32000u-1u;main_loop_modbus();assert(!modbus_uart_suspend_ready());
  ++now_32k;main_loop_modbus();assert(modbus_uart_suspend_ready());
- // 定时唤醒恢复UART，但不重新开始30秒静默。
+ // 定时唤醒恢复UART，但不重新开始1秒静默。
  modbus_uart_suspend_enter();assert(rx_pad_enabled);
  modbus_uart_suspend_exit(WAKEUP_STATUS_TIMER);assert(!modbus_uart_suspend_ready());
  main_loop_modbus();assert(modbus_uart_suspend_ready());
@@ -95,17 +95,17 @@ static void check_suspend(void){
  now+=4000u*16u;rx_edge();main_loop_modbus();assert(s_uart_wake_discard);
  now+=5001u*16u;main_loop_modbus();assert(!s_uart_wake_discard);
  receive(0x22,8);main_loop_modbus();assert(parsed==count+1);
- // 坏帧也属于通信，刷新30秒；RX持续低不能许可Suspend。
- now_32k+=30u*32000u;receive(0x33,0);main_loop_modbus();assert(!modbus_uart_suspend_ready());
- now_32k+=30u*32000u;rx_high=0;main_loop_modbus();assert(!modbus_uart_suspend_ready());
- rx_high=1;now_32k+=30u*32000u;main_loop_modbus();assert(modbus_uart_suspend_ready());
+ // 坏帧也属于通信，刷新1秒；RX持续低不能许可Suspend。
+ now_32k+=32000u;receive(0x33,0);main_loop_modbus();assert(!modbus_uart_suspend_ready());
+ now_32k+=32000u;rx_high=0;main_loop_modbus();assert(!modbus_uart_suspend_ready());
+ rx_high=1;now_32k+=32000u;main_loop_modbus();assert(modbus_uart_suspend_ready());
  // 临睡前边沿与尚未处理的DMA都必须阻止Suspend。
  rx_edge();assert(!modbus_uart_suspend_ready());main_loop_modbus();
- now_32k+=30u*32000u;main_loop_modbus();assert(modbus_uart_suspend_ready());
+ now_32k+=32000u;main_loop_modbus();assert(modbus_uart_suspend_ready());
  irqsrc|=1;assert(!modbus_uart_suspend_ready());irqsrc=0;
- // 跨32K回绕、发送尚未结束和结束后的30秒。
+ // 跨32K回绕、发送尚未结束和结束后的1秒。
  now_32k=UINT32_MAX-100u;busy=1;main_loop_modbus();busy=0;
- now_32k+=30u*32000u-32u;main_loop_modbus();assert(!modbus_uart_suspend_ready());
+ now_32k+=32000u-32u;main_loop_modbus();assert(!modbus_uart_suspend_ready());
  now_32k+=32u;main_loop_modbus();assert(modbus_uart_suspend_ready());
  // Timer和RX同时到来，也丢弃被恢复动作截断的首帧。
  modbus_uart_suspend_enter();rx_edge();modbus_uart_suspend_exit(WAKEUP_STATUS_TIMER);

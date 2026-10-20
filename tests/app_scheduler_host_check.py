@@ -7,6 +7,7 @@ def check_app_recovery_wakeup_host_check():
     import os,subprocess,tempfile
     from pathlib import Path
     from project_paths import Sources, host_includes, selected_source
+    from validation_support import function as extract_function
     ROOT=Path(__file__).resolve().parents[1]
     MOD = Sources(ROOT)
     s=(MOD/'app.c').read_text(encoding='utf-8')
@@ -20,14 +21,19 @@ def check_app_recovery_wakeup_host_check():
     #include <assert.h>
     #define APP_SAMPLE_PERIOD_US 200000u
     #define SYSTEM_TIMER_TICK_1US 16u
-    static uint32_t s_sample_tick, deadline;
-    static uint8_t enabled;
+    static uint32_t s_sample_tick, deadline, now;
+    static uint8_t enabled, s_sample_due;
+    static int clock_time_exceed(uint32_t start,uint32_t us){return (uint32_t)(now-start)>us*16u;}
     static void bls_pm_setAppWakeupLowPower(uint32_t tick,uint8_t en){deadline=tick;enabled=en;}
-    """+policy+"""
+    """+policy+'\n'+extract_function(s,'uint8_t app_sample_is_due(')+"""
     int main(void){
      s_sample_tick=100;app_schedule_sample_wakeup();assert(enabled && deadline==3200100u);
      s_sample_tick=0xfffffff0u;app_schedule_sample_wakeup();assert(deadline==(uint32_t)(0xfffffff0u+3200000u));
      s_sample_tick=3200100u;app_schedule_sample_wakeup();assert(enabled && deadline==6400100u);
+     now=s_sample_tick+3200000u;assert(!app_sample_is_due());
+     ++now;assert(app_sample_is_due());
+     now=s_sample_tick;s_sample_due=1;assert(app_sample_is_due());s_sample_due=0;
+     s_sample_tick=UINT32_MAX-100u;now=s_sample_tick+3200001u;assert(app_sample_is_due());
      return 0;
     }
     """
@@ -63,6 +69,7 @@ def check_app_scheduler_host_check():
     checkpoint = re.search(r"bms_state_store_poll\([^;]+;",function(app,"static void app_storage_1s_task(")).group(0)
     scheduler = "\n".join([
         function(power, "uint8_t app_power_prepare_loop("),
+        function(app, "uint8_t app_sample_is_due("),
         function(app, "static void app_sample_task("),
         "static void app_storage_1s_task(void){\n" + event + "note('E');" + checkpoint + "}",
         function(app, "_attribute_no_inline_ void main_loop("),

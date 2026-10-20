@@ -84,7 +84,7 @@ typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR
         return failures ? 1 : 0;
     }
     '''
-    body = period + '\n' + '\n'.join(function(n) for n in (
+    body = period + '\n' + extract_function(source, 'uint8_t app_sample_is_due(') + '\n' + '\n'.join(function(n) for n in (
         'app_sample_wakeup', 'app_schedule_sample_wakeup', 'app_sample_task'))
     with tempfile.TemporaryDirectory(prefix='sh3510-scheduler-') as tmp:
         c, exe = Path(tmp)/'check.c', Path(tmp)/'check.exe'
@@ -198,7 +198,6 @@ def check_sh_protective_sleep():
     import re
     body = '\n'.join(re.findall(r'^#define APP_SH_SWITCH_WAKE_(?:TAG|MASK)[^\n]*', raw, re.M)) + '\n' + body
     body += '\n' + function(source, 'int app_power_before_suspend(')
-    body += '\n' + function(source, 'static uint8_t app_current_prevents_suspend(')
     body += '\n' + function(source, 'void app_power_process(')
     fixture = (root / 'tests/fixtures/protective_sleep.c').read_text(encoding='utf-8')
     for enabled in (1, 0):
@@ -213,12 +212,10 @@ def check_sh_suspend_current_gates():
     from validation_support import function, run_c
     root = Path(__file__).resolve().parents[1]
     source = selected_source(root / 'bms/app/app_power.c', defines=('-DBMS_SERVICE_DIAG_ENABLE=1',))
-    defines = re.search(r'^#define APP_SUSPEND_EXIT_CURRENT_MA[^\n]*', source, re.M).group()
+    defines = re.search(r'^#define APP_SUSPEND_CURRENT_THRESHOLD_MA[^\n]*', source, re.M).group()
     defines += '\n' + re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                                (root / 'bms/core/bms_soc.h').read_text(), re.M).group()
-    body = '\n'.join(function(source, signature) for signature in (
-        'static uint8_t app_current_prevents_suspend(',
-        'void app_power_process('))
+    body = function(source, 'void app_power_process(')
     fixture = r'''
     #include <stdint.h>
     #include <stdbool.h>
@@ -269,9 +266,7 @@ def check_sh_suspend_current_gates():
         int32_t currents[]={INT32_MIN,-500,-201,-200,-199,0,199,200,201,500,INT32_MAX};
         for(unsigned i=0;i<sizeof(currents)/sizeof(currents[0]);i++){
             measurement.current_ma=currents[i];app_power_process(&due);
-            int blocked=currents[i]<=-200 || currents[i]>=200;
-            assert(mask==(blocked?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
-            assert(observed_allowed==!blocked);
+            assert(mask==(SUSPEND_ADV|SUSPEND_CONN) && observed_allowed);
         }
         measurement.current_ma=0;
         valid=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);

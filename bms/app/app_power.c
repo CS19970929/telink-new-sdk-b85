@@ -74,20 +74,13 @@ uint8_t deepsleep_en;
 #define APP_COMMAND_REPLY_MS (APP_PM_MS_PER_SEC / 2u)
 static u8 s_command_seen;
 static u32 s_command_ms;
-/* 普通 Suspend 与低压可靠充电分别拥有阈值，不随 SOC 电流死区调整。 */
-#define APP_SUSPEND_EXIT_CURRENT_MA ((int32_t)200)
+/* 诊断字段保留，0表示普通Suspend不再按电流阻断；采样仍为200ms。 */
+#define APP_SUSPEND_CURRENT_THRESHOLD_MA 0u
 /* 策略时间由 Core 推进；提交标志只由应用一次性硬件收尾拥有。 */
 typedef bms_sleep_status_t app_sleep_status_t;
 typedef bms_sleep_policy_t app_protective_sleep_t;
 static u8 s_protective_sleep_committed;
 static app_protective_sleep_t s_protective_sleep;
-
-/* 普通 Suspend 只看电流是否达到活动阈值；与保护性深睡资格独立。 */
-static uint8_t app_current_prevents_suspend(const bms_afe_aux_measurements_t *m, u8 valid)
-{
-    return (valid && (m->current_ma >= APP_SUSPEND_EXIT_CURRENT_MA ||
-                      m->current_ma <= -APP_SUSPEND_EXIT_CURRENT_MA)) ? 1u : 0u;
-}
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 static u8 s_acc_sleep_committed;
@@ -214,6 +207,9 @@ static void app_prepare_deep_sleep(void)
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     /* 强制 DeepSleep 不使用通信唤醒；释放 UART/隔离器引脚后再关闭 CMNT_EN。 */
     modbus_uart_prepare_deep_sleep();
+#else
+    /* 新增通信PAD仅用于普通Suspend，不能唤醒已提交的ACC深睡。 */
+    cpu_set_gpio_wakeup(BMS_BOARD_OWC_RX_PIN, Level_High, 0);
 #endif
     s_low_power_mode = true;
 }
@@ -301,7 +297,7 @@ static void app_dvc_publish_sleep(const app_sleep_status_t *protective,
     }
     if (ota_is_working) block |= BMS_SLEEP_BLOCK_OTA;
     if (!app_flash_lock_restore_enabled()) block |= BMS_SLEEP_BLOCK_FLASH;
-    if (BUS_STATE_OWC_IDLE != bus_mux_get_state()) block |= BMS_SLEEP_BLOCK_BUS;
+    if (!bus_mux_suspend_ready()) block |= BMS_SLEEP_BLOCK_BUS;
     if (device_in_connection_state) block |= BMS_SLEEP_BLOCK_BLE;
     if (!sample_valid) block |= BMS_SLEEP_BLOCK_SAMPLE;
     bms_sleep_status_publish(BMS_SLEEP_REASON_NONE, block, 0u, 0u, 0u, suspend_allowed);
@@ -363,12 +359,21 @@ static u8 app_sh_explicit_sleep_poll(void)
     return app_command_sleep_poll();
 }
 
+#endif
+
 /* SDK 最后一道普通 Suspend 检查；直接深睡已提交时绝不被此回调否决。 */
 int app_power_before_suspend(void)
 {
     if (s_protective_sleep_committed) return 1;
-    if (bms_afe_register_debug_held()) return 0;
-    if (!s_low_power_mode || !modbus_uart_suspend_ready()) return 0;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    if (s_acc_sleep_committed) return 1;
+#endif
+    if (!s_low_power_mode || bms_afe_register_debug_held() || app_sample_is_due() ||
+        ota_is_working || !app_flash_lock_restore_enabled()) return 0;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
+    return bus_mux_prepare_suspend();
+#else
+    if (!modbus_uart_suspend_ready()) return 0;
     /* 当前稳定电平不拒绝普通 Suspend；变化仍唤醒，200ms采样定时器保留。 */
 #if BMS_PRODUCT_SWITCH_ENABLE
     app_protective_wakeup_pin(BMS_BOARD_SWITCH_PIN);
@@ -378,18 +383,15 @@ int app_power_before_suspend(void)
     app_protective_wakeup_pin(BMS_BOARD_INT_WK_MCU_PIN);
     modbus_uart_suspend_enter();
     return 1;
+#endif
 }
 
-#endif
 
-
-/* SH 的普通 Suspend 保留 UART PAD 唤醒；D008 依靠应用采样定时器。 */
+/* 四产品普通Suspend均保留通信PAD唤醒，采样期限仍由应用定时器负责。 */
 void task_sleep_enter(u8 e, u8 *p, int n)
 {
     (void)e; (void)p; (void)n;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     bls_pm_setWakeupSource(PM_WAKEUP_PAD);
-#endif
 }
 
 /* 共用一次测量、保护性休眠计时和原因选择，再处理板级入口与Suspend门禁。 */
@@ -410,7 +412,7 @@ void app_power_process(const volatile uint8_t *sample_due)
 #endif
     u8 ota_busy = ota_is_working ? 1u : 0u;
     u8 flash_busy = app_flash_lock_restore_enabled() ? 0u : 1u;
-    u8 bus_busy = (BUS_STATE_OWC_IDLE != bus_mux_get_state()) ? 1u : 0u;
+    u8 bus_busy = bus_mux_suspend_ready() ? 0u : 1u;
 
 #if BMS_SERVICE_DIAG_ENABLE
     /* 诊断沿用原 2=下档、3=上档编码；业务只保存两项独立资格位。 */
@@ -424,7 +426,6 @@ void app_power_process(const volatile uint8_t *sample_due)
     if (ota_busy) pm_block |= DIAG_PM_BLOCK_OTA;
     if (flash_busy) pm_block |= DIAG_PM_BLOCK_FLASH;
     if (bus_busy) pm_block |= DIAG_PM_BLOCK_BUS;
-    if (app_current_prevents_suspend(&m, valid)) pm_block |= DIAG_PM_BLOCK_CURRENT;
     if ((*sample_due)) pm_block |= DIAG_PM_BLOCK_SAMPLE_PENDING;
 
     /*
@@ -436,7 +437,7 @@ void app_power_process(const volatile uint8_t *sample_due)
         pm_block |= DIAG_PM_BLOCK_POWER_OFF;
         bms_diag_runtime_pm(0u, pm_block, region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
-                            (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
+                            (*sample_due), APP_SUSPEND_CURRENT_THRESHOLD_MA);
         if (app_command_sleep_poll()) return;
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
@@ -449,7 +450,7 @@ void app_power_process(const volatile uint8_t *sample_due)
         pm_block |= DIAG_PM_BLOCK_ACC_SLEEP;
         bms_diag_runtime_pm(0u, pm_block, region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
-                            (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
+                            (*sample_due), APP_SUSPEND_CURRENT_THRESHOLD_MA);
         if (app_enter_acc_sleep()) return;
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
@@ -458,8 +459,8 @@ void app_power_process(const volatile uint8_t *sample_due)
     }
 
     /*
-     * 使用精确有符号 mA，避免旧 0.1 A 截断并检查正负两侧；无效数据必须主动恢复，
-     * 不能假装空闲。
+     * 充放电不要求持续运行；完成采样与必要事务后可睡到下一期限。
+     * 无效数据仍保持运行恢复，不能把通信失败当作空闲。
      */
     if (pm_block != 0u)
     {
@@ -468,7 +469,7 @@ void app_power_process(const volatile uint8_t *sample_due)
         if (ota_is_working) bls_pm_setManualLatency(0);
         bms_diag_runtime_pm(0u, pm_block, region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
-                            (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
+                            (*sample_due), APP_SUSPEND_CURRENT_THRESHOLD_MA);
     }
     else
     {
@@ -476,15 +477,14 @@ void app_power_process(const volatile uint8_t *sample_due)
         bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
         bms_diag_runtime_pm(1u, 0u, region, voltage_seconds,
                             (uint8_t)(device_in_connection_state != 0),
-                            (*sample_due), APP_SUSPEND_EXIT_CURRENT_MA);
+                            (*sample_due), APP_SUSPEND_CURRENT_THRESHOLD_MA);
     }
     app_dvc_publish_sleep(&protective, s_low_power_mode, valid);
 #else
     u8 ui_busy = 0u;
     u8 sample_block;
     if (app_sh_explicit_sleep_poll()) return;
-    sample_block = (u8)(!valid || bms_afe_register_debug_held() || (*sample_due) ||
-        app_current_prevents_suspend(&m, valid));
+    sample_block = (u8)(!valid || bms_afe_register_debug_held() || (*sample_due));
 #if (UI_KEYBOARD_ENABLE)
     ui_busy = (scan_pin_need || key_not_released) ? 1u : 0u;
 #elif (UI_BUTTON_ENABLE)
@@ -493,7 +493,7 @@ void app_power_process(const volatile uint8_t *sample_due)
 #if (BLE_OTA_SERVER_ENABLE)
     if (ota_is_working && !ui_busy) bls_pm_setManualLatency(0);
 #endif
-    /* 开关开着也可普通Suspend；串口30秒静默由UART所有者确认。 */
+    /* 开关ON、充放电都可在任务间Suspend；串口静默由UART所有者确认。 */
     s_low_power_mode = !ui_busy && !sample_block && modbus_uart_suspend_ready() &&
         app_flash_lock_restore_enabled() && !ota_is_working;
     bls_pm_setSuspendMask(s_low_power_mode ? SUSPEND_ADV | SUSPEND_CONN : SUSPEND_DISABLE);

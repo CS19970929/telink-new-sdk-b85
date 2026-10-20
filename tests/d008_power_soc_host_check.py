@@ -56,9 +56,6 @@ def main():
     floor = re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                       (MOD / 'bms_soc.h').read_text(), re.M)
     assert floor is not None, "missing D008 current reliability floor"
-    suspend_limit = re.search(r'^#define APP_SUSPEND_EXIT_CURRENT_MA[^\n]*',
-                              (MOD / 'app_power.c').read_text(), re.M)
-    assert suspend_limit is not None
     with tempfile.TemporaryDirectory(prefix='d008-host-') as directory:
         units = {
             'soc': ('#include "' + (ROOT/'bms/core/bms_soc_eta.c').as_posix() + '"\n') + source('bms_soc_defs.h') + '\n' + product_parameters + source('bms_diag.h') + '\n' + source('bms_soc.h') + '\n' +
@@ -72,14 +69,14 @@ def main():
         if args.compile_soc_executable is None and not args.soc_only and args.behavior_mode is None:
             units.update({
             'power': protective_sleep_state() + '\n'.join(function('app_power.c', sig) for sig in (
-                'static uint8_t app_current_prevents_suspend(',
                 'static void app_protective_sleep_hold(',
                 'static void app_prepare_deep_sleep(',
                 'static void app_enter_protective_sleep(', 'static u8 app_command_sleep_poll(',
                 'static u8 app_protective_sleep_poll(',
                 'static void app_dvc_publish_sleep(',
                 'static void app_acc_sleep_hold(',
-                'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(', 'void app_power_process(',
+                'static int app_acc_sleep_requested(', 'static int app_enter_acc_sleep(',
+                'int app_power_before_suspend(', 'void app_power_process(',
                 'uint8_t app_power_prepare_loop(')),
             'guard': source('bms_afe_guard.c') + '\n' + function('dvc1124_bms.c', 'void bms_afe_diag_poll('),
             'current': function('dvc1124.c', 'static void dvc_publish_current_report('),
@@ -104,8 +101,7 @@ def main():
             assert fixture.count('/* PRODUCTION_SOURCE */') == 1
             path = Path(directory) / (name + '.c')
             path.write_text(fixture.replace('/* PRODUCTION_SOURCE */', code)
-                           .replace('/* CURRENT_FLOOR */', floor.group(0))
-                           .replace('/* SUSPEND_CURRENT_LIMIT */', suspend_limit.group(0)))
+                           .replace('/* CURRENT_FLOOR */', floor.group(0)))
             if args.compile_soc_executable is not None and name != 'soc':
                 continue
             executable = (args.compile_soc_executable if

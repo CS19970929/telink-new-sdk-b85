@@ -47,6 +47,8 @@ static bms_afe_aux_measurements_t measurement;
 static int valid, afe_error, ota_is_working, device_in_connection_state, flash_ready;
 static bool s_low_power_mode, deepsleep_en;
 static volatile u8 sample_due;
+static u8 late_sample_due;
+static u8 app_sample_is_due(void) { return sample_due || late_sample_due; }
 static int suspend_mask;
 static int tx_busy, ble_pending, uart_ready, uart_entered;
 static u32 reg_irq_src;
@@ -113,7 +115,7 @@ static u8 fixture_sleep_poll(u32 seconds, app_sleep_status_t *status)
 }
 static app_sleep_status_t sleep_status;
 static void reset(void) {
-    register_debug_hold=sample_due=0u;s_low_power_mode=0;suspend_mask=-1;
+    register_debug_hold=sample_due=late_sample_due=0u;s_low_power_mode=0;suspend_mask=-1;
     memset(&s_protective_sleep,0,sizeof(s_protective_sleep));s_protective_sleep_committed=0u;
  sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
  g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
@@ -299,6 +301,10 @@ int main(void) {
     /* SDK临睡检查再次检查UART资格；普通开关ON不阻止Suspend。 */
     reset(); s_low_power_mode=1; assert(!app_power_before_suspend());
     uart_ready=1; assert(app_power_before_suspend()&&uart_entered==1);
+    sample_due=1;assert(!app_power_before_suspend());sample_due=0;
+    late_sample_due=1;assert(!app_power_before_suspend());late_sample_due=0;
+    ota_is_working=1;assert(!app_power_before_suspend());ota_is_working=0;
+    flash_ready=0;assert(!app_power_before_suspend());flash_ready=1;
     assert(!comm_sleep_calls); /* 普通 Suspend 保留 UART 唤醒，不释放通信域 GPIO。 */
     for(int pin=0;pin<2;pin++) assert(enabled[pin]&&levels[pin]!=pins[pin]);
     assert(!enabled[2]&&!enabled[3]);

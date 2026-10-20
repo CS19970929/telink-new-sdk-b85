@@ -77,7 +77,7 @@ static mb_dma_pkt_t s_rx_pkt;
 static mb_dma_pkt_t s_tx_pkt;
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-#define MODBUS_UART_IDLE_MS (30u * 1000u)
+#define MODBUS_UART_IDLE_MS 1000u
 #define MODBUS_UART_WAKE_GAP_US 5000u /* 大于最低9600波特的3.5字符间隔。 */
 static volatile u8 s_uart_activity, s_uart_suspending, s_uart_resume_pending;
 static volatile u8 s_uart_wake_discard;

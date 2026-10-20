@@ -25,5 +25,11 @@ void bus_mux_on_uart_rx_byte(void);
 
 /* 取得当前通信引脚复用状态。 */
 bus_state_t bus_mux_get_state(void);
+/* 只允许低电平被动监听态入睡；高电平接入确认、边沿与唤醒识别窗口保持运行。 */
+int bus_mux_suspend_ready(void);
+/* SDK临睡时布防RX高电平并再次复核；失败返回0。 */
+int bus_mux_prepare_suspend(void);
+/* SDK退出回调只交付状态，由主循环关闭PAD并维护接入识别窗口。 */
+void bus_mux_suspend_exit(uint8_t wakeup_status);
 /* 撤销当前发送并返回单线监听状态。 */
 void bus_mux_return_to_owc_idle(void);

@@ -11,12 +11,12 @@ typedef int GPIO_PinTypeDef;
 #define BMS_AFE_BACKEND_DVC1124 1
 #define APP_PM_MS_PER_SEC 1000u
 /* CURRENT_FLOOR */
-/* SUSPEND_CURRENT_LIMIT */
 #define BMS_SOC_MAX_SAMPLE_GAP_MS 400u
 #define BMS_SAMPLE_MAX_POLL_GAP_MS 400u
 #define BMS_BOARD_MCU_LDO_PIN 4
 #define BMS_BOARD_ACC_PIN 0
 #define BMS_BOARD_LOAD_DETECT_PIN 1
+#define BMS_BOARD_OWC_RX_PIN 2
 #define Level_Low 0
 #define Level_High 1
 #define DEEPSLEEP_MODE 0x80
@@ -34,7 +34,7 @@ static int acc_high,ldo_high,acc_wake,load_wake,deep_calls,timer_hold_calls,rebo
 static int acc_low_during_shutdown,acc_low_during_sleep,ble_control_ok=1;
 static int gpio_read(int pin){assert(pin==BMS_BOARD_ACC_PIN||pin==BMS_BOARD_LOAD_DETECT_PIN);return pin==BMS_BOARD_ACC_PIN?acc_high:0;}
 static void start_reboot(void){reboot_calls++;}
-static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(level==Level_Low||level==Level_High);if(pin==BMS_BOARD_ACC_PIN)acc_wake=en;else{assert(pin==BMS_BOARD_LOAD_DETECT_PIN);load_wake=en;}}
+static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(level==Level_Low||level==Level_High);if(pin==BMS_BOARD_ACC_PIN)acc_wake=en;else if(pin==BMS_BOARD_OWC_RX_PIN){assert(!en);}else{assert(pin==BMS_BOARD_LOAD_DETECT_PIN);load_wake=en;}}
 static int cpu_sleep_wakeup(int mode,int src,u32 tick);
 static int bls_ll_terminateConnection(int reason){assert(reason==HCI_ERR_REMOTE_USER_TERM_CONN);disconnect_calls++;return ble_control_ok?BLE_SUCCESS:1;}
 static int bls_ll_setAdvEnable(int en){adv_enabled=en;return ble_control_ok?BLE_SUCCESS:1;}
@@ -92,6 +92,10 @@ static int bms_afe_get_aux_measurements(bms_afe_aux_measurements_t*m){
 }
 static int app_flash_lock_restore_enabled(void){return flash_ready;}
 static int bus_mux_get_state(void){return bus_busy;}
+static int bus_mux_suspend_ready(void){return !bus_busy;}
+static int bus_mux_prepare_suspend(void){return !bus_busy;}
+static uint8_t late_sample_due;
+static uint8_t app_sample_is_due(void){return s_sample_due || late_sample_due;}
 typedef struct { uint32_t soc,dsg,cycle,full_confirmed,full_basis; } bms_state_store_data_t;
 static bms_state_store_data_t bms_soc_state_snapshot(void){
  bms_state_store_data_t s={g_bms_soc.soc_estimate_percent,g_bms_soc.discharge_fraction_percent,g_bms_soc.cycle_count,0u,0u};return s;
@@ -120,7 +124,7 @@ static void bls_pm_setSuspendMask(int m){mask=m;}
 static void bls_pm_setManualLatency(int n){assert(n==0);}
 static u32 observed_voltage_seconds;
 void bms_diag_runtime_pm(u8 allowed,u32 reason,u8 region,u32 seconds,u8 connected,u8 pending,uint16_t threshold){
- (void)allowed;(void)reason;(void)region;observed_voltage_seconds=seconds;(void)connected;(void)pending;assert(threshold==APP_SUSPEND_EXIT_CURRENT_MA);
+ (void)allowed;(void)reason;(void)region;observed_voltage_seconds=seconds;(void)connected;(void)pending;assert(threshold==0u);
 }
 static unsigned diag_poll_calls;
 static void bms_parameters_diag_poll(void){++diag_poll_calls;}
@@ -145,7 +149,7 @@ static void reset(void){
  g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
  g_bms_report.pack_voltage_10mv=3300;afe_error=0;output_enabled=1;
  afe_shutdown_calls=0;
- s_sample_due=0;
+ s_sample_due=late_sample_due=0;
  storage_ok=event_ok=shutdown_ok=valid=flash_ready=1;
  ota_is_working=device_in_connection_state=bus_busy=seq_len=cut_calls=0;
  now=measurement.sample_time_ms=100;measurement.current_ma=0;elapsed=0;
@@ -330,9 +334,8 @@ int main(void){
  reset();int currents[]={INT32_MIN,-501,-500,-201,-200,-199,0,199,200,201,500,501,INT32_MAX};
  for(unsigned i=0;i<sizeof(currents)/sizeof(currents[0]);i++){
   measurement.current_ma=currents[i];app_power_process(&s_sample_due);
-  int active=currents[i]>=200||currents[i]<=-200;
-  assert(mask==(active?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
-  assert(s_low_power_mode==!active);
+  assert(mask==(SUSPEND_ADV|SUSPEND_CONN)&&s_low_power_mode);
+  assert(app_power_before_suspend());
  }
  /* A live BLE connection is not itself an active-mode request. */
  reset();device_in_connection_state=1;app_power_process(&s_sample_due);
@@ -342,10 +345,15 @@ int main(void){
  ota_is_working=0;bus_busy=1;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  bus_busy=0;flash_ready=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
  flash_ready=1;s_sample_due=1;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
- s_sample_due=0;measurement.current_ma=500;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
- measurement.current_ma=-500;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
+ s_sample_due=0;measurement.current_ma=500;app_power_process(&s_sample_due);assert(mask==(SUSPEND_ADV|SUSPEND_CONN));
+ measurement.current_ma=-500;app_power_process(&s_sample_due);assert(mask==(SUSPEND_ADV|SUSPEND_CONN));
+ assert(app_power_before_suspend());
+ late_sample_due=1;assert(!app_power_before_suspend());late_sample_due=0;
+ bus_busy=1;assert(!app_power_before_suspend());bus_busy=0;
+ ota_is_working=1;assert(!app_power_before_suspend());ota_is_working=0;
+ flash_ready=0;assert(!app_power_before_suspend());flash_ready=1;
  measurement.current_ma=0;valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE);
- puts("PASS connected suspend: link retained; ordinary OTA/bus/Flash/sample/current/invalid gates");
+ puts("PASS connected suspend: current-independent gaps; final sample/OTA/bus/Flash checks");
  reset();valid=0;app_power_process(&s_sample_due);assert(mask==SUSPEND_DISABLE && !cut_calls && seq_len==0);
  reset();now+=401;app_power_process(&s_sample_due);assert(mask==(SUSPEND_ADV|SUSPEND_CONN) && !cut_calls && seq_len==0);
  reset();ota_is_working=device_in_connection_state=bus_busy=1;flash_ready=storage_ok=event_ok=shutdown_ok=0;

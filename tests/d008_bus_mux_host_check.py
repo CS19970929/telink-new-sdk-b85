@@ -24,11 +24,17 @@ prefix = r'''
 #define PM_PIN_PULLDOWN_100K 0
 #define PM_PIN_UP_DOWN_FLOAT 0
 #define POL_FALLING 1
+#define Level_High 1
+#define WAKEUP_STATUS_PAD 8u
+#define WAKEUP_STATUS_TIMER 2u
 #define FLD_IRQ_GPIO_RISC0_EN 8u
 static uint32_t now=16u,reg_irq_src;
 static uint8_t irq_enabled=1u;
 static int rx_high,edge_enabled,tx_output,uart_enabled,uart_busy,rx_pending;
 static unsigned uart_starts,uart_stops;
+static int rx_pad,timer_active,high_on_arm;
+static void cpu_set_gpio_wakeup(int pin,int level,int en){assert(pin==3&&level==Level_High);rx_pad=en;if(en&&high_on_arm)rx_high=1;}
+static void sif_set_bus_active(uint8_t active){assert(!irq_enabled);timer_active=active;}
 static uint32_t clock_time(void){return now;}
 static int clock_time_exceed(uint32_t t,uint32_t us){return (uint32_t)(now-t)>us*16u;}
 static uint8_t irq_disable(void){uint8_t s=irq_enabled;irq_enabled=0u;return s;}
@@ -56,18 +62,31 @@ static void fall(uint32_t after_us){
 }
 static void connect_owc(void){
  rx_high=1;bus_mux_task();now+=50001u*16u;bus_mux_task();
- assert(bus_mux_get_state()==BUS_STATE_OWC_TX&&tx_output&&edge_enabled);
+ assert(bus_mux_get_state()==BUS_STATE_OWC_TX&&tx_output&&edge_enabled&&timer_active);
 }
 static void uart_burst(void){fall(100u);fall(100u);fall(100u);}
 int main(void){
  bus_mux_init();assert(bus_mux_get_state()==BUS_STATE_OWC_IDLE&&!uart_enabled&&!tx_output);
  assert(irq_enabled&&edge_enabled&&uart_stops==1u);
+ assert(!timer_active&&!rx_pad&&bus_mux_suspend_ready());
+ assert(bus_mux_prepare_suspend()&&rx_pad);
+ bus_mux_task();assert(!rx_pad&&bus_mux_suspend_ready()); /* SDK许可后未实际入睡。 */
+ assert(bus_mux_prepare_suspend()&&rx_pad);
+ bus_mux_suspend_exit(WAKEUP_STATUS_TIMER);assert(!bus_mux_suspend_ready());
+ bus_mux_task();assert(!rx_pad&&bus_mux_suspend_ready());
+ assert(bus_mux_prepare_suspend());bus_mux_suspend_exit(WAKEUP_STATUS_PAD);
+ bus_mux_task();assert(!rx_pad&&!bus_mux_suspend_ready());
+ now+=1000000u*16u;bus_mux_task();assert(!bus_mux_suspend_ready());
+ now+=16u;bus_mux_task();assert(bus_mux_suspend_ready());
+ rx_high=1;assert(!bus_mux_prepare_suspend()&&!rx_pad);rx_high=0;
+ high_on_arm=1;assert(!bus_mux_prepare_suspend()&&!rx_pad);high_on_arm=0;rx_high=0;
+ reg_irq_src|=8u;assert(!bus_mux_prepare_suspend());reg_irq_src=0u;
  // 上电直接接串口：首轮触发，主循环初始化，延迟请求不能撤销 UART。
  uart_burst();assert(!edge_enabled&&uart_starts==0u);bus_mux_task();
- assert(bus_mux_get_state()==BUS_STATE_UART_MODBUS&&uart_enabled&&!edge_enabled);
+ assert(bus_mux_get_state()==BUS_STATE_UART_MODBUS&&uart_enabled&&!edge_enabled&&!timer_active);
  bus_mux_return_to_owc_idle();assert(bus_mux_get_state()==BUS_STATE_UART_MODBUS);
- now+=4999999u*16u;bus_mux_task();assert(uart_enabled);
- bus_mux_on_uart_rx_byte();now+=4999999u*16u;bus_mux_task();assert(uart_enabled);
+ now+=999999u*16u;bus_mux_task();assert(uart_enabled);
+ bus_mux_on_uart_rx_byte();now+=999999u*16u;bus_mux_task();assert(uart_enabled);
  // 静默到期也不能截断 TX、待处理帧或 RX 低电平。
  now+=2u*16u;uart_busy=1;rx_high=1;bus_mux_task();assert(uart_enabled);
  uart_busy=0;rx_pending=1;bus_mux_task();assert(uart_enabled);
@@ -79,9 +98,9 @@ int main(void){
  // 从活动的一线通接管；确认后锁存，主循环晚到也不丢失请求。
  fall(3000u);uart_burst();now+=20000u*16u;bus_mux_task();
  assert(uart_enabled&&bus_mux_get_state()==BUS_STATE_UART_MODBUS);
- now+=5000001u*16u;rx_high=1;bus_mux_task();assert(!uart_enabled);connect_owc();
+ now+=1000001u*16u;rx_high=1;bus_mux_task();assert(!uart_enabled);connect_owc();
  // 真正断开后返回监听；孤立噪声过期，仍可重新接一线通。
- bus_mux_return_to_owc_idle();assert(!tx_output&&edge_enabled);
+ bus_mux_return_to_owc_idle();assert(!tx_output&&edge_enabled&&!timer_active);
  fall(10u);now+=2501u*16u;bus_mux_task();
  now+=50001u*16u;bus_mux_task();assert(bus_mux_get_state()==BUS_STATE_OWC_TX);
  // 窗口外的三个边沿不能凑数；窗口边界内允许确认。
@@ -90,7 +109,7 @@ int main(void){
  fall(1250u);fall(1250u);bus_mux_task();assert(uart_enabled);
  // tick 回绕不改变检测/静默回退；嵌套调用保留关闭的中断状态。
  irq_enabled=0u;now=UINT32_MAX-100u;bus_mux_on_uart_rx_byte();
- now+=5000001u*16u;bus_mux_task();assert(!uart_enabled&&!irq_enabled);
+ now+=1000001u*16u;bus_mux_task();assert(!uart_enabled&&!irq_enabled);
  now=UINT32_MAX-100u;uart_burst();bus_mux_task();assert(uart_enabled&&!irq_enabled);
  return 0;
 }

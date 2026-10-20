@@ -32,7 +32,7 @@ int  modbus_uart_poll(u8 **p, u32 *len);
 u8 modbus_uart_send(const u8 *p, u32 len);
 /* 查询 UART 发送或 DE 保持阶段是否仍活动。 */
 u8 modbus_uart_tx_active(void);
-/* SH 普通Suspend：30秒静默资格、SDK进入/退出通知；D008不调用。 */
+/* SH 普通Suspend：1秒静默资格、SDK进入/退出通知；D008由bus_mux负责。 */
 int modbus_uart_suspend_ready(void);
 void modbus_uart_suspend_enter(void);
 void modbus_uart_suspend_exit(u8 wakeup_status);

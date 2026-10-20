@@ -171,7 +171,7 @@ D008 SIF 由主循环显式编码到两个缓冲区，IRQ 只领取完成包和�
 
 ## 7. 修改边界
 
-固定板级配置放产品目录，芯片寄存器/量化/恢复留后端，Flash/UART/BLE/中断留平台；不复制公共 `.c`。软件采样与 PM 时序变化要核对 watchdog、通信事务和主循环阻塞。SH 由 UART 所有者确认 30 秒静默后允许普通 Suspend，并用 RX PAD 唤醒；开关、命令及[低压/AFE 异常保护性深睡](LOW_POWER_POLICY.md) 提交后不受业务状态阻止，详见 [SH低功耗](SH_LOW_POWER_FAILURE_HANDLING.md)。
+固定板级配置放产品目录，芯片寄存器/量化/恢复留后端，Flash/UART/BLE/中断留平台；不复制公共 `.c`。软件采样与 PM 时序变化要核对 watchdog、通信事务和主循环阻塞。2026-10-20起四产品充放电可在200ms任务间普通Suspend；SH由UART所有者确认1秒静默并用RX PAD唤醒。D008仅在RX低的被动监听态布防高电平PAD，接入识别和一线通发送期间保持运行，UART空闲回退为1秒，TIMER0只在`OWC_TX`运行。四产品最终入睡再次检查采样期限和通信；源码已改，未编译/测试/实板验收，见[实现记录](MCU_SUSPEND_POWER_RESEARCH_20261020.md)。开关、命令及[低压/AFE异常保护性深睡](LOW_POWER_POLICY.md)提交后仍不受业务状态阻止。
 
 持久化使用 [STORAGE](STORAGE.md) 与 [OTA_PARAMETERS](OTA_PARAMETERS.md) 的 schema/镜像更新选择规则。根 CMake 只是可移植子集，SOC、参数、语义存储和 Modbus 仍有平台依赖，不声称已完成 STM32 移植。
 

@@ -113,7 +113,8 @@ python bms_tools/bms.py --product d014 resources
 | [SOC v3重构说明（2026-10-20）](docs/SOC_REFACTOR_20261020.md) | 已确认参数、候选曲线、State4→5迁移、配套上位机及未执行验收 |
 | [Flash 与持久化](docs/STORAGE.md) | Config/State/Event、SOC 持久化、低功耗及事务 |
 | [运行阶段日志](docs/RUNTIME_DEBUG_LOG.md) | 开发日志、只读协议、开关及固定提交资源记录 |
-| [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 开关/低压强制深睡、UART静默30秒Suspend及首帧唤醒 |
+| [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 开关/低压强制深睡、UART静默1秒Suspend及首帧唤醒 |
+| [四产品 MCU Suspend 降功耗分析与实现](docs/MCU_SUSPEND_POWER_RESEARCH_20261020.md) | 保持200ms采样、任务间Suspend、1秒通信窗口和D008接入唤醒；源码已改，未编译/测试/实板验收 |
 | [四产品保护性休眠](docs/LOW_POWER_POLICY.md) | 低压、AFE 异常到期 D008 断电、SH 深睡与唤醒 |
 | [完整休眠逻辑与开关强制深睡](docs/SLEEP_LOGIC_REVIEW.md) | 各入口时间、通信门禁、PC4 与 MCU 深睡、唤醒条件及 D008 ACC 拒睡修正 |
 | [两档休眠参数与固定过放休眠](docs/SLEEP_CONFIGURATION.md) | 上位机配置电压/延时、Config 保存、过放未恢复固定 3 分钟 |

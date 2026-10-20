@@ -10,6 +10,7 @@
 #include "bms_product.h"
 #include "bms_afe_backend.h"
 #include "app.h"
+#include "sif_send.h"
 
 // 引脚
 #define PIN_OWC_RX BMS_BOARD_OWC_RX_PIN
@@ -19,7 +20,8 @@
 #define RX_HIGH_STABLE_US      (50u * 1000u)
 #define UART_DETECT_WINDOW_US  2500u
 #define UART_FALL_MIN_COUNT    3u
-#define UART_IDLE_BACK_US      (5u * 1000u * 1000u) /* 0 关闭回退。 */
+#define UART_IDLE_BACK_US      (1000u * 1000u)
+#define COMM_WAKE_HOLD_US      (1000u * 1000u)
 
 /* 取得通信复用状态机使用的系统 tick。 */
 static inline uint32_t tick_now(void) { return clock_time(); }
@@ -35,6 +37,10 @@ static uint32_t g_rx_high_since = 0;
 
 // UART空闲回退
 static volatile uint32_t g_last_uart_rx = 0;
+/* PAD可能只捕获到唤醒帧，留出识别重发的运行窗口；回调不初始化外设。 */
+static volatile uint8_t s_suspending, s_resume_pending, s_wake_activity;
+static uint8_t s_wake_hold;
+static uint32_t s_wake_tick;
 
 /* 读取单线接口 RX 当前电平。 */
 static inline int rx_is_high(void) { return gpio_read(PIN_OWC_RX) ? 1 : 0; }
@@ -76,6 +82,7 @@ static void enter_owc_idle(void)
     uint8_t irq_state = irq_disable();
     /* 先撤销波形所有权，再停 UART/DMA，最后恢复 GPIO。 */
     g_state = BUS_STATE_OWC_IDLE;
+    sif_set_bus_active(0u);
     modbus_uart_disable();
     owc_listen_init();
 
@@ -91,6 +98,7 @@ static void enter_owc_tx(void)
     if (g_fall_cnt == 0u && rx_is_high()) {
         owc_start_tx_only();
         g_state = BUS_STATE_OWC_TX;
+        sif_set_bus_active(1u);
     }
     irq_restore(irq_state);
 }
@@ -101,6 +109,7 @@ static void enter_uart_modbus(void)
     uint8_t irq_state = irq_disable();
     /* 禁止 SIF ISR 再写 TX，避免配置 UART 时被波形中断抢占。 */
     g_state = BUS_STATE_UART_MODBUS;
+    sif_set_bus_active(0u);
     // 关RISC0对该pin的中断使能，避免UART期间误进
     gpio_en_interrupt_risc0(PIN_OWC_RX, 0);
     reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
@@ -113,6 +122,33 @@ static void enter_uart_modbus(void)
 
 /* 取得当前通信引脚复用状态。 */
 bus_state_t bus_mux_get_state(void) { return g_state; }
+
+int bus_mux_suspend_ready(void)
+{
+    return g_state == BUS_STATE_OWC_IDLE && !s_resume_pending && !s_wake_activity && !s_wake_hold &&
+        !g_fall_cnt && !(reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) && !rx_is_high();
+}
+
+int bus_mux_prepare_suspend(void)
+{
+    if (!bus_mux_suspend_ready()) return 0;
+    /* OWC_IDLE为下拉低，等待接入变高；不能套用UART的低电平唤醒。 */
+    cpu_set_gpio_wakeup(PIN_OWC_RX, Level_High, 1);
+    if (!bus_mux_suspend_ready()) {
+        cpu_set_gpio_wakeup(PIN_OWC_RX, Level_High, 0);
+        return 0;
+    }
+    s_suspending = 1u;
+    return 1;
+}
+
+void bus_mux_suspend_exit(uint8_t wakeup_status)
+{
+    if (!s_suspending) return;
+    s_suspending = 0u;
+    s_resume_pending = 1u;
+    if (wakeup_status & WAKEUP_STATUS_PAD) s_wake_activity = 1u;
+}
 /* 撤销当前发送并返回单线监听状态。 */
 void bus_mux_return_to_owc_idle(void)
 {
@@ -137,6 +173,7 @@ _attribute_ram_code_ void bus_mux_irq_handler(void)
         if (g_state == BUS_STATE_OWC_IDLE || g_state == BUS_STATE_OWC_TX)
         {
             uint32_t now = tick_now();
+            if (g_state == BUS_STATE_OWC_IDLE) s_wake_activity = 1u;
             /* UART 连续轮询可在 2.5 ms 内产生三个下降沿；
              * SIF 每位 2 ms，自身回波三个下降沿至少相隔 4 ms。
              * 确认后锁存并停止边沿 IRQ，等待主循环接管，不在 ISR 初始化 UART。 */
@@ -155,6 +192,8 @@ _attribute_ram_code_ void bus_mux_irq_handler(void)
 /* 初始化通信复用状态、GPIO 监听和时间基准。 */
 void bus_mux_init(void)
 {
+    s_suspending = s_resume_pending = s_wake_activity = s_wake_hold = 0u;
+    cpu_set_gpio_wakeup(PIN_OWC_RX, Level_High, 0);
     /* 默认进入被动 OWC 监听模式。 */
     enter_owc_idle();
 }
@@ -162,6 +201,20 @@ void bus_mux_init(void)
 /* 按活动边沿、稳定电平和超时推进通信复用状态。 */
 void bus_mux_task(void)
 {
+    /* SDK最终未入睡也可能返回主循环，不能把PAD遗留给后续UART/一线通。 */
+    if (s_resume_pending || s_suspending) {
+        cpu_set_gpio_wakeup(PIN_OWC_RX, Level_High, 0);
+        s_suspending = 0u;
+        s_resume_pending = 0u;
+    }
+    /* 定时退出附近的RX边沿同样保持识别窗口，避免重新睡过主机重发。 */
+    if (s_wake_activity) {
+        s_wake_tick = tick_now();
+        s_wake_hold = 1u;
+        s_wake_activity = 0u;
+    }
+    if (s_wake_hold && clock_time_exceed(s_wake_tick, COMM_WAKE_HOLD_US))
+        s_wake_hold = 0u;
     // 1) OWC相关状态：优先UART活动判定
     if ((g_state == BUS_STATE_OWC_IDLE || g_state == BUS_STATE_OWC_TX) &&
         g_fall_cnt >= UART_FALL_MIN_COUNT)

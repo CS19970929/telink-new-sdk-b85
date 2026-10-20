@@ -21,8 +21,10 @@ typedef enum
 
 /* 处理 SIF 包发送状态；未启用产品保留空入口。 */
 void sif_send_data_handle(void);
-/* 初始化 SIF 波形使用的硬件定时器。 */
+/* 初始化波形定时器但保持停止，由总线所有者在真实发送期间启用。 */
 void sif_timer_init(void);
+/* bus_mux在关闭中断的所有权切换中调用；停止时同时清除旧波形状态。 */
+void sif_set_bus_active(uint8_t active);
 /* 按已准备数据推进单线位波形与结束阶段。 */
 void sif_timer_irq_handler(void);
 

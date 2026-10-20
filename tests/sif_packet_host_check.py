@@ -17,6 +17,8 @@ static void check_code(const uint8_t *expected,unsigned length){
  assert(p[3u+length]==sum_verify(p,3u+length));
 }
 int main(void){
+ sif_timer_init();assert(!(reg_tmr_ctrl&FLD_TMR0_EN)&&!(reg_irq_mask&FLD_IRQ_TMR0_EN));
+ sif_set_bus_active(1u);assert((reg_tmr_ctrl&FLD_TMR0_EN)&&(reg_irq_mask&FLD_IRQ_TMR0_EN));
  for(unsigned n=0;n<8;++n){wire_case(n);
   sif_send_public_packet();print_packet(s_packets[s_prepare_packet],s_packet_lengths[s_prepare_packet]);
   sif_send_private_realtime_info();print_packet(s_packets[s_prepare_packet],s_packet_lengths[s_prepare_packet]);
@@ -116,6 +118,10 @@ int main(void){
  assert(state_mode==SIF_IDLE&&!sif_sync_tosc&&!sif_send_tosc&&!byte_cnt&&!bit_cnt&&!s_packet_ready);
  bus=1;sif_prepare_task(0u);
  assert(s_packets[s_prepare_packet][0]==1u&&s_first_cell_packet&&!s_code_packet_due);
+ s_idle_ticks=99u;s_return_to_idle=1u;state_mode=SEND_DATA;
+ sif_set_bus_active(0u);
+ assert(!(reg_tmr_ctrl&FLD_TMR0_EN)&&!(reg_irq_mask&FLD_IRQ_TMR0_EN));
+ assert(!s_idle_ticks&&!s_return_to_idle&&!s_packet_ready&&state_mode==SIF_IDLE);
  return 0;
 }
 '''

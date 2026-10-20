@@ -49,7 +49,9 @@ Windows 上位机维护分支 `feature/windows-afe-hw-protection-editor-v2`。
 普通 suspend 是否许可独立展示，不代表可以阻止保护性深睡。
 AFE 和实板边界见 [AFE资料指南](AFE_REFERENCE_GUIDE.md) 与 [保护性深睡](LOW_POWER_POLICY.md)。
 
-2026-10-09 普通 suspend 门禁：四产品均以有效、有符号 mA 判断充/放电，
+2026-10-20当前源码取消普通Suspend的电流禁睡条件，200ms采样/保护/SOC节拍保留；SH串口静默窗口改为1秒，D008增加接入PAD唤醒、1秒识别窗口及UART回退。四产品最终入睡重查采样期限和通信。PM电流阈值诊断字段保留且返回0，表示不再按电流禁睡；原电流阻止位不再置位。本次未编译/测试/实板验收，详见[实现记录](MCU_SUSPEND_POWER_RESEARCH_20261020.md)。
+
+以下为历史策略，不代表上述当前门禁。2026-10-09 普通 suspend 门禁：四产品均以有效、有符号 mA 判断充/放电，
 电流绝对值达到已有可靠电流边界 200 mA 即禁止；D008 原 500 mA 门限已收紧，
 SH 不再只看截断后的放电电流。测量无效/过期、采样任务到期、Flash 未恢复锁定时也禁止。
 2026-10-10 移除 SH 固定 UART 禁睡门禁；串口连续静默 30 秒才许可普通 Suspend，RX PAD 唤醒首帧丢弃，定时采样唤醒不刷新静默计时。详见 [SH低功耗策略](SH_LOW_POWER_FAILURE_HANDLING.md)。

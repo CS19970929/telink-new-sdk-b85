@@ -390,12 +390,12 @@ DVC1124-2 DS V1.1 原 PDF 第 13 页规定 CC2 周期为 256 ms；当前 VADC �
 
 `bms/app/app_power.c` 的 DVC 分支有四条不同路径：
 
-- 普通 suspend 由 `app_power_process()` 结合通信、采样及可靠充/放电电流判断；双向绝对值达到 200 mA 即禁止，允许时仍保持 200 ms 应用采样唤醒。实际功耗和保护响应需实测验证。
+- 2026-10-20普通Suspend取消电流禁睡条件，保留200ms采样/保护/SOC；只有RX低、无待处理边沿和唤醒识别窗口的`OWC_IDLE`可睡，PC3高电平PAD接入唤醒后保持1秒识别窗口。UART静默回退改为1秒，TIMER0只在`OWC_TX`运行。源码已改，未编译/测试/实板验收，详见[实现记录](MCU_SUSPEND_POWER_RESEARCH_20261020.md)。
 - `app_command_sleep_poll()`：锁存命令后应答空闲即提交，最长等500ms；复用保护性入口，一线通、OTA/Flash、保存/AFE/BLE失败不能阻止最后拉低 PC4/MCU_LDO。
 - `app_enter_acc_sleep()`：休眠宏启用时，PA0 高即锁存；调用公共 `app_prepare_deep_sleep()` 一次收尾，通信及保存/AFE/BLE失败不能拒睡，保持 PC4 高，以 PA0 低电平 PAD 唤醒进入 deep sleep。与 PC4 断电路径不同。
 - `app_enter_protective_sleep()`：低压或 AFE 异常计时到期后，尝试 AFE Shutdown 和允许的保存，最后拉低 PC4，关闭 MCU 供电；通信、OTA、保存或 AFE 失败不阻止。按2026-10-10用户要求，拉低 PC4 后不再调用定时 Suspend 或 MCU DeepSleep 兜底，已提交标记仅阻止正常业务继续执行，规则见 [保护性休眠](LOW_POWER_POLICY.md)。
 
-2026-10-14移除 ACC 的5秒失败退避和通信/保存/AFE成功门禁；原 UART 模式5秒空闲回退只影响普通 Suspend，不再推迟开关深睡。收尾允许保存时 State/Event各调用一次，OTA/Flash会话内跳过新增写入；失败不取消。完整时间和唤醒条件见 [休眠梳理](SLEEP_LOGIC_REVIEW.md)。ACC 低电平唤醒走重新初始化；PC4 断电后需要外部硬件恢复供电才能启动。PC4控制MCU供电，不能据此认定整板全部器件断电。物理供电、ACC 电平、负载检测与复电时序仍需实板闭环，见 [硬件验收](HARDWARE_VALIDATION.md)。本次未执行测试、编译或实板验证。
+2026-10-14移除 ACC 的5秒失败退避和通信/保存/AFE成功门禁；UART空闲回退仅影响普通Suspend，不再推迟开关深睡（2026-10-20由5秒缩为1秒）。收尾允许保存时 State/Event各调用一次，OTA/Flash会话内跳过新增写入；失败不取消。完整时间和唤醒条件见 [休眠梳理](SLEEP_LOGIC_REVIEW.md)。ACC 低电平唤醒走重新初始化；PC4 断电后需要外部硬件恢复供电才能启动。PC4控制MCU供电，不能据此认定整板全部器件断电。物理供电、ACC 电平、负载检测与复电时序仍需实板闭环，见 [硬件验收](HARDWARE_VALIDATION.md)。本次未执行测试、编译或实板验证。
 
 `DVC1124_SW_PROTECT_ENABLE` 控制软件电压/电流/压差，`DVC1124_SW_TEMP_PROTECT_ENABLE` 独立控制温度和必需 NTC 失效保护；第 9 节 SW/HW 表必须连同温度开关理解。生产全部保护开关按门禁开启；非生产组合只作受控验证。
 
