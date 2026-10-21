@@ -3,25 +3,25 @@
 
 /* 容量单位 0.1 Ah；GPIO、Rsense、串数与能力仍在 bms_product.h。 */
 #ifndef BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH
-#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 88u
+#define BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH 32u
 #endif
 
 /* OTA_SOURCE_POLICY_BEGIN：本包更新选择和固定标识，保存后一起提交。 */
 #define BMS_OTA_UPDATE_SW        0u
 #define BMS_OTA_UPDATE_AFE       0u
-#define BMS_OTA_UPDATE_BUSINESS  1u
+#define BMS_OTA_UPDATE_BUSINESS  0u
 #define BMS_OTA_UPDATE_SOC       0u
 #define BMS_OTA_UPDATE_SOC_STATE 0u
 #define BMS_OTA_UPDATE_FACTORY_RESET 0u /* 专用出厂包，须生成全新一次性 ID */
 #ifndef BMS_OTA_UPDATE_ID_0
 #define BMS_OTA_UPDATE_ID_0 0x0000u
-#define BMS_OTA_UPDATE_ID_1 0xe2aau
-#define BMS_OTA_UPDATE_ID_2 0xd9b6u
-#define BMS_OTA_UPDATE_ID_3 0xda19u
-#define BMS_OTA_UPDATE_ID_4 0x9afeu
-#define BMS_OTA_UPDATE_ID_5 0x4168u
+#define BMS_OTA_UPDATE_ID_1 0x0000u
+#define BMS_OTA_UPDATE_ID_2 0x0000u
+#define BMS_OTA_UPDATE_ID_3 0x0000u
+#define BMS_OTA_UPDATE_ID_4 0x0000u
+#define BMS_OTA_UPDATE_ID_5 0x0000u
 #endif
-#define BMS_OTA_UPDATE_CONTENT_SHA256 "174cd68891eb1a30b66befa312a2d3f75293c6992428bc69c94a860239355646"
+#define BMS_OTA_UPDATE_CONTENT_SHA256 "0000000000000000000000000000000000000000000000000000000000000000"
 /* OTA_SOURCE_POLICY_END */
 
 /* D014 独立软件、AFE、SOC 和业务默认；修改只影响本产品。 */
@@ -92,22 +92,22 @@
 /* 充电低温 / (℃+40)*10：一级、二级、三级、恢复、滤波。 */
 #define BMS_SW_CHARGE_UTP_FIRST_X10                            ((5 + 40) * 10)
 #define BMS_SW_CHARGE_UTP_SECOND_X10                           ((3 + 40) * 10)
-#define BMS_SW_CHARGE_UTP_THIRD_X10                            ((0 + 40) * 10)
-#define BMS_SW_CHARGE_UTP_RECOVER_X10                          ((3 + 40) * 10)
+#define BMS_SW_CHARGE_UTP_THIRD_X10                            150u
+#define BMS_SW_CHARGE_UTP_RECOVER_X10                          300u
 #define BMS_SW_CHARGE_UTP_FILTER_10MS                          100
 
 /* 放电高温 / (℃+40)*10：一级、二级、三级、恢复、滤波。 */
 #define BMS_SW_DISCHARGE_OTP_FIRST_X10                         ((50 + 40) * 10)
 #define BMS_SW_DISCHARGE_OTP_SECOND_X10                        ((55 + 40) * 10)
-#define BMS_SW_DISCHARGE_OTP_THIRD_X10                         ((60 + 40) * 10)
+#define BMS_SW_DISCHARGE_OTP_THIRD_X10                         1050u
 #define BMS_SW_DISCHARGE_OTP_RECOVER_X10                       ((50 + 40) * 10)
 #define BMS_SW_DISCHARGE_OTP_FILTER_10MS                       100
 
 /* 放电低温 / (℃+40)*10：一级、二级、三级、恢复、滤波。 */
 #define BMS_SW_DISCHARGE_UTP_FIRST_X10                         ((-10 + 40) * 10)
 #define BMS_SW_DISCHARGE_UTP_SECOND_X10                        ((-15 + 40) * 10)
-#define BMS_SW_DISCHARGE_UTP_THIRD_X10                         ((-20 + 40) * 10)
-#define BMS_SW_DISCHARGE_UTP_RECOVER_X10                       ((-10 + 40) * 10)
+#define BMS_SW_DISCHARGE_UTP_THIRD_X10                         0u
+#define BMS_SW_DISCHARGE_UTP_RECOVER_X10                       50u
 #define BMS_SW_DISCHARGE_UTP_FILTER_10MS                       100
 
 /* MOS 高温 / (℃+40)*10：一级、二级、三级、恢复、滤波。 */
@@ -152,29 +152,29 @@
 #define SH3673510_HW_DEFAULT_COV_RECOVER_MV_FOR(c)             ((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4150u)
 #define SH3673510_HW_DEFAULT_COV_RECOVER_MV                    SH3673510_HW_DEFAULT_COV_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY)
 #define SH3673510_HW_DEFAULT_COV_RECOVER_MS        1000u
-#define SH3673510_HW_DEFAULT_CUV_MV_FOR(c)                     ((c) == BMS_SOC_CHEMISTRY_LFP ? 2500u : 2500u)
+#define SH3673510_HW_DEFAULT_CUV_MV_FOR(c)                     ((c) == BMS_SOC_CHEMISTRY_LFP ? 2400u : 2500u)
 #define SH3673510_HW_DEFAULT_CUV_MV                            SH3673510_HW_DEFAULT_CUV_MV_FOR(BMS_PRODUCT_CHEMISTRY)
 #define SH3673510_HW_DEFAULT_CUV_DELAY_MS          3000u
 #define SH3673510_HW_DEFAULT_CUV_RECOVER_MV_FOR(c)             ((c) == BMS_SOC_CHEMISTRY_LFP ? 2800u : 2800)
 #define SH3673510_HW_DEFAULT_CUV_RECOVER_MV                    SH3673510_HW_DEFAULT_CUV_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY)
-#define SH3673510_HW_DEFAULT_CUV_RECOVER_MS        10000u
-#define SH3673510_HW_DEFAULT_OCD1_A10              250u
+#define SH3673510_HW_DEFAULT_CUV_RECOVER_MS        1000u
+#define SH3673510_HW_DEFAULT_OCD1_A10              200u
 #define SH3673510_HW_DEFAULT_OCD1_DELAY_MS         140u
-#define SH3673510_HW_DEFAULT_OCD2_A10              450u
+#define SH3673510_HW_DEFAULT_OCD2_A10              300u
 #define SH3673510_HW_DEFAULT_OCD2_DELAY_MS         50u
 #define SH3673510_HW_DEFAULT_OCD_RECOVER_A10       100u
 #define SH3673510_HW_DEFAULT_OCD_RECOVER_MS        2000u
-#define SH3673510_HW_DEFAULT_OCC1_A10              100u
+#define SH3673510_HW_DEFAULT_OCC1_A10              200u
 #define SH3673510_HW_DEFAULT_OCC1_DELAY_MS         140u
-#define SH3673510_HW_DEFAULT_OCC_RECOVER_A10       100u
+#define SH3673510_HW_DEFAULT_OCC_RECOVER_A10       10u
 #define SH3673510_HW_DEFAULT_OCC_RECOVER_MS        100u
-#define SH3673510_HW_DEFAULT_SC_A10                900u
-#define SH3673510_HW_DEFAULT_SC_DELAY_US           256u
+#define SH3673510_HW_DEFAULT_SC_A10                600u
+#define SH3673510_HW_DEFAULT_SC_DELAY_US           64u
 #define SH3673510_HW_DEFAULT_SC_RECOVER_MS         2000u
 #define SH3673510_HW_DEFAULT_CHG_OT_X10            (65 + 40) * 10
 #define SH3673510_HW_DEFAULT_CHG_OT_RECOVER_X10    (45 + 40) * 10
 #define SH3673510_HW_DEFAULT_CHG_UT_X10            200u
-#define SH3673510_HW_DEFAULT_CHG_UT_RECOVER_X10    (0 + 40) * 10
+#define SH3673510_HW_DEFAULT_CHG_UT_RECOVER_X10    300u
 #define SH3673510_HW_DEFAULT_DSG_OT_X10            (75 + 40) * 10
 #define SH3673510_HW_DEFAULT_DSG_OT_RECOVER_X10    (65 + 40) * 10
 #define SH3673510_HW_DEFAULT_DSG_UT_X10            (-40 + 40) * 10

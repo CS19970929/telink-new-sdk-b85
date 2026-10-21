@@ -56,10 +56,7 @@
 #define BMS_PRODUCT_RS485_POWER_SETTLE_MS 20u
 /* 有线供电保持与 UART Suspend 门限、AFE 故障确认独立。 */
 #define BMS_PRODUCT_RS485_POWER_HOLD_MS 10000u
-/* 开发版也用于功耗测试，默认移除调试灯闪烁及SDK调试GPIO负载。 */
-#ifndef BMS_BOARD_DEBUG_LED_ENABLE
-#define BMS_BOARD_DEBUG_LED_ENABLE 0u
-#endif
+/* 开发版沿用公共调试灯闪烁；SDK调试GPIO继续关闭。 */
 #ifndef DEBUG_GPIO_ENABLE
 #define DEBUG_GPIO_ENABLE 0
 #endif

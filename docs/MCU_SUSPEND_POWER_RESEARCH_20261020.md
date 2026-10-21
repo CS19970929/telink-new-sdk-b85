@@ -208,7 +208,7 @@ SDK唤醒回调只交付事件：纯Timer或BLE返回不请求上电。PAD返回
 
 ### 9.3 产品隔离和验证状态
 
-功耗测试开发版默认关闭D014的`BMS_BOARD_DEBUG_LED_ENABLE`和`DEBUG_GPIO_ENABLE`，避免原200ms调试灯翻转及SDK调试GPIO影响测量；继续使用development/`-O2`，不通过production模式改变优化策略。其余服务诊断、trace、运行日志、栈监测和主动RS485诊断沿用默认关闭。具体构建、host与OTA结果以本轮源码树外收据为准。
+功耗测试阶段曾默认关闭D014的`BMS_BOARD_DEBUG_LED_ENABLE`和`DEBUG_GPIO_ENABLE`，避免原200ms调试灯翻转及SDK调试GPIO影响测量。2026-10-21按用户要求恢复开发版调试灯闪烁，沿用公共SH默认策略，production仍关闭调试灯，`DEBUG_GPIO_ENABLE`继续为0；后续开发版功耗测量需计入LED负载。继续使用development/`-O2`，不通过production模式改变优化策略。其余服务诊断、trace、运行日志、栈监测和主动RS485诊断沿用默认关闭。具体构建、host与OTA结果以源码树外对应收据为准。
 
 仅D014启用`BMS_PRODUCT_RS485_POWER_GATING_ENABLE`。D011/D013默认0，D008保持原总线复用路径；主动RS485线路诊断构建绕过按需供电，保持原常供电/主动发送。普通供电收尾保留PD3，不能调用释放PD3输入的强制DeepSleep收尾。
 
