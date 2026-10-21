@@ -74,9 +74,6 @@ static u32 s_sample_tick;
 
 /* 唤醒回调交付期限；主循环消费后执行采样，不在回调中跑保护/SOC。 */
 static volatile u8 s_sample_due;
-#if BMS_DEBUG_LOG_ENABLE
-#define APP_DEBUG_LOOP_GAP_US 400000u
-#endif
 
 /* SDK 临睡回调也检查期限，覆盖主循环许可后才到期的窗口。 */
 uint8_t app_sample_is_due(void)
@@ -205,10 +202,6 @@ static void board_init(void)
 /* BLE → 通信接收恢复 → 到期采样 → 状态检查点 → 协议通信 → 低功耗。 */
 _attribute_no_inline_ void main_loop(void)
 {
-#if BMS_DEBUG_LOG_ENABLE
-    u32 sdk_enter_tick;
-    u32 sdk_enter_suspend_exits;
-#endif
     if (app_power_prepare_loop()) return;
     /* 到期业务必须先撤下 SDK 旧期限；不能等 SDK 返回后才处理过期定时器。 */
     if (app_sample_is_due()) {
@@ -219,17 +212,7 @@ _attribute_no_inline_ void main_loop(void)
      * SDK唤醒后先恢复UART接收/通信引脚所有权，避免等AFE和Flash任务后
      * 才开始接收主机重发。采样/保护仍优先于协议命令解析。
      */
-#if BMS_DEBUG_LOG_ENABLE
-    sdk_enter_tick = clock_time();
-    sdk_enter_suspend_exits = app_ble_suspend_exit_count();
-#endif
 	blt_sdk_main_loop();
-#if BMS_DEBUG_LOG_ENABLE
-    if (clock_time_exceed(sdk_enter_tick, APP_DEBUG_LOOP_GAP_US))
-        BMS_LOG(BMS_LOG_ERROR, BMS_LOG_POWER, BMS_LOG_SDK_LOOP_GAP,
-                (u32)(clock_time() - sdk_enter_tick) / SYSTEM_TIMER_TICK_1US,
-                app_ble_suspend_exit_count() - sdk_enter_suspend_exits);
-#endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     bus_mux_task();
 #elif BMS_PRODUCT_UART_ENABLE
@@ -299,11 +282,6 @@ static void app_sample_task(void)
 
     if (!app_sample_is_due()) return;
 
-#if BMS_DEBUG_LOG_ENABLE
-    if (clock_time_exceed(s_sample_tick, APP_DEBUG_LOOP_GAP_US))
-        BMS_LOG(BMS_LOG_ERROR, BMS_LOG_POWER, BMS_LOG_APP_SAMPLE_GAP,
-                (u32)(clock_time() - s_sample_tick) / SYSTEM_TIMER_TICK_1US, s_sample_due);
-#endif
     s_sample_due = 0u;
     s_sample_tick = clock_time();
     result = bms_afe_sample();

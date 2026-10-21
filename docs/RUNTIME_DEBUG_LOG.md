@@ -48,17 +48,6 @@ python bms_tools/bms.py --all-products resources
 INFO 适合观察状态变化；DEBUG 另外记录周期采样、SOC 决策/积分、单体范围和通信。
 模块、等级均在编译时筛选；关闭/过滤记录时不计算记录参数。
 
-2026-10-21 新增四个 ERROR 级取证事件（原事件编号不变）：`BMS_LOG_SDK_LOOP_GAP`
-记录单次 SDK 主循环超过 400ms 的耗时（微秒）及期间 Suspend exit 次数；
-`BMS_LOG_AFE_STAGE` 记录失败阶段和有符号 SPI 错误码；
-`BMS_LOG_AFE_ECHO_MISMATCH` 在新一次协议错误时记录发送/期待/实际回显三个字节。
-`BMS_LOG_APP_SAMPLE_GAP` 记录相邻采样尝试超过 400ms 的实际间隔（微秒）及待采样标志。
-连续事务失败仅在首次记录 ERROR；后端失败阶段/错误码发生变化时再记，成功后重新布防，
-避免固定故障每 200ms 覆盖停顿开始时的证据。事务统计计数仍照常累加。
-它们只读取已经取得的状态，不增加 AFE 事务。仅诊断构建可使用
-`BMS_DEBUG_LOG_ENABLE=1`、`BMS_DEBUG_LOG_LEVEL=1`、`BMS_DEBUG_LOG_MODULE_MASK=0x22u`；
-默认开发/生产仍关闭。SDK 耗时使用 16MHz 无符号 tick 差，小于一轮约 268s 的停顿可直接比较。
-
 量产必须去掉 EXTRA_DEFINES 中的调试开关，并使用仓库既有 `--production` 门禁。
 同时指定 `BMS_PRODUCTION_BUILD=1` 与 `BMS_DEBUG_LOG_ENABLE=1`、
 `BMS_SERVICE_DIAG_ENABLE=1`、`BMS_DIAG_TRACE_ENABLE=1` 或
