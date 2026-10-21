@@ -36,6 +36,7 @@
 #include "app.h"
 #include "app_power.h"
 #include "bms_stack_monitor.h"
+#include "bms_stall_diag.h"
 #include "modbus_uart.h"
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "bus_mux.h"
@@ -47,12 +48,14 @@
 /* 分派 SDK、UART DMA、单线与总线中断，业务留在主循环。 */
 _attribute_ram_code_ void irq_handler(void)
 {
+    bms_stall_diag_irq(1u);
     irq_blt_sdk_handler();
     modbus_uart_irq_proc();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     sif_timer_irq_handler();
     bus_mux_irq_handler();
 #endif
+    bms_stall_diag_irq(0u);
 }
 
 /* 初始化 MCU 和 SDK，按启动类型进入应用并持续运行主循环。 */
@@ -65,6 +68,7 @@ _attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
 	DBG_CHN0_LOW;   // 调试
 
 	blc_pm_select_internal_32k_crystal();
+    bms_stall_diag_boot();
 
 	#if(MCU_CORE_TYPE == MCU_CORE_825x)
 		cpu_wakeup_init();
@@ -102,6 +106,7 @@ _attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
 
 	clock_init(SYS_CLK_TYPE);
     bms_time_init();
+    bms_stall_diag_install_pm();
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
     /* OFF只是布防下次ON，禁止经过user_init_normal重新开启AFE/通信。
@@ -128,8 +133,10 @@ _attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
 	gpio_set_output_en(BMS_BOARD_DEBUG_LED_PIN, 1);
 #endif
 
+    bms_stall_diag_start();
     irq_enable();
 	while (1) {
+        bms_stall_diag_stage(BMS_STALL_LOOP, 0u);
 	#if (MODULE_WATCHDOG_ENABLE)
 		#if (MCU_CORE_TYPE == MCU_CORE_TC321X)
 			if (g_chip_version != CHIP_VERSION_A0)

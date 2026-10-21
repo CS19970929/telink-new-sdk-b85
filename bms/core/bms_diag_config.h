@@ -5,6 +5,17 @@
 #ifndef BMS_DIAG_CONFIG_H_
 #define BMS_DIAG_CONFIG_H_
 
+/* D014 首发停顿取证单独选择，不要求打开完整服务诊断或运行日志。 */
+#ifndef BMS_STALL_DIAG_ENABLE
+#define BMS_STALL_DIAG_ENABLE 0
+#endif
+#if (BMS_STALL_DIAG_ENABLE != 0) && (BMS_STALL_DIAG_ENABLE != 1)
+#error "BMS_STALL_DIAG_ENABLE must be 0 or 1"
+#endif
+#if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD && BMS_STALL_DIAG_ENABLE
+#error "Production firmware must disable BMS_STALL_DIAG_ENABLE"
+#endif
+
 /* 开发/生产默认关闭服务诊断；常驻休眠协议独立于本开关，保留旧能力发现位。 */
 #ifndef BMS_SERVICE_DIAG_ENABLE
 #define BMS_SERVICE_DIAG_ENABLE 0

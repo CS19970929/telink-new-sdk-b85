@@ -19,6 +19,7 @@ def check_app_recovery_wakeup_host_check():
     code="""
     #include <stdint.h>
     #include <assert.h>
+    #include "bms_stall_diag.h"
     #define APP_SAMPLE_PERIOD_US 200000u
     #define SYSTEM_TIMER_TICK_1US 16u
     static uint32_t s_sample_tick, deadline, now;
@@ -40,7 +41,7 @@ def check_app_recovery_wakeup_host_check():
     with tempfile.TemporaryDirectory(prefix='d008-recovery-wake-') as folder:
      p=Path(folder)/'test.c';p.write_text(code)
      exe=Path(folder)/'test.exe'
-     subprocess.run([os.environ.get('CC','cc'),'-std=c99','-Wall','-Wextra','-Werror',str(p),'-o',str(exe)],check=True)
+     subprocess.run([os.environ.get('CC','cc'),'-std=c99','-Wall','-Wextra','-Werror',*host_includes(ROOT),str(p),'-o',str(exe)],check=True)
      subprocess.run([str(exe)],check=True)
     print('PASS mandatory 200ms wakeup: next deadline and tick wrap')
 
@@ -83,7 +84,7 @@ def check_app_scheduler_host_check():
             path.write_text(fixture.replace("/* PRODUCTION_SOURCE */", production))
             exe = Path(folder) / (name + ".exe")
             subprocess.run(shlex.split(os.environ.get("CC", "cc")) + [
-                "-std=c99", "-Wall", "-Wextra", "-Werror", str(path), "-o", str(exe)], check=True)
+                "-std=c99", "-Wall", "-Wextra", "-Werror", *host_includes(ROOT), str(path), "-o", str(exe)], check=True)
             subprocess.run([str(exe)], check=True)
     print("PASS scheduler order, deadlines, wrap, overrun, callback, invalid sample, shutdown; aging/reentry")
 
@@ -95,6 +96,7 @@ def check_time_ms_host_check():
     code = r'''
 #include <stdint.h>
 #include <assert.h>
+#include "bms_stall_diag.h"
 static uint32_t raw;
 static uint32_t pm_get_32k_tick(void){return raw;}
 ''' + source + r'''

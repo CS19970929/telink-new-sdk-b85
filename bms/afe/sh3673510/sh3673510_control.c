@@ -479,18 +479,23 @@ uint8_t sh3673510_control_read_status(sh3673510_control_status_t *status)
 {
     uint8_t pair[2];
     uint8_t flag2;
-    if ((status == 0) || !s_control_ready) return 0u;
+    if (status == 0) return 0u;
+    status->valid_fields = 0u;
+    if (!s_control_ready) return 0u;
 
     if (SH3673520_ReadReg(SH3673520_REG_FLAG1, &status->flag1) != SH3673520_OK)
         return 0u;
+    status->valid_fields |= SH3673510_STATUS_FLAG1_VALID;
     /* 集中进行有意的 FLAG2 读取，会消耗 VADC/CADC 就绪标志。 */
     if (SH3673520_ReadReg(SH3673520_REG_FLAG2, &flag2) != SH3673520_OK)
         return 0u;
     status->flag2 = flag2; /* 只交付已通过 CRC 的 RC 事件，后续读取失败也不能丢失。 */
+    status->valid_fields |= SH3673510_STATUS_FLAG2_VALID;
     if (SH3673520_ReadRegs(SH3673520_REG_BSTATUS1, pair, 2u) != SH3673520_OK)
         return 0u;
     status->bstatus1 = pair[0];
     status->bstatus2 = pair[1];
+    status->valid_fields |= SH3673510_STATUS_BSTATUS_VALID;
     return 1u;
 }
 

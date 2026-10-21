@@ -90,6 +90,21 @@ int main(void)
     check(bms_afe_hw_profile_validate(&requested),1,"产品默认校验");
     reset_bus(0,0);check(sh3673510_control_init(),1,"初始化");
     unsigned total=operation;decode();
+    /* 真实control读取：后续BSTATUS失败必须保留已经成功读到的FLAG2。 */
+    for(unsigned f=1u;f<=4u;++f) {
+        sh3673510_control_status_t status;
+        memset(&status,0xA5,sizeof(status));
+        operation=0u;fail_at=f;
+        regs[SH3673520_REG_FLAG2]=SH3673520_FLAG2_WDT_MASK;
+        check(sh3673510_control_read_status(&status),0,"逐状态读取失败");
+        check(status.valid_fields,f==1u?0u:(f==2u?1u:3u),"仅成功字段有效");
+        if(f>=3u) check(status.flag2,SH3673520_FLAG2_WDT_MASK,"保留已确认WDT");
+    }
+    operation=fail_at=0u;
+    regs[SH3673520_REG_FLAG2]=0u;
+    sh3673510_control_status_t status;
+    check(sh3673510_control_read_status(&status),1,"完整状态读取");
+    check(status.valid_fields,7u,"完整字段有效");
     printf("registers=");for(unsigned r=0x40;r<=0x54;r++)printf("%02x:%02x;",r,regs[r]);puts("");
     {
         uint8_t changed=9u;

@@ -13,7 +13,7 @@ def check_bms_diag_host_check():
             #include <stdint.h>
             #include "bms_diag.h"
             #include "bms_sleep_status.h"
-            #if BMS_SERVICE_DIAG_ENABLE || BMS_DIAG_TRACE_ENABLE || BMS_STACK_MONITOR_ENABLE
+            #if BMS_SERVICE_DIAG_ENABLE || BMS_DIAG_TRACE_ENABLE || BMS_STACK_MONITOR_ENABLE || BMS_STALL_DIAG_ENABLE
             #error "ordinary development diagnostics must default off"
             #endif
             static uint16_t word(const uint8_t *p)
@@ -35,6 +35,10 @@ def check_bms_diag_host_check():
                 assert(!bms_diag_read(BMS_DIAG_END - 1u, 2u, bytes));
                 assert(!bms_diag_read(BMS_DIAG_BASE, 126u, bytes));
                 assert(!bms_diag_read(BMS_DIAG_BASE, 1u, 0));
+                assert(bms_diag_overlaps(BMS_STALL_DIAG_BASE-1u,2u));
+                assert(bms_diag_read(BMS_STALL_DIAG_BASE,4u,bytes));
+                assert(word(bytes)==0x5354u && word(bytes+4u)==0u);
+                assert(!bms_diag_read(BMS_STALL_DIAG_END-1u,2u,bytes));
                 return 0;
             }
         ''', ['bms/core/bms_diag.c'], [], name='bms-diag-defaults')

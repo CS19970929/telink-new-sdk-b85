@@ -42,6 +42,7 @@ void bms_diag_driver(uint8_t driver_bits, uint8_t valid)
 void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid) { (void)driver_bits; (void)valid; }
 #endif
 static sh3673510_control_status_t device;
+static uint8_t status_valid_fields=7u, status_fail;
 static unsigned clear_calls;
 static unsigned control_initializations;
 static uint8_t clear_ok = 1, command_c, command_d;
@@ -120,7 +121,11 @@ uint8_t sh3673510_control_disable_fets(uint8_t c, uint8_t d) { if(c)command_c=0;
 uint8_t sh3673510_control_set_balance(uint32_t mask) { (void)mask; return 1; }
 void sh3673510_board_set_heater(uint8_t on) { (void)on; }
 void sh3673510_board_force_heater_fuse_safe(void) {}
-uint8_t sh3673510_control_read_status(sh3673510_control_status_t *s) { *s=device; return read_ok(); }
+uint8_t sh3673510_control_read_status(sh3673510_control_status_t *s) {
+    uint8_t ok=read_ok();*s=device;
+    s->valid_fields=ok?status_valid_fields:0u;
+    return ok && !status_fail;
+}
 uint8_t sh3673510_control_clear_flag1(uint8_t mask) { ++clear_calls; if(clear_ok) device.flag1 &= (uint8_t)~mask; return clear_ok; }
 uint8_t sh3673510_control_clear_flag2(uint8_t mask) { ++clear_calls; if(clear_ok) device.flag2 &= (uint8_t)~mask; return clear_ok; }
 uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *a) {
@@ -191,6 +196,38 @@ int main(void) {
     /* Keep the full backend linked in this mode too. */
     mode_ok=0;sample();
     puts("Actual SCONF3 RMW preserves unrelated bits; every I/O/readback failure is returned");
+    return 0;
+}
+#elif defined(WDT_PARTIAL_TEST)
+int main(void) {
+    bms_afe_driver_init();
+    for(unsigned i=0;i<8u;++i)sample();
+    assert(command_c && command_d);
+    status_fail=1u;status_valid_fields=3u;
+    device.flag2=SH3673520_FLAG2_WDT_MASK;
+    unsigned before=clear_calls;
+    read_stage=0u;now+=6400u;
+    assert(bms_afe_driver_sample()==BMS_AFE_SAMPLE_NOT_READY);
+    assert(clear_calls==before+1u && !command_c && !command_d);
+    assert(!bms_afe_driver_get_aux_measurements(NULL));
+    /* 没有有效FLAG2时不猜测WDT；即使无效缓冲恰好含WDT位。 */
+    status_valid_fields=1u;device.flag2=SH3673520_FLAG2_WDT_MASK;
+    before=clear_calls;read_stage=0u;now+=6400u;
+    assert(bms_afe_driver_sample()==BMS_AFE_SAMPLE_READ_ERROR);
+    assert(clear_calls==before);
+    /* 已知WDT清除失败后，下一轮FLAG1/2都失败仍须尝试完成待办。 */
+    status_valid_fields=3u;clear_ok=0u;read_stage=0u;now+=6400u;
+    assert(bms_afe_driver_sample()==BMS_AFE_SAMPLE_READ_ERROR);
+    assert(!command_c && !command_d);
+    clear_ok=1u;status_valid_fields=0u;device.flag2=0u;
+    before=clear_calls;read_stage=0u;now+=6400u;
+    assert(bms_afe_driver_sample()==BMS_AFE_SAMPLE_NOT_READY);
+    assert(clear_calls==before+1u && !command_c && !command_d);
+    /* 只有BSTATUS失败且无WDT待办时仍走普通读取错误，不额外清除。 */
+    before=clear_calls;status_valid_fields=3u;read_stage=0u;now+=6400u;
+    assert(bms_afe_driver_sample()==BMS_AFE_SAMPLE_READ_ERROR);
+    assert(clear_calls==before);
+    puts("Partial FLAG2 WDT and pending recovery precede BSTATUS failure; invalid FLAG2 never authorizes clear");
     return 0;
 }
 #elif defined(ATOMIC_TEST)

@@ -8,12 +8,17 @@
 
 #include <stdint.h>
 
+#define SH3673510_STATUS_FLAG1_VALID   0x01u
+#define SH3673510_STATUS_FLAG2_VALID   0x02u
+#define SH3673510_STATUS_BSTATUS_VALID 0x04u
+
 typedef struct
 {
     uint8_t flag1;
     uint8_t flag2;
     uint8_t bstatus1;
     uint8_t bstatus2;
+    uint8_t valid_fields; /* 仅对应寄存器完整通过协议/CRC后置位。 */
 } sh3673510_control_status_t;
 
 typedef struct

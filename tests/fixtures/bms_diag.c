@@ -209,6 +209,12 @@ int main(void){
   assert(modbus_on_frame(q,n,r,&l)&&r[2]==2u&&writes==0u);
  }
  assert(!bms_diag_read(BMS_DIAG_AFE_FAILURE_END-1u,2u,bytes));
+ n=request(q,1,3,BMS_STALL_DIAG_BASE,4u);
+ assert(modbus_on_frame(q,n,r,&l)&&r[1]==3u&&u16be(r+3)==0x5354u&&u16be(r+7)==0u);
+ for(unsigned func=6u;func<=16u;func+=10u) {
+  n=request(q,1,(u8)func,func==16u?BMS_STALL_DIAG_BASE-1u:BMS_STALL_DIAG_BASE,2u);
+  assert(modbus_on_frame(q,n,r,&l)&&r[1]==(func|0x80u)&&r[2]==2u&&writes==0u);
+ }
  assert(!bms_diag_read(BMS_DIAG_AFE_FAILURE_BASE,126u,bytes));
  assert(!bms_diag_read(BMS_DIAG_AFE_FAILURE_BASE,1u,NULL));
 #if !BMS_DIAG_TRACE_ENABLE

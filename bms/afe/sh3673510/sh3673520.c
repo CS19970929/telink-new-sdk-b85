@@ -4,6 +4,7 @@
  * bms/afe/sh3673510/sh3673520.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_debug_log.h"
+#include "bms_stall_diag.h"
 #include "sh3673520.h"
 #include "sh3673520_port.h"
 
@@ -317,6 +318,7 @@ sh3673520_status_t SH3673520_ReadRegs(uint8_t start_reg, uint8_t *buffer, size_t
         return SH3673520_ERR_INVALID_PARAM;
     }
 
+    bms_stall_diag_bus(0u, start_reg);
     return sh3673520_read_with_retry(start_reg, buffer, (uint8_t)length);
 }
 
@@ -332,6 +334,7 @@ sh3673520_status_t SH3673520_ReadRegOnce(uint8_t reg, uint8_t *value)
     uint8_t candidate;
     if (value == NULL || reg < SH3673520_REG_READ_MIN || reg > SH3673520_REG_READ_MAX)
         return SH3673520_ERR_INVALID_PARAM;
+    bms_stall_diag_bus(0u, reg);
     status = sh3673520_read_regs_once(reg, &candidate, 1u);
     if (status == SH3673520_OK) { *value = candidate; sh3673520_record_success(); }
     else {
@@ -349,6 +352,7 @@ sh3673520_status_t SH3673520_WriteReg(uint8_t reg, uint8_t value)
         return SH3673520_ERR_INVALID_PARAM;
     }
 
+    bms_stall_diag_bus(1u, reg);
     return sh3673520_write_with_retry(reg, value);
 }
 

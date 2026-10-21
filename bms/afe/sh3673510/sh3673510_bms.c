@@ -19,6 +19,7 @@ const bms_afe_driver_policy_t bms_afe_driver_policy = { 35000u, 1u, 0u };
 #include "bms_error.h"
 #include "bms_diag.h"
 #include "bms_time.h"
+#include "bms_stall_diag.h"
 #include "bms_config_store.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"
@@ -133,6 +134,8 @@ static void note_comm_error(uint16_t stage)
     sh3673520_comm_stats_t stats;
 
     SH3673520_GetCommStats(&stats);
+    bms_stall_diag_afe(stage, (int16_t)stats.last_error,
+        stats.crc_error_count, stats.retry_count);
 #if BMS_SERVICE_DIAG_ENABLE
     bms_diag_afe_failure(stage, (int16_t)stats.last_error,
         stage < DIAG_AFE_FAIL_INIT ? s_sample_attempt_flag2 : 0u,
@@ -797,24 +800,47 @@ static uint16_t publish_measurements(void)
     if (s_sampling_restart) restart_sampling();
     memset(&status, 0, sizeof(status));
     status_ok = sh3673510_control_read_status(&status);
-    if (!status_ok) return DIAG_AFE_FAIL_STATUS;
+    bms_stall_diag_afe_flags(status.valid_fields, status.flag1, status.flag2);
+#if BMS_STALL_DIAG_ENABLE
+    /* 恢复会读写FLAG2/配置；先保存已经读到的事实，不额外访问AFE。 */
+    if (!status_ok || ((status.valid_fields & SH3673510_STATUS_FLAG2_VALID) &&
+        (status.flag2 & SH3673520_FLAG2_WDT_MASK))) {
+        sh3673520_comm_stats_t stats;
+        SH3673520_GetCommStats(&stats);
+        bms_stall_diag_afe((status.valid_fields & SH3673510_STATUS_FLAG2_VALID) &&
+            (status.flag2 & SH3673520_FLAG2_WDT_MASK) ?
+            BMS_STALL_AFE_WDT_OBSERVED : DIAG_AFE_FAIL_STATUS,
+            (int16_t)stats.last_error, stats.crc_error_count, stats.retry_count);
+    }
+#endif
 #if BMS_SERVICE_DIAG_ENABLE
     /* 同时保留本次模式，避免把 IDLE 的4秒 CADC 周期误分析为 normal 的250ms。 */
-    s_sample_attempt_flag2 = (uint16_t)(0x100u | status.flag2 |
-        ((uint16_t)(status.bstatus2 & (SH3673520_BSTATUS2_IDLE_MASK |
-                                     SH3673520_BSTATUS2_SLEEP_MASK)) << 5));
+    if (status.valid_fields & SH3673510_STATUS_FLAG2_VALID)
+        s_sample_attempt_flag2 = (uint16_t)(0x100u | status.flag2);
+    if (status.valid_fields & SH3673510_STATUS_BSTATUS_VALID)
+        s_sample_attempt_flag2 |= (uint16_t)((status.bstatus2 &
+            (SH3673520_BSTATUS2_IDLE_MASK | SH3673520_BSTATUS2_SLEEP_MASK)) << 5);
 #endif
     /* 已验证的芯片故障/保护优先于后续测量读取，不能被读失败覆盖。 */
-    publish_hw_status(&status);
-    if (s_hw_afe_error) return DIAG_AFE_FAIL_INIT;
-    if ((status.flag2 & SH3673520_FLAG2_WDT_MASK) || s_watchdog_recovery_pending) {
+    if (status_ok) {
+        publish_hw_status(&status);
+        if (s_hw_afe_error) return DIAG_AFE_FAIL_INIT;
+    }
+    /* 后续 BSTATUS 失败不能吞掉已确认的 WDT，也不能阻断既有恢复待办。
+     * FLAG2 无效时不猜测 WDT；未知 BSTATUS 不发布为假 OFF 反馈。 */
+    if (s_watchdog_recovery_pending ||
+        ((status.valid_fields & SH3673510_STATUS_FLAG2_VALID) &&
+         (status.flag2 & SH3673520_FLAG2_WDT_MASK))) {
         s_fet_command_valid = 0u;
+        s_snapshot_valid = 0u;
+        s_hw_charge_protect = s_hw_discharge_protect = 1u;
         s_watchdog_recovery_pending = 1u;
         if (!sh3673510_control_recover_watchdog()) return DIAG_AFE_FAIL_FLAG_CLEAR_HOLD;
         s_watchdog_recovery_pending = 0u;
         restart_sampling();
         return DIAG_AFE_FAIL_NONE;
     }
+    if (!status_ok) return DIAG_AFE_FAIL_STATUS;
     if (s_afe_reconfigure_required) return DIAG_AFE_FAIL_NONE;
     if (SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return DIAG_AFE_FAIL_CELL_READ;
     if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return DIAG_AFE_FAIL_PACK_READ;
@@ -960,6 +986,7 @@ failed:
 void bms_afe_driver_init(void)
 {
     uint8_t i;
+    bms_stall_diag_afe_flags(0u, 0u, 0u);
 
     for (i = SH3673510_BOARD_CELL_COUNT; i < 32u; ++i)
         g_bms_report.cell_voltage_mv[i] = SH3510_MISSING_CELL_MV;
@@ -999,6 +1026,7 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
 {
     uint16_t failure;
     bms_afe_sample_status_t result = BMS_AFE_SAMPLE_ERROR;
+    bms_stall_diag_afe_flags(0u, 0u, 0u);
 #if BMS_SERVICE_DIAG_ENABLE
     s_sample_attempt_tick = pm_get_32k_tick();
     s_sample_attempt_flag2 = 0u;

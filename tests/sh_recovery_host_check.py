@@ -100,6 +100,7 @@ def check_sh_recovery_evidence_host_check(defines=None):
         run()
         run(('-DGUARD_TEST=1',))
         run(('-DMODE_TEST=1',))
+        run(('-DWDT_PARTIAL_TEST=1',))
 
 if __name__ == "__main__":
     check_sh3673510_recovery_host_check()

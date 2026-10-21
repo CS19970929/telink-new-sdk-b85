@@ -1,5 +1,9 @@
 # 运行阶段调试日志
 
+D014 LED/BLE 同停使用独立、默认关闭的 `BMS_STALL_DIAG_ENABLE`，无需开启本文件的完整日志；
+首次长间隔、PM参数、启动计数和首次AFE事件读取见 [D014 首次停顿取证](D014_STALL_DIAGNOSTICS.md)。
+开启后增加少量指令和启动保留寄存器操作，不承诺零时序扰动，production禁止开启。
+
 固件主开发分支为 `codex-bms-monorepo`；Windows 上位机仍在
 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 维护。
 四产品共享 `bms/core/bms_debug_log.c`，产品 sources.txt 引用同一文件。

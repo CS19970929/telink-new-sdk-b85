@@ -1,5 +1,6 @@
 #define BMS_SERVICE_DIAG_ENABLE 1
 #include <stdint.h>
+#include "bms_stall_diag.h"
 #include <assert.h>
 #include <string.h>
 typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR } bms_afe_sample_status_t;

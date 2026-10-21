@@ -56,6 +56,7 @@
 #include "bms_storage_platform.h"
 #include "btname_modbus.h"
 #include "bms_parameters.h"
+#include "bms_stall_diag.h"
 #include "bms_parameter_access.h"
 #include <string.h>
 
@@ -90,6 +91,8 @@ static void app_schedule_sample_wakeup(void)
 {
     bls_pm_setAppWakeupLowPower(
         s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
+    bms_stall_diag_schedule(s_sample_due,
+        s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US);
 }
 
 /* 按秒推进历史事件与运行计时任务。 */
@@ -207,12 +210,16 @@ _attribute_no_inline_ void main_loop(void)
     if (app_sample_is_due()) {
         bls_pm_setAppWakeupLowPower(0u, 0u);
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
+        bms_stall_diag_schedule(s_sample_due, 0u);
     }
     /*
      * SDK唤醒后先恢复UART接收/通信引脚所有权，避免等AFE和Flash任务后
      * 才开始接收主机重发。采样/保护仍优先于协议命令解析。
      */
+    bms_stall_diag_stage(BMS_STALL_SDK_ENTER, 0u);
 	blt_sdk_main_loop();
+    bms_stall_diag_stage(BMS_STALL_SDK_RETURN, 0u);
+    bms_stall_diag_stage(BMS_STALL_UART, 0u);
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     bus_mux_task();
 #elif BMS_PRODUCT_UART_ENABLE
@@ -234,6 +241,7 @@ _attribute_no_inline_ void main_loop(void)
     }
 #endif
     app_sample_task();
+    bms_stall_diag_stage(BMS_STALL_STORAGE, 0u);
     app_storage_1s_task();
 
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
@@ -242,8 +250,10 @@ _attribute_no_inline_ void main_loop(void)
     sif_prepare_task(s_sample_tick);
 #endif
 #if BMS_PRODUCT_UART_ENABLE
+    bms_stall_diag_stage(BMS_STALL_PROTOCOL, 0u);
 	main_loop_modbus();
 #endif
+    bms_stall_diag_stage(BMS_STALL_POWER, 0u);
 	app_power_process(&s_sample_due);
 #if BMS_SOC_BOARD_TEST_ENABLE
     if (bms_soc_board_test_keep_awake()) bls_pm_setSuspendMask(SUSPEND_DISABLE);
@@ -282,6 +292,7 @@ static void app_sample_task(void)
 
     if (!app_sample_is_due()) return;
 
+    bms_stall_diag_stage(BMS_STALL_SAMPLE_BEGIN, 0u);
     s_sample_due = 0u;
     s_sample_tick = clock_time();
     result = bms_afe_sample();
@@ -308,18 +319,21 @@ static void app_sample_task(void)
      * AFE失败也翻转：它表示调度仍在运行，不表示采样结果有效。 */
     gpio_toggle(BMS_BOARD_DEBUG_LED_PIN);
 #endif
+    bms_stall_diag_stage(BMS_STALL_SAMPLE_END, result);
 }
 
 /* 四产品共用 BLE 回调；后端差异留在采样和电源流程。 */
 /* 交付一次应用唤醒；回调不执行业务或外设访问。 */
 static void app_sample_wakeup(int type)
 {
+    bms_stall_diag_stage(BMS_STALL_APP_WAKE, 0u);
     (void)type;
     s_sample_due = 1u;
     /* 一次性唤醒已交付：先消费 SDK 期限并交还运行权，主循环采样后重新布防。
      * 此处只改 SDK/RAM 状态，不执行 AFE、保护、SOC、Flash 或串口收发。 */
     bls_pm_setAppWakeupLowPower(0u, 0u);
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
+    bms_stall_diag_schedule(1u, 0u);
 }
 
 

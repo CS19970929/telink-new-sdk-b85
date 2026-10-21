@@ -36,6 +36,7 @@
 #include "app_config.h"
 #include "app.h"
 #include "app_power.h"
+#include "bms_stall_diag.h"
 #include "modbus_uart.h"
 #include "bms_afe.h"
 #include "bms_afe_registers.h"
@@ -217,6 +218,7 @@ static void app_prepare_deep_sleep(void)
 /* 命令及到期保护性休眠不受通信、OTA、保存或 AFE 命令成功与否阻断。 */
 static void app_enter_protective_sleep(void)
 {
+    bms_stall_diag_stage(BMS_STALL_DEEP_COMMIT, 0u);
     s_protective_sleep_committed = 1u;
     app_prepare_deep_sleep();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124

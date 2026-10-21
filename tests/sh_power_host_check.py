@@ -31,6 +31,7 @@ def check_sh3673510_sample_schedule_host_check():
     #define BMS_SERVICE_DIAG_ENABLE 1
     #include <stdint.h>
     #include <stdio.h>
+    #include "bms_stall_diag.h"
 typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR } bms_afe_sample_status_t;
     typedef uint8_t u8;
     typedef uint32_t u32;
@@ -114,7 +115,7 @@ typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR
         c, exe = Path(tmp)/'check.c', Path(tmp)/'check.exe'
         c.write_text(code.replace('/* PRODUCTION */', body), encoding='utf-8')
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',
-                        '-Werror', str(c), '-o', str(exe)], check=True)
+                        '-Werror', *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
         subprocess.run([str(exe)], check=True)
 
 def check_sh3673510_sleep_host_check():

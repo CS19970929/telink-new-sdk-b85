@@ -7,6 +7,7 @@
 #define BMS_DIAG_H_
 #include <stdint.h>
 #include "bms_diag_config.h"
+#include "bms_stall_diag.h"
 
 /* schema 1，仅主循环使用；无 ISR 生产者，读取路径无 I/O。 */
 #ifndef BMS_DIAG_BUILD_ID

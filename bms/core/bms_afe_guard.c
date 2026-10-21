@@ -11,6 +11,7 @@
 #include "bms_sw_protection.h"
 #include "bms_parameters.h"
 #include "bms_time.h"
+#include "bms_stall_diag.h"
 #include "bms_state.h"
 #include <string.h>
 
@@ -119,16 +120,22 @@ static void enter_failsafe_wait(void)
     s_guard.bus_silenced = 1u;
     s_guard.failsafe_start_tick_ms = bms_time_ms();
     s_guard.comm_failures = 0u;
+    bms_stall_diag_guard(bms_afe_get_guard_diagnostic_bits(), 0u,
+        s_guard.recovery_retry ? BMS_AFE_RECOVERY_RETRY_MS : bms_afe_driver_policy.failsafe_wait_ms);
 }
 
 /* 关断未确认先等待 watchdog；确认关断或静默后的重试使用有界短窗口。 */
 static uint8_t service_failsafe_wait(void)
 {
+    uint32_t elapsed_ms;
+    uint32_t wait_ms;
     if (!s_guard.bus_silenced) return 0u; /* 调用方已单独拦截主动 shutdown。 */
 
     /* 硬件看门狗计时期间绝不进行 AFE I2C/SPI 访问。 */
-    if ((uint32_t)(bms_time_ms() - s_guard.failsafe_start_tick_ms) <=
-        (s_guard.recovery_retry ? BMS_AFE_RECOVERY_RETRY_MS : bms_afe_driver_policy.failsafe_wait_ms))
+    elapsed_ms = (uint32_t)(bms_time_ms() - s_guard.failsafe_start_tick_ms);
+    wait_ms = s_guard.recovery_retry ? BMS_AFE_RECOVERY_RETRY_MS : bms_afe_driver_policy.failsafe_wait_ms;
+    bms_stall_diag_guard(bms_afe_get_guard_diagnostic_bits(), elapsed_ms, wait_ms);
+    if (elapsed_ms <= wait_ms)
     {
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
         return 1u;
@@ -271,6 +278,7 @@ void bms_afe_init(void)
 bms_afe_sample_status_t bms_afe_sample(void)
 {
     bms_afe_sample_status_t result = BMS_AFE_SAMPLE_NOT_READY;
+    bms_stall_diag_guard(bms_afe_get_guard_diagnostic_bits(), 0u, 0u);
 
 #if BMS_AFE_REGISTER_DEBUG_ENABLE
     bms_afe_hw_access_poll();

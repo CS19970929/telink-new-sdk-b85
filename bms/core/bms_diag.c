@@ -6,6 +6,7 @@
 #include "bms_debug_log.h"
 #include "bms_diag.h"
 #include "bms_time.h"
+#include "bms_stall_diag.h"
 #if defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE
 #include "bms_soc.h"
 #endif
@@ -55,6 +56,7 @@ int bms_diag_overlaps(uint16_t start, uint16_t count)
     uint16_t i;
 
     if (count == 0u) return 0;
+    if (bms_stall_diag_overlaps(start, count)) return 1;
     for (i = 0u; i < DIAG_RANGE_COUNT; ++i)
         if (start < s_diag_ranges[i].end && end > s_diag_ranges[i].base) return 1;
     /* 已撤销的断线检测窗口继续占位：读写都按保留地址处理。 */
@@ -579,6 +581,8 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     uint16_t i;
     uint32_t now;
 
+    if (bms_stall_diag_overlaps(start, count))
+        return bms_stall_diag_read(start, count, bytes);
     if (!bytes || index >= DIAG_RANGE_COUNT) return 0;
     now = bms_time_now_32k();
     for (i = 0u; i < count; ++i) {
@@ -670,6 +674,8 @@ int bms_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
     uint16_t index = diag_range_find(start, count);
     uint16_t i;
 
+    if (bms_stall_diag_overlaps(start, count))
+        return bms_stall_diag_read(start, count, bytes);
     if (!bytes || index >= DIAG_RANGE_COUNT) return 0;
     for (i = 0u; i < count; ++i) {
         uint16_t word = compatibility_word(s_diag_ranges[index].base,
