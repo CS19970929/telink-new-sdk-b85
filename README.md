@@ -16,6 +16,8 @@ D008 无放电启动 SCD、CBC 与三级放电过流的现场定位及配置顺�
 
 四产品 AFE1 保留 1 秒通信异常确认，删除 ADC 活性、停更故障和三次新样本资格，见 [AFE 通信确认与活性删除](docs/AFE_COMMUNICATION_POLICY.md)。
 
+2026-10-21 的有界 AFE 恢复、SH WDT 专用处理和 D014 485 独立 10 秒供电保持，见 [当前恢复策略](docs/AFE_COMMUNICATION_POLICY.md#2026-10-21-故障恢复与功能故障分离) 与 [通信所有权](docs/ARCHITECTURE.md#6-通信与采样所有权)。
+
 SH 通信恢复保护锁存、分组恢复证据及后续等价精简，见 [2026-10-18 保护恢复与实现精简](docs/PROTECTION_RECOVERY_SIMPLIFICATION_20261018.md)。
 
 MOS 失败补偿、DVC 恢复事务、SH 配置归属与本轮均衡回读共享的逐轮提交及保留裁决，见 [AFE 控制分轮重构](docs/AFE_CONTROL_REFACTOR_20261018.md)。

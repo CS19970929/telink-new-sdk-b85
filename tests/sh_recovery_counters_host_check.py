@@ -132,10 +132,11 @@ int main(void) {
     for(unsigned n=0;n<6u;++n){v=evidence(1u);trace_reset();assert(service_hw_flag_recovery(&status,&v));}
     assert(cleared2==SH3673520_FLAG2_OTC_MASK); /* 明确全部关闭，仍按原清标志事务完成。 */
     /* FLAG1 失败时不得继续 FLAG2；FLAG2 失败同样向上传递。 */
-    status.flag1=SH3673520_FLAG1_WK_MASK;status.flag2=SH3673520_FLAG2_WDT_MASK|SH3673520_FLAG2_VADC_MASK;
+    status.flag1=SH3673520_FLAG1_WK_MASK;status.flag2=SH3673520_FLAG2_OTC_MASK|SH3673520_FLAG2_VADC_MASK;
+    requested.enable_mask=0u;
     for(unsigned fail=1;fail<=2u;++fail) {
-        clear_ok=(uint8_t)fail;s_flag_clear_failed=0u;trace_reset();
-        assert(!service_hw_flag_recovery(&status,&v));assert(s_flag_clear_failed);
+        clear_ok=(uint8_t)fail;trace_reset();
+        assert(!service_hw_flag_recovery(&status,&v));
         assert(flag1_calls==1u&&flag2_calls==(fail==2u));
     }
     requested_ok=0u;trace_reset();assert(!service_hw_flag_recovery(&status,&v));assert(!flag1_calls&&!flag2_calls);

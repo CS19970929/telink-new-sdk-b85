@@ -67,9 +67,7 @@ static dvc1124_snapshot_t s_snapshot;
 static uint8_t s_i2c_raw[DVC_I2C_RAW_MAX];
 static uint8_t s_bus_initialized;
 static uint8_t s_need_config = 1u;
-#if BMS_AFE_REGISTER_DEBUG_ENABLE
 uint8_t bms_afe_driver_register_config_ready(void) { return !s_need_config; }
-#endif
 static uint32_t s_balance_last_refresh_ms;
 #define DVC_NTC_VALID_SAMPLES 3u
 static uint8_t s_ntc_valid_samples[4]; /* NTC 恢复滤波，按完整有效读取推进。 */

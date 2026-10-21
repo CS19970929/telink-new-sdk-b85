@@ -199,7 +199,7 @@ static void check_power_gating(void){
  advance_us(5001u);assert(modbus_uart_service_wakeup()&&!s_uart_wake_discard);
  receive(0x22,8);main_loop_modbus();assert(parsed==count+1);
  /* 连续轮询跨越多秒，不能重复开关电源；接收部分帧/持续低也不能断电。 */
- for(int i=0;i<3;++i){advance_us(900000u);receive(0x33,8);main_loop_modbus();assert(comm_supply&&power_ons==starts+1);}
+ for(int i=0;i<3;++i){advance_us(2000000u);main_loop_modbus();assert(comm_supply);receive(0x33,8);main_loop_modbus();assert(comm_supply&&power_ons==starts+1);}
  u8 tx_frame[8]={0};assert(modbus_uart_send(tx_frame,8));advance_us(1100000u);
  assert(!modbus_uart_service_wakeup()&&comm_supply&&modbus_uart_tx_active());
  main_loop_modbus();assert(comm_supply&&!modbus_uart_tx_active()&&!de); /* 超时清理后才可重新计静默。 */
@@ -213,7 +213,8 @@ static void check_power_gating(void){
  ota_busy=1;
  for(int i=0;i<3;++i){advance_us(1100000u);main_loop_modbus();assert(comm_supply&&(channels&1));}
  ota_busy=0;
- advance_us(1100000u);main_loop_modbus();
+ advance_us(9999000u);main_loop_modbus();assert(comm_supply);
+ advance_us(2000u);main_loop_modbus();
  assert(!comm_supply&&!channels&&modbus_uart_suspend_ready());
  assert(!(input_pins&((1u<<1)|(1u<<2)))&&(input_pins&(1u<<4)));
  /* 省电期间周期RX维护、无效DMA标志及直接发送均不得恢复未供电接收器。 */
@@ -227,7 +228,7 @@ static void check_power_gating(void){
  assert(s_rx_pkt.data[0]==0x77&&s_rx_pkt.dma_len==3u); /* 旧维护期限不得清掉重发中的部分帧。 */
  receive(0x55,8);main_loop_modbus();
  /* 临睡资格检查后的高电平、SDK取消入睡和短脉冲均保持待处理事件。 */
- advance_us(1100000u);main_loop_modbus();assert(modbus_uart_suspend_ready());
+ advance_us(10001000u);main_loop_modbus();assert(modbus_uart_suspend_ready());
  modbus_uart_suspend_enter();assert(modbus_uart_service_wakeup()&&!comm_supply);
  wk_high=1;assert(!modbus_uart_suspend_ready());wk_high=0;
  wake_pulse();assert(modbus_uart_service_wakeup()&&comm_supply);finish_power_start();
@@ -333,6 +334,7 @@ for product, production in ((p, mode) for p in products for mode in ((0, 1) if p
         power_gating = product == 'd014'
         defines += '#define TEST_POWER_GATING %d\n#define BMS_PRODUCT_RS485_POWER_GATING_ENABLE %d\n' % (power_gating, power_gating)
         defines += '#define BMS_PRODUCT_RS485_POWER_SETTLE_MS 20u\n'
+        defines += '#define BMS_PRODUCT_RS485_POWER_HOLD_MS 10000u\n'
         expected = ('#define TEST_UART_BAUD_RATE %du\n#define TEST_UART_DIVIDER %du\n'
                     '#define TEST_UART_BWPC %du\n#define TEST_RS485_TIMEOUT_US %du\n'
                     '#define TEST_RS485_FRAME_END_US %du\n') % (

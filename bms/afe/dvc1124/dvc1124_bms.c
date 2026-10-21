@@ -400,6 +400,15 @@ uint8_t bms_afe_driver_disable_fets(uint8_t charge_off, uint8_t discharge_off)
     return DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, (uint8_t)(current & ~mask));
 }
 
+/* 故障恢复前验证两侧硬关闭，普通仲裁仍保留共口反向行为。 */
+uint8_t bms_afe_driver_prepare_recovery(void)
+{
+    /* RM V1.2 p15/30/31：两侧硬 OFF，不能用 AUTO_DIODE 代替关断确认。 */
+    if (!bms_afe_driver_register_config_ready()) return 0u;
+    if (!dvc_set_fet_modes_if_changed(DVC1124_FET_DRIVE_OFF, DVC1124_FET_DRIVE_OFF)) return 0u;
+    return bms_afe_driver_set_balance_mask(0u, NULL);
+}
+
 /* 按共口保护与方向条件应用充放电 FET 状态。 */
 uint8_t bms_afe_driver_set_fets(uint8_t charge_on,
                                               uint8_t discharge_on)

@@ -43,6 +43,7 @@ void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid) { (void)driv
 #endif
 static sh3673510_control_status_t device;
 static unsigned clear_calls;
+static unsigned control_initializations;
 static uint8_t clear_ok = 1, command_c, command_d;
 static uint16_t cplus_raw = 1024; /* 4 V, charger remains connected */
 static uint8_t load_mode;
@@ -107,7 +108,9 @@ uint32_t bms_time_now_32k(void) { return now; }
 uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=now;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
 
 uint16_t bms_lookup_u16(const uint16_t *p, uint16_t n, uint16_t x) { (void)p; (void)n; (void)x; return 650; }
-uint8_t sh3673510_control_init(void) { load_mode = 0; return 1; }
+uint8_t sh3673510_control_init(void) { ++control_initializations;load_mode = 0; return 1; }
+uint8_t sh3673510_control_prepare_recovery(void) { return 0; }
+uint8_t sh3673510_control_recover_watchdog(void) { command_c=command_d=0;return sh3673510_control_clear_flag2(SH3673520_FLAG2_WDT_MASK); }
 uint8_t sh3673510_control_ready(void) { return 1; }
 uint8_t sh3673510_control_wake(void) { return read_ok(); }
 uint8_t sh3673510_control_sleep(void) { return 1; }
@@ -359,13 +362,16 @@ int main(void) {
     assert(command_c==0 && command_d==0);
     mode_ok=1;sample();sample();
 
-    /* A failed W0C write is an invalid sample, not a healthy retry loop. */
+    /* W0C 失败保持保护，完整电流仍有效；通信恢复后无需初始化即可重试。 */
     device.flag1=SH3673520_FLAG1_OCC_MASK;
     public_current_ma=201; /* 新鲜放电触发 OCC 清除，随后注入 W0C 写失败。 */
     clear_ok=0;
     sample();
-    assert(!bms_afe_driver_get_aux_measurements(&aux));
-    assert(s_flag_clear_failed && command_c==0 && command_d==0);
+    assert(bms_afe_driver_get_aux_measurements(&aux));
+    assert(command_c==0 && command_d==1);
+    clear_ok=1;
+    for(unsigned i=0;i<8u;++i)sample();
+    assert(last_sample_result==BMS_AFE_SAMPLE_OK);
     puts("C+/LOAD mode settling, readback and failed-clear inhibit");
     return 0;
 }
@@ -396,13 +402,26 @@ int main(void) {
         assert(bms_afe_set_channel_allowed(0,1) && bms_afe_set_channel_allowed(1,1));
         sample();assert(command_c && command_d);
     }
-    /* 明确的清锁存失败仍关闭并进入既有watchdog静默。 */
+    /* 清锁存瞬时失败保留方向保护和有效电流，下一健康周期可直接恢复。 */
     device.flag1=SH3673520_FLAG1_OCC_MASK;
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
     public_current_ma=201;clear_ok=0;
-    sample();assert(!command_c && !command_d && bms_error_get(BMS_ERROR_AFE1));
-    sample();assert(!bms_afe_bus_access_allowed());
+    sample();assert(!command_c && command_d && !bms_error_get(BMS_ERROR_AFE1));
+    assert(bms_afe_get_aux_measurements(&aux));
     clear_ok=1;
+    for(unsigned i=0;i<8u;++i)sample();
+    assert(output_ready()&&!bms_error_get(BMS_ERROR_AFE1));
+    /* WDT 没有 VADC/CADC 也先关断再清除；失败不会锁死下一次尝试。 */
+    device.flag1=SH3673520_FLAG1_WK_MASK;device.flag2=SH3673520_FLAG2_WDT_MASK;
+    unsigned init_before_wdt=control_initializations;
+    clear_ok=0;sample();assert(!command_c&&!command_d);
+    clear_ok=1;sample();assert(!(device.flag2&SH3673520_FLAG2_WDT_MASK));
+    for(unsigned i=0;i<9u;++i)sample();assert(output_ready());
+    assert(control_initializations==init_before_wdt); /* 单独WDT恢复不能复位其它保护。 */
+    /* 真正持续失联仍完整静默，不把少数寄存器读取当作恢复。 */
+    fail_stage=2u;
+    for(unsigned i=0;i<6u;++i)sample();
+    assert(!bms_afe_bus_access_allowed());fail_stage=0u;
     /* No status/clear/detection I/O during the watchdog silence window. */
     unsigned before=clear_calls;
     device.flag2=SH3673520_FLAG2_VADC_MASK|SH3673520_FLAG2_CADC_MASK;
@@ -416,8 +435,7 @@ int main(void) {
     for(unsigned i=0;i<9;++i)sample();
     assert(((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u));
     device.flag1=SH3673520_FLAG1_OCC_MASK;clear_ok=0;
-    sample(); assert(!((bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) != 0u) && command_c==0 && command_d==0);
-    sample(); assert(!bms_afe_bus_access_allowed());
+    for(unsigned i=0;i<6u;++i)sample();assert(!bms_afe_bus_access_allowed());
     puts("Complete-read readiness, no ADC health gate, tick wrap and watchdog silence");
     return 0;
 }

@@ -16,6 +16,9 @@
 
 #define BMS_AFE_INVALID_FAILURES_BEFORE_SILENCE    2u
 #define BMS_AFE_COMM_CONFIRM_MS             1000u
+#define BMS_AFE_RECOVERY_RETRY_MS            200u
+#define BMS_AFE_RECOVERY_WINDOW_MS          4000u
+#define BMS_AFE_RECOVERY_MAX_ATTEMPTS           3u
 
 /* MCU 撤销请求后按所选后端的固定 watchdog 窗口保持总线静默。 */
 
@@ -33,8 +36,14 @@ typedef struct
     uint8_t fet_driver_bits;
     uint8_t fet_driver_valid;
     uint8_t cycle_failed; /* 本轮任一必要事务失败，成功的局部事务不能清除观察。 */
+    uint8_t recovery_retry;
+    uint8_t recovery_attempts;
+    uint8_t balance_failed;
+    uint8_t balance_off_confirmed;
+    uint8_t closing_failed;
     uint32_t comm_failure_started_ms;
     uint32_t failsafe_start_tick_ms;
+    uint32_t recovery_started_ms;
 } bms_afe_guard_state_t;
 
 /* 输出授权与通信恢复的唯一状态；主循环更新，backend 不得绕过 guard 清除 inhibit。 */
@@ -97,25 +106,38 @@ static void best_effort_shutdown(void)
 static void enter_failsafe_wait(void)
 {
     inhibit_local();
+    /* 一轮最多三次，只在四秒内安排短重试，禁止无限喂 AFE WDT。 */
+    if (s_guard.recovery_attempts) {
+        s_guard.recovery_retry =
+            s_guard.recovery_attempts < BMS_AFE_RECOVERY_MAX_ATTEMPTS &&
+            (uint32_t)(bms_time_ms() - s_guard.recovery_started_ms) < BMS_AFE_RECOVERY_WINDOW_MS;
+        if (!s_guard.recovery_retry) s_guard.recovery_attempts = 0u;
+    } else {
+        s_guard.recovery_retry = !s_guard.config_inhibit && bms_afe_driver_prepare_recovery();
+        s_guard.recovery_started_ms = bms_time_ms();
+    }
     s_guard.bus_silenced = 1u;
     s_guard.failsafe_start_tick_ms = bms_time_ms();
     s_guard.comm_failures = 0u;
 }
 
-/* 硬件 watchdog 等待阶段禁止 AFE 总线访问；到期仅探测一次，恢复仍需完整有效测量。 */
+/* 关断未确认先等待 watchdog；确认关断或静默后的重试使用有界短窗口。 */
 static uint8_t service_failsafe_wait(void)
 {
     if (!s_guard.bus_silenced) return 0u; /* 调用方已单独拦截主动 shutdown。 */
 
     /* 硬件看门狗计时期间绝不进行 AFE I2C/SPI 访问。 */
     if ((uint32_t)(bms_time_ms() - s_guard.failsafe_start_tick_ms) <=
-        bms_afe_driver_policy.failsafe_wait_ms)
+        (s_guard.recovery_retry ? BMS_AFE_RECOVERY_RETRY_MS : bms_afe_driver_policy.failsafe_wait_ms))
     {
         if (!bms_error_get(BMS_ERROR_AFE1)) bms_error_raise(BMS_ERROR_AFE1);
         return 1u;
     }
 
-    /* 看门狗窗口结束后只作一次有界恢复尝试。 */
+    if (!s_guard.recovery_attempts) s_guard.recovery_started_ms = bms_time_ms();
+    ++s_guard.recovery_attempts;
+    s_guard.recovery_retry = 0u;
+    /* 每个到期调度只初始化一次，不在主循环内忙等重试。 */
     s_guard.bus_silenced = 0u;
     s_guard.comm_failures = 0u;
     s_guard.comm_inhibit = 1u;
@@ -138,6 +160,8 @@ static uint8_t apply_requested(uint8_t explicit_off_mask)
     uint8_t d;
     uint8_t direction_allow_mask;
     uint8_t sample_valid;
+    uint8_t ok;
+    s_guard.closing_failed = 0u;
 
     /* 通信禁止期间 MCU 只管理授权，不能反复写关闭命令而意外喂 AFE WDT。 */
     if (!runtime_access_allowed()) return 1u;
@@ -154,10 +178,13 @@ static uint8_t apply_requested(uint8_t explicit_off_mask)
     }
     /* 方向未知不代表此前反向放行已结束。失效轮次只关闭产品撤销、全局禁止、
      * 本次新用户关闭及后端已确认保护；不能重放旧远程 OFF 意图。 */
-    if (!sample_valid)
-        return bms_afe_driver_disable_fets(
+    if (!sample_valid) {
+        ok = bms_afe_driver_disable_fets(
             !c || (explicit_off_mask & BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK),
             !d || (explicit_off_mask & BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK));
+        s_guard.closing_failed = !ok;
+        return ok;
+    }
     direction_allow_mask = bms_afe_driver_get_direction_allow_mask();
     /*
      * 用户关闭意图始终保留。AFE 确认放电时临时放行充电 MOS，确认充电时
@@ -168,7 +195,9 @@ static uint8_t apply_requested(uint8_t explicit_off_mask)
     if ((s_remote_off_mask & BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK) &&
         !(direction_allow_mask & BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK)) d = 0u;
     /* 方向阻断由选定后端处理，保留同口放电及 DVC AUTO_DIODE 语义。 */
-    return bms_afe_driver_set_fets(c, d);
+    ok = bms_afe_driver_set_fets(c, d);
+    s_guard.closing_failed = !ok && (!c || !d);
+    return ok;
 }
 
 /* 记录无效样本并更新连续失败与输出隔离状态。 */
@@ -207,6 +236,13 @@ static void note_communication_failure(void)
     }
 }
 
+static void note_output_failure(void)
+{
+    /* 明确要求关断却失败，不能沿普通读失败再等待一秒。 */
+    if (s_guard.closing_failed) note_invalid();
+    else note_communication_failure();
+}
+
 /* 初始化 guard 与选定后端；完整测量和配置验证前禁止输出。 */
 void bms_afe_init(void)
 {
@@ -242,6 +278,8 @@ bms_afe_sample_status_t bms_afe_sample(void)
     if (bms_afe_register_debug_held()) return result;
     if (s_guard.test_shutdown_hold || service_failsafe_wait()) return result;
     s_guard.cycle_failed = 0u;
+    s_guard.balance_failed = 0u;
+    s_guard.balance_off_confirmed = 0u;
     result = bms_afe_driver_sample();
     if (result == BMS_AFE_SAMPLE_NOT_READY) {
         /* 芯片初始化/重配置的必要等待不计为通信失败。 */
@@ -254,7 +292,7 @@ bms_afe_sample_status_t bms_afe_sample(void)
     if (result == BMS_AFE_SAMPLE_READ_ERROR) {
         note_communication_failure();
         /* 后端只允许撤销已有命令；已读出的真实保护仍可立即关断方向。 */
-        (void)apply_requested(0u);
+        if (!apply_requested(0u)) note_output_failure();
         return result;
     }
     if (result == BMS_AFE_SAMPLE_ERROR ||
@@ -272,11 +310,17 @@ bms_afe_sample_status_t bms_afe_sample(void)
 void bms_afe_apply_outputs(void)
 {
     if (!runtime_access_allowed()) return;
-    if (!apply_requested(0u) || s_guard.cycle_failed) {
-        note_communication_failure();
+    if (!apply_requested(0u)) {
+        note_output_failure();
+        return;
+    }
+    if (s_guard.cycle_failed) {
+        /* 均衡已确认关闭时保留本轮禁止新开，但不升级成 AFE 失联。 */
+        if (!(s_guard.balance_failed && s_guard.balance_off_confirmed)) note_communication_failure();
         return;
     }
     s_guard.comm_failures = 0u;
+    s_guard.recovery_attempts = 0u;
     if (!s_guard.config_inhibit) {
         s_guard.comm_fault_latched = 0u;
         bms_error_clear(BMS_ERROR_AFE1);
@@ -354,7 +398,7 @@ uint8_t bms_afe_set_fets(uint8_t c, uint8_t d)
     /* apply_requested 统一执行总线门禁，未合格时仅保存意图。 */
     if (!apply_requested(0u))
     {
-        note_communication_failure();
+        note_output_failure();
         return 0u;
     }
     return 1u;
@@ -380,11 +424,11 @@ uint8_t bms_afe_set_channel_allowed(uint8_t channel, uint8_t allowed)
     /* 静默阶段只记意图，不访问总线；AFE 恢复后继续执行关闭。 */
     if (!apply_requested(allowed ? 0u : bit)) {
         /* 第一次失败立即封住本轮开启，补偿成功也不能消除该观察。 */
-        note_communication_failure();
+        note_output_failure();
         /* 开启许可失败时恢复原来的关闭许可；关闭失败仍保留 fail-safe 意图。 */
         if (allowed) {
             s_remote_off_mask = old_mask;
-            (void)apply_requested(bit);
+            if (!apply_requested(bit)) note_output_failure();
         }
         return 0u;
     }
@@ -441,7 +485,7 @@ void bms_afe_set_output_enabled(uint8_t e)
         return;
     }
 
-    if (!apply_requested(0u)) note_communication_failure();
+    if (!apply_requested(0u)) note_output_failure();
 }
 
 /* 取得选定后端的辅助测量快照。 */
@@ -489,8 +533,13 @@ uint8_t bms_afe_set_balance_mask(uint32_t m, const uint32_t *known_actual)
     if (!runtime_access_allowed()) return 0u;
     if (s_guard.cycle_failed && m != 0u) return 0u;
     if (s_guard.cycle_failed) known_actual = NULL;
-    if (bms_afe_driver_set_balance_mask(m, known_actual)) return 1u;
+    s_guard.balance_off_confirmed = 0u;
+    if (bms_afe_driver_set_balance_mask(m, known_actual)) {
+        if (m == 0u) s_guard.balance_off_confirmed = 1u;
+        return 1u;
+    }
     s_guard.cycle_failed = 1u;
+    s_guard.balance_failed = 1u;
     return 0u;
 #else
     (void)known_actual;
@@ -510,6 +559,7 @@ uint8_t bms_afe_get_balance_mask(uint32_t *m)
     }
     if (bms_afe_driver_get_balance_mask(m)) return 1u;
     s_guard.cycle_failed = 1u;
+    s_guard.balance_failed = 1u;
     return 0u;
 #else
     *m = 0u;

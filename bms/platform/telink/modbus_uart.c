@@ -83,6 +83,9 @@ typedef char modbus_dma_packet_size_must_be_272[
 /* 主动线路诊断保持原有常供电，不能因没有主机请求而停止发送。 */
 #define MODBUS_RS485_POWER_GATING (BMS_PRODUCT_RS485_POWER_GATING_ENABLE && !BMS_RS485_TX_DIAG_ENABLE)
 #if MODBUS_RS485_POWER_GATING
+#if BMS_PRODUCT_RS485_POWER_HOLD_MS < 1000u || BMS_PRODUCT_RS485_POWER_HOLD_MS > 60000u
+#error "RS485 power hold must be 1000..60000ms"
+#endif
 #if BMS_PRODUCT_RS485_POWER_SETTLE_MS < 1u || BMS_PRODUCT_RS485_POWER_SETTLE_MS > 100u
 #error "RS485 power settle time must be 1..100 ms"
 #endif
@@ -489,7 +492,9 @@ u8 modbus_uart_service_wakeup(void)
 #if MODBUS_RS485_POWER_GATING
     irq_state = irq_disable();
     /* OTA 擦除/校验时仍需要应答，会话结束后恢复正常静默断电。 */
-    if (!bms_serial_ota_busy() && modbus_uart_rx_idle() && !s_comm_wake_pending &&
+    if (bms_serial_ota_busy()) s_uart_last_activity_ms = bms_time_ms();
+    if ((u32)(bms_time_ms() - s_uart_last_activity_ms) >= BMS_PRODUCT_RS485_POWER_HOLD_MS &&
+        modbus_uart_rx_idle() && !s_comm_wake_pending &&
         !(reg_irq_src & FLD_IRQ_GPIO_RISC1_EN) && !gpio_read(BMS_BOARD_CMNT_WK_PIN)) {
         modbus_rs485_power_off();
         irq_restore(irq_state);
@@ -934,7 +939,16 @@ void main_loop_modbus(void)
         }
     }
 
-    if (clock_time_exceed(mb_last_ok_tick, MODBUS_UART_RECOVERY_US))
+    if (clock_time_exceed(mb_last_ok_tick, MODBUS_UART_RECOVERY_US) &&
+        !bms_serial_ota_busy() && !s_rx_ready && !s_rx_pkt.dma_len &&
+        !(dma_chn_irq_status_get() & FLD_DMA_CHN_UART_RX) &&
+        !uart_tx_is_busy() && !modbus_uart_tx_active()
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+        && !s_uart_activity && !s_uart_resume_pending && !s_uart_wake_discard &&
+        !(reg_irq_src & FLD_IRQ_GPIO_RISC0_EN) && gpio_read(BMS_BOARD_SCI1_RX_PIN) &&
+        clock_time_exceed(s_uart_last_edge_tick, MODBUS_UART_WAKE_GAP_US)
+#endif
+        )
     {
         if (uart_is_parity_error()) uart_clear_parity_error();
         modbus_uart_rx_reset();

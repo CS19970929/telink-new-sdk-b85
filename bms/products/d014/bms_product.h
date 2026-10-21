@@ -54,6 +54,8 @@
 #define BMS_PRODUCT_RS485_POWER_GATING_ENABLE 1
 /* 工程初值，非CA-IS2092A保证的启动上限；量产须测C-3V3/ISO-5V。 */
 #define BMS_PRODUCT_RS485_POWER_SETTLE_MS 20u
+/* 有线供电保持与 UART Suspend 门限、AFE 故障确认独立。 */
+#define BMS_PRODUCT_RS485_POWER_HOLD_MS 10000u
 /* 开发版也用于功耗测试，默认移除调试灯闪烁及SDK调试GPIO负载。 */
 #ifndef BMS_BOARD_DEBUG_LED_ENABLE
 #define BMS_BOARD_DEBUG_LED_ENABLE 0u

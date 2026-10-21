@@ -36,6 +36,7 @@ static void bms_afe_driver_request_voltage_check(void){}
 static void bms_afe_driver_reset_voltage_check(void){}
 static uint8_t bms_afe_driver_stop_voltage_check(void){return 1u;}
 static void bms_afe_driver_init(void){}
+static uint8_t bms_afe_driver_prepare_recovery(void){return 0u;}
 static bms_afe_sample_status_t bms_afe_driver_sample(void){bms_afe_sample_status_t r=BMS_AFE_SAMPLE_OK;sample_calls++;return r;}
 static int bms_afe_driver_apply_protection_config(void){apply_calls++;hardware_profile=99;return 0;}
 static int bms_afe_driver_set_fets(int c,int d){if(init_fail){init_fail=0;return 0;}if(fet_fail)return 0;cmd_c=c;cmd_d=d;return 1;}
@@ -71,8 +72,10 @@ static void test_remote_control(void){
  bms_afe_init();bms_afe_set_output_enabled(1);for(int i=0;i<3;i++)sample_cycle();
  bms_afe_set_fets(1,1);assert(cmd_c==0&&cmd_d==1); /* AFE 重初始化不丢失关闭许可。 */
  fet_fail=1;assert(!bms_afe_set_channel_allowed(0,1));assert(bms_afe_get_remote_allowed_mask()==2u);
- fet_fail=0;assert(bms_afe_set_channel_allowed(0,1));assert(!s_guard.comm_inhibit && !err);
+ assert(s_guard.comm_inhibit && err); /* 开启失败后的关闭补偿也失败，立即禁止。 */
+ fet_fail=0;assert(bms_afe_set_channel_allowed(0,1));
  for(int i=0;i<3;i++)sample_cycle();
+ assert(!s_guard.comm_inhibit && !err);
  assert(cmd_c==1&&cmd_d==1); /* 偶发控制通信失败不撤销已有资格；完整采样后正常执行新许可。 */
  puts("PASS remote MOS permission: independent RAM intent, AFE reinit persistence and fail-safe enable rollback");
 }

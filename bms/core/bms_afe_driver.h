@@ -12,10 +12,10 @@ typedef struct {
 extern const bms_afe_driver_policy_t bms_afe_driver_policy;
 
 void bms_afe_driver_init(void);
-#if BMS_AFE_REGISTER_DEBUG_ENABLE
-/* 仅调试恢复查询：完整固定配置已验证；不代表测量/输出已取得资格。 */
+/* 恢复前关闭并回读功率控制（含自主反向通路）及均衡；不是物理 Gate 测量。 */
+uint8_t bms_afe_driver_prepare_recovery(void);
+/* 完整固定配置已验证；不代表测量/输出已取得资格。 */
 uint8_t bms_afe_driver_register_config_ready(void);
-#endif
 bms_afe_sample_status_t bms_afe_driver_sample(void);
 /* 最后一次命令成功仅确认 AFE 事务，不代表实测 MOS/Gate 状态。 */
 uint8_t bms_afe_driver_sleep(void);

@@ -31,7 +31,14 @@ sh3673520_status_t SH3673520_ReadReg(uint8_t r,uint8_t *v)
 sh3673520_status_t SH3673520_WriteReg(uint8_t r,uint8_t v)
 {
     ++operation;previous_write=r+1u;if(operation==fail_at)return SH3673520_ERR_SPI;
-    regs[r]=v;++written[r];return SH3673520_OK;
+    if(r==SH3673520_REG_FLAG2) {
+        if(!(v&SH3673520_FLAG2_WDT_MASK)) {
+            check(regs[SH3673520_REG_SCONF5]&SH3673520_SCONF5_MOS_EN_MASK,0,"清WDT前禁止自主导通");
+            check(regs[SH3673520_REG_SCONF2]&SH3673520_SCONF2_FET_MASK,0,"清WDT前撤销旧ON");
+        }
+        regs[r]&=v; /* 原厂 W0C 语义；不能将写入值当作 FLAG2 新值。 */
+    } else regs[r]=v;
+    ++written[r];return SH3673520_OK;
 }
 sh3673520_status_t SH3673520_ReadRegs(uint8_t r,uint8_t *v,sh3673520_size_t n)
 {
@@ -124,6 +131,19 @@ int main(void)
     reset_bus(0,0);check(sh3673510_control_init(),1,"休眠前初始化");
     check(sh3673510_control_sleep(),1,"休眠");memset(regs,0,sizeof(regs));
     check(sh3673510_control_wake(),1,"唤醒重配");decode();
+    regs[SH3673520_REG_SCONF2]|=SH3673520_SCONF2_FET_MASK;
+    regs[SH3673520_REG_FLAG2]=SH3673520_FLAG2_WDT_MASK|SH3673520_FLAG2_OTC_MASK;
+    operation=fail_at=corrupt_at=0;
+    check(sh3673510_control_recover_watchdog(),1,"WDT专用恢复");
+    unsigned recovery_total=operation;
+    check(regs[SH3673520_REG_FLAG2],SH3673520_FLAG2_OTC_MASK,"只清WDT保留真实保护");
+    for(unsigned f=1;f<=recovery_total;++f) {
+        reset_bus(0,0);check(sh3673510_control_init(),1,"恢复故障注入准备");
+        regs[SH3673520_REG_SCONF2]|=SH3673520_SCONF2_FET_MASK;
+        regs[SH3673520_REG_FLAG2]=SH3673520_FLAG2_WDT_MASK;
+        operation=0;fail_at=f;
+        check(sh3673510_control_recover_watchdog(),0,"WDT逐事务失败不伪报成功");
+    }
     printf("init_bus_operations=%u apply_bus_operations=%u assertions=%u\n",total,apply_total,assertions);
     return 0;
 }

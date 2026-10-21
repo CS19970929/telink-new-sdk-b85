@@ -56,7 +56,7 @@ SC 基于实际 OCD2 电压编码选择倍数，不使用已取整的 effective 
 
 | TLSR8251 GPIO | D014 网络 | 用途 |
 |---|---|---|
-| PD4 | CMNT-EN | 高电平经Q4/Q2开启C-3V3；正常按通信活动供电，20ms启动工程门限待实测 |
+| PD4 | CMNT-EN | 高电平经Q4/Q2开启C-3V3；有线活动后独立保持10秒，串口OTA忙态续期；20ms启动工程门限待实测 |
 | PD7 | SCLK | AFE SPI SCK |
 | PA0 | DI1 / SW1 | 开关输入 |
 | PA1 | 485-EN | RS485 DE//RE |

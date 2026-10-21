@@ -216,7 +216,8 @@ def check_common_feature_policy_contract_check():
         assert forbidden not in sample, forbidden
 
     assert "comm_fault_latched" in guard_c
-    assert "if (!apply_requested(0u) || s_guard.cycle_failed)" in guard_c
+    assert "if (!apply_requested(0u))" in guard_c
+    assert "s_guard.balance_failed && s_guard.balance_off_confirmed" in guard_c
 
     sh=text("sh3673510_bms.c")
     for token in (

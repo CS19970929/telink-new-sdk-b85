@@ -56,6 +56,7 @@ static bms_afe_aux_measurements_t s_aux;
 /* 只有 500..300000 ohm 的有效测量才写入；0 唯一表示无效，不另存有效性副本。 */
 static uint32_t s_ntc_ohm[4];
 static uint8_t s_snapshot_valid;
+static uint8_t s_control_failed; /* 测量可积分，但本轮控制失败不得新开 MOS。 */
 static uint8_t s_hw_afe_error;
 /* 短路硬件锁定；恢复依赖物理条件与 AFE 状态，不能由关 MOS 后零电流直接清除。 */
 static uint8_t s_short_latched;
@@ -74,11 +75,8 @@ static int16_t s_mos_ntc_raw;
 static uint8_t s_fet_command_valid;
 static uint8_t s_last_charge_command;
 static uint8_t s_last_discharge_command;
-/*
- * 清锁存事务失败后必须完整重初始化，
- * 否则重试间的成功 ADC 读取会持续重置门禁失败计数/喂 WDT。
- */
-static uint8_t s_flag_clear_failed;
+/* WDT 清除或运行配置恢复失败后，后续采样继续完成本次恢复，不重放 ON。 */
+static uint8_t s_watchdog_recovery_pending;
 static uint8_t s_detection_initialized;
 static uint8_t s_load_detection;
 static uint32_t s_detection_ms;
@@ -216,6 +214,15 @@ uint8_t bms_afe_driver_disable_fets(uint8_t charge_off, uint8_t discharge_off)
     return sh3673510_control_disable_fets(c_off, d_off);
 }
 
+/* 故障恢复前撤销自主通路及功能输出，不能以普通 MOS 命令成功替代。 */
+uint8_t bms_afe_driver_prepare_recovery(void)
+{
+    s_fet_command_valid = 0u;
+    sh3673510_board_set_heater(0u);
+    if (!sh3673510_control_prepare_recovery()) return 0u;
+    return sh3673510_control_set_balance(0u);
+}
+
 /* 合并输出授权和阻断条件后应用 MOS 请求。 */
 uint8_t bms_afe_driver_set_fets(uint8_t requested_charge_on,
                                    uint8_t requested_discharge_on)
@@ -230,7 +237,7 @@ uint8_t bms_afe_driver_set_fets(uint8_t requested_charge_on,
     charge_inhibit = charge_blocked();
     discharge_inhibit = discharge_blocked();
 
-    if (!s_snapshot_valid && !s_hw_afe_error && !s_afe_reconfigure_required) {
+    if (s_control_failed || (!s_snapshot_valid && !s_hw_afe_error && !s_afe_reconfigure_required)) {
         /* 读失败不能使旧 ON 命令被重新发送，也不能吞掉关闭或真实保护。 */
         return bms_afe_driver_disable_fets(!requested_charge_on, !requested_discharge_on);
     }
@@ -400,7 +407,6 @@ static uint8_t service_short_recovery(const sh3673510_control_status_t *s, uint8
     if (!s_short_clear_pending &&
         (charging || s_short_release_count >= SH3510_SHORT_RELEASE_SAMPLES)) {
         if (!sh3673510_control_clear_flag1(SH3673520_FLAG1_SC_MASK)) {
-            s_flag_clear_failed = 1u;
             return 0u;
         }
         s_short_clear_pending = 1u;
@@ -477,7 +483,6 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s,
          * 这些状态由service_afe_reconfiguration() 管理。
          */
         c1 |= (uint8_t)(s->flag1 & SH3673520_FLAG1_WK_MASK);
-        if (s->flag2 & SH3673520_FLAG2_WDT_MASK) c2 |= SH3673520_FLAG2_WDT_MASK;
 
         if (s->flag1 & SH3673520_FLAG1_OV_MASK) {
             if (hw_recovery_stable(HW_REC_OV,
@@ -551,7 +556,6 @@ static uint8_t service_hw_flag_recovery(const sh3673510_control_status_t *s,
     /* SC 独立处理：真实充电立即清除，或连续 LOADOFF 后清除。 */
     if ((c1 && !sh3673510_control_clear_flag1(c1)) ||
         (c2 && !sh3673510_control_clear_flag2(c2))) {
-        s_flag_clear_failed = 1u;
         return 0u;
     }
     return 1u;
@@ -803,6 +807,14 @@ static uint16_t publish_measurements(void)
     /* 已验证的芯片故障/保护优先于后续测量读取，不能被读失败覆盖。 */
     publish_hw_status(&status);
     if (s_hw_afe_error) return DIAG_AFE_FAIL_INIT;
+    if ((status.flag2 & SH3673520_FLAG2_WDT_MASK) || s_watchdog_recovery_pending) {
+        s_fet_command_valid = 0u;
+        s_watchdog_recovery_pending = 1u;
+        if (!sh3673510_control_recover_watchdog()) return DIAG_AFE_FAIL_FLAG_CLEAR_HOLD;
+        s_watchdog_recovery_pending = 0u;
+        restart_sampling();
+        return DIAG_AFE_FAIL_NONE;
+    }
     if (s_afe_reconfigure_required) return DIAG_AFE_FAIL_NONE;
     if (SH3673520_ReadCellVoltages(cell, SH3673510_BOARD_CELL_COUNT) != SH3673520_OK) return DIAG_AFE_FAIL_CELL_READ;
     if (SH3673520_ReadPackVoltage(&pack_mv) != SH3673520_OK) return DIAG_AFE_FAIL_PACK_READ;
@@ -973,7 +985,8 @@ void bms_afe_driver_init(void)
     s_fet_command_valid = 0u;
     s_last_charge_command = 0u;
     s_last_discharge_command = 0u;
-    s_flag_clear_failed = 0u;
+    s_watchdog_recovery_pending = 0u;
+    s_control_failed = 0u;
     sh3673510_board_force_heater_fuse_safe();
     sh3673510_board_set_heater(0u);
     if (!sh3673510_control_init()) { note_comm_error(DIAG_AFE_FAIL_INIT); return; }
@@ -991,7 +1004,7 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
     s_sample_attempt_flag2 = 0u;
 #endif
     sh3673510_board_force_heater_fuse_safe();
-    if (s_flag_clear_failed) { note_comm_error(DIAG_AFE_FAIL_FLAG_CLEAR_HOLD); return result; }
+    s_control_failed = 0u;
     failure = publish_measurements();
     if (failure != DIAG_AFE_FAIL_NONE) {
         sh3673520_comm_stats_t stats;
@@ -999,6 +1012,16 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
         SH3673520_GetCommStats(&stats);
         note_comm_error(failure);
         switch (failure) {
+        case DIAG_AFE_FAIL_SHORT_RECOVERY:
+        case DIAG_AFE_FAIL_FLAG_RECOVERY:
+            /* 测量已完整；清锁存失败保持保护，但不丢弃有效电流或锁死采样。 */
+            s_snapshot_valid = 1u;
+            s_control_failed = 1u;
+            result = BMS_AFE_SAMPLE_READ_ERROR;
+            break;
+        case DIAG_AFE_FAIL_FLAG_CLEAR_HOLD:
+            result = BMS_AFE_SAMPLE_READ_ERROR;
+            break;
         case DIAG_AFE_FAIL_STATUS:
         case DIAG_AFE_FAIL_CELL_READ:
         case DIAG_AFE_FAIL_PACK_READ:
@@ -1028,9 +1051,7 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
 }
 
 /* 应用独立 AFE 硬件保护配置并返回结果。 */
-#if BMS_AFE_REGISTER_DEBUG_ENABLE
 uint8_t bms_afe_driver_register_config_ready(void) { return sh3673510_control_ready(); }
-#endif
 uint8_t bms_afe_driver_apply_protection_config(void)
 {
     if (!sh3673510_control_ready()) return 0u;

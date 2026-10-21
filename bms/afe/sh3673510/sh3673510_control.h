@@ -40,6 +40,8 @@ void sh3673510_control_get_write_failure(sh3673510_write_failure_t *failure);
 
 /* 初始化 SH 控制层并验证固定配置。 */
 uint8_t sh3673510_control_init(void);
+uint8_t sh3673510_control_prepare_recovery(void);
+uint8_t sh3673510_control_recover_watchdog(void);
 /* 将独立硬件保护配置量化、写入并验证寄存器。 */
 uint8_t sh3673510_control_apply_protection(void);
 /* 取得 SH 硬件实际可表示的保护配置。 */

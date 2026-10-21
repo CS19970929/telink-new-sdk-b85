@@ -18,6 +18,7 @@ const bms_afe_driver_policy_t bms_afe_driver_policy = {5000u,0u,1u};
 static uint32_t now;
 static unsigned c,d,writes,samples,initializations,sleep_calls;
 static unsigned set_calls, fail_next_control;
+static uint8_t recovery_off_ok;
 static uint8_t control_ok=1, balance_ok=1, balance_get_ok=1, balance_used_known, direction_allow_mask;
 static bms_afe_sample_status_t status=BMS_AFE_SAMPLE_OK;
 static int32_t measured_current;
@@ -38,6 +39,7 @@ void bms_afe_driver_request_voltage_check(void){}
 void bms_afe_driver_reset_voltage_check(void){}
 uint8_t bms_afe_driver_stop_voltage_check(void){return 1u;}
 void bms_afe_driver_init(void){++initializations;}
+uint8_t bms_afe_driver_prepare_recovery(void){if(!recovery_off_ok)return 0;c=d=0;return 1;}
 bms_afe_sample_status_t bms_afe_driver_sample(void){
  ++samples;bms_afe_sample_status_t r=status;return r;
 }
@@ -71,6 +73,25 @@ static void qualify(void){
 }
 int main(void){
  bms_afe_aux_measurements_t m;uint8_t bits;
+ /* 关闭已验证时不等硬件WDT；静默后首次初始化失败也必须短间隔再试。 */
+ qualify();recovery_off_ok=1;status=BMS_AFE_SAMPLE_READ_ERROR;poll();now+=1000u;poll();
+ unsigned recoveries=initializations;now+=201u;poll();
+ assert(initializations==recoveries+1u && !c && !d);
+ status=BMS_AFE_SAMPLE_OK;poll();assert(c&&d&&!bms_error_get(BMS_ERROR_AFE1));
+ recovery_off_ok=0;status=BMS_AFE_SAMPLE_ERROR;poll();poll();
+ recoveries=initializations;now+=5001u;poll();assert(initializations==recoveries+1u);
+ now+=200u;poll();now+=200u;poll();now+=201u;poll();
+ assert(initializations==recoveries+2u && !c && !d);
+ now+=200u;poll();now+=200u;poll();now+=201u;poll();
+ assert(initializations==recoveries+3u);
+ now+=200u;poll();now+=200u;poll();
+ for(unsigned i=0;i<20u;i++){now+=201u;poll();}
+ assert(initializations==recoveries+3u && !bms_afe_bus_access_allowed());
+ now+=1000u;poll();
+ status=BMS_AFE_SAMPLE_OK;poll();qualify();
+ /* 明确关闭失败立即禁止输出，不用普通读错误的一秒确认。 */
+ control_ok=0;assert(!bms_afe_set_channel_allowed(0,0));
+ assert(bms_error_get(BMS_ERROR_AFE1));control_ok=1;qualify();
  /* 已有反向放行不能因读失败被撤销；失效期间的新关闭仍只作用于指定方向。 */
  for(unsigned channel=0;channel<2;channel++){
   qualify();direction_allow_mask=(uint8_t)(1u<<channel);
@@ -131,8 +152,8 @@ int main(void){
   bms_afe_apply_outputs();
   if(!i){assert(!bms_error_get(BMS_ERROR_AFE1));now+=1000u;}
  }
- assert(bms_error_get(BMS_ERROR_AFE1)&&!bms_afe_bus_access_allowed());
- now+=5001u;poll();qualify();
+ assert(!bms_error_get(BMS_ERROR_AFE1)&&bms_afe_bus_access_allowed());
+ poll();qualify();
  /* 均衡通信失败后，旧有效测量不能授权同轮新开；下一完整轮次恢复。 */
  assert(bms_afe_set_channel_allowed(0,0)&&!c&&d);
  balance_ok=0;poll();assert(!c&&d&&!bms_error_get(BMS_ERROR_AFE1));

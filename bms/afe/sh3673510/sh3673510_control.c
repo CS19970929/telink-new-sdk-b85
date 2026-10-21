@@ -387,6 +387,7 @@ static uint8_t sh3510_configure_runtime(void)
 uint8_t sh3673510_control_init(void)
 {
     sh3673520_port_status_t port_status;
+    uint8_t flag2;
 
     s_control_ready = 0u;
     s_afe_sleeping = 0u;
@@ -406,6 +407,12 @@ uint8_t sh3673510_control_init(void)
     if (SH3673520_Init() != SH3673520_OK) return 0u;
 
     s_control_ready = 1u;
+    /* 先处理遗留 WDT，不让完整配置写入及采样稳定等待消耗 Powerdown 窗口。 */
+    if (SH3673520_ReadReg(SH3673520_REG_FLAG2, &flag2) != SH3673520_OK ||
+        ((flag2 & SH3673520_FLAG2_WDT_MASK) && !sh3673510_control_recover_watchdog())) {
+        s_control_ready = 0u;
+        return 0u;
+    }
     if (!sh3510_configure_runtime())
     {
         s_control_ready = 0u;
@@ -443,6 +450,28 @@ uint8_t sh3673510_control_disable_fets(uint8_t charge_off, uint8_t discharge_off
                    (discharge_off ? SH3673520_SCONF2_DSGMOS_MASK : 0u);
     if (!s_control_ready) return 0u;
     return !mask || sh3510_update_reg(SH3673520_REG_SCONF2, mask, 0u);
+}
+
+/* 故障恢复专用，临时关闭的自主通路须由完整配置重应用恢复。 */
+uint8_t sh3673510_control_prepare_recovery(void)
+{
+    if (!s_control_ready) return 0u;
+    /* CV1.0A p17：MOS_EN 可绕过 CHGMOS/DSGMOS OFF，恢复期必须先禁止。 */
+    if (!sh3510_update_reg(SH3673520_REG_SCONF5, SH3673520_SCONF5_MOS_EN_MASK, 0u)) return 0u;
+    return sh3673510_control_set_fets(0u, 0u);
+}
+
+uint8_t sh3673510_control_recover_watchdog(void)
+{
+    uint8_t flag2;
+    /* 清 WDT 前先撤销旧 ON；不发送 RESET，保留其余真实保护标志。 */
+    if (!sh3673510_control_prepare_recovery()) return 0u;
+    if (!sh3673510_control_clear_flag2(SH3673520_FLAG2_WDT_MASK)) return 0u;
+    if (SH3673520_ReadReg(SH3673520_REG_FLAG2, &flag2) != SH3673520_OK) return 0u;
+    if (flag2 & SH3673520_FLAG2_WDT_MASK) return 0u;
+    /* 恢复被临时关闭的 MOS_EN 及完整运行/保护配置；仍保持两侧控制 OFF。 */
+    if (!sh3510_configure_runtime() || !sh3673510_control_apply_protection()) return 0u;
+    return sh3673510_control_set_fets(0u, 0u);
 }
 
 /* 读取 SH 状态、保护标志及控制寄存器。 */
