@@ -40,6 +40,7 @@ def check_sh_event_checkpoint_host_check():
     int storage_record_open(storage_record_store_t*s,const storage_port_t*p,storage_region_t r,uint32_t m,uint16_t v,uint16_t n){(void)s;(void)p;(void)r;(void)m;assert(v==4 && n==202);return 1;}
     int storage_record_load(storage_record_store_t*s,uint8_t*p){(void)s;(void)p;return 0;}
     int storage_record_save(storage_record_store_t*s,const uint8_t*p){(void)s;++saves;if(!save_ok){++blocked;return 0;}memcpy(durable,p,202);return 1;}
+    int storage_record_erase_all(storage_record_store_t*s){(void)s;return 1;}
     /* PRODUCTION */
     int main(void){
      bms_event_log_sample_t sample={0};u16 pos;

@@ -56,6 +56,8 @@ int bms_config_store_init(void);
 int bms_config_store_validate_startup(void);
 /* 出厂包 Config 预提交后，等待 State/Event 重置并完成最终提交。 */
 int bms_config_store_factory_reset_pending(void);
+/* 进行中标记已持久化后，搬迁标记并清除 Config 中的全部恢复前记录。 */
+int bms_config_store_purge_factory_history(void);
 int bms_config_store_finish_factory_reset(void);
 /* 取得缓存的软件保护配置。 */
 int bms_config_store_get_protect(bms_protection_params_t *protect);

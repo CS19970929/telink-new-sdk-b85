@@ -21,6 +21,7 @@ u32 blc_ota_getCurrentUsedMultipleBootAddress(void);
 #define FLASH_ADDR_EVENT_SECTORS          16u
 #define FLASH_ADDR_STATE_SECTORS          8u
 #define FLASH_ADDR_CONFIG_SECTORS         4u
+#define FLASH_ADDR_LEGACY_SECTORS         4u /* 旧 SleepConfig/SocProfile，普通启动不使用。 */
 
 #define FLASH_ADDR_LAYOUT_512K_EVENT_BASE    0x4C000u
 #define FLASH_ADDR_LAYOUT_512K_STATE_BASE    0x44000u
@@ -82,3 +83,13 @@ static inline u32 flash_store_cfg_get_event_log_base(void)
 }
 /* 取得历史事件持久域占用的擦除扇区数。 */
 static inline u16 flash_store_cfg_get_event_log_sectors(void) { return FLASH_ADDR_EVENT_SECTORS; }
+
+/* 已释放业务区位于 Event 末尾，只对已知容量及受支持 OTA 布局开放出厂清理。 */
+static inline u32 flash_store_cfg_get_legacy_base(void)
+{
+    u32 event_base;
+    if (blc_flash_capacity != FLASH_SIZE_512K && blc_flash_capacity != FLASH_SIZE_1M &&
+        blc_flash_capacity != FLASH_SIZE_2M) return 0u;
+    event_base = flash_store_cfg_get_event_log_base();
+    return event_base ? event_base + FLASH_ADDR_EVENT_SECTORS * FLASH_SECTOR_SIZE : 0u;
+}

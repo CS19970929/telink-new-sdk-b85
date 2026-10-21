@@ -213,6 +213,7 @@ int storage_record_open(storage_record_store_t *s, const storage_port_t *port,
         port->erase == 0 || port->erase_size == 0u || port->program_size == 0u ||
         port->program_size > STORAGE_RECORD_MAX_PROGRAM_SIZE || payload_size == 0u ||
         region.size < port->erase_size * 2u ||
+        region.size > UINT32_MAX - region.base ||
         region.base % port->erase_size != 0u || region.size % port->erase_size != 0u)
         return 0;
     slot = align_up(STORAGE_RECORD_HEADER_SIZE + payload_size, port->program_size);
@@ -394,4 +395,53 @@ done:
     }
     end_write(s);
     return ok;
+}
+
+/* 每次只持有一个扇区的写事务；空白区域也须读回确认，不重复擦写。 */
+static int erase_record_sector(storage_record_store_t *s, uint16_t sector)
+{
+    uint32_t base = sector_base(s, sector);
+    int blank = is_erased(s, base, s->port->erase_size);
+    int ok;
+    if (blank == 1) return 1;
+    if (blank < 0 || s->write_failures >= STORAGE_RECORD_MAX_WRITE_FAILURES ||
+        !begin_write(s)) return 0;
+    ok = s->port->erase(s->port->ctx, base, s->port->erase_size);
+    if (ok) ok = is_erased(s, base, s->port->erase_size) == 1;
+    end_write(s);
+    if (!ok) ++s->write_failures;
+    return ok;
+}
+
+int storage_record_erase_all(storage_record_store_t *s)
+{
+    uint16_t sector;
+    if (s == 0 || !s->ready) return 0;
+    for (sector = 0u; sector < s->sector_count; ++sector)
+        if (!erase_record_sector(s, sector)) return 0;
+    s->latest_addr = INVALID_ADDR;
+    s->has_latest = 0u;
+    s->next_sequence = 1u;
+    s->load_status = STORAGE_RECORD_LOAD_EMPTY;
+    s->write_addr = s->region.base;
+    s->write_needs_erase = 0u; /* 首扇区已验证为空，保存时不重复擦除。 */
+    return 1;
+}
+
+int storage_record_purge_history(storage_record_store_t *s, const uint8_t *payload)
+{
+    uint16_t sector, retained, destination;
+    if (s == 0 || !s->ready || !s->has_latest || s->sector_count < 2u || payload == 0 ||
+        s->latest_addr < s->region.base ||
+        s->latest_addr - s->region.base >= s->region.size) return 0;
+    retained = sector_index(s, s->latest_addr);
+    for (sector = 0u; sector < s->sector_count; ++sector) {
+        if (sector != retained && !erase_record_sector(s, sector)) return 0;
+    }
+    destination = retained == 0u ? 1u : 0u;
+    s->write_addr = sector_base(s, destination);
+    s->write_needs_erase = 0u;
+    /* 新记录完整提交后才擦除原标记；序号继续使用已有回绕比较规则。 */
+    if (!storage_record_save(s, payload)) return 0;
+    return erase_record_sector(s, retained);
 }

@@ -10,6 +10,7 @@
 #include "bms_config_store.h"
 #include "bms_event_log.h"
 #include "bms_state_store.h"
+#include "bms_storage_platform.h"
 
 bms_protection_params_t g_bms_protection_params;
 static uint8_t s_protection_params_valid;
@@ -76,8 +77,10 @@ static void parameters_validate_storage_startup(void)
     /* 各域独立加载；Config 失败也须保留健康 State 的 SOC/循环次数缓存。 */
     config_valid = bms_config_store_validate_startup() ? 1u : 0u;
     if (config_valid && bms_config_store_factory_reset_pending()) {
-        /* Config 已提交进行中标记；全部完成之前不得授权输出。 */
-        state_valid = bms_state_store_factory_reset() ? 1u : 0u;
+        /* 搬迁并保留 Config 进行中标记，再清理全部业务历史；不能先擦掉续做依据。 */
+        config_valid = bms_config_store_purge_factory_history() &&
+                       bms_storage_platform_erase_factory_legacy();
+        state_valid = config_valid && bms_state_store_factory_reset() ? 1u : 0u;
         event_valid = state_valid && bms_event_log_factory_reset() ? 1u : 0u;
         if (!state_valid || !event_valid || !bms_config_store_finish_factory_reset())
             config_valid = 0u;

@@ -6,11 +6,14 @@ typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define APP_FLASH_PROTECTION_ENABLE 1
 #define FLASH_PAGE_SIZE 256u
 #define FLASH_SECTOR_SIZE 4096u
+#define FLASH_ADDR_LEGACY_SECTORS 4u
 /* MACROS */
 /* TYPES */
 u8 ota_is_working;
 static u32 tick, page_calls, erase_calls;
 static int stack_available=1, verify_ok=1, unlocked;
+static int bms_ota_factory_reset_requested(void){return 0;}
+static u32 flash_store_cfg_get_legacy_base(void){return 0x5c000u;}
 static u32 pm_get_32k_tick(void){return tick;}
 uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=tick;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
 uint32_t bms_time_now_32k(void){return tick;}

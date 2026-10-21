@@ -278,6 +278,10 @@ int bms_state_store_factory_reset(void)
     }
     (void)storage_record_load(&g_bms_state_store, payload);
     if (g_bms_state_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) return 0;
+    if (!storage_record_erase_all(&g_bms_state_store)) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0;
+    }
     bms_state_defaults(&next);
     bms_ota_update_copy_id(next.ota_update_id);
     bms_state_encode(&next, payload);

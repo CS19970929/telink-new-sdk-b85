@@ -43,6 +43,8 @@ void bms_storage_platform_get_diagnostics(bms_storage_diagnostics_t *out);
 const storage_port_t *bms_storage_platform_port(void);
 /* 取得指定持久域的 Flash 区域配置。 */
 int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *region);
+/* 仅显式出厂事务清理旧版 SleepConfig/SocProfile 已释放的四个业务扇区。 */
+int bms_storage_platform_erase_factory_legacy(void);
 
 #ifdef __cplusplus
 }

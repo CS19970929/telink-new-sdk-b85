@@ -38,10 +38,12 @@ static unsigned test_ota_mask;
 /* MACROS */
 /* TYPES */
 static u32 now, errors, programs, erases;
-static u32 sector_erases[30];
+static u32 sector_erases[34];
 static int read_ok=1, erase_ok=1, config_read_fail;
 static int cut=-1, begin_ok=1, region_ok=1;
-static u8 flash[30u*4096u];
+static int erase_cut_sector=-1;
+static unsigned erase_cut_bytes;
+static u8 flash[34u*4096u]; /* 32个业务扇区，另2个扇区作越界哨兵。 */
 static u8 backup[sizeof(flash)];
 static void bms_error_raise(int e){(void)e;++errors;}
 static int bms_sw_protection_validate_params(const bms_protection_params_t *p){return p!=0;}
@@ -55,9 +57,10 @@ static int begin(void*c){(void)c;return begin_ok;}
 static void end(void*c){(void)c;}
 static int read_flash(void*c,u32 a,u8*b,u32 n){(void)c;if(!read_ok || (config_read_fail && a<4u*4096u))return 0;assert(a+n<=sizeof(flash));memcpy(b,flash+a,n);return 1;}
 static int program(void*c,u32 a,const u8*b,u32 n){(void)c;++programs;assert(a+n<=sizeof(flash));for(u32 i=0;i<n;i++){if(cut==0)return 0;if(cut>0)--cut;assert((flash[a+i]|b[i])==flash[a+i]);flash[a+i]&=b[i];}return 1;}
-static int erase(void*c,u32 a,u32 n){(void)c;++erases;++sector_erases[a/4096u];assert(a+n<=sizeof(flash));if(!erase_ok)return 0;memset(flash+a,255,n);return 1;}
+static int erase(void*c,u32 a,u32 n){(void)c;++erases;++sector_erases[a/4096u];assert(a+n<=sizeof(flash));if(!erase_ok)return 0;if((int)(a/4096u)==erase_cut_sector){assert(erase_cut_bytes<n);memset(flash+a,255,erase_cut_bytes);return 0;}memset(flash+a,255,n);return 1;}
 static const storage_port_t port={0,4096,4,255,begin,end,read_flash,program,erase};
 const storage_port_t*bms_storage_platform_port(void){return &port;}
+int bms_storage_platform_erase_factory_legacy(void){if(!bms_ota_factory_reset_requested()||!begin(0))return 0;for(u32 sector=28u;sector<32u;++sector)if(!erase(0,sector*4096u,4096u)){end(0);return 0;}end(0);return 1;}
 int bms_storage_platform_region(bms_storage_domain_t d,storage_region_t*r){if(!region_ok){bms_diag_result((uint8_t)d,DIAG_LAYOUT);return 0;}if(d==BMS_STORAGE_DOMAIN_CONFIG){r->base=0;r->size=4*4096;}else if(d==BMS_STORAGE_DOMAIN_STATE){r->base=4*4096;r->size=8*4096;}else if(d==BMS_STORAGE_DOMAIN_EVENT){r->base=12*4096;r->size=16*4096;}else return 0;return 1;}
 uint32_t bms_time_ms(void){return now;}
 uint32_t bms_time_now_32k(void){return now*32u;}
@@ -70,7 +73,7 @@ static void reboot(void){
  g_bms_state_last_failed=0;
  memset(&g_bms_event_log,0,sizeof(g_bms_event_log));
  memset(&g_bms_event_store,0,sizeof(g_bms_event_store));
- s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;
+ s_storage_startup_valid=0;s_protection_params_valid=0;cut=-1;begin_ok=1;erase_cut_sector=-1;
 }
 static void fresh(void){
  test_ota_mask=0u;
@@ -804,6 +807,18 @@ static void test_chemistry_switch(void)
  puts("PASS chemistry transaction: password, length, 24S limit, valid idle sample without ADC age, byte cuts, retained domains, apply failure inhibit");
 }
 
+static void assert_factory_region_clean(void)
+{
+ u32 cfg_sector=g_bms_config_store.latest_addr/4096u*4096u;
+ for(u32 a=0u;a<32u*4096u;++a){
+  if(a>=cfg_sector && a<cfg_sector+2u*g_bms_config_store.slot_size)continue;
+  if(a>=4u*4096u && a<4u*4096u+g_bms_state_store.slot_size)continue;
+  if(a>=12u*4096u && a<12u*4096u+g_bms_event_store.slot_size)continue;
+  assert(flash[a]==255u);
+ }
+ assert(!memcmp(flash+32u*4096u,backup+32u*4096u,2u*4096u));
+}
+
 /* 恢复出厂包清空所有业务持久内容；正常固件不得把旧/损坏记录当空白。 */
 static void test_factory_reset(void)
 {
@@ -813,11 +828,16 @@ static void test_factory_reset(void)
  assert(bms_state_store_save(88u, 23u, 99u));
  assert(bms_event_log_note_sleep());
  assert((bms_event_log_read_reg(0u)>>8)==BMS_SLEEP);
+ for(unsigned sector=0u;sector<32u;++sector)flash[(sector+1u)*4096u-1u]=0xa5u;
+ memset(flash+32u*4096u,0x5a,2u*4096u);
  memcpy(backup,flash,sizeof(flash));
  test_ota_mask=BMS_OTA_FACTORY_RESET_MASK;
- /* Config pending(448B) + State(56B) + Event(236B) + Config done(448B)；
+ unsigned factory_bytes=3u*(32u+((BMS_CONFIG_PAYLOAD_BYTES+3u)&~3u))+
+                        32u+((BMS_STATE_PAYLOAD_BYTES+3u)&~3u)+
+                        32u+((BMS_EVENT_PAYLOAD_BYTES+3u)&~3u);
+ /* Config pending + 搬迁pending + State + Event + Config done；
     每个切点后重启，都必须继续执行而不能提前授权 MOS。 */
- for(int byte=0;byte<=1188;++byte){
+ for(unsigned byte=0;byte<=factory_bytes;++byte){
   memcpy(flash,backup,sizeof(flash));reboot();cut=byte;
   bms_parameters_init();
   if(bms_protection_params_valid()){
@@ -838,8 +858,18 @@ static void test_factory_reset(void)
   assert(bms_event_log_read_reg(0u)==0u);
   assert(g_bms_config.ota_update_id[0]==0u);
   assert(bms_ota_update_id_matches(g_bms_config.ota_update_id));
-  u32 written=programs;
+  assert_factory_region_clean();
+  u32 written=programs,erased=erases;
   reboot();bms_parameters_init();assert(bms_protection_params_valid() && programs==written);
+  assert(erases==erased);
+ }
+ /* 每个扇区的擦除前/部分擦除均失效关闭；恢复供电后续做，保留域外哨兵。 */
+ const unsigned erase_cuts[]={0u,1u,2048u,4095u};
+ for(int sector=0;sector<32;++sector)for(unsigned i=0;i<4u;++i){
+  memcpy(flash,backup,sizeof(flash));reboot();erase_cut_sector=sector;erase_cut_bytes=erase_cuts[i];
+  bms_parameters_init();assert(!bms_protection_params_valid());
+  reboot();bms_parameters_init();assert(bms_protection_params_valid());
+  assert_factory_region_clean();
  }
  /* 同一出厂包执行后，客户在线修改不应被再次恢复默认。 */
  bms_config_system_params_t system;
@@ -848,9 +878,12 @@ static void test_factory_reset(void)
  assert(bms_config_store_set_system(&system));
  assert(bms_ota_update_id_matches(g_bms_config.ota_update_id));
  assert(bms_state_store_save(79u,9u,18u));
+ flash[28u*4096u]=0xa5u; /* 模拟同ID旧出厂包留下的旧版数据，不自动补擦。 */
+ u32 retained_erases=erases;
  reboot();bms_parameters_init();
  assert(bms_protection_params_valid());
  assert(g_bms_config.system.capacity_factory==1234u && g_bms_state.soc==79u);
+ assert(erases==retained_erases && flash[28u*4096u]==0xa5u);
  /* 回到普通保参固件后，仍能读取出厂包写入的健康 CFG4。 */
  test_ota_mask=0u;reboot();bms_parameters_init();
  assert(bms_protection_params_valid());
@@ -871,7 +904,7 @@ static void test_factory_reset(void)
  test_ota_mask=0u;reboot();bms_parameters_init();assert(!bms_protection_params_valid());
  test_ota_mask=BMS_OTA_FACTORY_RESET_MASK;
  reboot();bms_parameters_init();assert(bms_protection_params_valid());
- puts("PASS factory reset: all 1189 cut points, Config/State/Event defaults, idempotence, legacy reject and pending fail-closed");
+ printf("PASS factory reset: %u write-byte cuts, 128 partial-erase cases, full business purge, guard sectors, idempotence and pending fail-closed\n",factory_bytes+1u);
 }
 
 static void test_merged_profile(void)

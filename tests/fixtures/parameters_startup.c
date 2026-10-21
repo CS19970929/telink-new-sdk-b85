@@ -13,7 +13,9 @@ static char calls[32];
 static unsigned count, failed_domain;
 static unsigned factory_pending;
 enum {
-    FACTORY_STATE_FAIL = 5u,
+    FACTORY_PURGE_FAIL = 5u,
+    FACTORY_LEGACY_FAIL,
+    FACTORY_STATE_FAIL,
     FACTORY_EVENT_FAIL,
     FACTORY_FINISH_FAIL
 };
@@ -21,6 +23,8 @@ static uint16_t upgrade_status;
 static void note(char action) { calls[count++]=action; calls[count]=0; }
 int bms_config_store_validate_startup(void) { note('C'); return failed_domain!=1u; }
 int bms_config_store_factory_reset_pending(void) { return factory_pending!=0u; }
+int bms_config_store_purge_factory_history(void) { assert(factory_pending); note('H'); return failed_domain!=FACTORY_PURGE_FAIL; }
+int bms_storage_platform_erase_factory_legacy(void) { assert(factory_pending); note('L'); return failed_domain!=FACTORY_LEGACY_FAIL; }
 int bms_state_store_factory_reset(void) { assert(factory_pending); note('R'); return failed_domain!=FACTORY_STATE_FAIL; }
 int bms_event_log_factory_reset(void) { assert(factory_pending); note('T'); return failed_domain!=FACTORY_EVENT_FAIL; }
 int bms_config_store_finish_factory_reset(void) {
@@ -57,12 +61,14 @@ int main(void) {
     failed_domain=0;count=0;bms_parameters_init();assert(bms_protection_params_valid());
     puts("PASS production parameter startup: every domain once despite earlier failure, Config gate sticky across commit, State/Event degraded, explicit restart");
     /* 出厂事务的 State/Event 失败必须阻断，与普通启动的独立降级不同。 */
-    const unsigned factory_failures[] = {0u, FACTORY_STATE_FAIL, FACTORY_EVENT_FAIL, FACTORY_FINISH_FAIL};
+    const unsigned factory_failures[] = {0u, FACTORY_PURGE_FAIL, FACTORY_LEGACY_FAIL, FACTORY_STATE_FAIL, FACTORY_EVENT_FAIL, FACTORY_FINISH_FAIL};
     for(unsigned i=0u;i<sizeof(factory_failures)/sizeof(factory_failures[0]);++i) {
         failed_domain=factory_failures[i];factory_pending=1u;count=0u;
         bms_parameters_init();
-        assert(!strcmp(calls,failed_domain==FACTORY_STATE_FAIL ? "CRGP" :
-                            failed_domain==FACTORY_EVENT_FAIL ? "CRTGP" : "CRTFGP"));
+        assert(!strcmp(calls,failed_domain==FACTORY_PURGE_FAIL ? "CHGP" :
+                            failed_domain==FACTORY_LEGACY_FAIL ? "CHLGP" :
+                            failed_domain==FACTORY_STATE_FAIL ? "CHLRGP" :
+                            failed_domain==FACTORY_EVENT_FAIL ? "CHLRTGP" : "CHLRTFGP"));
         assert(bms_protection_params_valid()==(failed_domain==0u));
         assert(factory_pending==(failed_domain!=0u));
         if(failed_domain!=0u) {
@@ -72,6 +78,6 @@ int main(void) {
     }
     failed_domain=0u;count=0u;bms_parameters_init();
     assert(bms_protection_params_valid() && !factory_pending);
-    puts("PASS production factory startup: pending -> State -> Event -> done, each failure inhibits outputs, ordinary commits cannot bypass, retry completes");
+    puts("PASS production factory startup: pending -> Config purge -> legacy purge -> State -> Event -> done, each failure inhibits outputs, ordinary commits cannot bypass, retry completes");
     return 0;
 }

@@ -59,6 +59,13 @@ int storage_record_load(storage_record_store_t *store, uint8_t *payload_out);
 /* 写入并验证新记录后发布提交标记，保留旧有效记录。 */
 int storage_record_save(storage_record_store_t *store, const uint8_t *payload);
 
+/* 显式初始化：逐扇区擦除并验证整个区域，成功后从首槽重新建立记录。
+ * 调用方必须已在其它区域持久化进行中标记；普通保存不得调用。 */
+int storage_record_erase_all(storage_record_store_t *store);
+/* 清除恢复前历史：保留最新记录所在扇区，将指定载荷提交到已清理的另一扇区，
+ * 最后擦除原扇区。任一掉电点至少保留一条完整的进行中记录。 */
+int storage_record_purge_history(storage_record_store_t *store, const uint8_t *payload);
+
 
 #ifdef __cplusplus
 }

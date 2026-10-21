@@ -257,7 +257,7 @@ u16 bms_event_log_read_reg(u16 reg)
                  g_bms_event_log.records[idx][1]);
 }
 
-/* 出厂恢复：提交空历史快照，旧记录不再属于可见事件历史。 */
+/* 出厂恢复：完整清理 Event 分区后提交空快照，不保留恢复前历史候选。 */
 int bms_event_log_factory_reset(void)
 {
     const storage_port_t *port;
@@ -272,6 +272,10 @@ int bms_event_log_factory_reset(void)
     }
     (void)storage_record_load(&g_bms_event_store, payload);
     if (g_bms_event_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) return 0;
+    if (!storage_record_erase_all(&g_bms_event_store)) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0;
+    }
     bms_event_log_reset_ram_only();
     g_bms_event_log.ready = 1u;
     g_bms_event_log.dirty = 1u;

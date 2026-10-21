@@ -15,6 +15,7 @@
 #include "flash_store_cfg.h"
 #include "bms_product.h"
 #include "bms_afe_backend.h"
+#include "bms_update_policy.h"
 
 extern u8 ota_is_working;
 #if BMS_SERVICE_DIAG_ENABLE
@@ -142,6 +143,24 @@ static int bms_storage_telink_erase(void *ctx, uint32_t addr, uint32_t len)
     return bms_storage_verify_result(ok);
 }
 
+int bms_storage_platform_erase_factory_legacy(void)
+{
+    uint32_t base;
+    uint16_t sector;
+    int ok;
+    if (!bms_ota_factory_reset_requested()) return 0;
+    base = flash_store_cfg_get_legacy_base();
+    if (base == 0u) return 0;
+    for (sector = 0u; sector < FLASH_ADDR_LEGACY_SECTORS; ++sector) {
+        if (!bms_storage_telink_begin(0)) return 0;
+        ok = bms_storage_telink_erase(0, base + (uint32_t)sector * FLASH_SECTOR_SIZE,
+                                     FLASH_SECTOR_SIZE);
+        bms_storage_telink_end(0);
+        if (!ok) return 0;
+    }
+    return 1;
+}
+
 /* 取得 Telink 存储端口操作集合。 */
 const storage_port_t *bms_storage_platform_port(void)
 {
@@ -161,6 +180,11 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
     uint16_t sectors = 0u;
 
     if (region == 0) return 0;
+    /* 出厂清理会覆盖完整业务区；未知容量或不匹配的 OTA 布局禁止写入。 */
+    if (bms_ota_factory_reset_requested() && flash_store_cfg_get_legacy_base() == 0u) {
+        bms_diag_result((uint8_t)domain, DIAG_LAYOUT);
+        return 0;
+    }
     switch (domain) {
     case BMS_STORAGE_DOMAIN_CONFIG:
         base = flash_store_cfg_get_config_base();

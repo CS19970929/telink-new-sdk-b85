@@ -557,6 +557,18 @@ int bms_config_store_finish_factory_reset(void)
     return bms_config_save_cache(&next);
 }
 
+int bms_config_store_purge_factory_history(void)
+{
+    u8 payload[BMS_CONFIG_PAYLOAD_BYTES];
+    if (!bms_config_store_factory_reset_pending()) return 0;
+    bms_config_encode(&g_bms_config, payload);
+    if (!storage_record_purge_history(&g_bms_config_store, payload)) {
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        return 0;
+    }
+    return 1;
+}
+
 /* 加载、校验 CFG4 记录并建立参数缓存。 */
 int bms_config_store_init(void)
 {
