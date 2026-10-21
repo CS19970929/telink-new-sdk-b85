@@ -19,6 +19,8 @@ int main(void) {
     bms_stall_diag_afe(++side_effect,++side_effect,++side_effect,++side_effect);
     bms_stall_diag_guard(++side_effect,++side_effect,++side_effect);
     bms_stall_diag_suspend_veto(++side_effect);
+    bms_stall_diag_prepare_begin(++side_effect,++side_effect,++side_effect);
+    bms_stall_diag_prepare_end(++side_effect,++side_effect);
     bms_stall_diag_spi_mismatch(++side_effect,++side_effect,++side_effect);
     assert(!side_effect);
     assert(bms_stall_diag_read(0x3A00u,4u,bytes));
@@ -29,9 +31,12 @@ int main(void) {
     assert(bms_stall_diag_read(0x3AA0u,32u,bytes));
     assert(bytes[0]==0x53u && bytes[1]==0x58u && !bytes[5] && bytes[7]==32u);
     assert(!bms_stall_diag_read(0x3ABFu,2u,bytes));
+    assert(bms_stall_diag_read(0x3AC0u,16u,bytes));
+    assert(bytes[0]==0x53u && bytes[1]==0x50u && !bytes[5] && bytes[7]==16u);
+    assert(!bms_stall_diag_read(0x3ACFu,2u,bytes));
     return 0;
 }
-''', name='stall-diag-disabled')
+''', flags=['-DBMS_STALL_DIAG_ENABLE=0'], name='stall-diag-disabled')
 
 # 离线判读必须将“重新进入main”和“异常复位”分开，兼容旧schema且保留不确定性。
 decoder = {'__name__':'stall_decoder'}
@@ -83,3 +88,15 @@ detail = decoder['decode_detail'](extra)
 assert detail['last_veto_remaining_ticks']==-1 and detail['pm_business_32k_gap_ms']==500
 extra[31] = 1
 assert decoder['decode_detail'](extra)['pm_business_32k_gap_ms'] is None
+
+prepare = [0]*16
+prepare[:4] = [0x5350,1,1,16]
+prepare[4:8] = [0xFFFF,0xFFF0,0,0x20] # system tick回绕，准备耗时3us。
+prepare[8:12] = [0,0x10,0xFFFF,0xFFF0] # 结束时期限已过1us。
+prepare[12:16] = [1765,1365,0,3]
+decoded_prepare = decoder['decode_prepare'](prepare)
+assert decoded_prepare['prepare_us']==3 and decoded_prepare['remaining_us']==-1
+assert decoded_prepare['sdk_min_us']==1765 and decoded_prepare['sdk_suspend_early_us']==1365
+assert decoded_prepare['decision']=='LATE_VETO' and decoded_prepare['context']=='FIRST_LATE_VETO'
+prepare[15] = 1
+assert decoder['decode_prepare'](prepare)['prepare_us'] is None

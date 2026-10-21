@@ -154,6 +154,27 @@ def decode_detail(words):
     return result
 
 
+def decode_prepare(words):
+    if (not isinstance(words, list) or len(words) != 16 or
+            any(type(w) is not int or not 0 <= w <= 65535 for w in words) or
+            words[:2] != [0x5350, 1] or words[2] not in (0, 1) or words[3] != 16):
+        raise ValueError('临睡证据必须是0x3AC0的16word，magic=0x5350/schema=1')
+    values = [(words[4+2*i] << 16) | words[5+2*i] for i in range(6)]
+    start, end, deadline, remaining, timing, decision = values
+    remaining = remaining - 0x100000000 if remaining & 0x80000000 else remaining
+    complete = bool(words[2]) and decision in (2, 3, 4)
+    return {
+        'enabled': bool(words[2]), 'start_tick': start, 'end_tick': end,
+        'deadline': deadline, 'remaining_ticks': remaining,
+        'sdk_min_us': timing >> 16, 'sdk_suspend_early_us': timing & 65535,
+        'decision': name(('NONE', 'RUNNING', 'EARLY_VETO', 'LATE_VETO', 'ALLOW'), decision),
+        'context': 'FIRST_LATE_VETO' if decision == 3 else 'LATEST_PM_PREPARATION',
+        'prepare_us': ((end - start) & 0xFFFFFFFF) / 16 if complete else None,
+        'remaining_us': remaining / 16 if complete else None,
+        'raw_words': words,
+    }
+
+
 def load_words(path, count=160):
     if path.suffix.lower() == '.bin':
         data = path.read_bytes()
@@ -168,6 +189,7 @@ def main():
     parser.add_argument('input', type=Path)
     parser.add_argument('--baseline', type=Path, help='同一诊断固件正常运行时保存的160word基线')
     parser.add_argument('--detail', type=Path, help='同一启动读取的0x3AA0附加32word')
+    parser.add_argument('--prepare', type=Path, help='同一启动读取的0x3AC0临睡16word')
     args = parser.parse_args()
     try:
         result = decode(load_words(args.input))
@@ -175,6 +197,8 @@ def main():
             result['boot_comparison'] = compare_boot(result, decode(load_words(args.baseline)))
         if args.detail:
             result['detail'] = decode_detail(load_words(args.detail, 32))
+        if args.prepare:
+            result['prepare'] = decode_prepare(load_words(args.prepare, 16))
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except (OSError, ValueError) as exc:
         parser.error(str(exc))

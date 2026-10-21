@@ -50,6 +50,7 @@ static void reset_runtime(uint32_t now){
     memset(s_live,0,sizeof(s_live));memset(s_first_gap,0,sizeof(s_first_gap));
     memset(s_first_afe,0,sizeof(s_first_afe));
     memset(s_detail,0,sizeof(s_detail));
+    memset(s_prepare,0,sizeof(s_prepare));
     s_gap_reason=s_resume_stage=s_running=s_raw_ready=0u;
     s_sleep_reason=s_deep_committed=0u;
     s_irq_enters=s_irq_exits=s_irq_source=0u;s_gap_ms=s_afe_flags=0u;
@@ -133,6 +134,32 @@ int main(void){
     assert(!bms_stall_diag_read(0x3ABFu,2u,bytes));
     assert(bms_stall_diag_overlaps(0x3AA0u,1u));
     assert(clock_reads==clocks && analog_reads==reads && analog_writes==writes);
+    /* 新窗口不读时钟/模拟总线；末尾拒睡保留首次现场，正常PM不覆盖。 */
+    reset_runtime(0u);clocks=clock_reads;
+    bms_stall_diag_prepare_begin(UINT32_MAX-159u,64000u,(1765u<<16)|1365u);
+    assert(s_prepare[P_DECISION]==BMS_STALL_PREP_RUNNING);
+    bms_stall_diag_prepare_end(32000u,BMS_STALL_PREP_LATE_VETO);
+    assert(s_prepare[P_END]==32000u && s_prepare[P_REMAINING]==32000u);
+    bms_stall_diag_prepare_begin(100u,200u,0u);
+    bms_stall_diag_prepare_end(101u,BMS_STALL_PREP_ALLOW);
+    assert(s_prepare[P_DECISION]==BMS_STALL_PREP_LATE_VETO && s_prepare[P_END]==32000u);
+    assert(bms_stall_diag_read(0x3AC0u,16u,bytes));
+    assert(bytes[0]==0x53u && bytes[1]==0x50u && bytes[5]==1u && bytes[7]==16u);
+    assert(!bms_stall_diag_read(0x3ABFu,2u,bytes));
+    assert(!bms_stall_diag_read(0x3ACFu,2u,bytes));
+    assert(bms_stall_diag_overlaps(0x3AC0u,1u) && bms_stall_diag_overlaps(0x3ACFu,1u));
+    assert(!bms_stall_diag_overlaps(0x3AD0u,1u));
+    assert(clock_reads==clocks && analog_reads==reads && analog_writes==writes);
+    assert(cpu_sleep_wakeup(2u,0x60u,0xFEDCBA98u)==-3);
+    assert(s_prepare[P_DECISION]==BMS_STALL_PREP_LATE_VETO);
+    reset_runtime(0u);bms_stall_diag_prepare_begin(0u,64000u,(1765u<<16)|1365u);
+    bms_stall_diag_prepare_end(16000u,BMS_STALL_PREP_ALLOW);
+    assert(s_prepare[P_DECISION]==BMS_STALL_PREP_ALLOW && s_prepare[P_REMAINING]==48000u);
+    driver_cost=500u*16000u;
+    assert(cpu_sleep_wakeup(2u,0x60u,0xFEDCBA98u)==-3);
+    assert(s_gap_reason==BMS_STALL_GAP_PM);
+    bms_stall_diag_prepare_begin(1u,2u,3u);bms_stall_diag_prepare_end(4u,BMS_STALL_PREP_EARLY_VETO);
+    assert(s_prepare[P_START]==0u && s_prepare[P_END]==16000u);
     /* 真实休眠发布仅复制原因；原驱动调用仍一次透传。 */
     reset_runtime(0u);
     bms_sleep_status_publish(BMS_SLEEP_REASON_AFE,0u,1800000u,1800000u,0u,0u);

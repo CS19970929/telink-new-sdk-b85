@@ -1,5 +1,9 @@
 # D014 首次停顿与 AFE 恢复取证
 
+当前源码已按用户要求进入[恢复普通Suspend复验阶段](#2026-10-21-临睡准备后复查期限与恢复suspend)：
+入口和GPIO/UART准备结束后均复查SDK期限，D014普通Suspend设为1，保留诊断并采用保参升级。
+SDK二进制库未替换；以下暂禁Suspend的内容是`1ffe7d57`阶段的历史止血记录，不是当前开关状态。
+
 实施起点：`5ff3ef7c4f408cc5e5a3e808e2a1248b37c620fc`，分支
 `codex-soc-coulomb-ocv-refactor-20261020`。本轮只实施已证实的 SH WDT 恢复缺口和可选诊断，
 没有证明或修复“最初 LED/BLE 同停”的唯一原因。实板确认范围仍只有 D014 / BT_cs001。
@@ -31,7 +35,8 @@ LTCLR/W0C 清 WDT 并回读，恢复完整运行/保护配置且保持两侧 OFF
 
 ## 开关和业务边界
 
-独立开关 `BMS_STALL_DIAG_ENABLE` 默认 **0**；不依赖完整服务诊断、trace、栈扫描或运行日志。
+独立开关 `BMS_STALL_DIAG_ENABLE` 原默认 **0**；本轮沿用用户明确开启的D014诊断配置 **1**，
+允许显式编译参数设0用于关闭分支验证。不依赖完整服务诊断、trace、栈扫描或运行日志。
 只有 D014 / B85、当前 `PM_TIM_RECOVER_MODE=1` 且DeepSleep retention关闭时允许开启，production 明确拒绝。
 四产品 sources.txt 登记同一平台源文件，关闭时该源文件为空，记录宏的实参不求值。
 新只读窗口关闭时仍返回 magic/schema/enabled=0，防止误以为设备已经记录现场。
@@ -101,7 +106,7 @@ PM均70001/70001，采样由40210增至41033，AFE事件仍增加。
 完整原始应答保存在本机源码树外 `Documents/CodexOutputs/bms-d014/20261021-live-143421/`
 和`20261021-live-143707/`，其中前者raw-transactions.json的SHA256见同目录capture-sha256.json。
 
-当前D014默认`BMS_PRODUCT_NORMAL_SUSPEND_ENABLE=0`：BLE/PM初始化即使用SUSPEND_DISABLE，
+此前`1ffe7d57`止血阶段D014默认`BMS_PRODUCT_NORMAL_SUSPEND_ENABLE=0`：BLE/PM初始化即使用SUSPEND_DISABLE，
 每轮普通PM策略维持禁用，最后回调也拒绝普通Suspend，覆盖首轮SDK先于app_power_process的窗口。
 这项止血措施直接移除本次正常运行中的普通PM停顿入口，代价是运行/待机功耗增加；
 200ms任务仍由原主循环实际期限执行，不在回调补跑历史采样。
@@ -110,7 +115,7 @@ Timer2在Suspend停止，使用Timer2的约2秒MCU watchdog因此不能兜底无
 保留运行后它能继续计时，但2秒复位也不能冒充200ms保护响应保证。
 没有修改实际持久参数或AFE watchdog档位，也没有把保护性DeepSleep说成普通调度故障。
 
-3ms门禁只用于后续显式开启`BMS_PRODUCT_NORMAL_SUSPEND_ENABLE=1`的受控复验，
+此前3ms门禁只用于后续显式开启`BMS_PRODUCT_NORMAL_SUSPEND_ENABLE=1`的受控复验，
 不能在根因/长期实板唤醒验证前恢复为默认。D014产品增加`BMS_PRODUCT_SUSPEND_GUARD_US=3000`，仅在最后的
 `app_power_before_suspend()`使用SDK公开`bls_pm_getSystemWakeupTick()`取得本次SDK期限。
 期限已过或剩余不超过3ms时返回拒睡；已有UART临睡布防尚未执行，因此不会把拒睡返回的PAD值
@@ -174,6 +179,88 @@ python -B bms_tools/decode_stall_diag.py C:/path/stall.json --detail C:/path/det
 不能把桩测试或短时间BLE读取通过写成长期Suspend可靠性验收。
 如果仍停闪，必须在485前取得PC和数字时钟状态，以区分物理Suspend和驱动内部等待；
 这些附加恢复后快照仍不能替代停顿时PC。
+
+## 2026-10-21 临睡准备后复查期限与恢复Suspend
+
+本次修改基于`8a909a83cf4029ebdc1d140a3a7d32cf75018a67`，在原工作树完成；
+用户要求先解决后自行测试，并明确选择保留设备现有参数。因此D014六个OTA更新组全部关闭，
+更新标识和摘要清零，编译类型保持本次读取的8S LFP、容量3.2Ah，不改设备已保存的参数。
+`configurations/`未跟踪客户方案不纳入本次提交。
+
+### 原厂证据与适用范围
+
+原厂[tc_platform_sdk V3.4.0发布说明](https://raw.githubusercontent.com/telink-semi/tc_ble_single_sdk/V3.4.3.0/doc/tc_platform_sdk_Release_Note.md)
+PM条目`merge_requests/@896`明确适用于B85/B87：客户回调耗时过长可能使唤醒点过期，
+旧版仍入睡、等32K计数回绕；修复为回调执行结束后检查睡眠时间。
+这与同份说明中仅适用于TC321X的频繁定时唤醒/时钟恢复问题不同，未借用TC321X结论。
+
+当前`liblt_825x.a`与官方下载的`V3.4.2.8_Patch_0001`库字节相同：
+SHA256=`3a51224d664f9d54e1746b5dc2d9b48eec727020d8dc038ea51b8b64390aae17`。
+其`cpu_sleep_wakeup_32k_rc+0x42..0x68`先检查期限，`+0x7A..0x86`随后调用临睡回调；
+官方`V3.4.3.0`库（SHA256=`e72372621bb9b016afc45c1305d6d9b32cbd23b488f62fb9cc6f443261f4d183`）
+在`+0x38..0x44`先执行回调，再于`+0x64..0x90`读取当前时钟检查期限。
+只读对照证据在本机`Documents/CodexOutputs/bms-d014/20261021-pm-sdk-comparison/`。
+
+可以确认旧SDK有此缺陷；现有78e4cfa9现场缺少回调结束时间，尚不能证明实板这次一定命中。
+1783us仅为包装器入口距SDK期限的剩余值；旧库静态min初值1765us不代表当时RAM实读，
+两者相差18us也不等于回调可用预算。真实32K停止、内部等待及供电/晶振异常仍按现场证据判别。
+
+### 当前修复
+
+不替换预编译SDK库、不重写计时恢复或ABI，而在D014现有`app_power_before_suspend()`里
+落实回调完成后复查的原则：仅在所有普通Suspend资格成立后记录准备开始及SDK真实期限；
+使用`max(3000us, g_pm_early_wakeup_time_us.min)`作为剩余时间门限，
+GPIO/PD3布防完成后重新读取system tick，已过期或时间不足立即返回0。
+3ms是工程保护余量，不是原厂保证值；仍需实板验证。
+
+末尾拒睡先由UART所有者撤销`s_uart_suspending`。旧SDK拒睡可能返回PAD，
+`task_suspend_exit()`因此不再把这次拒睡当成有线接入并开启PD4。
+取消只改该RAM标记，不清PD3/RX状态、IRQ或通信待办；真实短PD3唤醒事件仍由主循环接收。
+保护性DeepSleep提交在普通门禁之前直接放行，保持原行为。
+
+D014普通Suspend默认恢复为1，仍受样本、AFE资格、UART/485、OTA和Flash门禁约束。
+200ms期限、采样失败也翻转LED、SOC实际时间积分和gap策略、AFE WDT恢复和35秒安全静默均不变。
+PC0/PC1不增加输入、输出或唤醒；485供电仍独立保持10秒。
+修复开关不依赖诊断是否开启，关闭诊断也保留两次期限检查及拒睡清理。
+这项应用侧防护覆盖当前回调的已知SDK缺口，不等于已升级完整SDK或排除其它芯片内部问题。
+
+### 临睡准备只读窗口
+
+新增独立`[0x3AC0,0x3AD0)`共16word，只允许03读取；06/10及跨窗口读取拒绝。
+`0x3A00`的160word和`0x3AA0`的32word保持原schema、长度、地址和含义。
+新header四word为`0x5350 / 1 / enabled / 16`；后续6个u32均高word在前：
+
+| u32序号 | 内容 |
+|---|---|
+| 0 / 1 | 普通Suspend资格通过后的准备开始tick / 准备结束tick |
+| 2 / 3 | 本次SDK真实期限 / 结束时剩余tick（int32_t，16tick/us） |
+| 4 | SDK当前min（高16位us）与suspend提前唤醒值（低16位us） |
+| 5 | 0无记录；1准备中；2入口拒睡；3准备后拒睡；4允许入睡 |
+
+首次“准备后拒睡”永久保留到本次启动结束；它代表已被拦截的一次风险，不自动属于后来的PM长停顿。
+在没有该记录时保留最新一次准备；首次长间隔冻结后不再覆盖。状态0时其它旧字段无效。
+剩余时间仍为正的末尾拒睡只能说明工程余量不足；不能把它说成已证明唤醒点过期。
+每次普通准备仅固定RAM写入，新增24字节静态RAM；复用现有clock_time检查，
+没有额外AFE/32K模拟读取、打印、Flash写入、喂狗或保活通信。实际Flash/栈用量待目标构建核验。
+
+复验前保存正常基线，断开有线和BLE轮询。复现后保持供电、不重启或清故障，
+条件允许先在485之前取停顿PC/时钟或功耗波形，再用485恢复并保存：
+`0x3A00,count=80`、`0x3A50,count=80`、`0x3AA0,count=32`、`0x3AC0,count=16`、
+`0x3300,count=20`，末尾再读`0x3A00,count=16`核对未跨启动。
+
+```powershell
+python -B bms_tools/decode_stall_diag.py stall.json --detail detail.json --prepare prepare.json --baseline normal.json
+```
+
+正常运行时PM进入/返回计数应持续增加并配对，采样持续，BLE可重连；普通定时唤醒不应开启485供电。
+同时验收有线首帧允许丢弃后重发、10秒供电保持，以及保护性DeepSleep和复位原因判读。
+未复现只能作为当前时长/条件下的观察，不证明全部工况可靠。
+
+本轮仅完成源码、状态/异常路径及Git差异审查，未执行host、目标编译/链接、BIN生成、烧录或OTA。
+新增用例覆盖准备后过期、3ms等值/1tick边界与回绕、SDK min更大时的拒睡、
+保护性DeepSleep放行、拒睡不误开485和真实PD3事件保留，以及新窗口/解码器边界；这些用例尚未运行。
+用户后续需要软件验证时，入口为`tests/sh_power_host_check.py`、`tests/uart_ownership_host_check.py`、
+`tests/stall_diag_host_check.py`和`tests/modbus_host_check.py`；实际芯片唤醒仍由本轮实板复验验收。
 
 ## 寄存器 schema 2
 

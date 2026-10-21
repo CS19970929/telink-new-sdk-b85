@@ -298,6 +298,13 @@ void modbus_uart_suspend_enter(void)
 #endif
 }
 
+void modbus_uart_suspend_cancel(void)
+{
+    /* B85临睡回调拒睡也返回PAD；先撤销标记，exit便不会误开485供电。
+     * 不清PD3/RX边沿、IRQ或通信待办，临睡期间真正到来的有线请求仍可恢复。 */
+    s_uart_suspending = 0u;
+}
+
 /* SDK回调只交付唤醒状态；PAD不能定位具体管脚，保守按通信唤醒保持运行。 */
 void modbus_uart_suspend_exit(u8 wakeup_status)
 {

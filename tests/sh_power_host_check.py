@@ -115,7 +115,8 @@ typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR
         c, exe = Path(tmp)/'check.c', Path(tmp)/'check.exe'
         c.write_text(code.replace('/* PRODUCTION */', body), encoding='utf-8')
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',
-                        '-Werror', *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
+                        '-Werror', '-DBMS_STALL_DIAG_ENABLE=0',
+                        *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
         subprocess.run([str(exe)], check=True)
 
 def check_sh3673510_sleep_host_check():
@@ -165,7 +166,7 @@ def check_sh3673510_sleep_host_check():
         c, exe = Path(tmp) / 'check.c', Path(tmp) / 'check.exe'
         c.write_text(fixture.replace('/* PRODUCTION */', body), encoding='utf-8')
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c99', '-Wall', '-Wextra',
-                        '-Werror', '-Wno-unused-function', '-Wno-unused-variable',
+                        '-Werror', '-Wno-unused-function', '-Wno-unused-variable', '-DBMS_STALL_DIAG_ENABLE=0',
                         *host_includes(ROOT), str(c), '-o', str(exe)], check=True)
         subprocess.run([str(exe)], check=True)
     print('SH production sleep/control/backend/guard fault injection: PASS')
@@ -180,8 +181,7 @@ def check_sh_protective_sleep(suspend_enabled=None):
     overrides = (() if suspend_enabled is None else
                  (f'-DBMS_PRODUCT_NORMAL_SUSPEND_ENABLE={suspend_enabled}',))
     source = selected_source(root / 'bms/app/app_power.c', defines=overrides)
-    normal_enabled = (int(os.environ.get('BMS_PRODUCT','d014') != 'd014')
-                      if suspend_enabled is None else suspend_enabled)
+    normal_enabled = int('app_sample_is_due()' in function(source, 'int app_power_before_suspend('))
     startup = (root / 'bms/platform/telink/main.c').read_text(encoding='utf-8')
     unused_start = startup.index('static const GPIO_PinTypeDef unused_afe_pins[]')
     unused_config = startup[unused_start:startup.index('#endif', unused_start)]
@@ -239,7 +239,8 @@ def check_sh_protective_sleep(suspend_enabled=None):
     for enabled in (1, 0):
         run_c('#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE %du\n' % enabled + guard_define +
               '#define FIXTURE_NORMAL_SUSPEND_ENABLED %du\n' % normal_enabled +
-              fixture.replace('/* PRODUCTION */', body), flags=('-DBMS_SERVICE_DIAG_ENABLE=1',), name='sh-protective-sleep')
+              fixture.replace('/* PRODUCTION */', body),
+              flags=('-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_STALL_DIAG_ENABLE=0'), name='sh-protective-sleep')
 
 def check_sh_suspend_current_gates(suspend_enabled=None):
     """运行真实 SH 普通 suspend 入口；串口静默资格与其他安全条件独立。"""
@@ -253,8 +254,7 @@ def check_sh_suspend_current_gates(suspend_enabled=None):
                  (f'-DBMS_PRODUCT_NORMAL_SUSPEND_ENABLE={suspend_enabled}',))
     source = selected_source(root / 'bms/app/app_power.c',
                              defines=('-DBMS_SERVICE_DIAG_ENABLE=1', *overrides))
-    normal_enabled = (int(os.environ.get('BMS_PRODUCT','d014') != 'd014')
-                      if suspend_enabled is None else suspend_enabled)
+    normal_enabled = int('app_sample_is_due()' in function(source, 'int app_power_before_suspend('))
     defines = re.search(r'^#define APP_SUSPEND_CURRENT_THRESHOLD_MA[^\n]*', source, re.M).group()
     defines += '\n' + re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                                (root / 'bms/core/bms_soc.h').read_text(), re.M).group()
@@ -341,7 +341,7 @@ def check_sh_suspend_current_gates(suspend_enabled=None):
     '''
     run_c(defines + '\n#define FIXTURE_NORMAL_SUSPEND_ENABLED %du\n' % normal_enabled +
           fixture.replace('/* PRODUCTION */', body),
-          flags=('-DBMS_SERVICE_DIAG_ENABLE=1','-Wno-unused-function',), name='sh-suspend-current')
+          flags=('-DBMS_SERVICE_DIAG_ENABLE=1','-DBMS_STALL_DIAG_ENABLE=0','-Wno-unused-function',), name='sh-suspend-current')
 
 if __name__ == "__main__":
     check_sh3673510_sample_schedule_host_check()
@@ -350,5 +350,5 @@ if __name__ == "__main__":
     check_sh_suspend_current_gates()
     import os
     if os.environ.get('BMS_PRODUCT','d014') == 'd014':
-        check_sh_protective_sleep(suspend_enabled=1)
-        check_sh_suspend_current_gates(suspend_enabled=1)
+        check_sh_protective_sleep(suspend_enabled=0)
+        check_sh_suspend_current_gates(suspend_enabled=0)

@@ -36,6 +36,8 @@ u8 modbus_uart_tx_active(void);
  * 其它SH保留1秒UART静默/RX唤醒。D008由bus_mux负责。 */
 int modbus_uart_suspend_ready(void);
 void modbus_uart_suspend_enter(void);
+/* 仅撤销临睡交付标记；真实PD3/RX事件继续由主循环接收，不伪造唤醒。 */
+void modbus_uart_suspend_cancel(void);
 void modbus_uart_suspend_exit(u8 wakeup_status);
 /* SH主循环在SDK返回后、采样/存储前调用；返回1表示断电、启动或隔离唤醒残帧。
  * 不解析协议。main_loop_modbus消费前仍会复核新到活动。 */

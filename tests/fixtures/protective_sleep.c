@@ -55,11 +55,14 @@ static u8 app_sample_is_due(void) { return sample_due || late_sample_due; }
 #ifdef BMS_PRODUCT_SUSPEND_GUARD_US
 #define SYSTEM_TIMER_TICK_1US 16u
 static u32 suspend_tick, suspend_deadline;
+static u32 wake_pin_cost_ticks, uart_prepare_cost_ticks;
+static struct { uint16_t suspend, min; } g_pm_early_wakeup_time_us={1365u,1765u};
 static u32 clock_time(void) { return suspend_tick; }
 static u32 bls_pm_getSystemWakeupTick(void) { return suspend_deadline; }
 #endif
 static int suspend_mask;
 static int tx_busy, ble_pending, uart_ready, uart_entered;
+static int uart_cancelled, uart_armed;
 static u32 reg_irq_src;
 static u8 retained_analog, wakeup_status;
 static u8 analog_read(u8 address) { assert(address==DEEP_ANA_REG6); return retained_analog; }
@@ -78,7 +81,15 @@ static int modbus_uart_tx_active(void) { return tx_busy; }
 static int blc_ll_getTxFifoNumber(void) { return ble_pending; }
 static int modbus_uart_suspend_ready(void) { return uart_ready; }
 #if FIXTURE_NORMAL_SUSPEND_ENABLED
-static void modbus_uart_suspend_enter(void) { ++uart_entered; }
+static void modbus_uart_suspend_enter(void) {
+    ++uart_entered; uart_armed=1;
+#ifdef BMS_PRODUCT_SUSPEND_GUARD_US
+    suspend_tick+=uart_prepare_cost_ticks;
+#endif
+}
+#ifdef BMS_PRODUCT_SUSPEND_GUARD_US
+static void modbus_uart_suspend_cancel(void) { ++uart_cancelled; uart_armed=0; }
+#endif
 #endif
 static void modbus_uart_prepare_deep_sleep(void) { ++comm_sleep_calls; }
 static void gpio_en_interrupt_risc0(int pin,int en) { assert(pin==5&&!en); }
@@ -106,6 +117,9 @@ static int gpio_read(int pin) { assert(pin==0||pin==1); return pins[pin]; }
 static void gpio_write(int pin, int en) { assert(pin==BMS_BOARD_CMNT_EN_PIN&&!en); }
 static void cpu_set_gpio_wakeup(int pin, int level, int en) {
     assert(pin==0||pin==1||pin==5); if(pin==5) assert(!en); levels[pin]=level; enabled[pin]=en; ++pad_calls;
+#ifdef BMS_PRODUCT_SUSPEND_GUARD_US
+    suspend_tick+=wake_pin_cost_ticks;
+#endif
 }
 static int cpu_sleep_wakeup(int mode, int source, u32 tick) {
     assert(mode==DEEPSLEEP_MODE&&source==PM_WAKEUP_PAD&&!tick);
@@ -134,6 +148,8 @@ static app_sleep_status_t sleep_status;
 static void reset(void) {
 #ifdef BMS_PRODUCT_SUSPEND_GUARD_US
     suspend_tick=0u;suspend_deadline=200000u*16u;
+    wake_pin_cost_ticks=uart_prepare_cost_ticks=0u;
+    g_pm_early_wakeup_time_us.min=1765u;
 #endif
     register_debug_hold=sample_due=late_sample_due=0u;s_low_power_mode=0;suspend_mask=-1;
     memset(&s_protective_sleep,0,sizeof(s_protective_sleep));s_protective_sleep_committed=0u;
@@ -141,7 +157,7 @@ static void reset(void) {
  g_bms_report.fault_third.bits.cell_uvp=g_bms_report.fault_third.bits.pack_uvp=0;
  g_bms_report.pack_voltage_10mv=3300;
     s_command_seen=0; retained_analog=wakeup_status=0;
-    deepsleep_en=0; tx_busy=ble_pending=uart_ready=uart_entered=0;
+    deepsleep_en=0; tx_busy=ble_pending=uart_ready=uart_entered=uart_cancelled=uart_armed=0;
     now=measurement.sample_time_ms=100u; measurement.current_ma=0;
     valid=flash_ready=1; afe_error=ota_is_working=device_in_connection_state=0;
     saves=events=afe_calls=output_calls=sleep_calls=pad_calls=comm_sleep_calls=0;
@@ -338,6 +354,25 @@ int main(void) {
     assert(app_power_before_suspend()&&uart_entered==2);
     s_protective_sleep_committed=0u;
     suspend_tick=0u;suspend_deadline=200000u*16u;
+    /* 入口有余量，GPIO/PD3布防后已过期：撤销交付，不让旧SDK继续入睡。 */
+    reset();s_low_power_mode=1;uart_ready=1;
+    suspend_deadline=4000u*16u;wake_pin_cost_ticks=1000u*16u;uart_prepare_cost_ticks=3000u*16u;
+    assert(!app_power_before_suspend()&&uart_entered==1&&uart_cancelled==1&&!uart_armed);
+    assert((int32_t)(suspend_deadline-suspend_tick)<0);
+    /* 结束时恰好3ms也拒睡；比门限多1tick可睡，覆盖回绕及短准备。 */
+    reset();s_low_power_mode=1;uart_ready=1;suspend_tick=UINT32_MAX-16u;
+    suspend_deadline=suspend_tick+4000u*16u;uart_prepare_cost_ticks=1000u*16u;
+    assert(!app_power_before_suspend()&&uart_cancelled==1&&!uart_armed);
+    ++suspend_deadline;uart_prepare_cost_ticks=0u;
+    assert(app_power_before_suspend()&&uart_armed);
+    /* SDK运行时min比工程门限大时，入口和末尾都不得削弱SDK要求。 */
+    reset();s_low_power_mode=1;uart_ready=1;g_pm_early_wakeup_time_us.min=5000u;
+    suspend_deadline=4000u*16u;
+    assert(!app_power_before_suspend()&&!uart_entered&&!uart_cancelled);
+    suspend_deadline=6000u*16u;uart_prepare_cost_ticks=1000u*16u;
+    assert(!app_power_before_suspend()&&uart_cancelled==1&&!uart_armed);
+    reset();s_low_power_mode=1;uart_ready=1;
+    assert(app_power_before_suspend()&&uart_armed);
 #endif
     sample_due=1;assert(!app_power_before_suspend());sample_due=0;
     late_sample_due=1;assert(!app_power_before_suspend());late_sample_due=0;

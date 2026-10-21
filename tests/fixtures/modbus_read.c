@@ -259,10 +259,13 @@ int main(void)
     expect_read(1u,0u,3u,words,0u);
     parameter_reads=0u;expect_read(1u,0u,4u,words,2u);assert(parameter_reads==1u);
     parameter_mixed=0u;memset(g_bms_report.mac_public,0,6u);
-    /* The canceled event-clear command must reject both single/block writes. */
+    /* 撤销的清事件命令及新增只读诊断窗口均拒绝单写/块写/广播写。 */
+    const u16 readonly_targets[]={0x1007u,BMS_STALL_PREP_BASE,BMS_STALL_PREP_END-1u};
+    for(unsigned target=0;target<sizeof(readonly_targets)/sizeof(readonly_targets[0]);++target) {
     for (unsigned block=0; block<2; ++block) {
         for (unsigned broadcast=0; broadcast<2; ++broadcast) {
             u8 req[11]={broadcast?0u:1u,block?0x10u:0x06u,0x10u,0x07u,0x12u,0x34u};
+            req[2]=(u8)(readonly_targets[target]>>8);req[3]=(u8)readonly_targets[target];
             u8 rsp[16]; u32 length=0u; unsigned n=6u;
             if (block) { req[4]=0u;req[5]=1u;req[6]=2u;req[7]=0x12u;req[8]=0x34u;n=9u; }
             u16 crc=wire_crc(req,n);req[n++]=(u8)crc;req[n++]=(u8)(crc>>8);
@@ -273,6 +276,7 @@ int main(void)
                 crc=wire_crc(rsp,3u);assert(rsp[3]==(u8)crc && rsp[4]==(u8)(crc>>8));
             }
         }
+    }
     }
     assert(addr_supported(0xD000)); assert(addr_supported(0xD03E));
     assert(!addr_supported(0xD03F)); assert(addr_supported(0x2140));
@@ -358,6 +362,10 @@ int main(void)
         expect_read(addr,BMS_EVENT_LOG_REG_BASE,BMS_EVENT_LOG_REG_COUNT+1u,words,2);
         expect_read(addr,BMS_DIAG_BASE-1u,2,words,2);
         expect_read(addr,BMS_DIAG_END-1u,2,words,2);
+        memset(words,0,16u*sizeof(words[0]));words[0]=0x5350u;words[1]=1u;words[3]=16u;
+        expect_read(addr,BMS_STALL_PREP_BASE,16u,words,0u);
+        expect_read(addr,BMS_STALL_PREP_BASE-1u,2u,words,2u);
+        expect_read(addr,BMS_STALL_PREP_END-1u,2u,words,2u);
         expect_read(addr,BMS_DEBUG_LOG_BASE-1u,2,words,2);
         expect_read(addr,BMS_DEBUG_LOG_END-1u,2,words,2);
         expect_read(addr,0xffff,2,words,2); expect_read(addr,0x2140,2,words,2);

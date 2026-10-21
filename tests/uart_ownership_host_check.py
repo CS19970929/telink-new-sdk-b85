@@ -187,6 +187,11 @@ static void check_power_gating(void){
   advance_us(200000u);main_loop_modbus();
   assert(!comm_supply&&!channels&&modbus_uart_suspend_ready());
  }
+ /* 临睡末尾拒睡：SDK的PAD返回不能冒充有线唤醒。 */
+ modbus_uart_suspend_enter();assert(s_uart_suspending);
+ modbus_uart_suspend_cancel();modbus_uart_suspend_exit(WAKEUP_STATUS_PAD);
+ assert(!s_uart_suspending&&!s_comm_wake_pending);
+ assert(modbus_uart_service_wakeup()&&!comm_supply&&modbus_uart_suspend_ready());
  assert(power_ons==starts&&resets==initial_resets);
  assert(modbus_uart_service_wakeup()&&power_ons==starts);
  /* 运行态短PD3脉冲回低后，IRQ交付的事件仍立即启动供电。 */
@@ -232,6 +237,11 @@ static void check_power_gating(void){
  modbus_uart_suspend_enter();assert(modbus_uart_service_wakeup()&&!comm_supply);
  wk_high=1;assert(!modbus_uart_suspend_ready());wk_high=0;
  wake_pulse();assert(modbus_uart_service_wakeup()&&comm_supply);finish_power_start();
+ /* 取消不清真实的独立PD3事件，后续请求仍可上电。 */
+ advance_us(10001000u);main_loop_modbus();assert(modbus_uart_suspend_ready());
+ modbus_uart_suspend_enter();wake_pulse();modbus_uart_suspend_cancel();
+ assert(s_comm_wake_pending&&modbus_uart_service_wakeup()&&comm_supply);
+ finish_power_start();
 }
 #endif
 int main(void){

@@ -378,26 +378,34 @@ int app_power_before_suspend(void)
 #else
     if (!s_low_power_mode || bms_afe_register_debug_held() || app_sample_is_due() ||
         ota_is_working || !app_flash_lock_restore_enabled()) return 0;
+#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
+    if (!modbus_uart_suspend_ready()) return 0;
+#endif
 #if defined(BMS_PRODUCT_SUSPEND_GUARD_US) && BMS_PRODUCT_SUSPEND_GUARD_US
 #if BMS_PRODUCT_SUSPEND_GUARD_US >= APP_SAMPLE_PERIOD_US
 #error "Suspend guard must leave room within the 200 ms sample period"
 #endif
-    /* B85在调用本回调前发布current_wakeup_tick，可能早于应用采样期限。
-     * 拒绝临近/已过的真实SDK期限，避免继续配置定时器时跨过比较点。
-     * 必须早于UART临睡布防：驱动拒睡也可能返回PAD，不能误开485供电。 */
-    {
-        uint32_t deadline = bls_pm_getSystemWakeupTick();
-        int32_t remaining_ticks = (int32_t)(deadline - clock_time());
-        if (remaining_ticks <= (int32_t)(BMS_PRODUCT_SUSPEND_GUARD_US * SYSTEM_TIMER_TICK_1US)) {
-            bms_stall_diag_suspend_veto(remaining_ticks);
-            return 0;
-        }
+    /* 旧B85库在本回调之前检查期限（原厂@896）；回调后的GPIO布防耗时
+     * 不能沿用旧检查。先过滤短期限，末尾完成全部布防后再检查一次。
+     * SDK期限可能早于采样期限，且其运行时min不能被3ms工程门限削弱。 */
+    uint32_t prepare_start = clock_time();
+    uint32_t deadline = bls_pm_getSystemWakeupTick();
+    uint32_t guard_us = BMS_PRODUCT_SUSPEND_GUARD_US;
+    uint32_t prepare_end;
+    int32_t remaining_ticks;
+    if (guard_us < g_pm_early_wakeup_time_us.min) guard_us = g_pm_early_wakeup_time_us.min;
+    bms_stall_diag_prepare_begin(prepare_start, deadline,
+        ((uint32_t)g_pm_early_wakeup_time_us.min << 16) | g_pm_early_wakeup_time_us.suspend);
+    remaining_ticks = (int32_t)(deadline - prepare_start);
+    if (remaining_ticks <= (int32_t)(guard_us * SYSTEM_TIMER_TICK_1US)) {
+        bms_stall_diag_prepare_end(prepare_start, BMS_STALL_PREP_EARLY_VETO);
+        bms_stall_diag_suspend_veto(remaining_ticks);
+        return 0;
     }
 #endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     return bus_mux_prepare_suspend();
 #else
-    if (!modbus_uart_suspend_ready()) return 0;
     /* 当前稳定电平不拒绝普通 Suspend；变化仍唤醒，200ms采样定时器保留。 */
 #if BMS_PRODUCT_SWITCH_ENABLE
     app_protective_wakeup_pin(BMS_BOARD_SWITCH_PIN);
@@ -406,6 +414,17 @@ int app_power_before_suspend(void)
 #endif
     app_protective_wakeup_pin(BMS_BOARD_INT_WK_MCU_PIN);
     modbus_uart_suspend_enter();
+#if defined(BMS_PRODUCT_SUSPEND_GUARD_US) && BMS_PRODUCT_SUSPEND_GUARD_US
+    prepare_end = clock_time();
+    remaining_ticks = (int32_t)(deadline - prepare_end);
+    if (remaining_ticks <= (int32_t)(guard_us * SYSTEM_TIMER_TICK_1US)) {
+        modbus_uart_suspend_cancel();
+        bms_stall_diag_prepare_end(prepare_end, BMS_STALL_PREP_LATE_VETO);
+        bms_stall_diag_suspend_veto(remaining_ticks);
+        return 0;
+    }
+    bms_stall_diag_prepare_end(prepare_end, BMS_STALL_PREP_ALLOW);
+#endif
     return 1;
 #endif
 #endif

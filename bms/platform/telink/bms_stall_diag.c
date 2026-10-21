@@ -43,6 +43,8 @@ enum {
 };
 enum { D_HAS_PM=1u, D_RAW_BEFORE_VALID=2u, D_RAW_AFTER_VALID=4u, D_SPI_VALID=8u };
 static uint32_t s_detail[STALL_DETAIL_U32];
+enum { P_START, P_END, P_DEADLINE, P_REMAINING, P_SDK_TIMING, P_DECISION, STALL_PREP_U32 };
+static uint32_t s_prepare[STALL_PREP_U32];
 static uint16_t s_boot_words[6];
 static uint8_t s_running, s_raw_ready, s_gap_reason, s_resume_stage;
 static uint8_t s_sleep_reason, s_deep_committed;
@@ -105,8 +107,11 @@ static _attribute_ram_code_ int stall_sleep_wakeup(SleepMode_TypeDef mode,
     uint32_t elapsed;
     uint32_t timer_before, recover_before, sys_before, raw_before, cached_before;
     uint8_t boot_hold = s_live[W_PHASE] == BMS_STALL_BOOT_HOLD;
-    if (!s_gap_reason)
+    if (!s_gap_reason) {
         s_detail[D_FLAGS] &= ~(D_HAS_PM | D_RAW_BEFORE_VALID | D_RAW_AFTER_VALID);
+        if (s_prepare[P_DECISION] != BMS_STALL_PREP_LATE_VETO)
+            s_prepare[P_DECISION] = BMS_STALL_PREP_NONE;
+    }
     ++s_live[W_PM_ENTERS];
     s_live[W_PM_MODE] = mode;
     s_live[W_PM_SOURCE] = sources;
@@ -283,6 +288,25 @@ void bms_stall_diag_suspend_veto(int32_t remaining_ticks)
     s_detail[D_VETO_REMAINING] = (uint32_t)remaining_ticks;
 }
 
+void bms_stall_diag_prepare_begin(uint32_t start_tick, uint32_t deadline, uint32_t sdk_timing_us)
+{
+    if (s_gap_reason || s_prepare[P_DECISION] == BMS_STALL_PREP_LATE_VETO) return;
+    s_prepare[P_START] = start_tick;
+    s_prepare[P_END] = start_tick;
+    s_prepare[P_DEADLINE] = deadline;
+    s_prepare[P_REMAINING] = deadline - start_tick;
+    s_prepare[P_SDK_TIMING] = sdk_timing_us;
+    s_prepare[P_DECISION] = BMS_STALL_PREP_RUNNING;
+}
+
+void bms_stall_diag_prepare_end(uint32_t end_tick, uint8_t decision)
+{
+    if (s_gap_reason || s_prepare[P_DECISION] == BMS_STALL_PREP_LATE_VETO) return;
+    s_prepare[P_END] = end_tick;
+    s_prepare[P_REMAINING] = s_prepare[P_DEADLINE] - end_tick;
+    s_prepare[P_DECISION] = decision;
+}
+
 void bms_stall_diag_spi_mismatch(uint8_t tx, uint8_t expected, uint8_t actual)
 {
     /* 重试期间只保留最新回显；首次AFE事件确定后冻结。样本编号用于排除旧重试。
@@ -299,14 +323,20 @@ void bms_stall_diag_spi_mismatch(uint8_t tx, uint8_t expected, uint8_t actual)
 int bms_stall_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
 {
     uint16_t i;
-    uint16_t base = start >= BMS_STALL_DETAIL_BASE ? BMS_STALL_DETAIL_BASE : BMS_STALL_DIAG_BASE;
-    uint16_t words = base == BMS_STALL_DETAIL_BASE ? BMS_STALL_DETAIL_WORDS : BMS_STALL_DIAG_WORDS;
+    uint16_t base = start >= BMS_STALL_PREP_BASE ? BMS_STALL_PREP_BASE :
+        (start >= BMS_STALL_DETAIL_BASE ? BMS_STALL_DETAIL_BASE : BMS_STALL_DIAG_BASE);
+    uint16_t words = base == BMS_STALL_PREP_BASE ? BMS_STALL_PREP_WORDS :
+        (base == BMS_STALL_DETAIL_BASE ? BMS_STALL_DETAIL_WORDS : BMS_STALL_DIAG_WORDS);
     if (!bytes || !count || count > 125u || start < base ||
         (uint32_t)start + count > (uint32_t)base + words) return 0;
     for (i = 0u; i < count; ++i) {
         uint16_t offset = (uint16_t)(start - base + i);
         uint16_t value = 0u;
-        if (base == BMS_STALL_DETAIL_BASE) {
+        if (base == BMS_STALL_PREP_BASE) {
+            if (offset < 4u)
+                value = offset == 0u ? 0x5350u : (offset == 3u ? BMS_STALL_PREP_WORDS : 1u);
+            else value = (uint16_t)(s_prepare[(offset-4u)/2u] >> ((offset & 1u) ? 0u : 16u));
+        } else if (base == BMS_STALL_DETAIL_BASE) {
             if (offset < 4u)
                 value = offset == 0u ? 0x5358u : (offset == 3u ? BMS_STALL_DETAIL_WORDS : 1u);
             else value = (uint16_t)(s_detail[(offset-4u)/2u] >> ((offset & 1u) ? 0u : 16u));
