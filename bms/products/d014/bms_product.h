@@ -56,6 +56,17 @@
 #define BMS_PRODUCT_RS485_POWER_SETTLE_MS 20u
 /* 有线供电保持与 UART Suspend 门限、AFE 故障确认独立。 */
 #define BMS_PRODUCT_RS485_POWER_HOLD_MS 10000u
+/* 普通PM长停顿尚未根治：当前D014先保持运行，保证采样及Timer2看门狗时钟。
+ * 仅受控复验允许显式设1；保护性DeepSleep不受此开关限制。 */
+#ifndef BMS_PRODUCT_NORMAL_SUSPEND_ENABLE
+#define BMS_PRODUCT_NORMAL_SUSPEND_ENABLE 0
+#endif
+#if BMS_PRODUCT_NORMAL_SUSPEND_ENABLE != 0 && BMS_PRODUCT_NORMAL_SUSPEND_ENABLE != 1
+#error "BMS_PRODUCT_NORMAL_SUSPEND_ENABLE must be 0 or 1"
+#endif
+/* 实板出现剩1783us的普通PM长停顿；3ms为保守工程窗口，仍须无轮询实板复验。
+ * 只拒绝过近的SDK普通Suspend，不改200ms期限或保护性DeepSleep。 */
+#define BMS_PRODUCT_SUSPEND_GUARD_US 3000u
 /* 开发版沿用公共调试灯闪烁；SDK调试GPIO继续关闭。 */
 #ifndef DEBUG_GPIO_ENABLE
 #define DEBUG_GPIO_ENABLE 0

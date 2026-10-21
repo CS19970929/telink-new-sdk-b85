@@ -49,7 +49,15 @@ static int valid, afe_error, ota_is_working, device_in_connection_state, flash_r
 static bool s_low_power_mode, deepsleep_en;
 static volatile u8 sample_due;
 static u8 late_sample_due;
+#if FIXTURE_NORMAL_SUSPEND_ENABLED
 static u8 app_sample_is_due(void) { return sample_due || late_sample_due; }
+#endif
+#ifdef BMS_PRODUCT_SUSPEND_GUARD_US
+#define SYSTEM_TIMER_TICK_1US 16u
+static u32 suspend_tick, suspend_deadline;
+static u32 clock_time(void) { return suspend_tick; }
+static u32 bls_pm_getSystemWakeupTick(void) { return suspend_deadline; }
+#endif
 static int suspend_mask;
 static int tx_busy, ble_pending, uart_ready, uart_entered;
 static u32 reg_irq_src;
@@ -69,7 +77,9 @@ static int uart_tx_is_busy(void) { return tx_busy; }
 static int modbus_uart_tx_active(void) { return tx_busy; }
 static int blc_ll_getTxFifoNumber(void) { return ble_pending; }
 static int modbus_uart_suspend_ready(void) { return uart_ready; }
+#if FIXTURE_NORMAL_SUSPEND_ENABLED
 static void modbus_uart_suspend_enter(void) { ++uart_entered; }
+#endif
 static void modbus_uart_prepare_deep_sleep(void) { ++comm_sleep_calls; }
 static void gpio_en_interrupt_risc0(int pin,int en) { assert(pin==5&&!en); }
 static u32 bms_time_ms(void) { return now; }
@@ -122,6 +132,9 @@ static u8 fixture_sleep_poll(u32 seconds, app_sleep_status_t *status)
 }
 static app_sleep_status_t sleep_status;
 static void reset(void) {
+#ifdef BMS_PRODUCT_SUSPEND_GUARD_US
+    suspend_tick=0u;suspend_deadline=200000u*16u;
+#endif
     register_debug_hold=sample_due=late_sample_due=0u;s_low_power_mode=0;suspend_mask=-1;
     memset(&s_protective_sleep,0,sizeof(s_protective_sleep));s_protective_sleep_committed=0u;
  sleep_config=(bms_sleep_config_t){2800,60,3000,1440,30};
@@ -306,8 +319,26 @@ int main(void) {
     reset(); pins[0]=1; app_enter_protective_sleep();
     assert(!retained_analog&&enabled[0]&&levels[0]==Level_Low);
     /* SDK临睡检查再次检查UART资格；普通开关ON不阻止Suspend。 */
+#if FIXTURE_NORMAL_SUSPEND_ENABLED
     reset(); s_low_power_mode=1; assert(!app_power_before_suspend());
     uart_ready=1; assert(app_power_before_suspend()&&uart_entered==1);
+#ifdef BMS_PRODUCT_SUSPEND_GUARD_US
+    /* 实板记录：尚未到200ms，但SDK本次期限仅剩1783us；不得布防UART或入睡。 */
+    suspend_tick=849315864u;suspend_deadline=849344392u;
+    assert(!app_power_before_suspend()&&uart_entered==1);
+    suspend_tick=UINT32_MAX-16000u;
+    suspend_deadline=suspend_tick+BMS_PRODUCT_SUSPEND_GUARD_US*16u;
+    assert(!app_power_before_suspend()&&uart_entered==1);
+    ++suspend_deadline;
+    assert(app_power_before_suspend()&&uart_entered==2);
+    suspend_deadline=suspend_tick-1u;
+    assert(!app_power_before_suspend()&&uart_entered==2);
+    /* 已提交的保护性深睡不受普通Suspend期限门禁限制。 */
+    s_protective_sleep_committed=1u;
+    assert(app_power_before_suspend()&&uart_entered==2);
+    s_protective_sleep_committed=0u;
+    suspend_tick=0u;suspend_deadline=200000u*16u;
+#endif
     sample_due=1;assert(!app_power_before_suspend());sample_due=0;
     late_sample_due=1;assert(!app_power_before_suspend());late_sample_due=0;
     ota_is_working=1;assert(!app_power_before_suspend());ota_is_working=0;
@@ -316,6 +347,12 @@ int main(void) {
     for(int pin=0;pin<2;pin++) assert(enabled[pin]&&levels[pin]!=pins[pin]);
     assert(!enabled[2]&&!enabled[3]);
     s_low_power_mode=0; assert(!app_power_before_suspend());
+#else
+    reset();s_low_power_mode=1;uart_ready=1;
+    assert(!app_power_before_suspend()&&!uart_entered);
+    s_protective_sleep_committed=1u;
+    assert(app_power_before_suspend()&&!uart_entered);
+#endif
     puts("PASS protective sleep: failure overrides, independent timers, PAD retry hold and tick wrap");
     return 0;
 }

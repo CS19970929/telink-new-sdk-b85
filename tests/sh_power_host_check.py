@@ -170,13 +170,18 @@ def check_sh3673510_sleep_host_check():
         subprocess.run([str(exe)], check=True)
     print('SH production sleep/control/backend/guard fault injection: PASS')
 
-def check_sh_protective_sleep():
+def check_sh_protective_sleep(suspend_enabled=None):
     """执行当前 SH 产品的保护计时/深睡保持生产函数，边界均注入失败。"""
     from pathlib import Path
     from project_paths import selected_source
     from validation_support import function, run_c
+    import os
     root = Path(__file__).resolve().parents[1]
-    source = selected_source(root / 'bms/app/app_power.c')
+    overrides = (() if suspend_enabled is None else
+                 (f'-DBMS_PRODUCT_NORMAL_SUSPEND_ENABLE={suspend_enabled}',))
+    source = selected_source(root / 'bms/app/app_power.c', defines=overrides)
+    normal_enabled = (int(os.environ.get('BMS_PRODUCT','d014') != 'd014')
+                      if suspend_enabled is None else suspend_enabled)
     startup = (root / 'bms/platform/telink/main.c').read_text(encoding='utf-8')
     unused_start = startup.index('static const GPIO_PinTypeDef unused_afe_pins[]')
     unused_config = startup[unused_start:startup.index('#endif', unused_start)]
@@ -225,19 +230,29 @@ def check_sh_protective_sleep():
     body = '\n'.join(re.findall(r'^#define APP_SH_SWITCH_WAKE_(?:TAG|MASK)[^\n]*', raw, re.M)) + '\n' + body
     body += '\n' + function(source, 'int app_power_before_suspend(')
     body += '\n' + function(source, 'void app_power_process(')
+    # 在fixture声明之前选择，确保时钟/SDK替身与生产分支一致。
+    guard_define = ('#define BMS_PRODUCT_SUSPEND_GUARD_US 3000u\n'
+                    if 'bls_pm_getSystemWakeupTick()' in body else '')
     fixture = (root / 'tests/fixtures/protective_sleep.c').read_text(encoding='utf-8')
     for enabled in (1, 0):
-        run_c('#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE %du\n' % enabled +
+        run_c('#define BMS_PRODUCT_SWITCH_SLEEP_ENABLE %du\n' % enabled + guard_define +
+              '#define FIXTURE_NORMAL_SUSPEND_ENABLED %du\n' % normal_enabled +
               fixture.replace('/* PRODUCTION */', body), flags=('-DBMS_SERVICE_DIAG_ENABLE=1',), name='sh-protective-sleep')
 
-def check_sh_suspend_current_gates():
+def check_sh_suspend_current_gates(suspend_enabled=None):
     """运行真实 SH 普通 suspend 入口；串口静默资格与其他安全条件独立。"""
     from pathlib import Path
     import re
     from project_paths import selected_source
     from validation_support import function, run_c
+    import os
     root = Path(__file__).resolve().parents[1]
-    source = selected_source(root / 'bms/app/app_power.c', defines=('-DBMS_SERVICE_DIAG_ENABLE=1',))
+    overrides = (() if suspend_enabled is None else
+                 (f'-DBMS_PRODUCT_NORMAL_SUSPEND_ENABLE={suspend_enabled}',))
+    source = selected_source(root / 'bms/app/app_power.c',
+                             defines=('-DBMS_SERVICE_DIAG_ENABLE=1', *overrides))
+    normal_enabled = (int(os.environ.get('BMS_PRODUCT','d014') != 'd014')
+                      if suspend_enabled is None else suspend_enabled)
     defines = re.search(r'^#define APP_SUSPEND_CURRENT_THRESHOLD_MA[^\n]*', source, re.M).group()
     defines += '\n' + re.search(r'^#define BMS_CURRENT_UNRELIABLE_MAX_MA[^\n]*',
                                (root / 'bms/core/bms_soc.h').read_text(), re.M).group()
@@ -292,12 +307,15 @@ def check_sh_suspend_current_gates():
         int32_t currents[]={INT32_MIN,-500,-201,-200,-199,0,199,200,201,500,INT32_MAX};
         for(unsigned i=0;i<sizeof(currents)/sizeof(currents[0]);i++){
             measurement.current_ma=currents[i];app_power_process(&due);
-            assert(mask==(SUSPEND_ADV|SUSPEND_CONN) && observed_allowed);
+            assert(mask==(FIXTURE_NORMAL_SUSPEND_ENABLED?(SUSPEND_ADV|SUSPEND_CONN):SUSPEND_DISABLE));
+            assert(observed_allowed==FIXTURE_NORMAL_SUSPEND_ENABLED);
         }
         measurement.current_ma=0;
         valid=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         valid=1;now=measurement.sample_time_ms+401u;
-        app_power_process(&due);assert(mask==(SUSPEND_ADV|SUSPEND_CONN) && observed_allowed);
+        app_power_process(&due);
+        assert(mask==(FIXTURE_NORMAL_SUSPEND_ENABLED?(SUSPEND_ADV|SUSPEND_CONN):SUSPEND_DISABLE));
+        assert(observed_allowed==FIXTURE_NORMAL_SUSPEND_ENABLED);
         now=100;due=1;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         due=0;flash_locked=0;app_power_process(&due);assert(mask==SUSPEND_DISABLE && !observed_allowed);
         /* 各门禁组合：控制输出与最终诊断必须一致，每轮只设置一次 mask。 */
@@ -308,7 +326,7 @@ def check_sh_suspend_current_gates():
             due=(bits&64u)!=0;
             now=100u;mask_calls=0;
             app_power_process(&due);
-            int blocked=!idle_ready || !flash_locked ||
+            int blocked=!FIXTURE_NORMAL_SUSPEND_ENABLED || !idle_ready || !flash_locked ||
                 tx_busy || modbus_busy || ota_is_working || !valid || due;
             assert(mask==(blocked?SUSPEND_DISABLE:SUSPEND_ADV|SUSPEND_CONN));
             assert(observed_allowed==!blocked && s_low_power_mode==!blocked && mask_calls==1);
@@ -319,7 +337,8 @@ def check_sh_suspend_current_gates():
         return 0;
     }
     '''
-    run_c(defines + '\n' + fixture.replace('/* PRODUCTION */', body),
+    run_c(defines + '\n#define FIXTURE_NORMAL_SUSPEND_ENABLED %du\n' % normal_enabled +
+          fixture.replace('/* PRODUCTION */', body),
           flags=('-DBMS_SERVICE_DIAG_ENABLE=1','-Wno-unused-function',), name='sh-suspend-current')
 
 if __name__ == "__main__":
@@ -327,3 +346,7 @@ if __name__ == "__main__":
     check_sh3673510_sleep_host_check()
     check_sh_protective_sleep()
     check_sh_suspend_current_gates()
+    import os
+    if os.environ.get('BMS_PRODUCT','d014') == 'd014':
+        check_sh_protective_sleep(suspend_enabled=1)
+        check_sh_suspend_current_gates(suspend_enabled=1)

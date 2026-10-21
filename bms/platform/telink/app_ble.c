@@ -611,6 +611,10 @@ _attribute_no_inline_ void user_init_normal(void)
 #if (BLE_APP_PM_ENABLE)
 	blc_ll_initPowerManagement_module();
 
+#if defined(BMS_PRODUCT_NORMAL_SUSPEND_ENABLE) && !BMS_PRODUCT_NORMAL_SUSPEND_ENABLE
+    /* 首轮SDK在app_power_process之前执行，初始化即关闭普通PM许可。 */
+    bls_pm_setSuspendMask(SUSPEND_DISABLE);
+#else
 #if (PM_DEEPSLEEP_RETENTION_ENABLE)
 	blc_app_setDeepsleepRetentionSramSize();
 	bls_pm_setSuspendMask(SUSPEND_ADV | DEEPSLEEP_RETENTION_ADV | SUSPEND_CONN | DEEPSLEEP_RETENTION_CONN);
@@ -624,6 +628,7 @@ _attribute_no_inline_ void user_init_normal(void)
 
 #else
 	bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
+#endif
 #endif
 
 	bls_app_registerEventCallback(BLT_EV_FLAG_SUSPEND_ENTER, &task_sleep_enter);

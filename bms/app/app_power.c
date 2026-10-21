@@ -371,8 +371,27 @@ int app_power_before_suspend(void)
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (s_acc_sleep_committed) return 1;
 #endif
+#if defined(BMS_PRODUCT_NORMAL_SUSPEND_ENABLE) && !BMS_PRODUCT_NORMAL_SUSPEND_ENABLE
+    return 0; /* D014止血：即使SDK许可意外开启，也不允许普通Suspend。 */
+#else
     if (!s_low_power_mode || bms_afe_register_debug_held() || app_sample_is_due() ||
         ota_is_working || !app_flash_lock_restore_enabled()) return 0;
+#if defined(BMS_PRODUCT_SUSPEND_GUARD_US) && BMS_PRODUCT_SUSPEND_GUARD_US
+#if BMS_PRODUCT_SUSPEND_GUARD_US >= APP_SAMPLE_PERIOD_US
+#error "Suspend guard must leave room within the 200 ms sample period"
+#endif
+    /* B85在调用本回调前发布current_wakeup_tick，可能早于应用采样期限。
+     * 拒绝临近/已过的真实SDK期限，避免继续配置定时器时跨过比较点。
+     * 必须早于UART临睡布防：驱动拒睡也可能返回PAD，不能误开485供电。 */
+    {
+        uint32_t deadline = bls_pm_getSystemWakeupTick();
+        int32_t remaining_ticks = (int32_t)(deadline - clock_time());
+        if (remaining_ticks <= (int32_t)(BMS_PRODUCT_SUSPEND_GUARD_US * SYSTEM_TIMER_TICK_1US)) {
+            bms_stall_diag_suspend_veto(remaining_ticks);
+            return 0;
+        }
+    }
+#endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     return bus_mux_prepare_suspend();
 #else
@@ -386,6 +405,7 @@ int app_power_before_suspend(void)
     app_protective_wakeup_pin(BMS_BOARD_INT_WK_MCU_PIN);
     modbus_uart_suspend_enter();
     return 1;
+#endif
 #endif
 }
 
@@ -499,6 +519,9 @@ void app_power_process(const volatile uint8_t *sample_due)
     /* 开关ON、充放电都可在任务间Suspend；串口静默由UART所有者确认。 */
     s_low_power_mode = !ui_busy && !sample_block && modbus_uart_suspend_ready() &&
         app_flash_lock_restore_enabled() && !ota_is_working;
+#if defined(BMS_PRODUCT_NORMAL_SUSPEND_ENABLE) && !BMS_PRODUCT_NORMAL_SUSPEND_ENABLE
+    s_low_power_mode = false;
+#endif
     bls_pm_setSuspendMask(s_low_power_mode ? SUSPEND_ADV | SUSPEND_CONN : SUSPEND_DISABLE);
     /* 最终快照使用本轮Suspend决定，不沿用计时入口发布的保守值。 */
     if (deepsleep_en)

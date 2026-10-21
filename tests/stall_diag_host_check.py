@@ -18,12 +18,17 @@ int main(void) {
     bms_stall_diag_bus(++side_effect,++side_effect);
     bms_stall_diag_afe(++side_effect,++side_effect,++side_effect,++side_effect);
     bms_stall_diag_guard(++side_effect,++side_effect,++side_effect);
+    bms_stall_diag_suspend_veto(++side_effect);
+    bms_stall_diag_spi_mismatch(++side_effect,++side_effect,++side_effect);
     assert(!side_effect);
     assert(bms_stall_diag_read(0x3A00u,4u,bytes));
     assert(bytes[0]==0x53u && bytes[1]==0x54u && !bytes[4] && !bytes[5]);
     assert(!bms_stall_diag_read(0x3A9Fu,2u,bytes));
     assert(!bms_stall_diag_read(0x3A00u,126u,bytes));
     assert(!bms_stall_diag_read(0x3A00u,1u,0));
+    assert(bms_stall_diag_read(0x3AA0u,32u,bytes));
+    assert(bytes[0]==0x53u && bytes[1]==0x58u && !bytes[5] && bytes[7]==32u);
+    assert(!bms_stall_diag_read(0x3ABFu,2u,bytes));
     return 0;
 }
 ''', name='stall-diag-disabled')
@@ -68,3 +73,13 @@ assert decoded['first_gap']['pm_return_flags']['sdk_enter_suspend_bit']
 assert decoded['first_gap']['pm_return_flags']['pad']
 current[80+11*2+1] = 0
 assert decode(current)['first_gap']['pm_return_flags'] is None
+
+extra = [0]*32
+extra[:4] = [0x5358,1,1,32]
+extra[6:8] = [0xFFFF,0xFFFF] # 上次拒睡期限已过，signed剩余tick=-1。
+extra[8:12] = [0xFFFF,0xFFF0,0,0x3E70] # 原始32K回绕后相差16000tick。
+extra[30:32] = [0,7]
+detail = decoder['decode_detail'](extra)
+assert detail['last_veto_remaining_ticks']==-1 and detail['pm_business_32k_gap_ms']==500
+extra[31] = 1
+assert decoder['decode_detail'](extra)['pm_business_32k_gap_ms'] is None

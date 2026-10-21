@@ -90,6 +90,91 @@ python -B bms_tools/decode_stall_diag.py C:/Users/Administrator/Documents/CodexO
 `0x80074C/0x80074F/0x800750` 等时钟状态；这些读数不能由恢复后的快照倒推出。
 不能以新增记录为理由忽略这一证据边界。
 
+## 2026-10-21 实板取证后的普通 Suspend 防护
+
+本次板内 `78e4cfa9`、schema1、enabled=1。首次冻结为PM长间隔，mode=0，
+source=0x4050（PAD/Timer/PM_TIM_RECOVER_START），返回0x40000008（bit30及PAD）。
+PM入口距离请求采样期限仅1783us；返回后6.591ms首次FLAG1读取报-5回显错误，
+FLAG1/FLAG2有效字段均为0。冻结前没有AFE事件。相隔约166秒复读，boot均159、
+PM均70001/70001，采样由40210增至41033，AFE事件仍增加。
+这支持普通PM长停顿后原现场续跑、AFE后续失联；不能把本次解释为已确认的DeepSleep或WDT Powerdown。
+完整原始应答保存在本机源码树外 `Documents/CodexOutputs/bms-d014/20261021-live-143421/`
+和`20261021-live-143707/`，其中前者raw-transactions.json的SHA256见同目录capture-sha256.json。
+
+当前D014默认`BMS_PRODUCT_NORMAL_SUSPEND_ENABLE=0`：BLE/PM初始化即使用SUSPEND_DISABLE，
+每轮普通PM策略维持禁用，最后回调也拒绝普通Suspend，覆盖首轮SDK先于app_power_process的窗口。
+这项止血措施直接移除本次正常运行中的普通PM停顿入口，代价是运行/待机功耗增加；
+200ms任务仍由原主循环实际期限执行，不在回调补跑历史采样。
+开关、命令、低压、过放和AFE故障到期等保护性DeepSleep继续按原策略执行，不能因止血被取消。
+Timer2在Suspend停止，使用Timer2的约2秒MCU watchdog因此不能兜底无限Suspend；
+保留运行后它能继续计时，但2秒复位也不能冒充200ms保护响应保证。
+没有修改实际持久参数或AFE watchdog档位，也没有把保护性DeepSleep说成普通调度故障。
+
+3ms门禁只用于后续显式开启`BMS_PRODUCT_NORMAL_SUSPEND_ENABLE=1`的受控复验，
+不能在根因/长期实板唤醒验证前恢复为默认。D014产品增加`BMS_PRODUCT_SUSPEND_GUARD_US=3000`，仅在最后的
+`app_power_before_suspend()`使用SDK公开`bls_pm_getSystemWakeupTick()`取得本次SDK期限。
+期限已过或剩余不超过3ms时返回拒睡；已有UART临睡布防尚未执行，因此不会把拒睡返回的PAD值
+误当有线唤醒开启485供电。`blt_brx_sleep+0xB4/+0xB6`先将所选期限写入current_wakeup_tick，
+getter从相同offset0x28读取；B85驱动调用func_before_suspend的时机及拒睡返回PAD路径已按本机库核对。
+时间差按int32_t解释，适用本应用不到200ms的SDK期限，覆盖system tick回绕及已经过期的期限。
+
+3ms是针对本次1783us窗口采用的保守工程值，不是芯片厂家保证的临界值，
+不能仅凭此防护宣称定时器漏唤醒或内部32K等待的唯一根因已经确定。
+未修改200ms采样期限、唤醒回调、SOC实际时间积分、保护门禁或485供电保持时间；
+已提交的保护性DeepSleep在检查前放行。其它产品未开启这两个D014产品宏。
+临近期限制止普通Suspend会增加短时间运行，待机电流与BLE/采样时序需实板核对。
+
+本机SDK短睡恢复分支先对32K差值做32bit乘法再右移4位；异常长停顿时可能先溢出。
+原快照的14498ms不是可靠的墙钟停顿时长，也不能据此否定AFE watchdog候选。
+本轮不替换SDK或擅改其时钟恢复算法；附加窗口保留恢复上下文和已有业务32K读取，以补证。
+
+### 附加只读证据
+
+原`0x3A00`的schema2/160word不变；新增独立`[0x3AA0,0x3AC0)`共32word，
+同为03只读，跨两窗口读取拒绝。header四word为`0x5358 / 1 / enabled / 32`，
+其后14个u32均高word在前：
+
+| u32序号 | 内容 |
+|---|---|
+| 0/1 | 普通Suspend期限拒睡计数 / 最近一次剩余tick（int32_t，16tick/us） |
+| 2/3 | 最近配对PM之前的既有缓存32K / 驱动返回后第一次既有业务32K读取 |
+| 4 | PM前0x74C低8位、0x74F次8位、0x750高16位；原冻结区保留PM后对应值 |
+| 5/6/7 | PM前pm_timRecover.recover_flag / tick_sysClk / tick_32k |
+| 8/9 | PM后pm_timRecover.tick_sysClk / tick_32k；原冻结区仍有PM后recover_flag |
+| 10 | 最新SPI回显不符：tx bit16..23、期望bit8..15、实际bit0..7 |
+| 11 | 低16位=原总线操作0x100读/0x200写及寄存器；bit16..23=SPI控制寄存器 |
+| 12 | 该回显不符时的采样尝试编号 |
+| 13 | 有效位：bit0=配对PM上下文，bit1=前32K有效，bit2=后32K有效，bit3=回显记录有效 |
+
+首次冻结前保留最近一对PM上下文；冻结后不再覆盖，后32K仍允许由下一笔已有读取补齐。
+当原冻结类别为PM时它们对应同一次调用；其它类别只能作为最近PM的相关上下文，不能自动归因。
+这样SDK恢复后的system tick差被缩短、由原始32K先发现长间隔时，也能保留相关证据。
+后32K仅复用驱动返回后第一笔原有业务读取，不在PM包装器新增模拟读取。
+其差值包含驱动内部及返回后的业务时间，不等同物理Suspend时长。
+SPI回显不符在重试期间更新，首次AFE事件确定后冻结；采样编号必须用于排除旧的、已重试恢复的回显，
+回显0x00/0xFF本身也不等于确诊Powerdown或供电问题。
+开启时新增56字节静态RAM和少量局部变量/指令，目标栈、Flash与RAM用量尚未链接核验；
+普通PM仅多读数字寄存器和RAM。关闭时新增记录实参不求值，附加窗口报告enabled=0。
+
+新包复现前保存正常基线；故障后依次读取原两段80word、`start=0x3AA0,count=32`、
+休眠窗口`0x3300,count=20`，最后重读原header核对同一启动。附加32word保存为JSON数组后：
+
+```powershell
+python -B bms_tools/decode_stall_diag.py C:/path/stall.json --detail C:/path/detail.json --baseline C:/path/normal.json
+```
+
+本轮依据实板原始记录、源码、B85头文件与库反汇编完成防护和诊断源码；补充了1783us、
+3ms边界、tick回绕、过期期限、深睡放行、UART尚未布防及附加窗口的回归用例。
+遵照AGENTS.md，本轮未运行host测试、编译/链接或实板更新，未生成BIN或OTA。
+因此下一步先在用户要求验证后执行相关host/四产品链接资源检查（用户当前全局诊断开关仅适用D014，
+不得把其现有修改混入其它产品配置），再在无有线/BLE轮询条件复验；
+先验收默认禁用普通Suspend、未触发保护性DeepSleep的正常运行期间PM进入计数不增长，
+同时200ms采样持续、BLE可重连、485按需供电与AFE正常；
+随后另行受控打开Suspend，结合3ms拒睡计数、真实PM期限、32K差值和SPI回显查剩余芯片内部首发点。
+不能把桩测试或短时间BLE读取通过写成长期Suspend可靠性验收。
+如果仍停闪，必须在485前取得PC和数字时钟状态，以区分物理Suspend和驱动内部等待；
+这些附加恢复后快照仍不能替代停顿时PC。
+
 ## 寄存器 schema 2
 
 窗口 `[0x3A00,0x3AA0)`，160word。word内大端，所有u32均高word在前；计数自然回绕。

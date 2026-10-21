@@ -8,6 +8,10 @@
 #define BMS_STALL_DIAG_SCHEMA 2u
 #define BMS_STALL_DIAG_WORDS 160u
 #define BMS_STALL_DIAG_END (BMS_STALL_DIAG_BASE + BMS_STALL_DIAG_WORDS)
+/* 附加证据独立窗口，原schema2/160word完全保留，跨窗口读取仍拒绝。 */
+#define BMS_STALL_DETAIL_BASE BMS_STALL_DIAG_END
+#define BMS_STALL_DETAIL_WORDS 32u
+#define BMS_STALL_DETAIL_END (BMS_STALL_DETAIL_BASE + BMS_STALL_DETAIL_WORDS)
 #define BMS_STALL_AFE_WDT_OBSERVED 0x0100u
 
 enum {
@@ -24,7 +28,7 @@ enum {
 
 static inline int bms_stall_diag_overlaps(uint16_t start, uint16_t count)
 {
-    return count && start < BMS_STALL_DIAG_END &&
+    return count && start < BMS_STALL_DETAIL_END &&
         (uint32_t)start + count > BMS_STALL_DIAG_BASE;
 }
 
@@ -43,6 +47,8 @@ void bms_stall_diag_irq(uint8_t entering);
 void bms_stall_diag_afe_flags(uint8_t valid, uint8_t flag1, uint8_t flag2);
 void bms_stall_diag_afe(uint16_t stage, int16_t error, uint32_t crc, uint32_t retries);
 void bms_stall_diag_guard(uint16_t bits, uint32_t elapsed_ms, uint32_t wait_ms);
+void bms_stall_diag_suspend_veto(int32_t remaining_ticks);
+void bms_stall_diag_spi_mismatch(uint8_t tx, uint8_t expected, uint8_t actual);
 int bms_stall_diag_read(uint16_t start, uint16_t count, uint8_t *bytes);
 #else
 #define bms_stall_diag_boot() ((void)0)
@@ -59,15 +65,20 @@ int bms_stall_diag_read(uint16_t start, uint16_t count, uint8_t *bytes);
 #define bms_stall_diag_afe_flags(valid, flag1, flag2) ((void)0)
 #define bms_stall_diag_afe(stage, error, crc, retries) ((void)0)
 #define bms_stall_diag_guard(bits, elapsed_ms, wait_ms) ((void)0)
+#define bms_stall_diag_suspend_veto(remaining_ticks) ((void)0)
+#define bms_stall_diag_spi_mismatch(tx, expected, actual) ((void)0)
 static inline int bms_stall_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
 {
     uint16_t i;
-    if (!bytes || !count || count > 125u || start < BMS_STALL_DIAG_BASE ||
-        (uint32_t)start + count > BMS_STALL_DIAG_END) return 0;
+    uint16_t base = start >= BMS_STALL_DETAIL_BASE ? BMS_STALL_DETAIL_BASE : BMS_STALL_DIAG_BASE;
+    uint16_t words = base == BMS_STALL_DETAIL_BASE ? BMS_STALL_DETAIL_WORDS : BMS_STALL_DIAG_WORDS;
+    if (!bytes || !count || count > 125u || start < base ||
+        (uint32_t)start + count > (uint32_t)base + words) return 0;
     for (i = 0u; i < count; ++i) {
-        uint16_t offset = (uint16_t)(start - BMS_STALL_DIAG_BASE + i);
-        uint16_t value = offset == 0u ? 0x5354u :
-            (offset == 1u ? BMS_STALL_DIAG_SCHEMA : (offset == 3u ? BMS_STALL_DIAG_WORDS : 0u));
+        uint16_t offset = (uint16_t)(start - base + i);
+        uint16_t value = offset == 0u ? (base == BMS_STALL_DETAIL_BASE ? 0x5358u : 0x5354u) :
+            (offset == 1u ? (base == BMS_STALL_DETAIL_BASE ? 1u : BMS_STALL_DIAG_SCHEMA) :
+             (offset == 3u ? words : 0u));
         bytes[2u*i] = (uint8_t)(value >> 8);
         bytes[2u*i+1u] = (uint8_t)value;
     }

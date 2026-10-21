@@ -35,6 +35,14 @@ enum {
 static uint32_t s_live[STALL_SNAPSHOT_U32], s_first_gap[STALL_SNAPSHOT_U32];
 static uint32_t s_first_afe[8];
 static uint32_t s_afe_flags, s_gap_ms;
+enum {
+    D_VETO_COUNT, D_VETO_REMAINING, D_PM_RAW_BEFORE, D_PM_RAW_AFTER,
+    D_PM_TIMER_BEFORE, D_PM_RECOVER_BEFORE, D_PM_SYS_BEFORE, D_PM_32K_BEFORE,
+    D_PM_SYS_AFTER, D_PM_32K_AFTER, D_SPI_BYTES, D_SPI_CONTROL, D_SPI_SAMPLE,
+    D_FLAGS, STALL_DETAIL_U32
+};
+enum { D_HAS_PM=1u, D_RAW_BEFORE_VALID=2u, D_RAW_AFTER_VALID=4u, D_SPI_VALID=8u };
+static uint32_t s_detail[STALL_DETAIL_U32];
 static uint16_t s_boot_words[6];
 static uint8_t s_running, s_raw_ready, s_gap_reason, s_resume_stage;
 static uint8_t s_sleep_reason, s_deep_committed;
@@ -95,7 +103,10 @@ static _attribute_ram_code_ int stall_sleep_wakeup(SleepMode_TypeDef mode,
 {
     int result;
     uint32_t elapsed;
+    uint32_t timer_before, recover_before, sys_before, raw_before, cached_before;
     uint8_t boot_hold = s_live[W_PHASE] == BMS_STALL_BOOT_HOLD;
+    if (!s_gap_reason)
+        s_detail[D_FLAGS] &= ~(D_HAS_PM | D_RAW_BEFORE_VALID | D_RAW_AFTER_VALID);
     ++s_live[W_PM_ENTERS];
     s_live[W_PM_MODE] = mode;
     s_live[W_PM_SOURCE] = sources;
@@ -116,6 +127,13 @@ static _attribute_ram_code_ int stall_sleep_wakeup(SleepMode_TypeDef mode,
         s_live[W_DETAIL] = STALL_DEEP_TAG | (reason & 0x0Fu);
         analog_write(DEEP_ANA_REG7, (uint8_t)s_live[W_DETAIL]);
     }
+    /* 仅数字寄存器/RAM快照；不额外访问模拟总线或改变原驱动参数。 */
+    timer_before = (uint32_t)reg_system_tick_mode |
+        ((uint32_t)reg_system_tick_ctrl << 8) | ((uint32_t)REG_ADDR16(0x750) << 16);
+    recover_before = pm_timRecover.recover_flag;
+    sys_before = pm_timRecover.tick_sysClk;
+    raw_before = pm_timRecover.tick_32k;
+    cached_before = s_live[W_RAW_32K];
     result = s_pm_driver(mode, sources, deadline);
     /* 必须先保存驱动返回，不能由后面的SDK回调覆盖本次唤醒证据。 */
     s_live[W_PM_RETURN] = clock_time();
@@ -126,6 +144,18 @@ static _attribute_ram_code_ int stall_sleep_wakeup(SleepMode_TypeDef mode,
         ((uint32_t)reg_system_tick_ctrl << 8) | ((uint32_t)REG_ADDR16(0x750) << 16);
     s_live[W_RECOVER_FLAG] = pm_timRecover.recover_flag;
     elapsed = s_live[W_PM_RETURN] - s_live[W_PM_ENTER];
+    /* 冻结前保留最近一对PM上下文；即使SDK改写tick把长停顿缩短，
+     * 后续原有32K读发现长间隔时仍有这一对证据。它不自行判定物理入睡。 */
+    if (s_running && !s_gap_reason) {
+        s_detail[D_PM_RAW_BEFORE] = cached_before;
+        s_detail[D_PM_TIMER_BEFORE] = timer_before;
+        s_detail[D_PM_RECOVER_BEFORE] = recover_before;
+        s_detail[D_PM_SYS_BEFORE] = sys_before;
+        s_detail[D_PM_32K_BEFORE] = raw_before;
+        s_detail[D_PM_SYS_AFTER] = pm_timRecover.tick_sysClk;
+        s_detail[D_PM_32K_AFTER] = pm_timRecover.tick_32k;
+        s_detail[D_FLAGS] |= D_HAS_PM | (s_raw_ready ? D_RAW_BEFORE_VALID : 0u);
+    }
     if (elapsed > BMS_SAMPLE_MAX_POLL_GAP_MS * 16000u)
         freeze_gap(BMS_STALL_GAP_PM, BMS_STALL_PM_RETURN, elapsed / 16000u);
     s_live[W_PHASE] = BMS_STALL_PM_RETURN;
@@ -187,6 +217,12 @@ void bms_stall_diag_schedule(uint8_t due, uint32_t deadline)
 void bms_stall_diag_time(uint32_t raw_tick)
 {
     uint32_t elapsed = raw_tick - s_live[W_RAW_32K];
+    /* 复用业务本来就会执行的第一次32K读取；不在PM wrapper新增模拟访问。
+     * 这个差包含PM内部及返回后的业务时间，不能等同物理Suspend时长。 */
+    if ((s_detail[D_FLAGS] & D_HAS_PM) && !(s_detail[D_FLAGS] & D_RAW_AFTER_VALID)) {
+        s_detail[D_PM_RAW_AFTER] = raw_tick;
+        s_detail[D_FLAGS] |= D_RAW_AFTER_VALID;
+    }
     s_live[W_DETAIL] &= 0x7FFFFFFFu; /* 读已经返回，冻结现场不能误报仍在等待。 */
     if (s_raw_ready && elapsed > BMS_SAMPLE_MAX_POLL_GAP_MS * 32u)
         freeze_gap(BMS_STALL_GAP_32K, (uint8_t)s_live[W_PHASE], elapsed / 32u);
@@ -241,17 +277,40 @@ void bms_stall_diag_guard(uint16_t bits, uint32_t elapsed_ms, uint32_t wait_ms)
     s_live[W_GUARD_WAIT] = wait_ms;
 }
 
+void bms_stall_diag_suspend_veto(int32_t remaining_ticks)
+{
+    ++s_detail[D_VETO_COUNT];
+    s_detail[D_VETO_REMAINING] = (uint32_t)remaining_ticks;
+}
+
+void bms_stall_diag_spi_mismatch(uint8_t tx, uint8_t expected, uint8_t actual)
+{
+    /* 重试期间只保留最新回显；首次AFE事件确定后冻结。样本编号用于排除旧重试。
+     * 不重读SPI数据、不清标志，不参与驱动恢复或输出决策。 */
+    if (s_first_afe[0]) return;
+    s_detail[D_SPI_BYTES] = ((uint32_t)tx << 16) | ((uint32_t)expected << 8) | actual;
+    s_detail[D_SPI_CONTROL] = (s_live[W_DETAIL] & 0xFFFFu) | ((uint32_t)reg_spi_ctrl << 16);
+    s_detail[D_SPI_SAMPLE] = s_live[W_SAMPLES];
+    s_detail[D_FLAGS] |= D_SPI_VALID;
+}
+
 /* 每个word大端；u32高word在前。读取不更新时间、不消费或清除冻结现场。
  * IRQ仅更新三个独立volatile计数，跨请求须对照boot/冻结原因；不声称IRQ原子快照。 */
 int bms_stall_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
 {
     uint16_t i;
-    if (!bytes || !count || count > 125u || start < BMS_STALL_DIAG_BASE ||
-        (uint32_t)start + count > BMS_STALL_DIAG_END) return 0;
+    uint16_t base = start >= BMS_STALL_DETAIL_BASE ? BMS_STALL_DETAIL_BASE : BMS_STALL_DIAG_BASE;
+    uint16_t words = base == BMS_STALL_DETAIL_BASE ? BMS_STALL_DETAIL_WORDS : BMS_STALL_DIAG_WORDS;
+    if (!bytes || !count || count > 125u || start < base ||
+        (uint32_t)start + count > (uint32_t)base + words) return 0;
     for (i = 0u; i < count; ++i) {
-        uint16_t offset = (uint16_t)(start - BMS_STALL_DIAG_BASE + i);
+        uint16_t offset = (uint16_t)(start - base + i);
         uint16_t value = 0u;
-        if (offset < 16u) {
+        if (base == BMS_STALL_DETAIL_BASE) {
+            if (offset < 4u)
+                value = offset == 0u ? 0x5358u : (offset == 3u ? BMS_STALL_DETAIL_WORDS : 1u);
+            else value = (uint16_t)(s_detail[(offset-4u)/2u] >> ((offset & 1u) ? 0u : 16u));
+        } else if (offset < 16u) {
             if (offset == 0u) value = 0x5354u;
             else if (offset == 1u) value = BMS_STALL_DIAG_SCHEMA;
             else if (offset == 2u) value = 1u;

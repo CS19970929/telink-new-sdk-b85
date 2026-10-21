@@ -122,6 +122,7 @@ static sh3673520_status_t sh36735xx_expect(uint8_t tx, uint8_t expected, uint8_t
     sh3673520_status_t status = sh36735xx_xfer_byte(tx, rx);
 
     if ((status == SH3673520_OK) && (*rx != expected)) {
+        bms_stall_diag_spi_mismatch(tx, expected, *rx);
         status = SH3673520_ERR_PROTOCOL;
     }
     return status;

@@ -122,12 +122,44 @@ def compare_boot(current, baseline):
     return notes
 
 
-def load_words(path):
+def decode_detail(words):
+    if (not isinstance(words, list) or len(words) != 32 or
+            any(type(w) is not int or not 0 <= w <= 65535 for w in words) or
+            words[:2] != [0x5358, 1] or words[2] not in (0, 1) or words[3] != 32):
+        raise ValueError('附加证据必须是0x3AA0的32word，magic=0x5358/schema=1')
+    fields = (
+        'veto_count', 'last_veto_remaining_ticks', 'pm_raw_before', 'pm_raw_after',
+        'pm_timer_regs_before', 'pm_recover_flag_before', 'pm_recover_sys_before',
+        'pm_recover_32k_before', 'pm_recover_sys_after', 'pm_recover_32k_after',
+        'spi_mismatch_bytes', 'spi_mismatch_control', 'spi_mismatch_sample', 'flags',
+    )
+    result = {field: (words[4+2*i] << 16) | words[5+2*i] for i, field in enumerate(fields)}
+    result['enabled'] = bool(words[2])
+    remaining = result['last_veto_remaining_ticks']
+    result['last_veto_remaining_ticks'] = remaining - 0x100000000 if remaining & 0x80000000 else remaining
+    flags = result['flags']
+    result['pm_context_valid'] = bool(flags & 1)
+    # 前后均有效才计算；包含驱动内部及返回后第一次既有业务读时钟之前的时间。
+    result['pm_business_32k_gap_ms'] = (
+        ((result['pm_raw_after'] - result['pm_raw_before']) & 0xFFFFFFFF) / 32
+        if (flags & 7) == 7 else None)
+    packed = result['spi_mismatch_bytes']
+    result['spi_mismatch'] = {
+        'tx': (packed >> 16) & 255, 'expected': (packed >> 8) & 255,
+        'actual': packed & 255, 'bus_operation': result['spi_mismatch_control'] & 0xFFFF,
+        'spi_control': (result['spi_mismatch_control'] >> 16) & 255,
+        'sample': result['spi_mismatch_sample'],
+    } if flags & 8 else None
+    result['raw_words'] = words
+    return result
+
+
+def load_words(path, count=160):
     if path.suffix.lower() == '.bin':
         data = path.read_bytes()
-        if len(data) != 320:
-            raise ValueError('二进制输入必须恰为320字节寄存器数据')
-        return [int.from_bytes(data[i:i+2], 'big') for i in range(0, 320, 2)]
+        if len(data) != count * 2:
+            raise ValueError(f'二进制输入必须恰为{count * 2}字节寄存器数据')
+        return [int.from_bytes(data[i:i+2], 'big') for i in range(0, len(data), 2)]
     return json.loads(path.read_text(encoding='utf-8-sig'))
 
 
@@ -135,11 +167,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('input', type=Path)
     parser.add_argument('--baseline', type=Path, help='同一诊断固件正常运行时保存的160word基线')
+    parser.add_argument('--detail', type=Path, help='同一启动读取的0x3AA0附加32word')
     args = parser.parse_args()
     try:
         result = decode(load_words(args.input))
         if args.baseline:
             result['boot_comparison'] = compare_boot(result, decode(load_words(args.baseline)))
+        if args.detail:
+            result['detail'] = decode_detail(load_words(args.detail, 32))
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
