@@ -68,12 +68,15 @@
 static void app_sample_task(void);
 /* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
 static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma, uint8_t calibration_valid, uint8_t check_active);
-/* 采样唤醒回调只置位，由主循环执行 AFE 和 SOC 处理。 */
+/* 采样唤醒回调消费 SDK 期限并交付标志，AFE/SOC 留在主循环。 */
 static void app_sample_wakeup(int type);
 static u32 s_sample_tick;
 
-/* 低功耗唤醒回调只置位；主循环消费后执行采样，不在回调中跑保护/SOC。 */
+/* 唤醒回调交付期限；主循环消费后执行采样，不在回调中跑保护/SOC。 */
 static volatile u8 s_sample_due;
+#if BMS_DEBUG_LOG_ENABLE
+#define APP_DEBUG_LOOP_GAP_US 400000u
+#endif
 
 /* SDK 临睡回调也检查期限，覆盖主循环许可后才到期的窗口。 */
 uint8_t app_sample_is_due(void)
@@ -202,12 +205,31 @@ static void board_init(void)
 /* BLE → 通信接收恢复 → 到期采样 → 状态检查点 → 协议通信 → 低功耗。 */
 _attribute_no_inline_ void main_loop(void)
 {
+#if BMS_DEBUG_LOG_ENABLE
+    u32 sdk_enter_tick;
+    u32 sdk_enter_suspend_exits;
+#endif
     if (app_power_prepare_loop()) return;
+    /* 到期业务必须先撤下 SDK 旧期限；不能等 SDK 返回后才处理过期定时器。 */
+    if (app_sample_is_due()) {
+        bls_pm_setAppWakeupLowPower(0u, 0u);
+        bls_pm_setSuspendMask(SUSPEND_DISABLE);
+    }
     /*
      * SDK唤醒后先恢复UART接收/通信引脚所有权，避免等AFE和Flash任务后
      * 才开始接收主机重发。采样/保护仍优先于协议命令解析。
      */
+#if BMS_DEBUG_LOG_ENABLE
+    sdk_enter_tick = clock_time();
+    sdk_enter_suspend_exits = app_ble_suspend_exit_count();
+#endif
 	blt_sdk_main_loop();
+#if BMS_DEBUG_LOG_ENABLE
+    if (clock_time_exceed(sdk_enter_tick, APP_DEBUG_LOOP_GAP_US))
+        BMS_LOG(BMS_LOG_ERROR, BMS_LOG_POWER, BMS_LOG_SDK_LOOP_GAP,
+                (u32)(clock_time() - sdk_enter_tick) / SYSTEM_TIMER_TICK_1US,
+                app_ble_suspend_exit_count() - sdk_enter_suspend_exits);
+#endif
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     bus_mux_task();
 #elif BMS_PRODUCT_UART_ENABLE
@@ -277,6 +299,11 @@ static void app_sample_task(void)
 
     if (!app_sample_is_due()) return;
 
+#if BMS_DEBUG_LOG_ENABLE
+    if (clock_time_exceed(s_sample_tick, APP_DEBUG_LOOP_GAP_US))
+        BMS_LOG(BMS_LOG_ERROR, BMS_LOG_POWER, BMS_LOG_APP_SAMPLE_GAP,
+                (u32)(clock_time() - s_sample_tick) / SYSTEM_TIMER_TICK_1US, s_sample_due);
+#endif
     s_sample_due = 0u;
     s_sample_tick = clock_time();
     result = bms_afe_sample();
@@ -298,15 +325,23 @@ static void app_sample_task(void)
     app_schedule_sample_wakeup();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     gpio_toggle(LED_BLUE_PIN);
+#elif BMS_BOARD_DEBUG_LED_ENABLE
+    /* 调试灯跟随真实采样尝试翻转，避免独立200ms计时在Suspend后相位错开。
+     * AFE失败也翻转：它表示调度仍在运行，不表示采样结果有效。 */
+    gpio_toggle(BMS_BOARD_DEBUG_LED_PIN);
 #endif
 }
 
 /* 四产品共用 BLE 回调；后端差异留在采样和电源流程。 */
-/* 采样唤醒回调只置位，由主循环执行 AFE 和 SOC 处理。 */
+/* 交付一次应用唤醒；回调不执行业务或外设访问。 */
 static void app_sample_wakeup(int type)
 {
     (void)type;
     s_sample_due = 1u;
+    /* 一次性唤醒已交付：先消费 SDK 期限并交还运行权，主循环采样后重新布防。
+     * 此处只改 SDK/RAM 状态，不执行 AFE、保护、SOC、Flash 或串口收发。 */
+    bls_pm_setAppWakeupLowPower(0u, 0u);
+    bls_pm_setSuspendMask(SUSPEND_DISABLE);
 }
 
 

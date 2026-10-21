@@ -66,7 +66,9 @@ def check_app_scheduler_host_check():
     # Exercise the actual event deadline gate, stub only event payload collection.
     event = function(app, "static void app_storage_1s_task(")
     event = event[event.index("    _attribute_data_retention_"):event.index("\tmemset(&sample")]
-    checkpoint = re.search(r"bms_state_store_poll\([^;]+;",function(app,"static void app_storage_1s_task(")).group(0)
+    checkpoint = re.search(r"bms_state_store_data_t state = bms_soc_state_snapshot\(\);\s*"
+                           r"bms_state_store_poll_snapshot\(&state\);",
+                           function(app, "static void app_storage_1s_task(")).group(0)
     scheduler = "\n".join([
         function(power, "uint8_t app_power_prepare_loop("),
         function(app, "uint8_t app_sample_is_due("),

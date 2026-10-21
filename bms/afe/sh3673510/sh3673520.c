@@ -104,7 +104,9 @@ static void sh3673520_record_success(void)
 static sh3673520_status_t sh3673520_record_final_failure(sh3673520_status_t status)
 {
     ++s_comm_stats.consecutive_failures;
-    BMS_LOG(BMS_LOG_ERROR, BMS_LOG_AFE, BMS_LOG_AFE_FAILED, status, s_comm_stats.consecutive_failures);
+    /* 持续同一通信故障只保留首次，计数继续累加，避免淹没故障前时序。 */
+    if (s_comm_stats.consecutive_failures == 1u)
+        BMS_LOG(BMS_LOG_ERROR, BMS_LOG_AFE, BMS_LOG_AFE_FAILED, status, s_comm_stats.consecutive_failures);
     s_comm_stats.last_error = status;
     return status;
 }
@@ -121,6 +123,9 @@ static sh3673520_status_t sh36735xx_expect(uint8_t tx, uint8_t expected, uint8_t
     sh3673520_status_t status = sh36735xx_xfer_byte(tx, rx);
 
     if ((status == SH3673520_OK) && (*rx != expected)) {
+        if (s_comm_stats.last_error != SH3673520_ERR_PROTOCOL)
+            BMS_LOG(BMS_LOG_ERROR, BMS_LOG_AFE, BMS_LOG_AFE_ECHO_MISMATCH,
+                    ((uint32_t)tx << 16) | ((uint32_t)expected << 8) | *rx, 0u);
         status = SH3673520_ERR_PROTOCOL;
     }
     return status;

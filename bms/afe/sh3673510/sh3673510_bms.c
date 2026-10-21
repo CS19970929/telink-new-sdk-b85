@@ -6,6 +6,7 @@
 /* 现有产品 10K NTC 表：电阻单位 100 Ω，温度编码为 (degC+40)*10。 */
 #include "sh3673510_ntc.h"
 #include "bms_afe_driver.h"
+#include "bms_debug_log.h"
 
 /* 保持既有 watchdog 余量、保护初始化顺序和休眠后总线语义。 */
 const bms_afe_driver_policy_t bms_afe_driver_policy = { 35000u, 1u, 0u };
@@ -127,12 +128,25 @@ static uint16_t ntc_temp(uint32_t ohm)
                           (uint16_t)r100);
 }
 
+#if BMS_DEBUG_LOG_ENABLE
+static uint16_t s_debug_failure_stage;
+static int32_t s_debug_failure_error;
+#endif
+
 /* 累计通信失败并更新 AFE 错误状态。 */
 static void note_comm_error(uint16_t stage)
 {
     sh3673520_comm_stats_t stats;
 
     SH3673520_GetCommStats(&stats);
+#if BMS_DEBUG_LOG_ENABLE
+    /* 同一失败阶段不反复覆盖首次调度停顿，完整采样成功后重新记录。 */
+    if (stage != s_debug_failure_stage || (int32_t)stats.last_error != s_debug_failure_error) {
+        BMS_LOG(BMS_LOG_ERROR, BMS_LOG_AFE, BMS_LOG_AFE_STAGE, stage, (int32_t)stats.last_error);
+        s_debug_failure_stage = stage;
+        s_debug_failure_error = (int32_t)stats.last_error;
+    }
+#endif
 #if BMS_SERVICE_DIAG_ENABLE
     bms_diag_afe_failure(stage, (int16_t)stats.last_error,
         stage < DIAG_AFE_FAIL_INIT ? s_sample_attempt_flag2 : 0u,
@@ -162,6 +176,10 @@ static void note_comm_error(uint16_t stage)
 /* 记录成功通信并恢复连续失败计数。 */
 static void note_comm_ok(void)
 {
+#if BMS_DEBUG_LOG_ENABLE
+    s_debug_failure_stage = 0u;
+    s_debug_failure_error = 0;
+#endif
     bms_error_clear(BMS_ERROR_SPI);
 }
 

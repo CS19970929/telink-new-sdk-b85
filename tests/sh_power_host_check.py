@@ -14,7 +14,8 @@ def check_sh3673510_sample_schedule_host_check():
 
     ROOT = Path(__file__).resolve().parents[1]
     APP = Sources(ROOT)
-    source = selected_source(APP / 'app.c', defines=('-DBMS_SERVICE_DIAG_ENABLE=1',))
+    source = selected_source(APP / 'app.c', defines=(
+        '-DBMS_SERVICE_DIAG_ENABLE=1', '-DBMS_BOARD_DEBUG_LED_ENABLE=1'))
 
 
     def function(name):
@@ -34,6 +35,8 @@ typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR
     typedef uint8_t u8;
     typedef uint32_t u32;
     #define SYSTEM_TIMER_TICK_1US 16u
+    #define SUSPEND_DISABLE 0u
+    #define BMS_BOARD_DEBUG_LED_PIN 1u
     #define MODE_FACTORY 1
     typedef struct {
         int32_t raw_current_ma, current_ma;
@@ -41,8 +44,11 @@ typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR
         u8 voltage_calibration_valid, voltage_check_active;
     } bms_afe_aux_measurements_t;
     static u32 s_sample_tick, fake_tick, scheduled_tick, sample_cost;
+    static unsigned application_wakeup_enabled, suspend_mask;
     static volatile u8 s_sample_due;
     static unsigned samples, soc_calls, diag_calls, failures;
+    static unsigned led_edges;
+    static void gpio_toggle(unsigned pin) { (void)pin; ++led_edges; }
     static u8 valid, last_valid;
     static u8 calibration_valid=1u, check_active, last_calibration_valid, last_check_active;
     static int32_t last_current;
@@ -50,9 +56,10 @@ typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR
     static u32 pm_get_32k_tick(void) { return 4321; }
     static int clock_time_exceed(u32 since, u32 us) { return (u32)(fake_tick-since) > us*16u; }
     static void bls_pm_setAppWakeupLowPower(u32 tick, unsigned enable) {
-        if (!enable) ++failures;
+        application_wakeup_enabled = enable;
         scheduled_tick = tick;
     }
+    void bls_pm_setSuspendMask(unsigned mask) { suspend_mask = mask; }
     static bms_afe_sample_status_t bms_afe_sample(void) { bms_afe_sample_status_t r=BMS_AFE_SAMPLE_OK; ++samples; fake_tick += sample_cost; return r; }
     static void bms_features_service(void){}
     static void bms_afe_apply_outputs(void){}
@@ -75,25 +82,28 @@ typedef enum { BMS_AFE_SAMPLE_OK, BMS_AFE_SAMPLE_NOT_READY, BMS_AFE_SAMPLE_ERROR
     #define CHECK(c) do { if (!(c)) { ++failures; printf("FAIL %d: %s\n", __LINE__, #c); } } while(0)
     int main(void) {
         valid=1; s_sample_tick=100; fake_tick=100;
-        app_sample_task(); CHECK(samples==0);
+        app_sample_task(); CHECK(samples==0 && led_edges==0);
         fake_tick += APP_SAMPLE_PERIOD_US*16u + 1;
-        app_sample_task(); CHECK(samples==1 && soc_calls==1 && diag_calls==1);
+        app_sample_task(); CHECK(samples==1 && soc_calls==1 && diag_calls==1 && led_edges==1);
         CHECK(last_valid && last_current==1234);
         CHECK(last_calibration_valid && !last_check_active);
         CHECK(scheduled_tick==s_sample_tick+APP_SAMPLE_PERIOD_US*16u);
-        app_sample_task(); CHECK(samples==1);
+        app_sample_task(); CHECK(samples==1 && led_edges==1);
         calibration_valid=0u; check_active=1u;
-        app_sample_wakeup(0); app_sample_wakeup(0); CHECK(samples==1);
-        app_sample_task(); CHECK(samples==2); /* multiple IRQ marks coalesce */
+        suspend_mask=3u;
+        app_sample_wakeup(1); app_sample_wakeup(0); CHECK(samples==1);
+        CHECK(s_sample_due && !application_wakeup_enabled && suspend_mask==SUSPEND_DISABLE);
+        app_sample_task(); CHECK(samples==2); /* repeated SDK callbacks coalesce */
+        CHECK(application_wakeup_enabled && scheduled_tick==s_sample_tick+APP_SAMPLE_PERIOD_US*16u);
         CHECK(!last_calibration_valid && last_check_active);
         valid=0; app_sample_wakeup(0); app_sample_task();
-        CHECK(!last_valid && last_current==0);
+        CHECK(!last_valid && last_current==0 && led_edges==3);
         CHECK(!last_calibration_valid && !last_check_active);
         sample_cost=APP_SAMPLE_PERIOD_US*16u+1; app_sample_wakeup(0);
         app_sample_task(); CHECK(samples==4 && s_sample_due); /* no catch-up loop */
         sample_cost=0; app_sample_task(); CHECK(samples==5 && !s_sample_due);
         s_sample_tick=UINT32_MAX-100; fake_tick=s_sample_tick+APP_SAMPLE_PERIOD_US*16u+1;
-        app_sample_task(); CHECK(samples==6); /* timer wrap */
+        app_sample_task(); CHECK(samples==6 && led_edges==6); /* timer wrap */
         printf("SH sample scheduler: %u failures\n", failures);
         return failures ? 1 : 0;
     }

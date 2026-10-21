@@ -11,6 +11,7 @@ typedef uint8_t u8;
 #define APP_SAMPLE_PERIOD_US 200000u
 #define SYSTEM_TIMER_TICK_1US 16u
 #define SUSPEND_MODE 0
+#define SUSPEND_DISABLE 0
 #define PM_WAKEUP_TIMER 0
 #define LED_BLUE_PIN 0
 static u32 now, now_ms, s_sample_tick, sample_cost;
@@ -25,7 +26,7 @@ static void note(char c){calls[n++]=c;calls[n]=0;}
 static u32 clock_time(void){return now;}
 static int clock_time_exceed(u32 start,u32 us){return (u32)(now-start)>us*16u;}
 static u32 pm_get_32k_tick(void){return 77;}
-typedef struct {int raw_current_ma;int current_ma;u32 sample_tick_32k;} bms_afe_aux_measurements_t;
+typedef struct {int raw_current_ma;int current_ma;u32 sample_tick_32k;u8 voltage_calibration_valid,voltage_check_active;} bms_afe_aux_measurements_t;
 typedef struct {
     uint8_t chemistry;
     uint8_t profile_id;
@@ -70,22 +71,26 @@ typedef union {uint16_t all;} diag_fault_t;
 static bms_afe_sample_status_t bms_afe_sample(void){bms_afe_sample_status_t r=BMS_AFE_SAMPLE_OK;note('A');now+=sample_cost;if(callback_during_sample)s_sample_due=1;return r;}
 static void bms_features_service(void){note('T');}
 static void bms_afe_apply_outputs(void){note('M');}
-static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){note('V');m->raw_current_ma=-710;m->current_ma=-700;m->sample_tick_32k=99;return valid;}
+static u8 bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *m){note('V');m->raw_current_ma=-710;m->current_ma=-700;m->sample_tick_32k=99;m->voltage_calibration_valid=1u;m->voltage_check_active=0u;return valid;}
 static void app_diag_poll_runtime(u8 v,int raw,int current,u32 tick){assert(v==valid);assert(raw==(v?-710:0));assert(current==(v?-700:0));assert(tick==(v?99u:77u));}
-static void app_update_soc_from_sample(u8 v,int ma){note('S');assert(v==valid);assert(ma==(v?-700:0));}
-static void app_schedule_sample_wakeup(void){note('W');}
+static void app_update_soc_from_sample(u8 v,int ma,u8 calibration_valid,u8 check_active){note('S');assert(v==valid);assert(ma==(v?-700:0));assert(calibration_valid==valid&&!check_active);}
+static u8 sdk_wakeup_enabled=1u, sdk_suspend_mask=3u;
+static void app_schedule_sample_wakeup(void){sdk_wakeup_enabled=1u;note('W');}
 static void gpio_toggle(int pin){(void)pin;note('L');}
 static void app_acc_sleep_hold(void){note('H');}
 static void bms_parameters_diag_poll(void){note('1');}
 static void bms_storage_platform_diag_poll(void){note('2');}
 static void bms_afe_diag_poll(void){note('3');}
-static void blt_sdk_main_loop(void){note('B');}
+static void blt_sdk_main_loop(void){assert(!(sdk_wakeup_enabled&&sdk_suspend_mask&&(s_sample_due||clock_time_exceed(s_sample_tick,APP_SAMPLE_PERIOD_US))));note('B');}
+void bls_pm_setAppWakeupLowPower(u32 tick, u8 enable){(void)tick;sdk_wakeup_enabled=enable;}
+void bls_pm_setSuspendMask(u8 mask){sdk_suspend_mask=mask;}
 static void bus_mux_task(void){note('X');}
 static void sif_prepare_task(u32 tick){(void)tick;}
 static void main_loop_modbus(void){note('U');}
-static void app_power_process(const volatile uint8_t *pending){assert(pending==&s_sample_due);note('P');}
-static void bms_state_store_poll(int a,int b,int c){(void)a;(void)b;(void)c;note('F');}
-static struct {int soc_estimate_percent,discharge_fraction_percent,cycle_count;} g_bms_soc;
+static void app_power_process(const volatile uint8_t *pending){assert(pending==&s_sample_due);sdk_suspend_mask=valid&&!*pending?3u:0u;note('P');}
+typedef struct { int unused; } bms_state_store_data_t;
+static bms_state_store_data_t bms_soc_state_snapshot(void){return (bms_state_store_data_t){0};}
+static void bms_state_store_poll_snapshot(const bms_state_store_data_t *data){assert(data);note('F');}
 /* PRODUCTION_SOURCE */
 static void expect(const char *s){assert(!strcmp(calls,s));n=0;calls[0]=0;}
 int main(void){
