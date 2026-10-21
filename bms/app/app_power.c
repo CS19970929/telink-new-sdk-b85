@@ -157,10 +157,12 @@ u8 app_power_boot_sleep_hold(void)
 }
 
 /* 等待原有输入改变，当前静态有效电平不作为拒睡条件。 */
+#if !defined(BMS_PRODUCT_NORMAL_SUSPEND_ENABLE) || BMS_PRODUCT_NORMAL_SUSPEND_ENABLE
 static void app_protective_wakeup_pin(GPIO_PinTypeDef pin)
 {
     cpu_set_gpio_wakeup(pin, gpio_read(pin) ? Level_Low : Level_High, 1);
 }
+#endif
 #endif
 
 /* D008 已请求断电，不再执行低功耗调用；SH 仅重试深睡，不重复写 Flash/AFE。 */

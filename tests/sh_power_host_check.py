@@ -218,7 +218,7 @@ def check_sh_protective_sleep(suspend_enabled=None):
     body += '\n'.join(function(source, signature) for signature in (
         'static u32 app_pm_take_elapsed_seconds(',
         'u8 app_power_boot_sleep_hold(',
-        'static void app_protective_wakeup_pin(', 'static void app_protective_sleep_hold(',
+        'static void app_protective_sleep_hold(',
         'static void app_prepare_deep_sleep(',
         'static void app_enter_protective_sleep(', 'static u8 app_command_sleep_poll(',
         'static u8 app_protective_sleep_poll(',
@@ -228,6 +228,8 @@ def check_sh_protective_sleep(suspend_enabled=None):
     body += function(raw, 'static u8 app_sh_explicit_sleep_poll(')
     import re
     body = '\n'.join(re.findall(r'^#define APP_SH_SWITCH_WAKE_(?:TAG|MASK)[^\n]*', raw, re.M)) + '\n' + body
+    if 'static void app_protective_wakeup_pin(' in source:
+        body += '\n' + function(source, 'static void app_protective_wakeup_pin(')
     body += '\n' + function(source, 'int app_power_before_suspend(')
     body += '\n' + function(source, 'void app_power_process(')
     # 在fixture声明之前选择，确保时钟/SDK替身与生产分支一致。
