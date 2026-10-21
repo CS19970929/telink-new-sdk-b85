@@ -1,5 +1,6 @@
 #include "bms_sleep_status.h"
 #include "bms_time.h"
+#include "bms_stall_diag.h"
 
 /* PM 是唯一写入者，协议在同一主循环读取；不在 ISR 修改，无 Flash 持久化。 */
 static uint16_t s_words[18];
@@ -18,6 +19,7 @@ void bms_sleep_status_publish(uint8_t reason, uint32_t block_mask, uint32_t elap
         (block_mask ? BMS_SLEEP_STATE_BLOCKED : (retry_ms ? BMS_SLEEP_STATE_RETRY :
         (remaining_ms ? BMS_SLEEP_STATE_COUNTING : BMS_SLEEP_STATE_READY)));
     s_words[3] = reason;
+    bms_stall_diag_sleep_reason(reason);
     s_words[4] = suspend_allowed ? 1u : 0u;
     put32(&s_words[6], block_mask);
     put32(&s_words[8], elapsed_ms);

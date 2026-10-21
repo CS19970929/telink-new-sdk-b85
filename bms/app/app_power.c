@@ -144,6 +144,7 @@ u8 app_power_boot_sleep_hold(void)
             cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 1);
             cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN,
                 (retained & 1u) ? Level_Low : Level_High, 1);
+            bms_stall_diag_stage(BMS_STALL_BOOT_HOLD, 0u);
             (void)cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
             return 1u; /* PAD竞争返回后重新检查；ON或其他输入改变才放行。 */
         }
@@ -218,7 +219,7 @@ static void app_prepare_deep_sleep(void)
 /* 命令及到期保护性休眠不受通信、OTA、保存或 AFE 命令成功与否阻断。 */
 static void app_enter_protective_sleep(void)
 {
-    bms_stall_diag_stage(BMS_STALL_DEEP_COMMIT, 0u);
+    bms_stall_diag_deep_commit();
     s_protective_sleep_committed = 1u;
     app_prepare_deep_sleep();
 #if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124

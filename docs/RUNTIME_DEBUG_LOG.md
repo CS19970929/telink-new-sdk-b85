@@ -2,6 +2,7 @@
 
 D014 LED/BLE 同停使用独立、默认关闭的 `BMS_STALL_DIAG_ENABLE`，无需开启本文件的完整日志；
 首次长间隔、PM参数、启动计数和首次AFE事件读取见 [D014 首次停顿取证](D014_STALL_DIAGNOSTICS.md)。
+schema 2还记录跨DeepSleep的调用标记和原因；启动计数变化包含DeepSleep唤醒，不能直接判为异常复位。
 开启后增加少量指令和启动保留寄存器操作，不承诺零时序扰动，production禁止开启。
 
 固件主开发分支为 `codex-bms-monorepo`；Windows 上位机仍在

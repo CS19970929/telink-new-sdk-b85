@@ -6,6 +6,7 @@
 #include "drivers.h"
 #include "bms_diag.h"
 #include "bms_timing.h"
+#include "bms_sleep_config.h"
 
 #if BMS_PRODUCT_ID != 14u || MCU_CORE_TYPE != MCU_CORE_825x
 #error "Stall diagnostic PM/retained-register ownership is reviewed only for D014/B85"
@@ -13,6 +14,13 @@
 #if !PM_TIM_RECOVER_MODE
 #error "Stall diagnostic requires the reviewed B85 PM_TIM_RECOVER_MODE"
 #endif
+#if defined(PM_DEEPSLEEP_RETENTION_ENABLE) && PM_DEEPSLEEP_RETENTION_ENABLE
+#error "Stall diagnostic boot evidence requires DeepSleep retention disabled"
+#endif
+
+#define STALL_DEEP_TAG 0xD0u
+#define STALL_DEEP_UNATTRIBUTED 14u
+#define STALL_DEEP_BOOT_HOLD 15u
 
 enum {
     W_PHASE, W_PHASE_TICK, W_LOOPS, W_SDK_RETURNS, W_SAMPLES,
@@ -27,8 +35,9 @@ enum {
 static uint32_t s_live[STALL_SNAPSHOT_U32], s_first_gap[STALL_SNAPSHOT_U32];
 static uint32_t s_first_afe[8];
 static uint32_t s_afe_flags, s_gap_ms;
-static uint16_t s_boot_words[5];
+static uint16_t s_boot_words[6];
 static uint8_t s_running, s_raw_ready, s_gap_reason, s_resume_stage;
+static uint8_t s_sleep_reason, s_deep_committed;
 static volatile uint32_t s_irq_enters, s_irq_exits, s_irq_source;
 static cpu_pm_handler_t s_pm_driver;
 
@@ -79,12 +88,14 @@ void bms_stall_diag_stage(uint8_t stage, uint32_t detail)
 }
 
 /* RAM wrapper只转交一次原驱动，参数和完整返回值原样保留。
- * 不读取32K/模拟总线，不改变IRQ、唤醒源、期限或PM许可。 */
+ * 普通Suspend不读32K/模拟总线；DeepSleep仅额外维护REG7标记。
+ * 不改变IRQ、唤醒源、期限或PM许可。 */
 static _attribute_ram_code_ int stall_sleep_wakeup(SleepMode_TypeDef mode,
     SleepWakeupSrc_TypeDef sources, unsigned int deadline)
 {
     int result;
     uint32_t elapsed;
+    uint8_t boot_hold = s_live[W_PHASE] == BMS_STALL_BOOT_HOLD;
     ++s_live[W_PM_ENTERS];
     s_live[W_PM_MODE] = mode;
     s_live[W_PM_SOURCE] = sources;
@@ -96,11 +107,21 @@ static _attribute_ram_code_ int stall_sleep_wakeup(SleepMode_TypeDef mode,
     s_live[W_PHASE] = BMS_STALL_PM_ENTER;
     s_live[W_PHASE_TICK] = s_live[W_PM_ENTER];
     s_live[W_DETAIL] = 0u;
+    if (mode == DEEPSLEEP_MODE) {
+        /* REG7由本D014诊断独占：仅DeepSleep尝试时写，不在普通Suspend访问模拟总线。
+         * 记录的是进入驱动的意图；驱动返回时撤销，重新启动时由boot先捕获。
+         * B85 pm.h规定它跨DeepSleep保留、WDT/chip reset/掉电清除。 */
+        uint8_t reason = boot_hold ? STALL_DEEP_BOOT_HOLD :
+            (s_deep_committed ? s_sleep_reason : STALL_DEEP_UNATTRIBUTED);
+        s_live[W_DETAIL] = STALL_DEEP_TAG | (reason & 0x0Fu);
+        analog_write(DEEP_ANA_REG7, (uint8_t)s_live[W_DETAIL]);
+    }
     result = s_pm_driver(mode, sources, deadline);
     /* 必须先保存驱动返回，不能由后面的SDK回调覆盖本次唤醒证据。 */
     s_live[W_PM_RETURN] = clock_time();
     s_live[W_PM_RESULT] = (uint32_t)result;
     ++s_live[W_PM_RETURNS];
+    if (mode == DEEPSLEEP_MODE) analog_write(DEEP_ANA_REG7, 0u);
     s_live[W_TIMER_REGS] = (uint32_t)reg_system_tick_mode |
         ((uint32_t)reg_system_tick_ctrl << 8) | ((uint32_t)REG_ADDR16(0x750) << 16);
     s_live[W_RECOVER_FLAG] = pm_timRecover.recover_flag;
@@ -114,7 +135,8 @@ static _attribute_ram_code_ int stall_sleep_wakeup(SleepMode_TypeDef mode,
 
 /* B85 pm.h允许REG1跨watchdog/chip reset保留，仅掉电清零。
  * 本轮清单及两份B85库未发现直接引用0x3b；REG0/REG2/REG6继续归SDK/原PM。
- * 仅启动读取并递增一次，不在每轮或每次睡眠写模拟寄存器。 */
+ * REG1仅启动递增一次；REG7在启动捕获后清零，另在DeepSleep调用前/返回后记录/撤销。
+ * 普通Suspend及每轮任务不写模拟寄存器。 */
 _attribute_ram_code_ void bms_stall_diag_boot(void)
 {
     uint8_t previous = analog_read(DEEP_ANA_REG1);
@@ -122,7 +144,9 @@ _attribute_ram_code_ void bms_stall_diag_boot(void)
     s_boot_words[1] = REG_ADDR8(0x72); /* 原始WD状态，只读，不清标志。 */
     s_boot_words[2] = analog_read(DEEP_ANA_REG0);
     s_boot_words[3] = analog_read(DEEP_ANA_REG6);
+    s_boot_words[5] = analog_read(DEEP_ANA_REG7);
     analog_write(DEEP_ANA_REG1, (uint8_t)(previous + 1u));
+    analog_write(DEEP_ANA_REG7, 0u);
 }
 
 void bms_stall_diag_install_pm(void)
@@ -140,6 +164,18 @@ void bms_stall_diag_start(void)
     s_live[W_PHASE_TICK] = clock_time();
     s_raw_ready = 0u;
     s_running = 1u; /* 初始化必要等待不触发运行长间断。 */
+}
+
+void bms_stall_diag_sleep_reason(uint8_t reason)
+{
+    /* 只观察PM已经发布的原因，不读取时间或推进策略；未来原因不能截断成旧原因。 */
+    s_sleep_reason = reason <= BMS_SLEEP_REASON_OVERDISCHARGE ? reason : STALL_DEEP_UNATTRIBUTED;
+}
+
+void bms_stall_diag_deep_commit(void)
+{
+    s_deep_committed = 1u;
+    bms_stall_diag_stage(BMS_STALL_DEEP_COMMIT, s_sleep_reason);
 }
 
 void bms_stall_diag_schedule(uint8_t due, uint32_t deadline)
@@ -217,12 +253,14 @@ int bms_stall_diag_read(uint16_t start, uint16_t count, uint8_t *bytes)
         uint16_t value = 0u;
         if (offset < 16u) {
             if (offset == 0u) value = 0x5354u;
-            else if (offset == 1u || offset == 2u) value = 1u;
+            else if (offset == 1u) value = BMS_STALL_DIAG_SCHEMA;
+            else if (offset == 2u) value = 1u;
             else if (offset == 3u) value = BMS_STALL_DIAG_WORDS;
             else if (offset == 4u) value = s_gap_reason;
             else if (offset == 5u) value = s_resume_stage;
             else if (offset < 8u) value = (uint16_t)(BMS_DIAG_BUILD_ID >> ((7u-offset)*16u));
             else if (offset < 13u) value = s_boot_words[offset-8u];
+            else if (offset == 13u) value = s_boot_words[5];
             else if (offset == 14u) value = (uint16_t)(s_gap_ms >> 16);
             else if (offset == 15u) value = (uint16_t)s_gap_ms;
         } else {

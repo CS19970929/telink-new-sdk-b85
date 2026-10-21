@@ -121,7 +121,7 @@ python bms_tools/bms.py --product d014 resources
 | [SOC v3重构说明（2026-10-20）](docs/SOC_REFACTOR_20261020.md) | 已确认参数、候选曲线、State4→5迁移、配套上位机及未执行验收 |
 | [Flash 与持久化](docs/STORAGE.md) | Config/State/Event、SOC 持久化、低功耗及事务 |
 | [运行阶段日志](docs/RUNTIME_DEBUG_LOG.md) | 开发日志、只读协议、开关及固定提交资源记录 |
-| [D014 首次停顿取证](docs/D014_STALL_DIAGNOSTICS.md) | SH 部分状态WDT修正、独立RAM快照、启动计数和故障后读取 |
+| [D014 首次停顿取证](docs/D014_STALL_DIAGNOSTICS.md) | SH 部分状态WDT修正、独立RAM快照、启动/DeepSleep标记及基线判读 |
 | [SH 低功耗失败处理](docs/SH_LOW_POWER_FAILURE_HANDLING.md) | 开关/低压强制深睡、UART静默1秒Suspend及首帧唤醒 |
 | [四产品 MCU Suspend 降功耗分析与实现](docs/MCU_SUSPEND_POWER_RESEARCH_20261020.md) | 保持200ms采样、任务间Suspend、1秒通信窗口和D008接入唤醒；源码已改，未编译/测试/实板验收 |
 | [四产品保护性休眠](docs/LOW_POWER_POLICY.md) | 低压、AFE 异常到期 D008 断电、SH 深睡与唤醒 |

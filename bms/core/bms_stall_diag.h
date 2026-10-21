@@ -5,6 +5,7 @@
 #include "bms_diag_config.h"
 
 #define BMS_STALL_DIAG_BASE 0x3A00u
+#define BMS_STALL_DIAG_SCHEMA 2u
 #define BMS_STALL_DIAG_WORDS 160u
 #define BMS_STALL_DIAG_END (BMS_STALL_DIAG_BASE + BMS_STALL_DIAG_WORDS)
 #define BMS_STALL_AFE_WDT_OBSERVED 0x0100u
@@ -14,7 +15,7 @@ enum {
     BMS_STALL_SDK_RETURN, BMS_STALL_UART, BMS_STALL_SAMPLE_BEGIN,
     BMS_STALL_SAMPLE_END, BMS_STALL_STORAGE, BMS_STALL_PROTOCOL,
     BMS_STALL_POWER, BMS_STALL_PM_ENTER, BMS_STALL_PM_RETURN,
-    BMS_STALL_APP_WAKE, BMS_STALL_DEEP_COMMIT
+    BMS_STALL_APP_WAKE, BMS_STALL_DEEP_COMMIT, BMS_STALL_BOOT_HOLD
 };
 enum {
     BMS_STALL_GAP_NONE=0, BMS_STALL_GAP_PHASE, BMS_STALL_GAP_SDK,
@@ -31,6 +32,8 @@ static inline int bms_stall_diag_overlaps(uint16_t start, uint16_t count)
 void bms_stall_diag_boot(void);
 void bms_stall_diag_install_pm(void);
 void bms_stall_diag_start(void);
+void bms_stall_diag_sleep_reason(uint8_t reason);
+void bms_stall_diag_deep_commit(void);
 void bms_stall_diag_stage(uint8_t stage, uint32_t detail);
 void bms_stall_diag_schedule(uint8_t due, uint32_t deadline);
 void bms_stall_diag_time(uint32_t raw_tick);
@@ -45,6 +48,8 @@ int bms_stall_diag_read(uint16_t start, uint16_t count, uint8_t *bytes);
 #define bms_stall_diag_boot() ((void)0)
 #define bms_stall_diag_install_pm() ((void)0)
 #define bms_stall_diag_start() ((void)0)
+#define bms_stall_diag_sleep_reason(reason) ((void)0)
+#define bms_stall_diag_deep_commit() ((void)0)
 #define bms_stall_diag_stage(stage, detail) ((void)0)
 #define bms_stall_diag_schedule(due, deadline) ((void)0)
 #define bms_stall_diag_time(raw_tick) ((void)0)
@@ -62,7 +67,7 @@ static inline int bms_stall_diag_read(uint16_t start, uint16_t count, uint8_t *b
     for (i = 0u; i < count; ++i) {
         uint16_t offset = (uint16_t)(start - BMS_STALL_DIAG_BASE + i);
         uint16_t value = offset == 0u ? 0x5354u :
-            (offset == 1u ? 1u : (offset == 3u ? BMS_STALL_DIAG_WORDS : 0u));
+            (offset == 1u ? BMS_STALL_DIAG_SCHEMA : (offset == 3u ? BMS_STALL_DIAG_WORDS : 0u));
         bytes[2u*i] = (uint8_t)(value >> 8);
         bytes[2u*i+1u] = (uint8_t)value;
     }

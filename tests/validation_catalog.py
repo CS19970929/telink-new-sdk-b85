@@ -28,7 +28,7 @@ register('configuration', ('d014',), '源码 contract；板级源码 contract', 
 register('protection', ('d014',), '提取函数场景', 'd014_defaults_host_check')
 register('protection', ('d014',), '22 个原始生产 TU 与 SPI/Flash 端口模型', 'd014_safety_loop_host_check')
 register('diagnostics', PRODUCTS, '生产代码与环境替身', 'diagnostics_host_check')
-register('diagnostics', ('d014',), '真实诊断函数体与PM/寄存器替身；不证明长期Suspend', 'stall_diag_host_check')
+register('diagnostics', ('d014',), '真实诊断/休眠发布与PM替身、跨启动标记模型及基线判读；不证明物理复位或长期Suspend', 'stall_diag_host_check')
 register('afe', ('d008',), '提取函数故障注入', 'dvc1124_fixed_policy_host_check')
 register('afe', ('d008',), '实际DVC读取/采样函数体与原厂RC事件向量', 'dvc_adc_events_host_check')
 register('afe', ('d008',), '真实初始化/SCD配置函数与RAM I2C及关闭反馈/失败注入', 'dvc_startup_protection_host_check')
@@ -78,7 +78,7 @@ SOURCES = {
     'soc': ['bms/core/bms_soc.c', 'bms/core/bms_soc_eta.c', 'bms/app/app.c'],
     'storage': ['bms/core/storage_record.c', 'bms/core/bms_config_store.c', 'bms/core/bms_state_store.c', 'bms/core/bms_event_log.c'],
     'protocol': ['bms/core/modbus_rtu.c', 'bms/core/bms_sleep_status.c', 'bms/core/bms_parameter_access.c', 'bms/platform/telink/modbus_uart.c'],
-    'diagnostics': ['bms/core/bms_diag.c', 'bms/core/bms_debug_log.c', 'bms/core/bms_stall_diag.h', 'bms/platform/telink/bms_stall_diag.c'],
+    'diagnostics': ['bms/core/bms_diag.c', 'bms/core/bms_debug_log.c', 'bms/core/bms_stall_diag.h', 'bms/core/bms_sleep_status.c', 'bms/platform/telink/bms_stall_diag.c'],
     'power': ['bms/app/app.c', 'bms/app/app_power.c', 'bms/core/bms_afe_guard.c'],
     'tooling': ['bms_tools', 'tests'],
 }
