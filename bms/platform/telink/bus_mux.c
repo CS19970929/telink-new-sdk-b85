@@ -20,7 +20,7 @@
 #define RX_HIGH_STABLE_US      (50u * 1000u)
 #define UART_DETECT_WINDOW_US  2500u
 #define UART_FALL_MIN_COUNT    3u
-#define UART_IDLE_BACK_US      (1000u * 1000u)
+#define UART_IDLE_BACK_US      (10000u * 1000u)
 #define COMM_WAKE_HOLD_US      (1000u * 1000u)
 
 /* 取得通信复用状态机使用的系统 tick。 */
