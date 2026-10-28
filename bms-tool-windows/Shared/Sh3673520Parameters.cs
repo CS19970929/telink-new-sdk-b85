@@ -108,10 +108,16 @@ public static class Sh3520Parameters
             f.Add(new(temps[n]+"恢复","℃","-40～100；必须满足独立硬件滞回",(short)w[i],
                 (a,v)=>a[i]=unchecked((ushort)(short)Integral(v,-40,100))));
         }
-        f.Add(new("过流恢复电流上限","mA","100～65500，步进 100",w[20],(a,v)=>a[20]=(ushort)Integral(v,100,65500,100)));
+        int recoveryCurrentStep = w[24] == 0xD015 ? 1 : 100;
+        f.Add(new("过流恢复电流上限","mA",$"100～65500，步进 {recoveryCurrentStep}",w[20],(a,v)=>a[20]=(ushort)Integral(v,100,65500,recoveryCurrentStep)));
         f.Add(new("硬件恢复稳定时间","ms","200～65400，步进 200",w[21],(a,v)=>a[21]=(ushort)Integral(v,200,65400,200)));
         string[] flags={"过压","欠压","放电过流","短路","TS1 温度","TS2 温度","TS3 温度","TS4 温度","充电过流"};
-        for(int bit=0;bit<flags.Length;bit++) Number(flags[bit]+"使能","0/1",22,bit,1,1,0,0,1);
+        for(int bit=0;bit<flags.Length;bit++) {
+            int index = bit;
+            bool fixedBoard = w[24] == 0xD015;
+            f.Add(new(flags[bit]+"使能", "0/1", fixedBoard ? "本板固定" : "0～1", (w[22]>>bit)&1,
+                (a,v)=>SetBits(a,22,index,1,Integral(v,0,1)), !fixedBoard));
+        }
         return f;
     }
     public static List<Sh3520Field> SoftwareFields(ushort[] w)
@@ -133,6 +139,23 @@ public static class Sh3520Parameters
         }
         return f;
     }
+    public static void VerifyApplied(ushort[] requested, ushort[] actual)
+    {
+        CheckIdentity(actual);
+        for (int i = 0; i < ParameterWords; i++)
+        {
+            if (i >= 6 && i < 14)
+            {
+                if ((i & 1) != 0) continue;
+                uint a = U32(requested, i), b = U32(actual, i);
+                uint Code(uint r) => r <= 203750u ? (uint)(((ulong)r * 512u + (10000u + r) / 2u) / (10000u + r)) : throw new IOException("NTC 读回范围错误。");
+                if (Code(a) == Code(b)) continue;
+            }
+            else if (requested[i] == actual[i]) continue;
+            throw new IOException($"3520 参数读回不一致（word {i}）；请重新读取，不自动重试。");
+        }
+    }
+
     public static ushort[] Build(ushort[] original,IEnumerable<Sh3520Field> fields,bool hardware)
     {
         var w=original.Take(24).ToArray(); foreach(var f in fields) f.Apply(w);

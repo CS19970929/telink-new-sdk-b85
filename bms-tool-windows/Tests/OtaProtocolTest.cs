@@ -78,6 +78,32 @@ class Program
             catch (InvalidDataException) { badCrcRejected = true; }
             Check(badCrcRejected, "invalid Telink CRC trailer accepted");
 
+            byte[] hs = new byte[2049];
+            BitConverter.GetBytes(0x20002000u).CopyTo(hs, 0);
+            BitConverter.GetBytes(0x08002881u).CopyTo(hs, 4);
+            FirmwareImage.ValidateHsD015(hs);
+            // IEEE CRC32 golden value from Python zlib, including FF page padding.
+            Check(FirmwareImage.HsD015PaddedCrc32(hs) == 0x4608A0FAu, "HS-D015 padded CRC golden");
+            string hsPath = Path.Combine(tempRoot, "hs-d015-test.dat");
+            File.WriteAllBytes(hsPath, hs);
+            Check(FirmwareImage.LoadForTarget(hsPath, OtaTargetKind.Stm32SerialIap).ImageSize == hs.Length, "SRAM stack top is valid");
+            foreach (uint badStack in new[] { 0x200000F8u, 0x20000101u, 0x20002008u }) {
+                BitConverter.GetBytes(badStack).CopyTo(hs, 0);
+                bool refused = false;
+                try { FirmwareImage.ValidateHsD015(hs); } catch (InvalidDataException) { refused = true; }
+                Check(refused, "HS-D015 stack reserve/alignment/bounds");
+            }
+            BitConverter.GetBytes(0x20002000u).CopyTo(hs, 0);
+            foreach (uint badPc in new[] { 0x08001C81u, 0x08002880u, 0x08009001u }) {
+                BitConverter.GetBytes(badPc).CopyTo(hs, 4);
+                bool refused = false;
+                try { FirmwareImage.ValidateHsD015(hs); } catch (InvalidDataException) { refused = true; }
+                Check(refused, "HS-D015 APP address/thumb/image end");
+            }
+            bool tooLarge = false;
+            try { FirmwareImage.ValidateHsD015(new byte[23553]); } catch (InvalidDataException) { tooLarge = true; }
+            Check(tooLarge, "HS-D015 must reject 24th page");
+
             var transport = new FakeOtaTransport();
             var client = new TelinkOtaClient(transport);
             bool result = await client.UpgradeAsync(image, OtaTransferMode.LegacyFast, CancellationToken.None);

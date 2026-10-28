@@ -890,7 +890,6 @@ public partial class MainWindow : Window
         if (_otaRunning || _shBusy || _diagBusy) return;
         try
         {
-            if(_bms?.IsSh3520==true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
             string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
             ulong address = _connectedAddress ?? 0;
             if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)

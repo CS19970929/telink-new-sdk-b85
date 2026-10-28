@@ -2,7 +2,6 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using Windows.Devices.Bluetooth.GenericAttributeProfile;
 
 namespace BmsTool.Windows;
 
@@ -17,6 +16,8 @@ public sealed class Stm32SerialBleOtaClient
     // is zero. A page is therefore acknowledged as quantity=1024, not 512.
     private const ushort PageTransferLength = 1024;
     private const int PageSize = 1024;
+    // IAP resets 200 ms after COMPLETE, then retains its normal 2 s recovery window.
+    private const int HsD015BootWindowAndStartupDelayMs = 2600;
     private const int MaxPageCount = FirmwareImage.Stm32AppCapacity / PageSize;
     // The BLE MTU is not the same as the transparent UART buffer capacity.
     // The supplied IAP UART is 19200 8N1 without flow control, so use the
@@ -54,6 +55,28 @@ public sealed class Stm32SerialBleOtaClient
         if (pageCount is <= 0 or > MaxPageCount)
             throw new InvalidDataException($"STM32 APP 页数非法：{pageCount}，最大 {MaxPageCount} 页。");
 
+        bool hsD015 = false;
+        // Probe before ENTER; incompatible images must never put the board into IAP.
+        await using (var probe = new BmsClient(_transport))
+        {
+            try
+            {
+                var w = await probe.ReadRegistersAsync(0x2500, 32, ct);
+                if (w[0] == 0x3520)
+                {
+                    if (w[1] != 1 || w[24] != 0xD015 || w[28] != 23 ||
+                        w[29] != 0x2800 || w[30] != 0x0800 || w[31] != 24)
+                        throw new InvalidDataException("3520 设备未声明 HS-D015 安全 IAP 边界；未发送升级命令。");
+                    FirmwareImage.ValidateHsD015(image.Bytes);
+                    hsD015 = true;
+                }
+            }
+            catch (BmsModbusException ex) when (ex.Code is 1 or 2 or 3)
+            {
+                // Deployed legacy STM32 IAP has no 3520 capability window.
+            }
+        }
+
         _transport.DataReceived += OnDataReceived;
         try
         {
@@ -88,6 +111,22 @@ public sealed class Stm32SerialBleOtaClient
             Log?.Invoke("TX STM32 IAP COMPLETE " + Convert.ToHexString(complete));
             await SendAndWaitAsync(complete, FlashComplete, 1, ct);
             Log?.Invoke("RX STM32 IAP COMPLETE ACK; device will reset to APP");
+            if (hsD015)
+            {
+                // COMPLETE ACK is not proof that the new application is running.
+                await Task.Delay(HsD015BootWindowAndStartupDelayMs, ct);
+                await _transport.ReconnectAsync(ct);
+                await using var verify = new BmsClient(_transport);
+                await verify.ProbeAsync(ct);
+                var board = await verify.ReadRegistersAsync(0xD130, 2, ct);
+                var installed = await verify.ReadRegistersAsync(0xD13D, 3, ct);
+                uint crc = ((uint)installed[0] << 16) | installed[1];
+                int paddedLength = (image.ImageSize + 1023) / 1024 * 1024;
+                if (board[0] != 0xD015 || board[1] != 0x0320 ||
+                    installed[2] != paddedLength || crc != FirmwareImage.HsD015PaddedCrc32(image.Bytes))
+                    throw new IOException("HS-D015 升级后镜像 CRC/长度或板型未确认；结果未知，请重新连接读取。");
+                Log?.Invoke($"HS-D015 APP verified; installed CRC32={crc:X8}; bytes={paddedLength}");
+            }
             return true;
         }
         finally

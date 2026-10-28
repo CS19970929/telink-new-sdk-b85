@@ -96,7 +96,8 @@ public partial class MainWindow
         await ParameterRunAsync(async (client, ct) => {
             await client.WriteD008SerialAsync(serial, ct);
             if (!ReferenceEquals(client, _bms)) throw new InvalidOperationException("连接已改变，请重新读取 SN。");
-            await RefreshIdentityAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            await RefreshIdentityAsync();
         }, operation: "保存 SN", requiresUnlock: false);
     }
 }
