@@ -18,11 +18,14 @@ class Program {
   Check(b.Current[0]==400&&b.Current[5]==300,"completed group retained");
   var all=new Dictionary<ushort,ushort>();for(int g=0;g<13;g++)all[(ushort)(0x2104+5*g)]=20;
   Check(ProtectionBatch.Plan(Initial(),all).Count==13,"all groups");
+  var d015=Initial();
+  Check(ProtectionBatch.Plan(d015,new Dictionary<ushort,ushort>{{0x2101,0}},true).Count==1,"D015 per-level disable");
   Console.WriteLine("PASS batch: transient-invalid sequence, 13 groups, 19-byte frames, preflight, partial failure");
  }
 }
 namespace BmsTool.Windows {
  public sealed partial class BmsClient {
+  public bool IsD015 {get;set;}
   public ushort[] Current=new ushort[65];public int Writes,MaxFrame;public ushort FailAddress;
   public Task<ushort[]> ReadProtectionAllAsync(CancellationToken ct)=>Task.FromResult((ushort[])Current.Clone());
   public Task<ushort[]> ReadRegistersAsync(ushort a,ushort n,CancellationToken ct)=>Task.FromResult(Current.AsSpan(a-0x2100,n).ToArray());

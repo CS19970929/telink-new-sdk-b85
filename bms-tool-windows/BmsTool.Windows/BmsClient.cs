@@ -1,4 +1,4 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
 using System.IO;
 using System.Diagnostics;
 using System.Text;
@@ -258,13 +258,17 @@ public sealed partial class BmsClient : IAsyncDisposable
     }
 
     public bool IsSh3520 { get; private set; }
+    public bool IsD015 { get; private set; }
 
     public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default)
     {
         if (quantity is 0 or > 125) throw new ArgumentOutOfRangeException(nameof(quantity), "Modbus 0x03 quantity must be 1..125.");
         byte[] rsp = await TransactAsync(ModbusRtu.ReadHolding(start, quantity), ct).ConfigureAwait(false);
         ushort[] words=ModbusRtu.ParseRead(rsp, quantity);
-        if(start==Sh3520Parameters.HardwareBase && words.Length>=2) IsSh3520=words[0]==Sh3520Parameters.Magic;
+        if(start==Sh3520Parameters.HardwareBase && words.Length>=2) {
+            IsSh3520=words[0]==Sh3520Parameters.Magic;
+            if(words[0]==1 && words[1]==0x3520) IsD015=true;
+        }
         return words;
     }
 
@@ -394,6 +398,11 @@ public sealed partial class BmsClient : IAsyncDisposable
         string serial = ModbusRtu.DecodeAscii(sn);
         string hardware = ModbusRtu.DecodeAscii(hw);
         string software = ModbusRtu.DecodeAscii(sw);
+        if (hardware.StartsWith("HS-D015", StringComparison.Ordinal)) {
+            var product = await ReadRegistersAsync(0xD130, 2, ct);
+            IsD015 = product[0] == 0xD015 && product[1] == 0x0320;
+            if (!IsD015) throw new IOException("D015硬件字符串与产品身份不一致，禁止继续写入或升级。");
+        }
         return new DeviceIdentity(
             macText,
             string.IsNullOrWhiteSpace(serial) ? "未知" : serial,

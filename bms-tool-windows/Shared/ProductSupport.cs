@@ -18,6 +18,9 @@ public static class ProductSupportMatrix
     public static IReadOnlyList<ProductSupportProfile> Products { get; } =
         new ProductSupportProfile[]
         {
+            new("D015", "SH3673520", "0x3520", 0, 2, true, null,
+                "D015 C firmware interop: realtime, protection, MTU23 commit and current calibration",
+                "no D015 physical board validation in this cycle"),
             new(
                 "D008", "DVC1124", "0x1124", 1, 3, true, 2,
                 "firmware build, host contracts, unified diagnostics and client protocol",

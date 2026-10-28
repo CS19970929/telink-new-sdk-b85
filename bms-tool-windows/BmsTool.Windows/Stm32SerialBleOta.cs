@@ -32,6 +32,7 @@ public sealed class Stm32SerialBleOtaClient
     private readonly List<byte> _rx = new();
     private TaskCompletionSource<byte[]>? _pending;
 
+    public bool RequireD015Image { get; init; }
     public event Action<string>? Log;
     public event Action<Stm32OtaProgress>? Progress;
 
@@ -49,6 +50,8 @@ public sealed class Stm32SerialBleOtaClient
             throw new InvalidDataException("STM32 串口 IAP OTA 只能使用 STM32 APP BIN。");
         if (image.ImageSize is <= 0 or > FirmwareImage.Stm32AppCapacity)
             throw new InvalidDataException($"STM32 APP BIN 超出 55 KB APP 区：{image.ImageSize} bytes。");
+
+        if (RequireD015Image || image.HasD015Identity) image.ValidateD015Image();
 
         int pageCount = (image.ImageSize + PageSize - 1) / PageSize;
         if (pageCount is <= 0 or > MaxPageCount)

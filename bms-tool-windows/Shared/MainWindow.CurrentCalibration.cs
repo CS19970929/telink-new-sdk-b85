@@ -29,7 +29,7 @@ public partial class MainWindow
     private void AddCurrentCalibrationControls(StackPanel root)
     {
         root.Children.Add(new TextBlock { Text = "电流校准", FontWeight = FontWeights.Bold, Margin = new Thickness(4,12,4,4) });
-        root.Children.Add(new TextBlock { Text = "零点：断开充电器和负载，确认电流表为零。加载点：在产品允许范围内接稳定电流，输入电流表实测值，不能输入设备设定值。采集期间不要重启。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
+        root.Children.Add(new TextBlock { Text = "零点：断开充电器和负载，确认电流表为零。加载点：在产品允许范围内接稳定电流，输入电流表实测值，不能输入设备设定值。采集期间不要重启。D015采集加载点时可闭合开关；保存/恢复参数前断开开关并等待MOS关闭，设备会冻结启动自动零点。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
         root.Children.Add(_currentCalibrationStatus);
         _currentCalibrationDirection.Items.Add("放电"); _currentCalibrationDirection.Items.Add("充电");
         _currentCalibrationDirection.SelectedIndex = 0;

@@ -18,6 +18,8 @@ public static class AfeHardwareProtocolMap
 
     public const ushort ModelDvc1124 = 0x1124;
     public const ushort ModelSh3673510 = 0x3510;
+    public const ushort ModelSh3673520 = 0x3520;
+    public static bool IsSh(ushort model) => model is ModelSh3673510 or ModelSh3673520;
 
     public const ushort CapCov = 1 << 0;
     public const ushort CapCuv = 1 << 1;
@@ -31,6 +33,7 @@ public static class AfeHardwareProtocolMap
     public static string BackendName(ushort model) => model switch
     {
         ModelDvc1124 => "DVC1124",
+        ModelSh3673520 => "D015 / SH3673520",
         ModelSh3673510 => "SH35xx (SH3673510/SH3673520 backend)",
         _ => $"Unknown 0x{model:X4}"
     };
@@ -60,8 +63,10 @@ public sealed record AfeHardwareDeviceInfo(
         if (!HasExactShunt) return uint.MaxValue; // 未知比例交由设备校验，不能按667猜测。
         ulong numerator = (ulong)requested * ShuntElementMicroOhm;
         ulong denominator = stepUv * 10UL * ShuntParallelCount;
-        ulong steps = Math.Min(maximumCode + 1UL, Math.Max(1UL, (numerator + denominator - 1) / denominator));
-        return (uint)Math.Min(65535UL, (steps * denominator + ShuntElementMicroOhm - 1UL) / ShuntElementMicroOhm);
+        ulong steps = Math.Min(maximumCode + 1UL, Math.Max(1UL, (BackendModel == AfeHardwareProtocolMap.ModelSh3673520 ? numerator / denominator : (numerator + denominator - 1) / denominator)));
+        return (uint)Math.Min(65535UL, BackendModel == AfeHardwareProtocolMap.ModelSh3673520
+            ? steps * denominator / ShuntElementMicroOhm
+            : (steps * denominator + ShuntElementMicroOhm - 1UL) / ShuntElementMicroOhm);
     }
     public string BackendName => AfeHardwareProtocolMap.BackendName(BackendModel);
     public string ApplyStateText => ApplyState switch
@@ -96,6 +101,7 @@ public sealed class AfeParameterRow : INotifyPropertyChanged
     private string _editValue = string.Empty;
     private string _enabledText = "—";
 
+    public ushort EnableMask { get; init; }
     public required int WireIndex { get; init; }
     public required ushort CapabilityMask { get; init; }
     public required string Group { get; init; }
@@ -240,9 +246,22 @@ public sealed class AfeHardwareParameterModel
                 error = $"{row.Group} / {row.Name}: {encoded.Error}";
                 return false;
             }
-            raw[row.WireIndex] = encoded.Wire;
+            if (row.EnableMask != 0)
+                raw[34] = (ushort)((raw[34] & ~row.EnableMask) | (encoded.Wire != 0 ? row.EnableMask : 0));
+            else raw[row.WireIndex] = encoded.Wire;
         }
 
+        if (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673520)
+        {
+            if (raw[14] is <1 or >20)
+            { error="D015过流恢复电流范围为0.1～2.0A，步进0.1A。";return false; }
+            foreach(int index in new[]{5,9,15,21})
+                if(raw[index] is <200 or >65000)
+                { error="D015硬件恢复稳定时间范围为200～65000ms。";return false; }
+            raw[20] = raw[14]; // D015共用过流恢复电流，界面只提供一个编辑项。
+            if ((raw[34] & 12) is not (0 or 12))
+            { error = "3520 的 OCD1/OCD2 共用使能，必须共同开启或关闭。"; return false; }
+        }
         if (raw[0] != 1 || raw[1] != _deviceInfo.BackendModel)
         {
             error = "Schema/backend identity is immutable.";
@@ -255,7 +274,7 @@ public sealed class AfeHardwareParameterModel
         }
 
         ushort en = raw[34];
-        if (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510)
+        if (AfeHardwareProtocolMap.IsSh(_deviceInfo.BackendModel))
         {
             foreach (var limit in ShDelayLimits)
             {
@@ -305,11 +324,11 @@ public sealed class AfeHardwareParameterModel
         { error = "单体过压恢复值必须小于保护值。"; return false; }
         if ((en & AfeHardwareProtocolMap.CapCuv) != 0 && (raw[6] == 0 || raw[8] <= raw[6]))
         { error = "单体欠压恢复值必须大于保护值。"; return false; }
-        if ((en & AfeHardwareProtocolMap.CapOcd1) != 0 && (raw[10] == 0 || raw[14] >= (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 ? _deviceInfo.EffectiveShCurrent(raw[10], 5000u, 15u) : raw[10])))
+        if ((en & AfeHardwareProtocolMap.CapOcd1) != 0 && (raw[10] == 0 || raw[14] >= (AfeHardwareProtocolMap.IsSh(_deviceInfo.BackendModel) ? _deviceInfo.EffectiveShCurrent(raw[10], 5000u, 15u) : raw[10])))
         { error = "放电过流恢复值必须小于 OCD1 阈值。"; return false; }
-        if ((en & AfeHardwareProtocolMap.CapOcd2) != 0 && (raw[12] == 0 || raw[14] >= (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 ? _deviceInfo.EffectiveShCurrent(raw[12], 10000u, 15u) : raw[12])))
+        if ((en & AfeHardwareProtocolMap.CapOcd2) != 0 && (raw[12] == 0 || raw[14] >= (AfeHardwareProtocolMap.IsSh(_deviceInfo.BackendModel) ? _deviceInfo.EffectiveShCurrent(raw[12], 10000u, 15u) : raw[12])))
         { error = "放电过流恢复值必须小于 OCD2 阈值。"; return false; }
-        if ((en & AfeHardwareProtocolMap.CapOcc1) != 0 && (raw[16] == 0 || raw[20] >= (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 ? _deviceInfo.EffectiveShCurrent(raw[16], 1375u, 31u) : raw[16])))
+        if ((en & AfeHardwareProtocolMap.CapOcc1) != 0 && (raw[16] == 0 || raw[20] >= (AfeHardwareProtocolMap.IsSh(_deviceInfo.BackendModel) ? _deviceInfo.EffectiveShCurrent(raw[16], 1375u, 31u) : raw[16])))
         { error = "充电过流恢复值必须小于 OCC1 阈值。"; return false; }
         if ((en & AfeHardwareProtocolMap.CapOcc2) != 0 && (raw[18] == 0 || raw[20] >= raw[18]))
         { error = "充电过流恢复值必须小于 OCC2 阈值。"; return false; }
@@ -333,7 +352,7 @@ public sealed class AfeHardwareParameterModel
 
     public string DescribeLegacyDelayCorrections(ushort[] candidate)
     {
-        if (_deviceInfo?.BackendModel != AfeHardwareProtocolMap.ModelSh3673510) return string.Empty;
+        if ((_deviceInfo is null || !AfeHardwareProtocolMap.IsSh(_deviceInfo.BackendModel))) return string.Empty;
         var changes = new List<string>();
         foreach (var limit in ShDelayLimits)
         {
@@ -352,6 +371,24 @@ public sealed class AfeHardwareParameterModel
     private void BuildRows(ushort caps)
     {
         Rows.Clear();
+        if (_deviceInfo!.BackendModel == AfeHardwareProtocolMap.ModelSh3673520)
+        {
+            foreach (var item in new (ushort Mask,string Name)[] {
+                (1,"过压使能"),(2,"欠压使能"),(12,"放电过流1/2使能"),
+                (16,"充电过流使能"),(64,"短路使能"),(128,"TS1/TS2温度保护使能")})
+            {
+                ushort mask=item.Mask;
+                Rows.Add(new AfeParameterRow {
+                    WireIndex=34, EnableMask=mask, CapabilityMask=mask,
+                    Group="硬件保护使能",Name=item.Name,Unit="0/1",
+                    Hint="0=关闭，1=启用；3520 OCD1/OCD2共同控制，未安装TS3/4不开放。Powerdown固定关闭。",
+                    Decode=v=>(v&mask)==mask?"1":"0",
+                    Encode=text=>text.Trim() switch {
+                        "0"=>(true,(ushort)0,string.Empty), "1"=>(true,(ushort)1,string.Empty),
+                        _=>(false,(ushort)0,"只能输入0或1。") }
+                });
+            }
+        }
         if ((caps & AfeHardwareProtocolMap.CapCov) != 0)
         {
             Rows.Add(U16Row(2, AfeHardwareProtocolMap.CapCov, "单体过压", "保护电压", "mV", 1, 6000));
@@ -397,11 +434,13 @@ public sealed class AfeHardwareParameterModel
             (caps & (AfeHardwareProtocolMap.CapOcc1 | AfeHardwareProtocolMap.CapOcc2)) != 0)
         {
             ushort cap = (ushort)(AfeHardwareProtocolMap.CapOcc1 | AfeHardwareProtocolMap.CapOcc2);
-            Rows.Add(CurrentRow(20, cap, "充电过流", "MCU恢复电流"));
+            if (_deviceInfo.BackendModel != AfeHardwareProtocolMap.ModelSh3673520)
+                Rows.Add(CurrentRow(20, cap, "充电过流", "MCU恢复电流"));
             Rows.Add(U16Row(21, cap, "充电过流", "MCU恢复确认", "ms", 0, ushort.MaxValue));
         }
         if ((caps & AfeHardwareProtocolMap.CapSc) != 0)
         {
+            if (_deviceInfo.BackendModel != AfeHardwareProtocolMap.ModelSh3673520)
             Rows.Add(new AfeParameterRow {
                 WireIndex=34, CapabilityMask=AfeHardwareProtocolMap.CapSc,
                 Group="短路保护", Name="SCD 使能", Unit="0/1",
@@ -437,7 +476,7 @@ public sealed class AfeHardwareParameterModel
     }
 
     private bool CanCalculateShortRange => _deviceInfo is not null &&
-        ((_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673510 && _deviceInfo.HasExactShunt) ||
+        ((AfeHardwareProtocolMap.IsSh(_deviceInfo.BackendModel) && _deviceInfo.HasExactShunt) ||
          (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelDvc1124 && _deviceInfo.ShuntMicroOhm != 0));
 
     // 原厂 SH p37：SC 为量化后 OCD2 感测压降的 2/3/4/6 倍；不从已取整的有效电流反推。
@@ -461,7 +500,7 @@ public sealed class AfeHardwareParameterModel
         ulong requested = ocd2A10 * element;
         if (requested < firstStep || requested > 16UL * firstStep)
         { hint = "请先输入当前分流器可实现的 OCD2 阈值，短路基准依赖 OCD2，即使 OCD 关闭也不能省略"; return false; }
-        ulong sense = ((requested + firstStep - 1UL) / firstStep) * firstStep;
+        ulong sense = (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673520 ? requested / firstStep : (requested + firstStep - 1UL) / firstStep) * firstStep;
         uint[] multiples = { 2, 3, 4, 6 };
         var supported = multiples.Where(k => (sense * k + element - 1UL) / element <= ushort.MaxValue).ToArray();
         if (supported.Length == 0)
@@ -470,7 +509,7 @@ public sealed class AfeHardwareParameterModel
         maximumA10 = (uint)(supported.Last() * sense / element);
         string steps = string.Join("、", supported.Select(k => FormatCurrent((uint)((sense * k + element - 1UL) / element))));
         hint = $"基于当前编辑的 OCD2（量化后 {FormatCurrent((uint)((sense + element - 1UL) / element))} A），" +
-            $"短路按 2/3/4/6 倍选档；可用有效档位 {steps} A。请求向上量化，改 OCD2 后请重新核对短路电流。" +
+            $"短路按 2/3/4/6 倍选档；可用有效档位 {steps} A。D015向下选保护档，3510沿用原量化规则；改 OCD2 后请重新核对短路电流。" +
             "短路恢复使用可靠反向充电，或连续 10 轮负载移除观察后清标志并读回，不使用保留的恢复时间字段";
         return maximumA10 >= minimumA10;
     }
@@ -497,14 +536,16 @@ public sealed class AfeHardwareParameterModel
         {
             ulong element = _deviceInfo.ShuntElementMicroOhm;
             ulong step = 10000UL * 10UL * _deviceInfo.ShuntParallelCount;
-            ulong sense = ((_requested[12] * element + step - 1UL) / step) * step;
+            ulong numerator = _requested[12] * element;
+            ulong sense = (_deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673520 ? numerator / step : (numerator + step - 1UL) / step) * step;
             uint[] multiples = { 2, 3, 4, 6 };
             foreach (uint multiple in multiples)
             {
-                ulong requested = sense * multiple / element;
-                ulong effective = (sense * multiple + element - 1UL) / element;
+                bool d015 = _deviceInfo.BackendModel == AfeHardwareProtocolMap.ModelSh3673520;
+                ulong requested = d015 ? (sense * multiple + element - 1UL) / element : sense * multiple / element;
+                ulong effective = d015 ? sense * multiple / element : (sense * multiple + element - 1UL) / element;
                 if (requested < minimum || requested > maximum || effective > ushort.MaxValue) continue;
-                uint selected = multiples.First(k => requested * element <= sense * k);
+                uint selected = d015 ? multiples.Last(k => requested * element >= sense * k) : multiples.First(k => requested * element <= sense * k);
                 if (selected != multiple) continue;
                 result.Add(new((ushort)requested, (ushort)effective,
                     $"{FormatCurrent((uint)effective)} A（{multiple} × OCD2，保存请求 {FormatCurrent((uint)requested)} A）"));
@@ -553,14 +594,16 @@ public sealed class AfeHardwareParameterModel
             CanCalculateShortRange ? "OCD2 无可用基准" : "由设备校验");
     }
 
-    private static AfeParameterRow U16Row(int index, ushort cap, string group, string name, string unit, int min, int max) => new()
+    private AfeParameterRow U16Row(int index, ushort cap, string group, string name, string unit, int min, int max) => new()
     {
         WireIndex = index,
         CapabilityMask = cap,
         Group = group,
         Name = name,
         Unit = unit,
-        Hint = index is 15 or 21
+        Hint = _deviceInfo?.BackendModel == AfeHardwareProtocolMap.ModelSh3673520 && index is 5 or 9 or 15 or 21 or 33
+            ? "D015连续恢复稳定时间；过流还需负载/充电器移除证据。反向电流仅临时放行MOS，保留锁存。"
+            : index is 15 or 21
             ? "MCU 清除 SH 过流锁存时的恢复确认参数；需物理移除证据及电流低于恢复阈值。按合格 CADC 观察计数，实际等待可能延长；可靠反向电流立即恢复，不等待此参数。"
             : "语义值；芯片离散档位由固件量化，实际值见“AFE有效值”。",
         Decode = v => v.ToString(CultureInfo.InvariantCulture),
@@ -587,7 +630,7 @@ public sealed class AfeHardwareParameterModel
             }
             return false;
         }
-        if (_deviceInfo?.BackendModel != AfeHardwareProtocolMap.ModelSh3673510 || !_deviceInfo.HasExactShunt)
+        if ((_deviceInfo is null || !AfeHardwareProtocolMap.IsSh(_deviceInfo.BackendModel)) || !_deviceInfo.HasExactShunt)
             return false;
         foreach (var limit in ShCurrentLimits)
         {
@@ -625,7 +668,9 @@ public sealed class AfeHardwareParameterModel
         Group = group,
         Name = name,
         Unit = "A",
-        Hint = index is 14 or 20
+        Hint = _deviceInfo?.BackendModel == AfeHardwareProtocolMap.ModelSh3673520 && index is 14 or 20
+            ? "D015充放过流共用恢复电流，0.1～2.0A；不能只凭关MOS后的零电流恢复，反向临时放行保留锁存。"
+            : index is 14 or 20
             ? "MCU 清除 SH 过流锁存时的电流上限，不是芯片保护寄存器。还须有负载/充电器移除等物理证据，不能只凭关 MOS 后电流为零恢复；可靠反向电流立即恢复。"
             : CurrentHint(index),
         AllowedCurrentRange = CurrentRange(index),

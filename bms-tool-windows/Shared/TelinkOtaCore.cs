@@ -56,6 +56,22 @@ public sealed record FirmwareInspection(string FileName, int FileSize, bool Look
 public sealed class FirmwareImage
 {
     public const int Stm32AppCapacity = 55 * 1024;
+    public const int D015AppCapacity = 47 * 1024;
+    public bool HasD015Identity => TargetKind == OtaTargetKind.Stm32SerialIap && Bytes.Length >= 208 &&
+        BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(192,4)) == 0xD0150320u;
+    public void ValidateD015Image()
+    {
+        if (!HasD015Identity || ImageSize > D015AppCapacity ||
+            BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(196,4)) != Stm32AppStartAddress)
+            throw new InvalidDataException("D015只接受带D015身份、从0x08001C00开始且不超过47KiB的APP镜像。");
+        uint actual=BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(204,4));
+        uint stack=BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(0,4));
+        uint reset=BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(4,4));
+        if(actual<=208 || actual>D015AppCapacity || ((actual+1023u)&~1023u)!=(uint)ImageSize ||
+           stack<0x20000100u || stack>Stm32SramEndAddress || (stack&7u)!=0 ||
+           (reset&1u)==0 || (reset&~1u)<Stm32AppStartAddress || (reset&~1u)>=Stm32AppStartAddress+actual)
+            throw new InvalidDataException("D015 APP长度、页填充或向量不合法；仅导出LR_APP，不包含工厂有效性页。");
+    }
     public const uint Stm32AppStartAddress = 0x08001C00;
     public const uint Stm32AppEndAddress = 0x0800F800;
     private const uint Stm32SramStartAddress = 0x20000000;
@@ -125,7 +141,9 @@ public sealed class FirmwareImage
             throw new InvalidDataException($"STM32 APP BIN 必须为有效向量表且不超过 {Stm32AppCapacity} bytes；actual={all.Length}，请确认 BIN 是从 0x{Stm32AppStartAddress:X8} 链接生成的 APP 镜像。");
         if (inspection.LooksLikeTelink)
             throw new InvalidDataException("文件包含 Telink 固件头部，不能作为 STM32 APP BIN 发送。");
-        return new FirmwareImage(Path.GetFileName(path), all, OtaTargetKind.Stm32SerialIap);
+        var image=new FirmwareImage(Path.GetFileName(path), all, OtaTargetKind.Stm32SerialIap);
+        if(image.HasD015Identity)image.ValidateD015Image();
+        return image;
     }
 
     private static bool IsValidStm32Vector(ReadOnlySpan<byte> image)
@@ -133,7 +151,7 @@ public sealed class FirmwareImage
         uint stack = BinaryPrimitives.ReadUInt32LittleEndian(image[..4]);
         uint reset = BinaryPrimitives.ReadUInt32LittleEndian(image.Slice(4, 4));
         uint resetAddress = reset & ~1u;
-        return stack >= Stm32SramStartAddress && stack < Stm32SramEndAddress &&
+        return stack >= Stm32SramStartAddress && stack <= Stm32SramEndAddress &&
                (reset & 1u) != 0 && resetAddress >= Stm32AppStartAddress && resetAddress < Stm32AppEndAddress;
     }
 }

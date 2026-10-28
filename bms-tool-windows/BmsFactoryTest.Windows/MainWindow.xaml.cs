@@ -402,7 +402,7 @@ public partial class MainWindow : Window
         catch (Exception ex) { ShowError("读取设备信息失败", ex); }
     }
 
-    private async Task<DeviceIdentity> RefreshIdentityAsync()
+    private async Task<DeviceIdentity> RefreshIdentityAsync(CancellationToken ct = default)
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         string fallbackMac = _connectionMode == ConnectionMode.Serial
@@ -411,7 +411,7 @@ public partial class MainWindow : Window
         string fallbackName = _connectionMode == ConnectionMode.Serial
             ? $"串口 {_connectedSerialPort}"
             : _connectedName;
-        DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName);
+        DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName, ct);
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
         IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
@@ -885,12 +885,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private bool _otaRequireD015;
     private async void StartOta_Click(object sender, RoutedEventArgs e)
     {
         if (_otaRunning || _shBusy || _diagBusy) return;
         try
         {
             if(_bms?.IsSh3520==true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
+            _otaRequireD015 = _bms?.IsD015 == true;
             string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
             ulong address = _connectedAddress ?? 0;
             if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)
@@ -987,7 +989,7 @@ public partial class MainWindow : Window
                 AppendLog($"Connecting STM32 serial OTA COM port={_connectedSerialPort}; baud={_serialBaudRate}", "OTA");
                 await serialPortTransport.ConnectAsync(_connectedSerialPort!, _serialBaudRate, ct);
                 AppendLog($"STM32 serial OTA port ready; {serialPortTransport.DiscoveryDescription}", "OTA");
-                var serialPortClient = new Stm32SerialBleOtaClient(serialPortTransport, chunkForBle: false);
+                var serialPortClient = new Stm32SerialBleOtaClient(serialPortTransport, chunkForBle: false) { RequireD015Image = _otaRequireD015 };
                 serialPortClient.Log += m => AppendLog(m, "OTA");
                 serialPortClient.Progress += p => Dispatcher.BeginInvoke(() =>
                 {
@@ -1001,7 +1003,7 @@ public partial class MainWindow : Window
             AppendLog($"Connecting STM32 serial OTA GATT address={address:X12}", "OTA");
             await serialTransport.ConnectAsync(address, ct);
             AppendLog($"STM32 serial OTA GATT ready; MTU={serialTransport.NegotiatedMtu}; {serialTransport.DiscoveryDescription}", "OTA");
-            var serialClient = new Stm32SerialBleOtaClient(serialTransport);
+            var serialClient = new Stm32SerialBleOtaClient(serialTransport) { RequireD015Image = _otaRequireD015 };
             serialClient.Log += m => AppendLog(m, "OTA");
             serialClient.Progress += p => Dispatcher.BeginInvoke(() =>
             {

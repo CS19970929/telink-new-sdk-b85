@@ -296,7 +296,7 @@ public partial class MainWindow : Window
         catch (Exception ex) { ShowError("读取设备信息失败", ex); }
     }
 
-    private async Task<DeviceIdentity> RefreshIdentityAsync()
+    private async Task<DeviceIdentity> RefreshIdentityAsync(CancellationToken ct = default)
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         string fallbackMac = _connectionMode == ConnectionMode.Serial
@@ -305,7 +305,7 @@ public partial class MainWindow : Window
         string fallbackName = _connectionMode == ConnectionMode.Serial
             ? $"串口 {_connectedSerialPort}"
             : _connectedName;
-        DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName);
+        DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName, ct);
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
         IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
