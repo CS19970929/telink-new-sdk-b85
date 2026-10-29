@@ -329,6 +329,7 @@ public partial class MainWindow : Window
 
     private void ApplyBatterySnapshot(BatterySnapshot s)
     {
+        UpdateProtectionProductDisplay(_bms?.IsD015 == true);
         RecordMosSnapshot(s);
         PackVoltageText.Text = $"{s.PackVoltageV:F2} V";
         CurrentText.Text = $"{s.CurrentA:+0.0;-0.0;0.0} A（{s.WorkState}）";

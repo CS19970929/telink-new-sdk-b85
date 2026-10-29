@@ -49,6 +49,7 @@ public partial class MainWindow
     private void ShowD015Parameters(D008ParameterCapture capture)
     {
         bool d015=_bms?.IsD015==true;
+        UpdateProtectionProductDisplay(d015);
         if(_d015ParameterTab is not null)_d015ParameterTab.Visibility=d015?Visibility.Visible:Visibility.Collapsed;
         foreach(var tab in _d015LegacyTabs)tab.Visibility=d015?Visibility.Collapsed:Visibility.Visible;
         _d015BasicGrid.ItemsSource=null;_d015OcvGrid.ItemsSource=null;
@@ -56,7 +57,7 @@ public partial class MainWindow
         if(capture.Blocks.TryGetValue("D015Basic",out var w) && w.Length==32) {
             var definitions=new (int Offset,string Name,string Unit,bool Signed)[]{
                 (4,"分流电阻","µΩ",false),(7,"硬件过压恢复","mV",false),(8,"硬件欠压恢复","mV",false),
-                (9,"共用恢复稳定时间","ms",false),(10,"预充时间","ms",false),(11,"预充完成电流","mA",false),
+                (9,"共用恢复稳定时间","ms",false),(10,"预充时间","ms",false),
                 (12,"均衡起始电压","mV",false),(13,"均衡压差","mV",false),(14,"均衡最高温度","0.1℃",true),
                 (15,"允许均衡","0/1",false),(16,"空闲电流","mA",false),(17,"开关ON RTC周期","s",false),
                 (18,"开关OFF RTC周期","s",false),(19,"过放休眠等待","min",false),(20,"空闲等待","s",false),

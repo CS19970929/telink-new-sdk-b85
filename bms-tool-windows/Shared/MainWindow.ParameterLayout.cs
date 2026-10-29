@@ -7,9 +7,12 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow
 {
+    private bool _hideD015SocProtection;
+    private ListBox? _protectionNavigation;
+
     // 筛选只影响显示；所有行继续由原模型持有，整组校验和写入不依赖可见行。
     private static Grid CreateParameterBrowser(DataGrid table, Func<object, string> group,
-        IEnumerable<string> categories)
+        IEnumerable<string> categories, Func<object, bool>? include = null)
     {
         var root = new Grid();
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(165) });
@@ -24,7 +27,8 @@ public partial class MainWindow
             if (!table.CommitEdit(DataGridEditingUnit.Cell, true) || !table.CommitEdit(DataGridEditingUnit.Row, true)) return;
             string? selected = navigation.SelectedItem as string;
             table.Columns[0].Visibility = selected == "全部参数" ? Visibility.Visible : Visibility.Collapsed;
-            view.Filter = item => selected is null || selected == "全部参数" || group(item) == selected;
+            view.Filter = item => (include?.Invoke(item) ?? true) &&
+                (selected is null || selected == "全部参数" || group(item) == selected);
         };
         navigation.SelectedIndex = navigation.Items.Count > 1 ? 1 : 0;
         root.Children.Add(navigation);
@@ -64,7 +68,9 @@ public partial class MainWindow
         var parent = (Grid)ProtectionGrid.Parent;
         parent.Children.Remove(ProtectionGrid);
         var browser = CreateParameterBrowser(ProtectionGrid, item => ((ProtectionParameterRow)item).Group,
-            _protectionRows.Select(row => row.Group));
+            _protectionRows.Select(row => row.Group),
+            item => !_hideD015SocProtection || ((ProtectionParameterRow)item).Address < 0x213C);
+        _protectionNavigation = browser.Children.OfType<ListBox>().Single();
         Grid.SetRow(browser, 1); parent.Children.Add(browser);
         var header = parent.Children.OfType<StackPanel>().Single();
         var buttons = header.Children.OfType<StackPanel>().Single(p => p.Orientation == Orientation.Horizontal);
@@ -72,6 +78,21 @@ public partial class MainWindow
             Margin = new Thickness(8, 0, 0, 0), ToolTip = "设置 AFE 短路电流和延时；保持放电过流2及其它参数。" };
         shortCircuit.Click += OpenShortCircuitSettings_Click;
         buttons.Children.Insert(3, shortCircuit);
+    }
+
+    private void UpdateProtectionProductDisplay(bool d015)
+    {
+        if (_protectionNavigation is null || _hideD015SocProtection == d015) return;
+        _hideD015SocProtection = d015;
+        string group = _protectionRows.First(row => row.Address == 0x213C).Group;
+        if (d015) {
+            if (_protectionNavigation.SelectedItem as string == group)
+                _protectionNavigation.SelectedIndex = 0;
+            _protectionNavigation.Items.Remove(group);
+        } else if (!_protectionNavigation.Items.Contains(group)) {
+            _protectionNavigation.Items.Add(group);
+        }
+        CollectionViewSource.GetDefaultView(ProtectionGrid.ItemsSource).Refresh();
     }
 
     private void ShowParameterSaved(string message)
