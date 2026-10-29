@@ -440,7 +440,7 @@ public partial class MainWindow : Window
         RecordMosSnapshot(s);
         PackVoltageText.Text = $"{s.PackVoltageV:F2} V";
         CurrentText.Text = $"{s.CurrentA:+0.0;-0.0;0.0} A（{s.WorkState}）";
-        SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohPercent}%";
+        SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohDisplay}";
         WorkStateText.Text = s.WorkState;
 
         MosStateText.Text =
@@ -481,7 +481,7 @@ public partial class MainWindow : Window
         FactoryPackText.Text = $"总压：{s.PackVoltageV:F2} V";
         FactoryCurrentText.Text = $"电流：{s.CurrentA:+0.0;-0.0;0.0} A（{s.WorkState}）";
         FactorySocText.Text = $"SOC：{s.SocPercent}%";
-        FactorySohText.Text = $"SOH：{s.SohPercent}%";
+        FactorySohText.Text = $"SOH：{s.SohDisplay}";
         FactoryCapacityText.Text = $"容量：{s.CapacityNowAh:F2} / {s.CapacityFullAh:F2} Ah\n工厂标称：{s.CapacityFactoryAh:F2} Ah";
         FactoryCycleText.Text = $"循环：{s.CycleCount}";
         FactoryCellTempText.Text = $"单体最高/最低：{s.MaxTempC:F1} / {s.MinTempC:F1} ℃";
@@ -892,7 +892,18 @@ public partial class MainWindow : Window
         try
         {
             if(_bms?.IsSh3520==true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
-            _otaRequireD015 = _bms?.IsD015 == true;
+            bool d015Recovery=D015IapRecoveryBox.IsChecked==true;
+            if(d015Recovery) {
+                if(!IsSerialConnectionMode || SerialPortList.SelectedItem is not SerialPortEndpoint serial)
+                    throw new InvalidOperationException("D015恢复请先切换串口模式并选择COM端口。");
+                if(_bms is not null && !_bms.IsD015)
+                    throw new InvalidOperationException("当前连接不是D015，请先断开后选择D015串口。");
+                _connectionMode=ConnectionMode.Serial;
+                _connectedSerialPort=serial.PortName;
+                _serialBaudRate=GetSerialBaudRate();
+                _connectedAddress=null;
+            }
+            _otaRequireD015 = d015Recovery || _bms?.IsD015 == true;
             string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
             ulong address = _connectedAddress ?? 0;
             if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)
@@ -905,6 +916,7 @@ public partial class MainWindow : Window
             _pollTimer.Stop();
             StartOtaButton.IsEnabled = false;
             CancelOtaButton.IsEnabled = true;
+            D015IapRecoveryBox.IsEnabled = false;
             OtaProgressBar.Value = 0;
             OtaVerifyText.Text = string.Empty;
             _otaCts = new CancellationTokenSource();
@@ -975,6 +987,7 @@ public partial class MainWindow : Window
             _otaRunning = false;
             StartOtaButton.IsEnabled = true;
             CancelOtaButton.IsEnabled = false;
+            D015IapRecoveryBox.IsEnabled = true;
             if (_bms is not null) _pollTimer.Start();
         }
     }

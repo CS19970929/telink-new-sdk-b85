@@ -88,7 +88,32 @@ static class BusinessParametersUiTest
         Check(type.GetField("_sleepAfeMinutes",Private)==null,"AFE异常时间不提供编辑控件");
         capture.Blocks.Remove("Sleep");Load(capture);
         Check(!Field<Button>("_sleepSave").IsEnabled && Field<TextBox>("_sleepLowMv").Text=="","休眠读取失败清旧值并禁止保存");
+        var d015Client=new BmsClient(new UiTransport());
+        typeof(BmsClient).GetProperty("IsD015")!.SetValue(d015Client,true);
+        type.GetField("_bms",Private)!.SetValue(window,d015Client);
+        var d015Capture=new D008ParameterCapture{Supported=true,ProtocolVersion=2};
+        d015Capture.Blocks["D015Basic"]=new ushort[32];
+        d015Capture.Blocks["D015Ocv"]=new ushort[42];
+        Load(d015Capture);
+        Check(Field<TabItem>("_d015ParameterTab").Visibility==Visibility.Visible,"D015配置入口可见");
+        Check(Field<List<TabItem>>("_d015LegacyTabs").All(t=>t.Visibility==Visibility.Collapsed),"隐藏不适用D015的其他产品页面");
+        Check(Field<DataGrid>("_d015BasicGrid").Items.Count==24,"D015实际基本配置项");
+        Check((Field<DataGrid>("_d015OcvGrid").Parent is not null)!=customer,"D015 OCV编辑仅内部版提供");
+        Check((window.FindName("D015IapRecoveryBox") is CheckBox)!=customer,"仅内部版提供IAP恢复入口");
+        type.GetField("_bms",Private)!.SetValue(window,null);
+        d015Client.DisposeAsync().AsTask().GetAwaiter().GetResult();
         window.Close();
         Console.WriteLine("PASS business parameters UI: grouped layout, edition-specific SOC / OCV, SN editor, actual/candidate separation and write gates");
     }
+}
+
+sealed class UiTransport : IBmsTransport
+{
+    public bool IsConnected=>true;
+    public string DiscoveryDescription=>"UI-only, no hardware";
+    public event Action<ReadOnlyMemory<byte>>? DataReceived {add{} remove{}}
+    public event Action<string>? ConnectionProgress {add{} remove{}}
+    public Task ReconnectAsync(CancellationToken ct=default)=>Task.CompletedTask;
+    public Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default)=>throw new InvalidOperationException("UI test must not send frames");
+    public ValueTask DisposeAsync()=>ValueTask.CompletedTask;
 }

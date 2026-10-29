@@ -332,7 +332,7 @@ public partial class MainWindow : Window
         RecordMosSnapshot(s);
         PackVoltageText.Text = $"{s.PackVoltageV:F2} V";
         CurrentText.Text = $"{s.CurrentA:+0.0;-0.0;0.0} A（{s.WorkState}）";
-        SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohPercent}%";
+        SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohDisplay}";
         WorkStateText.Text = s.WorkState;
 
         MosStateText.Text =

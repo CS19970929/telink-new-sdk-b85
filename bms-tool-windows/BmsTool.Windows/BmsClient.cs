@@ -47,6 +47,8 @@ public sealed class BatterySnapshot
     public double CurrentA { get; init; }
     public int SocPercent { get; init; }
     public int SohPercent { get; init; }
+    public bool SohValid => SohPercent is >= 0 and <= 100;
+    public string SohDisplay => SohValid ? $"{SohPercent}%" : "—";
     public double MaxTempC { get; init; }
     public double MinTempC { get; init; }
     public double MosTempC { get; init; }

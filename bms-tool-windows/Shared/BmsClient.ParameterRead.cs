@@ -31,7 +31,11 @@ public sealed partial class BmsClient
             ("Calibration",0x2E24,4),("Current",0x2E28,7),("Serial",0x2E30,16),
             ("SoftwareProtection",0x2100,65),("AfeRequested",0x2500,35),("AfeEffective",0x2540,35),
             ("BluetoothName",0x0100,12),("DeviceSerial",0xC002,16),("Hardware",BmsRegisters.Hardware,16),("Software",BmsRegisters.Software,16)};
-        if(IsD015) blocks.RemoveAll(b=>b.Name is "FactoryMode" or "Heater" or "BluetoothName");
+        if(IsD015) {
+            blocks.RemoveAll(b=>b.Name is "FactoryMode" or "Heater" or "BluetoothName");
+            blocks.Add(("D015Basic",0x3400,32));
+            blocks.Add(("D015Ocv",0x2200,42));
+        }
         if(c.Supported && c.ProtocolVersion>=2 && (c.Blocks["Capability"][2]&D008Parameters.BalanceCapability)!=0)
             blocks.Insert(7,("Balance",0x2E70,4));
         if(BmsSleepParameters.Available(c)) {

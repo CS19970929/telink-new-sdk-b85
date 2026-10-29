@@ -54,6 +54,8 @@ public partial class MainWindow
 
         if (soh.Success)
             CustomerSohText.Text = soh.Groups[1].Value + " %";
+        else
+            CustomerSohText.Text = "—";
 
         string capacity = CapacityText.Text ?? string.Empty;
         CustomerRemainCapacityText.Text = ExtractValue(capacity, @"当前容量：([^\r\n]+)", "—");

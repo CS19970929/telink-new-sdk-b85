@@ -52,7 +52,7 @@ Usage:
   bms-cli parameters export (--mac MAC | --name NAME | --auto | --serial COMx)
                   --output parameters.zip [--json]
   bms-cli ota <firmware.bin> (--mac MAC | --name NAME | --auto | --serial COMx)
-              [--target auto|telink|stm32] [--mode auto|legacy|extend64]
+              [--target auto|telink|stm32] [--mode auto|legacy|extend64] [--d015]
               [--expected-version VERSION] [--evidence-dir DIR] [--yes] [--json]
 
 Common:
@@ -872,6 +872,9 @@ Safety:
         try
         {
             image = FirmwareImage.LoadForTarget(firmwarePath, target);
+            if(target==OtaTargetKind.Stm32SerialIap && (options.Has("d015") ||
+                pre?.Identity.Hardware.StartsWith("HS-D015",StringComparison.Ordinal)==true))
+                image.ValidateD015Image();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
