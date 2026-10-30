@@ -47,6 +47,14 @@ static class Program
         try {await client.WriteD008VerifiedAsync(0x2318,new ushort[]{9},false,default);}catch(ArgumentException){rejected=true;}
         Check(rejected,"D015 capacity range rejects before write");
         Check(transport.MaxFrame<=20 && transport.FragmentCount>=16,"MTU23 requests use profile fragments");
+        string? expectedBuild=Environment.GetEnvironmentVariable("D015_EXPECT_BUILD_ID");
+        if(expectedBuild is not null) {
+            var identityBuild=await client.TryReadFirmwareBuildIdentityAsync();
+            Check(identityBuild is not null && identityBuild.BuildId==Convert.ToUInt32(expectedBuild,16),"Git Build ID read with existing word order");
+            Check(await client.TryReadFirmwareBuildIdAsync()==identityBuild!.BuildId,"legacy Build ID API preserved");
+            var diagnostic=await client.ReadDiagnosticsAsync(false,"D015 simulator");
+            Check(diagnostic.Supported && diagnostic.Errors.Count==0 && diagnostic.Words is null && diagnostic.Boot.Any(x=>x.Value==expectedBuild),"identity-only block must not fabricate runtime diagnostics");
+        }
         await TestStm32IapAsync();
         Console.WriteLine("PASS D015 C firmware interop: identity, realtime, absent slots, software/hardware writes, MTU23 profile commit, enable readback, calibration/fresh sample, atomic SN, parameter capture");
     }

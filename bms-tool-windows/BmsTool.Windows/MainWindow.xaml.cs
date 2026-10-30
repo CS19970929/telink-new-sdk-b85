@@ -306,9 +306,10 @@ public partial class MainWindow : Window
             ? $"串口 {_connectedSerialPort}"
             : _connectedName;
         DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName, ct);
+        var build = await bms.TryReadFirmwareBuildIdentityAsync(ct);
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
-        IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
+        IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}\n固件 Build ID：{build?.Display ?? "不可用"}";
         BtNameResultText.Text = id.BluetoothName;
         if (id.BluetoothName.StartsWith("BT_", StringComparison.OrdinalIgnoreCase) ||
             id.BluetoothName.StartsWith("BT-", StringComparison.OrdinalIgnoreCase))
