@@ -261,3 +261,9 @@ dotnet run --project .\bms-tool-windows\BmsTool.Cli\BmsTool.Cli.csproj -- scan
 开发固件的完整 SOC 输入采集：`record soc --inputs --mac MAC --count 300 --output inputs.csv --json`。要求显式MAC/serial；只读、默认release不支持。见 [SOC工作流](SOC_WORKFLOW.md)，包含缺口/退出码、GUI导入、生产C Replay及A/B限制。
 
 需要在真实 D008 MCU/200 ms 调度器上主动注入 SOC 场景时，使用 `test soc-hil --mac MAC --suite all --yes --output report.json --json`。该命令只支持专用开发固件，拒绝自动选设备，并在结束、异常、断链或超时后恢复原 SOC RAM 状态；协议与安全边界见 [SOC HIL CLI](SOC_HIL_CLI.md)。
+
+## D015 3.0与旧项目识别（2026-11-01）
+
+`ota`继续复用同一发送器，`--target auto`不会猜测未知串口写协议；先读D170能力，旧D015由D130的板型/2.x版本识别。新D015的文件位置参数选择`.d015`（沿用既有`ota <文件>`语法）。显式`--target stm32`只为确实没有身份的旧通用工程开放原页协议；`--d015`仍强制D015镜像/设备门禁。新包拒绝旧Boot，旧BIN拒绝新Boot。执行仍必须`--yes`，自动选择设备仍要求唯一明确目标。完整恢复/支持边界见[UPGRADE.md](UPGRADE.md)。
+
+例：`bms-cli ota .\app.d015 --serial COM5 --baud 19200 --target auto --d015 --yes`。只有完成新APP身份、CRC/长度和实时数据回读才报告成功；没有输出固件镜像的隐式步骤。

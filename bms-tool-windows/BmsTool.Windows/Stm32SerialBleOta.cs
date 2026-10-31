@@ -33,6 +33,7 @@ public sealed class Stm32SerialBleOtaClient
     private TaskCompletionSource<byte[]>? _pending;
 
     public bool RequireD015Image { get; init; }
+    public bool AllowUnidentifiedLegacy { get; init; }
     public event Action<string>? Log;
     public event Action<Stm32OtaProgress>? Progress;
 
@@ -53,6 +54,15 @@ public sealed class Stm32SerialBleOtaClient
 
         if (RequireD015Image || image.HasD015Identity) image.ValidateD015Image();
 
+        SerialUpgradeDevice device=await UpgradeDetection.ReadAsync(_transport,AllowUnidentifiedLegacy,ct);
+        UpgradeDetection.CheckImage(device,image);
+        Log?.Invoke($"升级协议识别：{device.Protocol}; {device.Evidence}");
+        if(device.Protocol==SerialUpgradeProtocol.D015Ymodem) {
+            var sender=new D015YmodemClient(_transport,_chunkForBle);
+            sender.Log+=message=>Log?.Invoke(message);
+            sender.Progress+=p=>Progress?.Invoke(new Stm32OtaProgress(p.Percent,p.SentBytes,p.TotalBytes,(p.SentBytes+1023)/1024,(p.TotalBytes+1023)/1024));
+            return await sender.UpgradeAsync(image,device,ct);
+        }
         int pageCount = (image.ImageSize + PageSize - 1) / PageSize;
         if (pageCount is <= 0 or > MaxPageCount)
             throw new InvalidDataException($"STM32 APP 页数非法：{pageCount}，最大 {MaxPageCount} 页。");

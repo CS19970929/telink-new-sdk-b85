@@ -954,7 +954,7 @@ Safety:
         bool serverConfirmed;
         try
         {
-            serverConfirmed = await RunOtaWithFallbackAsync(endpoint, image, target, mode, reporter, ct);
+            serverConfirmed = await RunOtaWithFallbackAsync(endpoint, image, target, mode, reporter, requestedTarget == OtaTargetKind.Stm32SerialIap && !options.Has("d015"), ct);
         }
         catch (CliException) { throw; }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1107,11 +1107,12 @@ Safety:
         OtaTargetKind target,
         OtaTransferMode requested,
         CliReporter reporter,
+        bool allowLegacyManual,
         CancellationToken ct)
     {
         try
         {
-            return await RunOtaOnceAsync(endpoint, image, target, requested, reporter, ct);
+            return await RunOtaOnceAsync(endpoint, image, target, requested, reporter, allowLegacyManual, ct);
         }
         catch (Exception ex) when (
             requested == OtaTransferMode.Auto &&
@@ -1120,7 +1121,7 @@ Safety:
         {
             reporter.Status("Extended OTA not compatible; retrying with Legacy 16B...");
             await Task.Delay(700, ct);
-            return await RunOtaOnceAsync(endpoint, image, target, OtaTransferMode.LegacyFast, reporter, ct);
+            return await RunOtaOnceAsync(endpoint, image, target, OtaTransferMode.LegacyFast, reporter, allowLegacyManual, ct);
         }
     }
 
@@ -1130,6 +1131,7 @@ Safety:
         OtaTargetKind target,
         OtaTransferMode mode,
         CliReporter reporter,
+        bool allowLegacyManual,
         CancellationToken ct)
     {
         if (target == OtaTargetKind.Stm32SerialIap)
@@ -1139,7 +1141,7 @@ Safety:
                 await using var transport = new BmsSerialTransport();
                 transport.ConnectionProgress += reporter.VerboseLog;
                 await transport.ConnectAsync(endpoint.PortName!, endpoint.BaudRate, ct);
-                var client = new Stm32SerialBleOtaClient(transport, chunkForBle: false);
+                var client = new Stm32SerialBleOtaClient(transport, chunkForBle: false) { AllowUnidentifiedLegacy = allowLegacyManual };
                 client.Log += reporter.VerboseLog;
                 client.Progress += p => reporter.Progress($"STM32 IAP {p.Percent:F1}% page {p.PageIndex}/{p.PageCount}");
                 return await client.UpgradeAsync(image, ct);
@@ -1148,7 +1150,7 @@ Safety:
             await using var ble = new BmsBleTransport();
             ble.ConnectionProgress += reporter.VerboseLog;
             await ble.ConnectAsync(endpoint.Address!.Value, ct);
-            var bleClient = new Stm32SerialBleOtaClient(ble);
+            var bleClient = new Stm32SerialBleOtaClient(ble) { AllowUnidentifiedLegacy = allowLegacyManual };
             bleClient.Log += reporter.VerboseLog;
             bleClient.Progress += p => reporter.Progress($"STM32 IAP {p.Percent:F1}% page {p.PageIndex}/{p.PageCount}");
             return await bleClient.UpgradeAsync(image, ct);

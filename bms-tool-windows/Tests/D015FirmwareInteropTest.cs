@@ -73,7 +73,7 @@ static class Program
                 bool failed=false;
                 try {Check(await updater.UpgradeAsync(image,default),"IAP completion");}catch(IOException) when(failEnter){failed=true;}
                 Check(failed==failEnter,"ENTER failure must stop upgrade");
-                Check(link.Writes==(failEnter?1:3) && link.Reconnects==(failEnter?0:1),"ENTER ACK precedes reconnect/page; no retry on exception");
+                Check(link.Reads==2 && link.Writes==(failEnter?1:3) && link.Reconnects==(failEnter?0:1),"ENTER ACK precedes reconnect/page; no retry on exception");
             }
         }finally{File.Delete(path);}
     }
@@ -113,15 +113,23 @@ sealed class FirmwareTransport : IBmsTransport, IBmsMtuTransport
 
 sealed class IapTransport(bool failEnter) : IBmsTransport
 {
-    public int Writes,Reconnects;
+    public int Reads,Writes,Reconnects;
     public bool IsConnected=>true;
     public string DiscoveryDescription=>"offline STM32 IAP peer";
     public event Action<ReadOnlyMemory<byte>>? DataReceived;
     public event Action<string>? ConnectionProgress {add{} remove{}}
     public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;return Task.CompletedTask;}
     public async Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default) {
-        byte[] frame=data.ToArray();Writes++;
+        byte[] frame=data.ToArray();
         ushort reg=(ushort)((frame[2]<<8)|frame[3]);
+        if(frame[1]==3) {
+            Reads++;
+            byte[] reply=reg==0xD170 ? new byte[]{1,0x83,2,0,0} : new byte[]{1,3,8,0xD0,0x15,3,0x20,0,2,4,1,0,0};
+            ushort readCrc=ModbusRtu.Crc16(reply.AsSpan(0,reply.Length-2));
+            reply[^2]=(byte)readCrc;reply[^1]=(byte)(readCrc>>8);
+            DataReceived?.Invoke(reply);return;
+        }
+        Writes++;
         if(reg==0xFFFD)await Task.Delay(200,ct); // APP prepares before acknowledging.
         if(reg==0xFFFE && (Reconnects!=1 || frame.Length!=1033 || frame[4]!=4 || frame[5]!=0 || frame[6]!=0))
             throw new Exception("IAP page format/order changed");

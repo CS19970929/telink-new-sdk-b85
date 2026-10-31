@@ -39,5 +39,8 @@
     <Compile Include="..\Shared\BuildIdentity.cs" Link="Shared\BuildIdentity.cs" />
     <Compile Include="..\Shared\BmsClient.ParameterRead.cs" Link="Shared\BmsClient.ParameterRead.cs" />
     <Compile Include="..\Shared\Sh3673520Parameters.cs" Link="Shared\Sh3673520Parameters.cs" />
+    <Compile Include="..\Shared\D015FirmwarePackage.cs" Link="Shared\D015FirmwarePackage.cs" />
+    <Compile Include="..\Shared\UpgradeDetection.cs" Link="Shared\UpgradeDetection.cs" />
+    <Compile Include="..\Shared\D015Ymodem.cs" Link="Shared\D015Ymodem.cs" />
   </ItemGroup>
 </Project>

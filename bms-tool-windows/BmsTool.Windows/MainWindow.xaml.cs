@@ -31,8 +31,7 @@ public partial class MainWindow : Window
     private string _connectedName = string.Empty;
     private ConnectionMode _connectionMode = ConnectionMode.Ble;
     private bool _polling;
-    // 客户版无 OTA 和 Flash 耐久操作，供共享通信门禁读取。
-    private bool _otaRunning => false;
+    // 客户版不提供 Flash 耐久操作。
     private bool _shBusy => false;
     private bool _autoReconnectRunning;
     private int _pollFailureCount;
@@ -52,6 +51,7 @@ public partial class MainWindow : Window
 
         Closed += async (_, _) =>
         {
+            _otaCts?.Cancel();
             _pollTimer.Stop();
             _watcher?.Stop();
             await DisposeBmsAsync();

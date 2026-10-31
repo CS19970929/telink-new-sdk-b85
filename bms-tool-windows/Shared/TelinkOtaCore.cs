@@ -42,9 +42,9 @@ public interface ITelinkOtaTransport : IAsyncDisposable
     Task WriteWithResponseAsync(ReadOnlyMemory<byte> data, CancellationToken ct);
 }
 
-public sealed record FirmwareInspection(string FileName, int FileSize, bool LooksLikeTelink, bool FitsStm32App)
+public sealed record FirmwareInspection(string FileName, int FileSize, bool LooksLikeTelink, bool FitsStm32App, bool D015Package = false)
 {
-    public string Description => LooksLikeTelink && FitsStm32App
+    public string Description => D015Package ? $"{FileName} · {FileSize:N0} bytes · D015 YMODEM 升级包（CRC已校验）" : LooksLikeTelink && FitsStm32App
         ? $"{FileName} · {FileSize:N0} bytes · 可用于 Telink 或 STM32（按目标架构选择）"
         : LooksLikeTelink
             ? $"{FileName} · {FileSize:N0} bytes · Telink"
@@ -56,11 +56,13 @@ public sealed record FirmwareInspection(string FileName, int FileSize, bool Look
 public sealed class FirmwareImage
 {
     public const int Stm32AppCapacity = 55 * 1024;
+    public bool IsD015Package => D015FirmwarePackage.HasHeader(Bytes);
     public const int D015AppCapacity = 47 * 1024;
     public bool HasD015Identity => TargetKind == OtaTargetKind.Stm32SerialIap && Bytes.Length >= 208 &&
         BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(192,4)) == 0xD0150320u;
     public void ValidateD015Image()
     {
+        if (IsD015Package) { _ = D015FirmwarePackage.Parse(Bytes); return; }
         if (!HasD015Identity || ImageSize > D015AppCapacity ||
             BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(196,4)) != Stm32AppStartAddress)
             throw new InvalidDataException("D015只接受带D015身份、从0x08001C00开始且不超过47KiB的APP镜像。");
@@ -95,6 +97,7 @@ public sealed class FirmwareImage
     public static FirmwareInspection Inspect(string path)
     {
         byte[] all = File.ReadAllBytes(path);
+        if (D015FirmwarePackage.HasHeader(all)) { _ = D015FirmwarePackage.Parse(all); return new(Path.GetFileName(path),all.Length,false,true,true); }
         bool telink = all.Length >= 0x1C &&
                       BinaryPrimitives.ReadUInt32LittleEndian(all.AsSpan(0x18, 4)) is uint declared &&
                       declared >= 0x20 && declared <= all.Length;
@@ -136,6 +139,7 @@ public sealed class FirmwareImage
     private static FirmwareImage LoadStm32App(string path)
     {
         byte[] all = File.ReadAllBytes(path);
+        if (D015FirmwarePackage.HasHeader(all)) { _ = D015FirmwarePackage.Parse(all); return new FirmwareImage(Path.GetFileName(path),all,OtaTargetKind.Stm32SerialIap); }
         FirmwareInspection inspection = Inspect(path);
         if (all.Length == 0 || all.Length > Stm32AppCapacity || !inspection.FitsStm32App)
             throw new InvalidDataException($"STM32 APP BIN 必须为有效向量表且不超过 {Stm32AppCapacity} bytes；actual={all.Length}，请确认 BIN 是从 0x{Stm32AppStartAddress:X8} 链接生成的 APP 镜像。");
