@@ -16,8 +16,8 @@ extern uint32_t g_u32CS_Res_AFE;
 #define SH309_CADC_DENOMINATOR_REDUCED         2147u
 #define BOOT_CURRENT_ZERO_SAMPLE_INTERVAL_MS    300u
 #define BOOT_CURRENT_CADC_DATA_LENGTH              2u
-#define BOOT_CURRENT_ZERO_MAX_ABS_COUNTS           40
-#define BOOT_CURRENT_ZERO_MAX_DELTA_COUNTS          6
+#define BOOT_CURRENT_ZERO_MAX_ABS_COUNTS           65
+#define BOOT_CURRENT_ZERO_MAX_DELTA_COUNTS          15
 #define BOOT_CURRENT_FET_STATUS_MASK              0x07u
 #define CURRENT_FIXED_SCALE                          4u
 #define CURRENT_REPORT_MA_PER_LSB                  100u

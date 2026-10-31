@@ -703,7 +703,7 @@ void app_adc_multi_sample(void)
 				FaultWarnRecord2(CellChgOTp_Third);
 				FaultWarnRecord2(CellDsgOTp_Third);
 			}
-			if ((g_stCellInfoReport.u16VCellMax >= 4270) && (g_stCellInfoReport.u16VCellMin >= 1000))
+			if ((g_stCellInfoReport.u16VCellMax >= 4270) && (g_stCellInfoReport.u16VCellMin >= 2000))
 			{
 				++delay_cnt;
 				if (delay_cnt >= 15)
