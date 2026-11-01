@@ -839,14 +839,14 @@ Safety:
     private static async Task<int> OtaAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
     {
         if (options.Positionals.Count != 1)
-            throw new CliException(ExitCodes.Usage, "usage", "ota requires exactly one firmware .bin path.");
+            throw new CliException(ExitCodes.Usage, "usage", "ota requires exactly one firmware .bin or .d015 path.");
 
         string firmwarePath = Path.GetFullPath(options.Positionals[0]);
         if (!File.Exists(firmwarePath))
             throw new CliException(ExitCodes.FirmwareInvalid, "firmware_not_found", $"Firmware file not found: {firmwarePath}");
 
         CliEndpoint endpoint = await CliRuntime.ResolveEndpointAsync(options, reporter, ct);
-        DeviceSnapshot? pre = await CliRuntime.TryReadSnapshotAsync(endpoint, reporter, ct);
+        DeviceSnapshot? pre = null;
 
         OtaTargetKind requestedTarget = ParseTarget(options.Get("target"));
         OtaTargetKind target;
@@ -880,6 +880,12 @@ Safety:
         {
             throw new CliException(ExitCodes.FirmwareInvalid, "firmware_invalid", ex.Message, inner: ex);
         }
+
+        // A new D015 package needs the recovery capability probe first, not
+        // a multi-register APP snapshot that misses the power-on window.
+        if (!image.IsD015Package) pre = await CliRuntime.TryReadSnapshotAsync(endpoint, reporter, ct);
+        if (target == OtaTargetKind.Stm32SerialIap && pre?.Identity.Hardware.StartsWith("HS-D015",StringComparison.Ordinal)==true)
+            image.ValidateD015Image();
 
         if (target == OtaTargetKind.Telink && pre?.IsD008 == true)
         {
@@ -947,14 +953,15 @@ Safety:
             });
             if (pre is not null)
                 WriteJsonFile(Path.Combine(evidenceDirectory, "before-snapshot.json"), SnapshotData(pre));
-            await CollectOtaEvidenceAsync(endpoint, pre, evidenceDirectory, "before", reporter, ct);
+            if (!image.IsD015Package) await CollectOtaEvidenceAsync(endpoint, pre, evidenceDirectory, "before", reporter, ct);
         }
 
         reporter.Status($"Starting OTA: {Path.GetFileName(firmwarePath)} -> {endpoint.Display}");
         bool serverConfirmed;
+        D015UpgradeReadback? verified;
         try
         {
-            serverConfirmed = await RunOtaWithFallbackAsync(endpoint, image, target, mode, reporter, requestedTarget == OtaTargetKind.Stm32SerialIap && !options.Has("d015"), ct);
+            (serverConfirmed, verified) = await RunOtaWithFallbackAsync(endpoint, image, target, mode, reporter, requestedTarget == OtaTargetKind.Stm32SerialIap && !options.Has("d015"), ct);
         }
         catch (CliException) { throw; }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -962,7 +969,9 @@ Safety:
             throw new CliException(ExitCodes.OtaFailed, "ota_failed", ex.Message, preflight, ex);
         }
 
-        DeviceSnapshot post = await CliRuntime.VerifyAfterOtaAsync(endpoint, reporter, ct);
+        DeviceSnapshot post = verified is null
+            ? await CliRuntime.VerifyAfterOtaAsync(endpoint, reporter, ct)
+            : new DeviceSnapshot(endpoint,verified.Identity,verified.Battery,verified.BuildId,false);
         if (evidenceDirectory is not null)
         {
             WriteJsonFile(Path.Combine(evidenceDirectory, "after-snapshot.json"), SnapshotData(post));
@@ -1101,7 +1110,7 @@ Safety:
         }), new System.Text.UTF8Encoding(false));
     }
 
-    private static async Task<bool> RunOtaWithFallbackAsync(
+    private static async Task<(bool Confirmed, D015UpgradeReadback? Verified)> RunOtaWithFallbackAsync(
         CliEndpoint endpoint,
         FirmwareImage image,
         OtaTargetKind target,
@@ -1125,7 +1134,7 @@ Safety:
         }
     }
 
-    private static async Task<bool> RunOtaOnceAsync(
+    private static async Task<(bool Confirmed, D015UpgradeReadback? Verified)> RunOtaOnceAsync(
         CliEndpoint endpoint,
         FirmwareImage image,
         OtaTargetKind target,
@@ -1144,7 +1153,8 @@ Safety:
                 var client = new Stm32SerialBleOtaClient(transport, chunkForBle: false) { AllowUnidentifiedLegacy = allowLegacyManual };
                 client.Log += reporter.VerboseLog;
                 client.Progress += p => reporter.Progress($"STM32 IAP {p.Percent:F1}% page {p.PageIndex}/{p.PageCount}");
-                return await client.UpgradeAsync(image, ct);
+                bool confirmed = await client.UpgradeAsync(image, ct);
+                return (confirmed,client.Verified);
             }
 
             await using var ble = new BmsBleTransport();
@@ -1153,7 +1163,8 @@ Safety:
             var bleClient = new Stm32SerialBleOtaClient(ble) { AllowUnidentifiedLegacy = allowLegacyManual };
             bleClient.Log += reporter.VerboseLog;
             bleClient.Progress += p => reporter.Progress($"STM32 IAP {p.Percent:F1}% page {p.PageIndex}/{p.PageCount}");
-            return await bleClient.UpgradeAsync(image, ct);
+            bool bleConfirmed = await bleClient.UpgradeAsync(image, ct);
+            return (bleConfirmed,bleClient.Verified);
         }
 
         await using var ota = new OtaBleTransport();
@@ -1165,7 +1176,7 @@ Safety:
             string eta = p.Eta is null ? string.Empty : $" ETA {p.Eta.Value.TotalSeconds:F1}s";
             reporter.Progress($"Telink {p.Mode} {p.Percent:F1}% {p.BytesPerSecond / 1024.0:F1} KiB/s{eta}");
         };
-        return await telink.UpgradeAsync(image, mode, ct);
+        return (await telink.UpgradeAsync(image, mode, ct),null);
     }
 
     private static OtaTransferMode ParseMode(string? value) =>

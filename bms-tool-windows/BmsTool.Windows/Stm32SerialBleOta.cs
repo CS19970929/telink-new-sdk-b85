@@ -32,6 +32,7 @@ public sealed class Stm32SerialBleOtaClient
     private readonly List<byte> _rx = new();
     private TaskCompletionSource<byte[]>? _pending;
 
+    public D015UpgradeReadback? Verified { get; private set; }
     public bool RequireD015Image { get; init; }
     public bool AllowUnidentifiedLegacy { get; init; }
     public event Action<string>? Log;
@@ -47,6 +48,7 @@ public sealed class Stm32SerialBleOtaClient
 
     public async Task<bool> UpgradeAsync(FirmwareImage image, CancellationToken ct)
     {
+        Verified=null;
         if (image.TargetKind != OtaTargetKind.Stm32SerialIap)
             throw new InvalidDataException("STM32 串口 IAP OTA 只能使用 STM32 APP BIN。");
         if (image.ImageSize is <= 0 or > FirmwareImage.Stm32AppCapacity)
@@ -54,14 +56,19 @@ public sealed class Stm32SerialBleOtaClient
 
         if (RequireD015Image || image.HasD015Identity) image.ValidateD015Image();
 
-        SerialUpgradeDevice device=await UpgradeDetection.ReadAsync(_transport,AllowUnidentifiedLegacy,ct);
+        if(image.IsD015Package) Log?.Invoke("正在只读识别 D015，最多等待 35 秒；恢复模式可在此期间给设备重新上电。");
+        SerialUpgradeDevice device=image.IsD015Package
+            ? await UpgradeDetection.WaitForD015Async(_transport,ct)
+            : await UpgradeDetection.ReadAsync(_transport,AllowUnidentifiedLegacy,ct);
         UpgradeDetection.CheckImage(device,image);
         Log?.Invoke($"升级协议识别：{device.Protocol}; {device.Evidence}");
         if(device.Protocol==SerialUpgradeProtocol.D015Ymodem) {
             var sender=new D015YmodemClient(_transport,_chunkForBle);
             sender.Log+=message=>Log?.Invoke(message);
             sender.Progress+=p=>Progress?.Invoke(new Stm32OtaProgress(p.Percent,p.SentBytes,p.TotalBytes,(p.SentBytes+1023)/1024,(p.TotalBytes+1023)/1024));
-            return await sender.UpgradeAsync(image,device,ct);
+            bool result=await sender.UpgradeAsync(image,device,ct);
+            Verified=sender.Verified;
+            return result;
         }
         int pageCount = (image.ImageSize + PageSize - 1) / PageSize;
         if (pageCount is <= 0 or > MaxPageCount)

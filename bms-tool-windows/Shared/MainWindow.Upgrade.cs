@@ -10,6 +10,7 @@ public partial class MainWindow
     private bool _otaRunning;
     private void BrowseFirmware_Click(object sender, RoutedEventArgs e)
     {
+        if (_otaRunning) return;
         try
         {
             var dlg = new OpenFileDialog { Filter = "BMS 固件 (*.d015;*.bin)|*.d015;*.bin|所有文件 (*.*)|*.*" };
@@ -74,7 +75,7 @@ public partial class MainWindow
             string oldVersion = string.Empty;
             try
             {
-                if (_bms is not null) oldVersion = (await _bms.ReadIdentityAsync(_otaCts.Token)).Software;
+                if (_bms is not null && !d015Recovery) oldVersion = (await _bms.ReadIdentityAsync(_otaCts.Token)).Software;
             }
             catch (Exception ex)
             {
@@ -85,20 +86,22 @@ public partial class MainWindow
             ConnectionText.Text = "正在升级...";
             OtaTransferMode requested = GetOtaMode();
             bool serverConfirmed;
+            D015UpgradeReadback? verified;
 
             try
             {
-                serverConfirmed = await RunOtaOnceAsync(address, image, target, requested, _otaCts.Token);
+                (serverConfirmed, verified) = await RunOtaOnceAsync(address, image, target, requested, _otaCts.Token);
             }
             catch (Exception ex) when (requested == OtaTransferMode.Auto && IsExtendCompatibilityFailure(ex) && !_otaCts.IsCancellationRequested)
             {
                 AppendLog("Extend64 rejected; fallback to Legacy Fast: " + ex.Message, "OTA");
                 await Task.Delay(700, _otaCts.Token);
-                serverConfirmed = await RunOtaOnceAsync(address, image, target, OtaTransferMode.LegacyFast, _otaCts.Token);
+                (serverConfirmed, verified) = await RunOtaOnceAsync(address, image, target, OtaTransferMode.LegacyFast, _otaCts.Token);
             }
 
             OtaVerifyText.Text = serverConfirmed ? "设备已接受固件，等待重启并验证..." : "数据发送完成，等待设备重启并验证...";
-            DeviceIdentity post = await VerifyAfterOtaAsync(_connectionMode == ConnectionMode.Serial ? null : address, _otaCts.Token);
+            DeviceIdentity post = verified?.Identity ?? await VerifyAfterOtaAsync(_connectionMode == ConnectionMode.Serial ? null : address, _otaCts.Token);
+            if (verified is not null) ApplyBatterySnapshot(verified.Battery);
             string expected = ExpectedVersionBox.Text.Trim();
             if (expected.Length > 0 && !string.Equals(post.Software, expected, StringComparison.OrdinalIgnoreCase))
                 throw new IOException($"设备已重启，但软件版本不匹配：目标 {expected}，实际 {post.Software}。");
@@ -110,19 +113,19 @@ public partial class MainWindow
                     : $"当前版本 {post.Software}";
 
             OtaVerifyText.Text = $"升级成功：设备已重启，BMS 通信和实时数据正常；{versionNote}。";
-            ConnectionText.Text = string.IsNullOrEmpty(_connectedName) ? "已连接" : $"已连接：{_connectedName}";
+            ConnectionText.Text = _bms is null ? "升级已验证；点击连接恢复实时监控" : (string.IsNullOrEmpty(_connectedName) ? "已连接" : $"已连接：{_connectedName}");
             AppendLog("OTA VERIFIED: " + OtaVerifyText.Text + $" serverConfirmed={serverConfirmed}", "OTA");
             MessageBox.Show(OtaVerifyText.Text, "OTA 验证完成", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (OperationCanceledException)
         {
             AppendLog("OTA cancelled", "OTA");
-            OtaVerifyText.Text = "升级已取消。新 D015 若已开始写入，将留在 Boot；重连后用同一升级包重新开始。";
+            OtaVerifyText.Text = "升级已取消。新 D015 写入中断时留在 Boot；若已发送最终提交，结果待确认，请先重连核对版本。";
         }
         catch (Exception ex)
         {
             _sessionLog.WriteException("OTA", "OTA/Verify", ex);
-            OtaVerifyText.Text = "升级失败：" + ex.Message;
+            OtaVerifyText.Text = "升级未获成功确认：" + ex.Message;
             MessageBox.Show(ex.Message, "OTA failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -139,7 +142,7 @@ public partial class MainWindow
         }
     }
 
-    private async Task<bool> RunOtaOnceAsync(ulong address, FirmwareImage image, OtaTargetKind target, OtaTransferMode mode, CancellationToken ct)
+    private async Task<(bool Confirmed, D015UpgradeReadback? Verified)> RunOtaOnceAsync(ulong address, FirmwareImage image, OtaTargetKind target, OtaTransferMode mode, CancellationToken ct)
     {
         if (target == OtaTargetKind.Stm32SerialIap)
         {
@@ -156,7 +159,8 @@ public partial class MainWindow
                     OtaProgressBar.Value = p.Percent;
                     OtaProgressText.Text = $"串口升级 · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
                 });
-                return await serialPortClient.UpgradeAsync(image, ct);
+                bool confirmed = await serialPortClient.UpgradeAsync(image, ct);
+                return (confirmed, serialPortClient.Verified);
             }
 
             await using var serialTransport = new BmsBleTransport();
@@ -170,7 +174,8 @@ public partial class MainWindow
                 OtaProgressBar.Value = p.Percent;
                 OtaProgressText.Text = $"串口升级 · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
             });
-            return await serialClient.UpgradeAsync(image, ct);
+            bool bleConfirmed = await serialClient.UpgradeAsync(image, ct);
+            return (bleConfirmed, serialClient.Verified);
         }
 
         await using var transport = new OtaBleTransport();
@@ -186,7 +191,7 @@ public partial class MainWindow
             string eta = p.Eta is null ? string.Empty : $" · ETA {p.Eta.Value.TotalSeconds:F1}s";
             OtaProgressText.Text = $"{p.Mode} · {p.Percent:F1}% · {p.BytesPerSecond / 1024.0:F1} KB/s{eta}";
         });
-        return await client.UpgradeAsync(image, mode, ct);
+        return (await client.UpgradeAsync(image, mode, ct), null);
     }
 
     private async Task<DeviceIdentity> VerifyAfterOtaAsync(ulong? address, CancellationToken ct)

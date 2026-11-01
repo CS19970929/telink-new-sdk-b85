@@ -172,6 +172,7 @@ public sealed partial class BmsClient : IAsyncDisposable
     private readonly object _rxLock = new();
     private readonly List<byte> _rx = new();
     private TaskCompletionSource<byte[]>? _pending;
+    private byte[]? _pendingRequest;
     public event Action<string>? Log;
     public BmsCommunicationStatistics CommunicationStatistics { get; }
 
@@ -262,10 +263,10 @@ public sealed partial class BmsClient : IAsyncDisposable
     public bool IsSh3520 { get; private set; }
     public bool IsD015 { get; private set; }
 
-    public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default)
+    public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default, TimeSpan? responseTimeout = null)
     {
         if (quantity is 0 or > 125) throw new ArgumentOutOfRangeException(nameof(quantity), "Modbus 0x03 quantity must be 1..125.");
-        byte[] rsp = await TransactAsync(ModbusRtu.ReadHolding(start, quantity), ct).ConfigureAwait(false);
+        byte[] rsp = await TransactAsync(ModbusRtu.ReadHolding(start, quantity), ct, responseTimeout).ConfigureAwait(false);
         ushort[] words=ModbusRtu.ParseRead(rsp, quantity);
         if(start==Sh3520Parameters.HardwareBase && words.Length>=2) {
             IsSh3520=words[0]==Sh3520Parameters.Magic;
@@ -274,10 +275,10 @@ public sealed partial class BmsClient : IAsyncDisposable
         return words;
     }
 
-    public async Task WriteSingleRegisterAsync(ushort register, ushort value, CancellationToken ct = default)
+    public async Task WriteSingleRegisterAsync(ushort register, ushort value, CancellationToken ct = default, TimeSpan? responseTimeout = null)
     {
         if(register>=BmsRegisters.Protect && register<BmsRegisters.Protect+BmsRegisters.ProtectCount) await EnsureLegacyProtectionAsync(ct);
-        byte[] rsp = await TransactAsync(ModbusRtu.WriteSingle(register, value), ct);
+        byte[] rsp = await TransactAsync(ModbusRtu.WriteSingle(register, value), ct, responseTimeout);
         ModbusRtu.ValidateWriteSingleAck(rsp, register, value);
     }
 
@@ -584,7 +585,7 @@ public sealed partial class BmsClient : IAsyncDisposable
                     if (remainingMs > 0) await Task.Delay((int)Math.Ceiling(remainingMs), ct).ConfigureAwait(false);
                 }
             }
-            lock (_rxLock) { _rx.Clear(); _pending = tcs; }
+            lock (_rxLock) { _rx.Clear(); _pendingRequest = request; _pending = tcs; }
             Log?.Invoke("TX " + Convert.ToHexString(request));
             long started = Stopwatch.GetTimestamp();
             await _transport.WriteAsync(request, ct).ConfigureAwait(false);
@@ -611,7 +612,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         finally {
             // 包括 WriteAsync 失败在内，任何退出路径都释放当前接收所有权。
             lock (_rxLock) {
-                if (ReferenceEquals(_pending, tcs)) _pending = null;
+                if (ReferenceEquals(_pending, tcs)) { _pending = null; _pendingRequest = null; }
                 _rx.Clear();
             }
             _gate.Release();
@@ -650,7 +651,16 @@ public sealed partial class BmsClient : IAsyncDisposable
         {
             if (_pending is null) message = "[MODBUS] unsolicited RX fragment=" + Convert.ToHexString(fragment.Span);
             else {
+                if (_rx.Count + fragment.Length > 4096) {
+                    _pending.TrySetException(new IOException("Modbus receive buffer overflow."));
+                    _rx.Clear(); return;
+                }
                 _rx.AddRange(fragment.ToArray());
+                // Boot may send C while a capability query is in flight. Match only
+                // this request; never let an unsolicited prefix become a frame header.
+                while (_rx.Count > 0 && (_rx[0] != _pendingRequest![0] ||
+                    (_rx.Count > 1 && (_rx[1] & 0x7F) != _pendingRequest[1])))
+                    _rx.RemoveAt(0);
                 int? expected = ModbusRtu.InferExpectedLength(_rx);
                 message = $"[MODBUS] RX_FRAGMENT len={fragment.Length}; accumulated={_rx.Count}; expected={(expected?.ToString() ?? "unknown")}";
                 if (expected is not null && _rx.Count >= expected.Value) {

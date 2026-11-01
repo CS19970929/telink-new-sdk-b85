@@ -267,3 +267,5 @@ dotnet run --project .\bms-tool-windows\BmsTool.Cli\BmsTool.Cli.csproj -- scan
 `ota`继续复用同一发送器，`--target auto`不会猜测未知串口写协议；先读D170能力，旧D015由D130的板型/2.x版本识别。新D015的文件位置参数选择`.d015`（沿用既有`ota <文件>`语法）。显式`--target stm32`只为确实没有身份的旧通用工程开放原页协议；`--d015`仍强制D015镜像/设备门禁。新包拒绝旧Boot，旧BIN拒绝新Boot。执行仍必须`--yes`，自动选择设备仍要求唯一明确目标。完整恢复/支持边界见[UPGRADE.md](UPGRADE.md)。
 
 例：`bms-cli ota .\app.d015 --serial COM5 --baud 19200 --target auto --d015 --yes`。只有完成新APP身份、CRC/长度和实时数据回读才报告成功；没有输出固件镜像的隐式步骤。
+
+新 `.d015` 的 `ota` 不执行耗时的APP前置快照，直接在原端点等待只读能力；成功JSON的newVersion/newBuildId/battery来自共享发送器的一次确认读回，旧协议仍使用原有重连验证。新包oldVersion/oldBuildId可能为空，字段保留。最终提交阶段通信中断属于结果待确认，失败退出码不表示Flash一定未写入；恢复后应核对身份/CRC。普通识别中的I/O或CRC错误不触发旧协议降级。

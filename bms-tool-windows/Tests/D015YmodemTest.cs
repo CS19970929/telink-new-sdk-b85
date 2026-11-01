@@ -15,8 +15,47 @@ static class Test
         Put(224,D015FirmwarePackage.BoardId);Put(228,D015FirmwarePackage.AppAddress);Put(232,0x00030001);Put(236,(uint)length-16);
         Put(24,D015FirmwarePackage.Crc32(b.AsSpan(32)));Put(28,D015FirmwarePackage.Crc32(b.AsSpan(0,28)));return b;
     }
+    static byte[] Capability(ushort mode=1,ushort protocol=2)
+    {
+        ushort[] words={0x5550,1,0xD015,0x0320,protocol,2,0x0800,0x2000,0,45056,mode,0};
+        byte[] b=new byte[29];b[0]=1;b[1]=3;b[2]=24;
+        for(int i=0;i<12;i++)BinaryPrimitives.WriteUInt16BigEndian(b.AsSpan(3+i*2,2),words[i]);
+        ushort crc=0xFFFF;foreach(byte v in b.AsSpan(0,27)){crc^=v;for(int i=0;i<8;i++)crc=(ushort)((crc>>1)^((crc&1)!=0?0xA001:0));}
+        BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(27),crc);return b;
+    }
+    static async Task DiscoveryEdges()
+    {
+        foreach(bool noise in new[]{false,true}) {
+            await using var t=new ProbeTransport(_=>Capability()) { Noise=noise };
+            var d=await UpgradeDetection.ReadAsync(t,false,default);
+            Check(d.Protocol==SerialUpgradeProtocol.D015Ymodem,"C prefix and byte-fragmented capability response");
+        }
+        await using(var t=new ProbeTransport(_=>throw new IOException("cable gone"))) {
+            bool failed=false;try{await UpgradeDetection.ReadAsync(t,true,default);}catch(IOException){failed=true;}
+            Check(failed && t.Writes.Count==1,"I/O failure cannot authorize legacy fallback");
+        }
+        await using(var t=new ProbeTransport(_=>Capability(1,99))) {
+            bool failed=false;try{await UpgradeDetection.ReadAsync(t,true,default);}catch(InvalidDataException){failed=true;}
+            Check(failed && t.Writes.Count==1,"unknown capability cannot authorize legacy fallback");
+        }
+        int queries=0;
+        await using(var t=new ProbeTransport(_=>++queries<3 ? null : Capability(3))) {
+            var d=await UpgradeDetection.WaitForD015Async(t,default);
+            Check(d.Mode==3 && queries==3 && t.Writes.All(b=>b[1]==3),"power-on recovery probes only read capabilities");
+        }
+        await using(var t=new ProbeTransport(_=>Capability(2))) {
+            string path=Path.Combine(Path.GetTempPath(),Guid.NewGuid()+".dat");
+            try {
+                File.WriteAllBytes(path,Package());var image=FirmwareImage.LoadForTarget(path,OtaTargetKind.Stm32SerialIap);
+                var d=await UpgradeDetection.ReadAsync(t,false,default);bool failed=false;
+                try{await new D015YmodemClient(t).UpgradeAsync(image,d,default);}catch(IOException){failed=true;}
+                Check(failed && t.Writes.All(b=>b[1]==3),"unsafe Boot never receives ENTER or data");
+            }finally{File.Delete(path);}
+        }
+    }
     public static async Task Main(string[] args)
     {
+        await DiscoveryEdges();
         var cap=new ushort[]{0x5550,1,0xD015,0x0320,2,2,0x0800,0x2000,0,45056,1,0};
         Check(UpgradeDetection.ParseCapabilities(cap)?.Protocol==SerialUpgradeProtocol.D015Ymodem,"capability identification");
         cap[4]=99;bool rejected=false;try{_=UpgradeDetection.ParseCapabilities(cap);}catch(InvalidDataException){rejected=true;}
@@ -37,13 +76,19 @@ static class Test
                 var sender=new D015YmodemClient(transport);double progress=0;sender.Progress+=p=>progress=p.Percent;sender.Log+=Console.WriteLine;
                 Check(await sender.UpgradeAsync(image,device,default),"actual C receiver upgrade");
                 Check(transport.Reconnects>0,"APP verification rebuilds transport after reset");
-                Check(progress==100,"success only after exact APP CRC/version/length and BMS readback");
+                Check(progress==100 && sender.Verified is not null,"one shared verified readback for UI and CLI");
                 if(loseAck)Check(transport.Corrupted && transport.DroppedAck && transport.DroppedFinalAck,"error injection exercised");
                 device=await UpgradeDetection.ReadAsync(transport,false,default);Check(device.Mode==0,"APP advertises same protocol");
                 // A second upgrade exercises APP ENTER as well as recovery-only entry.
                 int reconnects=transport.Reconnects;
                 Check(await new D015YmodemClient(transport).UpgradeAsync(image,device,default),"APP entry and repeated upgrade");
                 Check(transport.Reconnects>=reconnects+2,"APP entry and final reset each rebuild the same device link");
+                if(!loseAck) {
+                    await transport.WindowAsync();
+                    device=await UpgradeDetection.WaitForD015Async(transport,default);
+                    Check(device.Mode==3,"actual C Boot distinguishes power-on entry window");
+                    Check(await new D015YmodemClient(transport).UpgradeAsync(image,device,default),"power-on entry then reidentify safe Boot");
+                }
             }
             await using(var transport=new ReceiverProcess(args[0])) {
                 var device=await UpgradeDetection.ReadAsync(transport,false,default);
@@ -55,6 +100,27 @@ static class Test
                 device=await UpgradeDetection.ReadAsync(transport,false,default);Check(device.Mode==1,"partial image cannot boot after MCU reset");
                 Check(await new D015YmodemClient(transport).UpgradeAsync(image,device,default),"full restart after interrupted update");
             }
+
+            using(var cancelAtEnd=new CancellationTokenSource())
+            await using(var transport=new ReceiverProcess(args[0]) { CancelAtEnd=cancelAtEnd }) {
+                var device=await UpgradeDetection.ReadAsync(transport,false,default);bool canceled=false;
+                try {await new D015YmodemClient(transport).UpgradeAsync(image,device,cancelAtEnd.Token);}
+                catch(OperationCanceledException){canceled=true;}
+                Check(canceled && transport.CancelSent,"cancel after EOT but before final block sends CAN CAN");
+            }
+            // A cable failure after the final block may mean the commit succeeded.
+            await using(var transport=new ReceiverProcess(args[0]) { DisconnectAtFinal=true }) {
+                var device=await UpgradeDetection.ReadAsync(transport,false,default);
+                var sender=new D015YmodemClient(transport);
+                Check(await sender.UpgradeAsync(image,device,default),"final write IOException resolves through exact APP readback");
+                Check(transport.FinalDisconnected && sender.Verified is not null,"disconnect injection and final evidence exercised");
+            }
+            await using(var transport=new ReceiverProcess(args[0]) { WrongBootOnReconnect=true }) {
+                var device=(await UpgradeDetection.ReadAsync(transport,false,default)) with { Mode=0 };
+                bool refused=false;try {await new D015YmodemClient(transport).UpgradeAsync(image,device,default);}
+                catch(Exception ex) when(ex is IOException or InvalidDataException){refused=true;}
+                Check(refused && transport.DataBlocks==0,"reconnected identity mismatch stops before file transfer");
+            }
         } finally {File.Delete(file);}
         Console.WriteLine("PASS: host -> production C YMODEM; bad CRC, lost ACK, final ACK ambiguity, cancel/reset/retry, APP entry, read-only detection and exact post-verification");
     }
@@ -62,7 +128,11 @@ static class Test
 sealed class ReceiverProcess : IBmsTransport
 {
     readonly Process _process;readonly SemaphoreSlim _gate=new(1);readonly CancellationTokenSource _stop=new();readonly Task _poll;
-    public bool Faults,Corrupted,DroppedAck,DroppedFinalAck;
+    public bool Faults,Corrupted,DroppedAck,DroppedFinalAck,DisconnectAtFinal,FinalDisconnected,WrongBootOnReconnect;
+    public int DataBlocks;
+    public CancellationTokenSource? CancelAtEnd;
+    public bool CancelSent;
+    int eots;
     public int Reconnects;
     public ReceiverProcess(string path) {
         var start=new ProcessStartInfo(path){UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
@@ -73,19 +143,25 @@ sealed class ReceiverProcess : IBmsTransport
     public event Action<ReadOnlyMemory<byte>>? DataReceived;
     public event Action<string>? ConnectionProgress {add{}remove{}}
     public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;return Task.CompletedTask;}
+    public Task WindowAsync()=>CommandAsync("W",false,default);
     public Task ResetAsync()=>CommandAsync("R",false,default);
     async Task PollAsync() {
         try {while(true){await Task.Delay(100,_stop.Token);await CommandAsync("T 250",false,_stop.Token);}}
         catch(OperationCanceledException) { }
     }
-    public Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default) {
+    public async Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default) {
         byte[] bytes=data.ToArray();bool drop=false;
+        if(bytes.Length==1029)DataBlocks++;
+        if(bytes.SequenceEqual(new byte[]{0x18,0x18}))CancelSent=true;
         if(Faults && bytes.Length==1029 && bytes[1]==1) {
             if(!Corrupted){bytes[20]^=1;Corrupted=true;}
             else if(!DroppedAck){drop=true;DroppedAck=true;}
         }
         if(Faults && bytes.Length==133 && bytes[1]==0 && bytes[3]==0 && !DroppedFinalAck){drop=true;DroppedFinalAck=true;}
-        return CommandAsync(Convert.ToHexString(bytes),drop,ct);
+        bool disconnect=DisconnectAtFinal && bytes.Length==133 && bytes[1]==0 && bytes[3]==0 && !FinalDisconnected;
+        await CommandAsync(Convert.ToHexString(bytes),drop || disconnect,ct);
+        if(bytes.Length==1 && bytes[0]==4 && ++eots==2)CancelAtEnd?.Cancel();
+        if(disconnect){FinalDisconnected=true;throw new IOException("cable disconnected after final block");}
     }
     async Task CommandAsync(string command,bool drop,CancellationToken ct) {
         await _gate.WaitAsync(ct);
@@ -94,11 +170,36 @@ sealed class ReceiverProcess : IBmsTransport
             string? line=await _process.StandardOutput.ReadLineAsync(ct).AsTask().WaitAsync(TimeSpan.FromSeconds(5),ct);
             if(line is null)throw new IOException("C receiver terminated: "+await _process.StandardError.ReadToEndAsync(ct));
             byte[] response=Convert.FromHexString(line);
+            if(WrongBootOnReconnect && Reconnects>0 && response.Length==29 && response[1]==3) {
+                response[8]^=1;
+                BinaryPrimitives.WriteUInt16LittleEndian(response.AsSpan(27),ModbusRtu.Crc16(response.AsSpan(0,27)));
+            }
             if(!drop)for(int at=0;at<response.Length;at+=7)DataReceived?.Invoke(response.AsMemory(at,Math.Min(7,response.Length-at)));
         } finally {_gate.Release();}
     }
     public async ValueTask DisposeAsync() {
         _stop.Cancel();await _poll;_process.StandardInput.Close();
         await _process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));_process.Dispose();_stop.Dispose();_gate.Dispose();
+    }
+}
+
+sealed class ProbeTransport(Func<byte[],byte[]?> respond):IBmsTransport
+{
+    public bool Noise;
+    public List<byte[]> Writes=new();
+    public bool IsConnected=>true;
+    public string DiscoveryDescription=>"fragmented capability probe fixture";
+    public event Action<ReadOnlyMemory<byte>>? DataReceived;
+    public event Action<string>? ConnectionProgress {add{}remove{}}
+    public Task ReconnectAsync(CancellationToken ct=default)=>Task.CompletedTask;
+    public ValueTask DisposeAsync()=>ValueTask.CompletedTask;
+    public Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default)
+    {
+        byte[] request=data.ToArray();Writes.Add(request);byte[]? b=respond(request);
+        if(b is not null) {
+            if(Noise)DataReceived?.Invoke(new byte[]{0x43,0x43});
+            foreach(byte value in b)DataReceived?.Invoke(new byte[]{value});
+        }
+        return Task.CompletedTask;
     }
 }

@@ -5,12 +5,14 @@ using System.Threading.Channels;
 namespace BmsTool.Windows;
 
 public sealed record SerialUpgradeProgress(double Percent,int SentBytes,int TotalBytes,string Stage);
+public sealed record D015UpgradeReadback(DeviceIdentity Identity, BatterySnapshot Battery, uint? BuildId);
 public sealed class D015YmodemClient
 {
     private readonly IBmsTransport _transport;
     private readonly bool _ble;
     private readonly Channel<byte> _rx=Channel.CreateBounded<byte>(8192);
     private volatile bool _overflow;
+    public D015UpgradeReadback? Verified { get; private set; }
     public event Action<string>? Log;
     public event Action<SerialUpgradeProgress>? Progress;
     public D015YmodemClient(IBmsTransport transport,bool chunkForBle=false) { _transport=transport;_ble=chunkForBle; }
@@ -104,7 +106,10 @@ public sealed class D015YmodemClient
                    (((uint)id[2]<<16)|id[3])!=package.Version ||
                    (((uint)crc[0]<<16)|crc[1])!=package.PayloadCrc || crc[2]!=package.PayloadLength)
                     throw new InvalidDataException("升级后板型、版本、整包 CRC 或长度与所选固件不一致。");
-                _=await client.ReadBatteryAsync(ct);
+                var battery=await client.ReadBatteryAsync(ct);
+                var identity=await client.ReadIdentityAsync(ct);
+                var build=await client.TryReadFirmwareBuildIdAsync(ct);
+                Verified=new(identity,battery,build);
                 Log?.Invoke($"VERIFIED D015 version={package.Version:X8} CRC32={package.PayloadCrc:X8} bytes={package.PayloadLength}; BMS readback OK");
                 return;
             } catch(InvalidDataException) { throw; }
@@ -114,21 +119,27 @@ public sealed class D015YmodemClient
     }
     public async Task<bool> UpgradeAsync(FirmwareImage image,SerialUpgradeDevice device,CancellationToken ct)
     {
-        UpgradeDetection.CheckImage(device,image);
+        Verified=null;
+        if(!image.IsD015Package) throw new InvalidDataException("新 D015 Boot 要求 .d015 升级包。");
         if(device.Protocol!=SerialUpgradeProtocol.D015Ymodem)throw new ArgumentException("D015 YMODEM device required");
         byte[] file=image.Bytes.ToArray();var package=D015FirmwarePackage.Parse(file);
-        bool subscribed=false, endSent=false;
+        bool subscribed=false, finalBlockAttempted=false;
         try {
             Log?.Invoke($"识别：{device.Evidence}; mode={device.Mode}; board={device.Board:X8}");
             Progress?.Invoke(new(0,0,file.Length,"准备安全关断"));
+            if(device.Mode==2) throw new IOException("Boot 安全关断失败，禁止擦写。排除硬件或供电故障后复位再试。");
             if(device.Mode!=1) {
                 await using var client=new BmsClient(_transport);
-                try { await client.WriteSingleRegisterAsync(0x3500,0xB007,ct); }
+                try { await client.WriteSingleRegisterAsync(0x3500,0xB007,ct,TimeSpan.FromSeconds(6)); }
                 catch(TimeoutException) { Log?.Invoke("ENTER ACK 超时，等待已确认设备的 Boot 握手；不改用其他协议。"); }
                 // Reset can cycle the UART bridge supply; keep the same device, rebuild its link.
                 await Task.Delay(800,ct);
-                await _transport.ReconnectAsync(ct);
+                try { await _transport.ReconnectAsync(ct); }
+                catch(IOException ex) { Log?.Invoke("等待原设备串口桥恢复："+ex.Message); }
             }
+            var boot=await UpgradeDetection.WaitForD015Async(_transport,ct);
+            if(boot.Board!=device.Board || boot.Address!=device.Address || boot.Capacity!=device.Capacity || boot.Mode!=1)
+                throw new IOException("重连后不是已确认且允许写入的 D015 Boot；停止升级。");
             _transport.DataReceived+=Receive;subscribed=true;Drain();
             await ExpectAsync(0x43,8000,ct);
             byte[] header=new byte[128];Encoding.ASCII.GetBytes("app.d015\0"+file.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)).CopyTo(header,0);
@@ -139,19 +150,23 @@ public sealed class D015YmodemClient
                 await SendPacketAsync(Packet(seq++,file.AsSpan(offset,n),1024),false,ct);
                 Progress?.Invoke(new((offset+n)*95.0/file.Length,offset+n,file.Length,"传输并校验"));
             }
-            await EndDataAsync(ct);endSent=true;
+            await EndDataAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            finalBlockAttempted=true;
             try { await SendPacketAsync(Packet(0,new byte[128],128),false,ct); }
-            catch(TimeoutException) { Log?.Invoke("最终 ACK 未收到，先回读 APP 判断是否已经提交成功。"); }
+            catch(Exception ex) when(ex is TimeoutException or IOException) { Log?.Invoke("最终提交结果待确认："+ex.Message+"；重连回读 APP，不重新擦写。"); }
             _transport.DataReceived-=Receive;subscribed=false;
             Progress?.Invoke(new(98,file.Length,file.Length,"等待重启并核对新 APP"));
             await VerifyAppAsync(package,ct);
             Progress?.Invoke(new(100,file.Length,file.Length,"升级成功，身份和运行数据已核对"));
             return true;
         } catch {
-            if(subscribed && !endSent) {
+            if(subscribed && !finalBlockAttempted) {
                 try { using var cancel=new CancellationTokenSource(1000);await WriteAsync(new byte[]{0x18,0x18},cancel.Token); }
                 catch(Exception ex) when(ex is IOException or OperationCanceledException or TimeoutException) { }
             }
+            if(finalBlockAttempted && Verified is null)
+                Log?.Invoke("最终提交已尝试，当前结果待确认；恢复连接后核对 APP，不能把取消或断线等同于未提交。");
             throw;
         } finally { if(subscribed)_transport.DataReceived-=Receive;Drain(); }
     }
