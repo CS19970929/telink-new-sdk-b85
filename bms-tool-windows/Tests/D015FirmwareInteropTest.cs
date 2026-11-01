@@ -39,9 +39,16 @@ static class Program
         await client.WriteD008VerifiedAsync(0x2318,new ushort[]{350},false,default);
         Check((await client.ReadRegistersAsync(0x2318,1))[0]==350,"35Ah saved and read back");
         await client.WriteD008VerifiedAsync(0x340D,new ushort[]{35},false,default);
-        await client.WriteD008VerifiedAsync(0x3411,new ushort[]{4},false,default);
+        var fixedPolicies=new (ushort Address,ushort Value)[]{(0x340A,999),(0x3410,100),(0x3411,3),(0x3412,20),(0x3413,3)};
+        foreach(var policy in fixedPolicies) {
+            Check((await client.ReadRegistersAsync(policy.Address,1))[0]==policy.Value,"read actual firmware macro");
+            bool fixedRejected=false;
+            try {await client.WriteD008VerifiedAsync(policy.Address,new[]{(ushort)(policy.Value+1)},false,default);}
+            catch(IOException ex) when(ex.Message.Contains("Modbus exception code=0x05")){fixedRejected=true;}
+            Check(fixedRejected && (await client.ReadRegistersAsync(policy.Address,1))[0]==policy.Value,"firmware rejects fixed policy modification");
+        }
         await client.WriteD008VerifiedAsync(0x2202,new ushort[]{4130,95},false,default);
-        Check((await client.ReadRegistersAsync(0x340D,1))[0]==35 && (await client.ReadRegistersAsync(0x3411,1))[0]==4,"D015 balance and RTC saved/read back");
+        Check((await client.ReadRegistersAsync(0x340D,1))[0]==35 && (await client.ReadRegistersAsync(0x3411,1))[0]==3,"D015 Flash parameter saved and macro read back");
         Check((await client.ReadRegistersAsync(0x2202,2)).SequenceEqual(new ushort[]{4130,95}),"D015 OCV point transaction");
         bool rejected=false;
         try {await client.WriteD008VerifiedAsync(0x2318,new ushort[]{9},false,default);}catch(ArgumentException){rejected=true;}

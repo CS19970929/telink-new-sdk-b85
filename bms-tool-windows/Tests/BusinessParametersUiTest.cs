@@ -98,6 +98,15 @@ static class BusinessParametersUiTest
         Check(Field<TabItem>("_d015ParameterTab").Visibility==Visibility.Visible,"D015配置入口可见");
         Check(Field<List<TabItem>>("_d015LegacyTabs").All(t=>t.Visibility==Visibility.Collapsed),"隐藏不适用D015的其他产品页面");
         Check(Field<DataGrid>("_d015BasicGrid").Items.Count==23 && !Field<DataGrid>("_d015BasicGrid").Items.Cast<D015SettingRow>().Any(r=>r.Address==0x340B),"D015实际23项，旧预充完成电流保留槽不作为可写参数");
+        var basicGrid=Field<DataGrid>("_d015BasicGrid");
+        var basicRows=basicGrid.Items.Cast<D015SettingRow>().ToArray();
+        Check(basicRows.Where(r=>r.IsReadOnly).Select(r=>r.Address).SequenceEqual(new ushort[]{0x340A,0x3410,0x3411,0x3412,0x3413}),"五项运行策略显示为只读固件宏");
+        Check(basicRows.Where(r=>r.IsReadOnly).All(r=>r.Source=="固件宏，只读") && basicRows.Single(r=>r.Address==0x340D).Source=="Flash参数","明确区分宏与Flash参数");
+        foreach(var row in basicRows) {
+            var edit=new DataGridBeginningEditEventArgs(basicGrid.Columns[2],new DataGridRow{Item=row},null!);
+            typeof(DataGrid).GetMethod("OnBeginningEdit",Private)!.Invoke(basicGrid,new object[]{edit});
+            Check(edit.Cancel==row.IsReadOnly,"宏禁止进入编辑，Flash参数保留编辑能力");
+        }
         Check((Field<DataGrid>("_d015OcvGrid").Parent is not null)!=customer,"D015 OCV编辑仅内部版提供");
         Check(window.FindName("D015IapRecoveryBox") is CheckBox,"两版均提供 D015 IAP 恢复入口");
         var ota=(TabItem)window.FindName("OtaTab");
