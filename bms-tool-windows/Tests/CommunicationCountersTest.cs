@@ -17,13 +17,17 @@ static class CommunicationCountersTest
             transport.Mode = "crc";
             await Expect<ModbusCrcException>(() => client.ReadRegistersAsync(0xD120, 2));
             transport.Mode = "address";
-            await Expect<IOException>(() => client.ReadRegistersAsync(0xD120, 2));
+            // 当前接收器丢弃非本从站前缀；没有匹配响应时按超时处理。
+            await Expect<TimeoutException>(() => client.ReadRegistersAsync(0xD120, 2));
             transport.Mode = "quantity";
             await Expect<IOException>(() => client.ReadRegistersAsync(0xD120, 2));
+            var freshness=typeof(BmsClient).GetField("_lastSuccessfulResponseTick",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!;
+            freshness.SetValue(client,System.Diagnostics.Stopwatch.GetTimestamp()-9L*System.Diagnostics.Stopwatch.Frequency);
             transport.Mode = "exception";
             await Expect<BmsModbusException>(() => client.ReadRegistersAsync(0xD120, 2));
+            Check(client.LastSuccessfulResponseAge>=TimeSpan.FromSeconds(9),"exception response cannot renew successful device data");
             s = stats.Snapshot();
-            Check(s.TxFrames == 5 && s.RxFrames == 2 && s.CrcErrors == 1 && s.InvalidResponses == 2 && s.ExceptionResponses == 1,
+            Check(s.TxFrames == 5 && s.RxFrames == 2 && s.CrcErrors == 1 && s.InvalidResponses == 1 && s.ExceptionResponses == 1,
                 "bad CRC/header excluded, Modbus exceptions prove live response");
             transport.Mode = "write-fail";
             await Expect<IOException>(() => client.ReadRegistersAsync(0xD120, 2));
@@ -35,7 +39,7 @@ static class CommunicationCountersTest
                 await Expect<OperationCanceledException>(() => client.ReadRegistersAsync(0xD120, 2, cts.Token));
             await Expect<TimeoutException>(() => client.ReadRegistersAsync(0xD120, 2));
             s = stats.Snapshot();
-            Check(s.Cancellations == 1 && s.Timeouts == 1 && s.SendFailures == 1 && s.InvalidResponses == 2,
+            Check(s.Cancellations == 1 && s.Timeouts == 2 && s.SendFailures == 1 && s.InvalidResponses == 1,
                 "cancellation/timeout/write failure are distinct");
             transport.Mode = "ok";
             await Task.WhenAll(client.ReadRegistersAsync(0xD120, 2), client.ReadRegistersAsync(0xD120, 2));
@@ -44,7 +48,7 @@ static class CommunicationCountersTest
         await using (var reconnected = new BmsClient(transport, stats))
             await reconnected.ReadRegistersAsync(0xD120, 2);
         var final = stats.Snapshot();
-        Check(final.TxFrames == 10 && final.RxFrames == 5 && final.Timeouts == 1 && final.CrcErrors == 1,
+        Check(final.TxFrames == 10 && final.RxFrames == 5 && final.Timeouts == 2 && final.CrcErrors == 1,
             "counters survive new client, error paths release receive ownership and request gate");
         var serial = new CounterTransport { Serial = true };
         await using (var serialClient = new BmsClient(serial)) {

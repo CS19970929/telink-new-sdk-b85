@@ -25,11 +25,12 @@ public partial class MainWindow
         _customerUiTimer.Tick += (_, _) => RefreshCustomerUiFromExistingSnapshot();
         _customerUiTimer.Start();
         RefreshCustomerUiFromExistingSnapshot();
-        AppendLog("客户实时监控页面已启用；断连/重连过程仅写诊断日志，主页面保持最后一次有效数据。", "APP");
+        AppendLog("客户实时监控页面已启用；连续8秒无有效设备响应时清空设备显示，恢复后重新读取。", "APP");
     }
 
     private void RefreshCustomerUiFromExistingSnapshot()
     {
+        if (!CheckDeviceDisplayFreshness()) { UpdateCommunicationStatus(); return; }
         UpdateCustomerSocAndCapacity();
         UpdateCustomerTemperatures();
         UpdateCustomerCells();
@@ -211,9 +212,9 @@ public partial class MainWindow
     private void UpdateCustomerAlarms()
     {
         string text = ProtectionLevelsText.Text ?? string.Empty;
-        CustomerAlarm1Text.Text = ExtractValue(text, @"一级：([^\r\n]+)", "无");
-        CustomerAlarm2Text.Text = ExtractValue(text, @"二级：([^\r\n]+)", "无");
-        CustomerAlarm3Text.Text = ExtractValue(text, @"三级：([^\r\n]+)", "无");
+        CustomerAlarm1Text.Text = ExtractValue(text, @"一级：([^\r\n]+)", "—");
+        CustomerAlarm2Text.Text = ExtractValue(text, @"二级：([^\r\n]+)", "—");
+        CustomerAlarm3Text.Text = ExtractValue(text, @"三级：([^\r\n]+)", "—");
     }
 
     private void UpdateCustomerIdentityFooter()
@@ -239,7 +240,7 @@ public partial class MainWindow
             _nextReconnectUtc = DateTime.MaxValue;
             CustomerCommStatusBorder.Visibility = Visibility.Collapsed;
             await DisposeBmsAsync();
-            AppendLog("用户主动断开 BMS；客户主页面保留最后一次有效数据。", "CONNECT");
+            AppendLog("用户主动断开 BMS；设备显示已清空。", "CONNECT");
         }
         catch (Exception ex)
         {

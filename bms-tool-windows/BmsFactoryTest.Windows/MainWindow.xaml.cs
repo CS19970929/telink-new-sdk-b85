@@ -385,6 +385,7 @@ public partial class MainWindow : Window
             await _bmsTransport.DisposeAsync();
             _bmsTransport = null;
         }
+        ClearDeviceDisplays();
     }
 
     private void StartAutomaticRefresh()
@@ -412,6 +413,7 @@ public partial class MainWindow : Window
         var build = await bms.TryReadFirmwareBuildIdentityAsync(ct);
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
+        _identityRefreshRequired = false;
         IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}\n固件 Build ID：{build?.Display ?? "不可用"}";
         FactoryIdentityText.Text = $"蓝牙：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}";
         FactoryConnectionText.Text = $"连接状态：已连接\n硬件：{id.Hardware}\n软件：{id.Software}";
@@ -595,6 +597,7 @@ public partial class MainWindow : Window
         _polling = true;
         try
         {
+            if (_identityRefreshRequired) await RefreshIdentityAsync();
             await RefreshBatteryAsync();
             _pollFailureCount = 0;
         }
@@ -664,6 +667,7 @@ public partial class MainWindow : Window
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         ProtectionStatusText.Text = "正在读取...";
         ushort[] values = await bms.ReadProtectionAllAsync();
+        if (!ReferenceEquals(bms, _bms)) return;
         if (values.Length != _protectionRows.Count)
             throw new IOException($"保护参数数量错误：expected={_protectionRows.Count}, actual={values.Length}");
         for (int i = 0; i < values.Length; i++) _protectionRows[i].LoadFromDevice(values[i]);

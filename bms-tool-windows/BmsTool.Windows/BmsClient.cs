@@ -167,6 +167,11 @@ public sealed partial class BmsClient : IAsyncDisposable
     // 仅限制串口请求，给板端和转换器完成发送到接收的切换；BLE 保持原节奏。
     private static readonly TimeSpan SerialResponseTurnaroundDelay = TimeSpan.FromMilliseconds(20);
     private long _lastReceiveTick;
+    private long _lastSuccessfulResponseTick;
+    // 每个连接独立、单调时钟；噪声、CRC错误和Modbus异常不续期设备数据。
+    public TimeSpan? LastSuccessfulResponseAge => Interlocked.Read(ref _lastSuccessfulResponseTick) is long tick && tick != 0
+        ? Stopwatch.GetElapsedTime(tick) : null;
+
     private readonly IBmsTransport _transport;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _rxLock = new();
@@ -601,6 +606,7 @@ public sealed partial class BmsClient : IAsyncDisposable
                 throw new TimeoutException($"Modbus response timed out after {timeout.TotalMilliseconds:F0} ms.", ex);
             }
             ValidateResponseHeader(request, rsp);
+            if ((rsp[1] & 0x80) == 0) Interlocked.Exchange(ref _lastSuccessfulResponseTick, Stopwatch.GetTimestamp());
             CommunicationStatistics.ReceivedFrame(Stopwatch.GetElapsedTime(started).TotalMilliseconds, (rsp[1] & 0x80) != 0);
             Log?.Invoke("RX " + Convert.ToHexString(rsp));
             return rsp;

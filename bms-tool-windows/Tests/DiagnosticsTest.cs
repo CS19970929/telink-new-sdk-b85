@@ -159,7 +159,7 @@ static class Test
             var runtimeComparison=DiagnosticBundleComparer.Filter(comparison,"runtime");
             Check(runtimeComparison.DifferenceCount==1&&runtimeComparison.Differences[0].Entry=="soc.json","diagnostic comparison category filter");
         } finally {Directory.Delete(dir,true);}
-        Check(ProductSupportMatrix.Products.Count==4&&ProductSupportMatrix.Products.Any(x=>x.Product=="D013"&&x.DiagnosticsSchema==1),"product support matrix");
+        Check(ProductSupportMatrix.Products.Count==5&&ProductSupportMatrix.Products.Any(x=>x.Product=="D013"&&x.DiagnosticsSchema==1),"product support matrix");
         t.Timeout=false;
         var setSoc=await b.SetSocAndVerifyAsync(64);
         Check(setSoc.SocPercent==64&&t.LastWriteAddress==0x1005&&t.LastWriteValue==64,"generic SOC write and readback");

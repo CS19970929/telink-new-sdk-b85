@@ -211,6 +211,6 @@ public partial class MainWindow
         foreach(var control in new Control[]{_parameterBalanceStart,_parameterBalanceDeltaStart,_parameterBalanceDeltaStop,_parameterBalanceSave,_parameterBalanceDisable,_parameterBalanceAllow})control.IsEnabled=balanceReady;
         if(!balanceReady && !_parameterBusy)_parameterBalancePermission.Text="均衡：未确认";
         UpdateSleepParameterControls();
-        foreach(var button in _d015SaveButtons)button.IsEnabled=!_parameterBusy && _bms?.IsD015==true;
+        foreach(var button in _d015SaveButtons)button.IsEnabled=!_parameterBusy && _parameterCapture is not null && _bms?.IsD015==true;
     }
 }

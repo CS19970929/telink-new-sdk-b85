@@ -97,6 +97,34 @@ static class MainWindowExperienceTest
         Check(((TextBlock)window.FindName("CustomerBuildText")).Text.Contains("1234abcd · dirty · production"),
             "首页底部显示设备信息页同一个固件Build ID与模式");
 
+        var client=new BmsClient(new DisplayTransport());
+        type.GetField("_bms",PrivateInstance)!.SetValue(window,client);
+        var freshness=typeof(BmsClient).GetField("_lastSuccessfulResponseTick",PrivateInstance)!;
+        var checkFreshness=type.GetMethod("CheckDeviceDisplayFreshness",PrivateInstance)!;
+        freshness.SetValue(client,System.Diagnostics.Stopwatch.GetTimestamp()-7L*System.Diagnostics.Stopwatch.Frequency);
+        Check((bool)checkFreshness.Invoke(window,null)!,"7秒以内仍保留已读设备值");
+        ((TextBlock)window.FindName("PackVoltageText")).Text="48.00 V";
+        var parameter=(TextBox)type.GetField("_parameterCapacity",PrivateInstance)!.GetValue(window)!;
+        parameter.Text="30";
+        var cellPanel=(Panel)window.FindName("CustomerCellPanel");cellPanel.Children.Add(new Border());
+        freshness.SetValue(client,System.Diagnostics.Stopwatch.GetTimestamp()-8L*System.Diagnostics.Stopwatch.Frequency-1);
+        Check(!(bool)checkFreshness.Invoke(window,null)!,"达到8秒无成功响应即清空，不等待轮询任务完成");
+        Check(((TextBlock)window.FindName("PackVoltageText")).Text=="—" && cellPanel.Children.Count==0,
+            "电压与电芯卡片已清空");
+        Check(((TextBlock)window.FindName("IdentityText")).Text=="—" && ((TextBlock)window.FindName("CustomerBuildText")).Text.EndsWith("—"),
+            "身份、版本、序列号与Build ID同步清空");
+        Check(parameter.Text=="" && ((TextBlock)window.FindName("CustomerAlarm3Text")).Text=="—",
+            "业务参数与保护状态显示未知，不伪装成0或无故障");
+        Check((bool)type.GetField("_identityRefreshRequired",PrivateInstance)!.GetValue(window)!,"恢复后需重新读取身份");
+        freshness.SetValue(client,System.Diagnostics.Stopwatch.GetTimestamp());
+        Check((bool)checkFreshness.Invoke(window,null)!,"收到新成功响应可恢复显示");
+        type.GetMethod("ApplyBatterySnapshot",PrivateInstance)!.Invoke(window,new object[]{new BatterySnapshot {
+            PackVoltageV=49.4,SocPercent=50,CellMillivolts=Enumerable.Repeat((ushort)3800,13).ToArray()}});
+        Check(((TextBlock)window.FindName("PackVoltageText")).Text.Contains("49.40"),"恢复时显示新读数");
+        type.GetField("_bms",PrivateInstance)!.SetValue(window,null);
+        checkFreshness.Invoke(window,null);
+        Check(((TextBlock)window.FindName("PackVoltageText")).Text=="—","手动断开与更换连接立即清空");
+
         window.Close();
         Console.WriteLine(_passed ? "MAIN_WINDOW_EXPERIENCE_PASS" : "MAIN_WINDOW_EXPERIENCE_FAIL");
         return _passed ? 0 : 1;
@@ -141,4 +169,15 @@ static class MainWindowExperienceTest
         Descendants(root).OfType<Button>()
             .Where(button => button.Visibility == Visibility.Visible)
             .Select(button => button.Content?.ToString() ?? string.Empty);
+}
+
+sealed class DisplayTransport : IBmsTransport
+{
+    public bool IsConnected=>true;
+    public string DiscoveryDescription=>"display test";
+    public event Action<ReadOnlyMemory<byte>>? DataReceived {add{}remove{}}
+    public event Action<string>? ConnectionProgress {add{}remove{}}
+    public Task ReconnectAsync(CancellationToken ct=default)=>Task.CompletedTask;
+    public Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default)=>Task.CompletedTask;
+    public ValueTask DisposeAsync()=>ValueTask.CompletedTask;
 }

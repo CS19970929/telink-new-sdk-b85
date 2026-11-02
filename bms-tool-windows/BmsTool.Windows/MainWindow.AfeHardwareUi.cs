@@ -156,6 +156,7 @@ public partial class MainWindow
 
             var client = new AfeHardwareClient(bms);
             AfeHardwareSnapshot snapshot = await client.ReadAllAsync();
+            if (!ReferenceEquals(bms, _bms)) return;
             _afeHardwareModel.Load(snapshot);
             _afeHardwareSource = bms;
             ApplyAfeDeviceInfo(snapshot.Info);
@@ -222,6 +223,7 @@ public partial class MainWindow
 
             _afeHardwareSource = null;
             AfeHardwareSnapshot readback = await client.WriteAllAsync(candidate);
+            if (!ReferenceEquals(bms, _bms)) return;
             _afeHardwareModel.Load(readback);
             _afeHardwareSource = bms;
             ApplyAfeDeviceInfo(readback.Info);

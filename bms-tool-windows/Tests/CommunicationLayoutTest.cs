@@ -14,22 +14,25 @@ static class CommunicationLayoutTest
         var app = new Application();
         var window = new BmsTool.Windows.MainWindow();
         var content = (FrameworkElement)window.Content;
-        var counter = (TextBlock)window.FindName("CommunicationCountersText");
+        var counter = window.FindName("CommunicationCountersText") as TextBlock;
+        var build = (TextBlock)window.FindName("CustomerBuildText");
+        build.Text = "固件 Build ID：1234abcd · dirty · production";
         bool passed = true;
         foreach (var (width, height) in new[] { (1360, 900), (1180, 760) }) {
             foreach (double scale in new[] { 1.0, 1.25, 1.5 }) {
                 foreach (bool large in new[] { false, true }) {
-                    counter.Text = large ?
+                    if (counter is not null) counter.Text = large ?
                         "通信统计：TX 9223372036854775807帧 / RX 9223372036854775807帧 · 超时 999999999 · CRC 999999999 · 异常 999999999 · 发送失败 999999999 · 重连 999999999" :
                         "通信统计：TX 498帧 / RX 498帧 · 超时 0 · CRC 0 · 异常 0 · 发送失败 0 · 重连 0";
                     content.LayoutTransform = new ScaleTransform(scale, scale);
                     content.Measure(new Size(width, height));
                     content.Arrange(new Rect(0, 0, width, height));
                     content.UpdateLayout();
-                    var footer = (Border)((Grid)counter.Parent).Parent;
+                    var footer = (Border)((Grid)build.Parent).Parent;
                     var page = (Grid)footer.Parent;
-                    var bounds = counter.TransformToAncestor(page).TransformBounds(new Rect(counter.RenderSize));
-                    bool visible = counter.Visibility == Visibility.Visible && bounds.Height > 0 &&
+                    var anchor = counter ?? build;
+                    var bounds = anchor.TransformToAncestor(page).TransformBounds(new Rect(anchor.RenderSize));
+                    bool visible = build.Visibility == Visibility.Visible && bounds.Height > 0 &&
                         bounds.Top >= 0 && bounds.Bottom <= page.ActualHeight + 0.1;
                     Console.WriteLine(JsonSerializer.Serialize(new {
                         width, height, scale, large, visible, counterTop = bounds.Top,

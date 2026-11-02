@@ -53,8 +53,9 @@ public sealed class ProtectionParameterRow : INotifyPropertyChanged
         }
     }
 
-    public string DeviceValueHex => $"0x{DeviceValue:X4}";
-    public string DeviceDisplayValue => FormatEngineeringValue(DeviceValue);
+    public string DeviceValueHex => _hasDeviceValue ? $"0x{DeviceValue:X4}" : "—";
+    public string DeviceDisplayValue => _hasDeviceValue ? FormatEngineeringValue(DeviceValue) : "—";
+    private bool _hasDeviceValue;
 
     public string EditValue
     {
@@ -70,9 +71,22 @@ public sealed class ProtectionParameterRow : INotifyPropertyChanged
 
     public bool IsDirty => TryParseEditedValue(out ushort value) && value != DeviceValue;
 
+    public void ClearReadback()
+    {
+        _hasDeviceValue = false;
+        _deviceValue = 0;
+        _editValue = string.Empty;
+        OnPropertyChanged(nameof(DeviceDisplayValue));
+        OnPropertyChanged(nameof(DeviceValueHex));
+        OnPropertyChanged(nameof(EditValue));
+        OnPropertyChanged(nameof(IsDirty));
+    }
+
     public void LoadFromDevice(ushort value)
     {
+        _hasDeviceValue = true;
         DeviceValue = value;
+        OnPropertyChanged(nameof(DeviceDisplayValue));
         _editValue = FormatEngineeringValue(value);
         OnPropertyChanged(nameof(EditValue));
         OnPropertyChanged(nameof(IsDirty));

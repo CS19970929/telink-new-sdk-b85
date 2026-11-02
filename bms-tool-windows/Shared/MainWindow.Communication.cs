@@ -27,6 +27,7 @@ public partial class MainWindow
         if (_otaRunning) { state = "OTA中"; color = Brushes.LightGray; }
         else if (_autoReconnectRunning) { state = "重连中"; color = Brushes.Orange; }
         else if (_bms is null) { state = "未连接"; color = Brushes.LightGray; }
+        else if (_deviceDisplaysCleared) { state = "数据已清空，等待响应"; color = Brushes.Orange; }
         else if (s.LastResponseAgeMs is double age && age < 3200) { state = "正在通讯"; color = LampOnBrush; }
         else if (_diagBusy || _eventLogReadInProgress || _shBusy || ShFactoryBusy()) { state = "业务读取中"; color = Brushes.Orange; }
         else { state = _polling ? "等待响应" : "数据未更新"; color = Brushes.Orange; }
