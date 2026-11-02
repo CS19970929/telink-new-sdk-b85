@@ -18,7 +18,7 @@
 #define _FUNC_UART_
 
 #ifndef  FAC_TEST
-// #define _DI_SWITCH_SYS_ONOFF	
+#define _DI_SWITCH_SYS_ONOFF	
 #endif // ! FAC_TEST
 
 #define __SLEEP_VNORMAL__             	(3000)
@@ -42,7 +42,7 @@
 #define C11_AND_C11pro         13
 #define test_default         14
 
-#define FD_BMS_TYPE   T1_AND_T2
+#define FD_BMS_TYPE   M25
 
 #define  BMS_SOFTWARE_VERDION_DEFAULT  	"V1.0" 
 
@@ -122,6 +122,7 @@
 #define AFE_ODC2       		(600) 
 #define  BMS_HARDWARE_VERDION_DEFAULT   "M25"
 // #define  BMS_SOFTWARE_VERDION_DEFAULT  	"D006" 
+#define  BMS_SERIAL_NUMBER_DEFAULT  	"D006-20261102"
 #elif (FD_BMS_TYPE == T1_AND_T2)
 #define SeriesNum  (13)
 #define CapacityFactory (225)
