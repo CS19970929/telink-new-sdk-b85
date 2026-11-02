@@ -58,8 +58,8 @@
 #define AFE_OCC2       		(200) 
 #define AFE_OCC2_filter  	(10)
 
-#define AFE_ODC1_filter  	(100)
-#define AFE_ODC2_filter  	(50)
+#define AFE_ODC1_filter  	(1000)
+#define AFE_ODC2_filter  	(60)
 
 /*curValue*/  /*defaultValue*/ /*maxValue*/ /*minValue*/
 #define AFE_PARAMETERS_RS485_STRUCTION_DEFAULT  {\
