@@ -94,7 +94,9 @@ public partial class MainWindow
         AddSleepParameterControls(root,Field,SaveButton);
         UpdateBusinessParameterControls();
         AddCurrentCalibrationControls(Section("电流校准"));
+#if BMS_FACTORY_APP
         AddD015ParameterControls(Section("D015配置"));
+#endif
         root=Section("恢复默认");
         foreach(var g in new[]{(Id:(ushort)1,Name:"软件保护"),(Id:(ushort)2,Name:"AFE 硬件保护"),(Id:(ushort)3,Name:"业务参数（容量、加热及均衡）")})
             Button("恢复默认："+g.Name,()=>{

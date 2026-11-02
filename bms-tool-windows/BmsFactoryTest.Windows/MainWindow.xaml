@@ -285,7 +285,7 @@
                     <!-- Main-page status bar -->
                     <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="#C8C8C8" BorderThickness="1,1,1,0" Background="#F5F5F5" Margin="5,2,5,0" Padding="8,4">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -298,7 +298,8 @@
                             <Border x:Name="CustomerCommStatusBorder" Grid.Column="3" Background="#18C73E" Padding="9,2" Visibility="Collapsed">
                                 <TextBlock x:Name="CommunicationStatusText" Text="通信：未连接" Foreground="Black"/>
                             </Border>
-                            <TextBlock x:Name="CommunicationCountersText" Grid.Row="1" Grid.ColumnSpan="4" Margin="0,4,0,0"
+                            <TextBlock x:Name="CustomerBuildText" Grid.Row="1" Grid.ColumnSpan="4" Margin="0,4,0,0" TextWrapping="Wrap" Text="固件 Build ID：—"/>
+                            <TextBlock x:Name="CommunicationCountersText" Grid.Row="2" Grid.ColumnSpan="4" Margin="0,4,0,0"
                                        TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold" Foreground="#333333"
                                        Text="通信统计：TX 0帧 / RX 0帧 · 超时 0 · CRC 0 · 重连 0"/>
                         </Grid>

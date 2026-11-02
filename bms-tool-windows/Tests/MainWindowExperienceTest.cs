@@ -87,6 +87,16 @@ static class MainWindowExperienceTest
         Check(verbosePhrases.All(phrase => !businessText.Contains(phrase)),
             "业务参数页移除冗长说明文字");
 
+        bool factory=type.Assembly.GetName().Name=="BmsFactoryTest.Windows";
+        Check((window.FindName("CommunicationCountersText") is not null)==factory,
+            "仅测试版显示底部通信统计");
+        var sections=Descendants((DependencyObject)businessTab.Content).OfType<TabItem>();
+        Check(sections.Any(tab=>Equals(tab.Header,"D015配置"))==factory,"客户版不创建D015配置页，测试版保留");
+        ((TextBlock)window.FindName("IdentityText")).Text="硬件版本：HS-D015\n软件版本：3.0.0\n序列号：TEST123\n固件 Build ID：1234abcd · dirty · production";
+        type.GetMethod("UpdateCustomerIdentityFooter",PrivateInstance)!.Invoke(window,null);
+        Check(((TextBlock)window.FindName("CustomerBuildText")).Text.Contains("1234abcd · dirty · production"),
+            "首页底部显示设备信息页同一个固件Build ID与模式");
+
         window.Close();
         Console.WriteLine(_passed ? "MAIN_WINDOW_EXPERIENCE_PASS" : "MAIN_WINDOW_EXPERIENCE_FAIL");
         return _passed ? 0 : 1;
