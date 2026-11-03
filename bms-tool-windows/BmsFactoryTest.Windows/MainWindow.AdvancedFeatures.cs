@@ -72,5 +72,3 @@ public partial class MainWindow
             throw new IOException("实时数据读取仍在进行，无法安全开始参数事务。");
     }
 }
-
-public sealed record DeviceEventLogRow(int Position, string EventName, string IntervalText, string StateText);
