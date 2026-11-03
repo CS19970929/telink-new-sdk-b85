@@ -308,6 +308,7 @@ public partial class MainWindow : Window
             : _connectedName;
         DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName, ct);
         var build = await bms.TryReadFirmwareBuildIdentityAsync(ct);
+        await RefreshDeviceClockAsync(bms, ct);
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
         _identityRefreshRequired = false;
@@ -328,6 +329,7 @@ public partial class MainWindow : Window
         await RefreshMosControlStateAsync(bms, default);
         await RefreshMosMonitorAsync(bms);
         await RefreshSleepStatusAsync(bms);
+        await RefreshDeviceClockAsync(bms);
     }
 
     private void ApplyBatterySnapshot(BatterySnapshot s)

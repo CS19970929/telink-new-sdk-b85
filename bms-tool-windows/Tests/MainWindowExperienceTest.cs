@@ -106,6 +106,10 @@ static class MainWindowExperienceTest
         ((TextBlock)window.FindName("PackVoltageText")).Text="48.00 V";
         var parameter=(TextBox)type.GetField("_parameterCapacity",PrivateInstance)!.GetValue(window)!;
         parameter.Text="30";
+        Check(window.FindName("DeviceClockText") is TextBlock && window.FindName("CustomerClockText") is TextBlock,
+            "设备信息与首页均提供板载时间");
+        ((TextBlock)window.FindName("DeviceClockText")).Text = "板载时间：2026-11-03 18:00:00 +08:00";
+        ((TextBlock)window.FindName("CustomerClockText")).Text = "板载时间：2026-11-03 18:00:00 +08:00";
         var cellPanel=(Panel)window.FindName("CustomerCellPanel");cellPanel.Children.Add(new Border());
         freshness.SetValue(client,System.Diagnostics.Stopwatch.GetTimestamp()-8L*System.Diagnostics.Stopwatch.Frequency-1);
         Check(!(bool)checkFreshness.Invoke(window,null)!,"达到8秒无成功响应即清空，不等待轮询任务完成");
@@ -113,6 +117,8 @@ static class MainWindowExperienceTest
             "电压与电芯卡片已清空");
         Check(((TextBlock)window.FindName("IdentityText")).Text=="—" && ((TextBlock)window.FindName("CustomerBuildText")).Text.EndsWith("—"),
             "身份、版本、序列号与Build ID同步清空");
+        Check(((TextBlock)window.FindName("DeviceClockText")).Text == "—" &&
+              ((TextBlock)window.FindName("CustomerClockText")).Text == "—", "通信超时清空两处板载时间");
         Check(parameter.Text=="" && ((TextBlock)window.FindName("CustomerAlarm3Text")).Text=="—",
             "业务参数与保护状态显示未知，不伪装成0或无故障");
         Check((bool)type.GetField("_identityRefreshRequired",PrivateInstance)!.GetValue(window)!,"恢复后需重新读取身份");

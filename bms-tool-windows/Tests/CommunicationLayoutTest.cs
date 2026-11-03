@@ -17,6 +17,7 @@ static class CommunicationLayoutTest
         var counter = window.FindName("CommunicationCountersText") as TextBlock;
         var build = (TextBlock)window.FindName("CustomerBuildText");
         build.Text = "固件 Build ID：1234abcd · dirty · production";
+        ((TextBlock)window.FindName("CustomerClockText")).Text = "板载时间：2026-11-03 18:00:00 +08:00";
         bool passed = true;
         foreach (var (width, height) in new[] { (1360, 900), (1180, 760) }) {
             foreach (double scale in new[] { 1.0, 1.25, 1.5 }) {
@@ -34,6 +35,12 @@ static class CommunicationLayoutTest
                     var bounds = anchor.TransformToAncestor(page).TransformBounds(new Rect(anchor.RenderSize));
                     bool visible = build.Visibility == Visibility.Visible && bounds.Height > 0 &&
                         bounds.Top >= 0 && bounds.Bottom <= page.ActualHeight + 0.1;
+                    var clock = (TextBlock)window.FindName("CustomerClockText");
+                    var clockBounds = clock.TransformToAncestor(page).TransformBounds(new Rect(clock.RenderSize));
+                    var buildBounds = build.TransformToAncestor(page).TransformBounds(new Rect(build.RenderSize));
+                    visible &= clockBounds.Height > 0 && clockBounds.Top >= buildBounds.Bottom &&
+                        clockBounds.Bottom <= page.ActualHeight + 0.1;
+                    if (counter is not null) visible &= bounds.Top >= clockBounds.Bottom;
                     Console.WriteLine(JsonSerializer.Serialize(new {
                         width, height, scale, large, visible, counterTop = bounds.Top,
                         counterBottom = bounds.Bottom, pageHeight = page.ActualHeight,

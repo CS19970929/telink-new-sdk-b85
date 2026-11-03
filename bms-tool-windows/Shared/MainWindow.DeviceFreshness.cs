@@ -25,6 +25,8 @@ public partial class MainWindow
     {
         if (!_deviceDisplaysCleared)
         {
+            _deviceClockClient = null;
+            _deviceClockReadTick = null;
             InvalidateCurrentCalibrationConnection();
             NoteMosGap("通信中断，设备显示已清空");
             AppendLog("设备显示清空：连续8秒无有效业务响应，或连接已断开/更换。", "COMM");
@@ -36,7 +38,7 @@ public partial class MainWindow
         foreach (string name in new[] {
             "PackVoltageText", "CurrentText", "SocText", "WorkStateText", "MosStateText", "SystemStateText",
             "ProtectionSummaryText", "ProtectionLevelsText", "TempsText", "CellExtremeText", "CapacityText", "CellsText",
-            "IdentityText", "BtNameResultText", "CurrentSocParamText", "CurrentCycleParamText", "BmsParamResultText",
+            "DeviceClockText", "CustomerClockText", "IdentityText", "BtNameResultText", "CurrentSocParamText", "CurrentCycleParamText", "BmsParamResultText",
             "ProtectionStatusText", "DeviceSerialStatusText", "LastUpdateText", "SleepStatusText",
             "CustomerSohText", "CustomerRemainCapacityText", "CustomerFullCapacityText", "CustomerCycleText",
             "CustomerMaxTempText", "CustomerMinTempText", "CustomerMosTempText", "CustomerMaxCellText", "CustomerMinCellText",
