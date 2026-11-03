@@ -60,6 +60,8 @@ public sealed partial class BmsClient
     public async Task<AfeHardwareAccessSession> OpenAfeHardwareAccessAsync(CancellationToken ct = default)
     {
         byte[] rsp = await TransactAsync(ModbusRtu.AfeHardwareOpen(), ct);
+        if (rsp.Length == 6 && rsp[3] == 0x06)
+            throw new IOException("设备暂不允许开启参数写入授权（0x06）。请先结束正在进行的校准或参数操作，并确认设备已正常唤醒；若上次通信中断，请等待原授权超时后重试。");
         ModbusRtu.ValidateAfeHardwareResponse(rsp, 0x01);
         if (rsp.Length != 13) throw new IOException("AFE hardware OPEN response length mismatch.");
         var session = new AfeHardwareAccessSession(

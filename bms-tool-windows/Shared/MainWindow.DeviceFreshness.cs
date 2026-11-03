@@ -27,7 +27,7 @@ public partial class MainWindow
         {
             _deviceClockClient = null;
             _deviceClockReadTick = null;
-            InvalidateCurrentCalibrationConnection();
+            CancelCurrentCalibrationForCommunicationTimeout();
             NoteMosGap("通信中断，设备显示已清空");
             AppendLog("设备显示清空：连续8秒无有效业务响应，或连接已断开/更换。", "COMM");
         }

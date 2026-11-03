@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -24,7 +25,10 @@ public partial class MainWindow
     private CancellationTokenSource? _currentCalibrationCts;
     private BmsClient? _currentCalibrationOwner;
     private bool _currentCalibrationBusy, _currentCalibrationFinishing, _currentCalibrationWindowClosed;
-    private DateTime _currentCalibrationHeartbeatUtc;
+    private const int CurrentCalibrationHeartbeatSeconds = 2;
+    private long _currentCalibrationHeartbeatTick;
+    private enum CalibrationStopReason { None, UserCancelled, CommunicationTimeout, ConnectionChanged, SessionTimeout, WindowClosed }
+    private CalibrationStopReason _currentCalibrationStopReason;
 
     private void AddCurrentCalibrationControls(StackPanel root)
     {
@@ -72,14 +76,18 @@ public partial class MainWindow
             else if (_currentCalibrationSession is { } session && !_currentCalibrationBusy)
             {
                 if (_currentCalibrationCts?.IsCancellationRequested == true)
-                    await CancelCurrentCalibrationAsync("校准已超时，请重新开始");
-                else if (DateTime.UtcNow >= _currentCalibrationHeartbeatUtc)
+                {
+                    if (_currentCalibrationStopReason == CalibrationStopReason.None)
+                        _currentCalibrationStopReason = CalibrationStopReason.SessionTimeout;
+                    await CancelCurrentCalibrationAsync(CurrentCalibrationCancellationMessage());
+                }
+                else if (Stopwatch.GetElapsedTime(_currentCalibrationHeartbeatTick).TotalSeconds >= CurrentCalibrationHeartbeatSeconds)
                     await RunCurrentCalibrationStepAsync(async ct => await session.Client.CheckCurrentCalibrationAsync(session, ct));
             }
             UpdateCurrentCalibrationControls();
         };
         timer.Start();
-        Closed += async (_,_) => { _currentCalibrationWindowClosed = true; timer.Stop(); _currentCalibrationCts?.Cancel(); if (!_currentCalibrationBusy) await FinishCurrentCalibrationAsync(); };
+        Closed += async (_,_) => { _currentCalibrationWindowClosed = true; _currentCalibrationStopReason = CalibrationStopReason.WindowClosed; timer.Stop(); _currentCalibrationCts?.Cancel(); if (!_currentCalibrationBusy) await FinishCurrentCalibrationAsync(); };
         UpdateCurrentCalibrationControls();
     }
 
@@ -92,14 +100,38 @@ public partial class MainWindow
     }
     private void InvalidateCurrentCalibrationConnection()
     {
+        _currentCalibrationStopReason = CalibrationStopReason.ConnectionChanged;
         if (_currentCalibrationRecord is { } record) record.ConnectionLost = true;
         if (_currentCalibrationSession is { } session) session.ConnectionLost = true;
         _currentCalibrationCts?.Cancel();
         UpdateCurrentCalibrationControls();
     }
+    private void CancelCurrentCalibrationForCommunicationTimeout()
+    {
+        if (_currentCalibrationOwner is null)
+        {
+            if (_currentCalibrationRecord is { } record) record.ConnectionLost = true;
+            return;
+        }
+        // 立即禁止候选写入，但保留原token用于有界连续性核对及释放；不能把显示过期直接当成换板。
+        if (_currentCalibrationStopReason is not (CalibrationStopReason.ConnectionChanged or CalibrationStopReason.WindowClosed))
+            _currentCalibrationStopReason = CalibrationStopReason.CommunicationTimeout;
+        _currentCalibrationCts?.Cancel();
+        UpdateCurrentCalibrationControls();
+    }
+    private string CurrentCalibrationCancellationMessage(bool stepTimeout = false) => _currentCalibrationStopReason switch
+    {
+        CalibrationStopReason.UserCancelled => "用户已取消本次电流校准。",
+        CalibrationStopReason.CommunicationTimeout => "连续8秒未收到有效设备响应，本次校准已停止，请检查通信后重新采集。",
+        CalibrationStopReason.ConnectionChanged => "连接已断开、设备已更换或采样时钟不连续，旧候选已作废。",
+        CalibrationStopReason.WindowClosed => "窗口已关闭，本次校准已停止。",
+        _ => stepTimeout ? "本步骤超过45秒未完成，本次校准已停止。" : "本次校准超过10分钟，请重新开始。"
+    };
     private async Task CancelCurrentCalibrationAsync(string reason)
     {
         if (_currentCalibrationOwner is null || _currentCalibrationFinishing) return;
+        if (_currentCalibrationStopReason == CalibrationStopReason.None)
+            _currentCalibrationStopReason = CalibrationStopReason.UserCancelled;
         _currentCalibrationCts?.Cancel();
         var session = _currentCalibrationSession;
         string result = reason + (session?.SaveVerified == true ? "；保存已核对完成，取消不会撤销已保存参数。" :
@@ -118,6 +150,7 @@ public partial class MainWindow
             _otaRunning || _shBusy || ShFactoryBusy() || _autoReconnectRunning || _mosControlBusy)
         { _currentCalibrationStatus.Text = "请连接设备并等待其他操作结束。"; return false; }
         _currentCalibrationOwner = client;
+        _currentCalibrationStopReason = CalibrationStopReason.None;
         var acquisition = new CancellationTokenSource(TimeSpan.FromMinutes(10));
         _currentCalibrationCts = acquisition;
         _parameterBusy = true; _diagBusy = true; _eventLogReadInProgress = true;
@@ -238,18 +271,24 @@ public partial class MainWindow
             await action(timeout.Token);
             if (_currentCalibrationOwner is not null && !ReferenceEquals(_currentCalibrationOwner, _bms))
                 throw new IOException("连接已改变，候选作废。");
-            _currentCalibrationHeartbeatUtc = DateTime.UtcNow.AddSeconds(15);
+            _currentCalibrationHeartbeatTick = Stopwatch.GetTimestamp();
         }
         catch (Exception ex)
         {
-            string result = "本次未完成：" + ex.Message;
+            if (ex is TimeoutException && _currentCalibrationStopReason == CalibrationStopReason.None)
+                _currentCalibrationStopReason = CalibrationStopReason.CommunicationTimeout;
+            string message = ex is OperationCanceledException
+                ? CurrentCalibrationCancellationMessage(_currentCalibrationCts?.IsCancellationRequested != true && timeout.IsCancellationRequested)
+                : ex.Message;
+            string result = "本次未完成：" + message;
             if (_currentCalibrationSession?.SaveVerified == true) result += "；保存已核对完成，不能据此认定参数已撤销。";
             else if (_currentCalibrationSession?.WriteAttempted == true) result += "；可能已写入，请重新读取确认。";
             else result += "；尚未发送本次校准写入。";
             if (_currentCalibrationRecord is { } record) record.Outcome += "\n" + result;
             _currentCalibrationStatus.Text = result;
             await FinishCurrentCalibrationAsync();
-            MessageBox.Show(this, result, "校准操作未完成", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (!_currentCalibrationWindowClosed && _currentCalibrationStopReason != CalibrationStopReason.UserCancelled)
+                MessageBox.Show(this, result, "校准操作未完成", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally { _currentCalibrationBusy = false; UpdateCurrentCalibrationControls(); }
     }
@@ -259,9 +298,11 @@ public partial class MainWindow
         _currentCalibrationFinishing = true;
         var session = _currentCalibrationSession; _currentCalibrationSession = null;
         _currentCalibrationCts?.Cancel();
-        try { if (session is not null) await session.Client.EndCurrentCalibrationAsync(session); }
+        bool verifyConnection = _currentCalibrationStopReason == CalibrationStopReason.CommunicationTimeout;
+        try { if (session is not null) await session.Client.EndCurrentCalibrationAsync(session, verifyConnection); }
         finally
         {
+            if (verifyConnection && session is not null) session.ConnectionLost = true;
             _currentCalibrationCts?.Dispose(); _currentCalibrationCts = null; _currentCalibrationOwner = null;
             _parameterBusy = false; _diagBusy = false; _eventLogReadInProgress = false;
             _currentCalibrationFinishing = false;

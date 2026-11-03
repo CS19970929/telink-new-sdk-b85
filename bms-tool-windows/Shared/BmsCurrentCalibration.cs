@@ -168,9 +168,20 @@ public sealed partial class BmsClient
     private async Task HeartbeatCurrentCalibrationAsync(CurrentCalibrationSession session, CancellationToken ct)
     {
         RequireCurrentCalibrationConnection(session);
-        try { await AfeHardwareHeartbeatAsync(session.Access.Token, ct); }
+        try
+        {
+            try { await AfeHardwareHeartbeatAsync(session.Access.Token, ct); }
+            catch (TimeoutException) when (IsD015 && _transport.IsConnected && !ct.IsCancellationRequested)
+            {
+                // D015的485可能已关电；首帧仅唤醒MCU。只续租原token，不重新OPEN或重发系数写入。
+                Log?.Invoke("[CALIBRATION] 心跳首帧未响应，等待485稳定后重试原会话一次。");
+                await Task.Delay(150, ct);
+                RequireCurrentCalibrationConnection(session);
+                await AfeHardwareHeartbeatAsync(session.Access.Token, ct);
+            }
+        }
         catch (IOException) { session.ConnectionLost = true; throw; }
-        catch (TimeoutException) { session.ConnectionLost = true; throw; }
+        catch (TimeoutException ex) { throw new TimeoutException("校准心跳未收到回应，请检查通信连接后重新开始。", ex); }
         catch (ObjectDisposedException) { session.ConnectionLost = true; throw; }
     }
     public async Task VerifyCurrentCalibrationContinuityAsync(CurrentCalibrationSession session, CancellationToken ct)
@@ -264,14 +275,35 @@ public sealed partial class BmsClient
         }
         throw new IOException("参数已读回，但没有取得校准后的新鲜样本；请重新读取确认。");
     }
-    public async Task EndCurrentCalibrationAsync(CurrentCalibrationSession session)
+    public async Task EndCurrentCalibrationAsync(CurrentCalibrationSession session, bool verifyConnection = false)
     {
         if (session.Closed) return;
         session.Closed = true;
         if (!_transport.IsConnected) session.ConnectionLost = true;
         if (session.ConnectionLost) return; // 不向断线/重启后的设备发送旧 token 的 CLOSE。
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        try { await TryCloseAfeHardwareAccessAsync(session.Access.Token, timeout.Token); }
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try
+        {
+            if (verifyConnection)
+            {
+                // 显示过期本身不能证明MCU已重启。先读采样时钟核对连续性，绝不以新OPEN接管旧授权。
+                ushort[] sample;
+                try { sample = await ReadRegistersAsync(0x2E28, 7, timeout.Token, TimeSpan.FromMilliseconds(600)); }
+                catch (TimeoutException) when (IsD015 && _transport.IsConnected && !timeout.IsCancellationRequested)
+                {
+                    await Task.Delay(150, timeout.Token);
+                    sample = await ReadRegistersAsync(0x2E28, 7, timeout.Token, TimeSpan.FromMilliseconds(600));
+                }
+                session.ObserveSample(sample);
+                // CLOSE本身由固件核对token及所属串口；旧授权已过期/被替换时不会关闭别人的会话。
+            }
+            await TryCloseAfeHardwareAccessAsync(session.Access.Token, timeout.Token);
+        }
+        catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException)
+        {
+            session.ConnectionLost = true;
+            Log?.Invoke($"[CALIBRATION] 无法确认原设备连续性，停止清理，授权等待设备超时：{ex.Message}");
+        }
         catch (ObjectDisposedException) { /* 连接已释放，RAM 会话由设备超时清除。 */ }
         catch (InvalidOperationException) { /* 已断开的传输无法关闭会话，由设备超时清除。 */ }
     }
