@@ -35,8 +35,9 @@
     <Compile Include="..\Shared\ProtectionBatch.cs" Link="ProtectionBatch.cs" />
     <Compile Include="..\Shared\TelinkOtaCore.cs" Link="TelinkOtaCore.cs" />
     <Compile Include="..\Shared\D015FirmwarePackage.cs" Link="Shared\D015FirmwarePackage.cs" />
+    <Compile Include="..\Shared\SerialFirmwarePackage.cs" Link="Shared\SerialFirmwarePackage.cs" />
     <Compile Include="..\Shared\UpgradeDetection.cs" Link="Shared\UpgradeDetection.cs" />
-    <Compile Include="..\Shared\D015Ymodem.cs" Link="Shared\D015Ymodem.cs" />
+    <Compile Include="..\Shared\SerialYmodem.cs" Link="Shared\SerialYmodem.cs" />
   </ItemGroup>
   <ItemGroup><Compile Include="..\Shared\C060Parameters.cs" Link="Shared\C060Parameters.cs" /></ItemGroup>
 </Project>

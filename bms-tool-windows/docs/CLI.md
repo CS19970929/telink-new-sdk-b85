@@ -269,3 +269,12 @@ dotnet run --project .\bms-tool-windows\BmsTool.Cli\BmsTool.Cli.csproj -- scan
 例：`bms-cli ota .\app.d015 --serial COM5 --baud 19200 --target auto --d015 --yes`。只有完成新APP身份、CRC/长度和实时数据回读才报告成功；没有输出固件镜像的隐式步骤。
 
 新 `.d015` 的 `ota` 不执行耗时的APP前置快照，直接在原端点等待只读能力；成功JSON的newVersion/newBuildId/battery来自共享发送器的一次确认读回，旧协议仍使用原有重连验证。新包oldVersion/oldBuildId可能为空，字段保留。最终提交阶段通信中断属于结果待确认，失败退出码不表示Flash一定未写入；恢复后应核对身份/CRC。普通识别中的I/O或CRC错误不触发旧协议降级。
+
+
+## 统一YMODEM升级（2026-11-06）
+
+标准格式2升级包按包与设备自述的板号、APP地址、容量动态匹配，不维护新项目板号白名单。支持C060_APP.c060、D015的.d015及同合同新项目；详情见UNIFIED_UPGRADE.md。标准包自动走BMS串口透传，不受旧55KiB页协议限制。
+
+C060的parameters get/export先识别项目，返回C060参数块；export保存桌面页兼容JSON，建议使用.json后缀，原D008 ZIP输出不变。
+
+OTA结果新增runtimeReadbackAvailable、upgradeReadback（board/version/bytes/crc32）。已确认APP元数据而新项目尚无既有BMS视图时，newVersion可为包版本十六进制，battery各值可空；现有受支持项目原字段及行为保持。--expected-version仍额外比较软件版本显示。

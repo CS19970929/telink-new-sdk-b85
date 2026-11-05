@@ -41,8 +41,9 @@
     <Compile Include="..\Shared\BmsClient.ParameterRead.cs" Link="Shared\BmsClient.ParameterRead.cs" />
     <Compile Include="..\Shared\Sh3673520Parameters.cs" Link="Shared\Sh3673520Parameters.cs" />
     <Compile Include="..\Shared\D015FirmwarePackage.cs" Link="Shared\D015FirmwarePackage.cs" />
+    <Compile Include="..\Shared\SerialFirmwarePackage.cs" Link="Shared\SerialFirmwarePackage.cs" />
     <Compile Include="..\Shared\UpgradeDetection.cs" Link="Shared\UpgradeDetection.cs" />
-    <Compile Include="..\Shared\D015Ymodem.cs" Link="Shared\D015Ymodem.cs" />
+    <Compile Include="..\Shared\SerialYmodem.cs" Link="Shared\SerialYmodem.cs" />
   </ItemGroup>
   <ItemGroup><Compile Include="..\Shared\ProtectionBatch.cs" Link="Shared\ProtectionBatch.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\BmsTool.Windows\BmsClient.AfeHardware.cs" Link="Shared\BmsClient.AfeHardware.cs" /></ItemGroup>

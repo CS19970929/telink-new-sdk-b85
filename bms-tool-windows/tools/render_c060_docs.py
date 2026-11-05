@@ -8,7 +8,7 @@ OUT=Path(__file__).resolve().parents[1]/'docs'
 
 def render(stem):
     md=(OUT/(stem+'.md')).read_text(encoding='utf-8')
-    evidence_name='NEW_OLD_HOST_COMPARISON_EVIDENCE.json' if stem=='NEW_OLD_HOST_COMPARISON' else 'C060_ADAPTATION_EVIDENCE.json'
+    evidence_name='NEW_OLD_HOST_COMPARISON_EVIDENCE.json' if stem=='NEW_OLD_HOST_COMPARISON' else 'UNIFIED_UPGRADE_EVIDENCE.json' if stem=='UNIFIED_UPGRADE' else 'C060_ADAPTATION_EVIDENCE.json'
     evidence=json.loads((OUT/evidence_name).read_text(encoding='utf-8'))
     roots={key:Path(evidence[key]['path']) for key in ('host','firmware','old') if key in evidence}
     paths={s['path']:roots[s['repository']]/s['path'] for s in evidence['source_sha256']}
@@ -79,7 +79,7 @@ def render(stem):
     window.__c060DocumentQa={sections:sections.length,tables:document.querySelectorAll('table').length,headings:[...document.querySelectorAll('h2,h3')].map(h=>h.id)};
     '''
     page='''<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>C060 新上位机完整适配方案</title><style>'''+css+'''</style></head><body id="top"><header class="hero"><div class="eyebrow">C060 · WINDOWS BMS TOOL · 方案评审稿</div><h1>C060 新上位机完整适配方案</h1><p class="lead">连接、实时与常规参数由上位机适配；完整校准、硬件保护与新版升级按明确的固件合同推进。</p><div class="meta"><span>2026-11-05</span><span>源码 + 现场日志 + 实际协议离线复现</span><span>15 章 / 可搜索 / 可打印</span><span>未修改产品代码 · 未实板写入</span></div></header><div class="layout"><aside class="sidebar"><h2>阅读目录</h2><nav aria-label="章节目录">'''+nav+'''</nav></aside><main><div class="tools"><input id="search" type="search" aria-label="搜索方案" placeholder="搜索：连接、保护、BLE、校准、升级……"><button id="clear">清空</button><button id="print">打印 / 保存 PDF</button><a href="C060_ADAPTATION_PLAN.md">Markdown 源文档</a><a href="C060_ADAPTATION_EVIDENCE.json">证据与源码摘要</a><span id="search-status" role="status"></span></div><p class="intro-note">先读第 1、3、5 章了解结论与改动归属；实施时按第 6～13 章；第 14 章区分已完成证据和后续验收。</p><div id="empty" class="empty" hidden>未找到匹配内容，请换一个关键词。</div>'''+''.join(parts)+'''</main></div><footer>本文件自包含，无外部字体、脚本或网络请求。HTML 与 Markdown 来自同一份方案正文。开发中的 C060 新 IAP 应在阶段提交后重新核对；现场装机版本须单独确认。</footer><a class="to-top" href="#top">返回顶部 ↑</a><script>'''+js+'''</script></body></html>'''
-    titles={"C060_ADAPTATION_PLAN":"C060 新上位机完整适配方案","C060_IMPLEMENTATION":"C060 上位机使用与实施记录","NEW_OLD_HOST_COMPARISON":"新、旧 BMS 上位机对比"}
+    titles={"C060_ADAPTATION_PLAN":"C060 新上位机完整适配方案","C060_IMPLEMENTATION":"C060 上位机使用与实施记录","NEW_OLD_HOST_COMPARISON":"新、旧 BMS 上位机对比","UNIFIED_UPGRADE":"统一 YMODEM 升级与串口蓝牙使用说明"}
     title=titles[stem]
     page=page.replace("C060 新上位机完整适配方案",title).replace("15 章 / 可搜索 / 可打印",str(sec)+" 章 / 可搜索 / 可打印")
     page=page.replace("未修改产品代码 · 未实板写入","前三阶段已实现 · 实板待验收")
@@ -90,7 +90,7 @@ def render(stem):
         page=page.replace("连接、实时与常规参数由上位机适配；完整校准、硬件保护与新版升级按明确的固件合同推进。","当前实现、使用步骤、协议边界和验证记录；连接保持兼容，参数按项目映射。")
         page=page.replace("先读第 1、3、5 章了解结论与改动归属；实施时按第 6～13 章；第 14 章区分已完成证据和后续验收。","使用步骤见正文。软件验证与实板验收分开记录，固件待办单列。")
         link='<a href="C060_ADAPTATION_PLAN.html">原始完整方案</a>'
-    elif stem=="NEW_OLD_HOST_COMPARISON":
+    elif stem in ("NEW_OLD_HOST_COMPARISON","UNIFIED_UPGRADE"):
         page=page.replace("<span>2026-11-05</span>","<span>2026-11-06</span>")
         page=page.replace("C060 · WINDOWS BMS TOOL · 方案评审稿","BMS TOOL · 新旧源码对比")
         page=page.replace("C060_ADAPTATION_PLAN.md","NEW_OLD_HOST_COMPARISON.md").replace("C060_ADAPTATION_EVIDENCE.json","NEW_OLD_HOST_COMPARISON_EVIDENCE.json")
@@ -104,6 +104,16 @@ def render(stem):
     else:
         page=page.replace("C060 · WINDOWS BMS TOOL · 方案评审稿","C060 · WINDOWS BMS TOOL · 历史方案")
         link='<a href="C060_IMPLEMENTATION.html">当前实现与使用说明</a>'
+    if stem=="UNIFIED_UPGRADE":
+        page=page.replace("NEW_OLD_HOST_COMPARISON.md","UNIFIED_UPGRADE.md").replace("NEW_OLD_HOST_COMPARISON_EVIDENCE.json","UNIFIED_UPGRADE_EVIDENCE.json")
+        page=page.replace("BMS TOOL · 新旧源码对比","BMS TOOL · 统一 YMODEM 升级")
+        page=page.replace("功能矩阵 + C060 兼容边界 + 迁移建议","升级合同 + 蓝牙使用 + 验证证据")
+        page=page.replace("仅源码对比 · 未操作设备","指定蓝牙模块实板升级已验证")
+        page=page.replace("当前 C060 通信和参数读写已适配；旧版独有流程、校准及升级缺口逐项说明。","一套传输核心，按设备和包的身份自动匹配；遵循同一合同的新项目无需新增板号适配。")
+        page=page.replace("先读结论与功能矩阵，再看 C060 限制和迁移建议。目录、搜索和打印均可离线使用。","先读统一合同和操作步骤，再看实际蓝牙证据与验证边界。目录、搜索和打印均可离线使用。")
+        page=page.replace("搜索对比","搜索升级说明").replace("同一份对比正文","同一份升级说明正文")
+    else:
+        link+='<a href="UNIFIED_UPGRADE.html">统一 YMODEM 升级</a>'
     page=page.replace('<span id="search-status"',link+'<span id="search-status"')
     
     (OUT/(stem+'.html')).write_text(page,encoding='utf-8')
@@ -116,5 +126,5 @@ def render(stem):
     
 
 if __name__=='__main__':
-    for stem in ('C060_ADAPTATION_PLAN','C060_IMPLEMENTATION','NEW_OLD_HOST_COMPARISON'):
+    for stem in ('C060_ADAPTATION_PLAN','C060_IMPLEMENTATION','NEW_OLD_HOST_COMPARISON','UNIFIED_UPGRADE'):
         render(stem)

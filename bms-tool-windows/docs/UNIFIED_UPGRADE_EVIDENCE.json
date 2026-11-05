@@ -1,0 +1,252 @@
+{
+  "schema": 1,
+  "created_local": "2026-11-06",
+  "host": {
+    "path": "D:\\telink\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)",
+    "source_base_commit": "f56547ed82aa11ef68389a9c7fc1d292348cdbdb"
+  },
+  "firmware": {
+    "path": "E:\\sync\\git\\me\\c060\\new c060\\c060",
+    "package_path": "E:\\sync\\git\\me\\c060\\new c060\\c060\\bin\\C060_APP.c060",
+    "package_sha256": "4083b66c955d510749c546432471337496c4974d183b7eae82dbd49fe62d30fb"
+  },
+  "source_sha256": [
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/SerialFirmwarePackage.cs",
+      "line": 7,
+      "sha256": "047006dd5af12707e85baf29c1c1dc9605709185ca2418f9d18de014eb724ac5"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/UpgradeDetection.cs",
+      "line": 12,
+      "sha256": "c8df5a8c308c3d0d0f517b98263ebd574d55eadaf3ba36eb3c1cf484eea88f65"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/SerialYmodem.cs",
+      "line": 13,
+      "sha256": "fb41b8748a393f110af69c42aa86a1d2347a0684b3debcd7e56ee2b9dfea647f"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/MainWindow.Upgrade.cs",
+      "line": 27,
+      "sha256": "6874e81a92d41aa3352ac88e536f08ae00e458267e9acda9600c4acb2ada4a0b"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/TelinkOtaCore.cs",
+      "line": 100,
+      "sha256": "f2f18e66cb7153d17e8c3614aab83d29a618454bc0cfc35875fcd972ff205aab"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/Stm32SerialBleOta.cs",
+      "line": 49,
+      "sha256": "5f71b2a9a09444e8d1cadd8a3c13eb41d0935881922cf16654d4ac732dbb1ba0"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/BmsClient.cs",
+      "line": 170,
+      "sha256": "adab0ae5f7a12f33210c60ca3067d2b43727faaa7b27b47fb40cd7319638e661"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Tests/SerialUpgradeTest.cs",
+      "line": 28,
+      "sha256": "4c66a3e7b845bf6d9d1229e7de341159b90b67a79fb26eb6ebd9e9757054746c"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Tests/D015YmodemTest.cs",
+      "line": 60,
+      "sha256": "7be29ade3f783c1a917c50086be1b513beb087ad4a800e2fb91513bf480457fa"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Tests/C060BleModuleTest.cs",
+      "line": 8,
+      "sha256": "27366b8dd0652a69f4a67ae9b3acb2331a8cf59eaed39226770e286b79a176eb"
+    }
+  ],
+  "evidence_files": [
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\package-regression.log",
+      "bytes": 155,
+      "sha256": "f3e6465078ea8369b414bd1b39d43a5cec0861068152910cdb458f60c44766fc"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\c060-final-interop.log",
+      "bytes": 653,
+      "sha256": "63a57e35a3ceb07c089e8964035ce8072e4bb13fc9b9761ecabfb74f887e34f5"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\d015-final-interop.log",
+      "bytes": 653,
+      "sha256": "b81c8aae710a63eb3b34b55577ac38427a25f755a981ab03bac027ecebd235e6"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\ota-protocol.log",
+      "bytes": 110,
+      "sha256": "677aa9c0329e41f1a24dc7d9275aa21ab9884da577d1495be0e4628c0135aebe"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\protection-batch.log",
+      "bytes": 95,
+      "sha256": "8ebdacf33526d3acfc5153632e5c70403ffa6234b9cb4f6ee75add6b87e5bf1e"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\ui-verification.log",
+      "bytes": 852,
+      "sha256": "6b5bf3f9b277f6206b1e926335a446b2118b0fed2b0eb7a0880e5c97be2a0546"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\customer-c060-contract.log",
+      "bytes": 797,
+      "sha256": "a8d468ea783081808dd2b4f5ed5896402dbd2b416ad053c7ddab7137b3aa341a"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\internal-c060-contract.log",
+      "bytes": 797,
+      "sha256": "91119ed0ec8197df4458e412e8553f29676275ac43306fec0bdff7a59b639454"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\cli-c060-contract.log",
+      "bytes": 797,
+      "sha256": "aae6b1ae8eafa5b1e1a50b6e86a3894376f8d4414323a37e83952213f3a0b1a8"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\cli-offline.log",
+      "bytes": 78,
+      "sha256": "22eeff2bf9cc97b6fb834085130db7964d4dada0c70defbc98bfcd17ff85349d"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\bt-ota-result.json",
+      "bytes": 875,
+      "sha256": "36e13e232828a553bc593af1403fc16eead0e2c23753d9197ba44a44a747a84b"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\bt-ota.stderr.txt",
+      "bytes": 193816,
+      "sha256": "43e3399d0af30f7411166820357f1ccae8bd06238ce659baf9183efee2aa76fe"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\bt-readonly-verification\\result.json",
+      "bytes": 1014,
+      "sha256": "4fe0802b75222c89613bf1f365010ae02dba1fe372a4a5a43bcb014a8583444a"
+    }
+  ],
+  "ble_ota_result": {
+    "schema": 1,
+    "ok": true,
+    "command": "ota",
+    "data": {
+      "status": "success",
+      "serverConfirmed": true,
+      "architecture": "Stm32SerialIap",
+      "mode": "Auto",
+      "firmware": "C060_APP.c060",
+      "bytes": 42016,
+      "oldVersion": null,
+      "newVersion": "c060V3-20250304-20s",
+      "oldBuildId": null,
+      "newBuildId": null,
+      "versionChanged": false,
+      "buildChanged": false,
+      "d008": false,
+      "runtimeReadbackAvailable": true,
+      "upgradeReadback": {
+        "board": "C0600020",
+        "version": "00010000",
+        "bytes": 41984,
+        "crc32": "0DB2383E"
+      },
+      "evidenceDirectory": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\unified-upgrade-20261106\\bt-ota-evidence",
+      "battery": {
+        "packVoltageV": 73.3,
+        "minCellMv": 3518,
+        "socPercent": 84
+      }
+    }
+  },
+  "ble_readonly_result": {
+    "status": "pass",
+    "mac": "EC:F6:4C:E9:F1:3D",
+    "mtu": 247,
+    "identity": {
+      "Mac": "EC:F6:4C:E9:F1:3D",
+      "Serial": "hanstar168",
+      "Hardware": "hanstar001",
+      "Software": "c060V3-20250304-20s",
+      "BluetoothName": "BT-1234567890"
+    },
+    "configurationBlocksCompared": 12,
+    "upgradeConfigurationPreserved": true,
+    "protectionWriteGroups": 0,
+    "parameterWriteGroups": 0,
+    "sameValueWritesPerformed": false,
+    "sameValueWritesPreservedConfiguration": null,
+    "eventWords": 100,
+    "realtimeSamples": 3,
+    "validCells": 20,
+    "runningImageInfo": [
+      1,
+      0,
+      0,
+      41984,
+      3506,
+      14398,
+      1,
+      0
+    ],
+    "communication": {
+      "TxFrames": 39,
+      "TxBytes": 312,
+      "RxFrames": 39,
+      "RxBytes": 2773,
+      "Timeouts": 0,
+      "CrcErrors": 0,
+      "InvalidResponses": 0,
+      "ExceptionResponses": 0,
+      "SendFailures": 0,
+      "Cancellations": 0,
+      "LastResponseMs": 87.9156,
+      "LastResponseAgeMs": 1.3344,
+      "LastError": ""
+    }
+  },
+  "actual_parameter_write_performed": false,
+  "parameter_write_approval": "pending explicit user approval after automatic review rejection",
+  "firmware_modified": false,
+  "firmware_image_generated": false,
+  "contract": "capability-v1 / YMODEM-CRC16 / package-format-2 / standard-D17C-image-confirmation",
+  "unknown_board_allowlist_required": false,
+  "document_validation": {
+    "sections": 8,
+    "toc_entries": 10,
+    "tables": 4,
+    "isolated_chrome_search_clear_toc": "PASS",
+    "viewports_px": [
+      1424,
+      744
+    ],
+    "horizontal_overflow": false,
+    "visual_review": "PASS"
+  },
+  "software_validation": {
+    "customer_build": "PASS",
+    "internal_build": "PASS",
+    "cli_build": "PASS",
+    "package_contract_checks": 38,
+    "c060_production_receiver": "PASS including lost ENTER/40ms turnaround/post-APP capacity mismatch",
+    "d015_production_receiver": "PASS including lost ENTER/40ms turnaround/post-APP capacity mismatch",
+    "telink_ota_protocol": "PASS",
+    "protection_batch": "PASS",
+    "three_edition_c060_contract": "PASS",
+    "cli_offline": "PASS",
+    "both_edition_offscreen_ui": "PASS including BLE recovery endpoint selection"
+  }
+}

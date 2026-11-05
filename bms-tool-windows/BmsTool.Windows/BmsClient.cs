@@ -167,6 +167,8 @@ public sealed partial class BmsClient : IAsyncDisposable
     // COM3 / D011 独立台架对照：连续请求会丢响应，20 ms 转换间隔通过。
     // 仅限制串口请求，给板端和转换器完成发送到接收的切换；BLE 保持原节奏。
     private static readonly TimeSpan SerialResponseTurnaroundDelay = TimeSpan.FromMilliseconds(20);
+    private static readonly TimeSpan C060ResponseTurnaroundDelay=TimeSpan.FromMilliseconds(50);
+    private readonly TimeSpan? _responseTurnaround;
     private long _lastReceiveTick;
     private long _lastSuccessfulResponseTick;
     // 每个连接独立、单调时钟；噪声、CRC错误和Modbus异常不续期设备数据。
@@ -182,9 +184,11 @@ public sealed partial class BmsClient : IAsyncDisposable
     public event Action<string>? Log;
     public BmsCommunicationStatistics CommunicationStatistics { get; }
 
-    public BmsClient(IBmsTransport transport, BmsCommunicationStatistics? statistics = null)
+    public BmsClient(IBmsTransport transport, BmsCommunicationStatistics? statistics = null, TimeSpan? responseTurnaround = null)
     {
         _transport = transport;
+        if(responseTurnaround<TimeSpan.Zero)throw new ArgumentOutOfRangeException(nameof(responseTurnaround));
+        _responseTurnaround=responseTurnaround;
         CommunicationStatistics = statistics ?? new BmsCommunicationStatistics();
         _transport.DataReceived += OnData;
     }
@@ -631,10 +635,11 @@ public sealed partial class BmsClient : IAsyncDisposable
         bool sending = true;
         try
         {
-            if (_transport.RequiresSerialWakeup) {
+            TimeSpan turnaround=_responseTurnaround ?? (IsC060 ? C060ResponseTurnaroundDelay : _transport.RequiresSerialWakeup ? SerialResponseTurnaroundDelay : TimeSpan.Zero);
+            if (turnaround>TimeSpan.Zero) {
                 long received = Interlocked.Read(ref _lastReceiveTick);
                 if (received != 0) {
-                    double remainingMs = SerialResponseTurnaroundDelay.TotalMilliseconds - Stopwatch.GetElapsedTime(received).TotalMilliseconds;
+                    double remainingMs = turnaround.TotalMilliseconds - Stopwatch.GetElapsedTime(received).TotalMilliseconds;
                     if (remainingMs > 0) await Task.Delay((int)Math.Ceiling(remainingMs), ct).ConfigureAwait(false);
                 }
             }

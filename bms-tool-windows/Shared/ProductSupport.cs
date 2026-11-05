@@ -19,8 +19,8 @@ public static class ProductSupportMatrix
         new ProductSupportProfile[]
         {
             new("C060", "BQ76930 ×2", "20S split-port", 0, 0, false, null,
-                "C060 legacy identity/realtime auto-detection; software protocol validation",
-                "physical board acceptance remains required"),
+                "C060 identity/realtime/protection/parameter mapping; unified YMODEM format-2 upgrade",
+                "BT-1234567890 BLE upgrade and configuration preservation verified on 2026-11-06; protection behavior and parameter-write board acceptance remain separate"),
             new("D015", "SH3673520", "0x3520", 0, 2, true, null,
                 "D015 C firmware interop: realtime, protection, MTU23 commit and current calibration",
                 "no D015 physical board validation in this cycle"),
