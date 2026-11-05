@@ -44,4 +44,7 @@
     <Compile Include="..\Shared\UpgradeDetection.cs" Link="Shared\UpgradeDetection.cs" />
     <Compile Include="..\Shared\D015Ymodem.cs" Link="Shared\D015Ymodem.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="..\Shared\ProtectionBatch.cs" Link="Shared\ProtectionBatch.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\BmsTool.Windows\BmsClient.AfeHardware.cs" Link="Shared\BmsClient.AfeHardware.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\BmsTool.Windows\AfeHardwareParameters.cs" Link="Shared\AfeHardwareParameters.cs" /></ItemGroup>
 </Project>

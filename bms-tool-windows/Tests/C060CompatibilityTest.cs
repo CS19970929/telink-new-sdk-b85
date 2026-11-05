@@ -35,13 +35,35 @@ internal static class Program
             await c.ReadIdentityAsync();Check(!(await c.ReadBatteryAsync()).HasSystemStatus,"missing status is unknown, not all-off evidence");
             await c.ReadBatteryAsync();Check(noStatus.Reads.Count(r=>r==(0xD115,2))==1,"unsupported optional window cached for session");
         }
+        var protectionPeer=new Peer{NegotiatedMtu=23};await using(var c=new BmsClient(protectionPeer)) {
+            await c.ReadIdentityAsync();int verified=0;
+            var edits=Enumerable.Range(0,13).ToDictionary(i=>(ushort)(0x2104+i*5),i=>(ushort)110);
+            await c.WriteProtectionChangesAsync(edits,(_,_)=>verified++);
+            Check(verified==13&&protectionPeer.Writes==13&&protectionPeer.WriteLengths.All(n=>n==19),"all 13 groups atomic at MTU23");
+            await c.WriteProtectionChangesAsync(edits,(_,_)=>throw new Exception("same-value write"));
+            Check(protectionPeer.Writes==13,"same values do not write Flash");
+            int before=protectionPeer.Writes;
+            try {await c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x213E,60}},(_,_)=>{});throw new Exception("invalid SOC accepted");}catch(ArgumentException){}
+            try {await c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x2102,0}},(_,_)=>{});throw new Exception("zero disables protection");}catch(ArgumentException){}
+            Check(protectionPeer.Writes==before,"all preflight before writing");
+            protectionPeer.FailWriteAddress=0x2105;
+            try {await c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x2104,120},{0x2109,120}},(_,_)=>{});throw new Exception("partial failure ignored");}
+            catch(System.IO.IOException ex){Check(ex.Message.Contains("此前1组")&&ex.Message.Contains("0x2105"),"partial progress reported");}
+            Check(protectionPeer.Protection[4]==120&&protectionPeer.Protection[9]==110,"prior success retained and no automatic retry");
+        }
+        var corrupted=new Peer{CorruptReadback=true};await using(var c=new BmsClient(corrupted)) {
+            await c.ReadIdentityAsync();
+            try{await c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x2104,120}},(_,_)=>{});throw new Exception("bad readback accepted");}
+            catch(System.IO.IOException e){Check(e.Message.Contains("回读校验"),"readback mismatch stage");}
+        }
+        Console.WriteLine("PASS C060 protection: 13 groups/65 words, MTU23 19-byte atomic writes, preflight, same-value skip, partial failure and bad readback");
         Console.WriteLine("PASS C060 connection: old/new capabilities, GBK, 20 cells/61001, units, optional rejection, unknown/generic fallback, no reconnect, session cache");
     }
 }
 internal sealed class Peer : IBmsTransport, IBmsMtuTransport
 {
     public bool Advertised,Unknown,SeparateIdentity,NoStatus;
-    public int Writes,Reconnects;public int? NegotiatedMtu {get;set;}=247;
+    public int Writes,Reconnects;public int FailWriteAddress;public bool CorruptReadback;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
     public bool IsConnected=>true;public bool RequiresSerialWakeup=>false;public string DiscoveryDescription=>"C060 fixture";
     public event Action<ReadOnlyMemory<byte>>? DataReceived; public event Action<string>? ConnectionProgress;
     public List<(int,int)> Reads=new();
@@ -55,7 +77,17 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
         if(q[1]==3) {
             Reads.Add((address,n));ushort[]? w=Read(address,n);
             reply=w is null?Frame(new byte[]{1,0x83,1}):Frame(new byte[]{1,3,(byte)(w.Length*2)}.Concat(w.SelectMany(x=>new[]{(byte)(x>>8),(byte)x})).ToArray());
-        } else {Writes++;reply=Frame(q[..6]);}
+        } else {
+            Writes++;WriteLengths.Add(q.Length);
+            if(address==FailWriteAddress)reply=Frame(new byte[]{1,(byte)(q[1]|128),4});
+            else {
+                if(q[1]==16&&address>=0x2100&&address+n<=0x2141) {
+                    for(int i=0;i<n;i++)Protection[address-0x2100+i]=(ushort)(q[7+2*i]*256+q[8+2*i]);
+                    if(CorruptReadback)Protection[address-0x2100]++;
+                }
+                reply=Frame(q[..6]);
+            }
+        }
         for(int at=0;at<reply.Length;at+=7)DataReceived?.Invoke(reply.AsMemory(at,Math.Min(7,reply.Length-at)));
         return Task.CompletedTask;
     }

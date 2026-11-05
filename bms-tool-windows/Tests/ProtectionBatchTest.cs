@@ -26,6 +26,7 @@ class Program {
 namespace BmsTool.Windows {
  public sealed partial class BmsClient {
   public bool IsD015 {get;set;}
+  public bool IsC060 {get;set;}
   public ushort[] Current=new ushort[65];public int Writes,MaxFrame;public ushort FailAddress;
   public Task<ushort[]> ReadProtectionAllAsync(CancellationToken ct)=>Task.FromResult((ushort[])Current.Clone());
   public Task<ushort[]> ReadRegistersAsync(ushort a,ushort n,CancellationToken ct)=>Task.FromResult(Current.AsSpan(a-0x2100,n).ToArray());

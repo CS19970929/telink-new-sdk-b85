@@ -673,13 +673,17 @@ public partial class MainWindow : Window
 
     private async void ReadProtection_Click(object sender, RoutedEventArgs e)
     {
+        if (_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || _autoReconnectRunning) return;
+        bool ownsTransaction = false;
         try
         {
+            _parameterBusy = ownsTransaction = true;
             _pollTimer.Stop();
+            await WaitForCommunicationIdleAsync();
             await ReadProtectionAsync();
         }
         catch (Exception ex) { ShowError("读取保护参数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (ownsTransaction) _parameterBusy = false; StartAutomaticRefresh(); }
     }
 
     private async Task ReadProtectionAsync()
@@ -691,13 +695,16 @@ public partial class MainWindow : Window
         if (values.Length != _protectionRows.Count)
             throw new IOException($"保护参数数量错误：expected={_protectionRows.Count}, actual={values.Length}");
         for (int i = 0; i < values.Length; i++) _protectionRows[i].LoadFromDevice(values[i]);
-        ProtectionStatusText.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}";
+        ProtectionStatusText.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}" +
+            (bms.IsC060 ? " · C060：Second/Third实际扫描；First用于恢复；Filter单位10ms" : "");
         FactoryParameterSummaryText.Text = $"正式保护参数：已读取 {values.Length} 项\n范围：0x2100..0x{0x2100 + values.Length - 1:X4}（只读）";
         AppendLog($"保护参数读取完成 count={values.Length}; rawRange=0x2100..0x2140", "PARAM");
     }
 
     private async void WriteSelectedProtection_Click(object sender, RoutedEventArgs e)
     {
+        if (_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || _autoReconnectRunning) return;
+        bool ownsTransaction = false;
         try
         {
             CommitProtectionGridEdits();
@@ -713,20 +720,28 @@ public partial class MainWindow : Window
                     MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
 
+            _parameterBusy = ownsTransaction = true;
             _pollTimer.Stop();
+            await WaitForCommunicationIdleAsync();
             var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-            ushort readback = await bms.WriteReadableRegisterAndVerifyAsync(row.Address, value);
-            row.LoadFromDevice(readback);
+            await bms.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{row.Address,value}},
+                (address, values) => {
+                    if (!ReferenceEquals(bms, _bms)) throw new InvalidOperationException("连接已改变，请重新读取。");
+                    for(int i=0;i<5;i++)_protectionRows.Single(r=>r.Address==address+i).LoadFromDevice(values[i]);
+                });
+            ushort readback = row.DeviceValue;
             ProtectionStatusText.Text = $"{row.CustomerName} 写入并校验成功";
             AppendLog($"PROTECTION_WRITE_OK name='{row.CustomerName}'; address=0x{row.Address:X4}; raw={readback}", "PARAM");
             ShowParameterSaved(ProtectionStatusText.Text);
         }
         catch (Exception ex) { ShowError("写保护参数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (ownsTransaction) _parameterBusy = false; StartAutomaticRefresh(); }
     }
 
     private async void WriteChangedProtection_Click(object sender, RoutedEventArgs e)
     {
+        if (_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || _autoReconnectRunning) return;
+        bool ownsTransaction = false;
         try
         {
             CommitProtectionGridEdits();
@@ -751,11 +766,14 @@ public partial class MainWindow : Window
                     MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
 
+            _parameterBusy = ownsTransaction = true;
             _pollTimer.Stop();
+            await WaitForCommunicationIdleAsync();
             var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
             await bms.WriteProtectionChangesAsync(
                 changed.ToDictionary(x => x.Row.Address, x => x.Parsed),
                 (address, values) => {
+                    if (!ReferenceEquals(bms, _bms)) throw new InvalidOperationException("连接已改变，请重新读取。");
                     for (int j = 0; j < values.Length; j++)
                         _protectionRows.Single(row => row.Address == address + j).LoadFromDevice(values[j]);
                     ProtectionStatusText.Text = $"{ProtectionBatch.Name(address)} 整组写入并校验成功";
@@ -765,7 +783,7 @@ public partial class MainWindow : Window
             ShowParameterSaved(ProtectionStatusText.Text);
         }
         catch (Exception ex) { ShowError("批量写保护参数失败", ex, "不同保护组依次提交，已完成组可能已保存；请重新读取全部参数确认，不要直接重发。"); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (ownsTransaction) _parameterBusy = false; StartAutomaticRefresh(); }
     }
 
     private void CommitProtectionGridEdits()
