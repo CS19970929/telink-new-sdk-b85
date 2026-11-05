@@ -27,6 +27,7 @@ public partial class MainWindow
         var statusCard=new Border{Padding=new Thickness(10),Margin=new Thickness(0,0,0,12),
             Background=System.Windows.Media.Brushes.AliceBlue,Child=_parameterStatus};
         DockPanel.SetDock(statusCard,Dock.Top);page.Children.Add(statusCard);
+        var selector=CreateParameterProfileSelector();DockPanel.SetDock(selector,Dock.Top);page.Children.Add(selector);
         var sections=new TabControl();page.Children.Add(sections);
         StackPanel Section(string title) {
             var panel=new StackPanel{Margin=new Thickness(12),MaxWidth=850,HorizontalAlignment=HorizontalAlignment.Left};
@@ -106,7 +107,8 @@ public partial class MainWindow
 #if BMS_FACTORY_APP
         root.Children.Add(new Expander{Header="原始读回",Content=_parameterReadback,Margin=new Thickness(4)});
 #endif
-        MainTabs.Items.Add(new TabItem{Header="业务参数",Content=page});
+        _businessParameterTab=new TabItem{Header="业务参数",Content=page};MainTabs.Items.Add(_businessParameterTab);
+        AddC060ParameterTab();
         var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
         timer.Tick+=async(_,_)=>{
             if(_bms is null){_batteryTypeStatus.Text="电池类型：未连接";_parameterProbedClient=null;_parameterCapture=null;_parameterStatus.Text="未连接";_parameterBusinessReadback.Text="设备参数：未连接";UpdateBusinessParameterControls();return;}
@@ -117,6 +119,7 @@ public partial class MainWindow
     private async Task ParameterRunAsync(Func<BmsClient,CancellationToken,Task>? action,bool refresh=true,
         string? operation="保存参数",bool requiresUnlock=true)
     {
+        if(_bms?.IsC060==true){await RunC060ParameterAsync(action,operation??"读取参数",requiresUnlock);return;}
         bool modifying=action is not null && operation is not null;
         void Reject(string message) {
             _parameterStatus.Text=message;

@@ -95,14 +95,14 @@ static class BusinessParametersUiTest
         d015Capture.Blocks["D015Basic"]=new ushort[32];
         d015Capture.Blocks["D015Ocv"]=new ushort[42];
         Load(d015Capture);
-        Check(Field<TabItem>("_d015ParameterTab").Visibility==Visibility.Visible,"D015配置入口可见");
+        Check(customer ? type.GetField("_d015ParameterTab",Private)!.GetValue(window) is null : Field<TabItem>("_d015ParameterTab").Visibility==Visibility.Visible,"D015工厂配置入口仅内部版可见");
         Check(Field<List<TabItem>>("_d015LegacyTabs").All(t=>t.Visibility==Visibility.Collapsed),"隐藏不适用D015的其他产品页面");
         Check(Field<DataGrid>("_d015BasicGrid").Items.Count==23 && !Field<DataGrid>("_d015BasicGrid").Items.Cast<D015SettingRow>().Any(r=>r.Address==0x340B),"D015实际23项，旧预充完成电流保留槽不作为可写参数");
         var basicGrid=Field<DataGrid>("_d015BasicGrid");
         var basicRows=basicGrid.Items.Cast<D015SettingRow>().ToArray();
         Check(basicRows.Where(r=>r.IsReadOnly).Select(r=>r.Address).SequenceEqual(new ushort[]{0x340A,0x3410,0x3411,0x3412,0x3413}),"五项运行策略显示为只读固件宏");
         Check(basicRows.Where(r=>r.IsReadOnly).All(r=>r.Source=="固件宏，只读") && basicRows.Single(r=>r.Address==0x340D).Source=="Flash参数","明确区分宏与Flash参数");
-        foreach(var row in basicRows) {
+        foreach(var row in basicRows.Where(_=>!customer)) {
             var edit=new DataGridBeginningEditEventArgs(basicGrid.Columns[2],new DataGridRow{Item=row},null!);
             typeof(DataGrid).GetMethod("OnBeginningEdit",Private)!.Invoke(basicGrid,new object[]{edit});
             Check(edit.Cancel==row.IsReadOnly,"宏禁止进入编辑，Flash参数保留编辑能力");
@@ -120,6 +120,36 @@ static class BusinessParametersUiTest
             bitmap.Render(background);bitmap.Render(upgrade);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));
             using var output=File.Create(Path.Combine(args[0],"upgrade.png"));encoder.Save(output);
         }
+        var c060Client=new BmsClient(new UiTransport());
+        typeof(BmsClient).GetProperty("IsC060")!.SetValue(c060Client,true);
+        type.GetField("_bms",Private)!.SetValue(window,c060Client);Call("UpdateParameterProfileUi");
+        var c060Tab=Field<TabItem>("_c060ParameterTab");
+        Check(c060Tab.Visibility==Visibility.Visible && Field<TabItem>("_businessParameterTab").Visibility==Visibility.Collapsed,"自动按C060显示参数页");
+        var c060Grid=Field<DataGrid>("_c060Grid");
+        Check(c060Grid.ItemsSource.Cast<C060ParameterRow>().Count()==150,"C060常规及通道系数完整150行");
+        var c060Rows=c060Grid.ItemsSource.Cast<C060ParameterRow>().ToArray();
+        bool CanEdit(C060ParameterRow row)=>(bool)type.GetMethod("CanEditC060Field",Private)!.Invoke(window,new object[]{row.Field})!;
+        Check(CanEdit(c060Rows.Single(r=>r.Field.Address==0x2318)),"容量可编辑");
+        Check(!CanEdit(c060Rows.Single(r=>r.Field.Address==0x231C)),"不把允许参数串数当实际硬件适配");
+        Check(!CanEdit(c060Rows.Single(r=>r.Field.Address==0x2311)),"旧Sleep字段需明确勾选兼容编辑");
+        Check(CanEdit(c060Rows.Single(r=>r.Field.Address==0x2000))!=customer,"校准按版本边界提供");
+        Field<CheckBox>("_c060Compatibility").IsChecked=true;
+        Check(CanEdit(c060Rows.Single(r=>r.Field.Address==0x2311)),"兼容字段允许明确选择后编辑");
+        foreach(var row in c060Rows)row.Load(row.Field.Address<0x2100?(ushort)(row.Field.Signed?0:1024):(ushort)30);
+        tabs.SelectedItem=c060Tab;
+        var c060Root=(FrameworkElement)c060Tab.Content;
+        c060Root.Measure(new Size(1100,780));c060Root.Arrange(new Rect(0,0,1100,780));c060Root.UpdateLayout();
+        Check(Field<TextBox>("_c060Serial").ActualWidth>0,"C060生产信息控件参与布局");
+        if(args.Length>0){
+            var bitmap=new RenderTargetBitmap(1100,780,96,96,PixelFormats.Pbgra32);
+            var background=new DrawingVisual();using(var draw=background.RenderOpen())draw.DrawRectangle(Brushes.White,null,new Rect(0,0,1100,780));
+            bitmap.Render(background);bitmap.Render(c060Root);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using var output=File.Create(Path.Combine(args[0],"c060-parameters.png"));encoder.Save(output);
+        }
+        typeof(BmsClient).GetProperty("IsC060")!.SetValue(c060Client,false);Call("UpdateParameterProfileUi");
+        Check(Field<TabItem>("_businessParameterTab").Visibility==Visibility.Visible,"未识别设备保留通用参数与手动选择入口");
+        c060Client.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        Console.WriteLine("PASS C060 UI: automatic map switching, generic fallback/manual entry, 150 rows, compatibility and edition edit gates, offscreen layout");
         type.GetField("_bms",Private)!.SetValue(window,null);
         d015Client.DisposeAsync().AsTask().GetAwaiter().GetResult();
         window.Close();

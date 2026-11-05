@@ -19,6 +19,14 @@ internal static class Program
             Check(!t.Reads.Any(r=>r.Item1==0xC012 || r.Item1==0xC022 || r==(0xD120,11)),"never send incompatible C060 identity/realtime addresses");
             Check(t.Writes==0 && t.Reconnects==0,"discovery is read-only without reconnect");
         }
+        var silent=new Peer{SilentRealtime=true};await using(var c=new BmsClient(silent)) {
+            await c.ProbeAsync();Check((await c.ReadBatteryAsync()).ValidCellCount==20&&silent.Reconnects==0,"old firmware silently ignores D120; D000 fallback without reopen");
+        }
+        var noIdentity=new Peer{NoIdentity=true};await using(var c=new BmsClient(noIdentity)) {
+            await c.ProbeAsync();await c.ReadIdentityAsync();Check(!c.IsC060,"missing identity does not guess product");
+            await c.SelectC060ParametersAsync();Check(c.IsC060,"explicit legacy parameter map without firmware identity changes");
+            Check((await c.ReadC060ParametersAsync()).Blocks.ContainsKey("2318"),"manual selection retains available groups");
+        }
         var unknown=new Peer{Unknown=true};await using(var c=new BmsClient(unknown)) {
             await c.ProbeAsync();await c.ReadIdentityAsync();
             Check(!c.IsC060,"do not infer C060 just from 20 cells");
@@ -56,26 +64,75 @@ internal static class Program
             try{await c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x2104,120}},(_,_)=>{});throw new Exception("bad readback accepted");}
             catch(System.IO.IOException e){Check(e.Message.Contains("回读校验"),"readback mismatch stage");}
         }
+        var parameters=new Peer();await using(var c=new BmsClient(parameters)) {
+            await c.ReadIdentityAsync();var capture=await c.ReadC060ParametersAsync();
+            Check(capture.Errors.Count==0&&capture.Blocks["Calibration"].Length==94&&C060Parameters.Fields.Count==150,"complete conventional map");
+            var capacity=C060Parameters.Fields.Single(f=>f.Address==0x2318);
+            Check(capacity.Format(240)=="24"&&capacity.Parse("24.5")==245,"capacity parameter unit");
+            try{capacity.Parse("24.05");throw new Exception("imprecise capacity accepted");}catch(ArgumentException){}
+            parameters.Other[3]=44;
+            await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2300,3900},{0x2318,245},{0x2319,12}},(_,_)=>{});
+            Check(parameters.Other[0]==3900&&parameters.Other[3]==44&&parameters.Other[24]==245&&parameters.Other[26]==4200,"fresh read preserves untouched words");
+            int count=parameters.Writes;await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2318,245}},(_,_)=>{});
+            Check(parameters.Writes==count,"same conventional values skip writes");
+            await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2001,unchecked((ushort)(short)-123)}},(_,_)=>{});
+            Check(parameters.Calibration[1]==unchecked((ushort)(short)-123)&&parameters.Calibration[0]==1024,"K/B sign magnitude write and complement read");
+            var bFrame=parameters.SentRequests.Last(r=>r[1]==16&&r[2]==0x20);
+            Check(bFrame[9]==0x80&&bFrame[10]==123,"negative B on the wire");
+            await c.SetCycleCountAndVerifyAsync(77);
+            Check(parameters.Other[25]==77&&parameters.SentRequests.Last(r=>r[1]==16&&r[2]==0x23)[5]==4,"quick cycle button uses whole four-word group");
+            await c.SetSocAndVerifyAsync(66);Check(parameters.Soc==66,"SOC read from data, not write-only command register");
+            int before=parameters.Writes;
+            try{await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2311,3}},(_,_)=>{});throw new Exception("compatibility not gated");}catch(ArgumentException){}
+            Check(parameters.Writes==before,"compatibility edits opt in");
+            await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2311,3}},(_,_)=>{},true);
+            Check(parameters.Other[17]==3&&parameters.Other[16]==4600,"compatibility group preserved");
+            try{await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,19}},(_,_)=>{});throw new Exception("physical map changed");}catch(ArgumentException){}
+            await c.WriteC060IdentityAsync(0xFFF0,"中文SN");Check(BmsClient.DecodeIdentityText(parameters.Identity[..16])=="中文SN","GBK identity roundtrip");
+            before=parameters.Writes;
+            await c.WriteC060IdentityAsync(0xFFF0,"中文SN");Check(parameters.Writes==before,"identical identity skips Flash write");
+            parameters.Calibration[1]=0x8000;
+            try{await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2000,1025}},(_,_)=>{});throw new Exception("unencodable untouched B accepted");}catch(ArgumentException){}
+            Check(parameters.Writes==before,"whole K/B pair preflight protects untouched negative offset");parameters.Calibration[1]=0;
+            try{await c.WriteC060IdentityAsync(0xFFF0,new string('汉',17));throw new Exception("long identity accepted");}catch(ArgumentException){}
+            Check(parameters.Writes==before,"GBK byte limit checked before writing");
+            string folder=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"CodexTemp","bms-tool-windows","package-"+Guid.NewGuid().ToString("N"));System.IO.Directory.CreateDirectory(folder);
+            string file=System.IO.Path.Combine(folder,"parameters.json");C060Parameters.Export(file,capture);var imported=C060Parameters.Import(file);
+            Check(imported.Blocks["2318"].SequenceEqual(capture.Blocks["2318"]),"parameter package roundtrip");
+            System.IO.File.WriteAllText(file,System.IO.File.ReadAllText(file).Replace("\"Product\": \"C060\"","\"Product\": \"D015\""));
+            try{C060Parameters.Import(file);throw new Exception("cross-product import accepted");}catch(System.IO.InvalidDataException){}
+        }
+        var mtuPeer=new Peer{NegotiatedMtu=23};await using(var c=new BmsClient(mtuPeer)) {
+            await c.ReadIdentityAsync();
+            try{await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2319,7},{0x2300,3900}},(_,_)=>{});throw new Exception("oversize group sent");}catch(System.IO.IOException){}
+            Check(mtuPeer.Writes==0,"all groups MTU-preflight before any save");
+            await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2319,7}},(_,_)=>{});Check(mtuPeer.Writes==1,"short group works at MTU23");
+        }
+        var normalized=C060Parameters.NormalizeCurrentGroup(new ushort[]{4000,4000,750,600,1,0,1000,30},2,4);
+        Check(normalized[2]==1000&&normalized[3]==660,"production short-circuit quantization golden");
+        Console.WriteLine("PASS C060 parameters: 150 field map, fresh grouped saves, reserved fields, exact units, signed K/B, cycle/SOC, compatibility gating, GBK identity, package product checks, MTU preflight");
         Console.WriteLine("PASS C060 protection: 13 groups/65 words, MTU23 19-byte atomic writes, preflight, same-value skip, partial failure and bad readback");
         Console.WriteLine("PASS C060 connection: old/new capabilities, GBK, 20 cells/61001, units, optional rejection, unknown/generic fallback, no reconnect, session cache");
     }
 }
 internal sealed class Peer : IBmsTransport, IBmsMtuTransport
 {
-    public bool Advertised,Unknown,SeparateIdentity,NoStatus;
-    public int Writes,Reconnects;public int FailWriteAddress;public bool CorruptReadback;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
+    public bool Advertised,Unknown,SeparateIdentity,NoStatus,NoIdentity,SilentRealtime;
+    public int Writes,Reconnects;public int Soc=55;public List<byte[]> SentRequests=new();public int FailWriteAddress;public bool CorruptReadback;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
     public bool IsConnected=>true;public bool RequiresSerialWakeup=>false;public string DiscoveryDescription=>"C060 fixture";
     public event Action<ReadOnlyMemory<byte>>? DataReceived; public event Action<string>? ConnectionProgress;
     public List<(int,int)> Reads=new();
+    public ushort[] Calibration=Enumerable.Range(0,94).Select(i=>(ushort)(i%2==0?1024:0)).ToArray();
+    public ushort[] Identity=Text("SN").Concat(Text("测试硬件")).Concat(Text("c060V3-20250304-20s")).ToArray();
     public ushort[] Protection={4200,4200,4250,4100,100,3200,3200,2700,3000,100,8400,8400,8500,8300,100,6000,6000,5400,6000,100,100,100,120,100,100,600,600,800,700,500,850,850,950,850,100,450,450,400,450,100,1000,1000,1100,1000,100,250,250,200,250,100,1200,1200,1200,1150,100,1000,1000,1000,900,100,3,2,1,2,100};
     public ushort[] Other={3800,30,20,9,8,7,6,5,4000,4000,4000,4000,1,0,1000,30,4600,120,2700,1,2,2,240,0,240,1,4200,2700,20,2,4,10,400,450,10,1100,1000,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;return Task.CompletedTask;}
     public ValueTask DisposeAsync()=>ValueTask.CompletedTask;
     public Task WriteAsync(ReadOnlyMemory<byte> value,CancellationToken ct=default)
     {
-        ct.ThrowIfCancellationRequested();var q=value.ToArray();int address=q[2]*256+q[3],n=q[4]*256+q[5];byte[] reply;
+        ct.ThrowIfCancellationRequested();var q=value.ToArray();SentRequests.Add(q);int address=q[2]*256+q[3],n=q[4]*256+q[5];byte[] reply;
         if(q[1]==3) {
-            Reads.Add((address,n));ushort[]? w=Read(address,n);
+            Reads.Add((address,n));if(SilentRealtime&&address==0xD120)return Task.CompletedTask;ushort[]? w=Read(address,n);
             reply=w is null?Frame(new byte[]{1,0x83,1}):Frame(new byte[]{1,3,(byte)(w.Length*2)}.Concat(w.SelectMany(x=>new[]{(byte)(x>>8),(byte)x})).ToArray());
         } else {
             Writes++;WriteLengths.Add(q.Length);
@@ -85,6 +142,17 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
                     for(int i=0;i<n;i++)Protection[address-0x2100+i]=(ushort)(q[7+2*i]*256+q[8+2*i]);
                     if(CorruptReadback)Protection[address-0x2100]++;
                 }
+                if(q[1]==16&&address>=0x2300&&address+n<=0x2338)
+                    for(int i=0;i<n;i++)Other[address-0x2300+i]=(ushort)(q[7+2*i]*256+q[8+2*i]);
+                if(q[1]==16&&address>=0x2000&&address+n<=0x205E) {
+                    for(int i=0;i<n;i++) {
+                        ushort raw=(ushort)(q[7+2*i]*256+q[8+2*i]);
+                        Calibration[address-0x2000+i]=i%2==1&&(raw&0x8000)!=0?unchecked((ushort)-(raw&0x7fff)):raw;
+                    }
+                }
+                if(q[1]==16&&address>=0xFFF0&&address<=0xFFF2)
+                    for(int i=0;i<n;i++)Identity[(address-0xFFF0)*16+i]=(ushort)(q[7+2*i]*256+q[8+2*i]);
+                if(q[1]==6&&address==0x1005)Soc=n;
                 reply=Frame(q[..6]);
             }
         }
@@ -93,21 +161,24 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
     }
     ushort[]? Read(int a,int n)
     {
-        if(a==0x2000&&n==2)return new ushort[]{1024,0};
+        if(a>=0x2000&&a+n<=0x205E)return Calibration.Skip(a-0x2000).Take(n).ToArray();
         if(Unknown)return null;
+        if(NoIdentity&&a>=0xC000&&a<0xC100)return null;
         if(a==0xD170&&n==12&&Advertised)return new ushort[]{0x5550,1,0xC060,0x20,2,2,0x800,0x1C00,0,0xCC00,0,0};
-        if(a==0xC002&&n==48&&!SeparateIdentity)return Text("SN").Concat(Text("测试硬件")).Concat(Text("c060V3-20250304-20s")).ToArray();
+        if(a==0xC002&&n==48&&!SeparateIdentity)return Identity.ToArray();
         if(a==0xC002&&n==16)return Text("SN");
         if(a==0xC012&&n==16&&SeparateIdentity)return Text("generic");
         if(a==0xD120&&n==2&&!SeparateIdentity)return new ushort[2];
         if(a==0xD000) {
             ushort[] data=new ushort[63];for(int i=0;i<32;i++)data[i]=(ushort)(i<20?3300:61001);
-            data[32]=data[33]=3300;data[34]=1;data[35]=2;data[37]=6600;data[47]=650;data[48]=700;data[49]=600;data[50]=20;data[52]=55;data[53]=100;data[54]=1320;data[55]=data[56]=2400;data[57]=Other[25];
+            data[32]=data[33]=3300;data[34]=1;data[35]=2;data[37]=6600;data[47]=650;data[48]=700;data[49]=600;data[50]=20;data[52]=(ushort)Soc;data[53]=100;data[54]=1320;data[55]=data[56]=(ushort)(Other[24]*10);data[57]=Other[25];
             return data.Take(n).ToArray();
         }
         if(a==0xD115&&n==2&&!NoStatus)return new ushort[]{4,0};
         if(a>=0x2100&&a+n<=0x2141)return Protection.Skip(a-0x2100).Take(n).ToArray();
         if(a>=0x2300&&a+n<=0x2338)return Other.Skip(a-0x2300).Take(n).ToArray();
+        if(a==0x2200&&n==86)return new ushort[86];
+        if(a is 0x3000 or 0x3050 && n==21)return new ushort[21];
         return null;
     }
     static ushort[] Text(string s) {

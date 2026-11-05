@@ -411,9 +411,10 @@ public partial class MainWindow : Window
             : _connectedName;
         DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName, ct);
         var build = await bms.TryReadFirmwareBuildIdentityAsync(ct);
-        await RefreshDeviceClockAsync(bms, ct);
+        await RefreshOptionalDeviceViewAsync("设备时间",()=>RefreshDeviceClockAsync(bms, ct));
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
+        UpdateParameterProfileUi();
         _identityRefreshRequired = false;
         IdentityText.Text = $"自动识别：{bms.DeviceModel}\n识别依据：{bms.DeviceDetectionEvidence}\n蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}\n固件 Build ID：{build?.Display ?? "不可用"}";
         FactoryIdentityText.Text = $"蓝牙：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}";
@@ -440,10 +441,10 @@ public partial class MainWindow : Window
         if (!ReferenceEquals(bms, _bms)) return;
         ApplyBatterySnapshot(snapshot);
         if (bms.IsC060) return;
-        await RefreshMosControlStateAsync(bms, default);
-        await RefreshMosMonitorAsync(bms);
-        await RefreshSleepStatusAsync(bms);
-        await RefreshDeviceClockAsync(bms);
+        await RefreshOptionalDeviceViewAsync("MOS许可",()=>RefreshMosControlStateAsync(bms, default));
+        await RefreshOptionalDeviceViewAsync("MOS诊断",()=>RefreshMosMonitorAsync(bms));
+        await RefreshOptionalDeviceViewAsync("休眠状态",()=>RefreshSleepStatusAsync(bms));
+        await RefreshOptionalDeviceViewAsync("设备时间",()=>RefreshDeviceClockAsync(bms));
     }
 
     private void ApplyBatterySnapshot(BatterySnapshot s)

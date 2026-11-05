@@ -17,6 +17,8 @@ foreach($edition in @(@{Name='customer';Assembly=$CustomerAssembly},@{Name='inte
  @"
 <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0-windows10.0.19041.0</TargetFramework><OutputType>Exe</OutputType><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup><ItemGroup><Reference Include="BmsUnderTest"><HintPath>$assembly</HintPath></Reference><PackageReference Include="ClosedXML" Version="0.104.2"/><PackageReference Include="System.IO.Ports" Version="8.0.0"/></ItemGroup></Project>
 "@ | Set-Content -LiteralPath (Join-Path $root 'Test.csproj') -Encoding utf8
- & dotnet run --project (Join-Path $root 'Test.csproj') -c Release -- $FirmwareHarness 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDirectory ($edition.Name+'-device-clock.log'))
+ $runArguments=@('run','--project',(Join-Path $root 'Test.csproj'),'-c','Release')
+ if(-not [string]::IsNullOrWhiteSpace($FirmwareHarness)){$runArguments+=@('--',$FirmwareHarness)}
+ & dotnet @runArguments 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDirectory ($edition.Name+'-device-clock.log'))
  if($LASTEXITCODE -ne 0){throw "$($edition.Name) device clock failed"}
 }

@@ -213,6 +213,9 @@ public sealed partial class BmsClient : IAsyncDisposable
                 } catch (BmsModbusException ex) {
                     exceptionReply = true; words = Array.Empty<ushort>();
                     Log?.Invoke($"[MODBUS] optional D120 probe rejected: {ex.Message}; trying D000");
+                } catch (TimeoutException) {
+                    words = Array.Empty<ushort>();
+                    Log?.Invoke("[MODBUS] optional D120 did not reply; trying D000 on the same open connection");
                 }
                 _realtimeAvailable = words.Length == 2 && words[0] == BmsRegisters.RealtimeMagic;
                 if (_realtimeAvailable == true) {
@@ -558,7 +561,14 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     public async Task<BatterySnapshot> SetCycleCountAndVerifyAsync(ushort cycleCount, CancellationToken ct = default)
     {
-        await WriteSingleRegisterAsync(0x2319, cycleCount, ct);
+        if (IsC060) {
+            ushort[] group=await ReadRegistersAsync(0x2318,4,ct);
+            if(group[3]>=group[2])throw new ArgumentException("SOC 0%端点必须低于100%端点。");
+            group[1]=cycleCount;
+            byte[] raw=group.SelectMany(w=>new[]{(byte)(w>>8),(byte)w}).ToArray();
+            ModbusRtu.ValidateWriteMultipleAck(await TransactAsync(ModbusRtu.WriteMultiple(0x2318,raw),ct),0x2318,4);
+            if(!(await ReadRegistersAsync(0x2318,4,ct)).SequenceEqual(group))throw new IOException("C060容量组回读不一致，未自动重发。");
+        } else await WriteSingleRegisterAsync(0x2319, cycleCount, ct);
         await Task.Delay(180, ct);
         BatterySnapshot snapshot = await ReadBatteryAsync(ct);
         if (snapshot.CycleCount != cycleCount)

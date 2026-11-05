@@ -59,6 +59,7 @@ public partial class MainWindow
         ResetMosControlUi();
 
         foreach (var row in _protectionRows) row.ClearReadback();
+        ClearC060ParameterCapture();
         _parameterCapture = null;
         _parameterProbedClient = null;
         _d015BasicGrid.ItemsSource = null;
