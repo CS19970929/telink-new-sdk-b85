@@ -415,7 +415,7 @@ public partial class MainWindow : Window
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
         _identityRefreshRequired = false;
-        IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}\n固件 Build ID：{build?.Display ?? "不可用"}";
+        IdentityText.Text = $"自动识别：{bms.DeviceModel}\n识别依据：{bms.DeviceDetectionEvidence}\n蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}\n固件 Build ID：{build?.Display ?? "不可用"}";
         FactoryIdentityText.Text = $"蓝牙：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}";
         FactoryConnectionText.Text = $"连接状态：已连接\n硬件：{id.Hardware}\n软件：{id.Software}";
         BtNameResultText.Text = id.BluetoothName;
@@ -428,9 +428,18 @@ public partial class MainWindow : Window
     private async Task RefreshBatteryAsync()
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-        BatterySnapshot snapshot = await bms.ReadBatteryAsync();
+        BatterySnapshot snapshot;
+        try { snapshot = await bms.ReadBatteryAsync(); }
+        catch (NotSupportedException ex) {
+            if (ReferenceEquals(bms, _bms)) {
+                ConnectionText.Text = "已连接：" + bms.DeviceModel;
+                LastUpdateText.Text = ex.Message;
+            }
+            return;
+        }
         if (!ReferenceEquals(bms, _bms)) return;
         ApplyBatterySnapshot(snapshot);
+        if (bms.IsC060) return;
         await RefreshMosControlStateAsync(bms, default);
         await RefreshMosMonitorAsync(bms);
         await RefreshSleepStatusAsync(bms);
@@ -458,6 +467,10 @@ public partial class MainWindow : Window
             $"制冷：{OnOff(s.CoolingOn)}\n" +
             $"系统：{(s.PreparingSleep ? "准备休眠" : "运行中")}";
 
+        if (!s.HasSystemStatus) {
+            MosStateText.Text = "MOS状态：设备未提供，当前未知";
+            SystemStateText.Text = "系统状态：设备未提供，当前未知";
+        }
         ProtectionSummaryText.Text = s.ProtectionSummary;
         ProtectionLevelsText.Text =
             $"一级：{s.ProtectionLevel1Text}\n" +
@@ -602,6 +615,11 @@ public partial class MainWindow : Window
             if (_identityRefreshRequired) await RefreshIdentityAsync();
             await RefreshBatteryAsync();
             _pollFailureCount = 0;
+        }
+        catch (BmsModbusException ex)
+        {
+            _pollFailureCount = 0;
+            AppendLog("设备已应答但当前请求不可用；保留连接：" + ex.Message, "POLL");
         }
         catch (Exception ex)
         {

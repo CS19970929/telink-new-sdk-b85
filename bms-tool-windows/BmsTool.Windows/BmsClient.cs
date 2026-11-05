@@ -61,6 +61,7 @@ public sealed class BatterySnapshot
     public double CapacityNowAh { get; init; }
     public double CapacityFullAh { get; init; }
     public double CapacityFactoryAh { get; init; }
+    public bool HasSystemStatus { get; init; } = true;
     public uint SystemStatus { get; init; }
     public ushort ProtocolVersion { get; init; }
     public bool UsesRealtimeWindow { get; init; }
@@ -203,33 +204,28 @@ public sealed partial class BmsClient : IAsyncDisposable
             try
             {
                 Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} begin");
-                byte[] rsp = await TransactAsync(
-                    ModbusRtu.ReadHolding(BmsRegisters.Realtime, 2),
-                    probeToken,
-                    TimeSpan.FromMilliseconds(serial ? 650 : 1800));
-                ushort[] words = ModbusRtu.ParseRead(rsp, 2);
-                if (words.Length >= 2 && words[0] == BmsRegisters.RealtimeMagic)
-                {
+                ushort[] words;
+                bool exceptionReply = false;
+                try {
+                    byte[] rsp = await TransactAsync(ModbusRtu.ReadHolding(BmsRegisters.Realtime, 2),
+                        probeToken, TimeSpan.FromMilliseconds(serial ? 650 : 1800));
+                    words = ModbusRtu.ParseRead(rsp, 2);
+                } catch (BmsModbusException ex) {
+                    exceptionReply = true; words = Array.Empty<ushort>();
+                    Log?.Invoke($"[MODBUS] optional D120 probe rejected: {ex.Message}; trying D000");
+                }
+                _realtimeAvailable = words.Length == 2 && words[0] == BmsRegisters.RealtimeMagic;
+                if (_realtimeAvailable == true) {
                     Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} ok realtimeMagic=0x{words[0]:X4}; protocol=0x{words[1]:X4}");
                     return;
                 }
-
-                // Older/deployed BMS firmware can expose the same BLE UART and
-                // Modbus map while leaving the optional realtime window at zero.
-                // A valid D120 response is not enough to identify the device, so
-                // verify the stable legacy data window before accepting it.
-                Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} realtime window unavailable; magic=0x{words.ElementAtOrDefault(0):X4}; trying legacy D000 window");
-                ushort[] legacyHead = await ReadRegistersAsync(BmsRegisters.Legacy, 4, probeToken);
-                if (legacyHead.All(value => value == 0))
-                {
-                    ushort[] production = await ReadRegistersAsync(BmsRegisters.Serial, 16, probeToken);
-                    if (production.All(value => value == 0))
-                        throw new IOException($"BMS Modbus probe failed: D120 magic is 0x{words.ElementAtOrDefault(0):X4}, and both legacy D000 and production C002 windows are empty.");
-                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} ok legacy-compatible; D120 magic=0x{words.ElementAtOrDefault(0):X4}; production data present");
-                }
-                else
-                {
-                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} ok legacy-compatible; D120 magic=0x{words.ElementAtOrDefault(0):X4}; D000={string.Join(" ", legacyHead.Select(value => value.ToString("X4")))}");
+                try {
+                    await ReadRegistersAsync(BmsRegisters.Legacy, 4, probeToken);
+                    Log?.Invoke($"[MODBUS] PROBE attempt={attempt}/{attempts} ok legacy-compatible");
+                } catch (BmsModbusException ex) {
+                    Log?.Invoke($"[MODBUS] legacy data unavailable: {ex.Message}; valid slave reply, keeping communication");
+                } catch (TimeoutException) when (exceptionReply || words.Length != 0) {
+                    Log?.Invoke("[MODBUS] D000 unavailable; previous valid reply confirms communication");
                 }
                 return;
             }
@@ -265,6 +261,13 @@ public sealed partial class BmsClient : IAsyncDisposable
             : "BLE/GATT 已重建，但 BMS 在 3 次探测后仍未响应 Modbus。", last);
     }
 
+    // Optional failures belong to this connection, never to a global product flag.
+    private readonly HashSet<(ushort Address, ushort Count)> _unavailableReads = new();
+    private bool? _realtimeAvailable;
+    private bool _legacyUnavailable, _identityConflict;
+    public bool IsC060 { get; private set; }
+    public string DeviceModel { get; private set; } = "未识别（保留通信）";
+    public string DeviceDetectionEvidence { get; private set; } = "尚未读取身份";
     public bool IsSh3520 { get; private set; }
     public bool IsD015 { get; private set; }
 
@@ -282,6 +285,7 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     public async Task WriteSingleRegisterAsync(ushort register, ushort value, CancellationToken ct = default, TimeSpan? responseTimeout = null)
     {
+        if (_identityConflict) throw new IOException("设备身份不一致；连接保留，写入未发送。");
         if(register>=BmsRegisters.Protect && register<BmsRegisters.Protect+BmsRegisters.ProtectCount) await EnsureLegacyProtectionAsync(ct);
         byte[] rsp = await TransactAsync(ModbusRtu.WriteSingle(register, value), ct, responseTimeout);
         ModbusRtu.ValidateWriteSingleAck(rsp, register, value);
@@ -366,57 +370,80 @@ public sealed partial class BmsClient : IAsyncDisposable
         string fallbackBluetoothName,
         CancellationToken ct = default)
     {
-        string macText = fallbackMac.Trim();
-        try
-        {
-            ushort[] mac = await ReadRegistersAsync(BmsRegisters.Mac, 3, ct);
-            byte[] macBytes = mac.SelectMany(w => new[] { (byte)(w >> 8), (byte)w }).Take(6).ToArray();
-            if (macBytes.Any(value => value != 0))
-                macText = string.Join(":", macBytes.Select(b => b.ToString("X2")));
+        ushort[]? capability = await TryReadOptionalRegistersAsync(0xD170, 12, ct);
+        if (capability is { Length: 12 } && capability[0] == 0x5550 && capability[1] == 1 &&
+            capability[4] == 2 && capability[5] == 2 && capability[10] <= 3 && capability[11] == 0 &&
+            capability[2] == 0xC060 && capability[3] == 0x0020 &&
+            capability[6] == 0x0800 && capability[7] == 0x1C00 &&
+            capability[8] == 0 && capability[9] == 0xCC00) {
+            IsC060 = true;
+            DeviceDetectionEvidence = "D170 v1：C0600020 / APP 08001C00 / 51 KiB";
         }
-        catch (IOException ex)
-        {
-            // External UART/BLE modules may not expose the optional BMS MAC
-            // register. The BLE transport address remains authoritative.
-            Log?.Invoke($"[IDENTITY] MAC register 0x{BmsRegisters.Mac:X4} unavailable; using fallback='{macText}'; message={ex.Message}");
+        ushort[]? identity = await TryReadOptionalRegistersAsync(BmsRegisters.Serial, 48, ct);
+        ushort[] sn = identity?.Take(16).ToArray() ??
+            await TryReadOptionalRegistersAsync(BmsRegisters.Serial, 16, ct) ?? Array.Empty<ushort>();
+        ushort[] hw = identity?.Skip(16).Take(16).ToArray() ??
+            await TryReadOptionalRegistersAsync(BmsRegisters.Hardware, 16, ct) ?? Array.Empty<ushort>();
+        ushort[] sw = identity?.Skip(32).Take(16).ToArray() ??
+            await TryReadOptionalRegistersAsync(BmsRegisters.Software, 16, ct) ?? Array.Empty<ushort>();
+        string serial = DecodeIdentityText(sn), hardware = DecodeIdentityText(hw), software = DecodeIdentityText(sw);
+        if (!IsC060 && identity is { Length:48 } &&
+            System.Text.RegularExpressions.Regex.IsMatch(hardware + " " + software, @"(?i)(^|[-_\s])C060(?=[V\d\-_\s]|$)")) {
+            ushort[]? system = await TryReadOptionalRegistersAsync(0x231C, 4, ct);
+            ushort[]? soc = await TryReadOptionalRegistersAsync(0x2318, 4, ct);
+            if (system is { Length:4 } && system[0] == 20 && system[1] != 0 && system[2] != 0 &&
+                soc is { Length:4 } && soc[0] != 0) {
+                IsC060 = true;
+                DeviceDetectionEvidence = "C002整块C060身份 + 20串系统参数/容量结构";
+            }
         }
+        if (IsC060) { DeviceModel = "C060 · 20串分口 / BQ76930"; _realtimeAvailable = false; }
+        else if (hardware.StartsWith("HS-D015", StringComparison.Ordinal)) {
+            ushort[]? product = await TryReadOptionalRegistersAsync(0xD130, 2, ct);
+            IsD015 = product is { Length:2 } && product[0] == 0xD015 && product[1] == 0x0320;
+            _identityConflict = !IsD015;
+            DeviceModel = IsD015 ? "D015" : "D015（身份未核实，保留只读通信）";
+            DeviceDetectionEvidence = IsD015 ? "D130产品身份" : "硬件文本与D130身份不一致或未提供";
+        } else {
+            DeviceModel = "通用协议（按可用能力显示）";
+            DeviceDetectionEvidence = "尚未得到明确板型；不推断C060写入合同";
+        }
+        string macText = fallbackMac.Trim(), bluetoothName = fallbackBluetoothName.Trim();
+        if (!IsC060) {
+            ushort[]? mac = await TryReadOptionalRegistersAsync(BmsRegisters.Mac, 3, ct);
+            if (mac is not null && mac.Any(v => v != 0))
+                macText = string.Join(":", mac.SelectMany(w => new[] { (byte)(w >> 8), (byte)w }).Select(b => b.ToString("X2")));
+            ushort[]? name = await TryReadOptionalRegistersAsync(BmsRegisters.BtName, BmsRegisters.BtNameReadWords, ct);
+            if (name is not null) bluetoothName = ModbusRtu.DecodeAscii(name);
+        }
+        Log?.Invoke($"[DEVICE] model={DeviceModel}; evidence={DeviceDetectionEvidence}");
+        return new DeviceIdentity(Unknown(macText), Unknown(serial), Unknown(hardware), Unknown(software), Unknown(bluetoothName));
+    }
 
-        ushort[] sn = await ReadRegistersAsync(BmsRegisters.Serial, 16, ct);
-        ushort[] hw = await ReadRegistersAsync(BmsRegisters.Hardware, 16, ct);
-        ushort[] sw = await ReadRegistersAsync(BmsRegisters.Software, 16, ct);
-        string bluetoothName = fallbackBluetoothName.Trim();
-        try
-        {
-            ushort[] name = await ReadRegistersAsync(BmsRegisters.BtName, BmsRegisters.BtNameReadWords, ct);
-            bluetoothName = ModbusRtu.DecodeAscii(name);
-        }
-        catch (IOException ex)
-        {
-            // Some external UART/BLE modules own the advertised name and do
-            // not implement the optional BMS BT-name register.
-            Log?.Invoke($"[IDENTITY] BT name register 0x{BmsRegisters.BtName:X4} unavailable; using fallback name='{bluetoothName}'; message={ex.Message}");
-        }
+    private static string Unknown(string text) => string.IsNullOrWhiteSpace(text) ? "未知" : text;
 
-        if (string.IsNullOrWhiteSpace(bluetoothName))
-            bluetoothName = "未知";
+    public static string DecodeIdentityText(ushort[] words)
+    {
+        byte[] bytes = words.SelectMany(w => new[] { (byte)(w >> 8), (byte)w }).ToArray();
+        int end = Array.IndexOf(bytes, (byte)0);
+        if (end >= 0) bytes = bytes[..end];
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        return Encoding.GetEncoding(936).GetString(bytes).Trim();
+    }
 
-        if (string.IsNullOrWhiteSpace(macText))
-            macText = "未知";
-
-        string serial = ModbusRtu.DecodeAscii(sn);
-        string hardware = ModbusRtu.DecodeAscii(hw);
-        string software = ModbusRtu.DecodeAscii(sw);
-        if (hardware.StartsWith("HS-D015", StringComparison.Ordinal)) {
-            var product = await ReadRegistersAsync(0xD130, 2, ct);
-            IsD015 = product[0] == 0xD015 && product[1] == 0x0320;
-            if (!IsD015) throw new IOException("D015硬件字符串与产品身份不一致，禁止继续写入或升级。");
+    public async Task<ushort[]?> TryReadOptionalRegistersAsync(ushort address, ushort count, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (_unavailableReads.Contains((address, count))) return null;
+        try { return await ReadRegistersAsync(address, count, ct, TimeSpan.FromSeconds(2)); }
+        catch (BmsModbusException ex) {
+            _unavailableReads.Add((address, count));
+            Log?.Invoke($"[CAPABILITY] 0x{address:X4}/{count} unavailable: {ex.Message}; connection retained");
+            return null;
+        } catch (TimeoutException ex) {
+            Log?.Invoke($"[CAPABILITY] 0x{address:X4}/{count} not confirmed: {ex.Message}; connection retained");
+            return null;
         }
-        return new DeviceIdentity(
-            macText,
-            string.IsNullOrWhiteSpace(serial) ? "未知" : serial,
-            string.IsNullOrWhiteSpace(hardware) ? "未知" : hardware,
-            string.IsNullOrWhiteSpace(software) ? "未知" : software,
-            bluetoothName);
     }
 
     /*
@@ -444,11 +471,20 @@ public sealed partial class BmsClient : IAsyncDisposable
     public async Task<BatterySnapshot> ReadBatteryAsync(CancellationToken ct = default)
     {
         DateTimeOffset readStartedUtc = DateTimeOffset.UtcNow;
-        ushort[] legacy = await ReadRegistersAsync(BmsRegisters.Legacy, 63, ct).ConfigureAwait(false);
+        if (_legacyUnavailable) throw new NotSupportedException("设备未提供通用实时数据窗口，连接与其它可用通信保持正常。");
+        ushort[] legacy;
+        try { legacy = await ReadRegistersAsync(BmsRegisters.Legacy, 63, ct).ConfigureAwait(false); }
+        catch (BmsModbusException ex) {
+            _legacyUnavailable = true;
+            throw new NotSupportedException("设备未提供通用实时数据窗口，连接与其它可用通信保持正常。", ex);
+        }
         DateTimeOffset cellsReadUtc = DateTimeOffset.UtcNow;
-        ushort[] status = await ReadRegistersAsync(BmsRegisters.SystemStatus, 2, ct).ConfigureAwait(false);
+        ushort[]? statusRead = await TryReadOptionalRegistersAsync(BmsRegisters.SystemStatus, 2, ct).ConfigureAwait(false);
+        ushort[] status = statusRead ?? new ushort[2];
         DateTimeOffset statusReadUtc = DateTimeOffset.UtcNow;
-        ushort[] realtime = await ReadRegistersAsync(BmsRegisters.Realtime, 11, ct).ConfigureAwait(false);
+        ushort[] realtime = _realtimeAvailable == false || IsC060 ? Array.Empty<ushort>() :
+            await TryReadOptionalRegistersAsync(BmsRegisters.Realtime, 11, ct).ConfigureAwait(false) ?? Array.Empty<ushort>();
+        _realtimeAvailable = realtime.Length >= 11 && realtime[0] == BmsRegisters.RealtimeMagic;
         DateTimeOffset realtimeReadUtc = DateTimeOffset.UtcNow;
         bool rt = realtime.Length >= 11 && realtime[0] == BmsRegisters.RealtimeMagic;
 
@@ -495,6 +531,7 @@ public sealed partial class BmsClient : IAsyncDisposable
             CapacityNowAh = legacy[54] / 100.0,
             CapacityFullAh = legacy[55] / 100.0,
             CapacityFactoryAh = legacy[56] / 100.0,
+            HasSystemStatus = statusRead is not null,
             SystemStatus = (uint)status[0] | ((uint)status[1] << 16),
             ProtocolVersion = rt ? realtime[1] : (ushort)0,
             UsesRealtimeWindow = rt,
@@ -555,6 +592,7 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     public async Task EnsureLegacyProtectionAsync(CancellationToken ct = default)
     {
+        if (IsC060) return;
         ushort[] identity;
         try { identity=await ReadRegistersAsync(Sh3520Parameters.HardwareBase,2,ct); }
         catch(BmsModbusException ex) when(ex.Function==0x03 && (ex.Code==0x01 || ex.Code==0x03)) { return; }

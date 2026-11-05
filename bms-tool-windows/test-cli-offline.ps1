@@ -30,7 +30,7 @@ function Invoke-CliJson([string[]]$Arguments) {
 
 try {
     $capabilities = Invoke-CliJson @("capabilities", "--json")
-    if (-not $capabilities.ok -or $capabilities.data.products.Count -ne 4) {
+    if (-not $capabilities.ok -or ($capabilities.data.products.Product -notcontains "C060")) {
         throw "Capabilities JSON contract failed"
     }
     if ($capabilities.data.source -ne 'client_support_catalog' -or $capabilities.data.deviceProbed) {

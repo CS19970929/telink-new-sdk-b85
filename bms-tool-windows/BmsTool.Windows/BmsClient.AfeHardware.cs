@@ -13,6 +13,7 @@ public sealed partial class BmsClient
 {
     public async Task WriteRegistersAsync(ushort start, ushort[] values, CancellationToken ct = default)
     {
+        if (_identityConflict) throw new IOException("设备身份不一致；连接保留，写入未发送。");
         ArgumentNullException.ThrowIfNull(values);
         if (values.Length is < 1 or > 123)
             throw new ArgumentOutOfRangeException(nameof(values), "Modbus 0x10 quantity must be 1..123 words.");
@@ -23,7 +24,7 @@ public sealed partial class BmsClient
 
         byte[] request = ModbusRtu.WriteMultiple(start, raw);
         if (_transport is IBmsMtuTransport mtuTransport && (mtuTransport.NegotiatedMtu ?? 23) < request.Length + 3)
-            throw new IOException("设备尚未支持此写入路径；请使用完整 AFE 参数事务或直连串口，无需修改 MTU。");
+            throw new IOException("当前BLE载荷不足以发送此整组参数帧；请使用直连串口或更大MTU的透明通道，参数未发送。");
 
         byte[] rsp = await TransactAsync(request, ct);
         ModbusRtu.ValidateWriteMultipleAck(rsp, start, checked((ushort)values.Length));
