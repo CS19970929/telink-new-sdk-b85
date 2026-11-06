@@ -429,6 +429,7 @@ public sealed partial class MainActivity
             _dischargeMosButton.Enabled = enabled; _dischargeMosButton.Alpha = enabled ? 1f : 0.4f;
         }
         UpdateProtectionEdits();
+        UpdateC060EditorState();
     }
 
     private void UpdateProtectionEdits()

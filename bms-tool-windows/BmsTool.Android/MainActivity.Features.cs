@@ -73,15 +73,16 @@ public sealed partial class MainActivity
             SetStatus("连接并探测 BMS…");
             var transport = new AndroidBmsBleTransport(this, mac);
             transport.ConnectionProgress += AppendLog;
+            _transport=transport;
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
             await transport.ConnectAsync(cts.Token);
             var client = new BmsClient(transport);
             client.Log += AppendLog;
+            _client=client;
             await client.ProbeAsync(cts.Token);
-            _transport = transport;
-            _client = client;
             _connectedMac = mac;
             _parameterCapture = null;
+            ClearC060ParameterState();
             _protectionModel = null;
             _afeModel = null;
             _mosControlState = null;
@@ -124,6 +125,7 @@ public sealed partial class MainActivity
         _client = null;
         _transport = null;
         _connectedMac = null;
+        ClearC060ParameterState();
         _mosControlState = null;
         _mosControlCapabilityChecked = false;
         _socProfile = null;
@@ -171,16 +173,13 @@ public sealed partial class MainActivity
 
     private async Task RefreshOverviewCoreAsync(BmsClient client, CancellationToken ct, bool identity = true)
     {
-        BatterySnapshot snapshot = await client.ReadBatteryAsync(ct);
-        _lastSnapshot = snapshot;
-        RunOnUiThread(() => RenderBatterySnapshot(snapshot, null, null));
-        MosControlState? mosControl = await client.TryReadMosControlAsync(ct);
-        _mosControlState = mosControl;
-        _mosControlCapabilityChecked = true;
-        RunOnUiThread(() => SetMosDriverIndicators(snapshot.ChargeMosOn, snapshot.DischargeMosOn));
-        DeviceIdentity? deviceIdentity = identity
-            ? await client.ReadIdentityAsync(_macInput?.Text?.Trim() ?? string.Empty, "", ct)
-            : null;
+        DeviceIdentity? deviceIdentity=identity ? await client.ReadIdentityAsync(_connectedMac??string.Empty,"",ct) : null;
+        BatterySnapshot snapshot=await client.ReadBatteryAsync(ct);
+        _lastSnapshot=snapshot;
+        RunOnUiThread(()=>RenderBatterySnapshot(snapshot,null,null));
+        MosControlState? mosControl=await client.TryReadMosControlAsync(ct);
+        _mosControlState=mosControl;_mosControlCapabilityChecked=true;
+        RunOnUiThread(()=>SetMosDriverIndicators(snapshot.ChargeMosOn,snapshot.DischargeMosOn));
         if (deviceIdentity is not null) _lastIdentity = deviceIdentity;
         uint? buildId = identity ? await client.TryReadFirmwareBuildIdAsync(ct) : null;
         RunOnUiThread(() => RenderBatterySnapshot(snapshot, deviceIdentity, buildId));
@@ -192,6 +191,7 @@ public sealed partial class MainActivity
         var rows = ProtectionParameterCatalog.Create();
         for (int i = 0; i < rows.Count; i++) rows[i].LoadFromDevice(words[i]);
         _protectionModel = rows;
+        _protectionCaptureClient=client;
         RunOnUiThread(() => RenderProtectionRows(rows));
         SetStatus("软件保护参数读取完成");
     });
@@ -221,6 +221,8 @@ public sealed partial class MainActivity
     {
         if (!EnsureServiceAccess("保存软件保护")) return;
         if (_protectionModel is null) { SetStatus("请先读取软件保护参数", true); return; }
+        var owner=_client;
+        if(owner is null||!ReferenceEquals(owner,_protectionCaptureClient)){SetStatus("连接已变化，请重新读取保护参数",true);return;}
         var changes = new Dictionary<ushort, ushort>();
         foreach (ProtectionParameterRow row in _protectionModel)
         {
@@ -234,6 +236,7 @@ public sealed partial class MainActivity
         if (!await ConfirmAsync("保存软件保护", detail + "\n\n保存后将逐组读回确认，是否继续？")) return;
         await WithClientAsync("保存软件保护", async (client, ct) =>
         {
+            if(!ReferenceEquals(client,owner))throw new IOException("连接已变化，请重新读取保护参数。");
             await client.WriteProtectionChangesAsync(changes, (address, words) =>
             {
                 for (int i = 0; i < words.Length; i++) _protectionModel.First(row => row.Address == address + i).LoadFromDevice(words[i]);
@@ -294,8 +297,10 @@ public sealed partial class MainActivity
         });
     }
 
-    private Task ReadParametersAsync() => WithClientAsync("读取 D008 参数", async (client, ct) =>
+    private Task ReadParametersAsync() => WithClientAsync("读取参数", async (client, ct) =>
     {
+        await client.ReadIdentityAsync(_connectedMac??string.Empty,"",ct);
+        if(client.IsC060){await ReadC060ParametersCoreAsync(client,ct);return;}
         D008ParameterCapture capture = await client.ReadD008ParametersAsync(ct);
         _parameterCapture = capture;
         RunOnUiThread(() => ShowParameters(capture));

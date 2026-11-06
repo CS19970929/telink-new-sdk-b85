@@ -141,8 +141,9 @@ public sealed partial class MainActivity : Activity
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
-        if (requestCode != FirmwarePickerRequest || resultCode != Result.Ok || data?.Data is null) return;
-        _ = ImportFirmwareAsync(data.Data);
+        if(resultCode!=Result.Ok||data?.Data is null)return;
+        if(requestCode==C060ImportRequest){_ = ImportC060ParametersGuardedAsync(data.Data);return;}
+        if(requestCode==FirmwarePickerRequest)_ = ImportFirmwareAsync(data.Data);
     }
 
     private void ApplyIntentValues()
@@ -220,6 +221,7 @@ public sealed partial class MainActivity : Activity
             SetStatus("请先扫描并连接 BMS", true);
             return;
         }
+        BmsClient owner=_client;
         SetBusy(true);
         SetStatus(title + "（等待当前刷新结束）…");
         await _operationGate.WaitAsync();
@@ -227,7 +229,7 @@ public sealed partial class MainActivity : Activity
         _operationCts?.Dispose();
         _operationCts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(60));
         SetStatus(title + "…");
-        try { await action(_client, _operationCts.Token); }
+        try { if(!ReferenceEquals(owner,_client))throw new IOException("连接已变化，请重新读取当前设备。");await action(owner, _operationCts.Token); }
         catch (System.OperationCanceledException)
         {
             SetStatus(title + "已取消");

@@ -98,6 +98,21 @@ public static class C060Parameters
         if(capture.Blocks.TryGetValue(key,out var words)&&offset>=0&&offset<words.Length){value=words[offset];return true;}
         value=0;return false;
     }
+    public static Dictionary<ushort,ushort> CollectChanges(C060ParameterCapture current,IReadOnlyDictionary<ushort,string> edits,
+        bool allowCompatibility=false,bool allowFactory=false)
+    {
+        var changes=new Dictionary<ushort,ushort>();
+        foreach(var edit in edits) {
+            var field=Fields.SingleOrDefault(f=>f.Address==edit.Key)??throw new ArgumentException($"未知 C060 参数 0x{edit.Key:X4}");
+            ushort raw=field.Parse(edit.Value);
+            if(!TryValue(current,field,out ushort old))throw new InvalidDataException(field.Name+"尚未读取，不能保存。");
+            if(raw==old)continue;
+            if(!field.Editable||field.Compatibility&&!allowCompatibility||field.FactoryOnly&&!allowFactory)
+                throw new ArgumentException(field.Name+"在当前权限或兼容设置下不可修改。");
+            changes.Add(edit.Key,raw);
+        }
+        return changes;
+    }
     public static void Export(string path,C060ParameterCapture capture)=>File.WriteAllText(path,JsonSerializer.Serialize(capture,new JsonSerializerOptions{WriteIndented=true}),new UTF8Encoding(false));
     public static C060ParameterCapture Import(string path)
     {
@@ -146,14 +161,15 @@ public sealed partial class BmsClient
         IsC060=IsD015=IsSh3520=false;_identityConflict=false;_realtimeAvailable=null;_legacyUnavailable=false;
         _unavailableReads.Clear();DeviceModel="自动识别中";
     }
-    public async Task<C060ParameterCapture> ReadC060ParametersAsync(CancellationToken ct=default)
+    public Task<C060ParameterCapture> ReadC060ParametersAsync(CancellationToken ct=default) => ReadC060ParametersAsync(true,ct);
+    public async Task<C060ParameterCapture> ReadC060ParametersAsync(bool includeCalibration,CancellationToken ct=default)
     {
         if(!IsC060)throw new NotSupportedException("尚未识别为C060；连接保持，可在参数页手动选择项目。");
         var capture=new C060ParameterCapture();
         foreach(var block in C060Parameters.Groups.Select(g=>(Key:g.Address.ToString("X4"),Address:g.Address,Count:g.Count)).Concat(new (string Key,ushort Address,ushort Count)[]{
             ("Calibration",(ushort)0x2000,(ushort)94),("Protection",(ushort)0x2100,(ushort)65),
             ("Identity",(ushort)0xC002,(ushort)48),("Realtime",(ushort)0xD000,(ushort)63),("SocTable",(ushort)0x2200,(ushort)86),
-            ("DischargeSummary",(ushort)0x3000,(ushort)21),("ChargeSummary",(ushort)0x3050,(ushort)21)})) {
+            ("DischargeSummary",(ushort)0x3000,(ushort)21),("ChargeSummary",(ushort)0x3050,(ushort)21)}).Where(b=>includeCalibration||b.Key is not ("Calibration" or "DischargeSummary" or "ChargeSummary"))) {
             var words=await TryReadOptionalRegistersAsync(block.Address,block.Count,ct);
             if(words is null)capture.Errors.Add($"{block.Key} 未提供或读取未确认");else capture.Blocks[block.Key]=words;
         }
