@@ -10,26 +10,35 @@ public sealed partial class MainActivity
     private const int FirmwarePage=8;
     private TextView? _firmwareStatus;
     private ProgressBar? _upgradeProgress;
+    private TextView? _upgradeTargetView, _selectedFirmwareView;
+    private string _firmwarePath = string.Empty;
     private View BuildFirmwarePage()
     {
         var page=Page();
-        page.AddView(ActionButton("‹ 返回设备",()=>{ShowPage(DevicePage);return Task.CompletedTask;},false));
-        page.AddView(SectionTitle("蓝牙固件升级"));
-        page.AddView(Note("选择目标设备和固件。C060、D015及同一合同的新项目自动核对身份；APP无法连接时，也可指定原蓝牙模块直接识别Boot。"));
-        page.AddView(Note("升级期间保持页面在前台与稳定供电；中断后可从头重新传输。"));
-        page.AddView(ActionButton("从文件选择固件",PickFirmware,false));
-        page.AddView(ActionButton("刷新固件收件箱",RefreshFirmwareInboxAsync,false));
-        _firmwareInboxStatus=DataBlock("固件收件箱为空");page.AddView(_firmwareInboxStatus);
-        _firmwareInbox=Page();page.AddView(_firmwareInbox);
-        _firmwareInput=Input("固件路径（可通过文件选择器导入）","");page.AddView(_firmwareInput);
-        _expectedSerialInput=Input("升级后期望SN（可选）","");page.AddView(_expectedSerialInput);
-        _firmwareStatus=DataBlock("尚未选择固件");page.AddView(_firmwareStatus);
+        page.AddView(ActionButton("‹ 返回服务设置",()=>{ShowPage(DevicePage);return Task.CompletedTask;},false));
+        page.AddView(Note("升级期间请保持供电和蓝牙连接。"));
+        _upgradeTargetView=DataBlock("请先扫描或扫码选择设备");page.AddView(_upgradeTargetView);
+        page.AddView(ActionButton("选择固件",PickFirmware,false));
+        _selectedFirmwareView=DataBlock("尚未选择固件");page.AddView(_selectedFirmwareView);
+        var inbox=Page();inbox.AddView(ActionButton("刷新文件列表",RefreshFirmwareInboxAsync,false));
+        _firmwareInboxStatus=DataBlock("暂无已导入固件");inbox.AddView(_firmwareInboxStatus);
+        _firmwareInbox=Page();inbox.AddView(_firmwareInbox);AddFold(page,"已导入固件",inbox);
+        if(AppEdition.IsInternal) {
+            var verification=Page();
+            _expectedSerialInput=Input("升级后期望SN（可选）","");verification.AddView(_expectedSerialInput);
+            AddFold(page,"额外身份核对",verification);
+        }
+        _firmwareStatus=DataBlock("选择固件后开始升级");page.AddView(_firmwareStatus);
         _upgradeProgress=new ProgressBar(this,null,global::Android.Resource.Attribute.ProgressBarStyleHorizontal){Max=100};page.AddView(_upgradeProgress);
-        _otaButton=ActionButton("开始升级并验证",StartOtaAsync,false);page.AddView(_otaButton);
-        var cancel=ActionButton("取消升级 / 当前操作",()=>{CancelCurrentOperation();return Task.CompletedTask;},false);
+        _otaButton=ActionButton("开始升级",StartOtaAsync,false);page.AddView(_otaButton);
+        var cancel=ActionButton("取消升级",()=>{CancelCurrentOperation();return Task.CompletedTask;},false);
         _busyAllowedButtons.Add(cancel);page.AddView(cancel);
-        page.AddView(Note("请在设备页选择或填写明确的MAC；不会自动选第一台。协议或分区不匹配时不发送固件。"));
         return Wrap(page);
+    }
+    private void SelectFirmware(string path)
+    {
+        _firmwarePath=path;
+        RunOnUiThread(()=>{if(_selectedFirmwareView is not null)_selectedFirmwareView.Text=Path.GetFileName(path);});
     }
     private void UpgradeStatus(string text,bool error=false)
     {
@@ -37,7 +46,9 @@ public sealed partial class MainActivity
     }
     private void CheckUpgradeEndpoint(string mac,bool requireExisting)
     {
-        if(!Regex.IsMatch(mac,"^([0-9A-F]{2}:){5}[0-9A-F]{2}$"))throw new ArgumentException("请扫描或填写有效的蓝牙MAC地址。");
+        if(!Regex.IsMatch(mac,"^([0-9A-F]{2}:){5}[0-9A-F]{2}$"))throw new ArgumentException("请先扫描或扫码选择设备。");
+        if(!string.Equals(mac,_selectedMac,StringComparison.OrdinalIgnoreCase))
+            throw new IOException("所选设备已改变，请重新确认升级目标。");
         if(!string.IsNullOrWhiteSpace(_connectedMac)&&!string.Equals(mac,_connectedMac,StringComparison.OrdinalIgnoreCase))
             throw new IOException("目标与当前连接不同，请先断开后明确选择新设备。");
         if(requireExisting&&(_client is null||_transport is null||!string.Equals(mac,_connectedMac,StringComparison.OrdinalIgnoreCase)))
@@ -49,8 +60,9 @@ public sealed partial class MainActivity
         if(_uiBusy){UpgradeStatus("当前操作未完成，请稍后重试",true);return;}
         var package=image.Package??throw new InvalidDataException("需要带身份和CRC的YMODEM包。");
         CheckUpgradeEndpoint(mac,false);
-        string detail=$"目标 {mac}\n{package.BoardName} · 板号 {package.BoardId:X8}\nAPP {package.AppAddress:X8} · 版本 {package.Version:X8}\n载荷 {package.PayloadLength} bytes · CRC {package.PayloadCrc:X8}\n\n核对后开始，期间请保持页面前台与稳定供电。";
-        if(!await ConfirmAsync("确认YMODEM升级",detail))return;
+        string detail=$"设备 {mac}\n固件 {image.FileName}\n版本 {package.Version:X8}\n\n确认开始升级？";
+        if(AppEdition.IsInternal) detail+=$"\n板号 {package.BoardId:X8} · APP {package.AppAddress:X8}\n长度 {package.PayloadLength} · CRC {package.PayloadCrc:X8}";
+        if(!await ConfirmAsync("确认升级",detail))return;
         _operationCts?.Cancel();_operationCts?.Dispose();
         var operation=new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(90+image.ImageSize/200d,360,86400)));
         _operationCts=operation;CancellationToken token=operation.Token;bool locked=false;
@@ -59,7 +71,7 @@ public sealed partial class MainActivity
             await _operationGate.WaitAsync(token);locked=true;
             CheckUpgradeEndpoint(mac,false);
             await DisposeConnectionCoreAsync();
-            UpgradeStatus("正在识别所选蓝牙模块的APP/Boot…");
+            UpgradeStatus("正在连接设备…");
             SerialUpgradeReadback verified;
             await using(var transport=new AndroidBmsBleTransport(this,mac)) {
                 transport.ConnectionProgress+=AppendLog;await transport.ConnectAsync(token);
@@ -74,7 +86,8 @@ public sealed partial class MainActivity
                 await sender.UpgradeAsync(image,device,token);
                 verified=sender.Verified??throw new IOException("未获得APP确认，不能判定升级成功。");
             }
-            string result=$"升级已确认\n板号 {verified.Board:X8} · 版本 {verified.Version:X8}\n长度 {verified.PayloadLength} · CRC {verified.PayloadCrc:X8}";
+            string result=$"升级成功\n版本 {verified.Version:X8}";
+            if(AppEdition.IsInternal) result+=$"\n板号 {verified.Board:X8} · 长度 {verified.PayloadLength} · CRC {verified.PayloadCrc:X8}";
             if(!string.IsNullOrWhiteSpace(expectedSerial)&&!string.Equals(verified.Identity?.Serial,expectedSerial,StringComparison.Ordinal))
                 throw new IOException(result+"\n额外SN核对未通过，请核对设备身份；不要直接重复写入。");
             AppendLog($"TEST_RESULT YMODEM_OK board={verified.Board:X8} version={verified.Version:X8} bytes={verified.PayloadLength} crc32={verified.PayloadCrc:X8} mac={mac}");

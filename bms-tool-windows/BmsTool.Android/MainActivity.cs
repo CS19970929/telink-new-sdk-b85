@@ -38,6 +38,7 @@ public sealed partial class MainActivity : Activity
     private CancellationTokenSource? _monitorCts;
     private string? _logFilePath;
     private string? _connectedMac;
+    private string? _selectedMac;
     private bool _intentStarted;
     private bool _connectedAutoOtaRunning;
 
@@ -110,7 +111,7 @@ public sealed partial class MainActivity : Activity
             return;
         }
 
-        string requestedMac = _macInput?.Text?.Trim() ?? string.Empty;
+        string requestedMac = _selectedMac ?? string.Empty;
         if (_client is null || _transport is null || string.IsNullOrWhiteSpace(_connectedMac) ||
             !string.Equals(requestedMac, _connectedMac, StringComparison.OrdinalIgnoreCase))
         {
@@ -151,21 +152,17 @@ public sealed partial class MainActivity : Activity
 
     private void ApplyIntentValues()
     {
-        if (Intent is null) return;
+        if (Intent is null || !AppEdition.IsInternal) return;
         string? mac = Intent.GetStringExtra("mac");
         string? firmware = Intent.GetStringExtra("firmware");
         string? firmwareInboxName = Intent.GetStringExtra("firmware_inbox_name");
         string? expectedSerial = Intent.GetStringExtra("expected_serial");
-        string rememberedMac = GetPreferences(FileCreationMode.Private)?.GetString("last_bms_mac", string.Empty)
-            ?? string.Empty;
-        _macInput!.Text = !string.IsNullOrWhiteSpace(mac)
-            ? mac
-            : rememberedMac;
-        if (!AppEdition.IsInternal) return;
+        // Automation explicitly selects a target; ordinary users use scan/QR.
+        // Never restore a remembered target for an upgrade.
+        if (!string.IsNullOrWhiteSpace(mac)) _selectedMac = mac.Trim();
         if (!string.IsNullOrWhiteSpace(firmwareInboxName) && AndroidFirmwareInbox.IsValidFileName(firmwareInboxName))
-            _firmwareInput!.Text = Path.Combine(FirmwareInboxDirectory(), firmwareInboxName);
-        else if (!string.IsNullOrWhiteSpace(firmware))
-            _firmwareInput!.Text = firmware;
+            SelectFirmware(Path.Combine(FirmwareInboxDirectory(), firmwareInboxName));
+        else if (!string.IsNullOrWhiteSpace(firmware)) SelectFirmware(firmware);
         if (!string.IsNullOrWhiteSpace(expectedSerial)) _expectedSerialInput!.Text = expectedSerial;
         if (Intent.GetBooleanExtra("show_tools", false)) ShowPage(FirmwarePage);
     }
@@ -266,7 +263,6 @@ public sealed partial class MainActivity : Activity
             }
             catch (IOException ex) { Log.Warn(LogTag, $"log write failed: {ex.Message}"); }
         }
-        RunOnUiThread(() => AppendVisibleLog(line));
     }
 
     private void SetStatus(string text, bool error = false) => RunOnUiThread(() =>

@@ -32,12 +32,10 @@ public sealed partial class MainActivity
     private TextView? _testView;
     private TextView? _monitorStatus;
     private TextView? _firmwareInboxStatus;
-    private TextView? _logView;
     private LinearLayout? _scanResults;
     private LinearLayout? _protectionRows;
     private LinearLayout? _afeRows;
     private LinearLayout? _firmwareInbox;
-    private EditText? _macInput;
     private EditText? _capacityInput;
     private EditText? _socInput;
     private EditText? _cycleInput;
@@ -49,9 +47,7 @@ public sealed partial class MainActivity
     private EditText? _rawAddressInput;
     private EditText? _rawCountInput;
     private EditText? _rawValueInput;
-    private EditText? _firmwareInput;
     private EditText? _expectedSerialInput;
-    private Button? _connectButton;
     private Button? _disconnectButton;
     private Button? _otaButton;
     private Button? _chargeMosButton;
@@ -152,7 +148,7 @@ public sealed partial class MainActivity
         deviceTools.AddView(_nameInput);
         deviceTools.AddView(ActionButton("修改蓝牙名", RenameAsync));
         deviceTools.AddView(ActionButton("请求设备休眠", SleepAsync));
-        deviceTools.AddView(ActionButton("连接与设备信息  ›", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
+        deviceTools.AddView(ActionButton("设备连接与设置  ›", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
         AddFold(page, "设备操作", deviceTools);
 
         var monitor = new LinearLayout(this) { Orientation = Orientation.Vertical };
@@ -166,7 +162,6 @@ public sealed partial class MainActivity
         monitor.AddView(_monitorStatus);
         AddFold(page, "长期监控", monitor);
 
-        page.AddView(ActionButton("固件升级  ›",()=>{ShowPage(FirmwarePage);return Task.CompletedTask;},false));
 
         var debug = new LinearLayout(this) { Orientation = Orientation.Vertical };
         debug.AddView(Note("原始写寄存器是工程功能，每次写入都要求二次确认并读回；不要用它绕过保护参数和 AFE 参数事务。"));
@@ -266,6 +261,13 @@ public sealed partial class MainActivity
 
     private void ShowPage(int selected)
     {
+        if (selected == FirmwarePage && !AppEdition.IsInternal && !_serviceMode)
+        {
+            selected = DevicePage;
+            SetStatus("请先进入服务设置", true);
+        }
+        if (_upgradeTargetView is not null)
+            _upgradeTargetView.Text = string.IsNullOrWhiteSpace(_selectedMac) ? "请先扫描或扫码选择设备" : $"目标设备  {_selectedMac}";
         for (int i = 0; i < _pages.Count; i++) _pages[i].Visibility = i == selected ? ViewStates.Visible : ViewStates.Gone;
         int active = _navDestinations.IndexOf(selected);
         for (int i = 0; i < _navButtons.Count; i++) StyleSelection(_navButtons[i], i == active);

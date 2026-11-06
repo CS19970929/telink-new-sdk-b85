@@ -27,18 +27,22 @@ static class Test
         telink[16]^=1;File.WriteAllBytes(path,telink);Reject(()=>FirmwareImage.LoadForBluetoothUpgrade(path),"bad Telink CRC refused");
         foreach(string name in new[]{"C060_APP.c060","app.d015","app.d016","new-project.update","firmware.bin"})Check(AndroidFirmwareInbox.IsValidFileName(name),"known/future import filename");
         foreach(string name in new[]{"../app.c060","x/y.bin","x\\y.bin",".incoming.part","",new string('x',100)})Check(!AndroidFirmwareInbox.IsValidFileName(name),"import cannot escape its directory");
-        var state=new EndpointState();state.Check("EC:F6:4C:E9:F1:3D",false);checks++;
+        var state=new EndpointState{_selectedMac="EC:F6:4C:E9:F1:3D"};state.Check("EC:F6:4C:E9:F1:3D",false);checks++;
         Reject(()=>state.Check("",false),"empty target never chooses first device");
         Reject(()=>state.Check("ECF64CE9F13D",false),"malformed target refused");
         Reject(()=>state.Check("EC:F6:4C:E9:F1:3D",true),"automation requires a live existing session");
         state._connectedMac="EC:F6:4C:E9:F1:3D";state._client=new();state._transport=new();state.Check(state._connectedMac,true);checks++;
-        Reject(()=>state.Check("00:11:22:33:44:55",false),"connected device cannot silently change");
+        state._selectedMac="00:11:22:33:44:55";
+        Reject(()=>state.Check(state._selectedMac,false),"connected device cannot silently change");
+        Reject(()=>state.Check("EC:F6:4C:E9:F1:3D",false),"selection changed after confirmation cannot upgrade old target");
+        state._connectedMac=null;state._selectedMac=null;
+        Reject(()=>state.Check("EC:F6:4C:E9:F1:3D",false),"offline recovery requires an explicitly selected target");
         Console.WriteLine($"PASS Android firmware routing and selected-endpoint policy: {checks} checks; no device access");
     }
 }
 partial class EndpointState
 {
-    public string? _connectedMac;public object? _client,_transport;
+    public string? _connectedMac,_selectedMac;public object? _client,_transport;
     public void Check(string mac,bool requireExisting)=>CheckUpgradeEndpoint(mac,requireExisting);
 }
 namespace Android.App {internal sealed class Placeholder {}}

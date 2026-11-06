@@ -22,7 +22,7 @@ public sealed partial class MainActivity
         if(!BluetoothMacCode.TryParse(data?.GetStringExtra(QrScanActivity.MacExtra),out string mac)) {
             SetStatus("扫码内容不是有效蓝牙MAC地址",true);return;
         }
-        _macInput!.Text=mac;
+        _selectedMac=mac;
         AppendLog("QR_CONNECT target="+mac);
         await ConnectSelectedAsync();
     }

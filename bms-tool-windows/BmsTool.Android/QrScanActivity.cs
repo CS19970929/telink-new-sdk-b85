@@ -44,7 +44,7 @@ public sealed class QrScanActivity : Activity,ISurfaceHolderCallback,Camera.IPre
         _preview=new SurfaceView(this);
         _preview.Holder?.AddCallback(this);
         root.AddView(_preview,new LinearLayout.LayoutParams(-1,0,1));
-        var cancel=new Button(this){Text="取消 / 返回手动连接"};
+        var cancel=new Button(this){Text="取消 / 返回设备"};
         cancel.Click+=(_,_)=>Finish();root.AddView(cancel);
         SetContentView(root);
         if(CheckSelfPermission(Manifest.Permission.Camera)!=Permission.Granted) {
@@ -63,7 +63,7 @@ public sealed class QrScanActivity : Activity,ISurfaceHolderCallback,Camera.IPre
         if(requestCode!=CameraPermissionRequest)return;
         _permissionRequested=false;
         if(CheckSelfPermission(Manifest.Permission.Camera)==Permission.Granted)TryStartCamera();
-        else _message!.Text="相机权限未开启，可返回使用蓝牙扫描或手动MAC连接。";
+        else _message!.Text="相机权限未开启，可返回使用蓝牙扫描。";
     }
     private void TryStartCamera()
     {
@@ -95,7 +95,7 @@ public sealed class QrScanActivity : Activity,ISurfaceHolderCallback,Camera.IPre
             _camera.StartPreview();
             _message!.Text="将蓝牙MAC二维码完整放入画面";
         } catch(Exception ex) {
-            StopCamera();_message!.Text="无法扫码："+ex.Message+"。可返回手动连接。";
+            StopCamera();_message!.Text="无法扫码："+ex.Message+"。可返回设备页扫描。";
         }
     }
     public void OnPreviewFrame(byte[]? data,Camera? camera)
