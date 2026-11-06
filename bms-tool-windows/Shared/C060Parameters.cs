@@ -141,20 +141,30 @@ public static class C060Parameters
         if(package.Blocks.TryGetValue("Protection",out var protection)){if(protection.Length!=65)throw new InvalidDataException("保护块长度错误。");ProtectionBatch.ValidateC060(protection);if(expectedProduct=="C077")C077Parameters.ValidateProtection(protection);}
         return package;
     }
-    // Match production InitShortCur integer arithmetic before writing an eight-word group.
-    public static ushort[] NormalizeCurrentGroup(ushort[] words,ushort resistance,ushort parallel)
+    // Same units and rounding as ShortCur_Normalize; boundary vectors live in
+    // the firmware tests/c060_short_current_vectors.csv (both runners read it).
+    public static ushort[] NormalizeCurrentGroup(ushort[] words, ushort resistance, ushort parallel)
     {
-        if(words.Length!=8||resistance==0||parallel==0)throw new ArgumentException("短路组/采样参数无效。");
-        uint limit=2000u*parallel/resistance;if(limit>65535)throw new ArgumentException("采样参数导致电流上限溢出。");
-        var v=(ushort[])words.Clone();v[0]=v[1]=(ushort)limit;
-        ushort[] delays={50,100,200,400};uint requested=(uint)v[2]/10;
-        v[2]=(ushort)((delays.FirstOrDefault(x=>x>=requested, (ushort)400))*10);
-        ushort[] thresholds={22,33,44,67,89,111,133,155,178,200};
-        uint drop=(uint)(v[3]/10)*resistance/parallel;
-        if(drop>65535)throw new ArgumentException("短路电流换算超出固件范围。");
-        uint actual=thresholds.FirstOrDefault(x=>x>=drop,(ushort)200)*(uint)parallel/resistance*10u;
-        if(actual>65535)throw new ArgumentException("短路电流有效值溢出。");v[3]=(ushort)actual;
-        return v;
+        if (words.Length != 8 || resistance == 0 || parallel == 0)
+            throw new ArgumentException("短路组/采样参数无效。");
+        uint limit = 2000u * parallel / resistance;
+        if (limit == 0 || limit > ushort.MaxValue)
+            throw new ArgumentException("采样参数导致电流上限不可表示。");
+
+        ushort[] delays = { 700, 1000, 2000, 4000 }; // 0.1 us
+        ushort[] thresholds = { 22, 33, 44, 67, 89, 111, 133, 155, 178, 200 }; // mV
+        ushort delay = delays.FirstOrDefault(x => x >= words[2], (ushort)4000);
+        ushort threshold = thresholds.FirstOrDefault(x =>
+            (ulong)words[3] * resistance <= (ulong)x * parallel * 10u, (ushort)200);
+        uint actual = (uint)threshold * parallel * 10u / resistance;
+        if (actual == 0 || actual > ushort.MaxValue)
+            throw new ArgumentException("短路电流有效值不可表示。");
+
+        var result = (ushort[])words.Clone();
+        result[0] = result[1] = (ushort)limit;
+        result[2] = delay;
+        result[3] = (ushort)actual;
+        return result;
     }
 }
 
