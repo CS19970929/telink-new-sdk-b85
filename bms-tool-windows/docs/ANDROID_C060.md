@@ -36,7 +36,18 @@ JSON导出设备读回值，导入只载入候选；默认不导入身份、工�
 
 ## 阶段4：APK交付
 
-待最终编译客户版与内部版，记录应用ID、版本、签名摘要、SHA256及验证边界。全部中间产物位于用户TEMP/CodexTemp/bms-tool-windows/android-c060-20261106。
+已从干净源码 `b35e259cf5bd` 完整编译两版APK，均0警告/0错误，版本0.9.0（versionCode 15）。Android API23及以上，包内架构为arm64-v8a与x86_64；不包含32位ARM。两版包名不同，可共存。
+
+正式交付目录为 `BmsTool.Android/publish/20261106-v0.9.0-b35e259c/`。APK不提交Git，源码、文档和校验清单单独留档。全部中间obj、日志与预览均位于用户TEMP/CodexTemp/bms-tool-windows/android-c060-20261106。
+
+| 版别 | APK | 应用ID | 大小 |
+| --- | --- | --- | --- |
+| Customer | BMS-Battery-0.9.0-Customer.apk | com.cs.bmsbattery | 11.87 MiB |
+| Internal | BMS-Tool-0.9.0-Internal.apk | com.cs.bmstool.android | 11.88 MiB |
+
+使用本机已有的Android Debug证书签名，v1/v2/v3校验均通过；Release构建不等于已配置正式商店发布密钥。安装覆盖旧版本时需要同一证书。证书SHA256为 `de7e98795ad8d75a88b6b0e96eb68196d043720f58447af41b399632522704fd`。各APK SHA256与源码摘要见同目录 `release-manifest.json`、`SHA256SUMS.txt` 及 `ANDROID_C060_EVIDENCE.json`。
+
+客户版：实时数据、扫码、通用固件升级可用；保护与常规参数保存须进入服务设置，工厂字段不可编辑。内部版保留诊断、测试和原始寄存器等工程入口；两版都不提供K/B。
 
 ## 手机验收步骤
 
@@ -47,3 +58,30 @@ JSON导出设备读回值，导入只载入候选；默认不导入身份、工�
 5. 导出JSON，导入只改变候选；确认身份/工厂/兼容字段未自动套用。
 6. 设备 → 固件升级导入 `C060_APP.c060`，核对MAC、板号、地址和CRC，再手动确认。成功应显示版本、长度、CRC；中断后可从Boot重新传输，结果未确认不能显示成功。
 7. 换D015或未来同合同项目验证升级，换旧Telink项目验证原OTA_SUCCESS与身份回读。新升级合同无需每增加一个板号更新App；不同参数表仍须明确其读写合同。
+
+## 通道与BMS固件边界
+
+本轮没有修改BMS固件。当前C060已提供所需参数映射与YMODEM升级合同，App复用公共实现。后续D015/D016同方案新项目只要包头、能力窗口、ENTER命令与最终版本/长度/CRC回读合同一致，不需要逐板号更新App；新的参数布局仍应明确映射，不能自动猜测写地址。
+
+普通Modbus参数保持整组原子帧，禁止借用YMODEM分片绕过固件组事务。MTU23支持4字/5字组；8字组要求MTU≥28，24字热冷组要求MTU≥60。App会协商MTU247，实际结果以手机连接页显示为准。指定蓝牙模块在之前Windows实板中协商247，不代表安卓已验收；不足时拒绝本次长组写入，但保留实时读取与连接。YMODEM独立使用20字节分片，可在MTU23通道传输。
+
+不同项目不支持的AFE、诊断或其他可选窗口只影响对应页面，不可凭“未支持”推断BMS故障或自动发送其他项目参数。板号、地址、容量或包CRC不匹配时不得升级。
+
+## 可复现构建与验证
+
+在仓库根目录执行，选择 `Internal` 或 `Customer`；`$buildOut` 指向用户临时区，不把中间产物留在仓库。
+
+```powershell
+$buildOut=Join-Path $env:TEMP 'CodexTemp/bms-tool-windows/android-build'
+dotnet build bms-tool-windows/BmsTool.Android/BmsTool.Android.csproj -c Release --artifacts-path $buildOut -p:BmsAppEdition=Customer -p:AndroidSdkDirectory=D:\telink\android_env\android-sdk -p:JavaSdkDirectory=D:\telink\android_env\jdk\jdk-17.0.19+10
+.\bms-tool-windows\test-android-qr.ps1
+.\bms-tool-windows\test-protection-batch.ps1
+.\bms-tool-windows\test-c060-draft.ps1
+.\bms-tool-windows\test-ota-protocol.ps1
+```
+
+本轮通过：572项共享候选校验、22项固件分流/目标策略、52项MAC/旋转二维码解析、保护13组/65字批处理、Telink OTA核心、C060/D015生产接收器MTU23字节流互通、两版APK完整编译与签名/manifest/源码身份核对。Windows客户/内部及CLI也构建通过；同源C060客户端契约回归再次通过，覆盖可选协议拒绝、通用设备保持通信、150字段、整组保存、保护13组与MTU预检。
+
+当前ADB未连接设备、无可用模拟器；未执行安卓安装、相机扫码、实际BLE参数写入或安卓实板OTA。此前Windows对指定模块的升级证据只用于说明共享协议已有基线，不能代替本版App验收。手机验收按上节步骤执行，尤其覆盖相机权限、后台恢复、实际MTU、参数部分提交和中断恢复。
+
+HTML已离线生成并在1440像素宽度渲染检查；包含目录、章节搜索、表格横向滚动和打印入口，无外部字体、脚本或网络请求。

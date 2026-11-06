@@ -1,0 +1,309 @@
+{
+  "date": "2026-11-06",
+  "host": {
+    "path": "D:\\telink\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)",
+    "build_commit": "b35e259cf5bd75c66588de39b3ff7c72d92a97f2",
+    "branch": "codex-d015-ymodem-host",
+    "source_clean_at_apk_build": true
+  },
+  "stages": [
+    {
+      "commit": "68211560",
+      "scope": "C060常规参数（无K/B）"
+    },
+    {
+      "commit": "a9c1d616",
+      "scope": "通用YMODEM蓝牙升级"
+    },
+    {
+      "commit": "b35e259c",
+      "scope": "MAC二维码连接与0.9.0版本"
+    }
+  ],
+  "firmware_modified": false,
+  "firmware_images_generated": false,
+  "android_device_acceptance": false,
+  "adb_devices": [],
+  "artifacts": [
+    {
+      "edition": "Customer",
+      "application_id": "com.cs.bmsbattery",
+      "version": "0.9.0",
+      "version_code": 15,
+      "minimum_api": 23,
+      "target_api": 36,
+      "abis": [
+        "arm64-v8a",
+        "x86_64"
+      ],
+      "path": "bms-tool-windows/BmsTool.Android/publish/20261106-v0.9.0-b35e259c/BMS-Battery-0.9.0-Customer.apk",
+      "bytes": 12443207,
+      "sha256": "a9e8488641958525c780758aec7548ac2d6aa55118cc6169bbda7a568d29d2d3",
+      "certificate_sha256": "de7e98795ad8d75a88b6b0e96eb68196d043720f58447af41b399632522704fd",
+      "certificate_dn": "CN=Android Debug, O=Android, C=US",
+      "apk_signature_verified": true,
+      "embedded_source_commit": "b35e259cf5bd"
+    },
+    {
+      "edition": "Internal",
+      "application_id": "com.cs.bmstool.android",
+      "version": "0.9.0",
+      "version_code": 15,
+      "minimum_api": 23,
+      "target_api": 36,
+      "abis": [
+        "arm64-v8a",
+        "x86_64"
+      ],
+      "path": "bms-tool-windows/BmsTool.Android/publish/20261106-v0.9.0-b35e259c/BMS-Tool-0.9.0-Internal.apk",
+      "bytes": 12459591,
+      "sha256": "4f5ca51bed283bbf9af1ec2930f86e47511033123c65d45332c0d132b4fae52d",
+      "certificate_sha256": "de7e98795ad8d75a88b6b0e96eb68196d043720f58447af41b399632522704fd",
+      "certificate_dn": "CN=Android Debug, O=Android, C=US",
+      "apk_signature_verified": true,
+      "embedded_source_commit": "b35e259cf5bd"
+    }
+  ],
+  "validation": [
+    {
+      "name": "stage1-draft.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\stage1-draft.log",
+      "sha256": "1737f4b80e79f1e588d60765e30ed21c51f6df54d565cce776a1d74ef277007b",
+      "result": "PASS",
+      "excerpt": "PASS C060 mobile draft: 572 field/permission/unit/ownership checks"
+    },
+    {
+      "name": "stage2-policy.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\stage2-policy.log",
+      "sha256": "3cfd6b7811df74c068354ec2206f2314f7308d91e004a1a40aa8fa0179784011",
+      "result": "PASS",
+      "excerpt": "PASS Android firmware routing and selected-endpoint policy: 22 checks; no device access"
+    },
+    {
+      "name": "stage2-telink.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\stage2-telink.log",
+      "sha256": "677aa9c0329e41f1a24dc7d9275aa21ab9884da577d1495be0e4628c0135aebe",
+      "result": "PASS",
+      "excerpt": "PASS Telink OTA protocol/core: START/START_EXT, index, CRC16, padding, END, TLNK/CRC32 preflight, OTA_RESULT"
+    },
+    {
+      "name": "stage2-c060-ble-model.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\stage2-c060-ble-model.log",
+      "sha256": "69b3088f8d08002b9f83f69c54ab69aac05175936568570b86c86c45a13c9bbe",
+      "result": "PASS",
+      "excerpt": "PASS C060 production receiver with MTU23 BLE stream: 179 writes, max 20 bytes"
+    },
+    {
+      "name": "stage2-d015-ble-model.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\stage2-d015-ble-model.log",
+      "sha256": "0c0ca3b5c9a6188b9d19d804a1f46bda27ed02956136ee5670f3aa8d822fa097",
+      "result": "PASS",
+      "excerpt": "PASS D015 production receiver with MTU23 BLE stream: 185 writes, max 20 bytes"
+    },
+    {
+      "name": "stage3-qr-build.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\stage3-qr-build.log",
+      "sha256": "f5a942355881005d5cffda3c54d6ddfb514a41d94456d521d1602b1af53de802",
+      "result": "PASS",
+      "excerpt": "PASS MAC QR parsing/luminance: 52 checks; no camera or Bluetooth device access"
+    },
+    {
+      "name": "final-protection.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\final-protection.log",
+      "sha256": "8ebdacf33526d3acfc5153632e5c70403ffa6234b9cb4f6ee75add6b87e5bf1e",
+      "result": "PASS",
+      "excerpt": "PASS batch: transient-invalid sequence, 13 groups, 19-byte frames, preflight, partial failure"
+    },
+    {
+      "name": "final-Internal.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\final-Internal.log",
+      "sha256": "66a85532bff10b611dcc9464425c86f4c32f21d2d9e1884ba42bf82e91d78607",
+      "result": "PASS",
+      "excerpt": "已成功生成。\n    0 个警告\n    0 个错误"
+    },
+    {
+      "name": "final-Customer.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\final-Customer.log",
+      "sha256": "9852aa977d41ab8f59d3cb8fb6905d30792b22ab104c514fde588ca5dfbd53b3",
+      "result": "PASS",
+      "excerpt": "已成功生成。\n    0 个警告\n    0 个错误"
+    },
+    {
+      "name": "final-c060-contract.log",
+      "log_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-c060-20261106\\final-c060-contract.log",
+      "sha256": "8d2b3d45e2ead534be3f14cc1a80e00bd0d5fdef6f2090f474acc70590e24c28",
+      "result": "PASS",
+      "excerpt": "PASS C060 parameters: 150 field map, fresh grouped saves, reserved fields, exact units, signed K/B, cycle/SOC, compatibility gating, GBK identity, package product checks, MTU preflight\nPASS C060 protection: 13 groups/65 words, MTU23 19-byte atomic writes, preflight, same-value skip, partial failure and bad readback\nPASS C060 connection: old/new capabilities, GBK, 20 cells/61001, units, optional rejection, unknown/generic fallback, no reconnect, session cache"
+    }
+  ],
+  "source_sha256": [
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/AndroidBleScanner.cs",
+      "line": 1,
+      "sha256": "2f987de41d46cf9935d63ba4cd77504700e4341dad8332ebc1419336fab23664"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/AndroidFirmwareInbox.cs",
+      "line": 1,
+      "sha256": "0d176a5300aca33b71614299e48a69637c943eb0c3e0f9271d192d9539b22ec4"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/AndroidGattChannel.cs",
+      "line": 1,
+      "sha256": "5d89cadae952856f71841dece19bb0945e58dfea442cc8d2cc5415ac2191290d"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/AndroidTransports.cs",
+      "line": 1,
+      "sha256": "b7905a4891d22282317c169e0625dc9d8a4bdf7d5abc291da2439fc4cc119df7"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/AppEdition.cs",
+      "line": 1,
+      "sha256": "fd9f283aef756b08c7e2893d4f2e1c9e68a389705fa82090902df1cc0670d101"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/Assets/third-party-notices.txt",
+      "line": 1,
+      "sha256": "8dfc92063f57376fe02ea11914df22e9f4537487c10148c2218e71fc8d7fcacc"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/BluetoothMacCode.cs",
+      "line": 1,
+      "sha256": "684999ff1a9e556465471f4250aa4bfbc2945e3054435c5d90d99cd5d643ef75"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/BmsTool.Android.csproj",
+      "line": 1,
+      "sha256": "bf2c074c3cf55c0a9416e3347c823fea61ddefb411e88b035ef29bd7382093e8"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.BatteryType.cs",
+      "line": 1,
+      "sha256": "cdd4832806c0c5bd0b2791808da13a953b5a221451e51720745bade153ebad63"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.C060Parameters.cs",
+      "line": 1,
+      "sha256": "fdd2bb10d5ac71ea60a66f78fb441affda9323700a76ae94e360b25639ca6a09"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.cs",
+      "line": 1,
+      "sha256": "baee813e21e89f65619ce5be58f3c849f93243e95a7b182ee8d00e2cacd5e071"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.Features.cs",
+      "line": 1,
+      "sha256": "f270b2c4c0b54d613925112b8aaeb048893f9ecf97b09fabece40a214d7c3af9"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.MobileUi.cs",
+      "line": 1,
+      "sha256": "b0b75f02f136d0c960044b9d2d5489671c27304209c010bea87a833d81f68507"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.QrConnect.cs",
+      "line": 1,
+      "sha256": "6eb725c68979b5507892cb834d94075cfd4fb0f0cf9ea226f0a7b8c60724fa94"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.SerialUpgrade.cs",
+      "line": 1,
+      "sha256": "f808e00ea278e598d8126238079f886963ed67be80348319b9285b05d13cec2d"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.SocProfile.cs",
+      "line": 1,
+      "sha256": "fdd66b81d3789c924e4a8706435b5239de69bb2a2dc9a36029490cfe0a7eca00"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.Ui.cs",
+      "line": 1,
+      "sha256": "30d8ce593515eb64e914cfddba76dcaecd534e37aea637a7b81ca2c886f162bd"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/Properties/AndroidManifest.xml",
+      "line": 1,
+      "sha256": "bfc7883f125b1d9d9af57ff1247ade8e97f7c74c9ccf992a7a2c7f1e149fd2d5"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Android/QrScanActivity.cs",
+      "line": 1,
+      "sha256": "0bd4c7fcfd2391030708b191a2cc9e1940dce3f5243f29e72743cfcde55054c5"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/C060Parameters.cs",
+      "line": 1,
+      "sha256": "03c44074e925b68db353a6f61197ac9ad6e3ddbe80eae75223a9ec4d127d3a59"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/ProtectionBatch.cs",
+      "line": 1,
+      "sha256": "c73eb3269162202916d19ae9ef4d6b265d0df07bffe130c11ee52f939c22fb4b"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/SerialFirmwarePackage.cs",
+      "line": 1,
+      "sha256": "047006dd5af12707e85baf29c1c1dc9605709185ca2418f9d18de014eb724ac5"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/SerialYmodem.cs",
+      "line": 1,
+      "sha256": "fb41b8748a393f110af69c42aa86a1d2347a0684b3debcd7e56ee2b9dfea647f"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/TelinkOtaCore.cs",
+      "line": 1,
+      "sha256": "3cc04eb986138732656887db70bc40954f5d97c8ee8b42cabbd932276cf9cfdd"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/UpgradeDetection.cs",
+      "line": 1,
+      "sha256": "c8df5a8c308c3d0d0f517b98263ebd574d55eadaf3ba36eb3c1cf484eea88f65"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/tools/render_c060_docs.py",
+      "line": 1,
+      "sha256": "49fdcc2d34c79106e4b5f1ff1a1c80daf2bb737678f7f6305d891154a9447a32"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/docs/ANDROID_C060.md",
+      "line": 1,
+      "sha256": "d4e0e798d72d8136d549dced6979230e78f560a6b9cda0d2a5ddb9bd94292885"
+    }
+  ],
+  "documentation_validation": {
+    "offline_render_checks": "PASS",
+    "desktop_visual_width": 1440,
+    "desktop_visual_review": "PASS",
+    "app_screenshot_or_camera_acceptance": false
+  }
+}
