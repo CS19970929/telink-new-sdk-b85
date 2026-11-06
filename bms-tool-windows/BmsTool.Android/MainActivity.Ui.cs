@@ -166,27 +166,7 @@ public sealed partial class MainActivity
         monitor.AddView(_monitorStatus);
         AddFold(page, "长期监控", monitor);
 
-        var ota = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        ota.AddView(Note("导入固件后，核对目标设备再开始升级。升级完成会自动重连验证。"));
-        ota.AddView(Note("在微信、浏览器或文件管理器中打开/分享 .bin，选择测试版即可导入。"));
-        var inboxButtons = Row();
-        inboxButtons.AddView(ActionButton("刷新收件箱", RefreshFirmwareInboxAsync, false));
-        inboxButtons.AddView(ActionButton("导入 BIN", PickFirmware, false));
-        ota.AddView(inboxButtons);
-        _firmwareInboxStatus = DataBlock("固件收件箱为空");
-        ota.AddView(_firmwareInboxStatus);
-        _firmwareInbox = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        ota.AddView(_firmwareInbox);
-        _firmwareInput = Input("固件路径", "");
-        ota.AddView(_firmwareInput);
-        _expectedSerialInput = Input("升级后期望 Serial（可选）", "");
-        ota.AddView(_expectedSerialInput);
-        _otaButton = ActionButton("开始 OTA 并验证", StartOtaAsync);
-        ota.AddView(_otaButton);
-        Button cancel = ActionButton("取消当前操作", () => { CancelCurrentOperation(); return Task.CompletedTask; }, false);
-        _busyAllowedButtons.Add(cancel);
-        ota.AddView(cancel);
-        AddFold(page, "OTA 升级", ota);
+        page.AddView(ActionButton("固件升级  ›",()=>{ShowPage(FirmwarePage);return Task.CompletedTask;},false));
 
         var debug = new LinearLayout(this) { Orientation = Orientation.Vertical };
         debug.AddView(Note("原始写寄存器是工程功能，每次写入都要求二次确认并读回；不要用它绕过保护参数和 AFE 参数事务。"));
@@ -290,7 +270,7 @@ public sealed partial class MainActivity
         int active = _navDestinations.IndexOf(selected);
         for (int i = 0; i < _navButtons.Count; i++) StyleSelection(_navButtons[i], i == active);
         if (_pageTitle is not null) _pageTitle.Text = selected switch
-        { 0 => "我的电池", 1 => "保护参数", 2 => "业务参数", 3 => "高级诊断", 4 => "测试工具", 5 => "记录", 6 => "我的设备", _ => "单体电压" };
+        { 0 => "我的电池", 1 => "保护参数", 2 => "业务参数", 3 => "高级诊断", 4 => "测试工具", 5 => "记录", 6 => "我的设备", FirmwarePage => "固件升级", _ => "单体电压" };
         if (GetSystemService(InputMethodService) is InputMethodManager keyboard)
             keyboard.HideSoftInputFromWindow(_pageTitle?.WindowToken, HideSoftInputFlags.None);
         CurrentFocus?.ClearFocus();

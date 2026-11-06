@@ -108,6 +108,12 @@ public sealed class FirmwareImage
         return new FirmwareInspection(Path.GetFileName(path), all.Length, telink, stm32);
     }
 
+    public static FirmwareImage LoadForBluetoothUpgrade(string path)
+    {
+        FirmwareInspection inspection=Inspect(path);
+        return inspection.SerialPackage is not null ? LoadStm32App(path) : LoadStrictTelink(path);
+    }
+
     public static FirmwareImage Load(string path)
     {
         byte[] all = File.ReadAllBytes(path);

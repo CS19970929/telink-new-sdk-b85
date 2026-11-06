@@ -12,8 +12,18 @@ JSON导出设备读回值，导入只载入候选；默认不导入身份、工�
 
 ## 阶段2：通用YMODEM蓝牙升级
 
-待实施。保持原Telink升级，接入公共SerialFirmwarePackage、UpgradeDetection和SerialYmodemClient。新项目遵循同一升级合同即可动态匹配，不维护板号白名单。
+已接入两版独立“设备 → 固件升级”页、文件选择/分享/收件箱、包信息、进度与取消。文件内容经公共 `FirmwareImage.LoadForBluetoothUpgrade` 分流：Telink 继续严格校验 TLNK/size/CRC trailer，C060、D015和未来同合同项目使用 `SerialFirmwarePackage`、`UpgradeDetection`、`SerialYmodemClient`。不按扩展名或板型白名单决定是否升级。
 
-## 阶段3：APK交付
+升级前本地校验包头/载荷CRC；连接明确MAC后核对设备能力、板号、APP地址与容量。APP损坏时允许直接识别Boot，不要求普通业务probe通过。20字节/15ms分片复用公共YMODEM状态机；成功须回读已确认的版本、长度和CRC。业务视图暂未恢复不推翻已确认升级；额外SN核对失败明确提示。取消或最终提交结果不明不显示成功。
+
+旧连接的GATT回调被过滤，重连重新协商MTU。连接MAC与升级目标不同则拒绝；不会扫描后自动选第一台。原VS Code自动Telink流程保留一次性导入授权与原连接约束；YMODEM导入后须在手机手动确认。
+
+验证：固件分流/目标会话策略22项通过（含未登记项目板号与后缀、坏CRC、错误MAC/无原连接拒绝）；Telink OTA核心回归通过；C060/D015生产C接收器host模型分别接受179/185次BLE写入，最大20字节，最终元数据一致。两版Android C#编译0错误/0警告；Windows客户/内部/CLI构建通过（客户版保留既有 `_socRecording` 未赋值警告）。这些是host与编译证据，尚无手机/无线链路验收。
+
+## 阶段3：MAC二维码连接
+
+用户确认现有二维码内容为蓝牙MAC地址。待实现相机扫码、地址规范化与复用现有连接入口；只在使用扫码时申请相机权限，拒绝权限仍可扫描蓝牙或手动输入。
+
+## 阶段4：APK交付
 
 待最终编译客户版与内部版，记录应用ID、版本、签名摘要、SHA256及验证边界。全部中间产物位于用户TEMP/CodexTemp/bms-tool-windows/android-c060-20261106。

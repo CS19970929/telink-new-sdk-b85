@@ -63,6 +63,7 @@ internal sealed class AndroidGattChannel : BluetoothGattCallback, IAsyncDisposab
     {
         ThrowIfDisposed();
         await DisconnectAsync();
+        NegotiatedMtu=23;
         BluetoothManager manager = (BluetoothManager?)_context.GetSystemService(Context.BluetoothService)
             ?? throw new IOException("Android BluetoothManager is unavailable.");
         BluetoothAdapter adapter = manager.Adapter ?? throw new IOException("Android BluetoothAdapter is unavailable.");
@@ -139,6 +140,7 @@ internal sealed class AndroidGattChannel : BluetoothGattCallback, IAsyncDisposab
 
     public override void OnConnectionStateChange(BluetoothGatt? gatt, GattStatus status, ProfileState newState)
     {
+        if(gatt is null||_gatt is null||!gatt.Equals(_gatt))return;
         base.OnConnectionStateChange(gatt, status, newState);
         Log?.Invoke($"[GATT] STATE status={(int)status} state={newState}");
         if (gatt is null) return;
@@ -164,6 +166,7 @@ internal sealed class AndroidGattChannel : BluetoothGattCallback, IAsyncDisposab
 
     public override void OnMtuChanged(BluetoothGatt? gatt, int mtu, GattStatus status)
     {
+        if(gatt is null||_gatt is null||!gatt.Equals(_gatt))return;
         base.OnMtuChanged(gatt, mtu, status);
         if ((int)status == 0) NegotiatedMtu = mtu;
         Log?.Invoke($"[GATT] MTU status={(int)status} mtu={mtu}");
@@ -172,6 +175,7 @@ internal sealed class AndroidGattChannel : BluetoothGattCallback, IAsyncDisposab
 
     public override void OnServicesDiscovered(BluetoothGatt? gatt, GattStatus status)
     {
+        if(gatt is null||_gatt is null||!gatt.Equals(_gatt))return;
         base.OnServicesDiscovered(gatt, status);
         if (gatt is null || (int)status != 0)
         {
@@ -221,6 +225,7 @@ internal sealed class AndroidGattChannel : BluetoothGattCallback, IAsyncDisposab
 
     public override void OnDescriptorWrite(BluetoothGatt? gatt, BluetoothGattDescriptor? descriptor, GattStatus status)
     {
+        if(gatt is null||_gatt is null||!gatt.Equals(_gatt))return;
         base.OnDescriptorWrite(gatt, descriptor, status);
         _descriptorTcs?.TrySetResult((int)status);
         if ((int)status == 0)
@@ -236,6 +241,7 @@ internal sealed class AndroidGattChannel : BluetoothGattCallback, IAsyncDisposab
 
     public override void OnCharacteristicWrite(BluetoothGatt? gatt, BluetoothGattCharacteristic? characteristic, GattStatus status)
     {
+        if(gatt is null||_gatt is null||!gatt.Equals(_gatt))return;
         base.OnCharacteristicWrite(gatt, characteristic, status);
         _writeTcs?.TrySetResult((int)status);
     }
@@ -243,12 +249,14 @@ internal sealed class AndroidGattChannel : BluetoothGattCallback, IAsyncDisposab
     [SupportedOSPlatform("android33.0")]
     public override void OnCharacteristicChanged(BluetoothGatt? gatt, BluetoothGattCharacteristic? characteristic, byte[] value)
     {
+        if(gatt is null||_gatt is null||!gatt.Equals(_gatt))return;
         NotificationReceived?.Invoke(value);
     }
 
     [UnsupportedOSPlatform("android33.0")]
     public override void OnCharacteristicChanged(BluetoothGatt? gatt, BluetoothGattCharacteristic? characteristic)
     {
+        if(gatt is null||_gatt is null||!gatt.Equals(_gatt))return;
         byte[]? value = characteristic?.GetValue();
         if (value is not null)
             NotificationReceived?.Invoke(value);

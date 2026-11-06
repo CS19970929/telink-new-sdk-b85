@@ -12,16 +12,16 @@ namespace BmsTool.Android;
 #if BMS_INTERNAL_APP
 [Activity(Label = "BMS Tool 测试版", MainLauncher = true, Exported = true,
     LaunchMode = LaunchMode.SingleTask, ScreenOrientation = ScreenOrientation.Portrait)]
+#else
+[Activity(Label = "BMS Battery", MainLauncher = true, Exported = true,
+    LaunchMode = LaunchMode.SingleTask, ScreenOrientation = ScreenOrientation.Portrait)]
+#endif
 [IntentFilter(new[] { Intent.ActionView },
     Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
     DataMimeTypes = new[] { "application/octet-stream", "application/x-binary", "application/macbinary" })]
 [IntentFilter(new[] { Intent.ActionSend },
     Categories = new[] { Intent.CategoryDefault },
     DataMimeTypes = new[] { "application/octet-stream", "application/x-binary", "application/macbinary" })]
-#else
-[Activity(Label = "BMS Battery", MainLauncher = true, Exported = true,
-    LaunchMode = LaunchMode.SingleTask, ScreenOrientation = ScreenOrientation.Portrait)]
-#endif
 public sealed partial class MainActivity : Activity
 {
     private const string LogTag = "BmsTool.Android";
@@ -48,10 +48,8 @@ public sealed partial class MainActivity : Activity
         _logFilePath = Path.Combine(logDirectory, $"bms-tool-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         BuildUi();
         ApplyIntentValues();
-#if BMS_INTERNAL_APP
         _ = RefreshFirmwareInboxAsync();
         _ = HandleIncomingFirmwareIntentAsync(Intent);
-#endif
         RequestBluetoothPermissions();
         AppendLog($"LOG_FILE path={_logFilePath}");
         _refreshCts = new CancellationTokenSource();
@@ -78,8 +76,8 @@ public sealed partial class MainActivity : Activity
         if (intent is null) return;
         Intent = intent;
         ApplyIntentValues();
-#if BMS_INTERNAL_APP
         _ = HandleIncomingFirmwareIntentAsync(intent);
+#if BMS_INTERNAL_APP
         _ = HandleConnectedAutoOtaIntentAsync(intent);
 #endif
     }
@@ -164,12 +162,11 @@ public sealed partial class MainActivity : Activity
         else if (!string.IsNullOrWhiteSpace(firmware))
             _firmwareInput!.Text = firmware;
         if (!string.IsNullOrWhiteSpace(expectedSerial)) _expectedSerialInput!.Text = expectedSerial;
-        if (Intent.GetBooleanExtra("show_tools", false)) ShowPage(ToolsPage);
+        if (Intent.GetBooleanExtra("show_tools", false)) ShowPage(FirmwarePage);
     }
 
     private async Task HandleIncomingFirmwareIntentAsync(Intent? intent)
     {
-        if (!AppEdition.IsInternal) return;
         global::Android.Net.Uri? uri = null;
         if (intent?.Action == Intent.ActionView)
             uri = intent.Data;
@@ -189,14 +186,7 @@ public sealed partial class MainActivity : Activity
         }
         if (uri is null) return;
 
-        string? name = ReadDisplayName(uri);
-        if (string.IsNullOrWhiteSpace(name) || !name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
-        {
-            SetStatus("已拒绝外部文件：只接受 .bin 固件", true);
-            return;
-        }
-
-        ShowPage(ToolsPage);
+        ShowPage(FirmwarePage);
         await ImportFirmwareAsync(uri);
     }
 

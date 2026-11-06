@@ -74,6 +74,15 @@ static class Test
         string file=Path.Combine(Path.GetTempPath(),Guid.NewGuid()+".dat");
         try {
             File.WriteAllBytes(file,good);FirmwareImage image=FirmwareImage.LoadForTarget(file,OtaTargetKind.Stm32SerialIap);
+            if(args.Length>2&&args[2]=="ble") {
+                await using var transport=new ReceiverProcess(args[0]);
+                var device=await UpgradeDetection.ReadAsync(transport,false,default);
+                var sender=new SerialYmodemClient(transport,chunkForBle:true);
+                Check(await sender.UpgradeAsync(image,device,default),"BLE stream -> production receiver");
+                Check(transport.MaxWriteBytes<=20&&transport.WriteCalls>100,"all BLE fragments respect MTU23 and preserve stream");
+                Check(sender.Verified?.PayloadCrc==SerialFirmwarePackage.Parse(good).PayloadCrc,"BLE final metadata matches payload");
+                Console.WriteLine($"PASS {(c060?"C060":"D015")} production receiver with MTU23 BLE stream: {transport.WriteCalls} writes, max {transport.MaxWriteBytes} bytes");return;
+            }
             foreach(bool loseAck in new[]{false,true}) {
                 await using var transport=new ReceiverProcess(args[0]) {Faults=loseAck};
                 var device=await UpgradeDetection.ReadAsync(transport,false,default);
@@ -145,7 +154,7 @@ sealed class ReceiverProcess : IBmsTransport
 {
     readonly Process _process;readonly SemaphoreSlim _gate=new(1);readonly CancellationTokenSource _stop=new();readonly Task _poll;
     public bool Faults,Corrupted,DroppedAck,DroppedFinalAck,DisconnectAtFinal,FinalDisconnected,WrongBootOnReconnect;
-    public int DataBlocks;
+    public int DataBlocks,MaxWriteBytes,WriteCalls;
     public bool DropEnterOnce,WrongCapacityAfterCommit,CommitObserved;
     public int EnterRequests,DroppedEnterRequests,TurnaroundMs,TurnaroundDrops;
     private long lastReplyTick;
@@ -170,6 +179,7 @@ sealed class ReceiverProcess : IBmsTransport
     }
     public async Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default) {
         byte[] bytes=data.ToArray();bool drop=false;
+        WriteCalls++;MaxWriteBytes=Math.Max(MaxWriteBytes,bytes.Length);
         bool modbus=bytes.Length==8 && bytes[0]==1 && bytes[1] is 3 or 6;
         if(modbus && lastReplyTick!=0 && Stopwatch.GetElapsedTime(lastReplyTick).TotalMilliseconds<TurnaroundMs) { TurnaroundDrops++;return; }
         if(modbus && bytes[1]==6) { EnterRequests++;if(DropEnterOnce) { DropEnterOnce=false;DroppedEnterRequests++;return; } }

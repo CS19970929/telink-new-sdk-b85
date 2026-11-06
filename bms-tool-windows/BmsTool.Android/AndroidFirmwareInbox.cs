@@ -10,7 +10,7 @@ internal static class AndroidFirmwareInbox
 {
     public const string ImportAction = "com.cs.bmstool.android.IMPORT_FIRMWARE";
     public const string AutomationAuthorizationPreferences = "firmware_automation_authorization";
-    public const int MaxImageBytes = 2 * 1024 * 1024;
+    public const int MaxImageBytes = BmsTool.Windows.SerialFirmwarePackage.MaximumPayloadBytes + BmsTool.Windows.SerialFirmwarePackage.HeaderBytes;
 
     public static string GetDirectory(Context context)
     {
@@ -20,7 +20,7 @@ internal static class AndroidFirmwareInbox
     }
 
     public static bool IsValidFileName(string fileName) =>
-        Regex.IsMatch(fileName, "^[A-Za-z0-9._-]{1,96}\\.bin$",
+        Regex.IsMatch(fileName, "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 }
 
@@ -48,7 +48,7 @@ internal sealed class FirmwareImportReceiver : BroadcastReceiver
             if (!Regex.IsMatch(uploadId, "^[0-9a-f]{16}$", RegexOptions.CultureInvariant) ||
                 !AndroidFirmwareInbox.IsValidFileName(fileName) ||
                 !Regex.IsMatch(expectedSha256, "^[0-9A-Fa-f]{64}$", RegexOptions.CultureInvariant) ||
-                index < 0 || total is < 1 or > 512 || index >= total || offset < 0 || encoded.Length > 12000)
+                index < 0 || total is < 1 or > 4096 || index >= total || offset < 0 || encoded.Length > 12000)
                 throw new InvalidDataException("Firmware import metadata is invalid.");
 
             byte[] chunk = Convert.FromBase64String(encoded);

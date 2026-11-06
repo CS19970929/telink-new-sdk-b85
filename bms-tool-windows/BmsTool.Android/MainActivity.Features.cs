@@ -575,10 +575,10 @@ public sealed partial class MainActivity
         {
             string name = ReadDisplayName(uri) ?? $"firmware-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.bin";
             name = string.Concat(Path.GetFileName(name).Select(ch => Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch));
-            if (!name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) name += ".bin";
+            if(string.IsNullOrWhiteSpace(name))name="firmware.bin";
             target = Path.Combine(FirmwareInboxDirectory(), name);
             if (File.Exists(target))
-                target = Path.Combine(FirmwareInboxDirectory(), $"{Path.GetFileNameWithoutExtension(name)}-{DateTimeOffset.Now:HHmmss}.bin");
+                target = Path.Combine(FirmwareInboxDirectory(), $"{Path.GetFileNameWithoutExtension(name)}-{Guid.NewGuid():N}{Path.GetExtension(name)}");
             await using (Stream input = ContentResolver!.OpenInputStream(uri)
                 ?? throw new IOException("无法读取所选固件。"))
             await using (FileStream output = File.Create(target))
@@ -599,8 +599,8 @@ public sealed partial class MainActivity
             await RefreshFirmwareInboxAsync();
             try
             {
-                FirmwareImage image = FirmwareImage.LoadStrictTelink(target);
-                SetStatus($"固件已导入并通过预检：{image.FileName} · {image.ImageSize} bytes");
+                FirmwareImage image = FirmwareImage.LoadForBluetoothUpgrade(target);
+                UpgradeStatus(image.Package is {} package ? $"{package.BoardName} · 版本 {package.Version:X8}\n{package.PayloadLength} bytes · CRC {package.PayloadCrc:X8}" : $"Telink固件预检通过：{image.FileName} · {image.ImageSize} bytes");
             }
             catch (Exception ex) { SetStatus("固件已导入，但 OTA 预检不通过：" + ex.Message, true); }
         }
@@ -635,7 +635,7 @@ public sealed partial class MainActivity
     {
         try
         {
-            var files = new DirectoryInfo(FirmwareInboxDirectory()).EnumerateFiles("*.bin")
+            var files = new DirectoryInfo(FirmwareInboxDirectory()).EnumerateFiles().Where(file=>!file.Name.StartsWith(".",StringComparison.Ordinal))
                 .OrderByDescending(file => file.LastWriteTimeUtc).Take(20).ToArray();
             RunOnUiThread(() =>
             {
@@ -649,9 +649,9 @@ public sealed partial class MainActivity
                     bool valid;
                     try
                     {
-                        FirmwareImage image = FirmwareImage.LoadStrictTelink(file.FullName);
+                        FirmwareImage image = FirmwareImage.LoadForBluetoothUpgrade(file.FullName);
                         valid = true;
-                        detail = $"可升级 · {image.ImageSize} bytes";
+                        detail = image.Package is {} package ? $"{package.BoardName} · YMODEM · {image.ImageSize} bytes" : $"Telink · {image.ImageSize} bytes";
                     }
                     catch (Exception ex)
                     {
@@ -667,7 +667,7 @@ public sealed partial class MainActivity
                     button.Click += (_, _) =>
                     {
                         _firmwareInput!.Text = file.FullName;
-                        SetStatus($"已选择：{file.Name}");
+                        UpgradeStatus($"已选择：{file.Name}\n{detail}",!valid);
                     };
                     _firmwareInbox.AddView(button);
                 }
@@ -681,7 +681,7 @@ public sealed partial class MainActivity
 
     private async Task StartOtaAsync(bool skipConfirmation, bool requireExistingConnection)
     {
-        string mac = _macInput?.Text?.Trim() ?? string.Empty;
+        string mac = (_macInput?.Text?.Trim() ?? string.Empty).ToUpperInvariant();
         string firmware = _firmwareInput?.Text?.Trim() ?? string.Empty;
         string expectedSerial = _expectedSerialInput?.Text?.Trim() ?? string.Empty;
         if (requireExistingConnection && (_client is null || _transport is null ||
@@ -692,8 +692,13 @@ public sealed partial class MainActivity
             return;
         }
         FirmwareImage image;
-        try { image = FirmwareImage.LoadStrictTelink(firmware); }
+        try { image = FirmwareImage.LoadForBluetoothUpgrade(firmware); }
         catch (Exception ex) { SetStatus("OTA 预检拒绝：" + ex.Message, true); return; }
+        if(image.IsSerialPackage) {
+            if(skipConfirmation){UpgradeStatus("YMODEM包已导入，请在手机核对设备后手动确认升级。",true);return;}
+            await RunSerialUpgradeAsync(image,mac,expectedSerial);return;
+        }
+        CheckUpgradeEndpoint(mac,requireExistingConnection);
         if (string.IsNullOrWhiteSpace(mac)) { SetStatus("OTA 必须明确指定 MAC", true); return; }
         if (!skipConfirmation && !await ConfirmAsync("开始 OTA", $"目标 {mac}\n固件 {image.FileName}\n大小 {image.ImageSize} bytes\n升级期间请保持电池供电。是否继续？")) return;
         if (skipConfirmation) AppendLog($"AUTO_OTA_CONFIRMED_BY_VSCODE mac={mac} file={image.FileName}");
@@ -705,9 +710,7 @@ public sealed partial class MainActivity
         _operationCts = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         try
         {
-            if (requireExistingConnection && (_client is null || _transport is null ||
-                !string.Equals(mac, _connectedMac, StringComparison.OrdinalIgnoreCase)))
-                throw new IOException("目标 BMS 连接在 OTA 开始前已失效，未执行写入。");
+            CheckUpgradeEndpoint(mac,requireExistingConnection);
             DeviceIdentity? before = null;
             if (_client is not null) before = await _client.ReadIdentityAsync(mac, "", _operationCts.Token);
             await DisposeConnectionCoreAsync();
@@ -765,9 +768,11 @@ public sealed partial class MainActivity
     private async Task ConnectSelectedCoreAfterOtaAsync(string mac, CancellationToken ct)
     {
         var transport = new AndroidBmsBleTransport(this, mac);
+        _transport=transport;
         transport.ConnectionProgress += AppendLog;
         await transport.ConnectAsync(ct);
         var client = new BmsClient(transport);
+        _client=client;
         client.Log += AppendLog;
         await client.ProbeAsync(ct);
         _transport = transport;

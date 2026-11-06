@@ -55,6 +55,7 @@ public sealed partial class MainActivity
         host.AddView(BuildMobileLogPage());
         host.AddView(BuildMobileDevicePage());
         host.AddView(BuildCellsPage());
+        host.AddView(BuildFirmwarePage());
         root.AddView(host, new LinearLayout.LayoutParams(-1, 0, 1));
 
         var nav = Row();
@@ -289,6 +290,7 @@ public sealed partial class MainActivity
         page.AddView(_identityView);
         _disconnectButton = ActionButton("断开连接", DisposeConnectionAsync);
         page.AddView(_disconnectButton);
+        page.AddView(ActionButton("固件升级  ›",()=>{ShowPage(FirmwarePage);return Task.CompletedTask;},false));
         page.AddView(SectionTitle("服务与设备设置"));
         if (AppEdition.IsInternal)
         {
