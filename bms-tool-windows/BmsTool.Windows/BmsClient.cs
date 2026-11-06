@@ -273,6 +273,10 @@ public sealed partial class BmsClient : IAsyncDisposable
     private bool? _realtimeAvailable;
     private bool _legacyUnavailable, _identityConflict;
     public bool IsC060 { get; private set; }
+    public bool IsC077 { get; private set; }
+    public bool UsesC060Protocol => IsC060 || IsC077;
+    public string ParameterProduct => IsC077 ? "C077" : "C060";
+    public int ProductCellCount => IsC077 ? 16 : 20;
     public string DeviceModel { get; private set; } = "未识别（保留通信）";
     public string DeviceDetectionEvidence { get; private set; } = "尚未读取身份";
     public bool IsSh3520 { get; private set; }
@@ -377,14 +381,17 @@ public sealed partial class BmsClient : IAsyncDisposable
         string fallbackBluetoothName,
         CancellationToken ct = default)
     {
+        IsC077=false; // C077 has no manual legacy override; require current product evidence.
         ushort[]? capability = await TryReadOptionalRegistersAsync(0xD170, 12, ct);
         if (capability is { Length: 12 } && capability[0] == 0x5550 && capability[1] == 1 &&
             capability[4] == 2 && capability[5] == 2 && capability[10] <= 3 && capability[11] == 0 &&
-            capability[2] == 0xC060 && capability[3] == 0x0020 &&
+            ((capability[2] == 0xC060 && capability[3] == 0x0020) ||
+             (capability[2] == 0xC077 && capability[3] == 0x0016)) &&
             capability[6] == 0x0800 && capability[7] == 0x1C00 &&
             capability[8] == 0 && capability[9] == 0xCC00) {
-            IsC060 = true;
-            DeviceDetectionEvidence = "D170 v1：C0600020 / APP 08001C00 / 51 KiB";
+            IsC077=capability[2]==0xC077;
+            IsC060=!IsC077;IsD015=IsSh3520=false;_identityConflict=false;
+            DeviceDetectionEvidence=$"D170 v1：{capability[2]:X4}{capability[3]:X4} / APP 08001C00 / 51 KiB";
         }
         ushort[]? identity = await TryReadOptionalRegistersAsync(BmsRegisters.Serial, 48, ct);
         ushort[] sn = identity?.Take(16).ToArray() ??
@@ -394,7 +401,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         ushort[] sw = identity?.Skip(32).Take(16).ToArray() ??
             await TryReadOptionalRegistersAsync(BmsRegisters.Software, 16, ct) ?? Array.Empty<ushort>();
         string serial = DecodeIdentityText(sn), hardware = DecodeIdentityText(hw), software = DecodeIdentityText(sw);
-        if (!IsC060 && identity is { Length:48 } &&
+        if (!UsesC060Protocol && identity is { Length:48 } &&
             System.Text.RegularExpressions.Regex.IsMatch(hardware + " " + software, @"(?i)(^|[-_\s])C060(?=[V\d\-_\s]|$)")) {
             ushort[]? system = await TryReadOptionalRegistersAsync(0x231C, 4, ct);
             ushort[]? soc = await TryReadOptionalRegistersAsync(0x2318, 4, ct);
@@ -404,7 +411,10 @@ public sealed partial class BmsClient : IAsyncDisposable
                 DeviceDetectionEvidence = "C002整块C060身份 + 20串系统参数/容量结构";
             }
         }
-        if (IsC060) { DeviceModel = "C060 · 20串分口 / BQ76930"; _realtimeAvailable = false; }
+        if (UsesC060Protocol) {
+            DeviceModel=IsC077 ? "C077 · 16串分口 / SH367309 ×2" : "C060 · 20串分口 / BQ76930";
+            _realtimeAvailable=false;
+        }
         else if (hardware.StartsWith("HS-D015", StringComparison.Ordinal)) {
             ushort[]? product = await TryReadOptionalRegistersAsync(0xD130, 2, ct);
             IsD015 = product is { Length:2 } && product[0] == 0xD015 && product[1] == 0x0320;
@@ -416,7 +426,7 @@ public sealed partial class BmsClient : IAsyncDisposable
             DeviceDetectionEvidence = "尚未得到明确板型；不推断C060写入合同";
         }
         string macText = fallbackMac.Trim(), bluetoothName = fallbackBluetoothName.Trim();
-        if (!IsC060) {
+        if (!UsesC060Protocol) {
             ushort[]? mac = await TryReadOptionalRegistersAsync(BmsRegisters.Mac, 3, ct);
             if (mac is not null && mac.Any(v => v != 0))
                 macText = string.Join(":", mac.SelectMany(w => new[] { (byte)(w >> 8), (byte)w }).Select(b => b.ToString("X2")));
@@ -489,7 +499,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         ushort[]? statusRead = await TryReadOptionalRegistersAsync(BmsRegisters.SystemStatus, 2, ct).ConfigureAwait(false);
         ushort[] status = statusRead ?? new ushort[2];
         DateTimeOffset statusReadUtc = DateTimeOffset.UtcNow;
-        ushort[] realtime = _realtimeAvailable == false || IsC060 ? Array.Empty<ushort>() :
+        ushort[] realtime = _realtimeAvailable == false || UsesC060Protocol ? Array.Empty<ushort>() :
             await TryReadOptionalRegistersAsync(BmsRegisters.Realtime, 11, ct).ConfigureAwait(false) ?? Array.Empty<ushort>();
         _realtimeAvailable = realtime.Length >= 11 && realtime[0] == BmsRegisters.RealtimeMagic;
         DateTimeOffset realtimeReadUtc = DateTimeOffset.UtcNow;
@@ -565,7 +575,7 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     public async Task<BatterySnapshot> SetCycleCountAndVerifyAsync(ushort cycleCount, CancellationToken ct = default)
     {
-        if (IsC060) {
+        if (UsesC060Protocol) {
             ushort[] group=await ReadRegistersAsync(0x2318,4,ct);
             if(group[3]>=group[2])throw new ArgumentException("SOC 0%端点必须低于100%端点。");
             group[1]=cycleCount;
@@ -606,7 +616,7 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     public async Task EnsureLegacyProtectionAsync(CancellationToken ct = default)
     {
-        if (IsC060) return;
+        if (UsesC060Protocol) return;
         ushort[] identity;
         try { identity=await ReadRegistersAsync(Sh3520Parameters.HardwareBase,2,ct); }
         catch(BmsModbusException ex) when(ex.Function==0x03 && (ex.Code==0x01 || ex.Code==0x03)) { return; }
@@ -635,7 +645,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         bool sending = true;
         try
         {
-            TimeSpan turnaround=_responseTurnaround ?? (IsC060 ? C060ResponseTurnaroundDelay : _transport.RequiresSerialWakeup ? SerialResponseTurnaroundDelay : TimeSpan.Zero);
+            TimeSpan turnaround=_responseTurnaround ?? (UsesC060Protocol ? C060ResponseTurnaroundDelay : _transport.RequiresSerialWakeup ? SerialResponseTurnaroundDelay : TimeSpan.Zero);
             if (turnaround>TimeSpan.Zero) {
                 long received = Interlocked.Read(ref _lastReceiveTick);
                 if (received != 0) {

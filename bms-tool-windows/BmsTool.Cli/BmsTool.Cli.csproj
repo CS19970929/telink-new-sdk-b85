@@ -48,5 +48,5 @@
   <ItemGroup><Compile Include="..\Shared\ProtectionBatch.cs" Link="Shared\ProtectionBatch.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\BmsTool.Windows\BmsClient.AfeHardware.cs" Link="Shared\BmsClient.AfeHardware.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\BmsTool.Windows\AfeHardwareParameters.cs" Link="Shared\AfeHardwareParameters.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="..\Shared\C060Parameters.cs" Link="Shared\C060Parameters.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\Shared\C077Parameters.cs" Link="Shared\C077Parameters.cs" /><Compile Include="..\Shared\C060Parameters.cs" Link="Shared\C060Parameters.cs" /></ItemGroup>
 </Project>

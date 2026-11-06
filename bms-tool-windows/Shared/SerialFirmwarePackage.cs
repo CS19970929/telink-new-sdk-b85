@@ -9,7 +9,7 @@ public sealed record SerialFirmwarePackage(uint BoardId,uint AppAddress,uint Ver
     public const uint Magic=0x32553044;
     public const int HeaderBytes=32, PageBytes=1024, MaximumPayloadBytes=16*1024*1024;
     public string BoardName => BoardId switch {
-        0xD0150320=>"D015", 0xC0600020=>"C060", _=>$"板号 0x{BoardId:X8}"
+        0xD0150320=>"D015", 0xC0600020=>"C060", 0xC0770016=>"C077", _=>$"板号 0x{BoardId:X8}"
     };
     public static bool HasHeader(ReadOnlySpan<byte> bytes) => bytes.Length>=4 && BinaryPrimitives.ReadUInt32LittleEndian(bytes)==Magic;
     internal static bool ValidLayout(uint address,uint capacity) => address>=0x08000000 && address<0x09000000 &&

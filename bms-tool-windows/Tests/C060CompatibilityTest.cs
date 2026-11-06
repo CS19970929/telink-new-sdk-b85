@@ -117,10 +117,11 @@ internal static class Program
 }
 internal sealed class Peer : IBmsTransport, IBmsMtuTransport
 {
-    public bool Advertised,Unknown,SeparateIdentity,NoStatus,NoIdentity,SilentRealtime;
-    public int Writes,Reconnects;public int Soc=55;public List<byte[]> SentRequests=new();public int FailWriteAddress;public bool CorruptReadback;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
+    public bool C077=false,ServiceFailure=false,Bad309Schema=false; public int ServiceCommands,ServicePolls; private int pendingService;
+    public bool Advertised=false,Unknown=false,SeparateIdentity=false,NoStatus=false,NoIdentity=false,SilentRealtime=false;
+    public int Writes,Reconnects;public int Soc=55;public List<byte[]> SentRequests=new();public int FailWriteAddress=0;public bool CorruptReadback=false;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
     public bool IsConnected=>true;public bool RequiresSerialWakeup=>false;public string DiscoveryDescription=>"C060 fixture";
-    public event Action<ReadOnlyMemory<byte>>? DataReceived; public event Action<string>? ConnectionProgress;
+    public event Action<ReadOnlyMemory<byte>>? DataReceived; public event Action<string>? ConnectionProgress {add{}remove{}}
     public List<(int,int)> Reads=new();
     public ushort[] Calibration=Enumerable.Range(0,94).Select(i=>(ushort)(i%2==0?1024:0)).ToArray();
     public ushort[] Identity=Text("SN").Concat(Text("测试硬件")).Concat(Text("c060V3-20250304-20s")).ToArray();
@@ -153,6 +154,7 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
                 if(q[1]==16&&address>=0xFFF0&&address<=0xFFF2)
                     for(int i=0;i<n;i++)Identity[(address-0xFFF0)*16+i]=(ushort)(q[7+2*i]*256+q[8+2*i]);
                 if(q[1]==6&&address==0x1005)Soc=n;
+                if(C077&&q[1]==6&&address==0x2A7F) {ServiceCommands++;pendingService=1;ServicePolls=0;}
                 reply=Frame(q[..6]);
             }
         }
@@ -164,13 +166,19 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
         if(a>=0x2000&&a+n<=0x205E)return Calibration.Skip(a-0x2000).Take(n).ToArray();
         if(Unknown)return null;
         if(NoIdentity&&a>=0xC000&&a<0xC100)return null;
-        if(a==0xD170&&n==12&&Advertised)return new ushort[]{0x5550,1,0xC060,0x20,2,2,0x800,0x1C00,0,0xCC00,0,0};
+        if(a==0xD170&&n==12&&Advertised)return new ushort[]{0x5550,1,(ushort)(C077?0xC077:0xC060),(ushort)(C077?0x16:0x20),2,2,0x800,0x1C00,0,0xCC00,0,0};
+        if(C077&&a>=0x2A40&&a+n<=0x2A80) {
+            if(a==0x2A40&&pendingService!=0 && ++ServicePolls>=2)pendingService=0;
+            var w=new ushort[64];w[0]=0xC077;w[1]=(ushort)(Bad309Schema?2:1);w[2]=(ushort)pendingService;w[3]=(ushort)(ServiceFailure?1:0);w[7]=1;w[58]=(ushort)(pendingService==0?1:0);
+            for(int i=0;i<2;i++) {int at=8+i*12;w[at]=1;w[at+1]=(ushort)(pendingService==0?2:1);w[at+2]=unchecked((ushort)(short)(i==0?-12:7));w[at+3]=(ushort)(pendingService==0?8:3);w[at+4]=12;w[at+9]=64;w[at+11]=1;}
+            return w.Skip(a-0x2A40).Take(n).ToArray();
+        }
         if(a==0xC002&&n==48&&!SeparateIdentity)return Identity.ToArray();
         if(a==0xC002&&n==16)return Text("SN");
         if(a==0xC012&&n==16&&SeparateIdentity)return Text("generic");
         if(a==0xD120&&n==2&&!SeparateIdentity)return new ushort[2];
         if(a==0xD000) {
-            ushort[] data=new ushort[63];for(int i=0;i<32;i++)data[i]=(ushort)(i<20?3300:61001);
+            ushort[] data=new ushort[63];for(int i=0;i<32;i++)data[i]=(ushort)(i<(C077?16:20)?3300:61001);
             data[32]=data[33]=3300;data[34]=1;data[35]=2;data[37]=6600;data[47]=650;data[48]=700;data[49]=600;data[50]=20;data[52]=(ushort)Soc;data[53]=100;data[54]=1320;data[55]=data[56]=(ushort)(Other[24]*10);data[57]=Other[25];
             return data.Take(n).ToArray();
         }

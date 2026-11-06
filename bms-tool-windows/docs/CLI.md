@@ -278,3 +278,7 @@ dotnet run --project .\bms-tool-windows\BmsTool.Cli\BmsTool.Cli.csproj -- scan
 C060的parameters get/export先识别项目，返回C060参数块；export保存桌面页兼容JSON，建议使用.json后缀，原D008 ZIP输出不变。
 
 OTA结果新增runtimeReadbackAvailable、upgradeReadback（board/version/bytes/crc32）。已确认APP元数据而新项目尚无既有BMS视图时，newVersion可为包版本十六进制，battery各值可空；现有受支持项目原字段及行为保持。--expected-version仍额外比较软件版本显示。
+
+## C077双309（2026-11-06）
+
+`afe309 get|zero|program`复用共享C077Parameters；zero/program须显式`--yes`且固件确认全部输出关闭。JSON沿用现有envelope，snapshot含双芯片零偏/EEPROM/采样状态，写失败不自动重发。`parameters get/export`按C077产品标签隔离，升级支持`.c077`并继续严格核对D170板号。详细前提与边界见[C077配套](C077.md)。

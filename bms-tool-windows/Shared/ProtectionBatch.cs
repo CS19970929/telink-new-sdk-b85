@@ -77,7 +77,13 @@ public sealed partial class BmsClient
         await _protectionWriteGate.WaitAsync(ct);
         try {
             // The full candidate is checked before any write; untouched fields come from the device.
-            var plan = ProtectionBatch.Plan(await ReadProtectionAllAsync(ct), changes, IsD015, IsC060);
+            var current=await ReadProtectionAllAsync(ct);
+            var plan = ProtectionBatch.Plan(current, changes, IsD015, UsesC060Protocol);
+            if(IsC077) {
+                var candidate=(ushort[])current.Clone();
+                foreach(var change in changes)candidate[change.Key-0x2100]=change.Value;
+                C077Parameters.ValidateProtection(candidate);
+            }
             int completed = 0;
             foreach (var group in plan) {
                 string stage = "发送/等待提交应答";

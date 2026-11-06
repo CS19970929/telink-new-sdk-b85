@@ -49,6 +49,17 @@ public static class C060Parameters
 {
     public static readonly C060ParameterGroup[] Groups={new(0x2300,8,"均衡"),new(0x2308,8,"电流与SOC表"),new(0x2310,8,"兼容休眠"),new(0x2318,4,"容量与SOC"),new(0x231C,4,"系统"),new(0x2320,24,"兼容热冷")};
     public static readonly IReadOnlyList<C060ParameterField> Fields=CreateFields();
+    public static IReadOnlyList<C060ParameterField> FieldsFor(bool c077) => !c077 ? Fields :
+        Fields.Select(f=>f.Address switch {
+            >=0x2020 and <=0x203F or >=0x2042 and <=0x2043 or >=0x2046 and <=0x2049 or
+            >=0x204E and <=0x204F or >=0x2054 and <=0x205B =>
+                f with {Editable=false,Hint="C077未使用该通道；电流采用双309开机RAM零偏与固定分流换算，缺失串位不参与采样。"},
+            0x231C => f with {Hint="C077固定16串，两颗309各采完整16串。"},
+            0x230A => f with {Editable=false,Hint="309编译档案固定448μs；通过专用维修事务核对，不按BQ档位换算。"},
+            0x230B => f with {Editable=false,Hint="309编译档案固定400A；实际硬件保护需实板验收。"},
+            0x231D or 0x231E => f with {Editable=false,Hint="每颗309独立4颗2mΩ并联，固定0.5mΩ。"},
+            _ => f
+        }).ToArray();
     static IReadOnlyList<C060ParameterField> CreateFields()
     {
         var fields=new List<C060ParameterField>();
@@ -103,7 +114,7 @@ public static class C060Parameters
     {
         var changes=new Dictionary<ushort,ushort>();
         foreach(var edit in edits) {
-            var field=Fields.SingleOrDefault(f=>f.Address==edit.Key)??throw new ArgumentException($"未知 C060 参数 0x{edit.Key:X4}");
+            var field=FieldsFor(current.Product=="C077").SingleOrDefault(f=>f.Address==edit.Key)??throw new ArgumentException($"未知 C060 参数 0x{edit.Key:X4}");
             ushort raw=field.Parse(edit.Value);
             if(!TryValue(current,field,out ushort old))throw new InvalidDataException(field.Name+"尚未读取，不能保存。");
             if(raw==old)continue;
@@ -114,19 +125,20 @@ public static class C060Parameters
         return changes;
     }
     public static void Export(string path,C060ParameterCapture capture)=>File.WriteAllText(path,JsonSerializer.Serialize(capture,new JsonSerializerOptions{WriteIndented=true}),new UTF8Encoding(false));
-    public static C060ParameterCapture Import(string path)
+    public static C060ParameterCapture Import(string path,string expectedProduct="C060")
     {
+        if(expectedProduct is not ("C060" or "C077"))throw new ArgumentException("未知参数产品。");
         if(new FileInfo(path).Length>1024*1024)throw new InvalidDataException("参数包超过1MiB。");
         string json=File.ReadAllText(path);
         using var document=JsonDocument.Parse(json);
         if(!document.RootElement.TryGetProperty("Schema",out var schema)||!schema.TryGetInt32(out int version)||version!=1||
-           !document.RootElement.TryGetProperty("Product",out var product)||product.ValueKind!=JsonValueKind.String||product.GetString()!="C060")
-            throw new InvalidDataException("参数包必须明确声明C060及受支持的Schema。");
+           !document.RootElement.TryGetProperty("Product",out var product)||product.ValueKind!=JsonValueKind.String||product.GetString()!=expectedProduct)
+            throw new InvalidDataException($"参数包必须明确声明{expectedProduct}及受支持的Schema。");
         var package=JsonSerializer.Deserialize<C060ParameterCapture>(json)??throw new InvalidDataException("参数包为空。");
-        if(package.Schema!=1||package.Product!="C060"||package.Blocks is null||package.Blocks.Any(b=>b.Value is null||b.Value.Length>125))throw new InvalidDataException("参数包产品、版本或块长度不匹配C060。");
+        if(package.Schema!=1||package.Product!=expectedProduct||package.Blocks is null||package.Blocks.Any(b=>b.Value is null||b.Value.Length>125))throw new InvalidDataException($"参数包产品、版本或块长度不匹配{expectedProduct}。");
         foreach(var group in Groups)if(package.Blocks.TryGetValue(group.Address.ToString("X4"),out var words)&&words.Length!=group.Count)throw new InvalidDataException($"{group.Name}长度错误。");
         if(package.Blocks.TryGetValue("Calibration",out var calibration)&&calibration.Length!=94)throw new InvalidDataException("校准块长度错误。");
-        if(package.Blocks.TryGetValue("Protection",out var protection)){if(protection.Length!=65)throw new InvalidDataException("保护块长度错误。");ProtectionBatch.ValidateC060(protection);}
+        if(package.Blocks.TryGetValue("Protection",out var protection)){if(protection.Length!=65)throw new InvalidDataException("保护块长度错误。");ProtectionBatch.ValidateC060(protection);if(expectedProduct=="C077")C077Parameters.ValidateProtection(protection);}
         return package;
     }
     // Match production InitShortCur integer arithmetic before writing an eight-word group.
@@ -153,35 +165,41 @@ public sealed partial class BmsClient
     {
         var system=await ReadRegistersAsync(0x231C,4,ct);var soc=await ReadRegistersAsync(0x2318,4,ct);
         if(system[0]!=20||system[1]==0||system[2]==0||soc[0]==0)throw new NotSupportedException("读取结果不符合当前C060参数结构；保留连接，请选择匹配项目。");
-        IsC060=true;IsD015=IsSh3520=false;_identityConflict=false;_realtimeAvailable=false;DeviceModel="C060 · 手动选择旧协议";
+        IsC060=true;IsC077=false;IsD015=IsSh3520=false;_identityConflict=false;_realtimeAvailable=false;DeviceModel="C060 · 手动选择旧协议";
         DeviceDetectionEvidence="用户明确选择，231C/4与2318/4结构核对通过";
     }
     public void ResetParameterProfile()
     {
-        IsC060=IsD015=IsSh3520=false;_identityConflict=false;_realtimeAvailable=null;_legacyUnavailable=false;
+        IsC060=IsC077=IsD015=IsSh3520=false;_identityConflict=false;_realtimeAvailable=null;_legacyUnavailable=false;
         _unavailableReads.Clear();DeviceModel="自动识别中";
     }
     public Task<C060ParameterCapture> ReadC060ParametersAsync(CancellationToken ct=default) => ReadC060ParametersAsync(true,ct);
     public async Task<C060ParameterCapture> ReadC060ParametersAsync(bool includeCalibration,CancellationToken ct=default)
     {
-        if(!IsC060)throw new NotSupportedException("尚未识别为C060；连接保持，可在参数页手动选择项目。");
-        var capture=new C060ParameterCapture();
+        if(!UsesC060Protocol)throw new NotSupportedException("尚未识别为C060；连接保持，可在参数页手动选择项目。");
+        var capture=new C060ParameterCapture{Product=ParameterProduct};
+        if(IsC077)capture.Incomplete=new[]{"不包含运行快照/日志写回；309 EEPROM仅由显式专用维修事务处理。"};
         foreach(var block in C060Parameters.Groups.Select(g=>(Key:g.Address.ToString("X4"),Address:g.Address,Count:g.Count)).Concat(new (string Key,ushort Address,ushort Count)[]{
             ("Calibration",(ushort)0x2000,(ushort)94),("Protection",(ushort)0x2100,(ushort)65),
             ("Identity",(ushort)0xC002,(ushort)48),("Realtime",(ushort)0xD000,(ushort)63),("SocTable",(ushort)0x2200,(ushort)86),
-            ("DischargeSummary",(ushort)0x3000,(ushort)21),("ChargeSummary",(ushort)0x3050,(ushort)21)}).Where(b=>includeCalibration||b.Key is not ("Calibration" or "DischargeSummary" or "ChargeSummary"))) {
+            ("DischargeSummary",(ushort)0x3000,(ushort)21),("ChargeSummary",(ushort)0x3050,(ushort)21)}).Where(b=>(includeCalibration||b.Key is not ("Calibration" or "DischargeSummary" or "ChargeSummary"))&&(!IsC077||b.Key is not ("DischargeSummary" or "ChargeSummary")))) {
             var words=await TryReadOptionalRegistersAsync(block.Address,block.Count,ct);
             if(words is null)capture.Errors.Add($"{block.Key} 未提供或读取未确认");else capture.Blocks[block.Key]=words;
+        }
+        if(IsC077) {
+            var afe=await TryReadOptionalRegistersAsync(C077Parameters.DiagnosticBase,64,ct);
+            if(afe is null)capture.Errors.Add("C077双309诊断未确认");
+            else {C077AfeSnapshot.Parse(afe);capture.Blocks["C077Afe"]=afe;}
         }
         return capture;
     }
     public async Task WriteC060ParameterChangesAsync(IReadOnlyDictionary<ushort,ushort> changes,
         Action<ushort,ushort[]> verified,bool allowCompatibility=false,CancellationToken ct=default)
     {
-        if(!IsC060)throw new NotSupportedException("请先识别或明确选择C060参数协议。");
+        if(!UsesC060Protocol)throw new NotSupportedException("请先识别或明确选择C060参数协议。");
         await _c060ParameterGate.WaitAsync(ct);
         try {
-            var fields=changes.Select(change=>C060Parameters.Fields.SingleOrDefault(f=>f.Address==change.Key)??throw new ArgumentException($"不支持的C060参数地址0x{change.Key:X4}")).ToArray();
+            var fields=changes.Select(change=>C060Parameters.FieldsFor(IsC077).SingleOrDefault(f=>f.Address==change.Key)??throw new ArgumentException($"不支持的C060参数地址0x{change.Key:X4}")).ToArray();
             foreach(var field in fields) {
                 if(!field.Editable||field.Compatibility&&!allowCompatibility)throw new ArgumentException(field.Name+"是保留/兼容字段，当前不允许修改。");
                 field.Parse(field.Format(changes[field.Address]));
@@ -194,12 +212,15 @@ public sealed partial class BmsClient
                 if(group.Key<0x2100)
                     foreach(var pairField in C060Parameters.Fields.Where(f=>f.WriteAddress==group.Key))pairField.Parse(pairField.Format(candidate[pairField.Address-group.Key]));
                 if(group.Key==0x2318&&candidate[3]>=candidate[2])throw new ArgumentException("SOC 0%端点必须低于100%端点。");
-                if(group.Key==0x231C&&(candidate[0]!=20||candidate[1]==0||candidate[2]==0||2000u*candidate[2]/candidate[1]>65535))throw new ArgumentException("C060固定20串，采样电阻/并联数须非零且不能产生溢出。");
+                if(group.Key==0x231C&&(candidate[0]!=ProductCellCount||candidate[1]==0||candidate[2]==0||2000u*candidate[2]/candidate[1]>65535))throw new ArgumentException($"{ParameterProduct}固定{ProductCellCount}串，采样电阻/并联数须非零且不能产生溢出。");
                 if(group.Key==0x2308) {
                     var system=await ReadRegistersAsync(0x231C,4,ct);
                     for(int i=0;i<4;i++)if(changes.TryGetValue((ushort)(0x231C+i),out ushort value))system[i]=value;
-                    candidate=C060Parameters.NormalizeCurrentGroup(candidate,system[1],system[2]);
-                    if(!C060Parameters.NormalizeCurrentGroup(candidate,system[1],system[2]).SequenceEqual(candidate))throw new ArgumentException("该短路档位不能稳定往返，请核对实际采样电阻。");
+                    if(IsC077) {
+                        if(system[0]!=16||system[1]!=2||system[2]!=4||candidate[2]!=4480||candidate[3]!=4000)
+                            throw new ArgumentException("C077固定16串/0.5mΩ/448μs/400A，未发送参数。");
+                    } else candidate=C060Parameters.NormalizeCurrentGroup(candidate,system[1],system[2]);
+                    if(!IsC077&&!C060Parameters.NormalizeCurrentGroup(candidate,system[1],system[2]).SequenceEqual(candidate))throw new ArgumentException("该短路档位不能稳定往返，请核对实际采样电阻。");
                 }
                 if(candidate.SequenceEqual(current))continue;
                 if(_transport is IBmsMtuTransport mtu&&(mtu.NegotiatedMtu??23)<9+2*count+3)
@@ -222,7 +243,7 @@ public sealed partial class BmsClient
     }
     public async Task WriteC060IdentityAsync(ushort address,string text,CancellationToken ct=default)
     {
-        if(!IsC060||address is <0xFFF0 or >0xFFF2)throw new ArgumentException("C060生产信息地址无效。");
+        if(!UsesC060Protocol||address is <0xFFF0 or >0xFFF2)throw new ArgumentException("C060生产信息地址无效。");
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         if(text.Any(char.IsControl))throw new ArgumentException("生产信息不能包含换行或控制字符。");
         byte[] encoded=Encoding.GetEncoding(936,EncoderFallback.ExceptionFallback,DecoderFallback.ExceptionFallback).GetBytes(text);

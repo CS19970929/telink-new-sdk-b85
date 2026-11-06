@@ -39,5 +39,5 @@
     <Compile Include="..\Shared\UpgradeDetection.cs" Link="Shared\UpgradeDetection.cs" />
     <Compile Include="..\Shared\SerialYmodem.cs" Link="Shared\SerialYmodem.cs" />
   </ItemGroup>
-  <ItemGroup><Compile Include="..\Shared\C060Parameters.cs" Link="Shared\C060Parameters.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\Shared\C077Parameters.cs" Link="Shared\C077Parameters.cs" /><Compile Include="..\Shared\C060Parameters.cs" Link="Shared\C060Parameters.cs" /></ItemGroup>
 </Project>
