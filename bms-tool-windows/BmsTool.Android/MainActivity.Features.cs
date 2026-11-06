@@ -62,8 +62,8 @@ public sealed partial class MainActivity
     private async Task ConnectSelectedAsync()
     {
         if (!HasBluetoothPermissions()) { RequestBluetoothPermissions(); return; }
-        string mac = _macInput?.Text?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(mac)) { SetStatus("请输入或扫描选择 BLE MAC", true); return; }
+        if(!BluetoothMacCode.TryParse(_macInput?.Text,out string mac)){SetStatus("请输入有效蓝牙MAC，或扫描设备二维码",true);return;}
+        _macInput!.Text=mac;
         SetBusy(true);
         SetStatus("等待当前刷新结束…");
         await _operationGate.WaitAsync();
@@ -93,7 +93,11 @@ public sealed partial class MainActivity
             RunOnUiThread(() => _connectionView!.Text = $"已连接 · {mac} · MTU {transport.NegotiatedMtu}");
             SetStatus("连接成功，正在读取实时数据");
             RunOnUiThread(() => ShowPage(BatteryPage));
-            await RefreshOverviewCoreAsync(client, cts.Token);
+            try {await RefreshOverviewCoreAsync(client,cts.Token);}
+            catch(Exception ex)when(ex is BmsModbusException or TimeoutException or InvalidDataException or OperationCanceledException) {
+                SetStatus("基础通信已连接，部分实时信息尚未读取，可手动重试。",true);
+                AppendLog("INITIAL_VIEW_UNAVAILABLE "+ex.Message);
+            }
         }
         catch (Exception ex)
         {
@@ -125,6 +129,7 @@ public sealed partial class MainActivity
         _client = null;
         _transport = null;
         _connectedMac = null;
+        RunOnUiThread(()=>{if(_connectionView is not null)_connectionView.Text="未连接 · Android BLE";});
         ClearC060ParameterState();
         _mosControlState = null;
         _mosControlCapabilityChecked = false;
@@ -177,7 +182,9 @@ public sealed partial class MainActivity
         BatterySnapshot snapshot=await client.ReadBatteryAsync(ct);
         _lastSnapshot=snapshot;
         RunOnUiThread(()=>RenderBatterySnapshot(snapshot,null,null));
-        MosControlState? mosControl=await client.TryReadMosControlAsync(ct);
+        MosControlState? mosControl=null;
+        try {mosControl=await client.TryReadMosControlAsync(ct);}
+        catch(Exception ex)when(ex is BmsModbusException or TimeoutException) {AppendLog("OPTIONAL_MOS_VIEW_UNAVAILABLE "+ex.Message);}
         _mosControlState=mosControl;_mosControlCapabilityChecked=true;
         RunOnUiThread(()=>SetMosDriverIndicators(snapshot.ChargeMosOn,snapshot.DischargeMosOn));
         if (deviceIdentity is not null) _lastIdentity = deviceIdentity;

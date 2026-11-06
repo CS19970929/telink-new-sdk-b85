@@ -132,14 +132,19 @@ public sealed partial class MainActivity : Activity
     {
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != BluetoothPermissionRequest) return;
-        if (HasBluetoothPermissions()) OnResume();
-        else SetStatus("蓝牙权限被拒绝，无法扫描或连接", true);
+        if(HasBluetoothPermissions()) {
+            if(_scanAfterBluetoothPermission){_scanAfterBluetoothPermission=false;_ = StartQrConnectAsync();}
+            else OnResume();
+        }
+        else {_scanAfterBluetoothPermission=false;SetStatus("蓝牙权限被拒绝，无法扫描或连接", true);}
     }
 
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
-        if(resultCode!=Result.Ok||data?.Data is null)return;
+        if(resultCode!=Result.Ok)return;
+        if(requestCode==QrScanRequest){_ = ConnectQrResultAsync(data);return;}
+        if(data?.Data is null)return;
         if(requestCode==C060ImportRequest){_ = ImportC060ParametersGuardedAsync(data.Data);return;}
         if(requestCode==FirmwarePickerRequest)_ = ImportFirmwareAsync(data.Data);
     }

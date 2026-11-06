@@ -312,6 +312,7 @@ public sealed partial class MainActivity
         }
         var connection = Page();
         connection.AddView(Note("扫描附近设备，点击设备名称即可连接；当前连接不会因展开此区域而断开。"));
+        connection.AddView(ActionButton("扫码连接（蓝牙MAC）",StartQrConnectAsync,false));
         connection.AddView(ActionButton("扫描附近的电池", ScanAsync, false));
         _scanResults = new LinearLayout(this) { Orientation = Orientation.Vertical };
         connection.AddView(_scanResults);
@@ -547,7 +548,7 @@ public sealed partial class MainActivity
         _socValue!.Alpha = fresh || !_lastBatteryUiUtc.HasValue ? 1f : 0.45f;
     }
 
-    private sealed class MobileInsetsListener : Java.Lang.Object, View.IOnApplyWindowInsetsListener
+    internal sealed class MobileInsetsListener : Java.Lang.Object, View.IOnApplyWindowInsetsListener
     {
         public WindowInsets OnApplyWindowInsets(View? view, WindowInsets? insets)
         {
