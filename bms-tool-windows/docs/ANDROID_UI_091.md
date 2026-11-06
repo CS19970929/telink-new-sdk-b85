@@ -41,4 +41,17 @@
 
 当前ADB没有连接手机，SDK未配置可运行AVD。上述为编译、主机策略与协议验证，不是Android原生页面截图或真实蓝牙验收。还需在手机确认电池页/记录页滚动、扫码相机、服务入口、文件分享导入和Boot恢复升级。
 
-正式两版APK与签名/源码标识核对结果在后续交付记录中追加；旧0.9.0安装包保持不变。所有obj、日志和临时脚本均在用户TEMP/CodexTemp/bms-tool-windows/android-ui-20261106。
+正式两版APK及签名/源码核对结果见下节；旧0.9.0安装包SHA256保持不变。所有obj、日志和临时脚本均在用户TEMP/CodexTemp/bms-tool-windows/android-ui-20261106。
+
+## 正式交付
+
+从干净源码`f8a5eeaf52c7`构建两版0.9.1（versionCode16），均0错误/0警告。交付目录：`BmsTool.Android/publish/20261106-v0.9.1-f8a5eeaf/`。
+
+| 版别 | 安装包 | 大小 |
+| --- | --- | --- |
+| Customer | [BMS-Battery-0.9.1-Customer.apk](../BmsTool.Android/publish/20261106-v0.9.1-f8a5eeaf/BMS-Battery-0.9.1-Customer.apk) | 11.85 MiB |
+| Internal | [BMS-Tool-0.9.1-Internal.apk](../BmsTool.Android/publish/20261106-v0.9.1-f8a5eeaf/BMS-Tool-0.9.1-Internal.apk) | 11.87 MiB |
+
+包名分别为`com.cs.bmsbattery`和`com.cs.bmstool.android`，可共存。两包签名均验证通过，与0.9.0相同证书；versionCode递增，可在证书匹配的旧版本上覆盖安装。最低Android6/API23，包含arm64-v8a及x86_64，不包含32位ARM。
+
+已核对APK manifest版本/版别、扫码Activity不可外部导出、相机为可选硬件、内部固件导入接收器仅内部版存在；两个ABI程序集存储均含本次源码提交标识。签名为本机既有Android Debug证书，未更换客户发布密钥。详细SHA256/日志摘要见[证据清单](ANDROID_UI_091_EVIDENCE.json)与交付目录`release-manifest.json`。
