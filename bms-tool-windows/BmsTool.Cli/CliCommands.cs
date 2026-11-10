@@ -48,7 +48,7 @@ Usage:
                   [--count 3] [--interval 1] [--full] [--output report.json] [--json]
   bms-cli compare <before-diag.zip> <after-diag.zip>
                   [--scope all|identity|configuration|runtime] [--output report.md] [--json]
-  bms-cli afe309 <get|zero|program> (--mac MAC | --serial COMx) [--yes] [--json]
+  bms-cli afe309 <get|check|zero|program> (--mac MAC | --serial COMx) [--yes] [--json]
   bms-cli parameters get (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
   bms-cli parameters export (--mac MAC | --name NAME | --auto | --serial COMx)
                   --output parameters.zip [--json]
@@ -787,9 +787,9 @@ Safety:
 
     private static async Task<int> Afe309Async(CliOptions options,CliReporter reporter,CancellationToken ct)
     {
-        if(options.Positionals.Count!=1 || options.Positionals[0] is not ("get" or "zero" or "program"))
-            throw new CliException(ExitCodes.Usage,"usage","afe309 requires get, zero or program.");
-        string action=options.Positionals[0];
+        if(options.Positionals.Count!=1 || options.Positionals[0] is not ("get" or "check" or "zero" or "program"))
+            throw new CliException(ExitCodes.Usage,"usage","afe309 requires get/check, zero or program.");
+        string action=options.Positionals[0]=="check"?"get":options.Positionals[0];
         if(action!="get"&&!options.Has("yes"))
             throw new CliException(ExitCodes.Usage,"usage","309 zero/program requires --yes; program consumes EEPROM endurance and requires all outputs OFF.");
         var endpoint=await CliRuntime.ResolveEndpointAsync(options,reporter,ct);

@@ -279,6 +279,6 @@ C060的parameters get/export先识别项目，返回C060参数块；export保存
 
 OTA结果新增runtimeReadbackAvailable、upgradeReadback（board/version/bytes/crc32）。已确认APP元数据而新项目尚无既有BMS视图时，newVersion可为包版本十六进制，battery各值可空；现有受支持项目原字段及行为保持。--expected-version仍额外比较软件版本显示。
 
-## C077双309（2026-11-06）
+## C077双309（2026-11-11）
 
-`afe309 get|zero|program`复用共享C077Parameters；zero/program须显式`--yes`且固件确认全部输出关闭。JSON沿用现有envelope，snapshot含双芯片零偏/EEPROM/采样状态，写失败不自动重发。`parameters get/export`按C077产品标签隔离，升级支持`.c077`并继续严格核对D170板号。详细前提与边界见[C077配套](C077.md)。
+`afe309 get|check|zero|program`复用共享C077Parameters；get/check只读，zero/program须显式`--yes`且固件确认输出及均衡关闭。schema2 snapshot报告每片配置/采样/CONF/BSTATUS/失败寄存器、工厂阶段与结果；只有AFE1采电流并校零，AFE2显示“未启用”。ACK不代表维护完成，必须轮询两片配置、AFE1校零及采样/控制资格；失败不自动重发。JSON envelope不变，snapshot新增ServiceError、ServicePosition及每片CurrentEnabled/LastError/LastRegister。`parameters get/export`按C077标签隔离，.c077升级仍严格核对D170板号。动态档位、完成判据、联合模型和实板边界见[C077配套](C077.md)。

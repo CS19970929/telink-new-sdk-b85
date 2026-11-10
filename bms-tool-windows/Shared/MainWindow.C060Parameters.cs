@@ -74,12 +74,12 @@ public partial class MainWindow
             _c077Status.Text=(await c.ReadC077AfeAsync(t)).Summary;
         },"读取309诊断",false,requireCapture:false));
         AfeButton("关闭输出后重试零偏",async()=>{
-            if(MessageBox.Show(this,"请先确认充/放电及预充关闭，当前没有真实通路电流。确认重新采集两颗CADC零偏？偏置只保存在RAM。","309零偏重试",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
+            if(MessageBox.Show(this,"请先确认充/放电及预充关闭，当前没有真实通路电流。确认重新采集AFE1 CADC零偏（AFE2未启用）？偏置只保存在RAM。","309零偏重试",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
             await RunC060ParameterAsync(async(c,t)=>{_c077Status.Text=(await c.RunC077ServiceAsync(false,t)).Summary;},"309重新校零",requireCapture:false);
         });
 #if BMS_FACTORY_APP
         AfeButton("维修：核对并写入双309档案",async()=>{
-            if(MessageBox.Show(this,"将固件固定硬件保护档案写入两颗309，只写差异字节。EEPROM编程寿命≤100次；两颗不能原子提交，中断后保持关闭并需明确重试。请先断开负载/充电器并确认输出关闭。是否执行？","309 EEEPROM维修",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
+            if(MessageBox.Show(this,"将当前已保存参数对应的硬件保护档案写入两颗309，只写差异字节。EEPROM编程寿命≤100次；两颗不能原子提交，中断后保持关闭并需明确重试。请先断开负载/充电器并确认输出关闭。是否执行？","309 EEEPROM维修",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
             await RunC060ParameterAsync(async(c,t)=>{_c077Status.Text=(await c.RunC077ServiceAsync(true,t)).Summary;},"双309硬件档案维修",requireCapture:false);
         });
 #endif
@@ -134,7 +134,7 @@ public partial class MainWindow
     {
         bool c060=_bms?.UsesC060Protocol==true,c077=_bms?.IsC077==true;
         _c077Tools.Visibility=_c077Status.Visibility=c077?Visibility.Visible:Visibility.Collapsed;
-        _c060Intro.Text=c077 ? "C077 · 16串分口 / 双SH367309。软件保护与两颗硬保护独立；309最低充电硬门限40A。零偏仅RAM，EEPROM维修仅内部版。" :
+        _c060Intro.Text=c077 ? "C077 · 16串分口 / 双SH367309。仅AFE1采电流和RAM校零，AFE2未启用CADC；最低充电硬门限40A。硬件档位变更后需工厂配置，EEPROM维修仅内部版。" :
             "C060 · 20串分口 / 双BQ76930。软件保护在‘保护参数’页；保存前重新读取整组。";
         if(_c060RowsC077!=c077) {
             _c060Rows.Clear();foreach(var field in C060Parameters.FieldsFor(c077))_c060Rows.Add(new(){Field=field});
@@ -209,12 +209,12 @@ public partial class MainWindow
             }
             if(changes.Count==0){_c060Status.Text="没有待保存修改。";return;}
             string detail=string.Join("\n",changes.Select(c=>{var row=_c060Rows.Single(r=>r.Field.Address==c.Key);return row.Name+"："+row.DeviceValue+" → "+row.Field.Format(c.Value)+" "+row.Unit;}));
-            if(_bms?.IsC077!=true&&changes.Keys.Any(a=>a is 0x230A or 0x230B)&&_c060Capture.Blocks.TryGetValue("2308",out var currentGroup)&&_c060Capture.Blocks.TryGetValue("231C",out var system)) {
+            if(changes.Keys.Any(a=>a is 0x230A or 0x230B)&&_c060Capture.Blocks.TryGetValue("2308",out var currentGroup)&&_c060Capture.Blocks.TryGetValue("231C",out var system)) {
                 var candidate=(ushort[])currentGroup.Clone();
                 foreach(var change in changes.Where(c=>c.Key>=0x2308&&c.Key<0x2310))candidate[change.Key-0x2308]=change.Value;
                 ushort resistance=changes.TryGetValue(0x231D,out var r)?r:system[1],parallel=changes.TryGetValue(0x231E,out var p)?p:system[2];
-                var effective=C060Parameters.NormalizeCurrentGroup(candidate,resistance,parallel);
-                detail+=$"\n短路档位预计有效值：{effective[2]/10m}μs，{effective[3]/10m}A；参数回读不能证明实际AFE写入成功。";
+                var effective=_bms?.IsC077==true?C077Parameters.NormalizeCurrentGroup(candidate,resistance,parallel):C060Parameters.NormalizeCurrentGroup(candidate,resistance,parallel);
+                detail+=$"\n短路档位预计有效值：{effective[2]/10m}μs，{effective[3]/10m}A；参数回读不能证明实际AFE写入成功；C077需随后执行内部版双309工厂配置。";
             }
             if(changes.Keys.Any(a=>a is >=0x2318 and <=0x231B))detail+="\n容量/SOC参数组保存会重建相关学习状态，保留当前SOC百分比。";
             if(MessageBox.Show(this,detail+"\n\n按组分别保存并回读；中途失败时前组可能已经保存。是否继续？","确认C060参数",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;

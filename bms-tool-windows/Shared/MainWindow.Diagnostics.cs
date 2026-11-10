@@ -31,7 +31,7 @@ public partial class MainWindow
     private readonly Canvas _socChart = new() {Height=420,Background=Brushes.WhiteSmoke,ClipToBounds=true};
     private readonly TextBlock _socRecordStatus = new() {Margin=new Thickness(6),TextWrapping=TextWrapping.Wrap};
     private readonly List<SocRecord> _socRecords = new();
-    private bool _socRecording;
+    private bool _socRecording=false;
     private static DataGrid DiagnosticGrid()=>new() {IsReadOnly=true,AutoGenerateColumns=true,
         CanUserAddRows=false,CanUserDeleteRows=false,Margin=new Thickness(4)};
     private void AddDiagnosticTab()

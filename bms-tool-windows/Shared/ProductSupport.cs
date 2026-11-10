@@ -19,7 +19,7 @@ public static class ProductSupportMatrix
         new ProductSupportProfile[]
         {
             new("C077", "SH367309 ×2", "16S split-port", 0, 0, false, null,
-                "Shared C060 software parameters, dual 309 diagnostics/RAM zero, explicit EEPROM maintenance, format-2 YMODEM",
+                "C060 runtime contract, C077 legacy defaults, schema-2 dual 309 diagnostics, AFE1-only CADC/RAM zero, dynamic current codes and explicit EEPROM provisioning, format-2 YMODEM",
                 "host/firmware model and link checks only; no C077 physical-board acceptance"),
             new("C060", "BQ76930 ×2", "20S split-port", 0, 0, false, null,
                 "C060 identity/realtime/protection/parameter mapping; unified YMODEM format-2 upgrade",

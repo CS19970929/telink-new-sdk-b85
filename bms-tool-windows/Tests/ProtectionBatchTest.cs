@@ -8,32 +8,18 @@ class Program {
   var plan=ProtectionBatch.Plan(a,changes);Check(plan.Count==1 && plan[0].Values.SequenceEqual(new ushort[]{400,500,600,550,0}),"atomic group");
   Check(a[0]==100,"no mutation");
   changes[0x2105]=600;changes[0x2106]=500;changes[0x2107]=400;changes[0x2108]=450;
-  var b=new BmsClient{Current=a};int verified=0;await b.WriteProtectionChangesAsync(changes,(_,_)=>verified++);
-  Check(b.Writes==2&&verified==2&&b.MaxFrame==19,"multiple groups within MTU23");
-  var bad=new Dictionary<ushort,ushort>{{0x2100,900}};b.Writes=0;
+  var peer=new Peer{Protection=a};await using var b=new BmsClient(peer);int verified=0;await b.WriteProtectionChangesAsync(changes,(_,_)=>verified++);
+  Check(peer.Writes==2&&verified==2&&peer.WriteLengths.Max()==19,"multiple groups within MTU23");
+  var bad=new Dictionary<ushort,ushort>{{0x2100,900}};peer.Writes=0;
   try{await b.WriteProtectionChangesAsync(bad,(_,_)=>{});throw new Exception("invalid accepted");}catch(ArgumentException){}
-  Check(b.Writes==0,"invalid candidate no writes");
-  b.Current=Initial();b.FailAddress=0x2105;
+  Check(peer.Writes==0,"invalid candidate no writes");
+  peer.Protection=Initial();peer.FailWriteAddress=0x2105;
   try{await b.WriteProtectionChangesAsync(changes,(_,_)=>{});throw new Exception("failure accepted");}catch(System.IO.IOException e){Check(e.Message.Contains("此前1组")&&e.Message.Contains("0x2105"),"partial progress");}
-  Check(b.Current[0]==400&&b.Current[5]==300,"completed group retained");
+  Check(peer.Protection[0]==400&&peer.Protection[5]==300,"completed group retained");
   var all=new Dictionary<ushort,ushort>();for(int g=0;g<13;g++)all[(ushort)(0x2104+5*g)]=20;
   Check(ProtectionBatch.Plan(Initial(),all).Count==13,"all groups");
   var d015=Initial();
   Check(ProtectionBatch.Plan(d015,new Dictionary<ushort,ushort>{{0x2101,0}},true).Count==1,"D015 per-level disable");
   Console.WriteLine("PASS batch: transient-invalid sequence, 13 groups, 19-byte frames, preflight, partial failure");
- }
-}
-namespace BmsTool.Windows {
- public sealed partial class BmsClient {
-  public bool IsD015 {get;set;}
-  public bool IsC060 {get;set;}
-  public ushort[] Current=new ushort[65];public int Writes,MaxFrame;public ushort FailAddress;
-  public Task<ushort[]> ReadProtectionAllAsync(CancellationToken ct)=>Task.FromResult((ushort[])Current.Clone());
-  public Task<ushort[]> ReadRegistersAsync(ushort a,ushort n,CancellationToken ct)=>Task.FromResult(Current.AsSpan(a-0x2100,n).ToArray());
-  public Task WriteRegistersAsync(ushort a,ushort[] v,CancellationToken ct){
-   if(a==FailAddress)throw new System.IO.IOException("simulated disconnect");
-   var bytes=new byte[v.Length*2];for(int i=0;i<v.Length;i++)System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(bytes.AsSpan(2*i),v[i]);
-   MaxFrame=Math.Max(MaxFrame,ModbusRtu.WriteMultiple(a,bytes).Length);Writes++;Array.Copy(v,0,Current,a-0x2100,v.Length);return Task.CompletedTask;
-  }
  }
 }

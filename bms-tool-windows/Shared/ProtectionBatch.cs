@@ -7,7 +7,7 @@ public static class ProtectionBatch
     private static readonly string[] Names = { "单体过压", "单体欠压", "总压过压", "总压欠压", "充电过流", "放电过流", "充电高温", "充电低温", "放电高温", "放电低温", "MOS高温", "压差过大", "SOC低保护" };
     public static string Name(ushort address) => Names[(address - 0x2100) / 5];
 
-    public static IReadOnlyList<ProtectionGroupWrite> Plan(ushort[] current, IReadOnlyDictionary<ushort, ushort> changes, bool d015 = false, bool c060 = false)
+    public static IReadOnlyList<ProtectionGroupWrite> Plan(ushort[] current, IReadOnlyDictionary<ushort, ushort> changes, bool d015 = false, bool c060 = false, bool c077 = false)
     {
         if (current.Length != 65) throw new ArgumentException("保护参数读取长度必须为65。");
         var candidate = (ushort[])current.Clone();
@@ -15,9 +15,10 @@ public static class ProtectionBatch
             if (change.Key < 0x2100 || change.Key > 0x2140) throw new ArgumentOutOfRangeException(nameof(changes));
             candidate[change.Key - 0x2100] = change.Value;
         }
-        if (c060) ValidateC060(candidate);
+        if(c077)C077Parameters.ValidateProtection(candidate);
+        else if (c060) ValidateC060(candidate);
         // Match the existing 65-word firmware validator. SOC legacy fields are not evaluated.
-        for (int group = 0; !c060 && group < 12; group++) {
+        for (int group = 0; !c060 && !c077 && group < 12; group++) {
             int n = group * 5;
             ushort first = candidate[n], second = candidate[n+1], third = candidate[n+2], recover = candidate[n+3];
             bool low = group is 1 or 3 or 7 or 9;
@@ -78,11 +79,16 @@ public sealed partial class BmsClient
         try {
             // The full candidate is checked before any write; untouched fields come from the device.
             var current=await ReadProtectionAllAsync(ct);
-            var plan = ProtectionBatch.Plan(current, changes, IsD015, UsesC060Protocol);
+            var plan = ProtectionBatch.Plan(current, changes, IsD015, UsesC060Protocol, IsC077);
             if(IsC077) {
                 var candidate=(ushort[])current.Clone();
                 foreach(var change in changes)candidate[change.Key-0x2100]=change.Value;
                 C077Parameters.ValidateProtection(candidate);
+                if((candidate[3]!=current[3]||candidate[8]!=current[8])&&
+                   (candidate[8]==0||candidate[8]>candidate[3]||candidate[8]>=4260||candidate[3]<=2600))
+                    throw new ArgumentException("C077单体恢复窗口须满足0<UV≤OV、UV<4260mV、OV>2600mV。");
+                if(C077Parameters.OvercurrentCode(candidate[22])!=C077Parameters.OvercurrentCode(current[22])||
+                   C077Parameters.OvercurrentCode(candidate[27])!=C077Parameters.OvercurrentCode(current[27]))await RequireC077OutputsOffAsync(ct);
             }
             int completed = 0;
             foreach (var group in plan) {

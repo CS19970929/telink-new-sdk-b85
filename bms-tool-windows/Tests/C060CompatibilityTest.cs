@@ -117,7 +117,7 @@ internal static class Program
 }
 internal sealed class Peer : IBmsTransport, IBmsMtuTransport
 {
-    public bool C077=false,ServiceFailure=false,Bad309Schema=false; public int ServiceCommands,ServicePolls; private int pendingService;
+    public bool C077=false,ServiceFailure=false,Bad309Schema=false; public int ServiceCommands,ServicePolls; public ushort OutputRequest=0; private int pendingService;
     public bool Advertised=false,Unknown=false,SeparateIdentity=false,NoStatus=false,NoIdentity=false,SilentRealtime=false;
     public int Writes,Reconnects;public int Soc=55;public List<byte[]> SentRequests=new();public int FailWriteAddress=0;public bool CorruptReadback=false;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
     public bool IsConnected=>true;public bool RequiresSerialWakeup=>false;public string DiscoveryDescription=>"C060 fixture";
@@ -169,8 +169,13 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
         if(a==0xD170&&n==12&&Advertised)return new ushort[]{0x5550,1,(ushort)(C077?0xC077:0xC060),(ushort)(C077?0x16:0x20),2,2,0x800,0x1C00,0,0xCC00,0,0};
         if(C077&&a>=0x2A40&&a+n<=0x2A80) {
             if(a==0x2A40&&pendingService!=0 && ++ServicePolls>=2)pendingService=0;
-            var w=new ushort[64];w[0]=0xC077;w[1]=(ushort)(Bad309Schema?2:1);w[2]=(ushort)pendingService;w[3]=(ushort)(ServiceFailure?1:0);w[7]=1;w[58]=(ushort)(pendingService==0?1:0);
-            for(int i=0;i<2;i++) {int at=8+i*12;w[at]=1;w[at+1]=(ushort)(pendingService==0?2:1);w[at+2]=unchecked((ushort)(short)(i==0?-12:7));w[at+3]=(ushort)(pendingService==0?8:3);w[at+4]=12;w[at+9]=64;w[at+11]=1;}
+            var w=new ushort[64];w[0]=0xC077;w[1]=(ushort)(Bad309Schema?1:2);w[2]=(ushort)pendingService;w[3]=(ushort)(ServiceFailure?5:0);w[5]=OutputRequest;w[7]=1;
+            w[58]=(ushort)(pendingService==0?1:0);w[59]=(ushort)(pendingService==0?2:1);w[60]=unchecked((ushort)(short)-12);w[61]=(ushort)(pendingService==0?8:3);w[63]=0x010E;
+            for(int i=0;i<2;i++) {
+                int at=8+i*12;w[at]=1;w[at+1]=(ushort)(i==0?8:0);w[at+6]=64;w[at+8]=(ushort)(pendingService==0?1:0);w[at+11]=(ushort)(i==0?1:0);
+                byte[] profile=Convert.FromHexString(i==0?"501C8F54833E828CC36432FA26F6420004000000000000000040":"501C8F5C833E828CC36432FA26F6530004000000000000000040");
+                for(int j=0;j<13;j++)w[32+i*13+j]=(ushort)(profile[j*2]*256+profile[j*2+1]);
+            }
             return w.Skip(a-0x2A40).Take(n).ToArray();
         }
         if(a==0xC002&&n==48&&!SeparateIdentity)return Identity.ToArray();
