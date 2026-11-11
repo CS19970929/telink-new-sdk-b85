@@ -78,6 +78,9 @@ public partial class MainWindow
             await RunC060ParameterAsync(async(c,t)=>{_c077Status.Text=(await c.RunC077ServiceAsync(false,t)).Summary;},"309重新校零",requireCapture:false);
         });
 #if BMS_FACTORY_APP
+        AfeButton("编辑双309硬件保护（Flash / EEPROM）",()=>RunC060ParameterAsync((c,t)=>{
+            var editor=new C077AfeEditorWindow(c){Owner=this};editor.ShowDialog();return Task.CompletedTask;
+        },"双309硬保护编辑",requireCapture:false,refreshAfter:false));
         AfeButton("维修：核对并写入双309档案",async()=>{
             if(MessageBox.Show(this,"将当前已保存参数对应的硬件保护档案写入两颗309，只写差异字节。EEPROM编程寿命≤100次；两颗不能原子提交，中断后保持关闭并需明确重试。请先断开负载/充电器并确认输出关闭。是否执行？","309 EEEPROM维修",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
             await RunC060ParameterAsync(async(c,t)=>{_c077Status.Text=(await c.RunC077ServiceAsync(true,t)).Summary;},"双309硬件档案维修",requireCapture:false);
@@ -134,7 +137,7 @@ public partial class MainWindow
     {
         bool c060=_bms?.UsesC060Protocol==true,c077=_bms?.IsC077==true;
         _c077Tools.Visibility=_c077Status.Visibility=c077?Visibility.Visible:Visibility.Collapsed;
-        _c060Intro.Text=c077 ? "C077 · 16串分口 / 双SH367309。仅AFE1采电流和RAM校零，AFE2未启用CADC；最低充电硬门限40A。硬件档位变更后需工厂配置，EEPROM维修仅内部版。" :
+        _c060Intro.Text=c077 ? "C077 · 16串分口 / 双SH367309。仅AFE1采电流和RAM校零，AFE2未启用CADC；最低充电硬门限40A。硬保护在内部版独立编辑：先保存Flash，再明确下发EEPROM；软件过流不再自动改变硬保护。" :
             "C060 · 20串分口 / 双BQ76930。软件保护在‘保护参数’页；保存前重新读取整组。";
         if(_c060RowsC077!=c077) {
             _c060Rows.Clear();foreach(var field in C060Parameters.FieldsFor(c077))_c060Rows.Add(new(){Field=field});
@@ -154,7 +157,7 @@ public partial class MainWindow
         foreach(var row in _c060Rows)row.Clear();
         _c060Soc.Clear();_c060Serial.Clear();_c060Hardware.Clear();_c060Software.Clear();_c060Status.Text="当前连接尚未读取产品参数。";_c077Status.Text="";
     }
-    private async Task RunC060ParameterAsync(Func<BmsClient,CancellationToken,Task>? action,string operation="保存参数",bool requiresUnlock=true,bool requireCapture=true)
+    private async Task RunC060ParameterAsync(Func<BmsClient,CancellationToken,Task>? action,string operation="保存参数",bool requiresUnlock=true,bool requireCapture=true,bool refreshAfter=true)
     {
         if(_parameterBusy||_diagBusy||_eventLogReadInProgress||_otaRunning||_shBusy||_autoReconnectRunning){_c060Status.Text="设备正忙，请稍后操作。";return;}
         var client=_bms;if(client is null){_c060Status.Text="请先连接设备。";return;}
@@ -169,6 +172,7 @@ public partial class MainWindow
             if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变。");
             _c060Status.Text="正在执行："+operation;
             if(action is not null)await action(client,timeout.Token);
+            if(!refreshAfter)return;
             if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变。");
             UpdateParameterProfileUi();
             if(!client.UsesC060Protocol){_parameterProbedClient=null;return;}

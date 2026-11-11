@@ -24,7 +24,28 @@ static class Test
         await wire.Configure("@resume");
         var resumed=await client.RunC077ServiceAsync(true);
         Check(resumed.ZeroReady&&resumed.SampleValid&&!resumed.ServiceFailed,"explicit retry recovers native C state");
-        Console.WriteLine("PASS shared C# BmsClient / production C309 service: schema2, actual profile/zero completion, disabled AFE2 CADC, interrupted EEPROM, no blind replay and explicit recovery");
+        var hardware=await client.ReadC077HardwareAsync(true);
+        Check(hardware.Saved[0][1]==4260&&hardware.Saved[1][1]==4300,"independent physical default fields");
+        var file=C077Hardware.File(hardware.Saved);
+        Check(C077Hardware.Import(file)[0].SequenceEqual(hardware.Saved[0]),"named JSON physical roundtrip");
+        string webJson=System.Text.Json.JsonSerializer.Serialize(file,new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Check(C077Hardware.Import(C077Hardware.ParseFile(webJson))[0].SequenceEqual(hardware.Saved[0]),"actual CLI camelCase JSON imports into editor");
+        try {C077Hardware.ParseFile(webJson.Replace("\"product\":\"C077\"","\"product\":\"C060\""));throw new Exception("foreign hardware JSON accepted");}catch(System.IO.InvalidDataException){}
+        Check(C077Hardware.Decode(hardware.Actual.Chips[0].Eeprom,hardware.Actual.Chips[0].Tr)[14]==500,"OCD2 distinct official 500mV table");
+        var a=(ushort[])hardware.Saved[0].Clone();var b=(ushort[])hardware.Saved[1].Clone();a[1]=4240;b[1]=4320;
+        await client.SaveC077HardwareAsync(0,a,hardware.Saved[0]);await client.SaveC077HardwareAsync(1,b,hardware.Saved[1]);
+        var pending=await client.ReadC077HardwareAsync(true);
+        Check(pending.Actual.Chips[0].Eeprom[3]==0x54&&pending.Actual.Chips[1].Eeprom[3]==0x5C,"saving Flash does not program EEPROM");
+        var primary=await client.ProgramC077HardwareAsync(1);
+        Check(primary.Chips[0].ProfileMatches&&!primary.Chips[1].ProfileMatches&&primary.Chips[0].ZeroState==2,"selected primary completes zero while secondary awaits explicit program");
+        await client.ProgramC077HardwareAsync(2);
+        var complete=await client.ReadC077HardwareAsync(true);
+        Check(complete.Actual.Chips.All(c=>c.ProfileMatches&&c.Valid)&&complete.Actual.SampleValid,"second independent program restores pack eligibility");
+        Check(complete.Actual.Chips[0].Eeprom[3]==0x50&&complete.Actual.Chips[1].Eeprom[3]==0x60,"two distinct EEPROM values read back");
+        int writes=wire.ServiceWrites;
+        try {var bad=(ushort[])a.Clone();bad[13]=30;await client.SaveC077HardwareAsync(0,bad);throw new Exception("bad hardware delay accepted");}catch(ArgumentException){}
+        Check(writes==wire.ServiceWrites,"invalid physical code does not program");
+        Console.WriteLine("PASS shared C# BmsClient / production C309 service: schema2 + hardware schema1, independent Flash/selected program/readback, actual profile/zero completion, disabled AFE2 CADC, interrupted EEPROM, no blind replay and explicit recovery");
     }
 }
 sealed class NativeTransport : IBmsTransport

@@ -282,3 +282,7 @@ OTA结果新增runtimeReadbackAvailable、upgradeReadback（board/version/bytes/
 ## C077双309（2026-11-11）
 
 `afe309 get|check|zero|program`复用共享C077Parameters；get/check只读，zero/program须显式`--yes`且固件确认输出及均衡关闭。schema2 snapshot报告每片配置/采样/CONF/BSTATUS/失败寄存器、工厂阶段与结果；只有AFE1采电流并校零，AFE2显示“未启用”。ACK不代表维护完成，必须轮询两片配置、AFE1校零及采样/控制资格；失败不自动重发。JSON envelope不变，snapshot新增ServiceError、ServicePosition及每片CurrentEnabled/LastError/LastRegister。`parameters get/export`按C077标签隔离，.c077升级仍严格核对D170板号。动态档位、完成判据、联合模型和实板边界见[C077配套](C077.md)。
+
+## C077硬保护维护
+
+新增afe309 hardware-get/hardware-save/verify和program --chip 1|2|both；硬保护JSON、Flash保存与EEPROM下发边界见 [C077硬保护编辑](C077-hardware-editor.md)。原JSON envelope及既有get/check/zero/program默认双片入口保留。

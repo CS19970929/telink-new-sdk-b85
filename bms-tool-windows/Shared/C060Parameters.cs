@@ -55,8 +55,8 @@ public static class C060Parameters
             >=0x204E and <=0x204F or >=0x2054 and <=0x205B =>
                 f with {Editable=false,Hint="C077未使用该通道；电流仅采用AFE1开机RAM零偏与固定分流换算，缺失串位不参与采样。"},
             0x231C => f with {Hint="C077固定16串，两颗309各采完整16串。"},
-            0x230A => f with {Minimum=640,Maximum=8960,Hint="309按64μs向上量化；AFE2再高一级。保存后需明确工厂配置。"},
-            0x230B => f with {Maximum=16000,Hint="按0.5mΩ和309短路表量化；AFE2再高一级。保存后需明确工厂配置。"},
+            0x230A => f with {Minimum=640,Maximum=8960,Editable=false,Hint="历史兼容字段；硬件短路延时请在双309硬保护编辑页分别设置。"},
+            0x230B => f with {Maximum=16000,Editable=false,Hint="历史兼容字段；硬件短路电流请在双309硬保护编辑页分别设置。"},
             0x231D or 0x231E => f with {Editable=false,Hint="每颗309独立4颗2mΩ并联，固定0.5mΩ。"},
             _ => f
         }).ToArray();

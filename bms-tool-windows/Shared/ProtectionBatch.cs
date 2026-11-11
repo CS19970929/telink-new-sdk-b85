@@ -87,8 +87,7 @@ public sealed partial class BmsClient
                 if((candidate[3]!=current[3]||candidate[8]!=current[8])&&
                    (candidate[8]==0||candidate[8]>candidate[3]||candidate[8]>=4260||candidate[3]<=2600))
                     throw new ArgumentException("C077单体恢复窗口须满足0<UV≤OV、UV<4260mV、OV>2600mV。");
-                if(C077Parameters.OvercurrentCode(candidate[22])!=C077Parameters.OvercurrentCode(current[22])||
-                   C077Parameters.OvercurrentCode(candidate[27])!=C077Parameters.OvercurrentCode(current[27]))await RequireC077OutputsOffAsync(ct);
+                // Software protection is independent of the new per-chip hardware settings.
             }
             int completed = 0;
             foreach (var group in plan) {

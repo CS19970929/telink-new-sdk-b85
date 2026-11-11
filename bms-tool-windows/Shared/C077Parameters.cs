@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 namespace BmsTool.Windows;
 
 public sealed record C077AfeChip(bool ProfileMatches,int ZeroState,short OffsetCounts,int ZeroSamples,
@@ -95,5 +96,169 @@ public sealed partial class BmsClient
             if(state.ServiceState==0&&state.ZeroReady&&state.SampleValid&&!state.OpeningPending&&!state.DriverFault&&state.BalanceOff&&state.Chips.All(c=>c.Valid))return state;
         }
         throw new TimeoutException("309事务完成尚未确认；可能已有部分EEPROM写入，未自动重发，请重新读取诊断。");
+    }
+}
+
+
+public sealed record C077HardwareField(int Index,string Key,string Name,string Unit,int Minimum,int Maximum,int Step=1,int[]? Choices=null)
+{
+    public bool Signed=>Index is >=23 and <=30;
+    public int Value(ushort word)=>Signed?unchecked((short)word):word;
+    public string Limits=>Choices is null?$"{Minimum}..{Maximum}，步进{Step}":string.Join(" / ",Choices);
+}
+public sealed record C077HardwareSnapshot(ushort[][] Saved,ushort[][] Expected,C077AfeSnapshot Actual);
+public sealed class C077HardwareFile
+{
+    public string Product {get;set;}="";
+    public int Schema {get;set;}
+    public Dictionary<string,int>[] Chips {get;set;}=Array.Empty<Dictionary<string,int>>();
+}
+public static class C077Hardware
+{
+    public const ushort Header=0x2B00,ConfigBase=0x2B10,ExpectedBase=0x2B80;
+    public static readonly int[] VoltageDelay={100,200,300,400,600,800,1000,2000,3000,4000,6000,8000,10000,20000,30000,40000};
+    public static readonly int[] Ocd1Delay={50,100,200,400,600,800,1000,2000,4000,6000,8000,10000,15000,20000,30000,40000};
+    public static readonly int[] FastDelay={10,20,40,60,80,100,200,400,600,800,1000,2000,4000,8000,10000,20000};
+    public static readonly int[] Ocd2Mv={30,40,50,60,70,80,90,100,120,140,160,180,200,300,400,500};
+    public static readonly string[] FeatureNames={"ENMOS 充电MOS反向恢复","OCPM 过流双路关闭","E0VB 低压电芯禁止充电","UV_OP 欠压双路关闭","DIS_PF 禁止二次过充/断线保护","OCRA 电流定时自恢复","EUVR 欠压恢复要求负载移除"};
+    public static readonly C077HardwareField[] Fields={
+        new(0,"features","保护功能位","位掩码",0,127),
+        new(1,"ov_mv","过压动作","mV",1000,5115,5),
+        new(2,"ov_delay_ms","过压延时","ms",100,40000,1,VoltageDelay),
+        new(3,"ov_recovery_mv","过压恢复","mV",1000,5115,5),
+        new(4,"uv_mv","欠压动作","mV",1000,5100,20),
+        new(5,"uv_delay_ms","欠压延时","ms",100,40000,1,VoltageDelay),
+        new(6,"uv_recovery_mv","欠压恢复","mV",1000,5100,20),
+        new(7,"balance_mv","AFE自主均衡阈值（MCU模式不使用）","mV",0,5100,20),
+        new(8,"precharge_mv","AFE内部预充阈值（本板禁用）","mV",0,5100,20),
+        new(9,"low_charge_mv","低压电芯禁充阈值","mV",0,5100,20),
+        new(10,"pf_mv","二次过充阈值","mV",0,5100,20),
+        new(11,"pf_delay_s","二次过充延时","s",8,64,1,new[]{8,16,32,64}),
+        new(12,"ocd1_mv","放电过流1（0.5mΩ：mV×2=A）","mV",20,200,1,C077Parameters.OvercurrentMillivolts.Select(x=>(int)x).ToArray()),
+        new(13,"ocd1_delay_ms","放电过流1延时","ms",50,40000,1,Ocd1Delay),
+        new(14,"ocd2_mv","放电过流2（mV×2=A）","mV",30,500,1,Ocd2Mv),
+        new(15,"ocd2_delay_ms","放电过流2延时","ms",10,20000,1,FastDelay),
+        new(16,"short_mv","短路（mV×2=A）","mV",50,1000,1,C077Parameters.ShortMillivolts.Select(x=>(int)x).ToArray()),
+        new(17,"short_delay_us","短路延时","μs",0,960,64),
+        new(18,"occ_mv","充电过流（mV×2=A）","mV",20,200,1,C077Parameters.OvercurrentMillivolts.Select(x=>(int)x).ToArray()),
+        new(19,"occ_delay_ms","充电过流延时","ms",10,20000,1,FastDelay),
+        new(20,"charge_detect_uv","充放电方向检测","μV",200,2000,1,new[]{200,500,1000,2000}),
+        new(21,"mos_delay_us","AFE MOS开启延时","μs",64,512,1,new[]{64,128,256,512}),
+        new(22,"current_recovery_s","电流自动恢复延时","s",8,64,1,new[]{8,16,32,64}),
+        new(23,"charge_hot_decic","充电高温","0.1℃",-400,1000,10),
+        new(24,"charge_hot_recovery_decic","充电高温恢复","0.1℃",-400,1000,10),
+        new(25,"charge_cold_decic","充电低温","0.1℃",-400,1000,10),
+        new(26,"charge_cold_recovery_decic","充电低温恢复","0.1℃",-400,1000,10),
+        new(27,"discharge_hot_decic","放电高温","0.1℃",-400,1000,10),
+        new(28,"discharge_hot_recovery_decic","放电高温恢复","0.1℃",-400,1000,10),
+        new(29,"discharge_cold_decic","放电低温","0.1℃",-400,1000,10),
+        new(30,"discharge_cold_recovery_decic","放电低温恢复","0.1℃",-400,1000,10),
+        new(31,"load_release_ms","负载释放延时","ms",100,2000,1,new[]{100,500,1000,2000})
+    };
+    private static readonly int[] Ntc10Ohm={20375,19204,18115,17100,16152,15266,14437,13661,12934,12251,11611,11008,10442,9909,9407,8935,8489,8068,7672,7297,6943,6608,6292,5993,5710,5442,5188,4948,4720,4504,4300,4105,3921,3746,3580,3422,3272,3130,2994,2866,2751,2627,2516,2410,2310,2214,2123,2036,1953,1874,1801,1726,1658,1592,1530,1470,1413,1358,1306,1256,1209,1163,1119,1078,1038,1000,963,928,894,862,831,801,773,746,719,694,670,647,625,604,583,563,544,526,509,492,476,460,445,431,416,403,390,378,366,355,343,333,322,312,303,294,285,276,268,260,252,244,237,230,224,217,211,205,199,193,188,182,177,172,167,163,158,154,150,146,142,138,134,131,127,124,120,117,114,111,108,106,103,100,98};
+    public static byte TemperatureCode(int decic,int tr,bool cold)
+    {
+        if(decic< -400||decic>1000||decic%10!=0)throw new ArgumentException("温度必须为−40..100℃整℃档位。");
+        int resistance=Ntc10Ohm[(decic+400)/10]*10;
+        int code=(int)((long)resistance*512/(6800+(tr&127)*50+resistance))-(cold?256:0);
+        if(code<0||code>255)throw new ArgumentException("温度超出该片TR可编码范围。");
+        return (byte)code;
+    }
+    public static void Validate(ushort[] w,int tr=64)
+    {
+        if(w.Length!=32)throw new ArgumentException("每片需要完整32字硬保护配置。");
+        foreach(var f in Fields) {
+            int v=f.Value(w[f.Index]);
+            if(v<f.Minimum||v>f.Maximum||v%f.Step!=0||f.Choices is not null&&!f.Choices.Contains(v))
+                throw new ArgumentException(f.Name+"不在允许档位："+f.Limits);
+        }
+        int V(int n)=>unchecked((short)w[n]);
+        if((w[0]&16)==0&&w[10]<=w[1]||w[3]>w[1]||w[6]<w[4]||w[6]>=w[3]||V(24)>V(23)||V(26)<V(25)||V(28)>V(27)||V(30)<V(29)||V(26)>=V(24)||V(30)>=V(28))
+            throw new ArgumentException("动作/恢复窗口顺序无效。");
+        for(int i=0;i<8;i++)TemperatureCode(V(23+i),tr,(i&2)!=0);
+    }
+    public static Dictionary<string,int> Values(ushort[] words)=>Fields.ToDictionary(f=>f.Key,f=>f.Value(words[f.Index]));
+    public static ushort[] Words(Dictionary<string,int> values)
+    {
+        if(values is null||values.Count!=32||Fields.Any(f=>!values.ContainsKey(f.Key)))throw new InvalidDataException("参数名称/数量必须与C077 schema1完整匹配。");
+        var w=Fields.Select(f=>checked((ushort)(f.Signed?unchecked((ushort)(short)checked((short)values[f.Key])):values[f.Key]))).ToArray();
+        Validate(w);return w;
+    }
+    public static C077HardwareFile File(ushort[][] words)=>new(){Product="C077",Schema=1,Chips=words.Select(Values).ToArray()};
+    public static C077HardwareFile ParseFile(string text)
+    {
+        var file=JsonSerializer.Deserialize<C077HardwareFile>(text,new JsonSerializerOptions{PropertyNameCaseInsensitive=true})??throw new InvalidDataException("硬保护JSON为空。");
+        Import(file);return file;
+    }
+    public static ushort[][] Import(C077HardwareFile file)
+    {
+        if(file.Product!="C077"||file.Schema!=1||file.Chips is null||file.Chips.Length!=2||file.Chips.Any(c=>c is null))throw new InvalidDataException("仅接受双片C077硬保护schema1文件。");
+        return file.Chips.Select(Words).ToArray();
+    }
+    public static int[] Decode(byte[] p,int tr)
+    {
+        if(p.Length!=26)throw new InvalidDataException("309读回必须为26字节。");
+        var w=new int[32];
+        w[0]=((p[0]>>6)&1)|((p[0]>>4)&2)|((p[1]>>5)&4)|((p[1]>>2)&8)|(p[1]&16)|((p[1]<<4)&32)|((p[1]<<6)&64);
+        w[1]=((p[2]&3)*256+p[3])*5;w[2]=VoltageDelay[p[2]>>4];w[3]=((p[4]&3)*256+p[5])*5;
+        w[4]=p[6]*20;w[5]=VoltageDelay[p[4]>>4];w[6]=p[7]*20;
+        w[7]=p[8]*20;w[8]=p[9]*20;w[9]=p[10]*20;w[10]=p[11]*20;w[11]=8<< (p[16]&3);
+        w[12]=C077Parameters.OvercurrentMillivolts[p[12]>>4];w[13]=Ocd1Delay[p[12]&15];
+        w[14]=Ocd2Mv[p[13]>>4];w[15]=FastDelay[p[13]&15];
+        w[16]=C077Parameters.ShortMillivolts[p[14]>>4];w[17]=(p[14]&15)*64;
+        w[18]=C077Parameters.OvercurrentMillivolts[p[15]>>4];w[19]=FastDelay[p[15]&15];
+        w[20]=new[]{200,500,1000,2000}[p[16]>>6];w[21]=new[]{64,128,256,512}[(p[16]>>4)&3];w[22]=8<<((p[16]>>2)&3);
+        w[31]=new[]{100,500,1000,2000}[(p[2]>>2)&3];
+        for(int i=0;i<8;i++) {
+            int best=0,error=int.MaxValue;
+            for(int t= -400;t<=1000;t+=10)try {int e=Math.Abs(TemperatureCode(t,tr,(i&2)!=0)-p[17+i]);if(e<error){error=e;best=t;}}catch(ArgumentException){}
+            w[23+i]=best;
+        }
+        return w;
+    }
+}
+public sealed partial class BmsClient
+{
+    private async Task RequireC077HardwareAsync(CancellationToken ct)
+    {
+        if(!IsC077)throw new NotSupportedException("设备必须明确识别为C077。");
+        var h=await ReadRegistersAsync(C077Hardware.Header,7,ct);
+        if(h[0]!=0xC077||h[1]!=1||h[2]!=32||h[3]!=2||h[6]!=6)throw new NotSupportedException("固件未提供双309 Flash硬保护编辑协议schema1，未发送写命令。");
+    }
+    public async Task<C077HardwareSnapshot> ReadC077HardwareAsync(bool verifyEeprom=false,CancellationToken ct=default)
+    {
+        await RequireC077HardwareAsync(ct);
+        if(verifyEeprom)await WriteSingleRegisterAsync(C077Parameters.ServiceRegister,0xC087,ct);
+        var saved=await ReadRegistersAsync(C077Hardware.ConfigBase,64,ct);
+        var expected=await ReadRegistersAsync(C077Hardware.ExpectedBase,32,ct);
+        return new(new[]{saved[..32],saved[32..]},new[]{expected[..16],expected[16..]},await ReadC077AfeAsync(ct));
+    }
+    public async Task SaveC077HardwareAsync(int chip,ushort[] values,ushort[]? observed=null,CancellationToken ct=default)
+    {
+        if(chip is <0 or >1)throw new ArgumentOutOfRangeException(nameof(chip));
+        await RequireC077HardwareAsync(ct);
+        var state=await ReadC077AfeAsync(ct);C077Hardware.Validate(values,state.Chips[chip].Tr);
+        ushort address=(ushort)(C077Hardware.ConfigBase+chip*32);
+        var before=await ReadRegistersAsync(address,32,ct);
+        if(observed is not null&&!before.SequenceEqual(observed))throw new IOException("Flash配置已由其他入口修改，请重新读取后编辑。");
+        if(before.SequenceEqual(values))return;
+        await RequireC077OutputsOffAsync(ct);
+        await WriteRegistersAsync(address,values,ct);
+        if(!(await ReadRegistersAsync(address,32,ct)).SequenceEqual(values))throw new IOException("Flash保存后读回不一致；未下发AFE，未自动重试。");
+    }
+    public async Task<C077AfeSnapshot> ProgramC077HardwareAsync(int targets,CancellationToken ct=default)
+    {
+        if(targets is <1 or >3)throw new ArgumentOutOfRangeException(nameof(targets));
+        await RequireC077HardwareAsync(ct);await RequireC077OutputsOffAsync(ct);
+        await WriteSingleRegisterAsync(C077Parameters.ServiceRegister,(ushort)(targets==1?0xC071:targets==2?0xC072:0xC077),ct);
+        var timer=Stopwatch.StartNew();
+        while(timer.Elapsed<TimeSpan.FromSeconds(20)) {
+            await Task.Delay(250,ct);var state=await ReadC077AfeAsync(ct);
+            if(state.ServiceFailed)throw new IOException($"EEPROM失败：{C077Parameters.ErrorText(state.ServiceError)}，AFE{(state.ServicePosition>>8)+1}/0x{state.ServicePosition&255:X2}；未自动重发。");
+            var selected=state.Chips.Where((_,i)=>(targets&(1<<i))!=0);
+            if((targets&1)!=0&&state.Chips[0].ZeroState==3)throw new IOException("AFE1校零失败，EEPROM可能已经写入，请重新读取诊断。");
+            if(state.ServiceState==0&&selected.All(c=>c.ProfileMatches&&c.Valid)&&((targets&1)==0||state.Chips[0].ZeroState==2)&&!state.DriverFault&&!state.OpeningPending)return state;
+        }
+        throw new TimeoutException("下发结果未确认，可能已部分写入；请读取实际配置，未自动重发。");
     }
 }

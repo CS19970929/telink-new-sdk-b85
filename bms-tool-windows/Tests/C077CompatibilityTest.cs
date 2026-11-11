@@ -20,7 +20,7 @@ static class Test
             int writes=peer.Writes;await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{address,99}},(_,_)=>{}),"fixed profile edit rejected");Check(peer.Writes==writes,"no invalid write");
         }
         Check(new ushort[]{0x2020,0x203F,0x204E,0x2054}.All(a=>!C060Parameters.FieldsFor(true).Single(f=>f.Address==a).Editable),"unused cells/current/temp channels read only");
-        Check(new ushort[]{0x2000,0x2040,0x2042,0x2044,0x2046,0x2048,0x204A,0x2050,0x2052,0x205C,0x230A,0x230B}.All(a=>C060Parameters.FieldsFor(true).Single(f=>f.Address==a).Editable),"real16-cell/total/temperature/MOS coefficients retained");
+        Check(new ushort[]{0x2000,0x2040,0x2042,0x2044,0x2046,0x2048,0x204A,0x2050,0x2052,0x205C}.All(a=>C060Parameters.FieldsFor(true).Single(f=>f.Address==a).Editable),"real16-cell/total/temperature/MOS coefficients retained");
         await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2318,245}},(_,_)=>{});Check(peer.Other[24]==245,"shared capacity group on C077");
         int before=peer.Writes;
         await Reject(()=>c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x2102,4000}},(_,_)=>{}),"invalid voltage order rejected");
@@ -29,16 +29,11 @@ static class Test
         await c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x2104,120}},(_,_)=>{});
         var diag=await c.ReadC077AfeAsync();Check(diag.ZeroReady&&diag.Chips[0].OffsetCounts==-12&&diag.Chips[1].ZeroStateText=="未启用"&&!diag.Chips[1].CurrentEnabled&&diag.Chips[0].Eeprom.Length==26,"primary signed zero, secondary CADC disabled and packed EEPROM");
         Check(diag.Chips[0].HardwareCurrentText.Contains("OCD1 80A")&&diag.Chips[1].HardwareCurrentText.Contains("SC 400A"),"actual chip code display");
-        peer.OutputRequest=2;int offWrites=peer.Writes;
-        await Reject(()=>c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x2116,420}},(_,_)=>{}),"hardware code change requires outputs off");
-        await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x230B,4600}},(_,_)=>{}),"short code change requires outputs off");
-        Check(peer.Writes==offWrites,"preflight blocks every partial hardware change");peer.OutputRequest=0;
+        peer.OutputRequest=2;
         await c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x2116,420},{0x213C,15},{0x2104,65535}},(_,_)=>{});
-        Check(peer.Protection[22]==420&&peer.Protection[4]==65535,"dynamic OCC, equal levels and full uint16 filter accepted");
-        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x230B,3000}},(_,_)=>{});
-        Check(peer.Other[11]==3400,"same normalized short value does not drift");
-        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x230B,4500},{0x230A,1290}},(_,_)=>{});
-        Check(peer.Other[11]==4600&&peer.Other[10]==1920,"old 0.5mOhm short quantization and delay roundtrip");
+        Check(peer.Protection[22]==420&&peer.Protection[4]==65535,"software protection independently editable, equality and full uint16 filter");
+        await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x230B,4600}},(_,_)=>{}),"legacy short compatibility field is read-only; use explicit chip editor");
+        peer.OutputRequest=0;
         var zero=await c.RunC077ServiceAsync(false);Check(zero.ZeroReady&&peer.ServiceCommands==1&&peer.ServicePolls>=2,"ACK alone is not completion; poll zero readiness");
         Check(peer.SentRequests.Last(r=>r[1]==6)[4]==0x5A,"explicit zero command");
         await c.RunC077ServiceAsync(true);Check(peer.ServiceCommands==2&&peer.SentRequests.Last(r=>r[1]==6)[4]==0xC0,"program only through explicit309 command");
