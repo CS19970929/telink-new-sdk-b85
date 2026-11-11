@@ -30,8 +30,8 @@ bms-cli compare before.zip after.zip --scope all --output compare.md
 bms-cli ota firmware.bin --auto
 ```
 
-`scan --verbose --json` 可查看 Windows BLE 广播扫描与设备枚举的状态。实时广播扫描不可用时返回 `scan_failed` / exit code 13，即使系统设备枚举仍在运行也不把缓存当成实时发现。正常扫描完成但没有近期兼容广播时，返回成功且设备列表为空；正常JSON字段保持原样。
-`scan`、`--auto`、`--name` 只使用最近12秒真实广播；`--mac` 继续允许显式连接已知设备，不要求搜索成功。无名称IAP仅在广播包含对应服务，或同MAC具有已知BMS名称时进入附近结果；搜索阶段不会连接所有陌生设备来探测服务。
+`scan --verbose --json` 可查看直接广播及系统广播更新状态。原始广播接口中止后仍等待完整扫描窗口，系统 LastSeenTime 在本次扫描中持续推进的设备可进入结果；初始缓存、重复时间、名称或 RSSI 更新不能授权在线。两种来源均未确认设备且原始广播接口失败时，返回 `scan_failed` / exit code 13。直接广播接口正常而没有近期兼容设备时，返回成功且设备列表为空。
+`scan`、`--auto`、`--name` 只使用最近12秒确认的直接广播或系统广播时间推进；结果保留既有字段，新增 `discoverySource`（`advertisement` / `systemBroadcastUpdate`）；`--mac` 继续允许显式连接已知设备，不要求搜索成功。无名称IAP仅在广播包含对应服务，或同MAC具有已知BMS名称时进入附近结果；搜索阶段不会连接所有陌生设备来探测服务。
 BLE最多自动尝试2次，GATT阶段20秒预算。取消会停止后续步骤并等待已经执行的Windows查询退出清理，避免新旧连接并行。
 
 指定设备：
@@ -209,7 +209,7 @@ CLI 本身不调用 LLM；它负责给 AI 提供稳定、可重复、机器可�
 | 10 | 未找到设备 |
 | 11 | 找到多块设备，拒绝自动选择 |
 | 12 | BLE/串口/Modbus 连接失败 |
-| 13 | Windows BLE 广播扫描与设备枚举均不可用 |
+| 13 | 原始广播接口失败，且系统广播更新未能确认近期设备 |
 | 20 | BIN 无效 |
 | 21 | 产品/固件预检不匹配 |
 | 22 | 固件超尺寸 |

@@ -67,7 +67,7 @@ public partial class MainWindow
         BleDiscoveryStatusText.Visibility = ShowHistoryDevicesBox.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
         if (serial) return;
         var all = _watcher?.Snapshot(true) ?? Array.Empty<DiscoveredDevice>();
-        var visible = all.Where(d => d.Source == BleDiscoverySource.Advertisement || ShowHistoryDevicesBox.IsChecked == true).ToList();
+        var visible = all.Where(d => d.IsNearby || ShowHistoryDevicesBox.IsChecked == true).ToList();
         if (_connectionMode == ConnectionMode.Ble && _connectedAddress is ulong active && _bmsTransport?.IsConnected == true)
         {
             visible.RemoveAll(d => d.Address == active);
@@ -78,10 +78,12 @@ public partial class MainWindow
             if (!visible.Any(d => d.Address == item.Address)) { _devices.Remove(item); _deviceMap.Remove(item.Address); }
         foreach (var item in visible) UpsertDevice(item);
         if (selected is ulong address && _deviceMap.TryGetValue(address, out var restored)) DeviceList.SelectedItem = restored;
-        int nearby = all.Count(d => d.Source == BleDiscoverySource.Advertisement);
+        int nearby = all.Count(d => d.IsNearby);
         int history = all.Count - nearby;
-        string state = _bleScanProblem ?? (_bleScanRunning && _watcher?.IsBroadcastAvailable == true ? "正在搜索附近设备" : "搜索已停止");
-        BleDiscoveryStatusText.Text = $"{state}\n最近12秒收到广播：{nearby}台；历史记录：{history}台。历史记录不代表在线。";
+        string state = _bleScanRunning && _watcher?.IsDiscoveryAvailable == true
+            ? (_watcher.IsBroadcastAvailable ? "正在搜索附近设备" : "正在通过系统广播更新搜索（原始广播接口不可用）")
+            : _bleScanProblem ?? "搜索已停止";
+        BleDiscoveryStatusText.Text = $"{state}\n最近12秒确认发现：{nearby}台；历史记录：{history}台。历史记录不代表在线。";
         BleDiscoveryStatusText.ToolTip = BleDiscoveryStatusText.Text;
     }
     private void ShowHistoryDevices_Changed(object sender, RoutedEventArgs e) => RefreshBleDeviceList();

@@ -14,6 +14,8 @@ public sealed class BmsBleScanner : IDisposable
 {
     private const string AepSelector = "System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\"";
     private const string AddressProperty = "System.Devices.Aep.DeviceAddress";
+    private const string LastSeenProperty = "System.Devices.Aep.Bluetooth.LastSeenTime";
+    private const string RssiProperty = "System.Devices.Aep.SignalStrength";
     private readonly BluetoothLEAdvertisementWatcher _advertisementWatcher;
     private readonly DeviceWatcher _deviceWatcher;
     private readonly Dictionary<string, DeviceInformation> _aepDevices = new();
@@ -25,6 +27,8 @@ public sealed class BmsBleScanner : IDisposable
     public event Action<string>? ScanFailed;
     public event Action? DevicesChanged;
     public bool IsBroadcastAvailable => !_stopping && _advertisementWatcher.Status == BluetoothLEAdvertisementWatcherStatus.Started;
+    public bool IsDiscoveryAvailable => IsBroadcastAvailable || (!_stopping &&
+        _deviceWatcher.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted);
     public string Status => $"AEP={_deviceWatcher.Status}; advertisement={_advertisementWatcher.Status}";
     public BmsBleScanner(Action<DiscoveredDevice> found, Action<string>? diagnostics = null)
     {
@@ -32,7 +36,7 @@ public sealed class BmsBleScanner : IDisposable
         _advertisementWatcher = new() { ScanningMode = BluetoothLEScanningMode.Active };
         _advertisementWatcher.Received += OnAdvertisement;
         _advertisementWatcher.Stopped += OnAdvertisementStopped;
-        _deviceWatcher = DeviceInformation.CreateWatcher(AepSelector, new[] { AddressProperty }, DeviceInformationKind.AssociationEndpoint);
+        _deviceWatcher = DeviceInformation.CreateWatcher(AepSelector, new[] { AddressProperty, LastSeenProperty, RssiProperty }, DeviceInformationKind.AssociationEndpoint);
         _deviceWatcher.Added += OnAdded;
         _deviceWatcher.Updated += OnUpdated;
         _deviceWatcher.Removed += OnRemoved;
@@ -55,14 +59,14 @@ public sealed class BmsBleScanner : IDisposable
     {
         if (_stopping) return;
         lock (_aepLock) _aepDevices[item.Id] = item;
-        ReportSystem(item);
+        ReportSystem(item, false, item.Properties);
     }
     private void OnUpdated(DeviceWatcher sender, DeviceInformationUpdate update)
     {
         if (_stopping) return;
         DeviceInformation? item;
         lock (_aepLock) { if (!_aepDevices.TryGetValue(update.Id, out item)) return; item.Update(update); }
-        ReportSystem(item);
+        ReportSystem(item, true, update.Properties);
     }
     private void OnRemoved(DeviceWatcher sender, DeviceInformationUpdate update)
     {
@@ -80,16 +84,22 @@ public sealed class BmsBleScanner : IDisposable
         return hex.Length == 12 &&
             ulong.TryParse(hex, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out address);
     }
-    private void ReportSystem(DeviceInformation item)
+    private void ReportSystem(DeviceInformation item, bool isUpdate, IReadOnlyDictionary<string, object> changed)
     {
         string name;
         ulong address;
+        DateTimeOffset? lastSeen = null;
+        short? rssi = null;
         lock (_aepLock)
         {
             if (_stopping || !BmsBleTransport.IsBmsName(item.Name) || !TryAddress(item, out address)) return;
             name = item.Name;
+            // 必须是本次事件携带的 LastSeenTime；缓存属性或仅名称/RSSI更新不能续期。
+            if (changed.TryGetValue(LastSeenProperty, out var seen) && seen is DateTimeOffset stamp) lastSeen = stamp;
+            if (item.Properties.TryGetValue(RssiProperty, out var signal) && signal is int dbm && dbm is >= -127 and < 0) rssi = (short)dbm;
         }
-        _catalog.ObserveSystem(address, name);
+        bool recent = _catalog.ObserveSystem(address, name, lastSeen, isUpdate, rssi);
+        if (recent) _diagnostics?.Invoke($"[SCAN] SYSTEM_BROADCAST_UPDATE {name} {BmsBleTransport.FormatBluetoothAddress(address)} RSSI={rssi}");
         if (_stopping) return;
         var found = _catalog.Snapshot(true).FirstOrDefault(d => d.Address == address);
         if (found is not null) _found(found);
@@ -114,13 +124,16 @@ public sealed class BmsBleScanner : IDisposable
     private void ReportBroadcastFailure(string reason)
     {
         if (_stopping) return;
-        string message = "实时蓝牙搜索已中止，请检查电脑蓝牙。历史设备不代表在线。";
+        string message = IsDiscoveryAvailable
+            ? "原始广播接口已中止，继续等待Windows系统广播更新；历史记录不代表在线。"
+            : "蓝牙搜索接口均不可用，请检查电脑蓝牙；历史记录不代表在线。";
         _diagnostics?.Invoke("[SCAN] " + message + " reason=" + reason);
         ScanFailed?.Invoke(message);
     }
     private void OnAepStopped(DeviceWatcher sender, object args)
     {
         _diagnostics?.Invoke($"[SCAN] AEP_STOPPED status={sender.Status}");
+        if (!_stopping && !IsBroadcastAvailable) ReportBroadcastFailure($"AEP={sender.Status}");
     }
     public void Dispose()
     {

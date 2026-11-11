@@ -2,14 +2,14 @@
 
 ## 蓝牙搜索与连接（2026-11-11）
 
-- 默认“附近设备”只采用真实广播，最后一次广播超过12秒后移出附近列表；系统设备枚举不能刷新这个时间。
+- 默认“附近设备”接受直接广播，以及本次扫描中持续推进的 Windows `System.Devices.Aep.Bluetooth.LastSeenTime`。两种来源分组显示，超过12秒没有新的发现证据就移出附近列表。
 - 勾选“显示历史设备”后才能看到系统缓存或广播已过期的条目，明确标记未发现/已过期，不显示旧RSSI为当前信号；历史条目允许按明确MAC手动连接验证。
 - 真实已建立的BLE连接独立显示，不要求连接期间继续广播。设备名和MAC完整信息也可在列表提示中查看。
 - 系统移除会同步更新列表；停止、重新搜索或关闭窗口后，旧扫描器及已排队回调不能回填新列表。扫描阶段不向陌生设备发起GATT服务查询。
-- 实时广播扫描中止时明确提示；不会因为系统缓存枚举仍运行就显示搜索正常。此时空附近列表表示未取得实时发现证据，不表示电池板必然关机。
+- 初始系统枚举只建立广播时间基线；必须后续 Updated 事件实际携带更大的 LastSeenTime 才进入附近列表。仅名称、RSSI、重复时间和 IsPresent 不续期，系统 Removed 撤销该来源的在线证据。新鲜度按本机单调时钟计时，不依赖系统属性的绝对时间或时区。
 - 手动连接、自动重连、串口连接及断开共用单一串行入口，新请求先取消并等待旧请求清理；旧结果不能回写新会话。两版均提供取消连接按钮。
 - BLE传输最多尝试2次，GATT阶段共享20秒预算；删除两次不可达查询后再额外等待15秒的流程。Windows已经执行的查询需要结束后才能安全清理，因此取消不是强行终止系统蓝牙操作，也不保证20秒整点返回。
-- Windows原生广播扫描器自身异常仍需处理适配器/驱动/系统状态；界面修复不能代替电脑蓝牙链路恢复。
+- 原始广播接口中止后继续等待系统广播更新时间；界面明确显示“正在通过系统广播更新搜索”，不会把缓存存在视作扫描成功。CLI 等待完整扫描窗口，只返回确认近期发现的设备，并通过新增 `discoverySource` 字段区分来源。两种来源均无近期证据且原始接口失败时返回 `scan_failed`。
 
 相关回归：[发现与连接串行测试](test-ble-discovery.ps1)、[两版离屏窗口测试](test-main-window-experience.ps1)；CLI发现/错误语义见[CLI说明](docs/CLI.md)。测试不执行OTA或写入BMS参数。
 
@@ -32,6 +32,14 @@
 Android 客户版与测试版的功能矩阵、导航和独立 MOS 控制见 [两版 App 与 MOS 控制](docs/APP_EDITIONS_AND_MOS_CONTROL.md)。
 
 四个入口共用同一套底层协议源码；Windows 客户版、内部版和 CLI 仍按原发布脚本同步构建，Android 另外构建并安装 APK。客户版不包含工厂测试入口；两版页面范围见下表。涉及 Factory Session 的共享协议代码位于各项目自身源码中，并与 BMS 固件的 `docs/factory_test_protocol.md` 对照维护。
+
+### 本机搜索漏显修复与验证（2026-11-11）
+
+现场 Generic Bluetooth Radio 下，原始 AdvertisementWatcher 主动/被动均立即 Aborted，但系统枚举持续提供 BT_DEFAULT 的 LastSeenTime 更新。旧实现把全部系统枚举当作历史，因此漏显。实现依据：[微软 BluetoothLEExplorer 的 LastSeenTime 处理](https://github.com/microsoft/BluetoothLEExplorer/blob/master/BluetoothLEExplorer/BluetoothLEExplorer/Models/ObservableBluetoothLEDevice.cs)。
+
+修复后，当前电脑的 CLI 在6秒窗口中发现 BT_DEFAULT `A4:C1:38:5E:11:CA`，来源 `systemBroadcastUpdate`；随后实际 BLE 连接与 Modbus 读取成功，身份 D008 / D008-20261019 / V1.8，设备回读 Build ID `eeb95bd0`、有效23串。此地址与前一次板测 `A4:C1:38:A0:EB:83` 不同，不能将本次结果套用于旧地址。
+
+本次验证：客户/内部/CLI 编译通过；发现模型与连接串行回归31项通过；两版 WPF 离屏交互各22项通过；正式包另附实际扫描、身份回读与 SHA-256。未执行参数写入、固件构建/OTA、物理保护或掉电测试。客户版保留既有 `_socRecording` CS0649 警告。
 
 ## Windows 页面范围（2026-10-20）
 
@@ -255,7 +263,7 @@ bms-cli compare .\before.zip .\after.zip --scope all --output .\compare.md --jso
 
 实时监控页右侧的“高级功能”按钮输入密码 `hs456` 后，才会显示软件保护/BMS 参数页和 OTA 页；再次点击可锁定。该密码是客户版 UI 访问控制，不替代固件侧权限控制。
 
-BLE 搜索兼容现有两种 BMS 广播名前缀：`BT_` 和 `BT-`。对于 STM32 IAP 可能出现的空广播名，上位机会先确认设备确实提供 Nordic UART service，再加入列表，避免把周围其他无名称 BLE 外设显示为 BMS。搜索列表同时显示设备 MAC，连接时仍会执行 Modbus 探测确认设备类型。
+BLE 搜索兼容 `BT_` 和 `BT-`；无名称广播仅在广播带有 Nordic UART service UUID，或同 MAC 已知为 BMS 时加入列表。搜索不主动连接陌生设备探测服务；连接后仍执行 Modbus 探测确认设备类型。
 
 单体电压按公共协议固定读取 32 个槽位；固件传输值 `61001` 表示该串不存在。客户版和工厂版均按该哨兵值过滤有效串，不把不存在的槽位当作 61.001 V，也不压缩原始串号。
 

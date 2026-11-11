@@ -45,6 +45,15 @@ static class MainWindowExperienceTest
         catalog.RemoveSystem(historical);
         refresh.Invoke(window, null);
         Check(discoveryList.Items.Count == 1, "系统移除不会删除仍有新鲜广播的设备");
+        const ulong systemAddress = 0x102030405061;
+        var lastSeen = DateTimeOffset.UtcNow.AddHours(8);
+        catalog.ObserveSystem(systemAddress, "BT_系统发现测试", lastSeen, false, -60);
+        catalog.ObserveSystem(systemAddress, "BT_系统发现测试", lastSeen.AddSeconds(1), true, -61);
+        refresh.Invoke(window, null);
+        Check(discoveryList.Items.Cast<DiscoveredDevice>().Any(d => d.Address == systemAddress &&
+            d.Source == BleDiscoverySource.SystemRecent), "系统广播更新在两版默认附近列表可见");
+        Check(discoveryList.Items.Cast<DiscoveredDevice>().Single(d => d.Address == systemAddress)
+            .ToString().Contains("系统发现"), "系统广播更新明确标注来源");
         type.GetField("_watcher", PrivateInstance)!.SetValue(window, null);
         refresh.Invoke(window, null);
         Check(discoveryList.Items.Count == 0, "新搜索状态不继承旧列表");

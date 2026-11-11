@@ -51,23 +51,23 @@ internal static class CliRuntime
 
         reporter.Status($"Scanning BLE for {seconds}s...");
         scanner.Start();
+        bool broadcastAvailable = false;
         try
         {
-            Task duration = Task.Delay(TimeSpan.FromSeconds(seconds), ct);
-            Task completed = await Task.WhenAny(duration, scanAborted.Task);
-            await completed;
+            // 原始接口中止后，系统枚举仍可能持续提供真实广播更新时间。
+            await Task.Delay(TimeSpan.FromSeconds(seconds), ct);
+            broadcastAvailable = scanner.IsBroadcastAvailable;
         }
         finally
         {
             try { scanner.Stop(); } catch { }
         }
 
-        if (scanAborted.Task.IsCompletedSuccessfully)
+        var devices = scanner.Snapshot();
+        if (devices.Count == 0 && !broadcastAvailable && scanAborted.Task.IsCompletedSuccessfully)
             throw new CliException(ExitCodes.ScanFailed, "scan_failed",
-                $"{scanAborted.Task.Result}. Check the Bluetooth adapter and Windows Bluetooth service, then retry.");
-
-        await Task.Delay(100, CancellationToken.None);
-        return scanner.Snapshot();
+                "The raw advertisement interface stopped and no recent system broadcast updates confirmed a BMS. Cached devices were excluded.");
+        return devices;
     }
 
     public static async Task<CliEndpoint> ResolveEndpointAsync(
@@ -268,7 +268,8 @@ internal static class CliRuntime
         name = d.Name,
         mac = BmsBleTransport.FormatBluetoothAddress(d.Address),
         address = d.Address.ToString("X12"),
-        rssiDbm = d.Rssi
+        rssiDbm = d.Rssi,
+        discoverySource = d.Source == BleDiscoverySource.SystemRecent ? "systemBroadcastUpdate" : "advertisement"
     };
 
     public static ulong ParseMac(string value)
