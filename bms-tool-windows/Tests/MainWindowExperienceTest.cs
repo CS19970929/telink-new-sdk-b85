@@ -23,6 +23,33 @@ static class MainWindowExperienceTest
             _passed &= ok;
         }
 
+        using var scanner = new BmsBleScanner(_ => { });
+        type.GetField("_watcher", PrivateInstance)!.SetValue(window, scanner);
+        var catalog = (BleDiscoveryCatalog)typeof(BmsBleScanner).GetField("_catalog", PrivateInstance)!.GetValue(scanner)!;
+        var refresh = type.GetMethod("RefreshBleDeviceList", PrivateInstance)!;
+        var historyBox = (CheckBox)window.FindName("ShowHistoryDevicesBox");
+        var discoveryList = (ComboBox)window.FindName("DeviceList");
+        const ulong historical = 0x102030405060;
+        catalog.ObserveSystem(historical, "BT_历史测试");
+        refresh.Invoke(window, null);
+        Check(historyBox.IsChecked != true && discoveryList.Items.Count == 0, "默认列表不显示系统历史缓存");
+        historyBox.IsChecked = true;
+        refresh.Invoke(window, null);
+        Check(discoveryList.Items.Count == 1 && ((DiscoveredDevice)discoveryList.Items[0]).Source == BleDiscoverySource.History,
+            "历史设备只能显式打开并标记未确认在线");
+        catalog.ObserveAdvertisement(historical, "BT_附近测试", -55);
+        historyBox.IsChecked = false;
+        refresh.Invoke(window, null);
+        Check(discoveryList.Items.Count == 1 && ((DiscoveredDevice)discoveryList.Items[0]).HasRecentAdvertisement,
+            "真实广播进入两版附近设备列表");
+        catalog.RemoveSystem(historical);
+        refresh.Invoke(window, null);
+        Check(discoveryList.Items.Count == 1, "系统移除不会删除仍有新鲜广播的设备");
+        type.GetField("_watcher", PrivateInstance)!.SetValue(window, null);
+        refresh.Invoke(window, null);
+        Check(discoveryList.Items.Count == 0, "新搜索状态不继承旧列表");
+        Check(window.FindName("CancelConnectionButton") is Button, "两版均提供取消连接按钮");
+
         var deviceList = (ComboBox)window.FindName("DeviceList");
         MethodInfo upsert = type.GetMethod("UpsertDevice", PrivateInstance)!;
         const ulong address = 0xAABBCCDDEEFF;
@@ -87,6 +114,23 @@ static class MainWindowExperienceTest
         Check(verbosePhrases.All(phrase => !businessText.Contains(phrase)),
             "业务参数页移除冗长说明文字");
 
+        string? preview = Environment.GetEnvironmentVariable("BMS_BLE_UI_PREVIEW");
+        if (!string.IsNullOrWhiteSpace(preview))
+        {
+            tabs.SelectedIndex = 0;
+            historyBox.IsChecked = true;
+            upsert.Invoke(window, new object[]{new DiscoveredDevice(historical,"BT_DEFAULT",0) {
+                Source=BleDiscoverySource.History,LastSeenUtc=null,LastSeenTimestamp=null }});
+            discoveryList.SelectedIndex = 0;
+            ((TextBlock)window.FindName("BleDiscoveryStatusText")).Text = "实时搜索已中止，请检查电脑蓝牙。\n最近12秒收到广播：0台；历史记录：1台。历史记录不代表在线。";
+            Arrange(root, new Size(1280, 850));
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(1280, 850, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            bitmap.Render(root);
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+            string path = preview + "-" + typeof(MainWindow).Assembly.GetName().Name + ".png";
+            using var file = System.IO.File.Create(path); encoder.Save(file);
+        }
         window.Close();
         Console.WriteLine(_passed ? "MAIN_WINDOW_EXPERIENCE_PASS" : "MAIN_WINDOW_EXPERIENCE_FAIL");
         return _passed ? 0 : 1;

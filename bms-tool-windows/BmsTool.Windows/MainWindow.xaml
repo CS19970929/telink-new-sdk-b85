@@ -178,7 +178,7 @@
                     <!-- Right: communications, status and alarms -->
                     <Grid Grid.Row="0" Grid.Column="2">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="148"/>
+                            <RowDefinition Height="236"/>
                             <RowDefinition Height="132"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
@@ -186,8 +186,11 @@
                         <GroupBox Grid.Row="0" Header="通信设置" Style="{StaticResource CustomerGroupBox}">
                             <Grid Margin="4">
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="44"/>
-                                    <RowDefinition Height="44"/>
+                                    <RowDefinition Height="36"/>
+                                    <RowDefinition Height="36"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="36"/>
+                                    <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -208,18 +211,34 @@
                                     <ComboBoxItem Content="57600"/>
                                     <ComboBoxItem Content="115200"/>
                                 </ComboBox>
-                                <ComboBox x:Name="DeviceList" Grid.Row="0" Grid.Column="2" Height="30" Margin="0,4,8,4"/>
-                                <ComboBox x:Name="SerialPortList" Grid.Row="0" Grid.Column="2" Height="30" Margin="0,4,8,4" Visibility="Collapsed"/>
+                                <ComboBox x:Name="DeviceList" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" ToolTip="{Binding SelectedItem, RelativeSource={RelativeSource Self}}" Height="30" Margin="0,4,8,4">
+                                    <ComboBox.GroupStyle>
+                                        <GroupStyle>
+                                            <GroupStyle.HeaderTemplate>
+                                                <DataTemplate><TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="DimGray" Margin="4,6,0,2"/></DataTemplate>
+                                            </GroupStyle.HeaderTemplate>
+                                        </GroupStyle>
+                                    </ComboBox.GroupStyle>
+                                </ComboBox>
+                                <ComboBox x:Name="SerialPortList" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Height="30" Margin="0,4,8,4" Visibility="Collapsed"/>
                                 <Button x:Name="ScanButton" Grid.Row="0" Grid.Column="3" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="ScanButton_Click">搜索</Button>
                                 <Button x:Name="StopScanButton" Grid.Row="0" Grid.Column="4" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="StopScanButton_Click">停止</Button>
                                 <Button x:Name="ConnectButton" Grid.Row="0" Grid.Column="5" Style="{StaticResource CustomerButton}" Margin="0,4,0,4" Click="ConnectButton_Click">连接</Button>
 
-                                <StackPanel Grid.Row="1" Grid.ColumnSpan="6" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <StackPanel Grid.Row="3" Grid.ColumnSpan="6" Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button x:Name="OwcMonitorButton" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="OpenOwcMonitor_Click">一线通监控</Button>
                                     <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="CustomerDisconnect_Click">断开</Button>
                                     <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="SleepBms_Click">休眠</Button>
                                     <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="OpenNamePage_Click">改名</Button>
                                     <Button x:Name="ProtectedFeaturesButton" Style="{StaticResource CustomerButton}" Margin="0,4,0,4" Click="OpenProtectedFeatures_Click">高级功能</Button>
+                                </StackPanel>
+                                <CheckBox x:Name="ShowHistoryDevicesBox" Grid.Row="2" Grid.ColumnSpan="4" VerticalAlignment="Center"
+                                    Content="显示历史设备（不代表在线）" Checked="ShowHistoryDevices_Changed" Unchecked="ShowHistoryDevices_Changed"/>
+                                <Button x:Name="CancelConnectionButton" Grid.Row="2" Grid.Column="4" Grid.ColumnSpan="2"
+                                    Content="取消连接" Click="CancelConnection_Click" IsEnabled="False" HorizontalAlignment="Right" Padding="8,0"/>
+                                <StackPanel Grid.Row="4" Grid.ColumnSpan="6">
+                                    <TextBlock x:Name="BleDiscoveryStatusText" Text="尚未搜索附近设备" TextWrapping="Wrap" FontSize="11"/>
+                                    <TextBlock Text="{Binding Text, ElementName=ConnectionText}" TextWrapping="Wrap" FontSize="11"/>
                                 </StackPanel>
                                 <TextBlock x:Name="ConnectionText" Visibility="Collapsed"/>
                             </Grid>

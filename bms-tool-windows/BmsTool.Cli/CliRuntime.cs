@@ -45,10 +45,7 @@ internal static class CliRuntime
         CliReporter reporter,
         CancellationToken ct)
     {
-        var devices = new ConcurrentDictionary<ulong, DiscoveredDevice>();
-        var scanner = new BmsBleScanner(
-            d => devices.AddOrUpdate(d.Address, d, (_, old) => d.Rssi >= old.Rssi ? d : old),
-            reporter.VerboseLog);
+        using var scanner = new BmsBleScanner(_=>{}, reporter.VerboseLog);
         var scanAborted = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         scanner.ScanFailed += message => scanAborted.TrySetResult(message);
 
@@ -70,10 +67,7 @@ internal static class CliRuntime
                 $"{scanAborted.Task.Result}. Check the Bluetooth adapter and Windows Bluetooth service, then retry.");
 
         await Task.Delay(100, CancellationToken.None);
-        return devices.Values
-            .OrderByDescending(d => d.Rssi)
-            .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        return scanner.Snapshot();
     }
 
     public static async Task<CliEndpoint> ResolveEndpointAsync(

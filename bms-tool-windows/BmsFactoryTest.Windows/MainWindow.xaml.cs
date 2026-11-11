@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeBleDiscoveryUi();
         AddMosControlPanel();
         InitializeUiLog();
         Loaded += (_, _) => { if (_diagTimer is null) AddDiagnosticTab(); };
@@ -63,7 +64,7 @@ public partial class MainWindow : Window
         Closed += async (_, _) =>
         {
             _pollTimer.Stop();
-            _watcher?.Stop();
+            StopBleDiscovery();
             _otaCts?.Cancel();
             _factoryTestCts?.Cancel();
             _flashTestCts?.Cancel();
@@ -87,6 +88,7 @@ public partial class MainWindow : Window
         SerialBaudRateBox.Visibility = serial ? Visibility.Visible : Visibility.Collapsed;
         ScanButton.Content = serial ? "刷新" : "搜索";
         StopScanButton.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
+        RefreshBleDeviceList();
         if (serial)
             RefreshSerialPorts();
     }
@@ -197,51 +199,22 @@ public partial class MainWindow : Window
 
     private void ScanButton_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            if (IsSerialConnectionMode)
-            {
-                RefreshSerialPorts();
-                return;
-            }
-            if (_watcher is not null)
-            {
-                AppendLog($"停止旧扫描器，status={_watcher.Status}", "SCAN");
-                _watcher.Stop();
-            }
-
-            _devices.Clear();
-            _deviceMap.Clear();
-            _watcher = new BmsBleScanner(
-                d => Dispatcher.BeginInvoke(() => UpsertDevice(d)),
-                msg => AppendLog(msg, "SCAN"));
-            _watcher.ScanFailed += message => Dispatcher.BeginInvoke(() =>
-            {
-                if (_bms is null)
-                    ConnectionText.Text = message;
-            });
-            AppendLog($"开始 BLE 设备枚举与主动扫描；filter=BT_/BT-；status(before)={_watcher.Status}", "SCAN");
-            _watcher.Start();
-            AppendLog($"扫描器已启动；status(after)={_watcher.Status}", "SCAN");
-            ConnectionText.Text = "正在扫描设备...";
-        }
-        catch (Exception ex)
-        {
-            ShowError("启动扫描失败", ex);
-        }
+        try { if (IsSerialConnectionMode) RefreshSerialPorts(); else StartBleDiscovery(); }
+        catch (Exception ex) { ShowError("启动搜索失败", ex); }
     }
 
     private void StopScanButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_watcher is null) return;
-        AppendLog($"用户停止扫描；status(before)={_watcher.Status}", "SCAN");
-        _watcher.Stop();
-        AppendLog($"停止命令已发送；status(after)={_watcher.Status}", "SCAN");
-        if (_bms is null) ConnectionText.Text = "未连接";
+        StopBleDiscovery();
     }
 
     private async void ConnectButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_otaRunning || _manualConnectionInProgress) return;
+        _manualConnectionInProgress = true;
+        _connectionDesired = true;
+        _manualConnectCts = new CancellationTokenSource();
+        CancelConnectionButton.IsEnabled = true;
         _pollTimer.Stop();
         try
         {
@@ -260,9 +233,11 @@ public partial class MainWindow : Window
                 _connectedName = $"串口 {serial.PortName}";
                 _pollFailureCount = 0;
                 AppendLog($"用户发起串口连接；port={serial.PortName}; baud={baudRate}; format=8N1", "CONNECT");
-                await ConnectSerialInternalAsync(serial.PortName, baudRate);
-                await RefreshIdentityAsync();
-                await RefreshBatteryAsync();
+                await ConnectSerialInternalAsync(serial.PortName, baudRate, _manualConnectCts.Token);
+                _manualConnectCts.Token.ThrowIfCancellationRequested();
+                await RefreshIdentityAsync(_manualConnectCts.Token);
+                _manualConnectCts.Token.ThrowIfCancellationRequested();
+                await RefreshBatteryAsync(_manualConnectCts.Token);
                 StartAutomaticRefresh();
                 ConnectionText.Text = $"已连接：{serial.PortName} · {baudRate} 8N1";
                 return;
@@ -270,6 +245,11 @@ public partial class MainWindow : Window
             if (DeviceList.SelectedItem is not DiscoveredDevice selected)
                 throw new InvalidOperationException("请先扫描并选择设备。");
 
+            if (selected.Source == BleDiscoverySource.Advertisement && !selected.HasRecentAdvertisement)
+                throw new InvalidOperationException("所选设备的广播已过期，请重新搜索或从历史记录手动验证。");
+            if (selected.Source == BleDiscoverySource.History)
+                AppendLog("正在手动验证历史设备；系统记录不代表在线。", "CONNECT");
+            _bleScanRunning = false;
             AppendLog($"用户发起连接；name='{selected.Name}'; address={selected.Address:X12}; rssi={selected.Rssi}dBm", "CONNECT");
             if (_watcher is not null)
             {
@@ -283,11 +263,13 @@ public partial class MainWindow : Window
             _connectedName = selected.Name;
             _pollFailureCount = 0;
 
-            bool applicationReady = await ConnectBmsInternalAsync(selected.Address, allowIapOnly: true);
+            bool applicationReady = await ConnectBmsInternalAsync(selected.Address, _manualConnectCts.Token, allowIapOnly: true);
             if (applicationReady)
             {
-                await RefreshIdentityAsync();
-                await RefreshBatteryAsync();
+                _manualConnectCts.Token.ThrowIfCancellationRequested();
+                await RefreshIdentityAsync(_manualConnectCts.Token);
+                _manualConnectCts.Token.ThrowIfCancellationRequested();
+                await RefreshBatteryAsync(_manualConnectCts.Token);
                 StartAutomaticRefresh();
                 ConnectionText.Text = $"已连接：{_connectedName}";
             }
@@ -297,6 +279,10 @@ public partial class MainWindow : Window
                 AppendLog("BLE GATT 已连接，但普通 BMS Modbus 探测无响应；按 STM32 IAP 模式保留连接，可直接执行 OTA。", "CONNECT");
             }
         }
+        catch (OperationCanceledException)
+        {
+            ConnectionText.Text = "连接已取消";
+        }
         catch (Exception ex)
         {
             ConnectionText.Text = "连接失败";
@@ -304,13 +290,18 @@ public partial class MainWindow : Window
         }
         finally
         {
+            _manualConnectionInProgress = false;
+            _manualConnectCts?.Dispose(); _manualConnectCts = null;
+            if (_connectionDesired && !_bleWindowClosed) StartAutomaticRefresh();
             ConnectButton.IsEnabled = true;
+            CancelConnectionButton.IsEnabled = false;
+            RefreshBleDeviceList();
         }
     }
 
-    private async Task<bool> ConnectBmsInternalAsync(ulong address, CancellationToken ct = default, bool allowIapOnly = false)
+    private async Task<bool> ConnectBmsOnceAsync(ulong address, CancellationToken ct = default, bool allowIapOnly = false)
     {
-        await DisposeBmsAsync();
+        await DisposeBmsCoreAsync();
         AppendLog($"ConnectBmsInternal START address={address:X12}", "CONNECT");
 
         var transport = new BmsBleTransport();
@@ -329,6 +320,7 @@ public partial class MainWindow : Window
             await client.ProbeAsync(ct);
             AppendLog($"[CONNECT] STEP_OK stage=ModbusProbe elapsed={probeTimer.ElapsedMilliseconds}ms", "CONNECT");
 
+            ct.ThrowIfCancellationRequested();
             _bmsTransport = transport;
             _bms = client;
             _connectedAddress = address;
@@ -340,10 +332,15 @@ public partial class MainWindow : Window
         {
             _sessionLog.WriteException("CONNECT", "ConnectBmsInternal", ex);
             transport.ConnectionProgress -= OnConnectionProgress;
-            if (allowIapOnly && client is not null && transport.IsConnected)
+            if (!ct.IsCancellationRequested && ex is not OperationCanceledException && allowIapOnly && client is not null && transport.IsConnected)
             {
                 client.Log -= OnProtocolLog;
                 await client.DisposeAsync();
+                if (ct.IsCancellationRequested)
+                {
+                    await transport.DisposeAsync();
+                    ct.ThrowIfCancellationRequested();
+                }
                 _bmsTransport = transport;
                 _bms = null;
                 _connectedAddress = address;
@@ -371,23 +368,22 @@ public partial class MainWindow : Window
 
     private void OnProtocolLog(string text) => AppendLog(text, "MODBUS");
 
-    private async Task DisposeBmsAsync()
+    private async Task DisposeBmsCoreAsync()
     {
         InvalidateCurrentCalibrationConnection();
         ResetMosControlUi();
         _mosCts?.Cancel();
         NoteMosGap("设备断开或重连");
-        if (_bms is not null)
+        var client = _bms;
+        var transport = _bmsTransport;
+        _bms = null;
+        _bmsTransport = null;
+        if (client is not null)
         {
-            _bms.Log -= OnProtocolLog;
-            await _bms.DisposeAsync();
-            _bms = null;
+            client.Log -= OnProtocolLog;
+            await client.DisposeAsync();
         }
-        if (_bmsTransport is not null)
-        {
-            await _bmsTransport.DisposeAsync();
-            _bmsTransport = null;
-        }
+        if (transport is not null) await transport.DisposeAsync();
     }
 
     private void StartAutomaticRefresh()
@@ -402,7 +398,7 @@ public partial class MainWindow : Window
         catch (Exception ex) { ShowError("读取设备信息失败", ex); }
     }
 
-    private async Task<DeviceIdentity> RefreshIdentityAsync()
+    private async Task<DeviceIdentity> RefreshIdentityAsync(CancellationToken ct = default)
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         string fallbackMac = _connectionMode == ConnectionMode.Serial
@@ -411,7 +407,7 @@ public partial class MainWindow : Window
         string fallbackName = _connectionMode == ConnectionMode.Serial
             ? $"串口 {_connectedSerialPort}"
             : _connectedName;
-        DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName);
+        DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName, ct);
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
         IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
@@ -424,10 +420,10 @@ public partial class MainWindow : Window
         return id;
     }
 
-    private async Task RefreshBatteryAsync()
+    private async Task RefreshBatteryAsync(CancellationToken ct = default)
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-        BatterySnapshot snapshot = await bms.ReadBatteryAsync();
+        BatterySnapshot snapshot = await bms.ReadBatteryAsync(ct);
         if (!ReferenceEquals(bms, _bms)) return;
         ApplyBatterySnapshot(snapshot);
         await RefreshMosControlStateAsync(bms, default);
@@ -501,8 +497,12 @@ public partial class MainWindow : Window
             if (mv == BmsRegisters.MissingCellVoltageMv)
                 continue;
             var reading = new StackPanel { Orientation = Orientation.Horizontal };
-            reading.Children.Add(new TextBlock { Text = $"第 {i + 1,2} 串   {mv,4} mV",
-                FontFamily = new System.Windows.Media.FontFamily("Consolas"), VerticalAlignment = VerticalAlignment.Center });
+            reading.Children.Add(new TextBlock
+            {
+                Text = $"第 {i + 1,2} 串   {mv,4} mV",
+                FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
             if (s.IsCellBalancing(i)) reading.Children.Add(CreateBalanceIcon());
             FactoryCellPanel.Children.Add(new Border
             {
@@ -517,9 +517,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task ConnectSerialInternalAsync(string portName, int baudRate, CancellationToken ct = default)
+    private async Task ConnectSerialOnceAsync(string portName, int baudRate, CancellationToken ct = default)
     {
-        await DisposeBmsAsync();
+        await DisposeBmsCoreAsync();
         var transport = new BmsSerialTransport();
         transport.ConnectionProgress += OnConnectionProgress;
         BmsClient? client = null;
@@ -530,6 +530,7 @@ public partial class MainWindow : Window
             client.Log += OnProtocolLog;
             AppendLog("[CONNECT] STEP_BEGIN stage=ModbusProbe transport=Serial", "CONNECT");
             await client.ProbeAsync(ct);
+            ct.ThrowIfCancellationRequested();
             _bmsTransport = transport;
             _bms = client;
             _connectedAddress = null;
@@ -581,7 +582,7 @@ public partial class MainWindow : Window
 
     private async Task PollTickAsync()
     {
-        if (_polling || _otaRunning || _autoReconnectRunning || _shBusy || _parameterBusy) return;
+        if (_polling || _otaRunning || _autoReconnectRunning || _shBusy || _parameterBusy || _manualConnectionInProgress || _connectionOperations.IsBusy || _bleWindowClosed) return;
 
         if (_bms is null)
         {
@@ -615,7 +616,7 @@ public partial class MainWindow : Window
 
     private async Task AutoReconnectAsync()
     {
-        if (_autoReconnectRunning || _otaRunning) return;
+        if (_autoReconnectRunning || _otaRunning || _manualConnectionInProgress || _connectionOperations.IsBusy || !_connectionDesired || _bleWindowClosed) return;
         if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null) return;
         if (_connectionMode == ConnectionMode.Serial && string.IsNullOrWhiteSpace(_connectedSerialPort)) return;
         _communicationReconnectAttempts++;
@@ -629,6 +630,7 @@ public partial class MainWindow : Window
                 await ConnectSerialInternalAsync(_connectedSerialPort!, _serialBaudRate);
             else
                 await ConnectBmsInternalAsync(_connectedAddress!.Value);
+            if (_manualConnectionInProgress || !_connectionDesired || _bleWindowClosed) return;
             await RefreshIdentityAsync();
             await RefreshBatteryAsync();
             _pollFailureCount = 0;
@@ -639,13 +641,14 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _sessionLog.WriteException("RECONNECT", "AutoReconnect", ex);
+            if (_manualConnectionInProgress || !_connectionDesired || _bleWindowClosed) return;
             _nextReconnectUtc = DateTime.UtcNow.AddSeconds(3);
             ConnectionText.Text = "自动重连失败，将继续重试";
         }
         finally
         {
             _autoReconnectRunning = false;
-            if (!_otaRunning) _pollTimer.Start();
+            if (!_otaRunning && !_manualConnectionInProgress && _connectionDesired && !_bleWindowClosed) _pollTimer.Start();
         }
     }
 
@@ -732,7 +735,8 @@ public partial class MainWindow : Window
             var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
             await bms.WriteProtectionChangesAsync(
                 changed.ToDictionary(x => x.Row.Address, x => x.Parsed),
-                (address, values) => {
+                (address, values) =>
+                {
                     for (int j = 0; j < values.Length; j++)
                         _protectionRows.Single(row => row.Address == address + j).LoadFromDevice(values[j]);
                     ProtectionStatusText.Text = $"{ProtectionBatch.Name(address)} 整组写入并校验成功";
@@ -890,7 +894,7 @@ public partial class MainWindow : Window
         if (_otaRunning || _shBusy || _diagBusy) return;
         try
         {
-            if(_bms?.IsSh3520==true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
+            if (_bms?.IsSh3520 == true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
             string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
             ulong address = _connectedAddress ?? 0;
             if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)

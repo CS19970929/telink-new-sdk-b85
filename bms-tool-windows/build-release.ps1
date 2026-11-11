@@ -1,6 +1,7 @@
 param(
     [string]$TargetFramework = "net8.0-windows10.0.19041.0",
-    [string]$ReleaseTag = (Get-Date -Format "yyyyMMdd-HHmmss")
+    [string]$ReleaseTag = (Get-Date -Format "yyyyMMdd-HHmmss"),
+    [string]$ReleaseRoot = (Join-Path (Get-Location) "releases/bms-tool-windows")
 )
 
 $ErrorActionPreference = "Stop"
@@ -8,10 +9,11 @@ $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $customerProject = Join-Path $projectRoot "BmsTool.Windows\BmsTool.Windows.csproj"
 $internalProject = Join-Path $projectRoot "BmsFactoryTest.Windows\BmsFactoryTest.Windows.csproj"
 $cliProject = Join-Path $projectRoot "BmsTool.Cli\BmsTool.Cli.csproj"
-$customerOutput = Join-Path $projectRoot "BmsTool.Windows\publish\customer-win-x64-$ReleaseTag"
+$releaseDirectory = Join-Path ([IO.Path]::GetFullPath($ReleaseRoot)) $ReleaseTag
+$customerOutput = Join-Path $releaseDirectory "customer"
 $buildTemp = Join-Path $env:LOCALAPPDATA "CodexTemp\bms-tool-windows\$ReleaseTag"
-$internalOutput = Join-Path $projectRoot "BmsFactoryTest.Windows\publish\internal-full-win-x64-$ReleaseTag"
-$cliOutput = Join-Path $projectRoot "BmsTool.Cli\publish\cli-win-x64-$ReleaseTag"
+$internalOutput = Join-Path $releaseDirectory "internal"
+$cliOutput = Join-Path $releaseDirectory "cli"
 
 function Invoke-Dotnet([string[]]$Arguments) {
     & dotnet @Arguments
@@ -77,3 +79,23 @@ Get-Item -LiteralPath $customerExe, $internalExe, $cliExe | ForEach-Object {
     $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
     Write-Host ("{0}`n  SHA256={1}`n  Commit={2}" -f $_.FullName, $hash, $commit)
 }
+
+
+$fullCommit = (git -C $projectRoot rev-parse HEAD).Trim()
+$sourceBranch = (git -C $projectRoot branch --show-current).Trim()
+$sourceDirty = [bool](git -C $projectRoot status --porcelain)
+$manifest = [ordered]@{
+    schema = 1
+    release_tag = $ReleaseTag
+    source_commit = $fullCommit
+    source_branch = $sourceBranch
+    source_dirty = $sourceDirty
+    target_framework = $TargetFramework
+    runtime = "win-x64; self-contained; single-file"
+    files = @(
+        @{ path="customer/BmsTool.Windows.exe"; sha256=(Get-FileHash -LiteralPath $customerExe -Algorithm SHA256).Hash.ToLowerInvariant() }
+        @{ path="internal/BmsFactoryTest.Windows.exe"; sha256=(Get-FileHash -LiteralPath $internalExe -Algorithm SHA256).Hash.ToLowerInvariant() }
+        @{ path="cli/bms-cli.exe"; sha256=(Get-FileHash -LiteralPath $cliExe -Algorithm SHA256).Hash.ToLowerInvariant() }
+    )
+}
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $releaseDirectory "release-manifest.json") -Encoding utf8

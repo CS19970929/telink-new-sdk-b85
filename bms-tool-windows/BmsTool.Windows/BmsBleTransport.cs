@@ -10,127 +10,123 @@ using Windows.Security.Cryptography;
 
 namespace BmsTool.Windows;
 
-public sealed record DiscoveredDevice(ulong Address, string Name, short Rssi)
-{
-    public override string ToString() => $"{Name}    MAC {BmsBleTransport.FormatBluetoothAddress(Address)}    RSSI {Rssi} dBm";
-}
-
-public sealed class BmsBleScanner
+public sealed class BmsBleScanner : IDisposable
 {
     private const string AepSelector = "System.Devices.Aep.ProtocolId:=\"{bb7bb05e-5972-42b5-94fc-76eaa7084d49}\"";
     private const string AddressProperty = "System.Devices.Aep.DeviceAddress";
-    private const string RssiProperty = "System.Devices.Aep.SignalStrength";
-
     private readonly BluetoothLEAdvertisementWatcher _advertisementWatcher;
     private readonly DeviceWatcher _deviceWatcher;
-    private readonly Dictionary<string, DeviceInformation> _aepDevices = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DeviceInformation> _aepDevices = new();
     private readonly object _aepLock = new();
+    private readonly BleDiscoveryCatalog _catalog = new();
     private readonly Action<DiscoveredDevice> _found;
     private readonly Action<string>? _diagnostics;
-    private volatile bool _stopping;
-    private volatile bool _aepStartFailed;
-    private volatile bool _advertisementStartFailed;
-
-    public string Status => $"AEP={_deviceWatcher.Status}; advertisement={_advertisementWatcher.Status}";
+    private volatile bool _stopping = true;
     public event Action<string>? ScanFailed;
-
+    public event Action? DevicesChanged;
+    public bool IsBroadcastAvailable => !_stopping && _advertisementWatcher.Status == BluetoothLEAdvertisementWatcherStatus.Started;
+    public string Status => $"AEP={_deviceWatcher.Status}; advertisement={_advertisementWatcher.Status}";
     public BmsBleScanner(Action<DiscoveredDevice> found, Action<string>? diagnostics = null)
     {
-        _found = found;
-        _diagnostics = diagnostics;
-        _advertisementWatcher = BmsBleTransport.CreateWatcher(found, diagnostics);
-        _deviceWatcher = DeviceInformation.CreateWatcher(
-            AepSelector, new[] { AddressProperty, RssiProperty }, DeviceInformationKind.AssociationEndpoint);
-
-        _deviceWatcher.Added += (_, device) =>
-        {
-            lock (_aepLock) _aepDevices[device.Id] = device;
-            ReportAepDevice(device);
-        };
-        _deviceWatcher.Updated += (_, update) =>
-        {
-            DeviceInformation? device;
-            lock (_aepLock)
-            {
-                if (!_aepDevices.TryGetValue(update.Id, out device)) return;
-                device.Update(update);
-            }
-            ReportAepDevice(device);
-        };
-        _deviceWatcher.Removed += (_, update) =>
-        {
-            lock (_aepLock) _aepDevices.Remove(update.Id);
-        };
-        _deviceWatcher.Stopped += (_, _) =>
-        {
-            _diagnostics?.Invoke($"[SCAN] AEP_STOPPED status={_deviceWatcher.Status}");
-            ReportFailureIfUnavailable();
-        };
-        _advertisementWatcher.Stopped += (_, _) => ReportFailureIfUnavailable();
+        _found = found; _diagnostics = diagnostics;
+        _advertisementWatcher = new() { ScanningMode = BluetoothLEScanningMode.Active };
+        _advertisementWatcher.Received += OnAdvertisement;
+        _advertisementWatcher.Stopped += OnAdvertisementStopped;
+        _deviceWatcher = DeviceInformation.CreateWatcher(AepSelector, new[] { AddressProperty }, DeviceInformationKind.AssociationEndpoint);
+        _deviceWatcher.Added += OnAdded;
+        _deviceWatcher.Updated += OnUpdated;
+        _deviceWatcher.Removed += OnRemoved;
+        _deviceWatcher.Stopped += OnAepStopped;
     }
-
+    public IReadOnlyList<DiscoveredDevice> Snapshot(bool includeHistory = false) => _catalog.Snapshot(includeHistory);
     public void Start()
     {
         _stopping = false;
-        _aepStartFailed = false;
-        _advertisementStartFailed = false;
-        lock (_aepLock) _aepDevices.Clear();
-        Exception? aepError = null;
-        try { _deviceWatcher.Start(); }
-        catch (Exception ex)
-        {
-            aepError = ex;
-            _aepStartFailed = true;
-            _diagnostics?.Invoke($"[SCAN] AEP_START_FAIL {ex.Message}");
-        }
-        try { _advertisementWatcher.Start(); }
-        catch (Exception ex)
-        {
-            _advertisementStartFailed = true;
-            _diagnostics?.Invoke($"[SCAN] ADVERTISEMENT_START_FAIL {ex.Message}");
-            if (aepError is not null) throw new IOException("Both Windows BLE discovery methods failed to start.", ex);
-        }
-        ReportFailureIfUnavailable();
+        try { _deviceWatcher.Start(); } catch (Exception ex) { _diagnostics?.Invoke("[SCAN] AEP_START_FAIL " + ex.Message); }
+        try { _advertisementWatcher.Start(); } catch (Exception ex) { ReportBroadcastFailure(ex.Message); }
     }
-
     public void Stop()
     {
         _stopping = true;
-        if (_deviceWatcher.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted)
-            _deviceWatcher.Stop();
-        if (_advertisementWatcher.Status is BluetoothLEAdvertisementWatcherStatus.Started or BluetoothLEAdvertisementWatcherStatus.Stopping)
-            _advertisementWatcher.Stop();
+        if (_deviceWatcher.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted) _deviceWatcher.Stop();
+        if (_advertisementWatcher.Status == BluetoothLEAdvertisementWatcherStatus.Started) _advertisementWatcher.Stop();
     }
-
-    private void ReportAepDevice(DeviceInformation device)
-    {
-        if (!BmsBleTransport.IsBmsName(device.Name)) return;
-        if (!device.Properties.TryGetValue(AddressProperty, out object? addressValue) ||
-            addressValue is not string addressText)
-            return;
-        string addressHex = addressText.Replace(":", "");
-        if (addressHex.Length != 12 ||
-            !ulong.TryParse(addressHex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ulong address))
-            return;
-        if (!device.Properties.TryGetValue(RssiProperty, out object? rssiValue)) return;
-        short rssi = rssiValue switch
-        {
-            short value => value,
-            int value when value >= short.MinValue && value <= short.MaxValue => (short)value,
-            _ => 0
-        };
-        if (rssi == 0) return;
-        _found(new DiscoveredDevice(address, device.Name, rssi));
-    }
-
-    private void ReportFailureIfUnavailable()
+    private void OnAdded(DeviceWatcher sender, DeviceInformation item)
     {
         if (_stopping) return;
-        bool aepUnavailable = _aepStartFailed || _deviceWatcher.Status is DeviceWatcherStatus.Aborted or DeviceWatcherStatus.Stopped;
-        bool advertisementUnavailable = _advertisementStartFailed ||
-            _advertisementWatcher.Status is BluetoothLEAdvertisementWatcherStatus.Aborted or BluetoothLEAdvertisementWatcherStatus.Stopped;
-        if (aepUnavailable && advertisementUnavailable)
-            ScanFailed?.Invoke("Windows BLE 设备枚举和广播扫描均已中止");
+        lock (_aepLock) _aepDevices[item.Id] = item;
+        ReportSystem(item);
+    }
+    private void OnUpdated(DeviceWatcher sender, DeviceInformationUpdate update)
+    {
+        if (_stopping) return;
+        DeviceInformation? item;
+        lock (_aepLock) { if (!_aepDevices.TryGetValue(update.Id, out item)) return; item.Update(update); }
+        ReportSystem(item);
+    }
+    private void OnRemoved(DeviceWatcher sender, DeviceInformationUpdate update)
+    {
+        if (_stopping) return;
+        DeviceInformation? item;
+        lock (_aepLock) { if (!_aepDevices.Remove(update.Id, out item)) return; }
+        if (TryAddress(item, out ulong address)) _catalog.RemoveSystem(address);
+        DevicesChanged?.Invoke();
+    }
+    private static bool TryAddress(DeviceInformation item, out ulong address)
+    {
+        address = 0;
+        return item.Properties.TryGetValue(AddressProperty, out var value) && value is string text &&
+            ulong.TryParse(text.Replace(":", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out address);
+    }
+    private void ReportSystem(DeviceInformation item)
+    {
+        string name;
+        ulong address;
+        lock (_aepLock)
+        {
+            if (_stopping || !BmsBleTransport.IsBmsName(item.Name) || !TryAddress(item, out address)) return;
+            name = item.Name;
+        }
+        _catalog.ObserveSystem(address, name);
+        if (_stopping) return;
+        var found = _catalog.Snapshot(true).FirstOrDefault(d => d.Address == address);
+        if (found is not null) _found(found);
+        DevicesChanged?.Invoke();
+    }
+    private void OnAdvertisement(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
+    {
+        if (_stopping) return;
+        string name = args.Advertisement.LocalName ?? "";
+        if (!BmsBleTransport.IsBmsName(name) && !_catalog.KnowsBms(args.BluetoothAddress) &&
+            !args.Advertisement.ServiceUuids.Contains(BmsBleTransport.ServiceUuid)) return;
+        _catalog.ObserveAdvertisement(args.BluetoothAddress, name, args.RawSignalStrengthInDBm);
+        if (_stopping) return;
+        _found(_catalog.Snapshot().First(d => d.Address == args.BluetoothAddress));
+        DevicesChanged?.Invoke();
+    }
+    private void OnAdvertisementStopped(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementWatcherStoppedEventArgs args)
+    {
+        _diagnostics?.Invoke($"[SCAN] ADVERTISEMENT_STOPPED status={sender.Status}; error={args.Error}");
+        if (!_stopping) ReportBroadcastFailure($"{sender.Status}/{args.Error}");
+    }
+    private void ReportBroadcastFailure(string reason)
+    {
+        if (_stopping) return;
+        string message = "实时蓝牙搜索已中止，请检查电脑蓝牙。历史设备不代表在线。";
+        _diagnostics?.Invoke("[SCAN] " + message + " reason=" + reason);
+        ScanFailed?.Invoke(message);
+    }
+    private void OnAepStopped(DeviceWatcher sender, object args)
+    {
+        _diagnostics?.Invoke($"[SCAN] AEP_STOPPED status={sender.Status}");
+    }
+    public void Dispose()
+    {
+        Stop();
+        _advertisementWatcher.Received -= OnAdvertisement;
+        _advertisementWatcher.Stopped -= OnAdvertisementStopped;
+        _deviceWatcher.Added -= OnAdded; _deviceWatcher.Updated -= OnUpdated;
+        _deviceWatcher.Removed -= OnRemoved; _deviceWatcher.Stopped -= OnAepStopped;
     }
 }
 
@@ -140,8 +136,9 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
     public static readonly Guid RequestUuid = Guid.Parse("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");
     public static readonly Guid ResponseUuid = Guid.Parse("6E400003-B5A3-F393-E0A9-E50E24DCCA9E");
 
-    private const int ConnectAttempts = 4;
-    private static readonly TimeSpan ConnectionReadyTimeout = TimeSpan.FromSeconds(15);
+    private const int ConnectAttempts = 2;
+    private static readonly TimeSpan ConnectionBudget = TimeSpan.FromSeconds(20);
+    private CancellationToken _connectToken;
     private BluetoothLEDevice? _device;
     private GattDeviceService? _service;
     private GattCharacteristic? _request;
@@ -151,7 +148,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
     private string _currentStage = "Idle";
     private ulong? _lastAddress;
 
-    public bool IsConnected => _device is not null && _request is not null && _response is not null;
+    public bool IsConnected => _device?.ConnectionStatus == BluetoothConnectionStatus.Connected && _request is not null && _response is not null;
     public int? NegotiatedMtu => _session?.MaxPduSize;
     public string DiscoveryDescription { get; private set; } = "BMS SPP not connected";
     public string CurrentStage => _currentStage;
@@ -162,45 +159,47 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
     public async Task ConnectAsync(ulong address, CancellationToken ct = default)
     {
         _lastAddress = address;
-        Exception? last = null;
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(ConnectionBudget);
+        _connectToken = budget.Token;
+        bool ready = false;
         var total = Stopwatch.StartNew();
-        Diag($"[CONNECT] START address={address:X12}; attempts={ConnectAttempts}");
-
-        for (int attempt = 1; attempt <= ConnectAttempts; attempt++)
+        Exception? last = null;
+        try
         {
-            _attempt = attempt;
-            ct.ThrowIfCancellationRequested();
-            var attemptTimer = Stopwatch.StartNew();
-            try
+            for (int attempt = 1; attempt <= ConnectAttempts; attempt++)
             {
+                _attempt = attempt;
+                _connectToken.ThrowIfCancellationRequested();
                 Diag($"[CONNECT] ATTEMPT_BEGIN {attempt}/{ConnectAttempts}");
-                await ConnectOnceAsync(address, ct);
-                Diag($"[CONNECT] ATTEMPT_OK {attempt}/{ConnectAttempts}; elapsed={attemptTimer.ElapsedMilliseconds}ms; mtu={NegotiatedMtu?.ToString() ?? "unknown"}");
-                Diag($"[CONNECT] COMPLETE elapsed={total.ElapsedMilliseconds}ms");
-                return;
-            }
-            catch (OperationCanceledException)
-            {
-                Diag($"[CONNECT] CANCELLED attempt={attempt}; stage={_currentStage}; elapsed={attemptTimer.ElapsedMilliseconds}ms");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                last = ex;
-                DiagException($"[CONNECT] ATTEMPT_FAIL {attempt}/{ConnectAttempts}; stage={_currentStage}; elapsed={attemptTimer.ElapsedMilliseconds}ms", ex);
-                await DisposeConnectionAsync();
-                if (attempt < ConnectAttempts)
+                try
                 {
-                    int backoff = 300 + attempt * 350;
-                    Diag($"[CONNECT] RETRY_WAIT {backoff}ms");
-                    await Task.Delay(backoff, ct);
+                    await ConnectOnceAsync(address, _connectToken);
+                    _connectToken.ThrowIfCancellationRequested();
+                    ready = true;
+                    Diag($"[CONNECT] COMPLETE elapsed={total.ElapsedMilliseconds}ms");
+                    return;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    last = ex;
+                    DiagException($"[CONNECT] ATTEMPT_FAIL {attempt}; stage={_currentStage}; elapsed={total.ElapsedMilliseconds}ms", ex);
+                    await DisposeConnectionAsync();
+                    if (attempt < ConnectAttempts) await Task.Delay(600, _connectToken);
                 }
             }
+            throw new IOException($"Windows BLE连接失败；阶段={_currentStage}；{last?.Message}", last);
         }
-
-        var final = new IOException($"BMS BLE connection failed after {ConnectAttempts} automatic attempts. Failed stage={_currentStage}. Last error: {last?.Message}", last);
-        DiagException($"[CONNECT] FAILED total={total.ElapsedMilliseconds}ms; finalStage={_currentStage}", final);
-        throw final;
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new TimeoutException($"蓝牙连接超过20秒预算；阶段={_currentStage}。Windows正在执行的查询结束后已释放本次连接。");
+        }
+        finally
+        {
+            if (!ready) await DisposeConnectionAsync();
+            _connectToken = default;
+        }
     }
 
     public async Task ReconnectAsync(CancellationToken ct = default)
@@ -241,8 +240,8 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
                 Diag($"[CONNECT] GATT_SESSION canMaintain={_session.CanMaintainConnection}; mtu={_session.MaxPduSize}");
                 if (_session.CanMaintainConnection)
                 {
-                    _session.MaintainConnection = true;
-                    Diag("[CONNECT] GATT_SESSION MaintainConnection=true");
+                    _session.MaintainConnection = false;
+                    Diag("[CONNECT] GATT_SESSION MaintainConnection=false (until GATT ready)");
                 }
             }
         }
@@ -302,6 +301,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
             return true;
         });
 
+        if (_session?.CanMaintainConnection == true) _session.MaintainConnection = true;
         DiscoveryDescription = $"BLE 已连接 · MTU {NegotiatedMtu?.ToString() ?? "未知"}";
         _currentStage = "GattReady";
     }
@@ -309,74 +309,14 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
     private async Task<GattDeviceServicesResult> GetServicesRobustAsync(BluetoothLEDevice device, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var cached = await StepAsync("ServiceDiscovery.Cached", async () =>
-            await device.GetGattServicesForUuidAsync(ServiceUuid, BluetoothCacheMode.Cached));
-        Diag($"[CONNECT] SERVICE cached status={cached.Status}; count={cached.Services.Count}");
-        if (cached.Status == GattCommunicationStatus.Success && cached.Services.Count > 0)
-            return cached;
-
-        ct.ThrowIfCancellationRequested();
-        var uncached = await StepAsync("ServiceDiscovery.Uncached", async () =>
+        // Uncached discovery initiates the actual BLE connection. Do not duplicate an
+        // unreachable request with cached discovery plus another 15-second wait.
+        var result = await StepAsync("ServiceDiscovery.Uncached", async () =>
             await device.GetGattServicesForUuidAsync(ServiceUuid, BluetoothCacheMode.Uncached));
-        Diag($"[CONNECT] SERVICE uncached status={uncached.Status}; count={uncached.Services.Count}");
-        if (uncached.Status == GattCommunicationStatus.Success && uncached.Services.Count > 0)
-            return uncached;
-
-        // Slow peripherals may finish the physical BLE connection only after the
-        // first service query has returned Unreachable. Keep this attempt alive
-        // long enough to observe that transition instead of disposing the device
-        // and immediately starting another connection from scratch.
-        bool connected = await StepAsync("WaitForConnectedAfterServiceUnreachable", async () =>
-            await WaitForConnectedAsync(device, ConnectionReadyTimeout, ct));
-        Diag($"[CONNECT] CONNECTION_WAIT connected={connected}; status={device.ConnectionStatus}; timeout={ConnectionReadyTimeout.TotalSeconds:0}s");
-
-        if (connected)
-        {
-            ct.ThrowIfCancellationRequested();
-            var retry = await StepAsync("ServiceDiscovery.RetryAfterConnected", async () =>
-                await device.GetGattServicesForUuidAsync(ServiceUuid, BluetoothCacheMode.Uncached));
-            Diag($"[CONNECT] SERVICE retry-after-connected status={retry.Status}; count={retry.Services.Count}");
-            if (retry.Status == GattCommunicationStatus.Success && retry.Services.Count > 0)
-                return retry;
-        }
-
-        throw new IOException($"BMS SPP service not found; cached={cached.Status}, uncached={uncached.Status}, connected={connected}");
-    }
-
-    private static async Task<bool> WaitForConnectedAsync(
-        BluetoothLEDevice device,
-        TimeSpan timeout,
-        CancellationToken ct)
-    {
-        if (device.ConnectionStatus == BluetoothConnectionStatus.Connected)
-            return true;
-
-        var connected = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        void OnStatusChanged(BluetoothLEDevice sender, object args)
-        {
-            if (sender.ConnectionStatus == BluetoothConnectionStatus.Connected)
-                connected.TrySetResult(true);
-        }
-
-        device.ConnectionStatusChanged += OnStatusChanged;
-        try
-        {
-            // Close the race between the first status check and event hookup.
-            if (device.ConnectionStatus == BluetoothConnectionStatus.Connected)
-                return true;
-
-            Task timeoutTask = Task.Delay(timeout, ct);
-            Task completed = await Task.WhenAny(connected.Task, timeoutTask);
-            if (completed == connected.Task)
-                return true;
-
-            ct.ThrowIfCancellationRequested();
-            return device.ConnectionStatus == BluetoothConnectionStatus.Connected;
-        }
-        finally
-        {
-            device.ConnectionStatusChanged -= OnStatusChanged;
-        }
+        Diag($"[CONNECT] SERVICE status={result.Status}; count={result.Services.Count}");
+        if (result.Status == GattCommunicationStatus.Success && result.Services.Count > 0) return result;
+        foreach (var service in result.Services) service.Dispose();
+        throw new IOException($"Windows未建立可用的BLE服务连接：{result.Status}；设备状态={device.ConnectionStatus}");
     }
 
     private async Task<GattCharacteristicsResult> GetCharacteristicsRobustAsync(
@@ -403,12 +343,20 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
 
     private async Task<T> StepAsync<T>(string stage, Func<Task<T>> action)
     {
+        _connectToken.ThrowIfCancellationRequested();
         _currentStage = stage;
         var sw = Stopwatch.StartNew();
         Diag($"[CONNECT] STEP_BEGIN attempt={_attempt}; stage={stage}");
         try
         {
             T value = await action();
+            if (_connectToken.IsCancellationRequested)
+            {
+                if (value is GattDeviceServicesResult abandoned) foreach (var service in abandoned.Services) service.Dispose();
+                if (value is BluetoothLEDevice abandonedDevice) abandonedDevice.Dispose();
+                if (value is GattSession abandonedSession) abandonedSession.Dispose();
+                _connectToken.ThrowIfCancellationRequested();
+            }
             Diag($"[CONNECT] STEP_OK attempt={_attempt}; stage={stage}; elapsed={sw.ElapsedMilliseconds}ms");
             return value;
         }
@@ -458,73 +406,15 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
 
     public static BluetoothLEAdvertisementWatcher CreateWatcher(Action<DiscoveredDevice> callback, Action<string>? diagnostics = null)
     {
-        var pendingServiceChecks = new ConcurrentDictionary<ulong, byte>();
         var watcher = new BluetoothLEAdvertisementWatcher { ScanningMode = BluetoothLEScanningMode.Active };
-        watcher.Received += async (_, args) =>
+        watcher.Received += (_, args) =>
         {
-            string name = args.Advertisement.LocalName ?? string.Empty;
-            // Existing products use BT_, while the currently deployed BMS also uses BT-.
-            if (IsBmsName(name))
-            {
-                callback(new DiscoveredDevice(args.BluetoothAddress, name, args.RawSignalStrengthInDBm));
-                return;
-            }
-
-            // STM32 IAP may advertise without a local name. Do not expose every
-            // unnamed BLE peripheral; confirm the actual BMS Nordic UART service
-            // before adding it to the BMS list.
-            ulong address = args.BluetoothAddress;
-            if (!pendingServiceChecks.TryAdd(address, 0)) return;
-            await ConfirmBmsServiceAsync(address, args.RawSignalStrengthInDBm, name, callback, diagnostics, pendingServiceChecks);
+            string name = args.Advertisement.LocalName ?? "";
+            if (IsBmsName(name) || args.Advertisement.ServiceUuids.Contains(ServiceUuid))
+                callback(new(args.BluetoothAddress, string.IsNullOrWhiteSpace(name) ? "未命名BMS（广播服务）" : name, args.RawSignalStrengthInDBm));
         };
         watcher.Stopped += (_, args) => diagnostics?.Invoke($"[SCAN] ADVERTISEMENT_STOPPED status={watcher.Status}; error={args.Error}");
         return watcher;
-    }
-
-    private static async Task ConfirmBmsServiceAsync(
-        ulong address,
-        short rssi,
-        string advertisementName,
-        Action<DiscoveredDevice> callback,
-        Action<string>? diagnostics,
-        ConcurrentDictionary<ulong, byte> pendingServiceChecks)
-    {
-        try
-        {
-            using BluetoothLEDevice? device = await BluetoothLEDevice.FromBluetoothAddressAsync(address);
-            if (device is null) return;
-
-            bool hasService = await HasBmsServiceAsync(device, BluetoothCacheMode.Cached);
-            if (!hasService)
-                hasService = await HasBmsServiceAsync(device, BluetoothCacheMode.Uncached);
-            if (hasService)
-            {
-                string name = string.IsNullOrWhiteSpace(advertisementName) ? device.Name ?? string.Empty : advertisementName;
-                callback(new DiscoveredDevice(address, name, rssi));
-            }
-        }
-        catch (Exception ex)
-        {
-            diagnostics?.Invoke($"[SCAN] SERVICE_CONFIRM address={address:X12}; result=ignored; message={ex.Message}");
-        }
-        finally
-        {
-            pendingServiceChecks.TryRemove(address, out _);
-        }
-    }
-
-    private static async Task<bool> HasBmsServiceAsync(BluetoothLEDevice device, BluetoothCacheMode mode)
-    {
-        GattDeviceServicesResult result = await device.GetGattServicesForUuidAsync(ServiceUuid, mode);
-        try
-        {
-            return result.Status == GattCommunicationStatus.Success && result.Services.Count > 0;
-        }
-        finally
-        {
-            foreach (GattDeviceService service in result.Services)
-                service.Dispose();
-        }
     }
 
     public async Task WriteChunkedAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default)
@@ -565,6 +455,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
         if (_response is not null) _response.ValueChanged -= OnValueChanged;
         _response = null;
         _request = null;
+        if (_session is not null) { try { if (_session.CanMaintainConnection) _session.MaintainConnection = false; } catch (Exception ex) { Diag("[CONNECT] session cleanup: " + ex.Message); } }
         _session?.Dispose();
         _session = null;
         _service?.Dispose();

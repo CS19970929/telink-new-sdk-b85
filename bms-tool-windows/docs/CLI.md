@@ -30,7 +30,9 @@ bms-cli compare before.zip after.zip --scope all --output compare.md
 bms-cli ota firmware.bin --auto
 ```
 
-`scan --verbose --json` 可查看 Windows BLE 广播扫描与设备枚举的状态。两种发现方式均不可用时返回 `scan_failed` / exit code 13；正常完成但没有兼容设备时，返回成功且设备列表为空。
+`scan --verbose --json` 可查看 Windows BLE 广播扫描与设备枚举的状态。实时广播扫描不可用时返回 `scan_failed` / exit code 13，即使系统设备枚举仍在运行也不把缓存当成实时发现。正常扫描完成但没有近期兼容广播时，返回成功且设备列表为空；正常JSON字段保持原样。
+`scan`、`--auto`、`--name` 只使用最近12秒真实广播；`--mac` 继续允许显式连接已知设备，不要求搜索成功。无名称IAP仅在广播包含对应服务，或同MAC具有已知BMS名称时进入附近结果；搜索阶段不会连接所有陌生设备来探测服务。
+BLE最多自动尝试2次，GATT阶段20秒预算。取消会停止后续步骤并等待已经执行的Windows查询退出清理，避免新旧连接并行。
 
 指定设备：
 
