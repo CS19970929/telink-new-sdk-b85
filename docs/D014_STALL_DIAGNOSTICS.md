@@ -35,8 +35,9 @@ LTCLR/W0C 清 WDT 并回读，恢复完整运行/保护配置且保持两侧 OFF
 
 ## 开关和业务边界
 
-独立开关 `BMS_STALL_DIAG_ENABLE` 原默认 **0**；本轮沿用用户明确开启的D014诊断配置 **1**，
-允许显式编译参数设0用于关闭分支验证。不依赖完整服务诊断、trace、栈扫描或运行日志。
+独立开关 `BMS_STALL_DIAG_ENABLE` 在公共头默认 **0**；标准 `bms.py` 构建为 D014 development
+统一传入 **1**，沿用用户明确开启的 D014 诊断选择，其它产品开发包和所有量产包传入 **0**。
+允许显式编译参数设0用于关闭分支验证；不依赖完整服务诊断、trace、栈扫描或运行日志。
 只有 D014 / B85、当前 `PM_TIM_RECOVER_MODE=1` 且DeepSleep retention关闭时允许开启，production 明确拒绝。
 四产品 sources.txt 登记同一平台源文件，关闭时该源文件为空，记录宏的实参不求值。
 新只读窗口关闭时仍返回 magic/schema/enabled=0，防止误以为设备已经记录现场。

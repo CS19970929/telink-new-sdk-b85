@@ -84,6 +84,35 @@ class GitProvenanceTests(unittest.TestCase):
 
 
 class ProductionBuildTests(unittest.TestCase):
+    def test_stall_default_is_selected_once_for_product_and_mode(self):
+        for product in ('d008', 'd011', 'd013', 'd014'):
+            for production in (False, True):
+                with self.subTest(product=product, production=production), \
+                     mock.patch.multiple(bms, PRODUCT=product, PRODUCTION=production, D008_PROFILE='23s-lfp'), \
+                     mock.patch.object(bms, '_firmware_git_build_id', return_value='0x12345678u'), \
+                     mock.patch.object(bms, '_firmware_git_dirty', return_value=0), \
+                     mock.patch.object(bms, '_selected_build_options', return_value={}), \
+                     mock.patch.dict(bms.os.environ, {'EXTRA_DEFINES': ''}):
+                    flags = shlex.split(bms._effective_extra_defines())
+                    stall_flags = [flag for flag in flags if flag.startswith('-DBMS_STALL_DIAG_ENABLE=')]
+                    expected = 1 if product == 'd014' and not production else 0
+                    self.assertEqual(stall_flags, [f'-DBMS_STALL_DIAG_ENABLE={expected}'])
+
+    def test_explicit_stall_choice_is_not_duplicated_or_overwritten(self):
+        for product in ('d008', 'd014'):
+            for production in (False, True):
+                for override in ('-DBMS_STALL_DIAG_ENABLE=0', '-DBMS_STALL_DIAG_ENABLE=1',
+                                 '-D BMS_STALL_DIAG_ENABLE=0', '-UBMS_STALL_DIAG_ENABLE'):
+                    with self.subTest(product=product, production=production, override=override), \
+                         mock.patch.multiple(bms, PRODUCT=product, PRODUCTION=production, D008_PROFILE='23s-lfp'), \
+                         mock.patch.object(bms, '_firmware_git_build_id', return_value='0x12345678u'), \
+                         mock.patch.object(bms, '_firmware_git_dirty', return_value=0), \
+                         mock.patch.object(bms, '_selected_build_options', return_value={}), \
+                         mock.patch.dict(bms.os.environ, {'EXTRA_DEFINES': override}):
+                        flags = bms._effective_extra_defines()
+                        self.assertTrue(flags.startswith(override + ' '))
+                        self.assertEqual(flags.count('BMS_STALL_DIAG_ENABLE'), 1)
+
     def test_production_stall_default_and_explicit_enable_guard(self):
         command = [*shlex.split(os.environ.get('CC', 'cc')), '-E', '-P', '-x', 'c',
                    '-I', str(REPO_ROOT / 'bms/core'), '-DBMS_PRODUCTION_BUILD=1']

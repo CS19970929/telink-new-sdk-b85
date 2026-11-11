@@ -5,13 +5,10 @@
 #ifndef BMS_DIAG_CONFIG_H_
 #define BMS_DIAG_CONFIG_H_
 
-/* D014 开发停顿取证单独选择；量产默认关闭，显式开启仍由下面的门禁拒绝。 */
+/* 默认关闭；bms.py 仅为已选用取证的 D014 开发包统一开启，避免依赖头文件包含顺序。
+ * 量产显式开启仍由下面的门禁拒绝，平台同时检查产品/MCU 所有权。 */
 #ifndef BMS_STALL_DIAG_ENABLE
-#if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
 #define BMS_STALL_DIAG_ENABLE 0
-#else
-#define BMS_STALL_DIAG_ENABLE 1
-#endif
 #endif
 #if (BMS_STALL_DIAG_ENABLE != 0) && (BMS_STALL_DIAG_ENABLE != 1)
 #error "BMS_STALL_DIAG_ENABLE must be 0 or 1"

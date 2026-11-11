@@ -629,6 +629,10 @@ def _effective_extra_defines() -> str:
             _die("D008 production requires --d008-profile (16s-lfp, 20s-nmc or 24s-lfp)")
     flags = [extra, f"-DBMS_PRODUCTION_BUILD={int(PRODUCTION)}",
              f"-DBMS_DIAG_BUILD_ID={build_id}", f"-DBMS_DIAG_BUILD_DIRTY={dirty}"]
+    # 停顿取证只适用于 D014/B85。统一传给所有 TU，不按产品头包含先后选择默认。
+    # 保留 D014 已选择的开发取证及显式覆盖；非法开启仍由 C 编译门禁拒绝。
+    if not re.search(r"(?:-D|-U)\s*BMS_STALL_DIAG_ENABLE\b", extra):
+        flags.append(f"-DBMS_STALL_DIAG_ENABLE={int(PRODUCT == 'd014' and not PRODUCTION)}")
     if PRODUCT == "d008" and D008_PROFILE:
         flags.append(f"-DD008_PRODUCT_PROFILE={PROFILE_IDS[D008_PROFILE]}")
     return " ".join(x for x in flags if x)

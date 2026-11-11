@@ -1,9 +1,16 @@
 # 运行阶段调试日志
 
-D014 LED/BLE 同停使用独立、默认关闭的 `BMS_STALL_DIAG_ENABLE`，无需开启本文件的完整日志；
+D014 LED/BLE 同停使用独立的 `BMS_STALL_DIAG_ENABLE`，无需开启本文件的完整日志；
 首次长间隔、PM参数、启动计数和首次AFE事件读取见 [D014 首次停顿取证](D014_STALL_DIAGNOSTICS.md)。
 schema 2还记录跨DeepSleep的调用标记和原因；启动计数变化包含DeepSleep唤醒，不能直接判为异常复位。
 开启后增加少量指令和启动保留寄存器操作，不承诺零时序扰动，production禁止开启。
+
+2026-11-11 修正跨产品默认值：公共头默认关闭，标准 `bms.py` 构建仅为 D014 development
+保留已选择的取证默认 1；D008/D011/D013 development 和所有 production 均传入 0。
+显式 `EXTRA_DEFINES` 选择保留，非法产品/MCU 或 production 开启仍由原编译门禁拒绝。
+选择通过统一编译参数传给所有 TU，不依赖产品头的包含先后。
+此前 D008 development 的构建输入没有显式选择取证，公共头却默认开启，触发了 D014/B85 所有权错误。
+本次完成源码和差异核查、补充产品/模式及显式覆盖回归源码，未执行测试、重新编译或 OTA。
 
 固件主开发分支为 `codex-bms-monorepo`；Windows 上位机仍在
 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 维护。
