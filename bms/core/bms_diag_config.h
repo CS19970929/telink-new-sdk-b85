@@ -5,9 +5,13 @@
 #ifndef BMS_DIAG_CONFIG_H_
 #define BMS_DIAG_CONFIG_H_
 
-/* D014 首发停顿取证单独选择，不要求打开完整服务诊断或运行日志。 */
+/* D014 开发停顿取证单独选择；量产默认关闭，显式开启仍由下面的门禁拒绝。 */
 #ifndef BMS_STALL_DIAG_ENABLE
+#if defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
+#define BMS_STALL_DIAG_ENABLE 0
+#else
 #define BMS_STALL_DIAG_ENABLE 1
+#endif
 #endif
 #if (BMS_STALL_DIAG_ENABLE != 0) && (BMS_STALL_DIAG_ENABLE != 1)
 #error "BMS_STALL_DIAG_ENABLE must be 0 or 1"

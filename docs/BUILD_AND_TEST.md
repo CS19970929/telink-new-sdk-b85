@@ -108,9 +108,9 @@ python bms_tools/bms.py --all-products --production --d008-profile 16s-lfp resou
 | 模式 | `bms/core/*.c` | app / AFE / 平台 / SDK 源码 |
 |---|---|---|
 | 开发（未传 `--production`） | `-O2` | `-O2` |
-| 生产（`--production`） | `-Os` | `-O2` |
+| 生产（`--production`） | `-Os -fno-jump-tables` | `-O2` |
 
-生产 core 命令先包含基础 `-O2`，后追加 `-Os`，以最后一项为准。其余参数保持 SDK 示例的 `-ffunction-sections -fdata-sections -Wall -fpack-struct -fshort-enums -finline-small-functions -std=gnu99 -fshort-wchar -fms-extensions`，链接使用 `--gc-sections` 及原 Vendor 库。相比本机 B85 SDK 示例的全 `-O2`，生产 core 的 `-Os` 是本仓库明确差异；启动也按实际 TLSR8251 使用 `MCU_STARTUP_8251` / 32 KiB SRAM，不能照搬示例 8258 配置。这些源码选项不会重新优化预编译 Vendor `.a` 的内部代码。本轮简化没有更改这些设置。
+生产 core 命令先包含基础 `-O2`，后追加 `-Os -fno-jump-tables`，以最后一项为准。TC32 4.5.1 的 `-Os` 曾生成压缩 switch 表与 32 位绝对地址跳转不匹配的产物；禁用跳转表的依据与 D008 现场复现见 [跳转表修复与蓝牙验证](D008_TC32_SWITCH_BLE_FIX_20261111.md)。其余参数保持 SDK 示例的 `-ffunction-sections -fdata-sections -Wall -fpack-struct -fshort-enums -finline-small-functions -std=gnu99 -fshort-wchar -fms-extensions`，链接使用 `--gc-sections` 及原 Vendor 库。启动仍按实际 TLSR8251 使用 `MCU_STARTUP_8251` / 32 KiB SRAM，不照搬示例 8258 配置；预编译 Vendor `.a` 保持原样。
 
 ## 5. 仅明确需要镜像时
 

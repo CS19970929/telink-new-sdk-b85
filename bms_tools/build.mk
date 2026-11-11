@@ -82,10 +82,10 @@ CFLAGS_BASE := \
 # Never inherit the sample project's 8258/64 KiB startup profile here.
 AFLAGS_BASE := -DMCU_STARTUP_8251
 
-# Size-optimize only common application policy in production. SDK, platform,
-# AFE drivers and startup keep their original -O2 / ABI / timing configuration.
-# Source rules explicitly apply this only to bms/core/*.c.
-CORE_OPT_FLAGS := $(if $(filter -DBMS_PRODUCTION_BUILD=1,$(EXTRA_DEFINES)),-Os,)
+# TC32 4.5.1 的 -Os 可将 switch 表压缩为字节偏移，却保留按 32 位绝对地址
+# 加载并跳转的指令。量产 core 禁用跳转表，保留 -Os 的其它体积优化。
+# SDK、平台、AFE 和启动仍使用原 -O2 / ABI；本项只应用于 bms/core/*.c。
+CORE_OPT_FLAGS := $(if $(filter -DBMS_PRODUCTION_BUILD=1,$(EXTRA_DEFINES)),-Os -fno-jump-tables,)
 
 CFLAGS := $(CFLAGS_BASE) $(INCLUDES) $(DEFINES) $(EXTRA_DEFINES)
 AFLAGS := $(AFLAGS_BASE)

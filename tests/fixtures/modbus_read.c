@@ -165,6 +165,33 @@ static void expect_write_single(u8 addr,u16 reg,u16 value,u8 exception)
     assert(wire_crc(rsp,length)==0u);
 }
 
+static void check_realtime_window(void)
+{
+    /* 固定协议期望独立于生产 switch：覆盖 D121 及全部合法起点/长度。 */
+    u16 words[11]={0x4253u,1u,7643u,(u16)-123,67u,801u,611u,701u,3381u,3321u,60u};
+    memset(&g_bms_report,0,sizeof(g_bms_report));
+    g_bms_report.pack_voltage_10mv=7643u;
+    g_bms_report.discharge_current_a10=123u;
+    g_bms_report.soc.soc_percent=67u;
+    g_bms_report.temperature_max_x10=801u;
+    g_bms_report.temperature_min_x10=611u;
+    g_bms_report.temperature_x10[MOS_TEMP1]=701u;
+    g_bms_report.cell_max_mv=3381u;
+    g_bms_report.cell_min_mv=3321u;
+    g_bms_report.cell_delta_mv=60u;
+    for (u16 start=0u;start<11u;++start)
+        for (u16 count=1u;count<=11u-start;++count)
+            expect_read(1u,(u16)(0xD120u+start),count,words+start,0u);
+    g_bms_report.discharge_current_a10=0u;
+    g_bms_report.charge_current_a10=45u;
+    words[3]=45u;
+    expect_read(1u,0xD120u,11u,words,0u);
+    expect_read(1u,0xD11Fu,1u,words,2u);
+    expect_read(1u,0xD12Au,2u,words,2u);
+    expect_read(1u,0xD12Bu,1u,words,2u);
+    memset(&g_bms_report,0,sizeof(g_bms_report));
+}
+
 static void check_product_identity(void)
 {
     /* 独立构造原 3 个 32-byte 窗口；完整 SN、短 SN、空值和读取失败。 */
@@ -246,6 +273,7 @@ int main(void)
 {
     u16 words[125]={0};
     bms_diag_init(); bms_debug_log_init();
+    check_realtime_window();
     check_product_identity();
     check_requested_profile();
     for(unsigned i=0;i<16u;++i)words[i]=(u16)((0x2e00u+i)^0x55aau);

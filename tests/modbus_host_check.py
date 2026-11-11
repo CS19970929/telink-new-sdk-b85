@@ -47,7 +47,8 @@ def check_modbus_fuzz_host_check():
     assert words==35, 'profile 格式变化需要重新审查协议场景'
     constants += f'\n#define BMS_AFE_HW_PROFILE_WORD_COUNT {words}u\n'
     code = read('tests/fixtures/modbus_fuzz.c').replace('/* CONSTANTS */',constants).replace('/* PARSER */',parts)
-    output = run_c(code, ['bms/core/bms_crc.c','bms/core/bms_sleep_status.c'], ['-Wno-unused-parameter'], 'modbus-fuzz')
+    output = run_c(code, ['bms/core/bms_crc.c','bms/core/bms_sleep_status.c'],
+                   ['-Wno-unused-parameter', '-DBMS_STALL_DIAG_ENABLE=0'], 'modbus-fuzz')
     evidence({'domain': 'protocol', 'seed': 20261005, 'random_frames': 100000,
               'observations': output.strip(),
               'boundary': '真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY'})

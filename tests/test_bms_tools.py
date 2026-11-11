@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import shlex
 import sys
 import subprocess
 import tempfile
@@ -82,6 +84,19 @@ class GitProvenanceTests(unittest.TestCase):
 
 
 class ProductionBuildTests(unittest.TestCase):
+    def test_production_stall_default_and_explicit_enable_guard(self):
+        command = [*shlex.split(os.environ.get('CC', 'cc')), '-E', '-P', '-x', 'c',
+                   '-I', str(REPO_ROOT / 'bms/core'), '-DBMS_PRODUCTION_BUILD=1']
+        source = '#include "bms_diag_config.h"\n#if BMS_STALL_DIAG_ENABLE\n#error "production default must be off"\n#endif\n'
+        for override, succeeds in (([], True), (['-DBMS_STALL_DIAG_ENABLE=0'], True),
+                                   (['-DBMS_STALL_DIAG_ENABLE=1'], False)):
+            with self.subTest(override=override):
+                result = subprocess.run([*command, *override, '-'], input=source,
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode == 0, succeeds, result.stderr)
+                if not succeeds:
+                    self.assertIn('Production firmware must disable BMS_STALL_DIAG_ENABLE', result.stderr)
+
     def test_owned_flags_and_explicit_profile(self):
         with mock.patch.multiple(bms, PRODUCT="d008", PRODUCTION=True, D008_PROFILE="24s-lfp"), \
              mock.patch.object(bms, "_firmware_git_build_id", return_value="0x12345678u"), \
