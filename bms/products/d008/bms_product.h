@@ -42,7 +42,7 @@
 #endif
 
 
-/* 2026-10-08 产品确认默认开启 SCD：200 A / 请求延时 256 us；实板验收独立记录。 */
+/* SCD 策略批准；阈值和延时以 d008_protection_config.h 为准，实板验收独立记录。 */
 #define BMS_D008_SCD_POLICY_APPROVED 1
 
 /* 文件功能：产品容量、名称、采样及通信功能配置。 */

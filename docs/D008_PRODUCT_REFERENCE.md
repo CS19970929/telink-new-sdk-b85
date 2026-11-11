@@ -50,7 +50,7 @@ Demo 与官方手册冲突时以官方手册为准。用户确认的产品用途
 | 原理图能力 | 图纸为 24S（C0..C24）；不能据此推定所选 16S/20S 固件对应的实际装配 |
 | AFE 总线 | I2C，PC0=SDA、PC1=SCL，100 kHz |
 | DVC 地址 | `0x40` write / `0x41` read transfer address |
-| Rsense | RS1..RS10 = 10 × 2 mΩ 并联，全部装配约 200 µΩ |
+| Rsense | 2026-11-11 用户指定本次装配为 8 × 2 mΩ 并联，源码等效值 250 µΩ；原图 RS1..RS10 全装为 200 µΩ，不代表本次装配 |
 | 板载 NTC | NTC1/NTC2 标注 `SNC103B13435F0603E` |
 
 容量、OV/UV/OC/温度默认值仍需产品签核。当前入口为产品 `bms_product.h`、`d008_product_profile.h`、`bms_product.h` 及公共 `bms_parameters.h`。
@@ -221,7 +221,7 @@ SOC、容量、事件日志等仍由各自独立存储模块管理，但不属�
 | DSG pull-down DPC | 16 | reset-equivalent named policy |
 | Core OT fixed policy | 0 | disabled |
 | Current wake threshold | 0 µV | disabled |
-| Body diode threshold | **80 µV** | BDPT=2；200 µΩ 下名义约 0.4 A |
+| Body diode threshold | **80 µV** | BDPT=2；本次 250 µΩ 下名义约 0.32 A |
 | I2C watchdog | **4 s** | DVC hardware watchdog |
 | timeout close CHG | **1** | WDT timeout 允许关闭 CHG |
 | timeout close DSG | **1** | WDT timeout 允许关闭 DSG |
@@ -357,7 +357,7 @@ AFE profile 的 requested/effective 必须分开展示；DVC 量化后的值不�
 | OC2 | threshold=(code+1)×4 mV；delay=(code+1)×4 ms |
 | SCD | threshold=code×10 mV；delay=code×7.81 µs |
 
-物理电流阈值按 sense voltage / 200 µΩ Rsense 换算。
+物理电流阈值按 sense voltage / 实装 Rsense 换算；2026-11-11 本次装配使用 250 µΩ。
 
 2026-10-08 产品确认三个 D008 装配 profile 默认开启 SCD：**200 A / 请求延时 256 µs**。依据 DVC1124-2 Reference Manual V1.2 第 20 页，40 mV 对应 `SCDT=4`，现有驱动将延时向下量化为 `SCDD=32`，名义硬件延时 249.92 µs，整数 effective 读回 250 µs；保持原量化规则和恢复逻辑。
 

@@ -90,7 +90,7 @@ python bms_tools/bms.py --product d014 resources
 
 | 产品/文档 | 重点 |
 |---|---|
-| [D008 产品 reference](docs/D008_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d008/AGENTS.md) | DVC1124，16S LFP / 20S NMC / 24S LFP，200 µΩ |
+| [D008 产品 reference](docs/D008_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d008/AGENTS.md) | DVC1124，16S LFP / 20S NMC / 24S LFP / 23S LFP，本次装配 8 × 2 mΩ 并联、250 µΩ |
 | [D008 保护参数配置](docs/D008_PROTECTION_CONFIGURATION.md) · [直接编辑源码](bms/products/d008/d008_protection_config.h) | D008 软件三级保护、独立 AFE 硬件保护与首次烧录 |
 | [四产品参数配置与电池类型切换](docs/BATTERY_TYPE_SWITCH.md) | 独立参数文件、OTA 更新选择、App/Windows 密码与整套 LFP/NMC 切换 |
 | [D011 产品 reference](docs/D011_PRODUCT_REFERENCE.md) · [产品规则](bms/products/d011/AGENTS.md) | SH3673510，10S，250 µΩ，PB5 fuse 安全低电平 |

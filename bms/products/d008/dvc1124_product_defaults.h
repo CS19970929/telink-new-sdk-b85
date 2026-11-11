@@ -21,8 +21,8 @@
 /* 物理串数来自显式选择的 D008 装配。 */
 #define DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT
 
-/* HS-D008：10 个 2mOhm 分流电阻并联，等效 0.2mOhm = 200uOhm。 */
-#define DVC1124_DEFAULT_SHUNT_UOHM           200u
+/* 本次 D008 装配：8 个 2mOhm 分流电阻并联，等效 0.25mOhm = 250uOhm。 */
+#define DVC1124_DEFAULT_SHUNT_UOHM           250u
 
 #ifndef BMS_PRODUCTION_BUILD
 #define BMS_PRODUCTION_BUILD                 0u
@@ -113,7 +113,7 @@
 #define DVC1124_CURRENT_WAKE_THRESHOLD_UV    0u
 
 /*
- * 共口反向电流恢复阈值：厂商 FETControl 示例 80uV（BDPT=2），200uOhm 下名义 0.4A；
+ * 共口反向电流恢复阈值：厂商 FETControl 示例 80uV（BDPT=2），250uOhm 下名义 0.32A；
  * 属于拓扑/故障安全策略，不是用户保护设置。
  */
 #define DVC1124_BODY_DIODE_THRESHOLD_UV      80u

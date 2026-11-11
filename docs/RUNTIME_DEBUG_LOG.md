@@ -12,6 +12,13 @@ schema 2还记录跨DeepSleep的调用标记和原因；启动计数变化包含
 此前 D008 development 的构建输入没有显式选择取证，公共头却默认开启，触发了 D014/B85 所有权错误。
 本次完成源码和差异核查、补充产品/模式及显式覆盖回归源码，未执行测试、重新编译或 OTA。
 
+后续 2026-11-11 已在 `a614e68d` 加 D008 250 µΩ 装配及用户工作树参数上执行构建模式单测
+6 项和 D008 `23s-lfp` development `link/resources`，均通过；编译输入明确为
+`-DBMS_STALL_DIAG_ENABLE=0`，0 编译错误、0 编译警告。
+资源工具报告 APP 槽余量 2300 B，具体边界及未执行实板项目见
+[D008 分流器与短路在线设置](D008_PROTECTION_CONFIGURATION.md#2026-11-11-分流器装配与短路在线设置)。
+未生成 BIN 或执行 OTA。
+
 固件主开发分支为 `codex-bms-monorepo`；Windows 上位机仍在
 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/` 维护。
 四产品共享 `bms/core/bms_debug_log.c`，产品 sources.txt 引用同一文件。

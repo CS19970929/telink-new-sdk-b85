@@ -18,13 +18,13 @@
 #define BMS_OTA_UPDATE_FACTORY_RESET 1u /* 专用出厂包，须生成全新一次性 ID */
 #ifndef BMS_OTA_UPDATE_ID_0
 #define BMS_OTA_UPDATE_ID_0 0x0000u
-#define BMS_OTA_UPDATE_ID_1 0xb0b4u
-#define BMS_OTA_UPDATE_ID_2 0x54fcu
-#define BMS_OTA_UPDATE_ID_3 0xabdeu
-#define BMS_OTA_UPDATE_ID_4 0xa17bu
-#define BMS_OTA_UPDATE_ID_5 0xff6fu
+#define BMS_OTA_UPDATE_ID_1 0x2216u
+#define BMS_OTA_UPDATE_ID_2 0x1d05u
+#define BMS_OTA_UPDATE_ID_3 0x04c2u
+#define BMS_OTA_UPDATE_ID_4 0x9710u
+#define BMS_OTA_UPDATE_ID_5 0x2113u
 #endif
-#define BMS_OTA_UPDATE_CONTENT_SHA256 "527a89385a2d35464ca318ef4ac1c00098798f516f9bf43f2516f00c7c13e438"
+#define BMS_OTA_UPDATE_CONTENT_SHA256 "c48338ba95a8a6528dbed1ae4c4eebdc2e4a5a88cd1430c7e51af3ca3a7262cc"
 /* OTA_SOURCE_POLICY_END */
 
 
@@ -215,7 +215,8 @@
 #define D008_AFE_OCC_RECOVER_A10                          100u
 
 /* 3.5 放电短路：阈值是分流电阻两端的 mV；分流电阻在 dvc1124_product_defaults.h。
- * 200uOhm 下 40mV 对应200A。请求256us沿用原编码，名义249.92us、整数读回250us。
+ * 电流按阈值 / 实装分流电阻换算；250uOhm 下每10mV对应40A。
+ * 请求256us沿用原编码，名义249.92us、整数读回250us。
  * 不提供无作用的温度/自动恢复时间设置：本项目 DVC profile 不支持温度项；温度保护及恢复资格保持原策略。
  */
 #define D008_AFE_SC_THRESHOLD_MV                          40u
