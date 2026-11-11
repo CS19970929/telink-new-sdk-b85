@@ -67,8 +67,50 @@ STB/schema 3、EV2/schema 3；当前格式为 CFG4/schema 4、ST5/schema 5、EV4
 升级前协议可读取的软/硬件保护、校准、容量、均衡、实时状态和事件已在树外备份，
 按用户要求不导入新设备状态。
 
-最终 BIN/manifest、OTA 确认、新 Build ID、参数读回、扫描和重连结果在实板执行后追加。
-当前段落不宣称这些尚未执行的操作已经通过。
+### 正式镜像和 OTA
+
+- 固件源码提交：`c8b64583b5dc6f57a8ef185bd3e9a85eec99d09e`。
+- BIN：`firmware/production-dvc1124-23s-lfp/d008/825x_ble_sample.bin`，120036 bytes。
+- SHA-256：`bf4c0834ce27867ebf3fc2ac65b1b221b218fbe95d0d01b0594ce2c955266439`。
+- 参数包：独占 `factory_reset`，ID `0000b0b454fcabdea17bff6f`。
+- `release` 的 manifest、CRC、源码/工具/对象/库与资源门禁全部通过；正式 LST 中
+  `modbus_on_frame` 的间接 PC 跳转仍为零。
+- 相对旧 `efcd5ef5` BIN 增加 5632 bytes，内容有实际差异，包含旧提交之后的最新代码和参数，
+  不属于 padding 差异；单独隔离本次编译选项的 Flash 增量为上表的 112 bytes。
+- 使用现有 Windows CLI `71c133f09c5d`，显式指定该 MAC、Telink、LegacyFast 执行 OTA；
+  设备返回 `OTA_RESULT 0x00 OTA_SUCCESS`，CLI `serverConfirmed=true`，退出码 0。
+- OTA 后正常探测和业务读回通过，Build ID 为 `c8b64583`，production。
+  dirty 标志为 1：构建时工作树存在原有未跟踪目录/文件，工具如实标记；本次固件源码改动已提交，
+  实际输入哈希由 manifest 保存，不伪造 clean 标志。
+
+### 升级后的原版上位机读回
+
+没有修改上位机，也没有再使用升级前的旧窗口绕过手段。现有正式上位机 DLL 的
+`ProbeAsync`、身份、Build ID 和五次完整电池快照均成功。
+
+| 检查 | 现场结果 |
+|---|---|
+| `D120` 两个 word | `0x4253, 0x0001` |
+| 原故障地址 `D121` 单独读取 | `0x0001`，不再断连 |
+| `D120..D12A` 全部 11 word | 正常返回 |
+| AFE 配置有效 / 串数 / 最后错误 | `1 / 23 / 0` |
+| 默认容量 `2E08` / 持久容量 `2318` | 均为 100，即 10.0 Ah |
+| 循环次数 `2319` | 0 |
+| 化学体系 `2EA2` / SOC profile `2EA3` | `1 / 1`，LFP |
+| 五次完整实时快照 | 均为 23 个有效串位，`UsesRealtimeWindow=true` |
+| 蓝牙名称 | `BT_DEFAULT`；MAC 保持 `A4:C1:38:A0:EB:83` |
+
+4 秒、8 秒、20 秒三轮 CLI 扫描均发现该 MAC，RSSI 约 -90 dBm；
+随后五次独立连接、正常探测和身份/Build 读取全部成功，失败 0 次，平均 2439 ms。
+这证明本次电脑和正式上位机通信路径可以发现并连接设备。当前信号偏弱，
+不能把今天的通过追溯为过去每次扫描失败的唯一原因。
+
+Windows 图形上位机能读取控件树，但自动化点击报 `coordinate input geometry is unavailable`；
+重新选择并重启本次测试实例后，截图仍报 `window capture timed out: timed out waiting on channel`。
+因此没有把 GUI 搜索/连接按钮操作记为通过。上述扫连是正式 CLI 与同版上位机通信库的实测。
+
+Android BMS Battery 0.9.1 的升级后 UI 验收待手机解锁；本次记录暂不宣称手机 App 已通过。
+以上实板检查覆盖 BLE、协议和参数读回，不代替物理保护、MOS、低功耗或 Flash 掉电验收。
 
 本机证据根目录：`%LOCALAPPDATA%/CodexTemp/d008-jump-table-20261111/`；
 旧现场只读记录位于 `%LOCALAPPDATA%/CodexTemp/bms-pc-ble-connect/20261111/`。
