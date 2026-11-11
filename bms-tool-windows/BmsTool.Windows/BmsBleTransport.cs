@@ -75,8 +75,10 @@ public sealed class BmsBleScanner : IDisposable
     private static bool TryAddress(DeviceInformation item, out ulong address)
     {
         address = 0;
-        return item.Properties.TryGetValue(AddressProperty, out var value) && value is string text &&
-            ulong.TryParse(text.Replace(":", ""), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out address);
+        if (!item.Properties.TryGetValue(AddressProperty, out var value) || value is not string text) return false;
+        string hex = text.Replace(":", "");
+        return hex.Length == 12 &&
+            ulong.TryParse(hex, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out address);
     }
     private void ReportSystem(DeviceInformation item)
     {
