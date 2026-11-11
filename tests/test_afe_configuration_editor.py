@@ -1,5 +1,6 @@
 """源码窗口保存边界、共享参数回滚及真实目录输入；不连接设备。"""
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -34,6 +35,77 @@ class EditorTests(unittest.TestCase):
             name = row['name'].removeprefix('SH3673510_HW_DEFAULT_')
             if name in values:
                 row['edit'] = str(values[name])
+
+    def test_d008_balance_rows_follow_selected_source_group(self):
+        for enabled in (0, 1):
+            with self.subTest(enabled=enabled), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                copy_configuration(root)
+                board = root / 'bms/products/d008/bms_product.h'
+                board.write_text(editor.build_options._replace(board.read_text(encoding='utf8'),
+                    'BMS_D008_BALANCE_TEST_ENABLE', str(enabled)), encoding='utf8')
+                with mock.patch.object(editor, 'ROOT', root):
+                    for chemistry in ('lfp', 'nmc'):
+                        config = editor.Configuration('d008', chemistry)
+                        rows = {row['name']: row for row in config.rows}
+                        self.assertEqual(len(rows), len(config.rows))
+                        self.assertEqual(rows['BMS_BATTERY_BALANCE_START_MV_FOR']['value'],
+                            4100 if chemistry == 'nmc' else 3300 if enabled else 3400)
+                        self.assertEqual(rows['BMS_BATTERY_BALANCE_START_DELTA_MV']['value'], 30 if enabled else 50)
+                        self.assertEqual(rows['BMS_BATTERY_BALANCE_STOP_DELTA_MV']['value'], 15 if enabled else 30)
+
+    def test_d008_balance_profile_roundtrip_and_save_preserve_inactive_group(self):
+        block = re.compile(r'(#if BMS_D008_BALANCE_TEST_ENABLE\n)(.*?)(#else\n)(.*?)(#endif)', re.S)
+        for enabled in (0, 1):
+            for identical in (False, True):
+                with self.subTest(enabled=enabled, identical=identical), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    copy_configuration(root)
+                    folder = root / 'bms/products/d008'
+                    board = folder / 'bms_product.h'
+                    board.write_text(editor.build_options._replace(board.read_text(encoding='utf8'),
+                        'BMS_D008_BALANCE_TEST_ENABLE', str(enabled)), encoding='utf8')
+                    protection = folder / 'd008_protection_config.h'
+                    before = protection.read_text(encoding='utf8')
+                    if identical:
+                        # 两组文本相同也必须按位置只改选中组，不能靠匹配数值来消除歧义。
+                        before = block.sub(lambda m: m[1] + m[2] + m[3] + m[2] + m[5], before, count=1)
+                        protection.write_text(before, encoding='utf8')
+                    inactive = block.search(before)[4 if enabled else 2]
+                    with mock.patch.object(editor, 'ROOT', root):
+                        config = editor.Configuration('d008', 'lfp')
+                        rows = {row['name']: row for row in config.rows}
+                        rows['BMS_BATTERY_BALANCE_START_MV_FOR']['edit'] = '3500'
+                        rows['BMS_BATTERY_BALANCE_START_DELTA_MV']['edit'] = '44'
+                        rows['BMS_BATTERY_BALANCE_STOP_DELTA_MV']['edit'] = '20'
+                        config.change_chemistry('nmc')
+                        rows['BMS_BATTERY_BALANCE_START_MV_FOR']['edit'] = '4150'
+                        profile = config.profile(config.element, config.parallel, config.debug, '均衡保存回归', 'v1')
+                        self.assertEqual(len(profile['parameters']), len(config.rows))
+                        self.assertEqual(profile['parameters']['BMS_BATTERY_BALANCE_START_MV_FOR'],
+                                         {'lfp': 3500, 'nmc': 4150})
+                        loaded = editor.Configuration('d008', 'lfp')
+                        loaded.load_profile(profile)
+                        changes = loaded.replacements(loaded.element, loaded.parallel, loaded.debug)
+                        self.assertEqual(block.search(changes[protection])[4 if enabled else 2], inactive)
+                        loaded.save(changes)
+                        self.assertEqual(block.search(protection.read_text(encoding='utf8'))[4 if enabled else 2], inactive)
+                        saved = editor.Configuration('d008', 'nmc')
+                        saved_rows = {row['name']: row for row in saved.rows}
+                        self.assertEqual(saved_rows['BMS_BATTERY_BALANCE_START_MV_FOR']['branches'],
+                                         {'lfp': 3500, 'nmc': 4150})
+                        self.assertEqual(saved_rows['BMS_BATTERY_BALANCE_START_DELTA_MV']['value'], 44)
+                        self.assertEqual(saved_rows['BMS_BATTERY_BALANCE_STOP_DELTA_MV']['value'], 20)
+
+    def test_duplicate_parameters_in_selected_group_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            copy_configuration(root)
+            protection = root / 'bms/products/d008/d008_protection_config.h'
+            protection.write_bytes(protection.read_bytes() + b'\n#define BMS_BATTERY_BALANCE_START_DELTA_MV 77u\n')
+            with mock.patch.object(editor, 'ROOT', root):
+                with self.assertRaisesRegex(ValueError, '参数定义不唯一：BMS_BATTERY_BALANCE_START_DELTA_MV'):
+                    editor.Configuration('d008', 'lfp')
 
     def test_display_units_preserve_source_integers(self):
         cases = (

@@ -25,6 +25,29 @@ DEFINE = re.compile(r"(?m)^#define\s+(\w+)(\(c\))?[ \t]+([^\r\n]+)")
 TERNARY = re.compile(r"\(\(c\) == BMS_SOC_CHEMISTRY_LFP \? (" + NUMBER + r") : (" + NUMBER + r")\)")
 
 
+def parameter_definitions(text: str, balance_test_enabled: bool | None):
+    """只选择已知的 D008 均衡组，保留原字符位置用于精确写回；不解析任意 C 表达式。"""
+    conditions = []
+    selected = []
+    for line in text.splitlines(keepends=True):
+        directive = re.match(r"[ \t]*#[ \t]*(if|ifdef|ifndef|elif|else|endif)\b(.*)", line)
+        if directive:
+            kind, expression = directive.groups()
+            expression = expression.split("/*", 1)[0].split("//", 1)[0].strip()
+            if kind in ("if", "ifdef", "ifndef"):
+                conditions.append(balance_test_enabled if kind == "if" and
+                    expression == "BMS_D008_BALANCE_TEST_ENABLE" else None)
+            elif kind == "else" and conditions and conditions[-1] is not None:
+                conditions[-1] = not conditions[-1]
+            elif kind == "elif" and conditions and conditions[-1] is not None:
+                raise ValueError("D008 均衡组包含尚不支持的 #elif，请核对源码条件")
+            elif kind == "endif" and conditions:
+                conditions.pop()
+        # 空格替换而不删除，DEFINE 的 span 仍对应原始源码。
+        selected.append(re.sub(r"[^\r\n]", " ", line) if False in conditions else line)
+    return DEFINE.finditer("".join(selected))
+
+
 def integer(expression: str) -> int:
     """只接受整数常量及有限四则运算；不执行 C/Python 任意表达式。"""
     expression = re.sub(r"\b(0[xX][0-9a-fA-F]+|\d+)[uUlL]+\b", r"\1", expression.strip())
@@ -124,10 +147,18 @@ class Configuration:
         if product == "d008": self.paths.append(self.folder / "dvc1124_product_defaults.h")
         if product == "d008": self.paths.append(self.folder / "d008_product_profile.h")
         self.originals = {path: path.read_bytes() for path in self.paths}
+        board = self.originals[self.folder / "bms_product.h"].decode("utf-8-sig")
+        balance_test = None
+        if product == "d008":
+            selected_group = build_options._number(board, "BMS_D008_BALANCE_TEST_ENABLE")
+            if selected_group not in (0, 1):
+                raise ValueError("BMS_D008_BALANCE_TEST_ENABLE 只允许 0/1")
+            balance_test = bool(selected_group)
         self.rows = []
+        names = set()
         for path, raw in self.originals.items():
             text = raw.decode("utf-8-sig")
-            for match in DEFINE.finditer(text):
+            for match in parameter_definitions(text, balance_test):
                 name, argument, expression = match.groups()
                 # SOC v3由完整profile配置；旧产品宏不再作为散参数编辑入口。
                 if name.startswith("BMS_SOC_"):
@@ -141,11 +172,14 @@ class Configuration:
                     value = integer(ternary.group(1 if chemistry == "lfp" else 2)) if ternary else integer(expression)
                 except (ValueError, SyntaxError, ZeroDivisionError):
                     continue
+                if name in names:
+                    raise ValueError("参数定义不唯一：" + name)
+                names.add(name)
                 branches = {"lfp": integer(ternary.group(1)), "nmc": integer(ternary.group(2))} if ternary else {}
                 self.rows.append(dict(path=path, name=name, argument=argument or "", value=value,
-                    ternary=bool(ternary), edit=str(value), scope=product.upper(), branches=branches, edits=dict(branches)))
+                    ternary=bool(ternary), edit=str(value), scope=product.upper(), branches=branches,
+                    edits=dict(branches), source_span=match.span()))
         self.family = CATALOG["families"][0 if product == "d008" else 1]
-        board = self.originals[self.folder / "bms_product.h"].decode("utf-8-sig")
         self.temperature_channels_supported = (False,) * 4 if product == 'd008' else (
             True, True, bool(build_options._number(board, 'SH3673510_PRODUCT_HEATER_NTC_SUPPORTED')),
             bool(build_options._number(board, 'SH3673510_PRODUCT_MOS_NTC_SUPPORTED')))
@@ -277,6 +311,7 @@ class Configuration:
         if not 1 <= element <= 60000 or not 1 <= parallel <= 16:
             raise ValueError("单只/分子为 1..60000 µΩ，并联只数/分母为 1..16")
         edited = {p: b.decode("utf-8-sig") for p, b in self.originals.items()}
+        source_edits = {p: [] for p in self.originals}
         for row in self.rows:
             value = integer(row["edit"])
             maximum = 86400 * 365 if row["name"].endswith("_SECONDS") else 65535
@@ -287,22 +322,27 @@ class Configuration:
                 raise ValueError(row['name']+' 开关只允许 0/1')
             unchanged = row['edits'] == row['branches'] if row['ternary'] else value == row['value']
             if unchanged: continue
-            pattern = re.compile(r"(?m)^(#define[ \t]+" + re.escape(row["name"] + row["argument"]) + r"[ \t]+)([^\r\n]+)")
-            def replace(match):
-                body = match[2]
-                if row["ternary"]:
-                    found = TERNARY.search(body)
-                    if not found: raise ValueError("参数表达式已变化")
-                    for number, chemistry in ((2,'nmc'),(1,'lfp')):
-                        if row['edits'][chemistry] == row['branches'][chemistry]: continue
-                        start,end=found.span(number)
-                        body=body[:start]+str(row['edits'][chemistry])+"u"+body[end:]
-                else:
-                    comment = " /*" + body.split("/*", 1)[1] if "/*" in body else ""
-                    body = str(value) + "u" + comment
-                return match[1] + body
-            edited[row["path"]], count = pattern.subn(replace, edited[row["path"]])
-            if count != 1: raise ValueError("参数定义不唯一：" + row["name"])
+            source_start, source_end = row['source_span']
+            definition = DEFINE.fullmatch(edited[row['path']][source_start:source_end])
+            if not definition or definition[1] != row['name'] or (definition[2] or '') != row['argument']:
+                raise ValueError("参数表达式已变化：" + row['name'])
+            body = definition[3]
+            if row["ternary"]:
+                found = TERNARY.search(body)
+                if not found: raise ValueError("参数表达式已变化")
+                for number, chemistry in ((2,'nmc'),(1,'lfp')):
+                    if row['edits'][chemistry] == row['branches'][chemistry]: continue
+                    start,end=found.span(number)
+                    body=body[:start]+str(row['edits'][chemistry])+"u"+body[end:]
+            else:
+                comment = " /*" + body.split("/*", 1)[1] if "/*" in body else ""
+                body = str(value) + "u" + comment
+            replacement = definition[0][:definition.start(3)] + body
+            source_edits[row['path']].append((source_start, source_end, replacement))
+        # 从后向前应用，前面定义的原始 span 不会受数值长度变化影响。
+        for path, changes in source_edits.items():
+            for start, end, replacement in sorted(changes, reverse=True):
+                edited[path] = edited[path][:start] + replacement + edited[path][end:]
         afe_changed = any(row['name'].startswith('SH3673510_HW_DEFAULT_') and
                           (row['edits'] != row['branches'] if row['ternary'] else integer(row['edit']) != row['value'])
                           for row in self.rows)
