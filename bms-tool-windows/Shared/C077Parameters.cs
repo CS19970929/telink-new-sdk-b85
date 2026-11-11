@@ -224,6 +224,8 @@ public sealed partial class BmsClient
         if(!IsC077)throw new NotSupportedException("设备必须明确识别为C077。");
         var h=await ReadRegistersAsync(C077Hardware.Header,7,ct);
         if(h[0]!=0xC077||h[1]!=1||h[2]!=32||h[3]!=2||h[6]!=6)throw new NotSupportedException("固件未提供双309 Flash硬保护编辑协议schema1，未发送写命令。");
+        var flags=await ReadRegistersAsync(0x2A28,1,ct);
+        if(flags.Length!=1||(flags[0]&1)==0)throw new IOException("MCU Flash参数尚未就绪；当前RAM默认值不能作为已保存Flash配置，请先检查存储诊断。");
     }
     public async Task<C077HardwareSnapshot> ReadC077HardwareAsync(bool verifyEeprom=false,CancellationToken ct=default)
     {

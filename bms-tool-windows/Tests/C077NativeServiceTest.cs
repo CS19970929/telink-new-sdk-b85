@@ -45,6 +45,9 @@ static class Test
         int writes=wire.ServiceWrites;
         try {var bad=(ushort[])a.Clone();bad[13]=30;await client.SaveC077HardwareAsync(0,bad);throw new Exception("bad hardware delay accepted");}catch(ArgumentException){}
         Check(writes==wire.ServiceWrites,"invalid physical code does not program");
+        await wire.Configure("@unready");int serviceBefore=wire.ServiceWrites;
+        try {await client.ReadC077HardwareAsync();throw new Exception("unready RAM advertised as saved Flash");}catch(System.IO.IOException){}
+        Check(wire.ServiceWrites==serviceBefore,"unready parameters reject before maintenance write");await wire.Configure("@ready");
         Console.WriteLine("PASS shared C# BmsClient / production C309 service: schema2 + hardware schema1, independent Flash/selected program/readback, actual profile/zero completion, disabled AFE2 CADC, interrupted EEPROM, no blind replay and explicit recovery");
     }
 }
