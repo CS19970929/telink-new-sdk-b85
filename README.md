@@ -4,6 +4,8 @@
 
 D008 首条 BLE 读取后断连的现场定位、TC32 量产跳转表修复及本次验证见 [跳转表修复与蓝牙验证](docs/D008_TC32_SWITCH_BLE_FIX_20261111.md)。
 
+2026-11-11 当前 BMS 主调用链、事件/BLE 可靠性问题、D1245 23S60A 规格差异及 ACC 宏选配，见 [BMS 审查与 D1245 适配方案](docs/BMS_REVIEW_D1245_ADAPTATION_20261111.md)。本轮为源码审查和参数方案，未修改固件或执行测试。
+
 基线分支为 `codex-bms-deep-simplification-20261016`；当前精简分支为 `refactor/full-project-simplification-20261018`。此前 `codex-remove-openwire` 从 `ee284189` 裁剪主动断线检测，见 [删除与回归说明](docs/OPENWIRE_REMOVAL.md)。
 
 四产品固件的主开发分支是 `codex-bms-monorepo`。公共代码只维护一份，产品通过编译配置和 `sources.txt` 选择硬件输入与 AFE 后端。Windows 上位机仍在 `feature/windows-afe-hw-protection-editor-v2` 分支的 `bms-tool-windows/` 维护。
