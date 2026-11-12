@@ -15,10 +15,22 @@ static class Test
         Check(!peer.Reads.Any(r=>r.Item1==0xD120),"no unsupported realtime probing");
         var capture=await c.ReadC060ParametersAsync();Check(capture.Product=="C077"&&capture.Blocks.ContainsKey("231C")&&capture.Blocks.ContainsKey("C077Afe"),"shared parameter wire contract, separate product tag");
         Check(!peer.Reads.Any(r=>r.Item1 is 0x3000 or 0x3050),"C077 does not resurrect retired segmented current calibration");
-        foreach(ushort address in new ushort[]{0x231C,0x231D,0x231E}) {
+        foreach(ushort address in new ushort[]{0x231D,0x231E}) {
             Check(!C060Parameters.FieldsFor(true).Single(f=>f.Address==address).Editable,"fixed board/hardware fields read only");
             int writes=peer.Writes;await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{address,99}},(_,_)=>{}),"fixed profile edit rejected");Check(peer.Writes==writes,"no invalid write");
         }
+        var seriesField=C060Parameters.FieldsFor(true).Single(f=>f.Address==0x231C);
+        Check(seriesField.Editable&&seriesField.Minimum==5&&seriesField.Maximum==16,"C077 existing series parameter supports5..16");
+        int seriesWrites=peer.Writes;
+        foreach(ushort bad in new ushort[]{4,17,65535})await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,bad}},(_,_)=>{}),"out-of-range series preflight");
+        peer.OutputRequest=2;
+        await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,13}},(_,_)=>{}),"active outputs block series change");
+        Check(peer.Writes==seriesWrites,"invalid/live series changes write zero");
+        peer.OutputRequest=0;
+        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,13}},(_,_)=>{});
+        Check(peer.Other[28]==13&&peer.Other[29]==2&&peer.Other[30]==4,"13-series group commits and reads back with fixed shunt");
+        var thirteen=await c.ReadBatteryAsync();Check(thirteen.ValidCellCount==13&&thirteen.CellMillivolts[13]==61001,"13 real cells and missing slots survive client decoding");
+        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,16}},(_,_)=>{});
         Check(new ushort[]{0x2020,0x203F,0x204E,0x2054}.All(a=>!C060Parameters.FieldsFor(true).Single(f=>f.Address==a).Editable),"unused cells/current/temp channels read only");
         Check(new ushort[]{0x2000,0x2040,0x2042,0x2044,0x2046,0x2048,0x204A,0x2050,0x2052,0x205C}.All(a=>C060Parameters.FieldsFor(true).Single(f=>f.Address==a).Editable),"real16-cell/total/temperature/MOS coefficients retained");
         await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2318,245}},(_,_)=>{});Check(peer.Other[24]==245,"shared capacity group on C077");

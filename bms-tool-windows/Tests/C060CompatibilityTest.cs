@@ -183,7 +183,7 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
         if(a==0xC012&&n==16&&SeparateIdentity)return Text("generic");
         if(a==0xD120&&n==2&&!SeparateIdentity)return new ushort[2];
         if(a==0xD000) {
-            ushort[] data=new ushort[63];for(int i=0;i<32;i++)data[i]=(ushort)(i<(C077?16:20)?3300:61001);
+            ushort[] data=new ushort[63];for(int i=0;i<32;i++)data[i]=(ushort)(i<(C077?Other[28]:20)?3300:61001);
             data[32]=data[33]=3300;data[34]=1;data[35]=2;data[37]=6600;data[47]=650;data[48]=700;data[49]=600;data[50]=20;data[52]=(ushort)Soc;data[53]=100;data[54]=1320;data[55]=data[56]=(ushort)(Other[24]*10);data[57]=Other[25];
             return data.Take(n).ToArray();
         }

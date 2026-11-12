@@ -19,9 +19,11 @@ static class Test
         var hard=await c.ReadC077HardwareAsync();var a=(ushort[])hard.Saved[0].Clone();var b=(ushort[])hard.Saved[1].Clone();
         a[1]=4240;b[1]=4320;a[17]=256;b[19]=20;
         await c.SaveC077HardwareAsync(0,a,hard.Saved[0]);await c.SaveC077HardwareAsync(1,b,hard.Saved[1]);
+        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,13}},(_,_)=>{});
         await wire.Configure("@reload");
         var after=await c.ReadC060ParametersAsync();
         Check(after.Blocks["Protection"].SequenceEqual(expected),"every parameter persists after production reload");
+        Check(after.Blocks["231C"].SequenceEqual(new ushort[]{13,2,4,10}),"13 series saves and reloads through actual C parameter/Flash engine");
         Check(after.Blocks["2318"][0]==245&&after.Blocks["2308"][2]==1280&&after.Blocks["2308"][3]==3400,"capacity and legacy compatibility fields preserved");
         Check(after.Blocks["Calibration"][0x47]==unchecked((ushort)(short)-123),"signed current calibration survives Flash reload");
         var reloaded=await c.ReadC077HardwareAsync();Check(reloaded.Saved[0].SequenceEqual(a)&&reloaded.Saved[1].SequenceEqual(b),"both full independent hard protection profiles persist through actual Flash reload");

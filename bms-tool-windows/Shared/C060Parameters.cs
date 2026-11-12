@@ -54,7 +54,7 @@ public static class C060Parameters
             >=0x2020 and <=0x203F or
             >=0x204E and <=0x204F or >=0x2054 and <=0x205B =>
                 f with {Editable=false,Hint="C077未使用该通道；电流仅采用AFE1开机RAM零偏与固定分流换算，缺失串位不参与采样。"},
-            0x231C => f with {Hint="C077固定16串，两颗309各采完整16串。"},
+            0x231C => f with {Minimum=5,Maximum=16,Editable=true,Hint="C077支持5～16串；先关闭输出/均衡，保存实际串数，再明确核对/下发两片AFE EEPROM。缺少串位上报61001。"},
             0x230A => f with {Minimum=640,Maximum=8960,Editable=false,Hint="历史兼容字段；硬件短路延时请在双309硬保护编辑页分别设置。"},
             0x230B => f with {Maximum=16000,Editable=false,Hint="历史兼容字段；硬件短路电流请在双309硬保护编辑页分别设置。"},
             0x231D or 0x231E => f with {Editable=false,Hint="每颗309独立4颗2mΩ并联，固定0.5mΩ。"},
@@ -222,12 +222,18 @@ public sealed partial class BmsClient
                 if(group.Key<0x2100)
                     foreach(var pairField in C060Parameters.Fields.Where(f=>f.WriteAddress==group.Key))pairField.Parse(pairField.Format(candidate[pairField.Address-group.Key]));
                 if(group.Key==0x2318&&candidate[3]>=candidate[2])throw new ArgumentException("SOC 0%端点必须低于100%端点。");
-                if(group.Key==0x231C&&(candidate[0]!=ProductCellCount||candidate[1]==0||candidate[2]==0||2000u*candidate[2]/candidate[1]>65535))throw new ArgumentException($"{ParameterProduct}固定{ProductCellCount}串，采样电阻/并联数须非零且不能产生溢出。");
+                if(group.Key==0x231C) {
+                    if(IsC077) {
+                        if(candidate[0]<5||candidate[0]>16||candidate[1]!=2||candidate[2]!=4)throw new ArgumentException("C077串数须为5～16，固定4颗2mΩ并联。");
+                        if(candidate[0]!=current[0])await RequireC077OutputsOffAsync(ct);
+                    } else if(candidate[0]!=ProductCellCount||candidate[1]==0||candidate[2]==0||2000u*candidate[2]/candidate[1]>65535)
+                        throw new ArgumentException($"{ParameterProduct}固定{ProductCellCount}串，采样电阻/并联数须非零且不能产生溢出。");
+                }
                 if(group.Key==0x2308) {
                     var system=await ReadRegistersAsync(0x231C,4,ct);
                     for(int i=0;i<4;i++)if(changes.TryGetValue((ushort)(0x231C+i),out ushort value))system[i]=value;
                     if(IsC077) {
-                        if(system[0]!=16||system[1]!=2||system[2]!=4)throw new ArgumentException("C077固定16串/0.5mΩ。");
+                        if(system[0]<5||system[0]>16||system[1]!=2||system[2]!=4)throw new ArgumentException("C077串数须为5～16，固定0.5mΩ。");
                         candidate=C077Parameters.NormalizeCurrentGroup(candidate,system[1],system[2]);
                         if(candidate[2]!=current[2]||candidate[3]!=current[3])await RequireC077OutputsOffAsync(ct);
                     } else candidate=C060Parameters.NormalizeCurrentGroup(candidate,system[1],system[2]);
