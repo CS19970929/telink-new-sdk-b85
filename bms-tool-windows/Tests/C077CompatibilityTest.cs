@@ -1,4 +1,4 @@
-﻿using BmsTool.Windows;
+using BmsTool.Windows;
 using System.Text;
 static class Test
 {
@@ -50,6 +50,55 @@ static class Test
         Check(peer.SentRequests.Last(r=>r[1]==6)[4]==0x5A,"explicit zero command");
         await c.RunC077ServiceAsync(true);Check(peer.ServiceCommands==2&&peer.SentRequests.Last(r=>r[1]==6)[4]==0xC0,"program only through explicit309 command");
         peer.ServiceFailure=true;await Reject(()=>c.RunC077ServiceAsync(true),"partial service failure surfaced");Check(peer.ServiceCommands==3,"no automatic write retry");peer.ServiceFailure=false;
+        peer.SecondaryUnavailable=true;
+        var primaryOnly=await c.RunC077ServiceAsync(false);
+        Check(primaryOnly.Chips[0].ZeroState==2&&!primaryOnly.Chips[1].Valid&&!primaryOnly.ZeroReady&&!primaryOnly.SampleValid,"AFE1 zero succeeds without claiming pack or AFE2 ready");
+        int serviceCount=peer.ServiceCommands;
+        using(var deadline=new CancellationTokenSource(750)) {
+            bool cancelled=false;try{await c.RunC077ServiceAsync(true,deadline.Token);}catch(OperationCanceledException){cancelled=true;}
+            Check(cancelled&&peer.ServiceCommands==serviceCount+1,"dual program still waits for both chips and never replays");
+        }
+        peer.PrimaryUnavailable=true;
+        using(var deadline=new CancellationTokenSource(750)) {
+            bool cancelled=false;try{await c.RunC077ServiceAsync(false,deadline.Token);}catch(OperationCanceledException){cancelled=true;}
+            Check(cancelled,"invalid AFE1 cannot complete zero");
+        }
+        peer.PrimaryUnavailable=false;peer.PrimaryZeroFailed=true;
+        await Reject(()=>c.RunC077ServiceAsync(false),"AFE1 failed zero is explicit failure");peer.PrimaryZeroFailed=false;peer.SecondaryUnavailable=false;
+        peer.SerialWakeup=true;
+        await c.ReadRegistersAsync(0x231C,4);peer.SilentReads=1;
+        int readCount=peer.Reads.Count;
+        bool freshTimedOut=false;try{await c.ReadRegistersAsync(0x231C,4,responseTimeout:TimeSpan.FromMilliseconds(20));}catch(TimeoutException){freshTimedOut=true;}
+        Check(freshTimedOut&&peer.Reads.Count==readCount+1,"active reads retain timeout without RTC retry");
+        await Task.Delay(3100);peer.SilentReads=1;readCount=peer.Reads.Count;
+        await c.ReadRegistersAsync(0x231C,4,responseTimeout:TimeSpan.FromMilliseconds(20));
+        Check(peer.Reads.Count==readCount+2,"idle C077 serial read retries exactly once");
+        peer.SilentReads=2;await Task.Delay(3100);readCount=peer.Reads.Count;
+        bool bounded=false;try{await c.ReadRegistersAsync(0x231C,4,responseTimeout:TimeSpan.FromMilliseconds(20));}catch(TimeoutException){bounded=true;}
+        Check(bounded&&peer.Reads.Count==readCount+2,"failed wake read has bounded retry");
+        int writeCount=peer.Writes;peer.SilentWrites=1;
+        bool writeTimeout=false;try{await c.WriteSingleRegisterAsync(0x1005,55,responseTimeout:TimeSpan.FromMilliseconds(20));}catch(TimeoutException){writeTimeout=true;}
+        Check(writeTimeout&&peer.Writes==writeCount+1,"idle write is never automatically replayed");
+        await Task.Delay(3100);peer.SilentReads=1;readCount=peer.Reads.Count;writeCount=peer.Writes;
+        await c.WriteSingleRegisterAsync(0x1005,56,responseTimeout:TimeSpan.FromMilliseconds(20));
+        Check(peer.Reads.Count==readCount+2&&peer.Writes==writeCount+1,"idle write wakes with reads then sends command once");
+        await Task.Delay(3100);peer.SilentReads=2;writeCount=peer.Writes;
+        bool unawake=false;try{await c.WriteSingleRegisterAsync(0x1005,57,responseTimeout:TimeSpan.FromMilliseconds(20));}catch(TimeoutException){unawake=true;}
+        Check(unawake&&peer.Writes==writeCount,"unconfirmed wake sends no write");
+        peer.SerialWakeup=false;
+        peer.DelayedSocReads=2;writeCount=peer.Writes;
+        Check((await c.SetSocAndVerifyAsync(61)).SocPercent==61&&peer.Writes==writeCount+1,"SOC waits for actual report publication and writes only once");
+        peer.DelayedSocReads=100;writeCount=peer.Writes;
+        await Reject(()=>c.SetSocAndVerifyAsync(62),"missing SOC report publication fails bounded verification");
+        Check(peer.Writes==writeCount+1,"SOC verification timeout never repeats setting command");
+        peer.DelayedSocReads=0;
+        peer.DelayedCycleReads=2;writeCount=peer.Writes;
+        Check((await c.SetCycleCountAndVerifyAsync(7)).CycleCount==7&&peer.Writes==writeCount+1,"cycle waits for report publication without repeating Flash write");
+        peer.DelayedCycleReads=100;writeCount=peer.Writes;
+        await Reject(()=>c.SetCycleCountAndVerifyAsync(8),"missing cycle publication fails bounded verification");
+        Check(peer.Writes==writeCount+1,"cycle verification timeout never repeats capacity group");peer.DelayedCycleReads=0;
+
+
         peer.Bad309Schema=true;await Reject(()=>c.ReadC077AfeAsync(),"unknown diagnostic schema rejected");peer.Bad309Schema=false;
         string path=Path.Combine(Path.GetTempPath(),"CodexTemp","bms-tool-windows","c077-params-"+Guid.NewGuid().ToString("N")+".json");Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         C060Parameters.Export(path,capture);Check(C060Parameters.Import(path,"C077").Product=="C077","C077 parameter roundtrip");

@@ -168,6 +168,8 @@ public sealed partial class BmsClient : IAsyncDisposable
     // 仅限制串口请求，给板端和转换器完成发送到接收的切换；BLE 保持原节奏。
     private static readonly TimeSpan SerialResponseTurnaroundDelay = TimeSpan.FromMilliseconds(20);
     private static readonly TimeSpan C060ResponseTurnaroundDelay=TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan C077SerialIdleWakeThreshold=TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan C077ReportPublishWait=TimeSpan.FromSeconds(2);
     private readonly TimeSpan? _responseTurnaround;
     private long _lastReceiveTick;
     private long _lastSuccessfulResponseTick;
@@ -285,7 +287,18 @@ public sealed partial class BmsClient : IAsyncDisposable
     public async Task<ushort[]> ReadRegistersAsync(ushort start, ushort quantity, CancellationToken ct = default, TimeSpan? responseTimeout = null)
     {
         if (quantity is 0 or > 125) throw new ArgumentOutOfRangeException(nameof(quantity), "Modbus 0x03 quantity must be 1..125.");
-        byte[] rsp = await TransactAsync(ModbusRtu.ReadHolding(start, quantity), ct, responseTimeout).ConfigureAwait(false);
+        // C077 RTC may consume the first serial frame while restoring UART power.
+        // Only an identified, idle serial connection gets one read retry. Writes
+        // remain single-shot because their result can be unknown after a timeout.
+        bool wakeRetry=IsC077&&_transport.RequiresSerialWakeup&&LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold;
+        byte[] request=ModbusRtu.ReadHolding(start,quantity);
+        byte[] rsp;
+        try {rsp=await TransactAsync(request,ct,responseTimeout).ConfigureAwait(false);}
+        catch(TimeoutException) when(wakeRetry&&!ct.IsCancellationRequested) {
+            Log?.Invoke("[C077] idle serial read timed out; retrying read once after RTC wake");
+            await Task.Delay(100,ct).ConfigureAwait(false);
+            rsp=await TransactAsync(request,ct,responseTimeout).ConfigureAwait(false);
+        }
         ushort[] words=ModbusRtu.ParseRead(rsp, quantity);
         if(start==Sh3520Parameters.HardwareBase && words.Length>=2) {
             IsSh3520=words[0]==Sh3520Parameters.Magic;
@@ -566,8 +579,15 @@ public sealed partial class BmsClient : IAsyncDisposable
     {
         if (soc > 100) throw new ArgumentOutOfRangeException(nameof(soc), "SOC must be 0..100.");
         await WriteSingleRegisterAsync(0x1005, soc, ct);
+        var timer=Stopwatch.StartNew();
         await Task.Delay(180, ct);
         BatterySnapshot snapshot = await ReadBatteryAsync(ct);
+        // C077 publishes the SOC report on the next valid 200 ms AFE sample.
+        // Poll the report for a bounded interval; never repeat the setting command.
+        while(IsC077&&snapshot.SocPercent!=soc&&timer.Elapsed<C077ReportPublishWait) {
+            await Task.Delay(200,ct);
+            snapshot=await ReadBatteryAsync(ct);
+        }
         if (snapshot.SocPercent != soc)
             throw new IOException($"SOC verification failed: wrote {soc}%, device reports {snapshot.SocPercent}%.");
         return snapshot;
@@ -583,8 +603,13 @@ public sealed partial class BmsClient : IAsyncDisposable
             ModbusRtu.ValidateWriteMultipleAck(await TransactAsync(ModbusRtu.WriteMultiple(0x2318,raw),ct),0x2318,4);
             if(!(await ReadRegistersAsync(0x2318,4,ct)).SequenceEqual(group))throw new IOException("C060容量组回读不一致，未自动重发。");
         } else await WriteSingleRegisterAsync(0x2319, cycleCount, ct);
+        var timer=Stopwatch.StartNew();
         await Task.Delay(180, ct);
         BatterySnapshot snapshot = await ReadBatteryAsync(ct);
+        while(IsC077&&snapshot.CycleCount!=cycleCount&&timer.Elapsed<C077ReportPublishWait) {
+            await Task.Delay(200,ct);
+            snapshot=await ReadBatteryAsync(ct);
+        }
         if (snapshot.CycleCount != cycleCount)
             throw new IOException($"Cycle-count verification failed: wrote {cycleCount}, device reports {snapshot.CycleCount}.");
         return snapshot;
@@ -640,6 +665,15 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null)
     {
+        if(IsC077&&_transport.RequiresSerialWakeup&&request.Length>=2&&request[1] is 0x06 or 0x10&&
+           LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold) {
+            // Wake with a read before the one-shot write. A lost write ACK must
+            // never cause a setting/control/EEPROM command to be repeated.
+            Log?.Invoke("[C077] idle serial write: confirming APP with a read before sending command");
+            var capability=await ReadRegistersAsync(0xD170,12,ct,TimeSpan.FromMilliseconds(650)).ConfigureAwait(false);
+            if(capability[0]!=0x5550||capability[1]!=1||capability[2]!=0xC077||capability[3]!=0x0016||capability[10]!=0)
+                throw new IOException("C077 APP身份/运行状态尚未确认；写命令未发送。");
+        }
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
         bool sending = true;

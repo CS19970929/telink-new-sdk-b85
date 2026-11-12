@@ -93,9 +93,16 @@ public sealed partial class BmsClient
             var state=await ReadC077AfeAsync(ct);
             if(state.ServiceFailed)throw new IOException($"309工厂事务失败：{C077Parameters.ErrorText(state.ServiceError)}，AFE{(state.ServicePosition>>8)+1}寄存器0x{state.ServicePosition&255:X2}。保持关闭，请读取实际档案后明确重试。");
             if(state.Chips[0].ZeroState==3)throw new IOException("AFE1零偏校准失败；检查真实零电流和通信后明确重试。AFE2 CADC未启用。");
-            if(state.ServiceState==0&&state.ZeroReady&&state.SampleValid&&!state.OpeningPending&&!state.DriverFault&&state.BalanceOff&&state.Chips.All(c=>c.Valid))return state;
+            // 5A07 only recalibrates AFE1 CADC. AFE2 health remains visible in the
+            // returned snapshot, but cannot turn a completed primary zero into a timeout.
+            bool ready=programProfile
+                ? state.ZeroReady&&state.SampleValid&&state.Chips.All(c=>c.Valid)
+                : state.Chips[0] is {ProfileMatches:true,ZeroState:2,Valid:true,CurrentEnabled:true};
+            if(state.ServiceState==0&&ready&&!state.OpeningPending&&!state.DriverFault&&state.BalanceOff)return state;
         }
-        throw new TimeoutException("309事务完成尚未确认；可能已有部分EEPROM写入，未自动重发，请重新读取诊断。");
+        throw new TimeoutException(programProfile
+            ? "309事务完成尚未确认；可能已有部分EEPROM写入，未自动重发，请重新读取诊断。"
+            : "AFE1零偏完成尚未确认；仅操作RAM校零，未自动重发，请重新读取诊断。");
     }
 }
 
