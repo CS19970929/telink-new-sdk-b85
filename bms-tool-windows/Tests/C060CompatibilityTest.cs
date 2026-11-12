@@ -119,7 +119,7 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
 {
     public bool C077=false,ServiceFailure=false,Bad309Schema=false,SecondaryUnavailable=false,PrimaryUnavailable=false,PrimaryZeroFailed=false; public bool SerialWakeup=false; public int SilentReads,SilentWrites; public int ServiceCommands,ServicePolls; public ushort OutputRequest=0; private int pendingService;
     public bool Advertised=false,Unknown=false,SeparateIdentity=false,NoStatus=false,NoIdentity=false,SilentRealtime=false;
-    public int Writes,Reconnects;public int Soc=55;public int DelayedSocReads,DelayedCycleReads;private int? pendingSoc;private ushort reportedCycle;public List<byte[]> SentRequests=new();public int FailWriteAddress=0;public bool CorruptReadback=false;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
+    public int Writes,Reconnects;public int Soc=55;public int DelayedSocReads,DelayedCycleReads,StartupSampleReads;private int? pendingSoc;private ushort reportedCycle;public List<byte[]> SentRequests=new();public int FailWriteAddress=0;public bool CorruptReadback=false;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
     public bool IsConnected=>true;public bool RequiresSerialWakeup=>SerialWakeup;public string DiscoveryDescription=>"C060 fixture";
     public event Action<ReadOnlyMemory<byte>>? DataReceived; public event Action<string>? ConnectionProgress {add{}remove{}}
     public List<(int,int)> Reads=new();
@@ -177,6 +177,7 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
                 byte[] profile=Convert.FromHexString(i==0?"501C8F54833E828CC36432FA26F6420004000000000000000040":"501C8F5C833E828CC36432FA26F6530004000000000000000040");
                 for(int j=0;j<13;j++)w[32+i*13+j]=(ushort)(profile[j*2]*256+profile[j*2+1]);
             }
+            if(StartupSampleReads>0){StartupSampleReads--;w[58]=0;}
             if(SecondaryUnavailable){w[20]=0;w[28]=0;w[58]=0;}
             if(PrimaryUnavailable){w[8]=0;w[16]=0;w[58]=0;}
             if(PrimaryZeroFailed)w[59]=3;

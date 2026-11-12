@@ -99,6 +99,14 @@ static class Test
         Check(peer.Writes==writeCount+1,"cycle verification timeout never repeats capacity group");peer.DelayedCycleReads=0;
 
 
+        peer.StartupSampleReads=3;readCount=peer.Reads.Count;writeCount=peer.Writes;
+        Check((await c.ReadC077ReadyBatteryAsync()).ValidCellCount==16&&peer.Reads.Count>=readCount+5&&peer.Writes==writeCount,"startup battery waits for valid AFE/zero before reading realtime");
+        peer.SecondaryUnavailable=true;
+        using(var deadline=new CancellationTokenSource(750)) {
+            bool cancelled=false;try{await c.ReadC077ReadyBatteryAsync(deadline.Token);}catch(OperationCanceledException){cancelled=true;}
+            Check(cancelled&&peer.Writes==writeCount,"unready pack cannot be published as valid startup battery");
+        }
+        peer.SecondaryUnavailable=false;
         peer.Bad309Schema=true;await Reject(()=>c.ReadC077AfeAsync(),"unknown diagnostic schema rejected");peer.Bad309Schema=false;
         string path=Path.Combine(Path.GetTempPath(),"CodexTemp","bms-tool-windows","c077-params-"+Guid.NewGuid().ToString("N")+".json");Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         C060Parameters.Export(path,capture);Check(C060Parameters.Import(path,"C077").Product=="C077","C077 parameter roundtrip");

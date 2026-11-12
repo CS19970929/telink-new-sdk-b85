@@ -77,6 +77,18 @@ public sealed partial class BmsClient
         if(!IsC077)throw new NotSupportedException("需D170明确识别C077；不会按3510/3520寄存器访问309。");
         return C077AfeSnapshot.Parse(await ReadRegistersAsync(C077Parameters.DiagnosticBase,64,ct));
     }
+    public async Task<BatterySnapshot> ReadC077ReadyBatteryAsync(CancellationToken ct=default)
+    {
+        var timer=Stopwatch.StartNew();
+        while(true) {
+            var state=await ReadC077AfeAsync(ct);
+            if(state.SampleValid&&state.Chips[0] is {ProfileMatches:true,ZeroState:2,Valid:true})
+                return await ReadBatteryAsync(ct);
+            if(timer.Elapsed>=TimeSpan.FromSeconds(10))
+                throw new IOException("C077 APP已启动，但AFE采样/校零尚未就绪；实时数据暂不可用。");
+            await Task.Delay(250,ct);
+        }
+    }
     private async Task RequireC077OutputsOffAsync(CancellationToken ct)
     {
         var before=await ReadC077AfeAsync(ct);

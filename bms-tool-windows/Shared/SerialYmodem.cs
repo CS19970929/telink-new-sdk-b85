@@ -162,7 +162,8 @@ public sealed class SerialYmodemClient
                 await CheckRunningImageAsync(client,package,ct);
                 DeviceIdentity? identity=null;BatterySnapshot? battery=null;uint? build=null;
                 try {
-                    identity=await client.ReadIdentityAsync(ct);battery=await client.ReadBatteryAsync(ct);
+                    identity=await client.ReadIdentityAsync(ct);
+                    battery=client.IsC077 ? await client.ReadC077ReadyBatteryAsync(ct) : await client.ReadBatteryAsync(ct);
                     if(package.BoardId==D015FirmwarePackage.BoardId)build=await client.TryReadFirmwareBuildIdAsync(ct);
                 } catch(Exception ex) when(ex is IOException or TimeoutException) {
                     Log?.Invoke("APP 升级元数据已确认；当前项目的身份/实时视图未完整读取："+ex.Message);
