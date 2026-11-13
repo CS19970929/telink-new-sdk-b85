@@ -1,116 +1,38 @@
-# AGENTS.md — TLSR8251 BMS 命令行开发规则
+# AGENTS.md — BMS 客户端专用主线
 
-本分支基于本机 `new-new-master` 的提交 `b9d4d0790cd7f163867872bf6ce7980a71dfee76`，只增加可复现的命令行开发工具链，不修改产品固件源码或运行行为。
+## 定位与固定入口
 
-## 平台
+- 本工作树用于 Windows 上位机、Android App 和配套 CLI，负责分支固定为 `client/main`。本机目录：`C:\Users\Administrator\source\bms-client`，源码在其 `bms-tool-windows/`。
+- 仓库仍为 `CS19970929/telink-new-sdk-b85`；客户端基础适用于今后的多种 BMS 串口/BLE 项目，不限 Telink。其他电脑可有不同目录，但应使用同一负责分支。
+- 开工先执行 `pwsh -NoProfile -File bms-tool-windows/check-client-worktree.ps1`，核对仓库、分支、HEAD 和 dirty 状态，并简短报告。分支不符时先定位已有 `client/main` 工作树，不从当前固件/旧客户端分支继续开发。
+- 新聊天、新需求、新板型、编译、测试、安装包和客户/内部版本均不自动新建分支。未经本次明确授权，不得创建分支、复制长期客户端线，或用 detached HEAD 开发未归并新线。
+- 此次是在已有客户端分支上收回有效进度后重命名；旧产品/功能分支保留历史，后续增量直接提交 `client/main`。不擅自删除旧分支、强推、重置用户工作或切换固件工作树。
+- 现状、来源、平台边界及构建说明见 [统一客户端开发指南](bms-tool-windows/docs/CLIENT_MAIN.md)。GitHub 仓库的默认 `master` 并非客户端负责分支。
 
-- MCU：Telink TLSR8251 / TLSR825x B85 系列。
-- CPU：TC32，不是 ARM Cortex-M；禁止使用 ARM GCC、普通 GCC 或 ARM 链接脚本。
-- SDK：`tc_ble_single_sdk V3.4.2.8_Patch_0001`，禁止自动升级。
-- 应用：`tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/ble_sample/`。
-- 启动：`boot/B85/cstartup_825x.S`，入口 `__start`。
-- 链接：`project/tlsr_tc32/B85/boot.link`。
+## 源码与修改边界
 
-当前工程声明目标为 TLSR8251，但沿用 SDK 的 `MCU_STARTUP_8258` 启动配置；脚本会明确显示该目标配置风险。未完成真实硬件和内存边界复核前，不得静默修改启动宏或链接脚本。
+- `bms-tool-windows/BmsTool.Windows/`：客户 Windows 版。
+- `bms-tool-windows/BmsFactoryTest.Windows/`：内部 Windows 版；工厂维修、故障注入等内部专用功能保持隔离。
+- `bms-tool-windows/BmsTool.Android/`：同一套 Android App 的 Customer / Internal 构建变体。
+- `bms-tool-windows/BmsTool.Cli/`：配套命令行工具。
+- `bms-tool-windows/BmsTool.Core/` 与 `Shared/`：公共协议、模型、会话、升级等；Core 当前通过项目链接复用部分 Windows 源文件，不能误删为“平台重复文件”。
+- 默认只改客户端、相关测试/文档和客户端 CI。仓库携带的 SDK、固件、Boot、链接脚本与预编译库不属于本分支日常开发范围；不要整体合并固件分支来获取客户端改动。
+- 先按目标 BMS 的实际协议与能力适配。不得借客户端统一改变寄存器、缩放、字节序、Flash/EEPROM 布局、升级格式或 Boot/App 边界。不存在的串位保持 `61001`，不计入有效串数。
+- 新项目先扩展已有产品识别、能力检查、参数和界面，复用串口/BLE 传输及公共实现；没有实际需要时不引入新抽象或另一套客户端。
+- `ota-app/TelinkOta.*`、`android-bms-app`、`bms-tool-android`、SDK `BMSAssistant*` 和发布 EXE/APK 不是源码入口。
 
-## 固定工具链
+## 行为与版本边界
 
-- `C:\TelinkIoTStudio\opt\tc32\bin\tc32-elf-gcc.exe`
-- 编译器版本：GCC `4.5.1-tc32-1.3`
-- 官方预编译库：`proj_lib/liblt_825x.a`、`proj_lib/liblt_general_stack.a`
-- 官方固件后处理：`script/tl_check_fw/tl_check_fw2.exe`
-- 烧录：Telink BDT；默认路径 `C:\TelinkIoTStudio\tools\libusbBDT\bin`
+- 客户版与内部版共用公共功能，保留现有服务授权与专用功能限制。统一分支不代表所有平台已具备相同专用页面。
+- 参数候选必须绑定设备连接及有效读回；切换、断开、重连后重新读取，旧异步结果不得发布到新连接。保留整组事务、部分提交提示、失败后重读规则，禁止盲目重发写入。
+- 升级按有效能力、产品、地址、容量和包校验分流；明确区分标准 YMODEM、旧页协议、旧 HS-D015 和 Telink 传输。无法确认身份/边界时拒绝猜测。
+- OTA 导入不授权自动选择陌生设备、升级、烧录或改固件。Android 自动发送只使用已经明确选择的端点；CLI 实板操作保留原参数授权和 JSON/exit-code 合同。
+- 本轮保留 Android `0.9.1` 的既有版本字段；本地编译不等于重新发布旧版本安装包。正式发布按发布流程记录新提交、版本和产物哈希。
 
-禁止擅自升级编译器、SDK、ABI、启动代码、链接脚本或替换预编译库。两份 `.a` 文件属于构建输入，必须保留在 Git 中并由 manifest 记录 SHA-256。
+## 验证、提交与临时文件
 
-## 唯一命令入口
-
-在仓库根目录执行：
-
-```powershell
-python bms_tools/bms.py env
-python bms_tools/bms.py sources --check
-python bms_tools/bms.py build --jobs 4
-python bms_tools/bms.py rebuild --jobs 4
-python bms_tools/bms.py size
-python bms_tools/bms.py map
-python bms_tools/bms.py manifest
-python bms_tools/bms.py verify
-python bms_tools/bms.py static
-python bms_tools/bms.py ci --jobs 4
-```
-
-`build` 和 `rebuild` 会自动完成 ELF、MAP、LST、raw BIN、官方后处理 BIN 的生成。命令行产物统一放在 `project/tlsr_tc32/B85/825x_ble_sample_cli/`，与 IDE 的 `project/tlsr_tc32/B85/825x_ble_sample/` 完全分离。可烧录文件只有 `825x_ble_sample_cli/825x_ble_sample.bin`；`825x_ble_sample.raw.bin` 是中间产物，禁止烧录。
-
-仓库路径含空格时，脚本会建立 `C:\opencode\bms_repo` junction 供 GNU Make 使用，不需要手工修改路径或系统 PATH。
-
-## 临时文件边界
-
-- 禁止在仓库内创建或使用 `.codex_tmp/` 存放 Codex/ChatGPT 的日志、截图、文档渲染、表格审计、解压文件或其他中间产物。
-- 此类临时文件统一放到 Windows 用户临时目录，例如 `$env:LOCALAPPDATA\CodexTemp\tlsr8251-bms\<task-id>`；任务结束后可按需清理。
-- 工程命令自身的可复现构建和静态分析证据仍按既定规则写入 `project/tlsr_tc32/B85/825x_ble_sample_cli/`，不得改为不可追溯的临时输出。
-- 需要交付给用户的正式文件应写入用户明确指定的位置；未指定时先说明目标位置，不得为了中间处理在仓库根目录新增临时目录。
-
-## 固定编译与链接参数
-
-```text
-tc32-elf-gcc -ffunction-sections -fdata-sections -Wall -O2
-  -fpack-struct -fshort-enums -finline-small-functions
-  -std=gnu99 -fshort-wchar -fms-extensions
-  -D__PROJECT_8258_BLE_SAMPLE__=1 -DCHIP_TYPE=CHIP_TYPE_825x
-
-startup assembly: -DMCU_STARTUP_8258
-link: tc32-elf-ld --gc-sections -L proj_lib -T boot.link
-      ... -llt_825x -llt_general_stack
-```
-
-不要仅为了“现代化”改用 CMake；`build.mk` 是保持旧固件编译语义的薄驱动，源文件规则由 Python 自动生成。
-
-## 源码与链接顺序
-
-`bms_tools/source_order.txt` 是参与构建的 `.c` / `.S` 和对象链接顺序的权威输入。不得依赖文件系统枚举顺序，也不得让 `build/rebuild` 静默改写它。
-
-- 新增、删除或重命名源文件后，先执行 `python bms_tools/bms.py sources --update`，审核并提交 `source_order.txt` 的 Git diff，然后执行 `sources --check` 和 `rebuild`；不需要手写逐文件 Make 规则。
-- `vendor/ble_sample/` 递归发现项目源文件；新增其他顶层源码组时需审核并修改 `SOURCE_GROUPS`。
-- 若保留 IDE 生成文件，可用 `sources --compare-ide` 只读对照；只有明确决定采用 IDE 顺序时才能执行 `sources --import-ide`。IDE 文件不是构建依赖。
-- 修改头文件后必须 `rebuild`；当前构建不依赖自动生成的头文件 `.d` 文件。
-- 顺序变化会改变链接地址和 BIN。重大变化必须比较 ELF/MAP/BIN并做真实硬件回归。
-
-## 修改边界和验证
-
-- `vendor/ble_sample/` 是项目代码；修改后必须执行 `rebuild`、`check-fw`、`size`、`manifest`、`verify`、`static`。
-- `vendor/common/`、`drivers/B85/`、`common/` 是官方 SDK 边界，原则上不修改。
-- `boot/B85/`、`boot.link`、`proj_lib/*.a` 禁止随意修改。
-- 烧录前先执行 `verify`，禁止全片擦除或擦除 `0x74000..0x7FFFF`。
-- 重大修改后用 `baseline <reference.bin>` 比较尺寸、SHA-256 和首末差异位置，并在真实 TLSR8251 板上完成现有功能冒烟测试。
-
-静态分析由 cppcheck 执行，只检查 `vendor/ble_sample` 应用层。官方 SDK 头文件仅为保持真实类型、宏和条件编译而解析，其诊断按可追溯范围清单排除，不纳入问题统计。结果输出到 `project/tlsr_tc32/B85/825x_ble_sample_cli/static/`。Cppcheck 结果不能描述为完整 MISRA-C 合规结论。
-
-详细迁移说明见 `docs/no_ide_toolchain_new_new_master.md`；新增文件、源码自动发现、IDE 一致性边界和 Vendor `.a` 来源见 `docs/toolchain_files_sources_and_vendor_libraries.md`；顺序管理和发布门禁见 `docs/source_link_order_management.md`。
-
-## Windows / CLI / Android 单一真源（强制）
-
-- D008、D011、D013 实际共同使用的 Windows 上位机、CLI 和 Android BMS Tool **唯一真源**就是本分支 `feature/windows-afe-hw-protection-editor-v2` 的 `bms-tool-windows/`。
-- `bms-tool-windows/BmsTool.Windows/` 是客户版；`bms-tool-windows/BmsFactoryTest.Windows/` 是内部完整测试版。公共功能（实时数据、事件日志、协议解析等）必须同步维护两版；工厂专用功能只存在完整版。
-- `BmsTool.Core/` 与 `Shared/` 是 Modbus、身份读取、诊断、Telink BIN 预检和 OTA 状态机的公共实现；Windows、CLI 和 Android 只保留各自传输/UI 边界，禁止复制第二套协议或 OTA 成功判定。
-- 三个产品分支中的历史 `tools/BMSAssistant/`、`tools/BMSAssistantQt/`、`tools/BMSAssistantAndroid/` 已废弃并应删除；不得从这些目录复制实现、协议常量或测试回本上位机。
-- 收到“上位机、Windows/Android 工具、CLI、事件日志、参数编辑、AFE 编辑器”等需求时，默认只修改 `bms-tool-windows/`。除非用户明确要求，**不得顺带修改 D008/D011/D013 固件协议、寄存器地址、Flash 布局或 Storage 架构**。
-- 先按现有固件协议完成客户端适配；只有现有协议确实无法满足需求且用户明确同意时，才能提出固件协议变更。
-- 上位机修改坚持最小范围：先定位实际在用项目和实际调用路径，再改最少文件；禁止为了一个 UI/读取问题扩展成协议重构、固件重构或无关客户端同步。
-
-## Android / VS Code / 无线 ADB 开发规则
-
-- `bms-tool-windows/BmsTool.Android/` 是 Android App；`BmsTool.Android.Sender/` 和 `BmsTool.Android.Deployer/` 是 PC 固件发送入口。实现和文档以 `bms-tool-windows/docs/ANDROID.md` 为准，不得恢复历史 Android 客户端或另建一套 OTA 逻辑。
-- VS Code 默认构建任务 `BMS: 编译并发送固件到 Android` 必须先执行产品标准 `rebuild/check-fw`，且只允许发送标准 `825x_ble_sample.bin`；禁止发送 `*.raw.bin`。
-- 自动 OTA 只能沿用 App 在任务开始前已明确连接的 BMS 及其 MAC；未连接、连接已变化或存在多设备歧义时只能导入固件，禁止自动扫描后选择第一台设备。
-- 自动 OTA 必须经过 TLNK marker、size、CRC trailer 和 SHA-256 预检，并使用一次性导入授权。成功证据必须包含 `OTA_RESULT=OTA_SUCCESS` 及升级后身份/通信回读；不得仅因“重新连上”判定成功。
-- Android 无线调试不得写死手机 IP 或 ADB TLS 端口；优先使用已连接 device id，断线时通过官方 `_adb-tls-connect` mDNS 服务重连。同一手机短暂残留多个历史端点可逐个验证，发现不同手机必须拒绝自动选择。
-- USB 只是首次配对和无线调试失效后的恢复手段，不是日常发送固件的必需条件。不得假设手机重启后无线调试开关仍为开启；应允许用户通过系统“无线调试”快捷设置磁贴恢复，不得为此绕过 Android 系统授权。
-
-## Windows CLI / AI 实板接口
-
-- `bms-tool-windows/BmsTool.Cli/` 是现有 Windows 上位机的无 UI 入口，不得复制或另写一套 Modbus、Telink OTA、STM32 IAP 或 Diagnostics 协议；必须复用 `BmsTool.Windows/` 与 `Shared/` 的真源。
-- AI/Codex 与实板交互时优先使用 `bms-cli ... --json`，不要通过 UI 自动点击或解析界面文字。需要完整故障证据时使用 `bms-cli diag ... --json` 或 `--output <zip>`。
-- 自动 OTA 必须显式使用 `--yes`；`--auto` 只有扫描到唯一兼容 BMS 时才允许继续，出现多设备必须让调用者指定 MAC/名称。
-- CLI stdout 的 JSON schema 和 exit code 属于自动化接口，修改时必须兼容现有脚本或同步更新 `bms-tool-windows/docs/CLI.md` 和 CI smoke test。
-- 上位机/CLI 修改后必须同时构建客户 WPF、内部 WPF 和 CLI；OTA 修改还必须执行 `test-ota-protocol.ps1`。
+- 公共客户端修改后构建客户 WPF、内部 WPF 和 CLI；影响 Core 或 Android 的改动还需构建 Android 两版。按修改范围运行现有相关回归，不自动运行实板脚本。
+- 构建、测试、缓存、截图及中间文件全部写到用户临时区；例如 `$env:LOCALAPPDATA\CodexTemp\bms-client\<task-id>`。使用 `--artifacts-path`，禁止在工作树内创建临时目录或生成 `bin/obj` 缓存。
+- 客户端任务不执行仓库历史 `bms_tools/bms.py build/rebuild/ci` 或 VS Code 发送固件任务；这些会构建或发送固件。用户未要求时不生成固件 BIN、不烧录、不安装。
+- 测试结果区分源码/host、桌面/App 编译、真实传输、实板行为；不能把 fake transport 或 APK 编译当作手机和 BMS 验收。
+- 保留无关 dirty 改动。较大变更分阶段提交，只提交本次相关文件；交付报告实际分支、提交、验证及是否新增分支。

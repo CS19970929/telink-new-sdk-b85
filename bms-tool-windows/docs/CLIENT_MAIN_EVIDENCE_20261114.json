@@ -1,0 +1,441 @@
+{
+  "date": "2026-11-14",
+  "repository": "CS19970929/telink-new-sdk-b85",
+  "branch": "client/main",
+  "worktree": "C:\\Users\\Administrator\\source\\bms-client",
+  "source_commit": "0a9eb6bcc152349ef3b80c9a70655a1922b07a08",
+  "initial_client_tip": "31838f47294ffe9b27e464640d61e250d276b3b2",
+  "local_branch_count": 86,
+  "branch_operation": "rename existing feature/windows-afe-hw-protection-editor-v2 to client/main",
+  "remote_pushed": false,
+  "remote_ci_run": false,
+  "firmware_changes": false,
+  "hardware_io": false,
+  "application_installed": false,
+  "official_release": false,
+  "android_display_version": "0.9.1",
+  "android_version_code": 16,
+  "builds": [
+    {
+      "project": "BmsTool.Windows",
+      "configuration": "Release",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\stage1\\BmsTool.Windows-verified.log",
+      "log_sha256": "3f216fe3fe236a4959fa5164fc7ea01333c7b84e74e1aa6608e48f3aa7f27c63"
+    },
+    {
+      "project": "BmsFactoryTest.Windows",
+      "configuration": "Release",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\stage1\\BmsFactoryTest.Windows-verified.log",
+      "log_sha256": "529f7271109dc163ef92a7128dc7142958f49cf5bfc0200080d13b29728491c2"
+    },
+    {
+      "project": "BmsTool.Cli",
+      "configuration": "Release",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\stage1\\BmsTool.Cli-verified.log",
+      "log_sha256": "6662ad726b109656ac743b76d83d322b2bb20581101deb779d7a9f87106afccc"
+    },
+    {
+      "project": "BmsTool.Android",
+      "edition": "customer",
+      "configuration": "Release",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\android-customer-verified.log",
+      "log_sha256": "9a9ff6adaade579c3a4ef01b84503fcb2632bef82bfa1aa22ca04fd92afde4c1"
+    },
+    {
+      "project": "BmsTool.Android",
+      "edition": "internal",
+      "configuration": "Release",
+      "exit_code": 0,
+      "warnings": 0,
+      "errors": 0,
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\android-internal-verified.log",
+      "log_sha256": "40d6aef249d820d393a55d9ef91d6da502cdf75e71025b03e9552ff58ef5c7ed"
+    }
+  ],
+  "tests": [
+    {
+      "name": "actual-WPF-lifecycle-main-window-and-AFE",
+      "phase": "final code",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\verified-desktop-tests.log",
+      "log_sha256": "9ba440b926202cd13dd1591000b1e332b15229a77131309ee00996e09a177485",
+      "pass_lines": [
+        "PASS real client lifecycle: 15 transport cancellation, stale-read and snapshot-ownership checks; no hardware IO",
+        "PASS real client lifecycle: 15 transport cancellation, stale-read and snapshot-ownership checks; no hardware IO",
+        "PASS 默认列表不显示系统历史缓存",
+        "PASS 历史设备只能显式打开并标记未确认在线",
+        "PASS 真实广播进入两版附近设备列表",
+        "PASS 系统移除不会删除仍有新鲜广播的设备",
+        "PASS 系统广播更新在两版默认附近列表可见",
+        "PASS 系统广播更新明确标注来源",
+        "PASS 新搜索状态不继承旧列表",
+        "PASS 两版均提供取消连接按钮",
+        "PASS 同一 MAC 的重复广播不会清除已选设备",
+        "PASS 系统状态只显示充放电 MOS",
+        "PASS 系统状态不显示说明性状态文字",
+        "PASS 系统状态保留两个 MOS 控制按钮",
+        "PASS 窗口最小尺寸适配 900x600 可用区域",
+        "PASS 实时监控页在小窗口下可滚动访问完整内容",
+        "PASS 实时监控页按可视区宽度排版，宽屏不会被电芯列表横向撑开",
+        "PASS 实时监控页在 1180x760 下无横向溢出",
+        "PASS 实时监控页在 1920x1000 下无横向溢出",
+        "PASS 实时监控页仅在小于设计宽度时提供横向滚动",
+        "PASS CustomerAlarm1Text 长文本不会被固定高度裁剪",
+        "PASS CustomerAlarm2Text 长文本不会被固定高度裁剪",
+        "PASS CustomerAlarm3Text 长文本不会被固定高度裁剪",
+        "PASS 业务参数页移除冗长说明文字",
+        "PASS 仅测试版显示底部通信统计",
+        "PASS 客户版不创建D015配置页，测试版保留",
+        "PASS 首页底部显示设备信息页同一个固件Build ID与模式",
+        "PASS 7秒以内仍保留已读设备值",
+        "PASS 设备信息与首页均提供板载时间",
+        "PASS 达到8秒无成功响应即清空，不等待轮询任务完成",
+        "PASS 电压与电芯卡片已清空",
+        "PASS 身份、版本、序列号与Build ID同步清空",
+        "PASS 通信超时清空两处板载时间",
+        "PASS 业务参数与保护状态显示未知，不伪装成0或无故障",
+        "PASS 恢复后需重新读取身份",
+        "PASS 收到新成功响应可恢复显示",
+        "PASS 恢复时显示新读数",
+        "PASS 手动断开与更换连接立即清空",
+        "PASS 3520 参数使用明确列定义，禁止插入或隐式生成寄存器行",
+        "PASS 3520 页面区分测量和可写配置",
+        "PASS 两版均提供3520硬件保护和SN读写入口",
+        "PASS 3520页面未连接时不执行事务",
+        "MAIN_WINDOW_EXPERIENCE_PASS",
+        "PASS 默认列表不显示系统历史缓存",
+        "PASS 历史设备只能显式打开并标记未确认在线",
+        "PASS 真实广播进入两版附近设备列表",
+        "PASS 系统移除不会删除仍有新鲜广播的设备",
+        "PASS 系统广播更新在两版默认附近列表可见",
+        "PASS 系统广播更新明确标注来源",
+        "PASS 新搜索状态不继承旧列表",
+        "PASS 两版均提供取消连接按钮",
+        "PASS 同一 MAC 的重复广播不会清除已选设备",
+        "PASS 系统状态只显示充放电 MOS",
+        "PASS 系统状态不显示说明性状态文字",
+        "PASS 系统状态保留两个 MOS 控制按钮",
+        "PASS 窗口最小尺寸适配 900x600 可用区域",
+        "PASS 实时监控页在小窗口下可滚动访问完整内容",
+        "PASS 实时监控页按可视区宽度排版，宽屏不会被电芯列表横向撑开",
+        "PASS 实时监控页在 1180x760 下无横向溢出",
+        "PASS 实时监控页在 1920x1000 下无横向溢出",
+        "PASS 实时监控页仅在小于设计宽度时提供横向滚动",
+        "PASS CustomerAlarm1Text 长文本不会被固定高度裁剪",
+        "PASS CustomerAlarm2Text 长文本不会被固定高度裁剪",
+        "PASS CustomerAlarm3Text 长文本不会被固定高度裁剪",
+        "PASS 业务参数页移除冗长说明文字",
+        "PASS 仅测试版显示底部通信统计",
+        "PASS 客户版不创建D015配置页，测试版保留",
+        "PASS 首页底部显示设备信息页同一个固件Build ID与模式",
+        "PASS 7秒以内仍保留已读设备值",
+        "PASS 设备信息与首页均提供板载时间",
+        "PASS 达到8秒无成功响应即清空，不等待轮询任务完成",
+        "PASS 电压与电芯卡片已清空",
+        "PASS 身份、版本、序列号与Build ID同步清空",
+        "PASS 通信超时清空两处板载时间",
+        "PASS 业务参数与保护状态显示未知，不伪装成0或无故障",
+        "PASS 恢复后需重新读取身份",
+        "PASS 收到新成功响应可恢复显示",
+        "PASS 恢复时显示新读数",
+        "PASS 手动断开与更换连接立即清空",
+        "PASS 3520 参数使用明确列定义，禁止插入或隐式生成寄存器行",
+        "PASS 3520 页面区分测量和可写配置",
+        "PASS 两版均提供3520硬件保护和SN读写入口",
+        "PASS 3520页面未连接时不执行事务",
+        "MAIN_WINDOW_EXPERIENCE_PASS",
+        "PASS AFE editor UI: switches, NC gate, live binding, source/preview columns and feature reasons",
+        "PASS AFE editor UI: switches, NC gate, live binding, source/preview columns and feature reasons",
+        "PASS AFE compatibility: complete scalar/current/short/temperature ranges, shared OCD enable, legacy delay evidence, finite decimal input and preserved hidden words",
+        "PASS AFE compatibility: complete scalar/current/short/temperature ranges, shared OCD enable, legacy delay evidence, finite decimal input and preserved hidden words"
+      ]
+    },
+    {
+      "name": "AFE-register-SOC-HIL-C11-protocols",
+      "phase": "final parser source",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\final-parser-contracts.log",
+      "log_sha256": "e5b7f9aed9f487ceadd55d668379ccd61823c30c10ea376409ac36ee46f784e1",
+      "pass_lines": [
+        "PASS AFE MTU23 roundtrip, old firmware, wrong ACK, cancel, SCD, serial response and balance mask; unavailable effective rejected; customer short complete transaction, stale snapshot, invalid effective and OCD2 readback guards",
+        "PASS reference catalogs, exact INFO, masked CAS framing, response address, error status and lost ACK without retry",
+        "PASS SOC HIL protocol: MTU=23 request, CRC, byte order, response lengths and safety errors",
+        "PASS C11 client integration: 9 generic/qualified/corrupt/optional capability and MOS checks; no hardware IO"
+      ]
+    },
+    {
+      "name": "diagnostics-and-session-regressions",
+      "phase": "integrated code before isolated 0x42 parser correction",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\final-diagnostics.log",
+      "log_sha256": "94d8b56426182de309c65f0f576d5b3b7394c931fa2ad6512366e5fac56dd3d7",
+      "pass_lines": [
+        "PASS communication counters: fragmentation/CRC/header/exception/write failure/cancel/timeout/reconnect",
+        "PASS polling: coherent cell fields, existing realtime units, no UI-pump dependency",
+        "PASS MOS monitor: short off/on, invalid samples, unknown cause, overwrite, torn slot, reset, sequence wrap, old firmware, durable journal",
+        "PASS OpenWire: active/fault separation, raw decode, clone, tick wrap, stale, bounds, shared read-only transport, old firmware",
+        "PASS SOC input CSV: units, missing truth, flags, overwrite and chemistry guards",
+        "PASS diagnostic session: streaming, partial evidence, identity pin, reset uncertainty, tick wrap, gaps, cancel, read-only frames",
+        "PASS Windows diagnostics: runtime current/SOC/PM/protection decode, parameter+AFE evidence, legacy/exceptions, timeout/cancel, bounded trace retry, AI ZIP and read-only frames"
+      ]
+    },
+    {
+      "name": "business-parameters-UI",
+      "phase": "integrated code before isolated 0x42 parser correction",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\final-business-ui.log",
+      "log_sha256": "83ec7b196fb5b5f69622921e40e8fe5ec8ecdd8ff36eac4704259e1e505c1d55",
+      "pass_lines": [
+        "PASS C060 UI: automatic map switching, generic fallback/manual entry, 150 rows, compatibility and edition edit gates, offscreen layout",
+        "PASS business parameters UI: grouped layout, edition-specific SOC / OCV, SN editor, actual/candidate separation and write gates",
+        "PASS C060 UI: automatic map switching, generic fallback/manual entry, 150 rows, compatibility and edition edit gates, offscreen layout",
+        "PASS business parameters UI: grouped layout, edition-specific SOC / OCV, SN editor, actual/candidate separation and write gates"
+      ]
+    },
+    {
+      "name": "upgrade-UI-Android-routing-service-QR-and-CLI",
+      "phase": "integrated code before isolated 0x42 parser correction",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\final-android-cli-ui.log",
+      "log_sha256": "9b57a904cc09ed3c39e944daa692a9ff05ef2858b78c7d4e88b54555d839412e",
+      "pass_lines": [
+        "{\"status\":\"pass\",\"c060CandidateAccepted\":true,\"unknownBoardAccepted\":true,\"badCrcClearsCandidate\":true,\"commonRecovery\":true,\"otaVisible\":true,\"firmwareLabel\":\"synthetic-c060.test-package \\u00B7 2,080 bytes \\u00B7 C060 YMODEM \\u5347\\u7EA7\\u5305\\uFF08CRC\\u5DF2\\u6821\\u9A8C\\uFF09\",\"screenshot\":\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\CodexTemp\\\\bms-client-unification-20261114\\\\final-upgrade-ui\\\\customer\\\\ota-page.png\"}",
+        "{\"status\":\"pass\",\"c060CandidateAccepted\":true,\"unknownBoardAccepted\":true,\"badCrcClearsCandidate\":true,\"commonRecovery\":true,\"otaVisible\":true,\"firmwareLabel\":\"synthetic-c060.test-package \\u00B7 2,080 bytes \\u00B7 C060 YMODEM \\u5347\\u7EA7\\u5305\\uFF08CRC\\u5DF2\\u6821\\u9A8C\\uFF09\",\"screenshot\":\"C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\CodexTemp\\\\bms-client-unification-20261114\\\\final-upgrade-ui\\\\internal\\\\ota-page.png\"}",
+        "PASS Android firmware routing and selected-endpoint policy: 24 checks; no device access",
+        "PASS Android service access: 17 checks; production methods, no GATT or device writes",
+        "PASS MAC QR parsing/luminance: 52 checks; no camera or Bluetooth device access",
+        "PASS CLI offline: capabilities JSON, categorized compare and Markdown report"
+      ]
+    },
+    {
+      "name": "OTA-packages-and-C11",
+      "phase": "integrated code before isolated 0x42 parser correction",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\final-protocols.log",
+      "log_sha256": "8aa645df14db96516363b60facfb92efbd7b597aa5377adac82ab0a33dbcad51",
+      "pass_lines": [
+        "PASS Telink OTA protocol/core: START/START_EXT, index, CRC16, padding, END, TLNK/CRC32 preflight, OTA_RESULT",
+        "PASS: user's valid C060 package accepted without D015 misclassification",
+        "PASS: 41 package/capability/cross-project compatibility checks; no device access",
+        "PASS C11 client integration: 9 generic/qualified/corrupt/optional capability and MOS checks; no hardware IO"
+      ]
+    },
+    {
+      "name": "BLE-discovery-and-OTA",
+      "phase": "staged integration",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\ble-ota.log",
+      "log_sha256": "03a204c6e8eb8020f6308d1159d5aec0d657c2618b30c6edcbf13eb2e4f8efb8",
+      "pass_lines": [
+        "PASS 系统缓存不会成为附近设备",
+        "PASS 历史记录无新鲜时间和伪造RSSI",
+        "PASS 真实广播进入附近列表并覆盖历史名称",
+        "PASS 系统更新不会覆盖真实广播名称",
+        "PASS 恰好12秒未收到广播即过期",
+        "PASS 系统更新不刷新广播发现时间",
+        "PASS 过期后系统缓存不能重新授权附近状态",
+        "PASS 无名称广播可使用同MAC已知名称",
+        "PASS 系统移除不掩盖刚收到的真实广播",
+        "PASS 系统移除能删除过期历史记录",
+        "PASS 删除后不残留名称映射",
+        "PASS 已确认服务的无名称广播有清楚标记",
+        "PASS 初始枚举即使带未来时间和RSSI也只是历史",
+        "PASS 重复LastSeenTime不能授权在线",
+        "PASS 持续推进的系统广播时间进入附近列表",
+        "PASS 新鲜度采用本机接收时刻而非错误的系统绝对时间",
+        "PASS 名称信号及重复时间更新不能延长12秒期限",
+        "PASS 过期系统发现隐藏旧RSSI",
+        "PASS 回退的系统时间不能授权在线",
+        "PASS 乱序回放旧时间不能重复授权在线",
+        "PASS 只有超过已见最高时间的新广播才能重新发现",
+        "PASS 系统移除立即撤销系统广播发现和基线",
+        "PASS 移除后首条更新不能复用旧时间基线",
+        "PASS 系统更新不覆盖仍新鲜的直接广播",
+        "PASS 直接广播过期后可由系统新广播续接",
+        "PASS 新连接等待旧连接完成清理",
+        "PASS 手动连接和自动重连不会并行",
+        "PASS 连接结束后释放所有权",
+        "PASS 不能即时取消的系统查询完成后只执行最新连接",
+        "PASS 取消按钮能取消当前连接并释放入口",
+        "PASS 连接异常后仍能发起新连接",
+        "PASS Telink OTA protocol/core: START/START_EXT, index, CRC16, padding, END, TLNK/CRC32 preflight, OTA_RESULT"
+      ]
+    },
+    {
+      "name": "event-history",
+      "phase": "staged integration",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\events.log",
+      "log_sha256": "aab445bf0ec5021fd23aff8921c26541227331da7f68cb52fabf971a5fc01c47",
+      "pass_lines": [
+        "PASS both-edition event history: 100 records, 64-word pages, signed values, UTC/unknown time, changed snapshots, malformed data, CSV; optional real C interop",
+        "PASS real WPF event UI: shared page, date/source/name filters, unknown time, 1440/1000 layout, stale cleanup; no device IO",
+        "PASS both-edition event history: 100 records, 64-word pages, signed values, UTC/unknown time, changed snapshots, malformed data, CSV; optional real C interop",
+        "PASS real WPF event UI: shared page, date/source/name filters, unknown time, 1440/1000 layout, stale cleanup; no device IO"
+      ]
+    },
+    {
+      "name": "SOC-and-AFE-model",
+      "phase": "staged integration",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\afe-soc.log",
+      "log_sha256": "ee2fce71cdf45b19aa9beea95394d12887e1ec5f5dc6a661722716c846695913",
+      "pass_lines": [
+        "PASS AFE compatibility: complete scalar/current/short/temperature ranges, shared OCD enable, legacy delay evidence, finite decimal input and preserved hidden words",
+        "PASS AFE compatibility: complete scalar/current/short/temperature ranges, shared OCD enable, legacy delay evidence, finite decimal input and preserved hidden words",
+        "PASS SOC模型v3：候选曲线、JSON往返、范围/版本/类型门禁和原事务读回；无真实设备或WPF证据"
+      ]
+    },
+    {
+      "name": "Telink-serial-OTA",
+      "phase": "staged integration",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\telink-serial.log",
+      "log_sha256": "810e214373f3f8d731468914149d77a8652c8e054f182eff36f1e8f8c8626979",
+      "pass_lines": [
+        "PASS serial OTA client: canonical image, descriptor/product, fragmented/echo/noisy/stale ACK, offsets, no blind retry, commit uncertainty, unsupported firmware"
+      ]
+    },
+    {
+      "name": "HS-D015-legacy-sender",
+      "phase": "staged integration",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\hs-d015.log",
+      "log_sha256": "b95fae60b31e98427599beed090c3248a2315ca9e10081ca9bd05f3894dc46f8",
+      "pass_lines": [
+        "PASS HS-D015 actual OTA client: 50 checks; preflight, exact wire frames, padding, reconnect CRC, unknown result, no page retry, legacy"
+      ]
+    },
+    {
+      "name": "3520-parameter-codec",
+      "phase": "staged integration",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\3520-parameters.log",
+      "log_sha256": "b7d9d17be70de4b51fb85fa036ee1d6f909a912241bae146a6ec16039cee20b8",
+      "pass_lines": [
+        "PASS: 17 codec checks (shared by customer and factory builds)"
+      ]
+    },
+    {
+      "name": "C060-C077-protection-contracts",
+      "result": "pass",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\final-parameters.log",
+      "pass_lines": [
+        "PASS C060 parameters: 150 field map, fresh grouped saves, reserved fields, exact units, signed K/B, cycle/SOC, compatibility gating, GBK identity, package product checks, MTU preflight",
+        "PASS C060 protection: 13 groups/65 words, MTU23 19-byte atomic writes, preflight, same-value skip, partial failure and bad readback",
+        "PASS C060 connection: old/new capabilities, GBK, 20 cells/61001, units, optional rejection, unknown/generic fallback, no reconnect, session cache",
+        "PASS C077 shared host: 58 identity/cell/parameter/zero/service/cross-product checks",
+        "PASS batch: transient-invalid sequence, 13 groups, 19-byte frames, preflight, partial failure"
+      ],
+      "note": "This batch later stopped on an obsolete business UI control name. Only preceding successful contract invocations are cited here; corrected business UI passed separately in final-business-ui.log."
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\stage1\\bin\\BmsTool.Windows\\release\\BmsTool.Windows.dll",
+      "kind": "validation assembly",
+      "sha256": "8c8bea810ff398333d60a5480998da5317e1069e32d7e04be1bd5d09875b29a8",
+      "informational_version": "1.0.0+0a9eb6bcc152349ef3b80c9a70655a1922b07a08"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\stage1\\bin\\BmsFactoryTest.Windows\\release\\BmsFactoryTest.Windows.dll",
+      "kind": "validation assembly",
+      "sha256": "5f99bf86f1b00a5f52687e01b2b1939c3af97ca94b4afe727f2d31162da2d45d",
+      "informational_version": "1.0.0+0a9eb6bcc152349ef3b80c9a70655a1922b07a08"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\stage1\\bin\\BmsTool.Cli\\release\\bms-cli.dll",
+      "kind": "validation assembly",
+      "sha256": "21e6e8367183709a8c446ebbdbb07af44a6fba7ed6820e8cdd68ad1ce961a644",
+      "informational_version": "1.0.0+0a9eb6bcc152349ef3b80c9a70655a1922b07a08"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\android-customer\\bin\\BmsTool.Android\\release\\com.cs.bmsbattery-Signed.apk",
+      "kind": "validation APK only",
+      "edition": "customer",
+      "sha256": "5705fbe20fd2ba91b223af835c05055a8dc2b6fb9d158bab1d112751b42b29ce"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\android-customer\\bin\\BmsTool.Android\\release\\com.cs.bmsbattery.apk",
+      "kind": "validation APK only",
+      "edition": "customer",
+      "sha256": "80e85dfd6dbf21aef2b0fcae67b6d870a022a1149d4de327e302a9ec02c116a1"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\android-internal\\bin\\BmsTool.Android\\release\\com.cs.bmstool.android-Signed.apk",
+      "kind": "validation APK only",
+      "edition": "internal",
+      "sha256": "3a346e057d2640d108ce929e7e527aaf7eb97b9bbfe8dc104cc836d772dd17fe"
+    },
+    {
+      "path": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\android-internal\\bin\\BmsTool.Android\\release\\com.cs.bmstool.android.apk",
+      "kind": "validation APK only",
+      "edition": "internal",
+      "sha256": "36aa2464ea25b89d0632eef35dbb4caacb83e866b2deef523b9f3fad2d556d8c"
+    }
+  ],
+  "source_fingerprints": [
+    {
+      "path": "bms-tool-windows/BmsTool.Windows/BmsClient.cs",
+      "sha256": "3ced2771cde46e76e58622add2e5be2c02178e89a2d245315e7932fbecab8ef8"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Windows/ModbusRtu.cs",
+      "sha256": "6ab3fb6bed828279bb7a2315da07abb9bdad627811f63065f65e357de94be109"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Windows/MainWindow.xaml.cs",
+      "sha256": "d32f97e4b52db4c787e52e99ce345eb00a54e9004ceb765646130b271e6e814e"
+    },
+    {
+      "path": "bms-tool-windows/BmsFactoryTest.Windows/MainWindow.xaml.cs",
+      "sha256": "8b4bb5a807a3232079094858b20de87622306ec5ce188d2c7cd00b0bef4fc205"
+    },
+    {
+      "path": "bms-tool-windows/Shared/MainWindow.ConnectionState.cs",
+      "sha256": "5d35130961da5b13e36ae2cc9acba4715fccd2b79675e4906fb73306e90b0412"
+    },
+    {
+      "path": "bms-tool-windows/Shared/UpgradeDetection.cs",
+      "sha256": "9978490db214a1606f3c2a93d050b78a17e48ff9e895830f0de67ad6d49d9df2"
+    },
+    {
+      "path": "bms-tool-windows/Shared/C060Parameters.cs",
+      "sha256": "db4849e5e7e78c9466563f9bbdefdd1d0930d1b13e6fa159ba1eb00c87bdbc5b"
+    },
+    {
+      "path": "bms-tool-windows/Shared/C077Parameters.cs",
+      "sha256": "5f975182d407c16ef12988458796616ce30017c10db81d302f92ae5682168b34"
+    },
+    {
+      "path": "bms-tool-windows/Shared/BmsClient.FaultInjection.cs",
+      "sha256": "a273c3527c827a9661137c18ff6861a9ec570f0fd6e74684e82a3951073ad7b8"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Core/BmsTool.Core.csproj",
+      "sha256": "3678d10f4759264e03c92eb9bb883d36e47b8651dc723953cdb2f0af16f07256"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/BmsTool.Android.csproj",
+      "sha256": "8da71fe5b2670327b0d2ebf6ac0a8cbddfbdb90ada2b5d4356c2c9fcbb3ebd7a"
+    }
+  ],
+  "limitations": [
+    "Windows/Android platform-specific UI parity is not implied by a shared branch.",
+    "No physical serial/BLE, phone, upgrade, persistence or MOS acceptance in this task.",
+    "Staged test logs describe their recorded inputs; final parser contracts and actual WPF assemblies were verified after the last production-code correction."
+  ],
+  "backup_bundle": "C:\\Users\\Administrator\\AppData\\Local\\CodexTemp\\bms-client-unification-20261114\\before-client-unification.bundle"
+}

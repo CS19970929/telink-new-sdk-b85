@@ -1,4 +1,6 @@
-# Windows 上位机
+# BMS 上位机、Android App 与 CLI
+
+**当前长期开发分支为 `client/main`。** 本机固定源码目录为 `C:\Users\Administrator\source\bms-client\bms-tool-windows`，供今后多个 BMS 串口/BLE 项目持续复用。开工执行 `check-client-worktree.ps1`；来源、平台边界与当前验证见 [统一客户端开发指南](docs/CLIENT_MAIN.md)。以下带日期的记录包含历史界面状态和历史实板结果，不能覆盖本轮指南。
 
 ## 蓝牙搜索与连接（2026-11-11）
 
@@ -24,7 +26,7 @@
 客户版与内部版提供[一线通监控](docs/OWC_MONITOR.md)，通过 Comm Tool 采集 A1.3.3 公开字段，支持 PC 快照 v1/v2。
 
 - `BmsTool.Windows/`：客户版 BMS Assistant，面向客户交付。
-- `BmsFactoryTest.Windows/`：内部完整测试版 BMS Assistant，保留工程/调试/出厂测试页面（3520 保护参数页已永久删除），启动后不需要密码。
+- `BmsFactoryTest.Windows/`：内部完整测试版 BMS Assistant，保留工程/调试/出厂测试页面及当前设备合同对应的 3520 参数入口，启动后不需要密码。
 - `BmsTool.Cli/`：无 UI 命令行版，面向快速 OTA、脚本和 AI/Codex 实板诊断。
 - `BmsTool.Core/`：跨平台 C# 核心，单一保存 Modbus、BMS 身份读取、Telink BIN 预检和 OTA 状态机。
 - `BmsTool.Android/`：新的 .NET Android App，通过 `BluetoothGatt` 复用 `BmsTool.Core`，不使用或复制历史 Kotlin Android 客户端。
@@ -41,7 +43,7 @@ Android 客户版与测试版的功能矩阵、导航和独立 MOS 控制见 [�
 
 本次验证：客户/内部/CLI 编译通过；发现模型与连接串行回归31项通过；两版 WPF 离屏交互各22项通过；正式包另附实际扫描、身份回读与 SHA-256。未执行参数写入、固件构建/OTA、物理保护或掉电测试。客户版保留既有 `_socRecording` CS0649 警告。
 
-## Windows 页面范围（2026-10-20）
+## 历史 Windows 页面裁剪（2026-10-20）
 
 | 页面 | 客户版 | 内部完整版 |
 |---|---|---|
@@ -54,7 +56,7 @@ Android 客户版与测试版的功能矩阵、导航和独立 MOS 控制见 [�
 | MOS 监控 | 不创建页面，关闭后台记录 | 保留 |
 | SN 写入 | 设备信息页，1～32 个可打印 ASCII 字符 | 同客户版 |
 
-3520 专用页面及其初始化、权限关联已删除；通用 3520 设备识别和协议实现仍由现有客户端使用。
+该表为 2026-10-20 的历史裁剪记录。2026-11-14 整合已恢复两版通用升级入口及 HS-D015/3520 兼容参数页；当前源码和统一开发指南优先。
 两版首页隐藏断线检测说明，保留休眠状态、Build ID 及独立充放电 MOS 控制。客户版移除 MOS 监控页和该页后台记录；共享协议继续保留。
 客户版运行日志页指固件 RAM 日志读取页，本机通信日志仍保持原行为。内部版保留 MOS 自动记录。
 Android、CLI、内部版 OTA 和固件协议不受页面裁剪影响。
