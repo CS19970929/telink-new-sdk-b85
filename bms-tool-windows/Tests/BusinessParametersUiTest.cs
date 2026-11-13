@@ -34,6 +34,11 @@ static class BusinessParametersUiTest
         Check(Field<Button>("_parameterBalanceSave").IsEnabled && Field<Button>("_parameterHeatSave").IsEnabled,"支持且读回有效后启用两组保存");
         Check(Field<Button>("_parameterBalanceDisable").IsEnabled && Field<Button>("_parameterBalanceAllow").IsEnabled,"明确提供禁止和允许两个入口");
         Check(Field<TextBlock>("_parameterBalancePermission").Text=="均衡：允许","简洁显示均衡许可");
+        header[2]&=unchecked((ushort)~D008Parameters.HeaterCapability);
+        capture.Blocks["FeatureStatus"]=new ushort[]{1,2,8,3,0,0};Load(capture);
+        Check(!Field<Button>("_parameterHeatSave").IsEnabled && Field<TextBox>("_parameterHeatStart").Text=="","无加热硬件不显示占位阈值");
+        Check(Field<TextBlock>("_parameterBusinessReadback").Text.Contains("正在放电") && Field<TextBlock>("_parameterBusinessReadback").Text.Contains("1,2"),"显示均衡原因和已确认通道");
+        header[2]|=D008Parameters.HeaterCapability;capture.Blocks.Remove("FeatureStatus");Load(capture);
         capture.Blocks["Balance"][0]=0;Load(capture);
         Check(Field<TextBlock>("_parameterBalancePermission").Text=="均衡：禁止","简洁显示设备禁止许可");
         Check(Field<Button>("_parameterBalanceSave").IsEnabled,"禁止时仍可保存阈值");

@@ -93,9 +93,11 @@ public partial class MainWindow
             OtaProgressBar.Value = 0;
             OtaVerifyText.Text = string.Empty;
             _otaCts = new CancellationTokenSource();
-            OtaTargetKind target = _connectionMode == ConnectionMode.Serial || serialPackage
-                ? OtaTargetKind.Stm32SerialIap
-                : await OtaTargetDetector.DetectAsync(address, GetOtaTargetKind(), _otaCts.Token);
+            OtaTargetKind target = serialPackage ? OtaTargetKind.Stm32SerialIap
+                : _connectionMode == ConnectionMode.Serial
+                    ? (GetOtaTargetKind() != OtaTargetKind.Auto ? GetOtaTargetKind()
+                        : candidate.LooksLikeTelink ? OtaTargetKind.Telink : OtaTargetKind.Stm32SerialIap)
+                    : await OtaTargetDetector.DetectAsync(address, GetOtaTargetKind(), _otaCts.Token);
             FirmwareImage image = FirmwareImage.LoadForTarget(firmwarePath, target);
             AppendLog($"OTA architecture detected={target}; firmware={image.FileName}; bytes={image.ImageSize}", "OTA");
 
@@ -119,7 +121,7 @@ public partial class MainWindow
             {
                 (serverConfirmed, verified) = await RunOtaOnceAsync(address, image, target, requested, _otaCts.Token);
             }
-            catch (Exception ex) when (requested == OtaTransferMode.Auto && IsExtendCompatibilityFailure(ex) && !_otaCts.IsCancellationRequested)
+            catch (Exception ex) when (_connectionMode == ConnectionMode.Ble && target == OtaTargetKind.Telink && requested == OtaTransferMode.Auto && IsExtendCompatibilityFailure(ex) && !_otaCts.IsCancellationRequested)
             {
                 AppendLog("Extend64 rejected; fallback to Legacy Fast: " + ex.Message, "OTA");
                 await Task.Delay(700, _otaCts.Token);
@@ -175,6 +177,8 @@ public partial class MainWindow
 
     private async Task<(bool Confirmed, SerialUpgradeReadback? Verified)> RunOtaOnceAsync(ulong address, FirmwareImage image, OtaTargetKind target, OtaTransferMode mode, CancellationToken ct)
     {
+        if (target == OtaTargetKind.Telink && _connectionMode == ConnectionMode.Serial)
+            return (await RunTelinkSerialOtaAsync(image, ct), null);
         if (target == OtaTargetKind.Stm32SerialIap)
         {
             if (_connectionMode == ConnectionMode.Serial)

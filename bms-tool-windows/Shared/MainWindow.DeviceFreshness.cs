@@ -68,10 +68,10 @@ public partial class MainWindow
             NameSuffixBox, _parameterReadback, _parameterHeatStart, _parameterHeatStop,
             _parameterBalanceStart, _parameterBalanceDeltaStart, _parameterBalanceDeltaStop,
             _sleepLowMv, _sleepLowMinutes, _sleepNormalMv, _sleepNormalMinutes, _socOcvPoints }) box.Clear();
-        foreach (var box in _socProfileFields.Values) box.Clear();
         _parameterHeatEnable.IsChecked = false;
         _parameterBusinessReadback.Text = _parameterStatus.Text = _parameterBalancePermission.Text = "—";
         _socProfile = null;
+        _socCandidate = null;
         _socProfileStatus.Text = _batteryTypeStatus.Text = "—";
         _afeHardwareSource = null;
         _afeHardwareModel.ClearReadback();

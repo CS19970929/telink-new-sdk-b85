@@ -426,7 +426,7 @@
                         <TextBlock VerticalAlignment="Center">OTA 架构</TextBlock>
                         <ComboBox x:Name="OtaTargetBox" Width="210" Margin="8,0">
                             <ComboBoxItem Content="Auto（自动识别）" Tag="Auto" IsSelected="True"/>
-                            <ComboBoxItem Content="Telink 专用 OTA" Tag="Telink"/>
+                            <ComboBoxItem Content="Telink BLE / UART / RS485" Tag="Telink"/>
                             <ComboBoxItem Content="BMS 串口透传（旧协议需确认）" Tag="Stm32SerialIap"/>
                         </ComboBox>
                         </StackPanel>

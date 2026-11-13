@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.Json;
 
 namespace BmsTool.Windows;
 
@@ -25,12 +26,67 @@ public sealed class SocProfileParameters
     public ushort TerminalL1OffsetMv { get; set; }
     public ushort TerminalL2OffsetMv { get; set; }
     public ushort TerminalL3OffsetMv { get; set; }
-    public List<SocOcvPoint> OcvPoints { get; } = new();
+    public List<SocOcvPoint> OcvPoints { get; set; } = new();
+    public bool SupportsPolicyV3 { get; internal set; }
     public bool Persisted { get; internal set; }
+}
+
+public sealed class SocProfileBundle
+{
+    public int FormatVersion { get; set; } = 1;
+    public string Name { get; set; } = "";
+    public string Source { get; set; } = "";
+    public bool EngineeringCandidate { get; set; } = true;
+    public SocProfileParameters Profile { get; set; } = new();
 }
 
 public sealed partial class BmsClient
 {
+    public static SocProfileBundle CreateSocTrialBundle(ushort chemistry)
+    {
+        if (chemistry is < 1 or > 2) throw new ArgumentException("不支持的电池类型。");
+        var p = new SocProfileParameters {
+            Chemistry=chemistry, ProfileId=chemistry, ProfileVersion=3,
+            CurrentDeadbandMa=200, RestPrepareSeconds=3600,
+            ErrorBandPercent=(ushort)(chemistry==1?7:5), MinimumErrorBandPercent=(ushort)(chemistry==1?7:5),
+            ValidMinMv=2000, ValidMaxMv=(ushort)(chemistry==1?3800:4300),
+            FullSyncMv=(ushort)(chemistry==1?3500:4180), FullMinMarginMv=200, FullCellDeltaMaxMv=200,
+            EmptySyncMv=(ushort)(chemistry==1?2850:3100), EmptyMaxMarginMv=300,
+            // 旧末段字段只保留原兼容值，策略v3不执行多级末端拉低。
+            TerminalCellDeltaMaxMv=50, TerminalStartOffsetMv=(ushort)(chemistry==1?150:300),
+            TerminalL1OffsetMv=(ushort)(chemistry==1?100:200), TerminalL2OffsetMv=(ushort)(chemistry==1?50:150),
+            TerminalL3OffsetMv=(ushort)(chemistry==1?20:50)
+        };
+        ushort[] mv = chemistry==1 ? new ushort[]{2844,3163,3204,3223,3245,3259,3277,3288,3291,3294,3315,3328,3330,3445}
+            : new ushort[]{3000,3300,3450,3550,3650,3700,3750,3800,3850,3900,4000,4100,4180};
+        ushort[] percent = chemistry==1 ? new ushort[]{0,5,10,15,20,25,30,35,55,60,65,75,95,100}
+            : new ushort[]{0,5,10,20,30,40,50,60,70,80,90,96,100};
+        for(int i=0;i<mv.Length;i++)p.OcvPoints.Add(new SocOcvPoint(mv[i],percent[i]));
+        return new SocProfileBundle {
+            Name=chemistry==1?"LFP 通用评估候选 v3":"NMC 4.20V 工程对照 v3",
+            Source=chemistry==1?"国轩314Ah规格书25℃静置数据压缩14点；非所有LFP通用精度模型":"既有13点通用表，仅作首轮对照",
+            EngineeringCandidate=true, Profile=p
+        };
+    }
+
+    public static string ExportSocBundle(SocProfileBundle bundle)
+    {
+        if(bundle is null)throw new ArgumentNullException(nameof(bundle));
+        ValidateSocProfile(bundle.Profile);
+        return JsonSerializer.Serialize(bundle,new JsonSerializerOptions{WriteIndented=true});
+    }
+
+    public static SocProfileBundle ImportSocBundle(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || json.Length>1024*1024) throw new ArgumentException("SOC配置文件为空或过大。");
+        var bundle=JsonSerializer.Deserialize<SocProfileBundle>(json) ?? throw new ArgumentException("SOC配置文件无效。");
+        if(bundle.FormatVersion!=1 || string.IsNullOrWhiteSpace(bundle.Name) || string.IsNullOrWhiteSpace(bundle.Source) ||
+            bundle.Name.Length>256 || bundle.Source.Length>2048) throw new ArgumentException("SOC配置版本、名称或来源无效。");
+        ValidateSocProfile(bundle.Profile);
+        if(bundle.Profile.ProfileVersion!=3) throw new ArgumentException("请先转换并审核为SOC策略v3模型；不能静默改写旧模型语义。");
+        return bundle;
+    }
+
     private const ushort SocProfileBase = 0x2EB0;
     private const ushort SocProfilePersisted = 0x2EE4;
     private const ushort SocProfileGeneration = 0x2EE5;
@@ -46,6 +102,7 @@ public sealed partial class BmsClient
         ushort[] signature = await ReadRegistersAsync(SocProfileBase, 2, ct);
         if (signature[0] != 0x534F || signature[1] != 1)
             throw new NotSupportedException("SOC/OCV profile 接口版本不匹配。未发送写命令。");
+        ushort generationBefore=(await ReadRegistersAsync(SocProfileGeneration,1,ct))[0];
         var words = new List<ushort>(SocProfileWords);
         for (int offset = 0; offset < SocProfileWords; offset += 7)
         {
@@ -53,8 +110,10 @@ public sealed partial class BmsClient
             words.AddRange(await ReadRegistersAsync((ushort)(SocProfileBase + 2 + offset), count, ct));
         }
         ushort[] metadata = await ReadRegistersAsync(SocProfilePersisted, 3, ct);
+        if(metadata[1]!=generationBefore)throw new IOException("读取期间SOC模型已变化，请重新读取后再操作。");
         SocProfileParameters result = DecodeSocProfile(words.ToArray());
         result.Persisted = metadata[0] != 0;
+        result.SupportsPolicyV3 = (capability[2] & 0x0800) != 0;
         return result;
     }
 
@@ -63,7 +122,11 @@ public sealed partial class BmsClient
     {
         if (!BmsServiceAccess.PasswordValid(password)) throw new UnauthorizedAccessException("服务密码错误。");
         ushort[] words = EncodeSocProfile(profile);
-        await ReadSocProfileAsync(ct);
+        SocProfileParameters current = await ReadSocProfileAsync(ct);
+        if (!current.SupportsPolicyV3 || profile.ProfileVersion != 3)
+            throw new NotSupportedException("设备与模型必须同时支持 SOC 策略 v3。未发送写命令。");
+        if (current.Chemistry != profile.Chemistry)
+            throw new ArgumentException("SOC 模型类型必须与设备一致。请通过完整电池类型切换操作更改类型。");
         await WriteRegistersAsync(SocProfileCommand, CommandWords(1, 0), ct);
         ushort generation = (await ReadRegistersAsync(SocProfileGeneration, 1, ct))[0];
         for (int offset = 0; offset < words.Length; offset += 4)
@@ -79,7 +142,8 @@ public sealed partial class BmsClient
     public async Task<SocProfileParameters> ResetSocProfileAsync(string password, CancellationToken ct = default)
     {
         if (!BmsServiceAccess.PasswordValid(password)) throw new UnauthorizedAccessException("服务密码错误。");
-        await ReadSocProfileAsync(ct);
+        if (!(await ReadSocProfileAsync(ct)).SupportsPolicyV3)
+            throw new NotSupportedException("当前固件尚不支持 SOC 策略 v3。未发送恢复命令。");
         await WriteRegistersAsync(SocProfileCommand, CommandWords(3, 0), ct);
         return await ReadSocProfileAsync(ct);
     }
@@ -120,7 +184,9 @@ public sealed partial class BmsClient
 
     private static void ValidateSocProfile(SocProfileParameters p)
     {
-        if (p.Chemistry is < 1 or > 2 || p.ProfileId != p.Chemistry || p.ProfileVersion == 0 ||
+        if (p is not null && p.ProfileVersion == 3 && p.RestPrepareSeconds != 3600)
+            throw new ArgumentException("SOC策略v3的静置资格固定为3600秒。");
+        if (p is null || p.OcvPoints is null || p.Chemistry is < 1 or > 2 || p.ProfileId != p.Chemistry || p.ProfileVersion == 0 ||
             p.OcvPoints.Count is < 2 or > 15 || p.CurrentDeadbandMa > 2000 ||
             p.RestPrepareSeconds is < 60 or > 3600 || p.ErrorBandPercent is < 1 or > 20 ||
             p.MinimumErrorBandPercent is < 1 or > 20 || p.ValidMinMv < 1000 ||
@@ -134,6 +200,7 @@ public sealed partial class BmsClient
         for (int i=0;i<p.OcvPoints.Count;i++)
         {
             SocOcvPoint point=p.OcvPoints[i];
+            if(point is null)throw new ArgumentException("OCV点不得为空。");
             if(point.Millivolts<p.ValidMinMv||point.Millivolts>p.ValidMaxMv||point.Percent>100||
                (i>0&&(point.Millivolts<=p.OcvPoints[i-1].Millivolts||point.Percent<p.OcvPoints[i-1].Percent)))
                 throw new ArgumentException($"OCV 第 {i+1} 点无效；电压必须严格递增，SOC 不得下降。");

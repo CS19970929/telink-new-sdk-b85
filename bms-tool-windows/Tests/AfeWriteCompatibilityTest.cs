@@ -95,7 +95,10 @@ static class AfeWriteCompatibilityTest
         Check(model.TryBuildCandidate(out _,out error),"无精确分流器比例时保留固件判断，不能按667µΩ猜测范围："+error);
         Check(!model.Rows.Single(r=>r.WireIndex==10).Hint.Contains("7.5"),"不能遗留上一设备的范围说明");
         Check(model.Rows.Single(r=>r.WireIndex==10).AllowedCurrentRange=="由设备校验","未知精确分流器时不得显示猜测的范围");
-        var disabledOcd=currentProfile.ToArray();disabledOcd[34]&=unchecked((ushort)~AfeHardwareProtocolMap.CapOcd1);
+        var singleOcd=currentProfile.ToArray();singleOcd[34]&=unchecked((ushort)~AfeHardwareProtocolMap.CapOcd1);
+        model.Load(new(singleOcd,effective,info));
+        Check(!model.TryBuildCandidate(out _,out error)&&error.Contains("同时"),"SH 不能只开启一级 OCD");
+        var disabledOcd=currentProfile.ToArray();disabledOcd[34]&=unchecked((ushort)~(AfeHardwareProtocolMap.CapOcd1|AfeHardwareProtocolMap.CapOcd2));
         model.Load(new(disabledOcd,effective,info));model.Rows.Single(r=>r.WireIndex==10).EditValue="5";
         Check(model.TryBuildCandidate(out _,out error),"关闭的保护不参与电流档位检查："+error);
         model.Load(new(currentProfile,effective,info));
@@ -138,7 +141,7 @@ static class AfeWriteCompatibilityTest
         Check(model.Rows.Single(r=>r.WireIndex==22).AllowedCurrentRange=="25.0～1575.0 A","DVC 分流器变化须刷新短路范围");
         foreach(var limit in new[]{(Word:10,Min:13,Max:3187),(Word:12,Min:200,Max:12800),
             (Word:16,Min:13,Max:3187),(Word:18,Min:200,Max:12800)}) {
-            var profile=dvc.ToArray();profile[34]=0x3c;profile[18]=450;profile[20]=0;profile[14]=0;
+            var profile=dvc.ToArray();profile[34]=0x3c;profile[18]=450;profile[19]=4;profile[20]=0;profile[14]=0;
             model.Load(new(profile,dvcEffective,dvcInfo));
             Check(model.Rows.Single(r=>r.WireIndex==limit.Word).AllowedCurrentRange==
                 $"{limit.Min/10m:0.0}～{limit.Max/10m:0.0} A","DVC 四种过流范围均须可见");
@@ -201,6 +204,86 @@ static class AfeWriteCompatibilityTest
         Check(model.GetShortCircuitChoices().Select(c=>c.EffectiveA10).SequenceEqual(new ushort[]{1600,2400,3200,4800}),"D015 exact short choices");
         foreach(var choice in model.GetShortCircuitChoices())
             Check(model.TryBuildShortCircuitCandidate(choice.RequestedA10,choice.EffectiveA10==1600? (ushort)128:(ushort)64,out candidate,out error),error);
-        Console.WriteLine("PASS AFE compatibility: SH/DVC current and short ranges; customer short choices, only 22/23 changed, OCD2/enable/reserved words preserved; old delays and unknown shunts rejected");
+        // 本次截图：欠压 2400→2500 合法，整组携带 CHG_UT=-25℃仍应在本地拒绝。
+        var latest=currentProfile.ToArray();latest[6]=2400;latest[27]=150;latest[28]=300;
+        model.Load(new(latest,effective,info));model.Rows.Single(r=>r.WireIndex==6).EditValue="2500";
+        Check(!model.TryBuildCandidate(out _,out error)&&error.Contains("充电温度")&&error.Contains("-20")&&error.Contains("word[27]"),error);
+        Check(latest[27]==150&&model.Rows.Single(r=>r.WireIndex==27).EditValue=="-25.0","不能按克隆的温度有效值自动修正阈值");
+        model.Rows.Single(r=>r.WireIndex==27).EditValue="-20";
+        Check(model.TryBuildCandidate(out candidate,out error)&&candidate[6]==2500&&candidate[27]==200,error);
+        latest[25]=700;model.Load(new(latest,effective,info));
+        Check(!model.TryBuildCandidate(out _,out error)&&error.Contains("word[25]")&&error.Contains("word[27]"),"一次列出多项跨组范围错误");
+
+        var scalarLimits=new[]{(Word:2,Min:3000,Max:4500),(Word:6,Min:1000,Max:3500),
+            (Word:3,Min:140,Max:10010),(Word:7,Min:490,Max:10010),(Word:11,Min:140,Max:10010),
+            (Word:13,Min:25,Max:400),(Word:17,Min:140,Max:10010),(Word:23,Min:0,Max:576),
+            (Word:25,Min:800,Max:1100),(Word:27,Min:200,Max:500),(Word:29,Min:850,Max:1200),(Word:31,Min:0,Max:500)};
+        foreach(var limit in scalarLimits) foreach(int value in new[]{limit.Min-1,limit.Min,limit.Max,limit.Max+1}.Where(v=>v>=0)) {
+            var baseline=currentProfile.ToArray();baseline[4]=0;baseline[8]=65535;
+            baseline[26]=baseline[30]=0;baseline[28]=baseline[32]=1450;
+            model.Load(new(baseline,effective,info));var row=model.Rows.Single(r=>r.WireIndex==limit.Word);
+            row.EditValue=row.Decode((ushort)value);
+            Check(model.TryBuildCandidate(out _,out error)==(value>=limit.Min&&value<=limit.Max),$"SH word[{limit.Word}]={value}: {error}");
+        }
+        foreach(int word in new[]{10,14,16,20,25,26,27,28,29,30,31,32}) foreach(string bad in new[]{"NaN","Infinity","1e999","1.001"}) {
+            model.Load(new(currentProfile,effective,info));model.Rows.Single(r=>r.WireIndex==word).EditValue=bad;
+            Check(!model.TryBuildCandidate(out _,out _),$"word[{word}] 非法数值 {bad} 应拒绝且不抛异常");
+        }
+        foreach(var limit in scalarLimits.Where(l=>l.Word is 3 or 7 or 11 or 13 or 17 or 23)) {
+            var off=currentProfile.ToArray();off[34]=0;off[limit.Word]=(ushort)(limit.Max+1);
+            model.Load(new(off,effective,info));Check(!model.TryBuildCandidate(out _,out _),"关闭保护后仍须检查固件无条件延时上限");
+        }
+        var reserved=dvc.ToArray();reserved[19]=1025;reserved[34]&=unchecked((ushort)~AfeHardwareProtocolMap.CapOcc2);
+        model.Load(new(reserved,dvcEffective,dvcInfo with {Capabilities=0x5f}));
+        Check(!model.TryBuildCandidate(out _,out error)&&error.Contains("word[19]"),"隐藏延时超限须显示错误，不得因找不到行而崩溃");
+        model.Load(new(currentProfile,effective,info));
+        foreach(ushort cap in new ushort[]{1,2,12,16,64}) {
+            model.Load(new(currentProfile,effective,info));
+            var toggle=model.Rows.Single(r=>r.IsSwitch && r.CapabilityMask==cap);
+            toggle.SwitchValue=false;
+            Check(model.TryBuildCandidate(out candidate,out error),error);
+            Check(candidate[34]==(currentProfile[34]&~cap),"保护开关只改变所属位");
+            Check(model.DescribeProtectionSwitchChanges(candidate).Contains("关闭"),"关闭须进入确认清单");
+            toggle.SwitchValue=true;Check(model.TryBuildCandidate(out candidate,out error),error);
+            Check(candidate.SequenceEqual(currentProfile),"再次开启恢复原完整候选");
+        }
+        model.Load(new(currentProfile,effective,info));
+        model.Rows.Single(r=>r.WireIndex==10).EditValue="20";
+        Check(model.Rows.Single(r=>r.WireIndex==10).PreviewValue.StartsWith("22.5"),"20A 预览实际22.5A");
+        model.Rows.Single(r=>r.WireIndex==3).EditValue="1000";
+        Check(model.Rows.Single(r=>r.WireIndex==3).PreviewValue.StartsWith("2030"),"延时预览跨到2030ms");
+        Check(model.TryBuildCandidate(out candidate,out error),error);
+        Check(model.DescribeHardwareQuantization(candidate).Contains("2030"),"选档变化进入确认");
+        model.Load(new(currentProfile,effective,info));
+        Check(model.Rows.Single(r=>r.WireIndex==25).ValueSource.Contains("请求副本"),"旧固件不声称芯片温度读回");
+        model.Load(new(currentProfile,effective,info with {HardwareFeatures=1}));
+        Check(model.Rows.Single(r=>r.WireIndex==25).ValueSource.Contains("反算"),"新能力声明温度来源");
+        Check(model.Rows.Single(r=>r.WireIndex==26).ValueSource.Contains("MCU"),"恢复值标明MCU所有权");
+        var channelInfo=info with {Capabilities=0x1bdf}; // D014: TS1/TS2/TS4，TS3 NC。
+        model.Load(new(currentProfile,effective,channelInfo));
+        Check(model.Rows.Count(r=>r.IsTemperatureChannel)==4,"四个通道分别显示");
+        Check(!model.Rows.Single(r=>r.CapabilityMask==AfeHardwareProtocolMap.CapTs3).CanEdit,"TS3 NC 开关只读");
+        Check(model.TryBuildCandidate(out candidate,out error)&&candidate.SequenceEqual(currentProfile),"旧设备读出后不编辑通道，不隐式改写旧mask："+error);
+        for(int channels=0;channels<16;channels++) {
+            model.Load(new(currentProfile,effective,channelInfo));
+            for(int i=0;i<4;i++) model.Rows.Single(r=>r.CapabilityMask==(1<<(8+i))).SwitchValue=(channels&(1<<i))!=0;
+            model.Rows.Single(r=>r.WireIndex==34&&r.CapabilityMask==AfeHardwareProtocolMap.CapSc).SwitchValue=false;
+            bool valid=(channels&4)==0;
+            Check(model.TryBuildCandidate(out candidate,out error)==valid,$"通道组合 {channels}：{error}");
+            if(!valid)continue;
+            Check(AfeHardwareProtocolMap.TemperatureChannels(candidate[34])==(channels<<8),"通道位独立组合");
+            Check((candidate[34]&AfeHardwareProtocolMap.CapSc)==0,"SCD 与通道同时编辑不能互相覆盖同一个word");
+            Check(candidate.Take(34).SequenceEqual(currentProfile.Take(34)),"开关不改变其它参数及隐藏字段");
+        }
+        model.Load(new(currentProfile,effective,info));
+        Check(model.Rows.Where(r=>r.IsTemperatureChannel).All(r=>!r.CanEdit),"旧固件显示原通道但禁止独立写入");
+        model.Rows.Single(r=>r.CapabilityMask==AfeHardwareProtocolMap.CapTs1).SwitchValue=false;
+        Check(!model.TryBuildCandidate(out _,out error)&&error.Contains("只读"),"旧固件不静默忽略用户通道修改");
+        var onlyOff=currentProfile.ToArray();onlyOff[27]=150;
+        model.Load(new(onlyOff,effective,channelInfo));
+        foreach(var row in model.Rows.Where(r=>r.IsTemperatureChannel))row.SwitchValue=false;
+        Check(model.TryBuildCandidate(out candidate,out error)&&candidate[27]==150&&candidate[34]==0x105f,error);
+        Check(model.DescribeTemperatureChannelChanges(candidate).Contains("所有外部通道"),"确认框明确告知全关范围");
+        Console.WriteLine("PASS AFE compatibility: complete scalar/current/short/temperature ranges, shared OCD enable, legacy delay evidence, finite decimal input and preserved hidden words");
     }
 }

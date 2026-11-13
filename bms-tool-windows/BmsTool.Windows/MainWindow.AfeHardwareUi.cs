@@ -16,6 +16,7 @@ public partial class MainWindow
     private TextBlock? _afeHardwareStatus;
     private TextBlock? _afeHardwareDeviceInfo;
     private BmsClient? _afeHardwareSource;
+    private bool _afeHardwareOperationBusy;
 
     private void AddAfeHardwareTab()
     {
@@ -87,15 +88,27 @@ public partial class MainWindow
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "AFE硬件参数", Binding = new Binding(nameof(AfeParameterRow.Name)), Width = 135, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "启用", Binding = new Binding(nameof(AfeParameterRow.EnabledText)), Width = 64, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "请求/保存值", Binding = new Binding(nameof(AfeParameterRow.RequestedValue)), Width = 100, IsReadOnly = true });
-        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "AFE有效值", Binding = new Binding(nameof(AfeParameterRow.EffectiveValue)), Width = 100, IsReadOnly = true });
+        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "核对值", Binding = new Binding(nameof(AfeParameterRow.EffectiveValue)), Width = 100, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "修改值",
             Binding = new Binding(nameof(AfeParameterRow.EditValue)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
             Width = 105
         });
+        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header="来源", Binding=new Binding(nameof(AfeParameterRow.ValueSource)), Width=135, IsReadOnly=true });
+        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header="预计生效", Binding=new Binding(nameof(AfeParameterRow.PreviewValue)), Width=150, IsReadOnly=true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "单位", Binding = new Binding(nameof(AfeParameterRow.Unit)), Width = 60, IsReadOnly = true });
-        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "电流允许范围", Binding = new Binding(nameof(AfeParameterRow.AllowedCurrentRange)), Width = 150, IsReadOnly = true });
+        var switchControl = new FrameworkElementFactory(typeof(CheckBox));
+        switchControl.SetBinding(CheckBox.IsCheckedProperty, new Binding(nameof(AfeParameterRow.SwitchValue)) { Mode=BindingMode.TwoWay, UpdateSourceTrigger=UpdateSourceTrigger.PropertyChanged });
+        switchControl.SetBinding(CheckBox.IsEnabledProperty, new Binding(nameof(AfeParameterRow.CanEdit)));
+        switchControl.SetBinding(CheckBox.VisibilityProperty, new Binding(nameof(AfeParameterRow.IsSwitch)) { Converter=new BooleanToVisibilityConverter() });
+        switchControl.SetValue(CheckBox.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        _afeHardwareGrid.Columns.Add(new DataGridTemplateColumn { Header="开关", Width=55, IsReadOnly=true,
+            CellTemplate=new DataTemplate { VisualTree=switchControl } });
+        _afeHardwareGrid.BeginningEdit += (_, e) => {
+            if (e.Row.Item is AfeParameterRow row && (row.IsSwitch || !row.CanEdit)) e.Cancel=true;
+        };
+        _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "允许输入范围", Binding = new Binding(nameof(AfeParameterRow.AllowedCurrentRange)), Width = 150, IsReadOnly = true });
         _afeHardwareGrid.Columns.Add(new DataGridTextColumn { Header = "说明", Binding = new Binding(nameof(AfeParameterRow.Hint)), Width = new DataGridLength(1, DataGridLengthUnitType.Star), IsReadOnly = true });
         var browser = CreateParameterBrowser(_afeHardwareGrid, item => ((AfeParameterRow)item).Group,
             new[] { "单体过压", "单体欠压", "放电过流", "充电过流", "短路保护", "充电温度", "放电温度", "温度保护" });
@@ -104,7 +117,7 @@ public partial class MainWindow
 
         var bottom = new TextBlock
         {
-            Text = "安全边界：页面只显示设备 capability 声明支持的语义参数；D015支持按实际硬件分组修改使能（OCD1/2共同控制）；其他型号仍仅开放SCD开关；启用前必须确认短路电流和延时。WDT/Body-Diode 保持固定配置。写入成功后必须同时满足 requested 回读一致、AFE effective 可读、apply_state=OK。",
+            Text = "按设备声明的能力编辑保护开关；D015保留其OCD联动及TS1/TS2规则，支持通道选择的新固件可分别修改TS1～TS4，未接入通道及旧固件通道开关只读。每个 TS 开关同时控制该通道充/放电高低温，所有启用通道共用四个阈值；关闭不停止采样及软件保护。WDT/Body-Diode 保持固定配置。写入成功须 requested 一致、effective 已回读、apply_state=OK。",
             TextWrapping = TextWrapping.Wrap,
             Foreground = Brushes.DimGray
         };
@@ -138,13 +151,16 @@ public partial class MainWindow
         _afeHardwareDeviceInfo.Text =
             $"Backend: {info.BackendName} (0x{info.BackendModel:X4}) · Capability=0x{info.Capabilities:X4} · " +
             $"Cells={info.CellCount} · Rsense={info.ShuntDisplay} · AFE WDT={info.WatchdogSeconds}s · " +
-            $"Interface=v{info.InterfaceVersion} · Apply={info.ApplyStateText} · Error={info.ErrorText}";
+            $"Interface=v{info.InterfaceVersion} · Apply={info.ApplyStateText} · Error={info.ErrorText}"+
+            (info.FeatureStatus is { } status ? "\n"+D008Parameters.FeatureStatusText(status):"\n加热/均衡运行原因：旧固件或未读取，不能据此判断硬件能力。");
     }
 
     private async void ReadAfeHardware_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCalibrationOwner is not null) return;
         _afeHardwareSource = null;
+        if (_afeHardwareOperationBusy) return;
+        _afeHardwareOperationBusy=true;
         try
         {
             EnsureAfeHardwareEditorAuthorized();
@@ -170,6 +186,7 @@ public partial class MainWindow
         }
         finally
         {
+            _afeHardwareOperationBusy=false;
             StartAutomaticRefresh();
         }
     }
@@ -177,6 +194,8 @@ public partial class MainWindow
     private async void ApplyAfeHardware_Click(object sender, RoutedEventArgs e)
     {
         if (_currentCalibrationOwner is not null) return;
+        if (_afeHardwareOperationBusy) return;
+        _afeHardwareOperationBusy=true;
         try
         {
             EnsureAfeHardwareEditorAuthorized();
@@ -201,10 +220,13 @@ public partial class MainWindow
             AfeHardwareDeviceInfo info = _afeHardwareModel.DeviceInfo ?? throw new InvalidOperationException("请先读取AFE参数。");
             string transportText = _connectionMode == ConnectionMode.Serial ? "直连串口" : "BLE透明通道";
             string legacyCorrections = _afeHardwareModel.DescribeLegacyDelayCorrections(candidate);
+            string temperatureChanges = _afeHardwareModel.DescribeTemperatureChannelChanges(candidate);
+            string switchChanges = _afeHardwareModel.DescribeProtectionSwitchChanges(candidate);
             if (MessageBox.Show(
                     $"确认修改 {info.BackendName} AFE硬件保护参数？\n\n" +
                     $"通信：{transportText}\n" +
                     legacyCorrections +
+                    temperatureChanges + switchChanges + _afeHardwareModel.DescribeHardwareQuantization(candidate) +
                     "这与软件 First/Second/Third 参数完全独立。\n\n" +
                     "将执行：打开60秒授权会话 → 完整35-word原子写入 → 固件校验/持久化 → AFE应用 → requested/effective回读 → 失败自动回滚。\n\n" +
                     "BLE MTU=23 可使用新固件的暂存/提交事务，无需修改 MTU。请确认 SCD 使能、电流和延时。是否继续？",
@@ -221,8 +243,10 @@ public partial class MainWindow
             _afeHardwareStatus!.Text = "正在执行AFE硬件参数原子事务...";
             AppendLog($"AFE_HW_V2_WRITE_BEGIN backend=0x{info.BackendModel:X4}; transport={transportText}; words={candidate.Length}", "AFE");
 
+            if (!ReferenceEquals(_afeHardwareSource,bms)) throw new InvalidOperationException("连接已改变，请重新读取AFE参数。");
+            AfeHardwareSnapshot expected=_afeHardwareModel.CurrentSnapshot;
             _afeHardwareSource = null;
-            AfeHardwareSnapshot readback = await client.WriteAllAsync(candidate);
+            AfeHardwareSnapshot readback = await client.WriteAllAsync(expected,candidate);
             if (!ReferenceEquals(bms, _bms)) return;
             _afeHardwareModel.Load(readback);
             _afeHardwareSource = bms;
@@ -233,12 +257,13 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            if (_afeHardwareStatus is not null) _afeHardwareStatus.Text = "保存失败 / 请重新读取状态";
+            if (_afeHardwareStatus is not null) _afeHardwareStatus.Text = ex is AfeWriteException afe ? afe.OutcomeText : "参数未应用 / 请核对输入";
             ShowError("保存AFE硬件参数失败", ex,
                 "以下为本次失败原因；此提示不代表设备已进入 CONFIG_INCONSISTENT。若提交结果不确定，请重新读取 requested/effective 和 apply_state/last_error，不要直接重复写入。");
         }
         finally
         {
+            _afeHardwareOperationBusy=false;
             StartAutomaticRefresh();
         }
     }

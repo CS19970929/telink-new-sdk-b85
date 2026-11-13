@@ -48,6 +48,11 @@ public sealed partial class BmsClient
             try {c.Blocks[b.Name]=await ReadRegistersAsync(b.Address,b.Count,ct);}
             catch(Exception ex){c.Errors.Add(b.Name+": "+ex.Message);}
         }
+        if(c.Supported && !ct.IsCancellationRequested) {
+            try {var status=await ReadRegistersAsync(0x253A,6,ct);if(status[0]==1)c.Blocks["FeatureStatus"]=status;}
+            catch(BmsModbusException ex) when(ex.Code==2) { /* 旧固件没有可选功能状态窗口。 */ }
+            catch(Exception ex) {c.Errors.Add("FeatureStatus: "+ex.Message);}
+        }
         if(c.Supported)c.Status=c.Errors.Count==0 ? $"参数读取完成（协议 v{c.ProtocolVersion}）" : $"部分参数读取失败（协议 v{c.ProtocolVersion}），可导出已读内容";
         return c;
     }

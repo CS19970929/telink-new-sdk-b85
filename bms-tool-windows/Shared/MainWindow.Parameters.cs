@@ -63,6 +63,7 @@ public partial class MainWindow
         Field("当前 SOC / %",_parameterSoc);
         Button("设置并保存 SOC",()=>ParameterRunAsync((c,t)=>{
             ushort value=ushort.Parse(_parameterSoc.Text);if(value>100)throw new ArgumentException("SOC 必须为 0～100");
+            if(value==100 && MessageBox.Show(this,"配套更新固件会立即显示并保存100%，重启后仍恢复100%。这是人工指定的满电状态，不代表已通过电压判满。是否继续？","人工SOC服务操作",MessageBoxButton.YesNo,MessageBoxImage.Information)!=MessageBoxResult.Yes)return Task.CompletedTask;
             return c.WriteD008VerifiedAsync(0x1005,new[]{value},false,t);
         }));
         Field("循环次数",_parameterCycle);
@@ -179,9 +180,14 @@ public partial class MainWindow
         if(c.Blocks.TryGetValue("Heater",out var heat)) {
             try {
                 D008Parameters.ValidateHeater(heat);
+                if(!D008Parameters.HeaterAvailable(c)) {
+                    _parameterHeatEnable.IsChecked=false;_parameterHeatStart.Clear();_parameterHeatStop.Clear();
+                    business.Add("加热：本产品不支持，通用占位参数不生效");
+                } else {
                 _parameterHeatEnable.IsChecked=heat[0]!=0;_parameterHeatStart.Text=((heat[1]-400)/10m).ToString();_parameterHeatStop.Text=((heat[2]-400)/10m).ToString();
                 business.Add($"加热：{(heat[0]!=0?"启用":"关闭")}，启动 {_parameterHeatStart.Text} ℃，停止 {_parameterHeatStop.Text} ℃"+
                     (D008Parameters.HeaterAvailable(c)?"":"；设备未声明支持加热，禁止写入"));
+                }
             } catch(ArgumentException){business.Add("加热：读回值无效，禁止写入");}
         } else business.Add("加热：未读到参数，禁止写入");
         if(c.Blocks.TryGetValue("Balance",out var bal)) {
@@ -193,6 +199,7 @@ public partial class MainWindow
                 business.Add($"均衡：{(bal[0]!=0?"允许":"禁止")}，{bal[1]} / {bal[2]} / {bal[3]} mV");
             } catch(ArgumentException){business.Add("均衡：读回值无效，禁止写入");}
         } else business.Add("均衡：设备未支持或本次读取失败，禁止写入");
+        if(c.Blocks.TryGetValue("FeatureStatus",out var featureStatus)) business.Add(D008Parameters.FeatureStatusText(featureStatus));
         ShowSleepParameters(c,business);
         }
         _parameterBusinessReadback.Text=string.Join(Environment.NewLine,business);
