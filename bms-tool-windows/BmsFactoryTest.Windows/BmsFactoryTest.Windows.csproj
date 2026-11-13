@@ -13,6 +13,8 @@
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <Compile Remove="MainWindow.EventLogUi.cs" />
+    <Compile Include="..\BmsTool.Windows\MainWindow.EventLogUi.cs" Link="Shared\MainWindow.EventLogUi.cs" />
     <Compile Remove="Ota.cs" />
     <Compile Include="..\BmsTool.Windows\Ota.cs" Link="Shared\Ota.cs" />
     <Compile Include="..\BmsTool.Windows\TelinkOtaProtocol.cs" Link="Shared\TelinkOtaProtocol.cs" />

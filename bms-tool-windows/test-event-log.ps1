@@ -1,7 +1,9 @@
 ﻿$ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $customer = Get-Content -LiteralPath (Join-Path $root "BmsTool.Windows\MainWindow.EventLogUi.cs") -Raw
-$factory = Get-Content -LiteralPath (Join-Path $root "BmsFactoryTest.Windows\MainWindow.EventLogUi.cs") -Raw
+$factoryProject = Get-Content -LiteralPath (Join-Path $root "BmsFactoryTest.Windows\BmsFactoryTest.Windows.csproj") -Raw
+if (-not $factoryProject.Contains('..\BmsTool.Windows\MainWindow.EventLogUi.cs')) { throw "两版必须共用事件页源文件" }
+$factory = $customer
 
 foreach ($source in @($customer, $factory)) {
     if (-not $source.Contains('private const ushort EventLogRegister = 0xC008;')) { throw "事件日志起始寄存器必须为 0xC008" }
