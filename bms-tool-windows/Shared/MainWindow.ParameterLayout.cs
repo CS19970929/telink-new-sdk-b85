@@ -119,7 +119,8 @@ public partial class MainWindow
             if(client.UsesC060Protocol)await client.WriteC060IdentityAsync(0xFFF0,serial,ct);
             else await client.WriteD008SerialAsync(serial, ct);
             if (!ReferenceEquals(client, _bms)) throw new InvalidOperationException("连接已改变，请重新读取 SN。");
-            await RefreshIdentityAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            await RefreshIdentityAsync();
         }, operation: "保存 SN", requiresUnlock: false);
     }
 }

@@ -939,8 +939,7 @@ Safety:
         try
         {
             image = FirmwareImage.LoadForTarget(firmwarePath, target);
-            if(target==OtaTargetKind.Stm32SerialIap && (options.Has("d015") ||
-                pre?.Identity.Hardware.StartsWith("HS-D015",StringComparison.Ordinal)==true))
+            if(target==OtaTargetKind.Stm32SerialIap && options.Has("d015"))
                 image.ValidateD015Image();
             if (endpoint.IsSerial && target == OtaTargetKind.Telink)
                 _ = TelinkSerialImage.Inspect(image);
@@ -953,8 +952,7 @@ Safety:
         // A format-2 package needs the recovery capability probe first, not
         // a multi-register APP snapshot that misses the power-on window.
         if (!image.IsSerialPackage) pre = await CliRuntime.TryReadSnapshotAsync(endpoint, reporter, ct);
-        if (target == OtaTargetKind.Stm32SerialIap && pre?.Identity.Hardware.StartsWith("HS-D015",StringComparison.Ordinal)==true)
-            image.ValidateD015Image();
+        // Hardware names are shared by different layouts; the sender checks explicit capabilities.
 
         if (target == OtaTargetKind.Telink && pre?.IsD008 == true)
         {

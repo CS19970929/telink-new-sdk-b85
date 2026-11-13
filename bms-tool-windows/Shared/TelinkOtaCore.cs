@@ -78,6 +78,8 @@ public sealed class FirmwareImage
     }
     public const uint Stm32AppStartAddress = 0x08001C00;
     public const uint Stm32AppEndAddress = 0x0800F800;
+    public const uint HsD015AppStartAddress = 0x08002800;
+    public const int HsD015AppCapacity = 23 * 1024;
     private const uint Stm32SramStartAddress = 0x20000000;
     private const uint Stm32SramEndAddress = 0x20002000;
 
@@ -160,12 +162,37 @@ public sealed class FirmwareImage
         return image;
     }
 
+    public static void ValidateHsD015(ReadOnlySpan<byte> image)
+    {
+        if (image.Length < 192 || image.Length > HsD015AppCapacity)
+            throw new InvalidDataException("HS-D015 APP 必须为 192～23552 字节，不能使用旧 55 KiB 分区。");
+        uint stack = BinaryPrimitives.ReadUInt32LittleEndian(image[..4]);
+        uint reset = BinaryPrimitives.ReadUInt32LittleEndian(image.Slice(4, 4));
+        if ((stack & 7u) != 0 || stack < 0x20000100 || stack > Stm32SramEndAddress ||
+            (reset & 1u) == 0 || (reset & ~1u) < HsD015AppStartAddress ||
+            (reset & ~1u) >= HsD015AppStartAddress + (uint)image.Length)
+            throw new InvalidDataException("HS-D015 向量表不匹配：APP 起址 0x08002800，SRAM 前 256 字节保留。");
+    }
+
+    public static uint HsD015PaddedCrc32(ReadOnlySpan<byte> image)
+    {
+        uint crc = 0xFFFFFFFF;
+        int length = (image.Length + 1023) / 1024 * 1024;
+        for (int i = 0; i < length; i++)
+        {
+            crc ^= i < image.Length ? image[i] : (byte)0xFF;
+            for (int bit = 0; bit < 8; bit++)
+                crc = (crc >> 1) ^ ((crc & 1) != 0 ? 0xEDB88320u : 0u);
+        }
+        return ~crc;
+    }
+
     private static bool IsValidStm32Vector(ReadOnlySpan<byte> image)
     {
         uint stack = BinaryPrimitives.ReadUInt32LittleEndian(image[..4]);
         uint reset = BinaryPrimitives.ReadUInt32LittleEndian(image.Slice(4, 4));
         uint resetAddress = reset & ~1u;
-        return stack >= Stm32SramStartAddress && stack <= Stm32SramEndAddress &&
+        return stack >= Stm32SramStartAddress && stack <= Stm32SramEndAddress && (stack & 7u) == 0 &&
                (reset & 1u) != 0 && resetAddress >= Stm32AppStartAddress && resetAddress < Stm32AppEndAddress;
     }
 }

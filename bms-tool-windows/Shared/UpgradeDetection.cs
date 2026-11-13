@@ -1,7 +1,7 @@
 using System.IO;
 namespace BmsTool.Windows;
 
-public enum SerialUpgradeProtocol { YmodemV2, D015Legacy, LegacyManual }
+public enum SerialUpgradeProtocol { YmodemV2, D015Legacy, LegacyManual, HsD015Legacy }
 public sealed record SerialUpgradeDevice(SerialUpgradeProtocol Protocol,uint Board,uint Address,int Capacity,ushort Mode,string Evidence);
 
 public static class UpgradeDetection
@@ -19,6 +19,14 @@ public static class UpgradeDetection
         return new(SerialUpgradeProtocol.YmodemV2,board,address,(int)capacity,words[10],
             $"D170 v1 / YMODEM CRC16 / package v2 / board={board:X8} / APP={address:X8} / capacity={capacity}");
     }
+    public static SerialUpgradeDevice? ParseHsD015Capabilities(ushort[] words) {
+        if(words.Length!=32 || words[0]!=0x3520)return null;
+        if(words[1]!=1 || words[24]!=0xD015 || words[25]!=13 || words[28]!=23 ||
+           words[29]!=0x2800 || words[30]!=0x0800 || words[31]!=24)
+            throw new InvalidDataException("3520 设备未声明 HS-D015 安全 IAP 边界；未发送升级命令。");
+        return new(SerialUpgradeProtocol.HsD015Legacy,0xD0150320,FirmwareImage.HsD015AppStartAddress,
+            FirmwareImage.HsD015AppCapacity,0,"3520 v1 / HS-D015 / legacy page / APP=08002800 / capacity=23552");
+    }
     public static async Task<SerialUpgradeDevice> ReadAsync(IBmsTransport transport,bool allowLegacyManual,CancellationToken ct) {
         await Task.Delay(ResponseTurnaround,ct);
         await using var client=new BmsClient(transport,responseTurnaround:ResponseTurnaround);
@@ -27,6 +35,11 @@ public static class UpgradeDetection
         catch(BmsModbusException ex) when(ex.Code is 1 or 2) { }
         catch(TimeoutException) { }
         if(words is not null && ParseCapabilities(words) is {} advertised)return advertised;
+        words=null;
+        try { words=await client.ReadRegistersAsync(0x2500,32,ct); }
+        catch(BmsModbusException ex) when(ex.Code is 1 or 2 or 3) { }
+        catch(TimeoutException) { }
+        if(words is not null && ParseHsD015Capabilities(words) is {} hsD015)return hsD015;
         words=null;
         try { words=await client.ReadRegistersAsync(0xD130,4,ct); }
         catch(BmsModbusException ex) when(ex.Code is 1 or 2) { }
@@ -77,6 +90,7 @@ public static class UpgradeDetection
         }
         if(image.IsSerialPackage)throw new InvalidDataException("设备仍使用旧 Boot，统一升级包不能通过旧页协议迁移；首次须安装配套 Boot 和 APP。");
         if(device.Protocol==SerialUpgradeProtocol.D015Legacy)image.ValidateD015Image();
+        if(device.Protocol==SerialUpgradeProtocol.HsD015Legacy)FirmwareImage.ValidateHsD015(image.Bytes);
         if(image.ImageSize>device.Capacity)throw new InvalidDataException("固件超出识别到的设备 APP 容量。");
         if(device.Protocol==SerialUpgradeProtocol.LegacyManual && image.HasD015Identity)
             throw new InvalidDataException("D015 镜像要求核对 D015 身份，不允许按未识别的通用 STM32 发送。");

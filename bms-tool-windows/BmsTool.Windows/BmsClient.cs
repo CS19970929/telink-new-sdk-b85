@@ -661,6 +661,10 @@ public sealed partial class BmsClient : IAsyncDisposable
         if(_transport is IBmsMtuTransport ble && (ble.NegotiatedMtu??23)<request.Length+3)
             throw new IOException("当前 BLE MTU 无法承载 57 字节原子写入，请使用直连串口或支持 MTU ≥ 60 的透明通道；不拆帧写保护参数。");
         ModbusRtu.ValidateWriteMultipleAck(await TransactAsync(request,ct),address,24);
+        if (address == Sh3520Parameters.HardwareBase)
+            Sh3520Parameters.VerifyApplied(words, await ReadRegistersAsync(address, 32, ct));
+        else if (!(await ReadRegistersAsync(address, 24, ct)).SequenceEqual(words))
+            throw new IOException("3520 软件参数读回不一致，请重新读取。");
     }
 
     private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null)

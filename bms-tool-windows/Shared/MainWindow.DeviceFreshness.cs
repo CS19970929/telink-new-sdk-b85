@@ -60,6 +60,10 @@ public partial class MainWindow
 
         foreach (var row in _protectionRows) row.ClearReadback();
         ClearC060ParameterCapture();
+        _hs3520Owner = null;
+        _hs3520Words = null;
+        _hs3520Grid.ItemsSource = null;
+        foreach (var box in new[] { _hs3520Capacity, _hs3520Soc, _hs3520Cycles, _hs3520Serial }) box.Clear();
         _parameterCapture = null;
         _parameterProbedClient = null;
         _d015BasicGrid.ItemsSource = null;

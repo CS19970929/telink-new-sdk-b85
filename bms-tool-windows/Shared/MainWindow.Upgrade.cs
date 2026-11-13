@@ -73,7 +73,6 @@ public partial class MainWindow
             // A self-describing package is matched against device capabilities,
             // independently of any legacy AFE/parameter-page classification.
             _otaRequireD015 = !serialPackage && _bms?.IsD015 == true;
-            if(_bms?.IsSh3520==true && !serialPackage)throw new InvalidOperationException("该设备的旧 APP 地址不匹配通用页协议，请使用配套升级包或工程烧录入口。");
             if(serialRecovery && !serialPackage)throw new InvalidDataException("升级恢复请选择带身份和 CRC 的 YMODEM 升级包。");
             if(serialPackage && GetOtaTargetKind()==OtaTargetKind.Telink)throw new InvalidDataException("所选文件是 BMS YMODEM 包，请选择自动识别或 BMS 串口透传升级。");
             ulong address = _connectedAddress ?? 0;

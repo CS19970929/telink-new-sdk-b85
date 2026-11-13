@@ -2,7 +2,6 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using Windows.Devices.Bluetooth.GenericAttributeProfile;
 
 namespace BmsTool.Windows;
 
@@ -17,6 +16,8 @@ public sealed class Stm32SerialBleOtaClient
     // is zero. A page is therefore acknowledged as quantity=1024, not 512.
     private const ushort PageTransferLength = 1024;
     private const int PageSize = 1024;
+    // IAP resets 200 ms after COMPLETE, then retains its normal 2 s recovery window.
+    private const int HsD015BootWindowAndStartupDelayMs = 2600;
     private const int MaxPageCount = FirmwareImage.Stm32AppCapacity / PageSize;
     // The BLE MTU is not the same as the transparent UART buffer capacity.
     // The supplied IAP UART is 19200 8N1 without flow control, so use the
@@ -52,12 +53,14 @@ public sealed class Stm32SerialBleOtaClient
         if (image.TargetKind != OtaTargetKind.Stm32SerialIap)
             throw new InvalidDataException("BMS 串口 IAP 需要 MCU 升级包或匹配旧 Boot 的 APP BIN。");
 
-        if (RequireD015Image || image.HasD015Identity) image.ValidateD015Image();
+        if (image.HasD015Identity) image.ValidateD015Image();
 
         if(image.IsSerialPackage) Log?.Invoke("正在只读识别 YMODEM APP/Boot，最多等待 35 秒；恢复模式可在此期间给设备重新上电。");
         SerialUpgradeDevice device=image.IsSerialPackage
             ? await UpgradeDetection.WaitForYmodemAsync(_transport,ct,image.Package)
             : await UpgradeDetection.ReadAsync(_transport,AllowUnidentifiedLegacy,ct);
+        if (RequireD015Image && device.Protocol != SerialUpgradeProtocol.HsD015Legacy)
+            image.ValidateD015Image();
         UpgradeDetection.CheckImage(device,image);
         Log?.Invoke($"升级协议识别：{device.Protocol}; {device.Evidence}");
         if(device.Protocol==SerialUpgradeProtocol.YmodemV2) {
@@ -73,6 +76,8 @@ public sealed class Stm32SerialBleOtaClient
         int pageCount = (image.ImageSize + PageSize - 1) / PageSize;
         if (pageCount is <= 0 or > MaxPageCount)
             throw new InvalidDataException($"STM32 APP 页数非法：{pageCount}，最大 {MaxPageCount} 页。");
+
+        bool hsD015 = device.Protocol == SerialUpgradeProtocol.HsD015Legacy;
 
         _transport.DataReceived += OnDataReceived;
         try
@@ -108,6 +113,22 @@ public sealed class Stm32SerialBleOtaClient
             Log?.Invoke("TX STM32 IAP COMPLETE " + Convert.ToHexString(complete));
             await SendAndWaitAsync(complete, FlashComplete, 1, ct);
             Log?.Invoke("RX STM32 IAP COMPLETE ACK; device will reset to APP");
+            if (hsD015)
+            {
+                // COMPLETE ACK is not proof that the new application is running.
+                await Task.Delay(HsD015BootWindowAndStartupDelayMs, ct);
+                await _transport.ReconnectAsync(ct);
+                await using var verify = new BmsClient(_transport);
+                await verify.ProbeAsync(ct);
+                var board = await verify.ReadRegistersAsync(0xD130, 2, ct);
+                var installed = await verify.ReadRegistersAsync(0xD13D, 3, ct);
+                uint crc = ((uint)installed[0] << 16) | installed[1];
+                int paddedLength = (image.ImageSize + 1023) / 1024 * 1024;
+                if (board[0] != 0xD015 || board[1] != 0x0320 ||
+                    installed[2] != paddedLength || crc != FirmwareImage.HsD015PaddedCrc32(image.Bytes))
+                    throw new IOException("HS-D015 升级后镜像 CRC/长度或板型未确认；结果未知，请重新连接读取。");
+                Log?.Invoke($"HS-D015 APP verified; installed CRC32={crc:X8}; bytes={paddedLength}");
+            }
             return true;
         }
         finally
