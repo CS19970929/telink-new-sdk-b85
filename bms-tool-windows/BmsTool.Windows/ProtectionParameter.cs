@@ -111,7 +111,7 @@ public sealed class ProtectionParameterRow : INotifyPropertyChanged
             _ => engineering
         };
 
-        if (raw < 0 || raw > ushort.MaxValue) return false;
+        if (!double.IsFinite(raw) || raw < 0 || raw > ushort.MaxValue) return false;
         rawValue = checked((ushort)Math.Round(raw, MidpointRounding.AwayFromZero));
         return true;
     }

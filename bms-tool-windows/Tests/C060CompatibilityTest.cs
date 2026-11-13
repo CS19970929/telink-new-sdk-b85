@@ -117,10 +117,11 @@ internal static class Program
 }
 internal sealed class Peer : IBmsTransport, IBmsMtuTransport
 {
-    public bool Advertised,Unknown,SeparateIdentity,NoStatus,NoIdentity,SilentRealtime;
-    public int Writes,Reconnects;public int Soc=55;public List<byte[]> SentRequests=new();public int FailWriteAddress;public bool CorruptReadback;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
-    public bool IsConnected=>true;public bool RequiresSerialWakeup=>false;public string DiscoveryDescription=>"C060 fixture";
-    public event Action<ReadOnlyMemory<byte>>? DataReceived; public event Action<string>? ConnectionProgress;
+    public bool C077=false,ServiceFailure=false,Bad309Schema=false,SecondaryUnavailable=false,PrimaryUnavailable=false,PrimaryZeroFailed=false; public bool SerialWakeup=false; public int SilentReads,SilentWrites; public int ServiceCommands,ServicePolls; public ushort OutputRequest=0; private int pendingService;
+    public bool Advertised=false,Unknown=false,SeparateIdentity=false,NoStatus=false,NoIdentity=false,SilentRealtime=false;
+    public int Writes,Reconnects;public int Soc=55;public int DelayedSocReads,DelayedCycleReads,StartupSampleReads;private int? pendingSoc;private ushort reportedCycle;public List<byte[]> SentRequests=new();public int FailWriteAddress=0;public bool CorruptReadback=false;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
+    public bool IsConnected=>true;public bool RequiresSerialWakeup=>SerialWakeup;public string DiscoveryDescription=>"C060 fixture";
+    public event Action<ReadOnlyMemory<byte>>? DataReceived; public event Action<string>? ConnectionProgress {add{}remove{}}
     public List<(int,int)> Reads=new();
     public ushort[] Calibration=Enumerable.Range(0,94).Select(i=>(ushort)(i%2==0?1024:0)).ToArray();
     public ushort[] Identity=Text("SN").Concat(Text("测试硬件")).Concat(Text("c060V3-20250304-20s")).ToArray();
@@ -132,16 +133,17 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
     {
         ct.ThrowIfCancellationRequested();var q=value.ToArray();SentRequests.Add(q);int address=q[2]*256+q[3],n=q[4]*256+q[5];byte[] reply;
         if(q[1]==3) {
-            Reads.Add((address,n));if(SilentRealtime&&address==0xD120)return Task.CompletedTask;ushort[]? w=Read(address,n);
+            Reads.Add((address,n));if(SilentReads>0){SilentReads--;return Task.CompletedTask;}if(SilentRealtime&&address==0xD120)return Task.CompletedTask;ushort[]? w=Read(address,n);
             reply=w is null?Frame(new byte[]{1,0x83,1}):Frame(new byte[]{1,3,(byte)(w.Length*2)}.Concat(w.SelectMany(x=>new[]{(byte)(x>>8),(byte)x})).ToArray());
         } else {
-            Writes++;WriteLengths.Add(q.Length);
+            Writes++;WriteLengths.Add(q.Length);if(SilentWrites>0){SilentWrites--;return Task.CompletedTask;}
             if(address==FailWriteAddress)reply=Frame(new byte[]{1,(byte)(q[1]|128),4});
             else {
                 if(q[1]==16&&address>=0x2100&&address+n<=0x2141) {
                     for(int i=0;i<n;i++)Protection[address-0x2100+i]=(ushort)(q[7+2*i]*256+q[8+2*i]);
                     if(CorruptReadback)Protection[address-0x2100]++;
                 }
+                if(q[1]==16&&address==0x2318&&DelayedCycleReads>0)reportedCycle=Other[25];
                 if(q[1]==16&&address>=0x2300&&address+n<=0x2338)
                     for(int i=0;i<n;i++)Other[address-0x2300+i]=(ushort)(q[7+2*i]*256+q[8+2*i]);
                 if(q[1]==16&&address>=0x2000&&address+n<=0x205E) {
@@ -152,7 +154,8 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
                 }
                 if(q[1]==16&&address>=0xFFF0&&address<=0xFFF2)
                     for(int i=0;i<n;i++)Identity[(address-0xFFF0)*16+i]=(ushort)(q[7+2*i]*256+q[8+2*i]);
-                if(q[1]==6&&address==0x1005)Soc=n;
+                if(q[1]==6&&address==0x1005){if(DelayedSocReads>0)pendingSoc=n;else Soc=n;}
+                if(C077&&q[1]==6&&address==0x2A7F) {ServiceCommands++;pendingService=1;ServicePolls=0;}
                 reply=Frame(q[..6]);
             }
         }
@@ -164,14 +167,30 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
         if(a>=0x2000&&a+n<=0x205E)return Calibration.Skip(a-0x2000).Take(n).ToArray();
         if(Unknown)return null;
         if(NoIdentity&&a>=0xC000&&a<0xC100)return null;
-        if(a==0xD170&&n==12&&Advertised)return new ushort[]{0x5550,1,0xC060,0x20,2,2,0x800,0x1C00,0,0xCC00,0,0};
+        if(a==0xD170&&n==12&&Advertised)return new ushort[]{0x5550,1,(ushort)(C077?0xC077:0xC060),(ushort)(C077?0x16:0x20),2,2,0x800,0x1C00,0,0xCC00,0,0};
+        if(C077&&a>=0x2A40&&a+n<=0x2A80) {
+            if(a==0x2A40&&pendingService!=0 && ++ServicePolls>=2)pendingService=0;
+            var w=new ushort[64];w[0]=0xC077;w[1]=(ushort)(Bad309Schema?1:2);w[2]=(ushort)pendingService;w[3]=(ushort)(ServiceFailure?5:0);w[5]=OutputRequest;w[7]=1;
+            w[58]=(ushort)(pendingService==0?1:0);w[59]=(ushort)(pendingService==0?2:1);w[60]=unchecked((ushort)(short)-12);w[61]=(ushort)(pendingService==0?8:3);w[63]=0x010E;
+            for(int i=0;i<2;i++) {
+                int at=8+i*12;w[at]=1;w[at+1]=(ushort)(i==0?8:0);w[at+6]=64;w[at+8]=(ushort)(pendingService==0?1:0);w[at+11]=(ushort)(i==0?1:0);
+                byte[] profile=Convert.FromHexString(i==0?"501C8F54833E828CC36432FA26F6420004000000000000000040":"501C8F5C833E828CC36432FA26F6530004000000000000000040");
+                for(int j=0;j<13;j++)w[32+i*13+j]=(ushort)(profile[j*2]*256+profile[j*2+1]);
+            }
+            if(StartupSampleReads>0){StartupSampleReads--;w[58]=0;}
+            if(SecondaryUnavailable){w[20]=0;w[28]=0;w[58]=0;}
+            if(PrimaryUnavailable){w[8]=0;w[16]=0;w[58]=0;}
+            if(PrimaryZeroFailed)w[59]=3;
+            return w.Skip(a-0x2A40).Take(n).ToArray();
+        }
         if(a==0xC002&&n==48&&!SeparateIdentity)return Identity.ToArray();
         if(a==0xC002&&n==16)return Text("SN");
         if(a==0xC012&&n==16&&SeparateIdentity)return Text("generic");
         if(a==0xD120&&n==2&&!SeparateIdentity)return new ushort[2];
         if(a==0xD000) {
-            ushort[] data=new ushort[63];for(int i=0;i<32;i++)data[i]=(ushort)(i<20?3300:61001);
-            data[32]=data[33]=3300;data[34]=1;data[35]=2;data[37]=6600;data[47]=650;data[48]=700;data[49]=600;data[50]=20;data[52]=(ushort)Soc;data[53]=100;data[54]=1320;data[55]=data[56]=(ushort)(Other[24]*10);data[57]=Other[25];
+            if(pendingSoc.HasValue&&DelayedSocReads--<=0){Soc=pendingSoc.Value;pendingSoc=null;}
+            ushort[] data=new ushort[63];for(int i=0;i<32;i++)data[i]=(ushort)(i<(C077?Other[28]:20)?3300:61001);
+            data[32]=data[33]=3300;data[34]=1;data[35]=2;data[37]=6600;data[47]=650;data[48]=700;data[49]=600;data[50]=20;data[52]=(ushort)Soc;data[53]=100;data[54]=1320;data[55]=data[56]=(ushort)(Other[24]*10);data[57]=DelayedCycleReads-->0?reportedCycle:Other[25];
             return data.Take(n).ToArray();
         }
         if(a==0xD115&&n==2&&!NoStatus)return new ushort[]{4,0};

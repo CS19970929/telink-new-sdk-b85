@@ -29,7 +29,7 @@ static class Test
         string work=args[0];Directory.CreateDirectory(work);
         string c060=Path.Combine(work,"synthetic-c060.test-package");
         File.WriteAllBytes(c060,Package(0xC0600020,0x08001C00));
-        if(args.Length>1)c060=args[1];
+        if(args.Length>1&&args[1]!="-")c060=args[1];
         var inspection=FirmwareImage.Inspect(c060);
         Check(!inspection.D015Package,"C060 cannot be classified as D015");
         Check(inspection.Description.Contains("C060"),"C060 inspection names the actual board");
@@ -42,6 +42,15 @@ static class Test
         image.Bytes[240]^=1;
         Reject(()=>D015FirmwarePackage.Parse(image.Bytes),"strict D015 API does not accept C060");
         Console.WriteLine("PASS: user's valid C060 package accepted without D015 misclassification");
+        string c077=Path.Combine(work,"synthetic-c077.test-package");
+        File.WriteAllBytes(c077,Package(0xC0770016,0x08001C00));
+        if(args.Length>2)c077=args[2];
+        var c077image=FirmwareImage.LoadForTarget(c077,OtaTargetKind.Stm32SerialIap);
+        var c077device=Device(0xC0770016,0x08001C00,51*1024);
+        UpgradeDetection.CheckImage(c077device,c077image);
+        Check(FirmwareImage.Inspect(c077).Description.Contains("C077"),"C077 product named from its package");
+        Reject(()=>UpgradeDetection.CheckImage(device,c077image),"C077 rejected on C060");
+        Reject(()=>UpgradeDetection.CheckImage(c077device,image),"C060 rejected on C077");
         string d015=Path.Combine(work,"synthetic-d015.test-package");
         File.WriteAllBytes(d015,Package(0xD0150320,0x08002000));
         var d015image=FirmwareImage.LoadForTarget(d015,OtaTargetKind.Stm32SerialIap);

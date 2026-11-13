@@ -119,7 +119,7 @@ public partial class MainWindow
     private async Task ParameterRunAsync(Func<BmsClient,CancellationToken,Task>? action,bool refresh=true,
         string? operation="保存参数",bool requiresUnlock=true)
     {
-        if(_bms?.IsC060==true){await RunC060ParameterAsync(action,operation??"读取参数",requiresUnlock);return;}
+        if(_bms?.UsesC060Protocol==true){await RunC060ParameterAsync(action,operation??"读取参数",requiresUnlock);return;}
         bool modifying=action is not null && operation is not null;
         void Reject(string message) {
             _parameterStatus.Text=message;

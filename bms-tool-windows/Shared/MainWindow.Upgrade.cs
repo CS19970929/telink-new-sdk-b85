@@ -13,7 +13,7 @@ public partial class MainWindow
         if (_otaRunning) return;
         try
         {
-            var dlg = new OpenFileDialog { Filter = "BMS 固件 (*.c060;*.d015;*.bms;*.bin)|*.c060;*.d015;*.bms;*.bin|所有文件 (*.*)|*.*" };
+            var dlg = new OpenFileDialog { Filter = "BMS 固件 (*.c060;*.c077;*.d015;*.bms;*.bin)|*.c060;*.c077;*.d015;*.bms;*.bin|所有文件 (*.*)|*.*" };
             if (dlg.ShowDialog() != true) return;
             LoadFirmwareCandidate(dlg.FileName);
         }

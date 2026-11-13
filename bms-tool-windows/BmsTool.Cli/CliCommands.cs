@@ -48,10 +48,11 @@ Usage:
                   [--count 3] [--interval 1] [--full] [--output report.json] [--json]
   bms-cli compare <before-diag.zip> <after-diag.zip>
                   [--scope all|identity|configuration|runtime] [--output report.md] [--json]
+  bms-cli afe309 <get|check|verify|zero|program|hardware-get|hardware-save> (--mac MAC | --serial COMx) [--chip 1|2|both] [--input FILE] [--output FILE] [--yes] [--json]
   bms-cli parameters get (--mac MAC | --name NAME | --auto | --serial COMx) [--json]
   bms-cli parameters export (--mac MAC | --name NAME | --auto | --serial COMx)
                   --output parameters.zip [--json]
-  bms-cli ota <firmware.bin|firmware.c060|firmware.d015|firmware.bms> (--mac MAC | --name NAME | --auto | --serial COMx)
+  bms-cli ota <firmware.bin|firmware.c060|firmware.c077|firmware.d015|firmware.bms> (--mac MAC | --name NAME | --auto | --serial COMx)
               [--target auto|telink|stm32] [--mode auto|legacy|extend64] [--d015]
               [--expected-version VERSION] [--evidence-dir DIR] [--yes] [--json]
 
@@ -81,6 +82,7 @@ Safety:
             "test" => TestAsync(options, reporter, ct),
             "compare" => CompareAsync(options, reporter, ct),
             "parameters" => ParametersAsync(options, reporter, ct),
+            "afe309" => Afe309Async(options, reporter, ct),
             "ota" => OtaAsync(options, reporter, ct),
             _ => throw new CliException(ExitCodes.Usage, "usage", $"Unknown command '{options.Command}'. Run bms-cli help.")
         };
@@ -783,6 +785,41 @@ Safety:
     private static string MarkdownCell(string? value) =>
         (value ?? "<missing>").Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ");
 
+    private static async Task<int> Afe309Async(CliOptions options,CliReporter reporter,CancellationToken ct)
+    {
+        if(options.Positionals.Count!=1 || options.Positionals[0] is not ("get" or "check" or "verify" or "zero" or "program" or "hardware-get" or "hardware-save"))
+            throw new CliException(ExitCodes.Usage,"usage","afe309: get/check/verify/zero/program/hardware-get/hardware-save; --chip 1|2|both.");
+        string action=options.Positionals[0]=="check"?"get":options.Positionals[0];
+        if((action is "zero" or "program" or "hardware-save") && !options.Has("yes"))
+            throw new CliException(ExitCodes.Usage,"usage","zero/program/hardware-save requires --yes and outputs OFF.");
+        string selected=options.Get("chip")??"both";
+        int mask=selected switch {"1"=>1,"2"=>2,"both"=>3,_=>throw new CliException(ExitCodes.Usage,"usage","--chip must be 1, 2 or both.")};
+        var endpoint=await CliRuntime.ResolveEndpointAsync(options,reporter,ct);
+        await using var connection=await CliRuntime.ConnectBmsAsync(endpoint,reporter,ct);
+        var client=connection.Client;await client.ReadIdentityAsync(ct);
+        object snapshot;string summary;
+        if(action is "hardware-get" or "verify") {
+            var hardware=await client.ReadC077HardwareAsync(action=="verify",ct);
+            var file=C077Hardware.File(hardware.Saved);snapshot=action=="hardware-get" ? file:hardware;summary=hardware.Actual.Summary;
+        } else if(action=="hardware-save") {
+            if(mask==3)throw new CliException(ExitCodes.Usage,"usage","hardware-save requires --chip 1 or 2; each chip is a separate atomic Flash commit.");
+            string input=options.Get("input")??throw new CliException(ExitCodes.Usage,"usage","hardware-save requires --input <C077 hardware JSON>.");
+            var file=C077Hardware.ParseFile(File.ReadAllText(input));
+            var words=C077Hardware.Import(file);int chip=mask==1?0:1;
+            var before=await client.ReadC077HardwareAsync(false,ct);
+            await client.SaveC077HardwareAsync(chip,words[chip],before.Saved[chip],ct);
+            snapshot=C077Hardware.File((await client.ReadC077HardwareAsync(false,ct)).Saved);summary=$"AFE{chip+1} Flash saved and verified; EEPROM not programmed.";
+        } else {
+            var state=action=="get" ? await client.ReadC077AfeAsync(ct) : action=="zero" ? await client.RunC077ServiceAsync(false,ct) :
+                options.Has("chip") ? await client.ProgramC077HardwareAsync(mask,ct):await client.RunC077ServiceAsync(true,ct);
+            snapshot=state;summary=state.Summary;
+        }
+        string? output=SaveJsonOutput(options.Get("output"),snapshot);
+        reporter.Success("afe309 "+action,new {endpoint=endpoint.Display,product="C077",snapshot,output});
+        if(!reporter.Json)Console.WriteLine(summary);
+        return ExitCodes.Success;
+    }
+
     private static async Task<int> ParametersAsync(CliOptions options, CliReporter reporter, CancellationToken ct)
     {
         if (options.Positionals.Count != 1 ||
@@ -795,7 +832,7 @@ Safety:
         try { await connection.Client.ReadIdentityAsync(ct); }
         catch(BmsModbusException ex) when(ex.Code is 1 or 2) { }
         catch(TimeoutException) { }
-        if(connection.Client.IsC060)return await C060ParametersAsync(connection,endpoint,action,options,reporter,ct);
+        if(connection.Client.UsesC060Protocol)return await C060ParametersAsync(connection,endpoint,action,options,reporter,ct);
         D008ParameterCapture capture = await connection.Client.ReadD008ParametersAsync(ct);
         string? outputPath = null;
         if (action == "export")
@@ -841,7 +878,7 @@ Safety:
         reporter.Success("parameters "+action,new {endpoint=endpoint.Display,status,supported=true,protocolVersion=1,
             product=capture.Product,blocks=capture.Blocks,errors=capture.Errors,incomplete=capture.Incomplete,output=outputPath});
         if(!reporter.Json) {
-            Console.WriteLine($"C060 parameters: {status}; blocks={capture.Blocks.Count}; errors={capture.Errors.Count}");
+            Console.WriteLine($"{capture.Product} parameters: {status}; blocks={capture.Blocks.Count}; errors={capture.Errors.Count}");
             foreach(string error in capture.Errors)Console.WriteLine("WARN: "+error);
             if(outputPath is not null)Console.WriteLine("Parameter JSON: "+outputPath);
         }
@@ -1118,7 +1155,7 @@ Safety:
                 try { await connection.Client.ReadIdentityAsync(ct); }
                 catch(BmsModbusException ex) when(ex.Code is 1 or 2) { }
                 catch(TimeoutException) { }
-                if(connection.Client.IsC060) {
+                if(connection.Client.UsesC060Protocol) {
                     var parameters=await connection.Client.ReadC060ParametersAsync(ct);
                     C060Parameters.Export(Path.Combine(directory,prefix+"-c060-parameters.json"),parameters);
                 } else {

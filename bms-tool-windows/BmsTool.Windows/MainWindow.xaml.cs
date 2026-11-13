@@ -331,7 +331,7 @@ public partial class MainWindow : Window
         }
         if (!ReferenceEquals(bms, _bms)) return;
         ApplyBatterySnapshot(snapshot);
-        if (bms.IsC060) return;
+        if (bms.UsesC060Protocol) return;
         await RefreshOptionalDeviceViewAsync("MOS许可",()=>RefreshMosControlStateAsync(bms, default));
         await RefreshOptionalDeviceViewAsync("MOS诊断",()=>RefreshMosMonitorAsync(bms));
         await RefreshOptionalDeviceViewAsync("休眠状态",()=>RefreshSleepStatusAsync(bms));
@@ -489,7 +489,7 @@ public partial class MainWindow : Window
             throw new IOException($"保护参数数量错误：expected={_protectionRows.Count}, actual={values.Length}");
         for (int i = 0; i < values.Length; i++) _protectionRows[i].LoadFromDevice(values[i]);
         ProtectionStatusText.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}" +
-            (bms.IsC060 ? " · C060：Second/Third实际扫描；First用于恢复；Filter单位10ms" : "");
+            (bms.UsesC060Protocol ? $" · {bms.ParameterProduct}：Second/Third实际扫描；First用于恢复；Filter单位10ms" : "");
         AppendLog($"保护参数读取完成 count={values.Length}; rawRange=0x2100..0x2140", "PARAM");
     }
 

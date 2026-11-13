@@ -111,12 +111,12 @@ public partial class MainWindow
     {
         // SN 身份写入复用原授权、分片暂存和读回事务，不复用保护参数的界面解锁门禁。
         string serial = DeviceSerialBox.Text;
-        try { if(_bms?.IsC060!=true)D008Parameters.SerialWords(serial); }
+        try { if(_bms?.UsesC060Protocol!=true)D008Parameters.SerialWords(serial); }
         catch (Exception ex) { ShowError("SN 格式无效", ex); return; }
         if (MessageBox.Show(this, $"确认将设备 SN 修改为：{serial}？", "修改设备 SN",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         await ParameterRunAsync(async (client, ct) => {
-            if(client.IsC060)await client.WriteC060IdentityAsync(0xFFF0,serial,ct);
+            if(client.UsesC060Protocol)await client.WriteC060IdentityAsync(0xFFF0,serial,ct);
             else await client.WriteD008SerialAsync(serial, ct);
             if (!ReferenceEquals(client, _bms)) throw new InvalidOperationException("连接已改变，请重新读取 SN。");
             await RefreshIdentityAsync(ct);
