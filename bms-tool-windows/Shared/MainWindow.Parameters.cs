@@ -135,17 +135,19 @@ public partial class MainWindow
         if(modifying && (!ReferenceEquals(client,_parameterProbedClient) || _parameterCapture?.Supported!=true)){Reject("请先读取当前设备参数并确认支持，再执行修改。");return;}
         _parameterBusy=true;_diagBusy=true;_eventLogReadInProgress=true;
         UpdateBusinessParameterControls();
-        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        long generation = _connectionGeneration;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_connectionLifetime.Token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(60));
         try {
             _pollTimer.Stop();await WaitForCommunicationIdleAsync();
-            if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变");
+            EnsureCurrentConnection(client, generation);
             _parameterStatus.Text="正在读取/执行参数事务…";
             if(action is not null)await action(client,timeout.Token);
-            if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变");
+            EnsureCurrentConnection(client, generation);
             if(refresh){
-                _parameterCapture=await client.ReadD008ParametersAsync(timeout.Token);
-                if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变，请重新读取");
-                _parameterProbedClient=client;ShowD008ParameterCapture(_parameterCapture);
+                var capture=await client.ReadD008ParametersAsync(timeout.Token);
+                EnsureCurrentConnection(client, generation);
+                _parameterCapture=capture;_parameterProbedClient=client;ShowD008ParameterCapture(capture);
                 if(action is not null && _parameterCapture.Errors.Count==0 && _parameterCapture.Supported)_parameterStatus.Text="设备已确认保存；参数读回完成";
             }
             if(modifying) {
@@ -157,13 +159,14 @@ public partial class MainWindow
                     ShowParameterSaved(_parameterStatus.Text);
                 }
             }
+        } catch (Exception) when (generation != _connectionGeneration) {
         } catch(Exception ex){
             _parameterCapture=null;_parameterProbedClient=null;
             _parameterBusinessReadback.Text="设备参数：读取失败";
             _parameterStatus.Text="参数操作失败或结果未确认："+ex.Message+"；请重新读取确认设备状态";
             if(modifying)MessageBox.Show(this,_parameterStatus.Text,"操作失败 / 结果未确认",MessageBoxButton.OK,MessageBoxImage.Error);
         }
-        finally{DeviceSerialStatusText.Text=_parameterStatus.Text;_parameterBusy=false;_diagBusy=false;_eventLogReadInProgress=false;UpdateBusinessParameterControls();StartAutomaticRefresh();}
+        finally{if (generation == _connectionGeneration) DeviceSerialStatusText.Text=_parameterStatus.Text;_parameterBusy=false;_diagBusy=false;_eventLogReadInProgress=false;UpdateBusinessParameterControls();if (generation == _connectionGeneration) StartAutomaticRefresh();}
     }
     private void ShowD008ParameterCapture(D008ParameterCapture c)
     {

@@ -113,7 +113,7 @@ static class BusinessParametersUiTest
             Check(edit.Cancel==row.IsReadOnly,"宏禁止进入编辑，Flash参数保留编辑能力");
         }
         Check((Field<DataGrid>("_d015OcvGrid").Parent is not null)!=customer,"D015 OCV编辑仅内部版提供");
-        Check(window.FindName("D015IapRecoveryBox") is CheckBox,"两版均提供 D015 IAP 恢复入口");
+        Check(window.FindName("SerialIapRecoveryBox") is CheckBox recovery && recovery.Content.ToString()!.Contains("YMODEM"),"两版均提供通用 YMODEM Boot 恢复入口");
         var ota=(TabItem)window.FindName("OtaTab");
         Check(ota.Visibility==Visibility.Visible && window.FindName("OtaTargetBox") is ComboBox,"两版升级页可见并提供协议选择");
         if(args.Length>0) {

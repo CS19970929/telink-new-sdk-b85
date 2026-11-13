@@ -206,6 +206,8 @@ public sealed partial class BmsClient : IAsyncDisposable
     private readonly List<byte> _rx = new();
     private TaskCompletionSource<byte[]>? _pending;
     private byte[]? _pendingRequest;
+    private readonly CancellationTokenSource _disposedCancellation = new();
+    private int _disposed;
     public event Action<string>? Log;
     public BmsCommunicationStatistics CommunicationStatistics { get; }
 
@@ -705,6 +707,8 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null)
     {
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, _disposedCancellation.Token);
+        ct = lifetime.Token;
         if(IsC077&&_transport.RequiresSerialWakeup&&request.Length>=2&&request[1] is 0x06 or 0x10&&
            LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold) {
             // Wake with a read before the one-shot write. A lost write ACK must
@@ -730,7 +734,8 @@ public sealed partial class BmsClient : IAsyncDisposable
             lock (_rxLock) { _rx.Clear(); _pendingRequest = request; _pending = tcs; }
             Log?.Invoke("TX " + Convert.ToHexString(request));
             long started = Stopwatch.GetTimestamp();
-            await _transport.WriteAsync(request, ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+            await _transport.WriteAsync(request, ct).WaitAsync(_disposedCancellation.Token).ConfigureAwait(false);
             CommunicationStatistics.Sent(request.Length);
             sending = false;
             TimeSpan timeout = responseTimeout ?? TimeSpan.FromSeconds(4);
@@ -742,6 +747,7 @@ public sealed partial class BmsClient : IAsyncDisposable
                 Log?.Invoke($"[MODBUS] TIMEOUT timeoutMs={timeout.TotalMilliseconds:F0}; request={Convert.ToHexString(request)}; buffered={Convert.ToHexString(buffered)}");
                 throw new TimeoutException($"Modbus response timed out after {timeout.TotalMilliseconds:F0} ms.", ex);
             }
+            ct.ThrowIfCancellationRequested();
             ValidateResponseHeader(request, rsp);
             if ((rsp[1] & 0x80) == 0) Interlocked.Exchange(ref _lastSuccessfulResponseTick, Stopwatch.GetTimestamp());
             CommunicationStatistics.ReceivedFrame(Stopwatch.GetElapsedTime(started).TotalMilliseconds, (rsp[1] & 0x80) != 0);
@@ -792,6 +798,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         string message;
         lock (_rxLock)
         {
+            if (Volatile.Read(ref _disposed) != 0) return;
             if (_pending is null) message = "[MODBUS] unsolicited RX fragment=" + Convert.ToHexString(fragment.Span);
             else {
                 if (_rx.Count + fragment.Length > 4096) {
@@ -822,8 +829,17 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return ValueTask.CompletedTask;
         _transport.DataReceived -= OnData;
-        _gate.Dispose();
+        _disposedCancellation.Cancel();
+        lock (_rxLock)
+        {
+            _pending?.TrySetCanceled(_disposedCancellation.Token);
+            _pending = null;
+            _rx.Clear();
+        }
+        // Waiters still unwind and release _gate. Neither managed primitive
+        // uses a WaitHandle here; let GC reclaim them after operations finish.
         return ValueTask.CompletedTask;
     }
 }

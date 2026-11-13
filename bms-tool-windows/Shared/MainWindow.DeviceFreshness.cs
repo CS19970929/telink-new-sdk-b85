@@ -58,6 +58,7 @@ public partial class MainWindow
         UpdateCustomerIdentityFooter();
         ResetMosControlUi();
 
+        _protectionSnapshotClient = null;
         foreach (var row in _protectionRows) row.ClearReadback();
         ClearC060ParameterCapture();
         _hs3520Owner = null;

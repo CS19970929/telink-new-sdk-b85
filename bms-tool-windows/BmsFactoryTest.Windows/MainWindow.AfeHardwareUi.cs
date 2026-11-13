@@ -139,22 +139,33 @@ public partial class MainWindow
         _afeHardwareSource = null;
         if (_afeHardwareOperationBusy) return;
         _afeHardwareOperationBusy=true;
+        long generation = _connectionGeneration;
+        BmsClient? startingClient = _bms;
+        CancellationToken ct = _connectionLifetime.Token;
         try
         {
+            BmsClient bms = startingClient ?? throw new InvalidOperationException("请先连接BMS。");
+            EnsureCurrentConnection(bms, generation);
+            _afeHardwareSource = null;
             _pollTimer.Stop();
             await WaitForCommunicationIdleAsync();
             if (_currentCalibrationOwner is not null) return;
-            BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接BMS。");
+            EnsureCurrentConnection(bms, generation);
             _afeHardwareStatus!.Text = "正在读取 requested / metadata / effective...";
 
             var client = new AfeHardwareClient(bms);
-            AfeHardwareSnapshot snapshot = await client.ReadAllAsync();
-            if (!ReferenceEquals(bms, _bms)) return;
+            AfeHardwareSnapshot snapshot = await client.ReadAllAsync(ct);
+            EnsureCurrentConnection(bms, generation);
             _afeHardwareModel.Load(snapshot);
             _afeHardwareSource = bms;
+            _afeSnapshotGeneration = generation;
             ApplyAfeDeviceInfo(snapshot.Info);
             _afeHardwareStatus.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}";
             AppendLog($"AFE_HW_V2_READ_OK backend=0x{snapshot.Info.BackendModel:X4}; caps=0x{snapshot.Info.Capabilities:X4}; apply={snapshot.Info.ApplyState}; error={snapshot.Info.LastError}", "AFE");
+        }
+        catch (Exception) when (generation != _connectionGeneration)
+        {
+            // A previous connection must not publish status or dialogs into the new one.
         }
         catch (Exception ex)
         {
@@ -164,7 +175,7 @@ public partial class MainWindow
         finally
         {
             _afeHardwareOperationBusy=false;
-            StartAutomaticRefresh();
+            if (generation == _connectionGeneration) StartAutomaticRefresh();
         }
     }
 
@@ -173,10 +184,13 @@ public partial class MainWindow
         if (_currentCalibrationOwner is not null) return;
         if (_afeHardwareOperationBusy) return;
         _afeHardwareOperationBusy=true;
+        long generation = _connectionGeneration;
+        BmsClient? startingClient = _bms;
+        CancellationToken ct = _connectionLifetime.Token;
         try
         {
-            if (_bms is null || !ReferenceEquals(_afeHardwareSource, _bms))
-                throw new InvalidOperationException("请先成功读取当前设备的完整 AFE 请求值和有效值，再修改参数。上次读取或提交结果未确认，不能继续写入。");
+            BmsClient bms = startingClient ?? throw new InvalidOperationException("请先连接BMS。");
+            EnsureAfeSnapshot(bms, generation);
             _afeHardwareGrid?.CommitEdit(DataGridEditingUnit.Cell, true);
             _afeHardwareGrid?.CommitEdit(DataGridEditingUnit.Row, true);
 
@@ -214,7 +228,8 @@ public partial class MainWindow
             _pollTimer.Stop();
             await WaitForCommunicationIdleAsync();
             if (_currentCalibrationOwner is not null) return;
-            BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接BMS。");
+            EnsureCurrentConnection(bms, generation);
+            EnsureAfeSnapshot(bms, generation);
             var client = new AfeHardwareClient(bms);
             _afeHardwareStatus!.Text = "正在执行AFE硬件参数原子事务...";
             AppendLog($"AFE_HW_V2_WRITE_BEGIN backend=0x{info.BackendModel:X4}; transport={transportText}; words={candidate.Length}", "AFE");
@@ -222,14 +237,19 @@ public partial class MainWindow
             if (!ReferenceEquals(_afeHardwareSource,bms)) throw new InvalidOperationException("连接已改变，请重新读取AFE参数。");
             AfeHardwareSnapshot expected=_afeHardwareModel.CurrentSnapshot;
             _afeHardwareSource = null;
-            AfeHardwareSnapshot readback = await client.WriteAllAsync(expected,candidate);
-            if (!ReferenceEquals(bms, _bms)) return;
+            AfeHardwareSnapshot readback = await client.WriteAllAsync(expected,candidate,ct);
+            EnsureCurrentConnection(bms, generation);
             _afeHardwareModel.Load(readback);
             _afeHardwareSource = bms;
+            _afeSnapshotGeneration = generation;
             ApplyAfeDeviceInfo(readback.Info);
             _afeHardwareStatus.Text = $"保存成功 · requested一致 · effective已回读 · {DateTime.Now:HH:mm:ss}";
             AppendLog($"AFE_HW_V2_WRITE_VERIFY_OK backend=0x{readback.Info.BackendModel:X4}; apply={readback.Info.ApplyState}; error={readback.Info.LastError}", "AFE");
             ShowParameterSaved("AFE 硬件参数已保存，请求值一致，有效值已读回。\n" + _afeHardwareStatus.Text);
+        }
+        catch (Exception) when (generation != _connectionGeneration)
+        {
+            // A previous connection must not publish status or dialogs into the new one.
         }
         catch (Exception ex)
         {
@@ -240,7 +260,7 @@ public partial class MainWindow
         finally
         {
             _afeHardwareOperationBusy=false;
-            StartAutomaticRefresh();
+            if (generation == _connectionGeneration) StartAutomaticRefresh();
         }
     }
 }
