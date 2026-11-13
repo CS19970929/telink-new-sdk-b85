@@ -159,7 +159,7 @@ static class Test
             var runtimeComparison=DiagnosticBundleComparer.Filter(comparison,"runtime");
             Check(runtimeComparison.DifferenceCount==1&&runtimeComparison.Differences[0].Entry=="soc.json","diagnostic comparison category filter");
         } finally {Directory.Delete(dir,true);}
-        Check(ProductSupportMatrix.Products.Count==5&&ProductSupportMatrix.Products.Any(x=>x.Product=="D013"&&x.DiagnosticsSchema==1),"product support matrix");
+        Check(new[]{"D008","D011","D013","D014","D015","C060","C077"}.All(name=>ProductSupportMatrix.Products.Any(x=>x.Product==name)) && ProductSupportMatrix.Products.Any(x=>x.Product=="D013"&&x.DiagnosticsSchema==1),"product support matrix retains legacy and integrated C060/C077 products");
         t.Timeout=false;
         var setSoc=await b.SetSocAndVerifyAsync(64);
         Check(setSoc.SocPercent==64&&t.LastWriteAddress==0x1005&&t.LastWriteValue==64,"generic SOC write and readback");
@@ -202,6 +202,11 @@ sealed class FakeTransport:IBmsTransport
     {
         var q=data.Span;
         if(Timeout)return Task.CompletedTask;
+        // Optional product capability functions are unsupported by this generic
+        // diagnostic peer; reply with Modbus illegal-function before decoding 03/06.
+        if(q[1] is not 3 and not 6) {
+            Emit(ModbusRtu.Frame(new byte[]{1,(byte)(q[1]|0x80),1}));return Task.CompletedTask;
+        }
         ushort start=BinaryPrimitives.ReadUInt16BigEndian(q[2..4]);ushort count=BinaryPrimitives.ReadUInt16BigEndian(q[4..6]);
         if(q[1]==6) {
             Writes++;LastWriteAddress=start;LastWriteValue=count;
@@ -260,9 +265,10 @@ sealed class FakeTransport:IBmsTransport
             else if(address>=0x2523&&address<0x252C)value=(ushort)(address-0x2523+100);
             else if(address>=0x2540&&address<0x2563)value=(ushort)(address-0x2540+200);
             else if(address==BmsRegisters.Legacy+52)value=CurrentSoc;
-            if (start == BmsRegisters.Serial || start == BmsRegisters.Hardware || start == BmsRegisters.Software) {
-                string text = start == BmsRegisters.Serial ? Serial : start == BmsRegisters.Hardware ? "D008" : "V1";
-                text = text.PadRight(32, '\0'); value = (ushort)((text[i*2] << 8) | text[i*2+1]);
+            if (address >= BmsRegisters.Serial && address < BmsRegisters.Serial + 48) {
+                int field=(address-BmsRegisters.Serial)/16, slot=(address-BmsRegisters.Serial)%16;
+                string text=field==0?Serial:field==1?"D008":"V1";
+                text=text.PadRight(32,'\0');value=(ushort)((text[slot*2]<<8)|text[slot*2+1]);
             }
             if(SocInputWords is not null) {
                 if(address>=0x3000 && address<0x3006) value=new ushort[]{0x5343,1,32,32,0,7}[address-0x3000];

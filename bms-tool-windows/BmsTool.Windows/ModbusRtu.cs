@@ -274,6 +274,7 @@ public static class ModbusRtu
             if (buffer.Count < 4) return null;
             byte command = buffer[2];
             byte status = buffer[3];
+            // Counted C11 extensions belong only to 0x41; 0x42 AFE register frames stay fixed-length.
             if(command>=0x10) return status!=0 ? 6 : (buffer.Count>=5 ? buffer[4]+7 : null);
             return command switch
             {
@@ -290,7 +291,6 @@ public static class ModbusRtu
             if (buffer.Count < 4) return null;
             byte command = buffer[2];
             byte status = buffer[3];
-            if(command>=0x10) return status!=0 ? 6 : (buffer.Count>=5 ? buffer[4]+7 : null);
             if (status != 0) return 6;
             return command switch
             {
@@ -309,7 +309,6 @@ public static class ModbusRtu
             if (buffer.Count < 4) return null;
             byte command = buffer[2];
             byte status = buffer[3];
-            if(command>=0x10) return status!=0 ? 6 : (buffer.Count>=5 ? buffer[4]+7 : null);
             if (status != 0) return 6;
             return command switch
             {

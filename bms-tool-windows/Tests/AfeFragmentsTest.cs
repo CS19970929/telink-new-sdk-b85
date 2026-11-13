@@ -14,8 +14,8 @@ static class Test {
   t.BadAck=true;try{await b.WriteAfeProfileAsync(words,new(7,60,2,0x1124));throw new Exception("bad ACK accepted");}catch(IOException){}
   Check(t.Commits==0,"bad ACK no commit");t.Reset();t.BadAck=false;t.CancelAfterStage=true;
   using(var stop=new CancellationTokenSource()){t.Stop=stop;try{await b.WriteAfeProfileAsync(words,new(7,60,2,0x1124),stop.Token);throw new Exception("cancel accepted");}catch(OperationCanceledException){}}
-  Check(t.Commits==0,"cancel no commit");t.CancelAfterStage=false;t.Reset();t.Serial=true;t.DropReads=3;
-  await b.ProbeAsync();Check(t.Reads==4&&t.Reconnects==0,"serial wake retries without reopen");
+  Check(t.Commits==0,"cancel no commit");t.CancelAfterStage=false;t.Reset();t.Serial=true;int wakeStart=t.Reads;t.DropReads=wakeStart+3;
+  await b.ProbeAsync();Check(t.Reads==wakeStart+4&&t.Reconnects==0,"serial wake retries without reopen");
   t.DropReads=100;using(var stop=new CancellationTokenSource(100)){try{await b.ProbeAsync(stop.Token);throw new Exception("probe cancellation ignored");}catch(OperationCanceledException){}}
   Check(t.Reconnects==0,"serial cancel no reopen");
   // 通过实际 ReadBatteryAsync 和 Modbus 大端编码验证跨 16 位边界的逐串位图。
@@ -172,7 +172,13 @@ namespace BmsTool.Windows {
     body=new byte[3+2*count];body[0]=1;body[1]=3;body[2]=(byte)(2*count);
     for(int i=0;i<count;i++)BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3+2*i),values[i]);
    }
-   else if(q[1]==3){Reads++;if(Reads<=DropReads)return Task.CompletedTask;body=new byte[]{1,3,4,(byte)(BmsRegisters.RealtimeMagic>>8),(byte)(BmsRegisters.RealtimeMagic&255),0,2};}
+   else if(q[1]==3){
+    Reads++;if(Reads<=DropReads)return Task.CompletedTask;
+    ushort count=BinaryPrimitives.ReadUInt16BigEndian(q.AsSpan(4));
+    body=new byte[3+count*2];body[0]=1;body[1]=3;body[2]=(byte)(count*2);
+    BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3),BmsRegisters.RealtimeMagic);
+    BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(5),2);
+   }
    else if(q[2]==1){Opens++;if(ChangeOnOpen)HardwareRequested![12]++;if(ChangeShuntOnOpen)ShuntElement++;body=new byte[]{1,0x42,1,0,0,7,0,60,2,0x35,0x10};}
    else if(q[2]==3){Closes++;body=new byte[]{1,0x42,3,0};}
    else if(q[2]==5){Stages++;Frame.AddRange(q.Skip(7).Take(q[6]));body=new byte[]{1,0x42,5,0,q[3],q[4],(byte)(BadAck?0:Frame.Count)};if(CancelAfterStage)Stop!.Cancel();}
