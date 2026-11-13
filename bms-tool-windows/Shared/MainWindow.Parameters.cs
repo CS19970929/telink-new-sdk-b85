@@ -19,16 +19,22 @@ public partial class MainWindow
     private readonly Button _parameterHeatSave=new(),_parameterBalanceSave=new(),_parameterBalanceDisable=new(),_parameterBalanceAllow=new();
     private readonly TextBlock _parameterBusinessReadback=new(){Text="设备参数：未读取",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(6)};
     private readonly TextBox _parameterReadback=new(){IsReadOnly=true,AcceptsReturn=true,TextWrapping=TextWrapping.Wrap,MinHeight=150};
+    private TabItem? _d015ParameterTab;
+    private readonly List<TabItem> _d015LegacyTabs=new();
     private void AddParameterTab()
     {
         var page=new DockPanel{Margin=new Thickness(14)};
         var statusCard=new Border{Padding=new Thickness(10),Margin=new Thickness(0,0,0,12),
             Background=System.Windows.Media.Brushes.AliceBlue,Child=_parameterStatus};
         DockPanel.SetDock(statusCard,Dock.Top);page.Children.Add(statusCard);
+        var selector=CreateParameterProfileSelector();DockPanel.SetDock(selector,Dock.Top);page.Children.Add(selector);
         var sections=new TabControl();page.Children.Add(sections);
         StackPanel Section(string title) {
             var panel=new StackPanel{Margin=new Thickness(12),MaxWidth=850,HorizontalAlignment=HorizontalAlignment.Left};
-            sections.Items.Add(new TabItem{Header=title,Content=new ScrollViewer{Content=panel,VerticalScrollBarVisibility=ScrollBarVisibility.Auto}});
+            var tab=new TabItem{Header=title,Content=new ScrollViewer{Content=panel,VerticalScrollBarVisibility=ScrollBarVisibility.Auto}};
+            sections.Items.Add(tab);
+            if(title=="D015配置") { _d015ParameterTab=tab;tab.Visibility=Visibility.Collapsed; }
+            if(title is "加热" or "均衡" or "休眠" or "电池类型" or "SOC / OCV" or "恢复默认")_d015LegacyTabs.Add(tab);
             return panel;
         }
         var root=Section("基本参数");
@@ -89,6 +95,9 @@ public partial class MainWindow
         AddSleepParameterControls(root,Field,SaveButton);
         UpdateBusinessParameterControls();
         AddCurrentCalibrationControls(Section("电流校准"));
+#if BMS_FACTORY_APP
+        AddD015ParameterControls(Section("D015配置"));
+#endif
         root=Section("恢复默认");
         foreach(var g in new[]{(Id:(ushort)1,Name:"软件保护"),(Id:(ushort)2,Name:"AFE 硬件保护"),(Id:(ushort)3,Name:"业务参数（容量、加热及均衡）")})
             Button("恢复默认："+g.Name,()=>{
@@ -98,17 +107,19 @@ public partial class MainWindow
 #if BMS_FACTORY_APP
         root.Children.Add(new Expander{Header="原始读回",Content=_parameterReadback,Margin=new Thickness(4)});
 #endif
-        MainTabs.Items.Add(new TabItem{Header="业务参数",Content=page});
+        _businessParameterTab=new TabItem{Header="业务参数",Content=page};MainTabs.Items.Add(_businessParameterTab);
+        AddC060ParameterTab();
         var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
         timer.Tick+=async(_,_)=>{
             if(_bms is null){_batteryTypeStatus.Text="电池类型：未连接";_parameterProbedClient=null;_parameterCapture=null;_parameterStatus.Text="未连接";_parameterBusinessReadback.Text="设备参数：未连接";UpdateBusinessParameterControls();return;}
-            if(!ReferenceEquals(_bms,_parameterProbedClient) && !_parameterBusy && !_diagBusy && !_otaRunning && !_eventLogReadInProgress && !_shBusy && !ShFactoryBusy())await ParameterRunAsync(null);
+            if(!_identityRefreshRequired && !ReferenceEquals(_bms,_parameterProbedClient) && !_parameterBusy && !_diagBusy && !_otaRunning && !_eventLogReadInProgress && !_shBusy && !ShFactoryBusy())await ParameterRunAsync(null);
         };
         timer.Start();Closed+=(_,_)=>timer.Stop();
     }
     private async Task ParameterRunAsync(Func<BmsClient,CancellationToken,Task>? action,bool refresh=true,
         string? operation="保存参数",bool requiresUnlock=true)
     {
+        if(_bms?.IsC060==true){await RunC060ParameterAsync(action,operation??"读取参数",requiresUnlock);return;}
         bool modifying=action is not null && operation is not null;
         void Reject(string message) {
             _parameterStatus.Text=message;
@@ -158,8 +169,13 @@ public partial class MainWindow
         _parameterCapacity.Clear();_parameterSoc.Clear();_parameterCycle.Clear();DeviceSerialBox.Clear();
         _parameterHeatStart.Clear();_parameterHeatStop.Clear();_parameterHeatEnable.IsChecked=false;
         _parameterBalanceStart.Clear();_parameterBalanceDeltaStart.Clear();_parameterBalanceDeltaStop.Clear();_parameterBalancePermission.Text="均衡：未确认";
+        ShowD015Parameters(c);
         _parameterStatus.Text=c.Status+"；"+string.Join("；",c.Errors);
         var business=new List<string>{"设备值 "+c.CapturedUtc.ToLocalTime().ToString("HH:mm:ss")};
+        if(_bms?.IsD015==true) {
+            if(c.Blocks.TryGetValue("D015Basic",out var d015) && d015.Length==32)
+                business.Add($"D015：均衡{(d015[15]!=0?"允许":"禁止")}，起始{d015[12]}mV，压差{d015[13]}mV；RTC {(d015[22]!=0?"允许":"禁止")}，ON {d015[17]}s / OFF {d015[18]}s");
+        } else {
         if(c.Blocks.TryGetValue("Heater",out var heat)) {
             try {
                 D008Parameters.ValidateHeater(heat);
@@ -178,6 +194,7 @@ public partial class MainWindow
             } catch(ArgumentException){business.Add("均衡：读回值无效，禁止写入");}
         } else business.Add("均衡：设备未支持或本次读取失败，禁止写入");
         ShowSleepParameters(c,business);
+        }
         _parameterBusinessReadback.Text=string.Join(Environment.NewLine,business);
         if(c.Blocks.TryGetValue("Capacity",out var cap)){_parameterCapacity.Text=(cap[0]/10m).ToString();_parameterCycle.Text=cap[1].ToString();}
         if(c.Blocks.TryGetValue("SOC",out var soc))_parameterSoc.Text=soc[0].ToString();
@@ -197,5 +214,6 @@ public partial class MainWindow
         foreach(var control in new Control[]{_parameterBalanceStart,_parameterBalanceDeltaStart,_parameterBalanceDeltaStop,_parameterBalanceSave,_parameterBalanceDisable,_parameterBalanceAllow})control.IsEnabled=balanceReady;
         if(!balanceReady && !_parameterBusy)_parameterBalancePermission.Text="均衡：未确认";
         UpdateSleepParameterControls();
+        foreach(var button in _d015SaveButtons)button.IsEnabled=!_parameterBusy && _parameterCapture is not null && _bms?.IsD015==true;
     }
 }

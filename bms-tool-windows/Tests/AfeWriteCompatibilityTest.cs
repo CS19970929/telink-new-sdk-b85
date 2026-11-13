@@ -184,6 +184,23 @@ static class AfeWriteCompatibilityTest
             uint code=(uint)choice.RequestedA10*667/100000;
             Check(choice.EffectiveA10==code*100000/667,"DVC选项须按现有固件向下量化，而非套用SH向上规则");
         }
+        ushort[] d015 = {1,0x3520,4200,980,4100,5000,2800,980,3000,5000,
+            600,980,800,100,3,5000,605,980,0,0,3,5000,1600,128,0,
+            900,850,400,450,1000,950,200,250,5000,0xDF};
+        var d015Info=new AfeHardwareDeviceInfo(0x3520,0xDF,true,250,13,32,false,1,0,2) {
+            ShuntElementMicroOhm=250,ShuntParallelCount=1};
+        model.Load(new(d015,d015.ToArray(),d015Info));
+        Check(model.TryBuildCandidate(out candidate,out error) && candidate.SequenceEqual(d015),"D015 unchanged "+error);
+        model.Rows.Single(r=>r.EnableMask==1).EditValue="0";
+        model.Rows.Single(r=>r.EnableMask==64).EditValue="0";
+        Check(model.TryBuildCandidate(out candidate,out error) && candidate[34]==(0xDF&~65),"D015 multiple enable edits must merge: "+error);
+        model.Rows.Single(r=>r.EnableMask==12).EditValue="0";
+        Check(model.TryBuildCandidate(out candidate,out error) && (candidate[34]&12)==0,"D015 OCD shared enable: "+error);
+        Check(d015Info.EffectiveShCurrent(601,5000,15)==600,"D015 floors SH hardware protection steps");
+        model.Load(new(d015,d015.ToArray(),d015Info));
+        Check(model.GetShortCircuitChoices().Select(c=>c.EffectiveA10).SequenceEqual(new ushort[]{1600,2400,3200,4800}),"D015 exact short choices");
+        foreach(var choice in model.GetShortCircuitChoices())
+            Check(model.TryBuildShortCircuitCandidate(choice.RequestedA10,choice.EffectiveA10==1600? (ushort)128:(ushort)64,out candidate,out error),error);
         Console.WriteLine("PASS AFE compatibility: SH/DVC current and short ranges; customer short choices, only 22/23 changed, OCD2/enable/reserved words preserved; old delays and unknown shunts rejected");
     }
 }

@@ -52,7 +52,8 @@ public sealed partial class MainActivity
             var button = MobileButton($"{device.Name}\n{device.Mac}  ·  信号 {device.Rssi} dBm");
             button.Click += async (_, _) =>
             {
-                _macInput!.Text = device.Mac;
+                if (_uiBusy) return;
+                _selectedMac = device.Mac;
                 await ConnectSelectedAsync();
             };
             _scanResults.AddView(button);
@@ -62,8 +63,8 @@ public sealed partial class MainActivity
     private async Task ConnectSelectedAsync()
     {
         if (!HasBluetoothPermissions()) { RequestBluetoothPermissions(); return; }
-        string mac = _macInput?.Text?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(mac)) { SetStatus("请输入或扫描选择 BLE MAC", true); return; }
+        if(!BluetoothMacCode.TryParse(_selectedMac,out string mac)){SetStatus("请先扫描或扫码选择设备",true);return;}
+        _selectedMac=mac;
         SetBusy(true);
         SetStatus("等待当前刷新结束…");
         await _operationGate.WaitAsync();
@@ -73,26 +74,29 @@ public sealed partial class MainActivity
             SetStatus("连接并探测 BMS…");
             var transport = new AndroidBmsBleTransport(this, mac);
             transport.ConnectionProgress += AppendLog;
+            _transport=transport;
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
             await transport.ConnectAsync(cts.Token);
             var client = new BmsClient(transport);
             client.Log += AppendLog;
+            _client=client;
             await client.ProbeAsync(cts.Token);
-            _transport = transport;
-            _client = client;
             _connectedMac = mac;
             _parameterCapture = null;
+            ClearC060ParameterState();
             _protectionModel = null;
             _afeModel = null;
             _mosControlState = null;
             _mosControlCapabilityChecked = false;
-            var preferenceEditor = GetPreferences(FileCreationMode.Private)?.Edit();
-            preferenceEditor?.PutString("last_bms_mac", mac);
-            preferenceEditor?.Apply();
-            RunOnUiThread(() => _connectionView!.Text = $"已连接 · {mac} · MTU {transport.NegotiatedMtu}");
+            RunOnUiThread(() => _connectionView!.Text = "已连接");
+            RunOnUiThread(() => _identityView!.Text = $"MAC  {mac}\n正在读取设备信息…");
             SetStatus("连接成功，正在读取实时数据");
             RunOnUiThread(() => ShowPage(BatteryPage));
-            await RefreshOverviewCoreAsync(client, cts.Token);
+            try {await RefreshOverviewCoreAsync(client,cts.Token);}
+            catch(Exception ex)when(ex is BmsModbusException or TimeoutException or InvalidDataException or OperationCanceledException) {
+                SetStatus("基础通信已连接，部分实时信息尚未读取，可手动重试。",true);
+                AppendLog("INITIAL_VIEW_UNAVAILABLE "+ex.Message);
+            }
         }
         catch (Exception ex)
         {
@@ -124,6 +128,10 @@ public sealed partial class MainActivity
         _client = null;
         _transport = null;
         _connectedMac = null;
+        _lastIdentity = null;
+        RunOnUiThread(() => { if (_identityView is not null) _identityView.Text = "尚未连接设备"; });
+        RunOnUiThread(()=>{if(_connectionView is not null)_connectionView.Text="未连接 · Android BLE";});
+        ClearC060ParameterState();
         _mosControlState = null;
         _mosControlCapabilityChecked = false;
         _socProfile = null;
@@ -135,7 +143,7 @@ public sealed partial class MainActivity
             {
                 if (_batteryTypeStatus is not null) _batteryTypeStatus.Text = "未连接，旧读数不代表当前设备";
                 if (_serviceModeButton is not null) _serviceModeButton.Text = "进入服务设置";
-                if (_serviceModeStatus is not null) _serviceModeStatus.Text = "普通模式 · 保护参数与校正入口已收起";
+                if (_serviceModeStatus is not null) _serviceModeStatus.Text = "普通模式 · 服务设置已收起";
                 if (_serviceActions is not null) _serviceActions.Visibility = ViewStates.Gone;
                 if (_pages.Count > ProtectionPage && _pages[ProtectionPage].Visibility == ViewStates.Visible) ShowPage(DevicePage);
             });
@@ -171,16 +179,15 @@ public sealed partial class MainActivity
 
     private async Task RefreshOverviewCoreAsync(BmsClient client, CancellationToken ct, bool identity = true)
     {
-        BatterySnapshot snapshot = await client.ReadBatteryAsync(ct);
-        _lastSnapshot = snapshot;
-        RunOnUiThread(() => RenderBatterySnapshot(snapshot, null, null));
-        MosControlState? mosControl = await client.TryReadMosControlAsync(ct);
-        _mosControlState = mosControl;
-        _mosControlCapabilityChecked = true;
-        RunOnUiThread(() => SetMosDriverIndicators(snapshot.ChargeMosOn, snapshot.DischargeMosOn));
-        DeviceIdentity? deviceIdentity = identity
-            ? await client.ReadIdentityAsync(_macInput?.Text?.Trim() ?? string.Empty, "", ct)
-            : null;
+        DeviceIdentity? deviceIdentity=identity ? await client.ReadIdentityAsync(_connectedMac??string.Empty,"",ct) : null;
+        BatterySnapshot snapshot=await client.ReadBatteryAsync(ct);
+        _lastSnapshot=snapshot;
+        RunOnUiThread(()=>RenderBatterySnapshot(snapshot,null,null));
+        MosControlState? mosControl=null;
+        try {mosControl=await client.TryReadMosControlAsync(ct);}
+        catch(Exception ex)when(ex is BmsModbusException or TimeoutException) {AppendLog("OPTIONAL_MOS_VIEW_UNAVAILABLE "+ex.Message);}
+        _mosControlState=mosControl;_mosControlCapabilityChecked=true;
+        RunOnUiThread(()=>SetMosDriverIndicators(snapshot.ChargeMosOn,snapshot.DischargeMosOn));
         if (deviceIdentity is not null) _lastIdentity = deviceIdentity;
         uint? buildId = identity ? await client.TryReadFirmwareBuildIdAsync(ct) : null;
         RunOnUiThread(() => RenderBatterySnapshot(snapshot, deviceIdentity, buildId));
@@ -192,6 +199,7 @@ public sealed partial class MainActivity
         var rows = ProtectionParameterCatalog.Create();
         for (int i = 0; i < rows.Count; i++) rows[i].LoadFromDevice(words[i]);
         _protectionModel = rows;
+        _protectionCaptureClient=client;
         RunOnUiThread(() => RenderProtectionRows(rows));
         SetStatus("软件保护参数读取完成");
     });
@@ -221,6 +229,8 @@ public sealed partial class MainActivity
     {
         if (!EnsureServiceAccess("保存软件保护")) return;
         if (_protectionModel is null) { SetStatus("请先读取软件保护参数", true); return; }
+        var owner=_client;
+        if(owner is null||!ReferenceEquals(owner,_protectionCaptureClient)){SetStatus("连接已变化，请重新读取保护参数",true);return;}
         var changes = new Dictionary<ushort, ushort>();
         foreach (ProtectionParameterRow row in _protectionModel)
         {
@@ -234,6 +244,7 @@ public sealed partial class MainActivity
         if (!await ConfirmAsync("保存软件保护", detail + "\n\n保存后将逐组读回确认，是否继续？")) return;
         await WithClientAsync("保存软件保护", async (client, ct) =>
         {
+            if(!ReferenceEquals(client,owner))throw new IOException("连接已变化，请重新读取保护参数。");
             await client.WriteProtectionChangesAsync(changes, (address, words) =>
             {
                 for (int i = 0; i < words.Length; i++) _protectionModel.First(row => row.Address == address + i).LoadFromDevice(words[i]);
@@ -294,8 +305,10 @@ public sealed partial class MainActivity
         });
     }
 
-    private Task ReadParametersAsync() => WithClientAsync("读取 D008 参数", async (client, ct) =>
+    private Task ReadParametersAsync() => WithClientAsync("读取参数", async (client, ct) =>
     {
+        await client.ReadIdentityAsync(_connectedMac??string.Empty,"",ct);
+        if(client.IsC060){await ReadC060ParametersCoreAsync(client,ct);return;}
         D008ParameterCapture capture = await client.ReadD008ParametersAsync(ct);
         _parameterCapture = capture;
         RunOnUiThread(() => ShowParameters(capture));
@@ -386,7 +399,7 @@ public sealed partial class MainActivity
 
     private Task ReadDiagnosticsAsync(bool full) => WithClientAsync(full ? "完整诊断" : "快速诊断", async (client, ct) =>
     {
-        DiagnosticCapture capture = await client.ReadDiagnosticsAsync(full, _macInput?.Text?.Trim() ?? "Android BLE", ct);
+        DiagnosticCapture capture = await client.ReadDiagnosticsAsync(full, _selectedMac ?? "Android BLE", ct);
         _diagnosticCapture = capture;
         BmsHealthReport health = BmsHealth.Evaluate(capture, _lastIdentity, _lastSnapshot);
         _healthReport = health;
@@ -400,11 +413,11 @@ public sealed partial class MainActivity
 
     private Task ReadHealthAsync() => WithClientAsync("设备健康检查", async (client, ct) =>
     {
-        DeviceIdentity identity = _lastIdentity ?? await client.ReadIdentityAsync(_macInput?.Text?.Trim() ?? string.Empty, "", ct);
+        DeviceIdentity identity = _lastIdentity ?? await client.ReadIdentityAsync(_selectedMac ?? string.Empty, "", ct);
         BatterySnapshot battery = await client.ReadBatteryAsync(ct);
         _lastIdentity = identity;
         _lastSnapshot = battery;
-        DiagnosticCapture capture = await client.ReadDiagnosticsAsync(true, _macInput?.Text?.Trim() ?? "Android BLE", ct);
+        DiagnosticCapture capture = await client.ReadDiagnosticsAsync(true, _selectedMac ?? "Android BLE", ct);
         _diagnosticCapture = capture;
         BmsHealthReport health = BmsHealth.Evaluate(capture, identity, battery);
         _healthReport = health;
@@ -570,10 +583,10 @@ public sealed partial class MainActivity
         {
             string name = ReadDisplayName(uri) ?? $"firmware-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.bin";
             name = string.Concat(Path.GetFileName(name).Select(ch => Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch));
-            if (!name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) name += ".bin";
+            if(string.IsNullOrWhiteSpace(name))name="firmware.bin";
             target = Path.Combine(FirmwareInboxDirectory(), name);
             if (File.Exists(target))
-                target = Path.Combine(FirmwareInboxDirectory(), $"{Path.GetFileNameWithoutExtension(name)}-{DateTimeOffset.Now:HHmmss}.bin");
+                target = Path.Combine(FirmwareInboxDirectory(), $"{Path.GetFileNameWithoutExtension(name)}-{Guid.NewGuid():N}{Path.GetExtension(name)}");
             await using (Stream input = ContentResolver!.OpenInputStream(uri)
                 ?? throw new IOException("无法读取所选固件。"))
             await using (FileStream output = File.Create(target))
@@ -590,12 +603,12 @@ public sealed partial class MainActivity
                     await output.WriteAsync(buffer.AsMemory(0, count));
                 }
             }
-            _firmwareInput!.Text = target;
+            SelectFirmware(target);
             await RefreshFirmwareInboxAsync();
             try
             {
-                FirmwareImage image = FirmwareImage.LoadStrictTelink(target);
-                SetStatus($"固件已导入并通过预检：{image.FileName} · {image.ImageSize} bytes");
+                FirmwareImage image = FirmwareImage.LoadForBluetoothUpgrade(target);
+                UpgradeStatus($"固件已就绪：{image.FileName}\n{image.ImageSize:N0} 字节");
             }
             catch (Exception ex) { SetStatus("固件已导入，但 OTA 预检不通过：" + ex.Message, true); }
         }
@@ -630,7 +643,7 @@ public sealed partial class MainActivity
     {
         try
         {
-            var files = new DirectoryInfo(FirmwareInboxDirectory()).EnumerateFiles("*.bin")
+            var files = new DirectoryInfo(FirmwareInboxDirectory()).EnumerateFiles().Where(file=>!file.Name.StartsWith(".",StringComparison.Ordinal))
                 .OrderByDescending(file => file.LastWriteTimeUtc).Take(20).ToArray();
             RunOnUiThread(() =>
             {
@@ -644,9 +657,9 @@ public sealed partial class MainActivity
                     bool valid;
                     try
                     {
-                        FirmwareImage image = FirmwareImage.LoadStrictTelink(file.FullName);
+                        FirmwareImage image = FirmwareImage.LoadForBluetoothUpgrade(file.FullName);
                         valid = true;
-                        detail = $"可升级 · {image.ImageSize} bytes";
+                        detail = $"{image.ImageSize:N0} 字节";
                     }
                     catch (Exception ex)
                     {
@@ -661,8 +674,8 @@ public sealed partial class MainActivity
                     button.SetAllCaps(false);
                     button.Click += (_, _) =>
                     {
-                        _firmwareInput!.Text = file.FullName;
-                        SetStatus($"已选择：{file.Name}");
+                        SelectFirmware(file.FullName);
+                        UpgradeStatus($"已选择：{file.Name}\n{detail}",!valid);
                     };
                     _firmwareInbox.AddView(button);
                 }
@@ -676,8 +689,9 @@ public sealed partial class MainActivity
 
     private async Task StartOtaAsync(bool skipConfirmation, bool requireExistingConnection)
     {
-        string mac = _macInput?.Text?.Trim() ?? string.Empty;
-        string firmware = _firmwareInput?.Text?.Trim() ?? string.Empty;
+        if (!EnsureServiceAccess("固件升级")) return;
+        string mac = (_selectedMac ?? string.Empty).ToUpperInvariant();
+        string firmware = _firmwarePath;
         string expectedSerial = _expectedSerialInput?.Text?.Trim() ?? string.Empty;
         if (requireExistingConnection && (_client is null || _transport is null ||
             !string.Equals(mac, _connectedMac, StringComparison.OrdinalIgnoreCase)))
@@ -687,8 +701,13 @@ public sealed partial class MainActivity
             return;
         }
         FirmwareImage image;
-        try { image = FirmwareImage.LoadStrictTelink(firmware); }
+        try { image = FirmwareImage.LoadForBluetoothUpgrade(firmware); }
         catch (Exception ex) { SetStatus("OTA 预检拒绝：" + ex.Message, true); return; }
+        if(image.IsSerialPackage) {
+            if(skipConfirmation){UpgradeStatus("YMODEM包已导入，请在手机核对设备后手动确认升级。",true);return;}
+            await RunSerialUpgradeAsync(image,mac,expectedSerial);return;
+        }
+        CheckUpgradeEndpoint(mac,requireExistingConnection);
         if (string.IsNullOrWhiteSpace(mac)) { SetStatus("OTA 必须明确指定 MAC", true); return; }
         if (!skipConfirmation && !await ConfirmAsync("开始 OTA", $"目标 {mac}\n固件 {image.FileName}\n大小 {image.ImageSize} bytes\n升级期间请保持电池供电。是否继续？")) return;
         if (skipConfirmation) AppendLog($"AUTO_OTA_CONFIRMED_BY_VSCODE mac={mac} file={image.FileName}");
@@ -700,9 +719,7 @@ public sealed partial class MainActivity
         _operationCts = new CancellationTokenSource(TimeSpan.FromMinutes(6));
         try
         {
-            if (requireExistingConnection && (_client is null || _transport is null ||
-                !string.Equals(mac, _connectedMac, StringComparison.OrdinalIgnoreCase)))
-                throw new IOException("目标 BMS 连接在 OTA 开始前已失效，未执行写入。");
+            CheckUpgradeEndpoint(mac,requireExistingConnection);
             DeviceIdentity? before = null;
             if (_client is not null) before = await _client.ReadIdentityAsync(mac, "", _operationCts.Token);
             await DisposeConnectionCoreAsync();
@@ -760,16 +777,18 @@ public sealed partial class MainActivity
     private async Task ConnectSelectedCoreAfterOtaAsync(string mac, CancellationToken ct)
     {
         var transport = new AndroidBmsBleTransport(this, mac);
+        _transport=transport;
         transport.ConnectionProgress += AppendLog;
         await transport.ConnectAsync(ct);
         var client = new BmsClient(transport);
+        _client=client;
         client.Log += AppendLog;
         await client.ProbeAsync(ct);
         _transport = transport;
         _client = client;
         _connectedMac = mac;
         await RefreshOverviewCoreAsync(client, ct);
-        RunOnUiThread(() => _connectionView!.Text = $"已连接 · {mac} · MTU {transport.NegotiatedMtu}");
+        RunOnUiThread(() => _connectionView!.Text = "已连接");
     }
 
     private Task StartMonitorAsync()
@@ -875,18 +894,26 @@ public sealed partial class MainActivity
         {
             _serviceMode = false;
             _serviceModeButton!.Text = "进入服务设置";
-            _serviceModeStatus!.Text = "普通模式 · 保护参数与校正入口已收起";
+            _serviceModeStatus!.Text = "普通模式 · 服务设置已收起";
             _serviceActions!.Visibility = ViewStates.Gone;
             SetStatus("已退出服务模式");
             ShowPage(DevicePage);
             return;
         }
         var expectedClient = _client;
-        if (expectedClient is null) { SetStatus("请先连接设备", true); return; }
+        if (!BluetoothMacCode.TryParse(_selectedMac, out string expectedMac))
+        {
+            SetStatus("请先扫描或扫码选择设备", true);
+            return;
+        }
+        // A selected module may already be in Boot. Service access must not
+        // require an APP probe; parameter writes still require a live client.
         string? password = await PromptServicePasswordAsync();
         if (password is null) return;
         if (!BmsServiceAccess.PasswordValid(password)) { SetStatus("服务密码错误", true); return; }
-        if (!ReferenceEquals(expectedClient, _client)) { SetStatus("连接已改变，请重新验证服务权限", true); return; }
+        if (!ReferenceEquals(expectedClient, _client) ||
+            !string.Equals(expectedMac, _selectedMac, StringComparison.OrdinalIgnoreCase))
+        { SetStatus("设备已改变，请重新验证服务权限", true); return; }
         _serviceMode = true;
         _serviceModeButton!.Text = "退出服务设置";
         _serviceModeStatus!.Text = "服务模式已开启 · 请选择要配置的项目；断开后自动退出";

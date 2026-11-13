@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "created_local": "2026-11-06",
+  "old": {
+    "path": "E:\\sync\\git\\upper\\BMS-upper",
+    "commit": "445afd69fd528f52a0d3c3bbed69a54209fa5681"
+  },
+  "host": {
+    "path": "D:\\telink\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)",
+    "commit": "cea8fcdab2d11ba5419b3f265cca6accd781f5f6"
+  },
+  "firmware": {
+    "path": "E:\\sync\\git\\me\\c060\\new c060\\c060",
+    "commit": "5969a357a6db6752cf546e406f0fe3064855539d"
+  },
+  "source_sha256": [
+    {
+      "repository": "old",
+      "path": "CommomUpper_32Series/CommomUpper_32Series.csproj",
+      "line": 12,
+      "needle": "<TargetFrameworkVersion>",
+      "matched": true,
+      "sha256": "d527f28b2de0aeafbb1454b6878677d6446db01b6872e4eba588110b7ba9ca45"
+    },
+    {
+      "repository": "old",
+      "path": "CommomUpper_32Series/Form1.cs",
+      "line": 530,
+      "needle": "void ComSelect2",
+      "matched": true,
+      "sha256": "b59febca18f0762328f83e02c30329b03783c3533393df3f150cfcfdba82ead0"
+    },
+    {
+      "repository": "old",
+      "path": "CommomUpper_32Series/Form1.cs",
+      "line": 672,
+      "needle": "void timer1_Tick",
+      "matched": true,
+      "sha256": "b59febca18f0762328f83e02c30329b03783c3533393df3f150cfcfdba82ead0"
+    },
+    {
+      "repository": "old",
+      "path": "CommomUpper_32Series/BatchProcess.cs",
+      "line": 562,
+      "needle": "void AllProtectSetClickCall",
+      "matched": true,
+      "sha256": "5b9c5ae03a2fde5a8471bad0fa98ca74c8e54c890e86a44adb091313c6d65051"
+    },
+    {
+      "repository": "old",
+      "path": "CommomUpper_32Series/BatchProcess.cs",
+      "line": 22,
+      "needle": "DEFAULT_PARAMETER",
+      "matched": true,
+      "sha256": "5b9c5ae03a2fde5a8471bad0fa98ca74c8e54c890e86a44adb091313c6d65051"
+    },
+    {
+      "repository": "old",
+      "path": "CommomUpper_32Series/SerialPort.cs",
+      "line": 2275,
+      "needle": "void RxWrRegsAck",
+      "matched": true,
+      "sha256": "d66a327ccab10a45fcbe8df0dd9f3f9635ab937065a590df7decba33bdcf5533"
+    },
+    {
+      "repository": "old",
+      "path": "CommomUpper_32Series/Form_DevAddrMng.cs",
+      "line": 53,
+      "needle": "void button_AddrCfrm_Click",
+      "matched": true,
+      "sha256": "856a0a5b648112db33f0412f395d0c85f70126a8f19d9a28134953dc432291b2"
+    },
+    {
+      "repository": "old",
+      "path": "CommomUpper_32Series/BlueTooth_Wifi.cs",
+      "line": 28,
+      "needle": "class Form1",
+      "matched": true,
+      "sha256": "41ac81b607fbdf3152acfa7c4c8a870beb86813b4bb1d7dfd0ff73eb82afd05e"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj",
+      "line": 4,
+      "needle": "<TargetFramework>",
+      "matched": true,
+      "sha256": "c31ca1802d5659e46ac31e98155587701921e8fc1273bdfa84b814216b81b341"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/BmsClient.cs",
+      "line": 371,
+      "needle": "public async Task<DeviceIdentity> ReadIdentityAsync",
+      "matched": true,
+      "sha256": "edcb5d7374d7a22df1f0b71117076d708a65759592cf40f91ec021aa355e777e"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/BmsClient.cs",
+      "line": 74,
+      "needle": "public uint BalanceCellMask",
+      "matched": true,
+      "sha256": "edcb5d7374d7a22df1f0b71117076d708a65759592cf40f91ec021aa355e777e"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/BmsClient.cs",
+      "line": 647,
+      "needle": "TimeSpan timeout =",
+      "matched": true,
+      "sha256": "edcb5d7374d7a22df1f0b71117076d708a65759592cf40f91ec021aa355e777e"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/ProtectionBatch.cs",
+      "line": 74,
+      "needle": "public async Task WriteProtectionChangesAsync",
+      "matched": true,
+      "sha256": "c73eb3269162202916d19ae9ef4d6b265d0df07bffe130c11ee52f939c22fb4b"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/C060Parameters.cs",
+      "line": 50,
+      "needle": "public static readonly C060ParameterGroup",
+      "matched": true,
+      "sha256": "61932d49b2087a028fdad2fe46f4c9c5a98ee8740523f629d80dd351b97d9517"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/MainWindow.C060Parameters.cs",
+      "line": 40,
+      "needle": "private void AddC060ParameterTab",
+      "matched": true,
+      "sha256": "438704d54a2af83153e6a3376cead43264968707fcec1ece69ac0cdb82984575"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/BmsCurrentCalibration.cs",
+      "line": 145,
+      "needle": "private async Task RequireLinearCurrentCalibrationAsync",
+      "matched": true,
+      "sha256": "b7d22c3650738259633575f6be8eeedca450c74fa3ba6de0c82dbe81b77ef828"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/MainWindow.LongTermMonitor.cs",
+      "line": 6,
+      "needle": "using ClosedXML.Excel",
+      "matched": true,
+      "sha256": "c4550068949908b51eeab97735eaf18a5fdec2d083a6d3c46a031efe3853fbc7"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/MainWindow.EventLogUi.cs",
+      "line": 133,
+      "needle": "private static string DecodeEventInterval",
+      "matched": true,
+      "sha256": "d5f7653054b232afe2bba2c3b26eed1d2ce43afa8b34a23c5c9d59e8e477cfd9"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/MainWindow.DeviceFreshness.cs",
+      "line": 9,
+      "needle": "DeviceDisplayTimeout",
+      "matched": true,
+      "sha256": "91a8eb0e25eeb6737292511eb018114d4ffd2bc0991b9554b1a6daf2d923d97b"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/ModbusRtu.cs",
+      "line": 39,
+      "needle": "public const byte DeviceAddress",
+      "matched": true,
+      "sha256": "e4df2360c8bdad8ec77d0258f65b8bda3c489048efdafda5b500b8fe57e1cfad"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/UpgradeDetection.cs",
+      "line": 15,
+      "needle": "board!=D015FirmwarePackage.BoardId",
+      "matched": true,
+      "sha256": "aba26d34f95de1bbbabbd761e22e1c4b13ffdcaf5354ab461c8e2d4df4e6af09"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/Source/bms_registers.c",
+      "line": 1185,
+      "needle": "uint16_t BmsRegisters_Read",
+      "matched": true,
+      "sha256": "e3d04b8c948a869173b57b23d008888b8a971195f876419e84a35ba130c1f130"
+    },
+    {
+      "repository": "firmware",
+      "path": "tools/c060_upgrade.py",
+      "line": 10,
+      "needle": "INFO, IMAGE_INFO, ENTER, ENTER_VALUE",
+      "matched": true,
+      "sha256": "b6ddc94c69877881a2deea6e6299d171a9fd28d1085b11edb340d869b2f4e30e"
+    }
+  ],
+  "scope": "current source comparison; no product code or physical device changes",
+  "important_gaps": [
+    "C060 new upgrade not routed by Windows UpgradeDetection",
+    "old XLS template not directly imported by C060 JSON page",
+    "C060 two-point wizard not equivalent to raw K/B editor",
+    "multi-address/master and AT/language workflows not fully ported",
+    "new balance mask currently limited to24 slots; current20S unaffected"
+  ],
+  "hardware_test_performed": false,
+  "document_verification": {
+    "source_references_checked": 23,
+    "rendered_sections": 9,
+    "navigation_entries": 12,
+    "tables": 6,
+    "renderer_structure_checks": "PASS",
+    "isolated_chrome_search_clear_empty_state_toc": "PASS",
+    "layout_viewports_px": [
+      1424,
+      744
+    ],
+    "page_horizontal_overflow": false,
+    "desktop_and_narrow_matrix_visual_review": "PASS",
+    "product_build_repeated": false,
+    "physical_device_access": false
+  }
+}

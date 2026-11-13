@@ -1,0 +1,238 @@
+{
+  "date": "2026-11-06",
+  "host": {
+    "path": "D:\\telink\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)",
+    "branch": "codex-d015-ymodem-host",
+    "build_commit": "f8a5eeaf52c7833f3ec75d446b4dd065969672de",
+    "source_clean_at_apk_build": true
+  },
+  "version": "0.9.1",
+  "version_code": 16,
+  "artifacts": [
+    {
+      "edition": "Customer",
+      "path": "bms-tool-windows/BmsTool.Android/publish/20261106-v0.9.1-f8a5eeaf/BMS-Battery-0.9.1-Customer.apk",
+      "application_id": "com.cs.bmsbattery",
+      "version": "0.9.1",
+      "version_code": 16,
+      "minimum_api": 23,
+      "target_api": 36,
+      "abis": [
+        "arm64-v8a",
+        "x86_64"
+      ],
+      "bytes": 12426823,
+      "sha256": "e738cb2085a3d184cec64bc14f3c91290f2076357076a3e7f0505decce50f530",
+      "signature_verified": true,
+      "certificate_sha256": "de7e98795ad8d75a88b6b0e96eb68196d043720f58447af41b399632522704fd",
+      "source_commit": "f8a5eeaf52c7",
+      "commit_marker_in_both_abi_stores": true
+    },
+    {
+      "edition": "Internal",
+      "path": "bms-tool-windows/BmsTool.Android/publish/20261106-v0.9.1-f8a5eeaf/BMS-Tool-0.9.1-Internal.apk",
+      "application_id": "com.cs.bmstool.android",
+      "version": "0.9.1",
+      "version_code": 16,
+      "minimum_api": 23,
+      "target_api": 36,
+      "abis": [
+        "arm64-v8a",
+        "x86_64"
+      ],
+      "bytes": 12443207,
+      "sha256": "765938d7822b0b6b220b40e823af365f897aaec8ba53f48913fdc1bc894d9a93",
+      "signature_verified": true,
+      "certificate_sha256": "de7e98795ad8d75a88b6b0e96eb68196d043720f58447af41b399632522704fd",
+      "source_commit": "f8a5eeaf52c7",
+      "commit_marker_in_both_abi_stores": true
+    }
+  ],
+  "validation": [
+    {
+      "name": "service-test.log",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-ui-20261106\\service-test.log",
+      "sha256": "45b6f35f1ce98d2170cca241430697fa91802104681a4719776bc6afe7f06d3c",
+      "result": "PASS",
+      "excerpt": "PASS Android service access: 17 checks; production methods, no GATT or device writes"
+    },
+    {
+      "name": "upgrade-test.log",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-ui-20261106\\upgrade-test.log",
+      "sha256": "d09be9775de714beb488db91875987b0c7c801d8af9c2bc6c2b6ef384bb27d25",
+      "result": "PASS",
+      "excerpt": "PASS Android firmware routing and selected-endpoint policy: 24 checks; no device access"
+    },
+    {
+      "name": "qr-test.log",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-ui-20261106\\qr-test.log",
+      "sha256": "f5a942355881005d5cffda3c54d6ddfb514a41d94456d521d1602b1af53de802",
+      "result": "PASS",
+      "excerpt": "PASS MAC QR parsing/luminance: 52 checks; no camera or Bluetooth device access"
+    },
+    {
+      "name": "ota-test.log",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-ui-20261106\\ota-test.log",
+      "sha256": "677aa9c0329e41f1a24dc7d9275aa21ab9884da577d1495be0e4628c0135aebe",
+      "result": "PASS",
+      "excerpt": "PASS Telink OTA protocol/core: START/START_EXT, index, CRC16, padding, END, TLNK/CRC32 preflight, OTA_RESULT"
+    },
+    {
+      "name": "release-customer.log",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-ui-20261106\\release-customer.log",
+      "sha256": "af99d312e1397c3bcdd479eab01333989de97ee010a9c88f378a8e06c62d0af4",
+      "result": "PASS",
+      "excerpt": "    0 个警告\n    0 个错误"
+    },
+    {
+      "name": "release-internal.log",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-ui-20261106\\release-internal.log",
+      "sha256": "6dcf03b1597172364c1fb49ee94765419022b7dac95481d0b43f384c89d85105",
+      "result": "PASS",
+      "excerpt": "    0 个警告\n    0 个错误"
+    },
+    {
+      "name": "windows-customer-build.log",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-ui-20261106\\windows-customer-build.log",
+      "sha256": "6329f67ecb4a83f08620a7e0382e88e23e98e4a4638c084d870d4620e34698fa",
+      "result": "PASS",
+      "excerpt": "    1 个警告\n    0 个错误"
+    },
+    {
+      "name": "windows-internal-build.log",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-ui-20261106\\windows-internal-build.log",
+      "sha256": "b510c2c0933eaac94b2b411fb9953847d4b0bd2ab951ada89df407608af63e13",
+      "result": "PASS",
+      "excerpt": "    0 个警告\n    0 个错误"
+    },
+    {
+      "name": "cli-build.log",
+      "log": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\CodexTemp\\bms-tool-windows\\android-ui-20261106\\cli-build.log",
+      "sha256": "1f4f2150ad4a99c66e7aaf65cdaed2ca5c6e8a3d710b3680a97d9ad1ecee6928",
+      "result": "PASS",
+      "excerpt": "    0 个警告\n    0 个错误"
+    }
+  ],
+  "source_sha256": [
+    {
+      "path": "bms-tool-windows/BmsTool.Android/AndroidBleScanner.cs",
+      "sha256": "2f987de41d46cf9935d63ba4cd77504700e4341dad8332ebc1419336fab23664"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/AndroidFirmwareInbox.cs",
+      "sha256": "0d176a5300aca33b71614299e48a69637c943eb0c3e0f9271d192d9539b22ec4"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/AndroidGattChannel.cs",
+      "sha256": "5d89cadae952856f71841dece19bb0945e58dfea442cc8d2cc5415ac2191290d"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/AndroidTransports.cs",
+      "sha256": "b7905a4891d22282317c169e0625dc9d8a4bdf7d5abc291da2439fc4cc119df7"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/AppEdition.cs",
+      "sha256": "fd9f283aef756b08c7e2893d4f2e1c9e68a389705fa82090902df1cc0670d101"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/BluetoothMacCode.cs",
+      "sha256": "684999ff1a9e556465471f4250aa4bfbc2945e3054435c5d90d99cd5d643ef75"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/BmsTool.Android.csproj",
+      "sha256": "8da71fe5b2670327b0d2ebf6ac0a8cbddfbdb90ada2b5d4356c2c9fcbb3ebd7a"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.BatteryType.cs",
+      "sha256": "cdd4832806c0c5bd0b2791808da13a953b5a221451e51720745bade153ebad63"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.C060Parameters.cs",
+      "sha256": "fdd2bb10d5ac71ea60a66f78fb441affda9323700a76ae94e360b25639ca6a09"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.cs",
+      "sha256": "fc0c766e1a041504f7051f5ed686517c1d521fcb1e94b8c5488fba6d9cbaa7c4"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.Features.cs",
+      "sha256": "03da7f62a2f466ca7d2ee1b5b5ea9ea8384204fb3adcc648d0e96a5eec3086a1"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.MobileUi.cs",
+      "sha256": "fb858ac580f0c914adc7a95432070bb77e44057005e34a34faee42954b38d076"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.QrConnect.cs",
+      "sha256": "4b0b589c34e52e67e66c73e747f450136739a7c0913ae3f06e8e52a154703684"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.SerialUpgrade.cs",
+      "sha256": "e2279bb6d21d481af7f6bb88f38353754189d41f9e3504ad7e6fa636bf95cbc9"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.SocProfile.cs",
+      "sha256": "fdd66b81d3789c924e4a8706435b5239de69bb2a2dc9a36029490cfe0a7eca00"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/MainActivity.Ui.cs",
+      "sha256": "c74444d8ef3c0c599f5acdebfbdb85d09a288753644f7b934a8870509de8e68d"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/Properties/AndroidManifest.xml",
+      "sha256": "bfc7883f125b1d9d9af57ff1247ade8e97f7c74c9ccf992a7a2c7f1e149fd2d5"
+    },
+    {
+      "path": "bms-tool-windows/BmsTool.Android/QrScanActivity.cs",
+      "sha256": "553736c15f6e90102df13da2ea92eac880c2efdd98eed0da42b512bff86cbe97"
+    },
+    {
+      "path": "bms-tool-windows/Directory.Build.targets",
+      "sha256": "792f19fbc0ad6377185a4f71aec66645e380d1283466c0f0a1f3ae790e8e2317"
+    },
+    {
+      "path": "bms-tool-windows/Shared/C060Parameters.cs",
+      "sha256": "03c44074e925b68db353a6f61197ac9ad6e3ddbe80eae75223a9ec4d127d3a59"
+    },
+    {
+      "path": "bms-tool-windows/Shared/ProtectionBatch.cs",
+      "sha256": "c73eb3269162202916d19ae9ef4d6b265d0df07bffe130c11ee52f939c22fb4b"
+    },
+    {
+      "path": "bms-tool-windows/Shared/SerialFirmwarePackage.cs",
+      "sha256": "047006dd5af12707e85baf29c1c1dc9605709185ca2418f9d18de014eb724ac5"
+    },
+    {
+      "path": "bms-tool-windows/Shared/SerialYmodem.cs",
+      "sha256": "fb41b8748a393f110af69c42aa86a1d2347a0684b3debcd7e56ee2b9dfea647f"
+    },
+    {
+      "path": "bms-tool-windows/Shared/TelinkOtaCore.cs",
+      "sha256": "3cc04eb986138732656887db70bc40954f5d97c8ee8b42cabbd932276cf9cfdd"
+    },
+    {
+      "path": "bms-tool-windows/Shared/UpgradeDetection.cs",
+      "sha256": "c8df5a8c308c3d0d0f517b98263ebd574d55eadaf3ba36eb3c1cf484eea88f65"
+    }
+  ],
+  "old_apks_preserved": true,
+  "old_apk_sha256": {
+    "bms-tool-windows/BmsTool.Android/publish/20261106-v0.9.0-b35e259c/BMS-Battery-0.9.0-Customer.apk": "a9e8488641958525c780758aec7548ac2d6aa55118cc6169bbda7a568d29d2d3",
+    "bms-tool-windows/BmsTool.Android/publish/20261106-v0.9.0-b35e259c/BMS-Tool-0.9.0-Internal.apk": "4f5ca51bed283bbf9af1ec2930f86e47511033123c65d45332c0d132b4fae52d"
+  },
+  "bms_firmware_modified": false,
+  "android_device_acceptance": false,
+  "adb_devices": [],
+  "native_ui_screenshots": false,
+  "remaining_checks": [
+    "native page layout and scrolling",
+    "camera scan and permission handling",
+    "BLE selection and service workflow",
+    "file share imports",
+    "Boot recovery over real BLE"
+  ],
+  "notes": [
+    "Both APKs use the same existing Android Debug certificate as 0.9.0.",
+    "Windows customer build retains one existing CS0649 in unchanged MainWindow.Diagnostics.cs."
+  ]
+}

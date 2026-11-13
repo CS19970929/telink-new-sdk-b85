@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "created_local": "2026-11-06T00:10:45.776582+08:00",
+  "branch": "codex-d015-ymodem-host",
+  "stages": [
+    {
+      "stage": "connection/realtime",
+      "commit": "4b782a7e"
+    },
+    {
+      "stage": "protection batch",
+      "commit": "3d4c343a"
+    },
+    {
+      "stage": "conventional parameters",
+      "state": "verified; this evidence is committed with stage P2"
+    }
+  ],
+  "builds": {
+    "customer": "PASS; one pre-existing CS0649 warning",
+    "internal": "PASS; zero warnings",
+    "cli": "PASS; zero warnings",
+    "portable_core": "PASS"
+  },
+  "tests": [
+    {
+      "name": "C060CompatibilityTest",
+      "assemblies": [
+        "customer",
+        "internal",
+        "cli"
+      ],
+      "result": "PASS",
+      "covers": [
+        "old/new identity auto-detection",
+        "silent D120 fallback",
+        "manual map without identity",
+        "unknown and unsupported optional communication retained",
+        "GBK and 61001",
+        "150 conventional/calibration words",
+        "13 protection groups at MTU23",
+        "fresh whole-group writes and untouched data",
+        "candidate validation and same-value skip",
+        "partial failure and corrupt readback",
+        "two-complement/sign-magnitude K/B conversion and invalid paired values",
+        "cycle/SOC write paths",
+        "parameter package product/length checks",
+        "MTU preflight before any write"
+      ]
+    },
+    {
+      "name": "BusinessParametersUiTest",
+      "assemblies": [
+        "customer",
+        "internal"
+      ],
+      "result": "PASS",
+      "covers": [
+        "offscreen C060/generic auto-switch",
+        "150-row data source",
+        "compatibility and edition editing gates",
+        "D008/D015 existing parameter UI",
+        "visible controls and scrollable layout"
+      ]
+    },
+    {
+      "name": "AfeFragmentsTest",
+      "result": "PASS"
+    },
+    {
+      "name": "ProtectionBatchTest",
+      "result": "PASS"
+    },
+    {
+      "name": "D008ParametersTest",
+      "result": "PASS"
+    },
+    {
+      "name": "CliOffline",
+      "result": "PASS"
+    },
+    {
+      "name": "DeviceClockTest",
+      "assemblies": [
+        "customer",
+        "internal"
+      ],
+      "result": "PASS",
+      "note": "client fixtures only; no D015 external firmware harness supplied"
+    },
+    {
+      "name": "C060 production native fixture",
+      "baseline": "c767f4659346350164ff41be44eaa4128a085299",
+      "native_sha256": "46fa4376dda92596fea410d9e3c711d27909299ba976abb2c0b589a141610c62",
+      "result": "PASS",
+      "covers": [
+        "original C012/D120 failure resolved",
+        "all conventional groups",
+        "13 production Flash commits/readback",
+        "ordinary grouped writes",
+        "signed B",
+        "GBK production information"
+      ],
+      "limitation": "Does not schedule SOC_Result_Pass or execute real hardware; dynamic reports are covered by client fixture. Does not validate current C060 IAP."
+    }
+  ],
+  "source_sha256": [
+    {
+      "path": "BmsTool.Windows/BmsClient.cs",
+      "sha256": "edcb5d7374d7a22df1f0b71117076d708a65759592cf40f91ec021aa355e777e"
+    },
+    {
+      "path": "BmsTool.Windows/BmsClient.AfeHardware.cs",
+      "sha256": "14de10a9d6512aab84618ff893f2a68bddc9d20565046d283460f4bd5c06847b"
+    },
+    {
+      "path": "Shared/ProtectionBatch.cs",
+      "sha256": "c73eb3269162202916d19ae9ef4d6b265d0df07bffe130c11ee52f939c22fb4b"
+    },
+    {
+      "path": "Shared/C060Parameters.cs",
+      "sha256": "61932d49b2087a028fdad2fe46f4c9c5a98ee8740523f629d80dd351b97d9517"
+    },
+    {
+      "path": "Shared/MainWindow.C060Parameters.cs",
+      "sha256": "438704d54a2af83153e6a3376cead43264968707fcec1ece69ac0cdb82984575"
+    },
+    {
+      "path": "Shared/MainWindow.OptionalReads.cs",
+      "sha256": "c1a67841d11bc7d250b4195c9039316fb82445290c8c7fefb9f957e17e4020c7"
+    },
+    {
+      "path": "Shared/MainWindow.Parameters.cs",
+      "sha256": "2182c8043293084a97347519d5c1b2d741b517553e1a61da04acaa6b36b9705c"
+    },
+    {
+      "path": "Shared/MainWindow.ParameterLayout.cs",
+      "sha256": "0355f6ea6c2d89ad00c8e51ff9fdd0b416f5222f0daca4814156337e60dd68ec"
+    },
+    {
+      "path": "Shared/MainWindow.DeviceFreshness.cs",
+      "sha256": "91a8eb0e25eeb6737292511eb018114d4ffd2bc0991b9554b1a6daf2d923d97b"
+    },
+    {
+      "path": "BmsTool.Windows/MainWindow.xaml.cs",
+      "sha256": "d8f16d3d1629fdba204eb5e560aecc33fedd297155e8be634e15c788f260c4ee"
+    },
+    {
+      "path": "BmsFactoryTest.Windows/MainWindow.xaml.cs",
+      "sha256": "0c5d7dd5c8df9fb87e6d918f69e7696966c6b9c254f29743dafc2be930c577eb"
+    },
+    {
+      "path": "BmsTool.Core/BmsTool.Core.csproj",
+      "sha256": "621295b80119e23daf4165c5ec14741f95b523ce44a17b8a93e2c4f9c3fb3aa5"
+    },
+    {
+      "path": "BmsTool.Cli/BmsTool.Cli.csproj",
+      "sha256": "5fcba74b9987f84c9a7229bfe5458782cf42792d7dd7a0d027b9ca4d99f06b05"
+    },
+    {
+      "path": "Tests/C060CompatibilityTest.cs",
+      "sha256": "605c534b152feac1611753c8442f5a99b953c383933e18d82dc26154a857a55c"
+    },
+    {
+      "path": "Tests/BusinessParametersUiTest.cs",
+      "sha256": "766627c5cb5367a6ad26d23fd2cbcf96883c9b55ac79f9eebdbc388f1325981e"
+    }
+  ],
+  "physical_board_validated": false,
+  "physical_device_writes": false,
+  "firmware_code_changed": false,
+  "firmware_images_generated": false,
+  "firmware_followups": [
+    "complete piecewise current calibration readback and fresh precision samples",
+    "BQ76930 actual configuration confirmation and candidate normalization before persistence",
+    "detailed power/MOS/RTC diagnostics and currently inactive product behavior",
+    "separate current C060 upgrade integration"
+  ]
+}

@@ -33,10 +33,7 @@ public partial class MainWindow : Window
     private int _serialBaudRate = BmsSerialTransport.DefaultBaudRate;
     private string _connectedName = string.Empty;
     private ConnectionMode _connectionMode = ConnectionMode.Ble;
-    private string? _firmwarePath;
-    private CancellationTokenSource? _otaCts;
     private bool _polling;
-    private bool _otaRunning;
     private bool _autoReconnectRunning;
     private int _pollFailureCount;
     private DateTime _nextReconnectUtc = DateTime.MinValue;
@@ -384,6 +381,7 @@ public partial class MainWindow : Window
             await client.DisposeAsync();
         }
         if (transport is not null) await transport.DisposeAsync();
+        ClearDeviceDisplays();
     }
 
     private void StartAutomaticRefresh()
@@ -408,9 +406,13 @@ public partial class MainWindow : Window
             ? $"串口 {_connectedSerialPort}"
             : _connectedName;
         DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName, ct);
+        var build = await bms.TryReadFirmwareBuildIdentityAsync(ct);
+        await RefreshOptionalDeviceViewAsync("设备时间",()=>RefreshDeviceClockAsync(bms, ct));
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
-        IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
+        UpdateParameterProfileUi();
+        _identityRefreshRequired = false;
+        IdentityText.Text = $"自动识别：{bms.DeviceModel}\n识别依据：{bms.DeviceDetectionEvidence}\n蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}\n固件 Build ID：{build?.Display ?? "不可用"}";
         FactoryIdentityText.Text = $"蓝牙：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}";
         FactoryConnectionText.Text = $"连接状态：已连接\n硬件：{id.Hardware}\n软件：{id.Software}";
         BtNameResultText.Text = id.BluetoothName;
@@ -423,20 +425,31 @@ public partial class MainWindow : Window
     private async Task RefreshBatteryAsync(CancellationToken ct = default)
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-        BatterySnapshot snapshot = await bms.ReadBatteryAsync(ct);
+        BatterySnapshot snapshot;
+        try { snapshot = await bms.ReadBatteryAsync(ct); }
+        catch (NotSupportedException ex) {
+            if (ReferenceEquals(bms, _bms)) {
+                ConnectionText.Text = "已连接：" + bms.DeviceModel;
+                LastUpdateText.Text = ex.Message;
+            }
+            return;
+        }
         if (!ReferenceEquals(bms, _bms)) return;
         ApplyBatterySnapshot(snapshot);
-        await RefreshMosControlStateAsync(bms, default);
-        await RefreshMosMonitorAsync(bms);
-        await RefreshSleepStatusAsync(bms);
+        if (bms.IsC060) return;
+        await RefreshOptionalDeviceViewAsync("MOS许可",()=>RefreshMosControlStateAsync(bms, default));
+        await RefreshOptionalDeviceViewAsync("MOS诊断",()=>RefreshMosMonitorAsync(bms));
+        await RefreshOptionalDeviceViewAsync("休眠状态",()=>RefreshSleepStatusAsync(bms));
+        await RefreshOptionalDeviceViewAsync("设备时间",()=>RefreshDeviceClockAsync(bms));
     }
 
     private void ApplyBatterySnapshot(BatterySnapshot s)
     {
+        UpdateProtectionProductDisplay(_bms?.IsD015 == true);
         RecordMosSnapshot(s);
         PackVoltageText.Text = $"{s.PackVoltageV:F2} V";
         CurrentText.Text = $"{s.CurrentA:+0.0;-0.0;0.0} A（{s.WorkState}）";
-        SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohPercent}%";
+        SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohDisplay}";
         WorkStateText.Text = s.WorkState;
 
         MosStateText.Text =
@@ -451,6 +464,10 @@ public partial class MainWindow : Window
             $"制冷：{OnOff(s.CoolingOn)}\n" +
             $"系统：{(s.PreparingSleep ? "准备休眠" : "运行中")}";
 
+        if (!s.HasSystemStatus) {
+            MosStateText.Text = "MOS状态：设备未提供，当前未知";
+            SystemStateText.Text = "系统状态：设备未提供，当前未知";
+        }
         ProtectionSummaryText.Text = s.ProtectionSummary;
         ProtectionLevelsText.Text =
             $"一级：{s.ProtectionLevel1Text}\n" +
@@ -477,7 +494,7 @@ public partial class MainWindow : Window
         FactoryPackText.Text = $"总压：{s.PackVoltageV:F2} V";
         FactoryCurrentText.Text = $"电流：{s.CurrentA:+0.0;-0.0;0.0} A（{s.WorkState}）";
         FactorySocText.Text = $"SOC：{s.SocPercent}%";
-        FactorySohText.Text = $"SOH：{s.SohPercent}%";
+        FactorySohText.Text = $"SOH：{s.SohDisplay}";
         FactoryCapacityText.Text = $"容量：{s.CapacityNowAh:F2} / {s.CapacityFullAh:F2} Ah\n工厂标称：{s.CapacityFactoryAh:F2} Ah";
         FactoryCycleText.Text = $"循环：{s.CycleCount}";
         FactoryCellTempText.Text = $"单体最高/最低：{s.MaxTempC:F1} / {s.MinTempC:F1} ℃";
@@ -597,8 +614,14 @@ public partial class MainWindow : Window
         _polling = true;
         try
         {
+            if (_identityRefreshRequired) await RefreshIdentityAsync();
             await RefreshBatteryAsync();
             _pollFailureCount = 0;
+        }
+        catch (BmsModbusException ex)
+        {
+            _pollFailureCount = 0;
+            AppendLog("设备已应答但当前请求不可用；保留连接：" + ex.Message, "POLL");
         }
         catch (Exception ex)
         {
@@ -654,13 +677,17 @@ public partial class MainWindow : Window
 
     private async void ReadProtection_Click(object sender, RoutedEventArgs e)
     {
+        if (_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || _autoReconnectRunning) return;
+        bool ownsTransaction = false;
         try
         {
+            _parameterBusy = ownsTransaction = true;
             _pollTimer.Stop();
+            await WaitForCommunicationIdleAsync();
             await ReadProtectionAsync();
         }
         catch (Exception ex) { ShowError("读取保护参数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (ownsTransaction) _parameterBusy = false; StartAutomaticRefresh(); }
     }
 
     private async Task ReadProtectionAsync()
@@ -668,16 +695,20 @@ public partial class MainWindow : Window
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         ProtectionStatusText.Text = "正在读取...";
         ushort[] values = await bms.ReadProtectionAllAsync();
+        if (!ReferenceEquals(bms, _bms)) return;
         if (values.Length != _protectionRows.Count)
             throw new IOException($"保护参数数量错误：expected={_protectionRows.Count}, actual={values.Length}");
         for (int i = 0; i < values.Length; i++) _protectionRows[i].LoadFromDevice(values[i]);
-        ProtectionStatusText.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}";
+        ProtectionStatusText.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}" +
+            (bms.IsC060 ? " · C060：Second/Third实际扫描；First用于恢复；Filter单位10ms" : "");
         FactoryParameterSummaryText.Text = $"正式保护参数：已读取 {values.Length} 项\n范围：0x2100..0x{0x2100 + values.Length - 1:X4}（只读）";
         AppendLog($"保护参数读取完成 count={values.Length}; rawRange=0x2100..0x2140", "PARAM");
     }
 
     private async void WriteSelectedProtection_Click(object sender, RoutedEventArgs e)
     {
+        if (_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || _autoReconnectRunning) return;
+        bool ownsTransaction = false;
         try
         {
             CommitProtectionGridEdits();
@@ -693,20 +724,28 @@ public partial class MainWindow : Window
                     MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
 
+            _parameterBusy = ownsTransaction = true;
             _pollTimer.Stop();
+            await WaitForCommunicationIdleAsync();
             var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-            ushort readback = await bms.WriteReadableRegisterAndVerifyAsync(row.Address, value);
-            row.LoadFromDevice(readback);
+            await bms.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{row.Address,value}},
+                (address, values) => {
+                    if (!ReferenceEquals(bms, _bms)) throw new InvalidOperationException("连接已改变，请重新读取。");
+                    for(int i=0;i<5;i++)_protectionRows.Single(r=>r.Address==address+i).LoadFromDevice(values[i]);
+                });
+            ushort readback = row.DeviceValue;
             ProtectionStatusText.Text = $"{row.CustomerName} 写入并校验成功";
             AppendLog($"PROTECTION_WRITE_OK name='{row.CustomerName}'; address=0x{row.Address:X4}; raw={readback}", "PARAM");
             ShowParameterSaved(ProtectionStatusText.Text);
         }
         catch (Exception ex) { ShowError("写保护参数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (ownsTransaction) _parameterBusy = false; StartAutomaticRefresh(); }
     }
 
     private async void WriteChangedProtection_Click(object sender, RoutedEventArgs e)
     {
+        if (_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || _autoReconnectRunning) return;
+        bool ownsTransaction = false;
         try
         {
             CommitProtectionGridEdits();
@@ -731,12 +770,14 @@ public partial class MainWindow : Window
                     MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
 
+            _parameterBusy = ownsTransaction = true;
             _pollTimer.Stop();
+            await WaitForCommunicationIdleAsync();
             var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
             await bms.WriteProtectionChangesAsync(
                 changed.ToDictionary(x => x.Row.Address, x => x.Parsed),
-                (address, values) =>
-                {
+                (address, values) => {
+                    if (!ReferenceEquals(bms, _bms)) throw new InvalidOperationException("连接已改变，请重新读取。");
                     for (int j = 0; j < values.Length; j++)
                         _protectionRows.Single(row => row.Address == address + j).LoadFromDevice(values[j]);
                     ProtectionStatusText.Text = $"{ProtectionBatch.Name(address)} 整组写入并校验成功";
@@ -746,7 +787,7 @@ public partial class MainWindow : Window
             ShowParameterSaved(ProtectionStatusText.Text);
         }
         catch (Exception ex) { ShowError("批量写保护参数失败", ex, "不同保护组依次提交，已完成组可能已保存；请重新读取全部参数确认，不要直接重发。"); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (ownsTransaction) _parameterBusy = false; StartAutomaticRefresh(); }
     }
 
     private void CommitProtectionGridEdits()
@@ -868,221 +909,6 @@ public partial class MainWindow : Window
         LogBox.Clear();
         AppendLog("仅清空界面日志；磁盘诊断日志继续保留。", "DEBUG");
     }
-
-    private void BrowseFirmware_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var dlg = new OpenFileDialog { Filter = "Telink firmware (*.bin)|*.bin|All files (*.*)|*.*" };
-            if (dlg.ShowDialog() != true) return;
-            FirmwareInspection inspection = FirmwareImage.Inspect(dlg.FileName);
-            if (!inspection.LooksLikeTelink && !inspection.FitsStm32App)
-                throw new InvalidDataException("文件既不是可识别的 Telink BIN，也不在 STM32 APP 55 KB 边界内。");
-            _firmwarePath = dlg.FileName;
-            FirmwareText.Text = inspection.Description;
-            AppendLog($"Firmware candidate loaded file='{inspection.FileName}' size={inspection.FileSize}; telink={inspection.LooksLikeTelink}; stm32={inspection.FitsStm32App}", "OTA");
-        }
-        catch (Exception ex)
-        {
-            _firmwarePath = null;
-            ShowError("固件校验失败", ex);
-        }
-    }
-
-    private async void StartOta_Click(object sender, RoutedEventArgs e)
-    {
-        if (_otaRunning || _shBusy || _diagBusy) return;
-        try
-        {
-            if (_bms?.IsSh3520 == true) throw new InvalidOperationException("已识别 3520：当前 OTA 的旧 STM32 App 地址不匹配，请使用该工程的安全 App 烧录脚本。");
-            string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择 BIN。");
-            ulong address = _connectedAddress ?? 0;
-            if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)
-                throw new InvalidOperationException("请先连接 BMS。");
-            if (_connectionMode == ConnectionMode.Serial && string.IsNullOrWhiteSpace(_connectedSerialPort))
-                throw new InvalidOperationException("请先连接串口。");
-
-            _otaRunning = true;
-            await StopRuntimeLogsForOtaAsync();
-            _pollTimer.Stop();
-            StartOtaButton.IsEnabled = false;
-            CancelOtaButton.IsEnabled = true;
-            OtaProgressBar.Value = 0;
-            OtaVerifyText.Text = string.Empty;
-            _otaCts = new CancellationTokenSource();
-            OtaTargetKind target = _connectionMode == ConnectionMode.Serial
-                ? OtaTargetKind.Stm32SerialIap
-                : await OtaTargetDetector.DetectAsync(address, GetOtaTargetKind(), _otaCts.Token);
-            FirmwareImage image = FirmwareImage.LoadForTarget(firmwarePath, target);
-            AppendLog($"OTA architecture detected={target}; firmware={image.FileName}; bytes={image.ImageSize}", "OTA");
-
-            string oldVersion = string.Empty;
-            try
-            {
-                if (_bms is not null) oldVersion = (await _bms.ReadIdentityAsync(_otaCts.Token)).Software;
-            }
-            catch (Exception ex)
-            {
-                AppendLog("Pre-OTA version read warning: " + ex.Message, "OTA");
-            }
-
-            await DisposeBmsAsync();
-            ConnectionText.Text = "正在升级...";
-            OtaTransferMode requested = GetOtaMode();
-            bool serverConfirmed;
-
-            try
-            {
-                serverConfirmed = await RunOtaOnceAsync(address, image, target, requested, _otaCts.Token);
-            }
-            catch (Exception ex) when (requested == OtaTransferMode.Auto && IsExtendCompatibilityFailure(ex) && !_otaCts.IsCancellationRequested)
-            {
-                AppendLog("Extend64 rejected; fallback to Legacy Fast: " + ex.Message, "OTA");
-                await Task.Delay(700, _otaCts.Token);
-                serverConfirmed = await RunOtaOnceAsync(address, image, target, OtaTransferMode.LegacyFast, _otaCts.Token);
-            }
-
-            OtaVerifyText.Text = serverConfirmed ? "设备已接受固件，等待重启并验证..." : "数据发送完成，等待设备重启并验证...";
-            DeviceIdentity post = await VerifyAfterOtaAsync(_connectionMode == ConnectionMode.Serial ? null : address, _otaCts.Token);
-            string expected = ExpectedVersionBox.Text.Trim();
-            if (expected.Length > 0 && !string.Equals(post.Software, expected, StringComparison.OrdinalIgnoreCase))
-                throw new IOException($"设备已重启，但软件版本不匹配：目标 {expected}，实际 {post.Software}。");
-
-            string versionNote = expected.Length > 0
-                ? $"版本 {post.Software} 校验通过"
-                : oldVersion.Length > 0 && oldVersion != post.Software
-                    ? $"版本 {oldVersion} → {post.Software}"
-                    : $"当前版本 {post.Software}";
-
-            OtaVerifyText.Text = $"升级成功：设备已重启，BMS 通信和实时数据正常；{versionNote}。";
-            ConnectionText.Text = string.IsNullOrEmpty(_connectedName) ? "已连接" : $"已连接：{_connectedName}";
-            AppendLog("OTA VERIFIED: " + OtaVerifyText.Text + $" serverConfirmed={serverConfirmed}", "OTA");
-            MessageBox.Show(OtaVerifyText.Text, "OTA 验证完成", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (OperationCanceledException)
-        {
-            AppendLog("OTA cancelled", "OTA");
-            OtaVerifyText.Text = "升级已取消";
-        }
-        catch (Exception ex)
-        {
-            _sessionLog.WriteException("OTA", "OTA/Verify", ex);
-            OtaVerifyText.Text = "升级失败：" + ex.Message;
-            MessageBox.Show(ex.Message, "OTA failed", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
-            _otaCts?.Dispose();
-            _otaCts = null;
-            _otaRunning = false;
-            StartOtaButton.IsEnabled = true;
-            CancelOtaButton.IsEnabled = false;
-            if (_bms is not null) _pollTimer.Start();
-        }
-    }
-
-    private async Task<bool> RunOtaOnceAsync(ulong address, FirmwareImage image, OtaTargetKind target, OtaTransferMode mode, CancellationToken ct)
-    {
-        if (target == OtaTargetKind.Stm32SerialIap)
-        {
-            if (_connectionMode == ConnectionMode.Serial)
-            {
-                await using var serialPortTransport = new BmsSerialTransport();
-                AppendLog($"Connecting STM32 serial OTA COM port={_connectedSerialPort}; baud={_serialBaudRate}", "OTA");
-                await serialPortTransport.ConnectAsync(_connectedSerialPort!, _serialBaudRate, ct);
-                AppendLog($"STM32 serial OTA port ready; {serialPortTransport.DiscoveryDescription}", "OTA");
-                var serialPortClient = new Stm32SerialBleOtaClient(serialPortTransport, chunkForBle: false);
-                serialPortClient.Log += m => AppendLog(m, "OTA");
-                serialPortClient.Progress += p => Dispatcher.BeginInvoke(() =>
-                {
-                    OtaProgressBar.Value = p.Percent;
-                    OtaProgressText.Text = $"STM32 串口 IAP · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
-                });
-                return await serialPortClient.UpgradeAsync(image, ct);
-            }
-
-            await using var serialTransport = new BmsBleTransport();
-            AppendLog($"Connecting STM32 serial OTA GATT address={address:X12}", "OTA");
-            await serialTransport.ConnectAsync(address, ct);
-            AppendLog($"STM32 serial OTA GATT ready; MTU={serialTransport.NegotiatedMtu}; {serialTransport.DiscoveryDescription}", "OTA");
-            var serialClient = new Stm32SerialBleOtaClient(serialTransport);
-            serialClient.Log += m => AppendLog(m, "OTA");
-            serialClient.Progress += p => Dispatcher.BeginInvoke(() =>
-            {
-                OtaProgressBar.Value = p.Percent;
-                OtaProgressText.Text = $"STM32 串口 IAP · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
-            });
-            return await serialClient.UpgradeAsync(image, ct);
-        }
-
-        await using var transport = new OtaBleTransport();
-        AppendLog($"Connecting OTA GATT address={address:X12}", "OTA");
-        await transport.ConnectAsync(address);
-        AppendLog($"OTA GATT ready; MTU={transport.NegotiatedMtu}; notify={transport.NotificationsEnabled}", "OTA");
-
-        var client = new TelinkOtaClient(transport);
-        client.Log += m => AppendLog(m, "OTA");
-        client.Progress += p => Dispatcher.BeginInvoke(() =>
-        {
-            OtaProgressBar.Value = p.Percent;
-            string eta = p.Eta is null ? string.Empty : $" · ETA {p.Eta.Value.TotalSeconds:F1}s";
-            OtaProgressText.Text = $"{p.Mode} · {p.Percent:F1}% · {p.BytesPerSecond / 1024.0:F1} KB/s{eta}";
-        });
-        return await client.UpgradeAsync(image, mode, ct);
-    }
-
-    private async Task<DeviceIdentity> VerifyAfterOtaAsync(ulong? address, CancellationToken ct)
-    {
-        Exception? last = null;
-        for (int attempt = 1; attempt <= 12; attempt++)
-        {
-            ct.ThrowIfCancellationRequested();
-            try
-            {
-                await Task.Delay(attempt == 1 ? 1200 : 900, ct);
-                AppendLog($"Post-OTA reconnect {attempt}/12", "OTA");
-                if (_connectionMode == ConnectionMode.Serial)
-                    await ConnectSerialInternalAsync(_connectedSerialPort!, _serialBaudRate, ct);
-                else
-                    await ConnectBmsInternalAsync(address!.Value, ct);
-                DeviceIdentity id = await (_bms ?? throw new IOException("BMS client unavailable")).ReadIdentityAsync(ct);
-                BatterySnapshot snapshot = await _bms.ReadBatteryAsync(ct);
-                ApplyBatterySnapshot(snapshot);
-                await RefreshIdentityAsync();
-                return id;
-            }
-            catch (Exception ex)
-            {
-                last = ex;
-                AppendLog($"Post-OTA reconnect attempt={attempt} failed: {ex.GetType().Name}; hresult=0x{ex.HResult:X8}; {ex.Message}", "OTA");
-                await DisposeBmsAsync();
-            }
-        }
-        throw new IOException("OTA 数据已发送，但设备重启后未恢复到可读取的 BMS 通信状态。", last);
-    }
-
-    private OtaTransferMode GetOtaMode()
-    {
-        string tag = (OtaModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Auto";
-        return Enum.TryParse(tag, out OtaTransferMode mode) ? mode : OtaTransferMode.Auto;
-    }
-
-    private OtaTargetKind GetOtaTargetKind()
-    {
-        string tag = (OtaTargetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "Auto";
-        return Enum.TryParse(tag, out OtaTargetKind target) ? target : OtaTargetKind.Auto;
-    }
-
-    private static bool IsExtendCompatibilityFailure(Exception ex)
-    {
-        string message = ex.Message;
-        return message.Contains("OTA_PDU_LEN_ERR", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("OTA_MCU_NOT_SUPPORTED", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("OTA_PACKET_INVALID", StringComparison.OrdinalIgnoreCase) ||
-               message.Contains("requires MTU", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void CancelOta_Click(object sender, RoutedEventArgs e) => _otaCts?.Cancel();
 
     private void UpsertDevice(DiscoveredDevice device)
     {

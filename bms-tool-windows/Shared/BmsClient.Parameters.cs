@@ -27,6 +27,8 @@ public sealed partial class BmsClient
         if(address==D008Parameters.BalanceBase)D008Parameters.ValidateBalance(values);
         if(address==D008Parameters.HeaterBase)D008Parameters.ValidateHeater(values);
         await RequireD008Async(ct);
+        if(IsD015 && address==0x2318 && values.Length==1 && values[0]<10)
+            throw new ArgumentException("D015额定容量最小1.0Ah，未发送写命令。");
         if(address==D008Parameters.BalanceBase || address==D008Parameters.HeaterBase || address==BmsSleepParameters.Base) {
             var header=await ReadRegistersAsync(D008Parameters.Base,12,ct);
             var capability=new D008ParameterCapture{Supported=header[0]==D008Parameters.Magic &&

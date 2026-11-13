@@ -37,8 +37,17 @@
     <Compile Include="..\Shared\BmsClient.Diagnostics.cs" Link="Shared\BmsClient.Diagnostics.cs" />
     <Compile Include="..\Shared\BmsClient.SocHil.cs" Link="Shared\BmsClient.SocHil.cs" />
     <Compile Include="..\Shared\D008Parameters.cs" Link="Shared\D008Parameters.cs" />
+    <Compile Include="..\Shared\BmsClient.DeviceClock.cs" Link="Shared\BmsClient.DeviceClock.cs" />
     <Compile Include="..\Shared\BuildIdentity.cs" Link="Shared\BuildIdentity.cs" />
     <Compile Include="..\Shared\BmsClient.ParameterRead.cs" Link="Shared\BmsClient.ParameterRead.cs" />
     <Compile Include="..\Shared\Sh3673520Parameters.cs" Link="Shared\Sh3673520Parameters.cs" />
+    <Compile Include="..\Shared\D015FirmwarePackage.cs" Link="Shared\D015FirmwarePackage.cs" />
+    <Compile Include="..\Shared\SerialFirmwarePackage.cs" Link="Shared\SerialFirmwarePackage.cs" />
+    <Compile Include="..\Shared\UpgradeDetection.cs" Link="Shared\UpgradeDetection.cs" />
+    <Compile Include="..\Shared\SerialYmodem.cs" Link="Shared\SerialYmodem.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="..\Shared\ProtectionBatch.cs" Link="Shared\ProtectionBatch.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\BmsTool.Windows\BmsClient.AfeHardware.cs" Link="Shared\BmsClient.AfeHardware.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\BmsTool.Windows\AfeHardwareParameters.cs" Link="Shared\AfeHardwareParameters.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\Shared\C060Parameters.cs" Link="Shared\C060Parameters.cs" /></ItemGroup>
 </Project>

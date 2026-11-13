@@ -9,6 +9,18 @@ class Program
 
     static async Task Main()
     {
+        string d015Path=Path.Combine(Path.GetTempPath(),Guid.NewGuid()+".dat");
+        try {
+            var bytes=new byte[1024];Array.Fill(bytes,(byte)0xFF);
+            void Put(int at,uint value)=>System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(at,4),value);
+            Put(0,0x20002000);Put(4,0x08001D01);Put(192,0xD0150320);Put(196,0x08001C00);Put(204,900);
+            File.WriteAllBytes(d015Path,bytes);
+            var image=FirmwareImage.LoadForTarget(d015Path,OtaTargetKind.Stm32SerialIap);
+            Check(image.HasD015Identity,"D015 identity and top-of-RAM stack accepted");image.ValidateD015Image();
+            Put(204,2000);File.WriteAllBytes(d015Path,bytes);
+            bool rejected=false;try{FirmwareImage.LoadForTarget(d015Path,OtaTargetKind.Stm32SerialIap);}catch(InvalidDataException){rejected=true;}
+            Check(rejected,"D015 declared length/padding mismatch rejected before IAP");
+        } finally {File.Delete(d015Path);}
         byte[] legacyStart = TelinkOtaProtocol.BuildLegacyStart();
         Check(legacyStart.SequenceEqual(new byte[] { 0x01, 0xFF }), "legacy START");
 

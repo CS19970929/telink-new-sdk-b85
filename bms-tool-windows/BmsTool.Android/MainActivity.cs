@@ -12,16 +12,16 @@ namespace BmsTool.Android;
 #if BMS_INTERNAL_APP
 [Activity(Label = "BMS Tool 测试版", MainLauncher = true, Exported = true,
     LaunchMode = LaunchMode.SingleTask, ScreenOrientation = ScreenOrientation.Portrait)]
+#else
+[Activity(Label = "BMS Battery", MainLauncher = true, Exported = true,
+    LaunchMode = LaunchMode.SingleTask, ScreenOrientation = ScreenOrientation.Portrait)]
+#endif
 [IntentFilter(new[] { Intent.ActionView },
     Categories = new[] { Intent.CategoryDefault, Intent.CategoryBrowsable },
     DataMimeTypes = new[] { "application/octet-stream", "application/x-binary", "application/macbinary" })]
 [IntentFilter(new[] { Intent.ActionSend },
     Categories = new[] { Intent.CategoryDefault },
     DataMimeTypes = new[] { "application/octet-stream", "application/x-binary", "application/macbinary" })]
-#else
-[Activity(Label = "BMS Battery", MainLauncher = true, Exported = true,
-    LaunchMode = LaunchMode.SingleTask, ScreenOrientation = ScreenOrientation.Portrait)]
-#endif
 public sealed partial class MainActivity : Activity
 {
     private const string LogTag = "BmsTool.Android";
@@ -38,6 +38,7 @@ public sealed partial class MainActivity : Activity
     private CancellationTokenSource? _monitorCts;
     private string? _logFilePath;
     private string? _connectedMac;
+    private string? _selectedMac;
     private bool _intentStarted;
     private bool _connectedAutoOtaRunning;
 
@@ -48,10 +49,8 @@ public sealed partial class MainActivity : Activity
         _logFilePath = Path.Combine(logDirectory, $"bms-tool-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         BuildUi();
         ApplyIntentValues();
-#if BMS_INTERNAL_APP
         _ = RefreshFirmwareInboxAsync();
         _ = HandleIncomingFirmwareIntentAsync(Intent);
-#endif
         RequestBluetoothPermissions();
         AppendLog($"LOG_FILE path={_logFilePath}");
         _refreshCts = new CancellationTokenSource();
@@ -78,8 +77,8 @@ public sealed partial class MainActivity : Activity
         if (intent is null) return;
         Intent = intent;
         ApplyIntentValues();
-#if BMS_INTERNAL_APP
         _ = HandleIncomingFirmwareIntentAsync(intent);
+#if BMS_INTERNAL_APP
         _ = HandleConnectedAutoOtaIntentAsync(intent);
 #endif
     }
@@ -112,7 +111,7 @@ public sealed partial class MainActivity : Activity
             return;
         }
 
-        string requestedMac = _macInput?.Text?.Trim() ?? string.Empty;
+        string requestedMac = _selectedMac ?? string.Empty;
         if (_client is null || _transport is null || string.IsNullOrWhiteSpace(_connectedMac) ||
             !string.Equals(requestedMac, _connectedMac, StringComparison.OrdinalIgnoreCase))
         {
@@ -134,41 +133,42 @@ public sealed partial class MainActivity : Activity
     {
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != BluetoothPermissionRequest) return;
-        if (HasBluetoothPermissions()) OnResume();
-        else SetStatus("蓝牙权限被拒绝，无法扫描或连接", true);
+        if(HasBluetoothPermissions()) {
+            if(_scanAfterBluetoothPermission){_scanAfterBluetoothPermission=false;_ = StartQrConnectAsync();}
+            else OnResume();
+        }
+        else {_scanAfterBluetoothPermission=false;SetStatus("蓝牙权限被拒绝，无法扫描或连接", true);}
     }
 
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
-        if (requestCode != FirmwarePickerRequest || resultCode != Result.Ok || data?.Data is null) return;
-        _ = ImportFirmwareAsync(data.Data);
+        if(resultCode!=Result.Ok)return;
+        if(requestCode==QrScanRequest){_ = ConnectQrResultAsync(data);return;}
+        if(data?.Data is null)return;
+        if(requestCode==C060ImportRequest){_ = ImportC060ParametersGuardedAsync(data.Data);return;}
+        if(requestCode==FirmwarePickerRequest)_ = ImportFirmwareAsync(data.Data);
     }
 
     private void ApplyIntentValues()
     {
-        if (Intent is null) return;
+        if (Intent is null || !AppEdition.IsInternal) return;
         string? mac = Intent.GetStringExtra("mac");
         string? firmware = Intent.GetStringExtra("firmware");
         string? firmwareInboxName = Intent.GetStringExtra("firmware_inbox_name");
         string? expectedSerial = Intent.GetStringExtra("expected_serial");
-        string rememberedMac = GetPreferences(FileCreationMode.Private)?.GetString("last_bms_mac", string.Empty)
-            ?? string.Empty;
-        _macInput!.Text = !string.IsNullOrWhiteSpace(mac)
-            ? mac
-            : rememberedMac;
-        if (!AppEdition.IsInternal) return;
+        // Automation explicitly selects a target; ordinary users use scan/QR.
+        // Never restore a remembered target for an upgrade.
+        if (!string.IsNullOrWhiteSpace(mac)) _selectedMac = mac.Trim();
         if (!string.IsNullOrWhiteSpace(firmwareInboxName) && AndroidFirmwareInbox.IsValidFileName(firmwareInboxName))
-            _firmwareInput!.Text = Path.Combine(FirmwareInboxDirectory(), firmwareInboxName);
-        else if (!string.IsNullOrWhiteSpace(firmware))
-            _firmwareInput!.Text = firmware;
+            SelectFirmware(Path.Combine(FirmwareInboxDirectory(), firmwareInboxName));
+        else if (!string.IsNullOrWhiteSpace(firmware)) SelectFirmware(firmware);
         if (!string.IsNullOrWhiteSpace(expectedSerial)) _expectedSerialInput!.Text = expectedSerial;
-        if (Intent.GetBooleanExtra("show_tools", false)) ShowPage(ToolsPage);
+        if (Intent.GetBooleanExtra("show_tools", false)) ShowPage(FirmwarePage);
     }
 
     private async Task HandleIncomingFirmwareIntentAsync(Intent? intent)
     {
-        if (!AppEdition.IsInternal) return;
         global::Android.Net.Uri? uri = null;
         if (intent?.Action == Intent.ActionView)
             uri = intent.Data;
@@ -188,14 +188,7 @@ public sealed partial class MainActivity : Activity
         }
         if (uri is null) return;
 
-        string? name = ReadDisplayName(uri);
-        if (string.IsNullOrWhiteSpace(name) || !name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
-        {
-            SetStatus("已拒绝外部文件：只接受 .bin 固件", true);
-            return;
-        }
-
-        ShowPage(ToolsPage);
+        ShowPage(FirmwarePage);
         await ImportFirmwareAsync(uri);
     }
 
@@ -220,6 +213,7 @@ public sealed partial class MainActivity : Activity
             SetStatus("请先扫描并连接 BMS", true);
             return;
         }
+        BmsClient owner=_client;
         SetBusy(true);
         SetStatus(title + "（等待当前刷新结束）…");
         await _operationGate.WaitAsync();
@@ -227,7 +221,7 @@ public sealed partial class MainActivity : Activity
         _operationCts?.Dispose();
         _operationCts = new CancellationTokenSource(timeout ?? TimeSpan.FromSeconds(60));
         SetStatus(title + "…");
-        try { await action(_client, _operationCts.Token); }
+        try { if(!ReferenceEquals(owner,_client))throw new IOException("连接已变化，请重新读取当前设备。");await action(owner, _operationCts.Token); }
         catch (System.OperationCanceledException)
         {
             SetStatus(title + "已取消");
@@ -269,7 +263,6 @@ public sealed partial class MainActivity : Activity
             }
             catch (IOException ex) { Log.Warn(LogTag, $"log write failed: {ex.Message}"); }
         }
-        RunOnUiThread(() => AppendVisibleLog(line));
     }
 
     private void SetStatus(string text, bool error = false) => RunOnUiThread(() =>

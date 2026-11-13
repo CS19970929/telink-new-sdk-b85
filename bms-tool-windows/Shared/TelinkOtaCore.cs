@@ -42,9 +42,9 @@ public interface ITelinkOtaTransport : IAsyncDisposable
     Task WriteWithResponseAsync(ReadOnlyMemory<byte> data, CancellationToken ct);
 }
 
-public sealed record FirmwareInspection(string FileName, int FileSize, bool LooksLikeTelink, bool FitsStm32App)
+public sealed record FirmwareInspection(string FileName, int FileSize, bool LooksLikeTelink, bool FitsStm32App, bool D015Package = false, SerialFirmwarePackage? SerialPackage = null)
 {
-    public string Description => LooksLikeTelink && FitsStm32App
+    public string Description => SerialPackage is {} package ? $"{FileName} · {FileSize:N0} bytes · {package.BoardName} YMODEM 升级包（CRC已校验）" : D015Package ? $"{FileName} · {FileSize:N0} bytes · D015 YMODEM 升级包（CRC已校验）" : LooksLikeTelink && FitsStm32App
         ? $"{FileName} · {FileSize:N0} bytes · 可用于 Telink 或 STM32（按目标架构选择）"
         : LooksLikeTelink
             ? $"{FileName} · {FileSize:N0} bytes · Telink"
@@ -56,6 +56,26 @@ public sealed record FirmwareInspection(string FileName, int FileSize, bool Look
 public sealed class FirmwareImage
 {
     public const int Stm32AppCapacity = 55 * 1024;
+    public SerialFirmwarePackage? Package { get; }
+    public bool IsSerialPackage => Package is not null;
+    public bool IsD015Package => Package?.BoardId == D015FirmwarePackage.BoardId;
+    public const int D015AppCapacity = 47 * 1024;
+    public bool HasD015Identity => TargetKind == OtaTargetKind.Stm32SerialIap && Bytes.Length >= 208 &&
+        BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(192,4)) == 0xD0150320u;
+    public void ValidateD015Image()
+    {
+        if (Package is {} package) { if(package.BoardId!=D015FirmwarePackage.BoardId)throw new InvalidDataException("当前设备为 D015，升级包板号不匹配。");return; }
+        if (!HasD015Identity || ImageSize > D015AppCapacity ||
+            BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(196,4)) != Stm32AppStartAddress)
+            throw new InvalidDataException("D015只接受带D015身份、从0x08001C00开始且不超过47KiB的APP镜像。");
+        uint actual=BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(204,4));
+        uint stack=BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(0,4));
+        uint reset=BinaryPrimitives.ReadUInt32LittleEndian(Bytes.AsSpan(4,4));
+        if(actual<=208 || actual>D015AppCapacity || ((actual+1023u)&~1023u)!=(uint)ImageSize ||
+           stack<0x20000100u || stack>Stm32SramEndAddress || (stack&7u)!=0 ||
+           (reset&1u)==0 || (reset&~1u)<Stm32AppStartAddress || (reset&~1u)>=Stm32AppStartAddress+actual)
+            throw new InvalidDataException("D015 APP长度、页填充或向量不合法；仅导出LR_APP，不包含工厂有效性页。");
+    }
     public const uint Stm32AppStartAddress = 0x08001C00;
     public const uint Stm32AppEndAddress = 0x0800F800;
     private const uint Stm32SramStartAddress = 0x20000000;
@@ -74,11 +94,13 @@ public sealed class FirmwareImage
         FileName = fileName;
         Bytes = bytes;
         TargetKind = targetKind;
+        Package = SerialFirmwarePackage.HasHeader(bytes) ? SerialFirmwarePackage.Parse(bytes) : null;
     }
 
     public static FirmwareInspection Inspect(string path)
     {
         byte[] all = File.ReadAllBytes(path);
+        if (SerialFirmwarePackage.HasHeader(all)) { var package=SerialFirmwarePackage.Parse(all); return new(Path.GetFileName(path),all.Length,false,true,package.BoardId==D015FirmwarePackage.BoardId,package); }
         bool telink = all.Length >= 0x1C &&
                       BinaryPrimitives.ReadUInt32LittleEndian(all.AsSpan(0x18, 4)) is uint declared &&
                       declared >= 0x20 && declared <= all.Length;
@@ -86,9 +108,16 @@ public sealed class FirmwareImage
         return new FirmwareInspection(Path.GetFileName(path), all.Length, telink, stm32);
     }
 
+    public static FirmwareImage LoadForBluetoothUpgrade(string path)
+    {
+        FirmwareInspection inspection=Inspect(path);
+        return inspection.SerialPackage is not null ? LoadStm32App(path) : LoadStrictTelink(path);
+    }
+
     public static FirmwareImage Load(string path)
     {
         byte[] all = File.ReadAllBytes(path);
+        if (SerialFirmwarePackage.HasHeader(all)) throw new InvalidDataException("YMODEM 升级包需要 BMS 串口透传通道，不能发送到 Telink 模块自身 OTA。 ");
         if (all.Length < 0x1C) throw new InvalidDataException("Firmware is too small to contain Telink size field @0x18.");
         uint declared = BinaryPrimitives.ReadUInt32LittleEndian(all.AsSpan(0x18, 4));
         if (declared < 0x20 || declared > all.Length) throw new InvalidDataException($"Invalid Telink firmware size @0x18: {declared}, file={all.Length}.");
@@ -120,12 +149,15 @@ public sealed class FirmwareImage
     private static FirmwareImage LoadStm32App(string path)
     {
         byte[] all = File.ReadAllBytes(path);
+        if (SerialFirmwarePackage.HasHeader(all)) { _ = SerialFirmwarePackage.Parse(all); return new FirmwareImage(Path.GetFileName(path),all,OtaTargetKind.Stm32SerialIap); }
         FirmwareInspection inspection = Inspect(path);
         if (all.Length == 0 || all.Length > Stm32AppCapacity || !inspection.FitsStm32App)
             throw new InvalidDataException($"STM32 APP BIN 必须为有效向量表且不超过 {Stm32AppCapacity} bytes；actual={all.Length}，请确认 BIN 是从 0x{Stm32AppStartAddress:X8} 链接生成的 APP 镜像。");
         if (inspection.LooksLikeTelink)
             throw new InvalidDataException("文件包含 Telink 固件头部，不能作为 STM32 APP BIN 发送。");
-        return new FirmwareImage(Path.GetFileName(path), all, OtaTargetKind.Stm32SerialIap);
+        var image=new FirmwareImage(Path.GetFileName(path), all, OtaTargetKind.Stm32SerialIap);
+        if(image.HasD015Identity)image.ValidateD015Image();
+        return image;
     }
 
     private static bool IsValidStm32Vector(ReadOnlySpan<byte> image)
@@ -133,7 +165,7 @@ public sealed class FirmwareImage
         uint stack = BinaryPrimitives.ReadUInt32LittleEndian(image[..4]);
         uint reset = BinaryPrimitives.ReadUInt32LittleEndian(image.Slice(4, 4));
         uint resetAddress = reset & ~1u;
-        return stack >= Stm32SramStartAddress && stack < Stm32SramEndAddress &&
+        return stack >= Stm32SramStartAddress && stack <= Stm32SramEndAddress &&
                (reset & 1u) != 0 && resetAddress >= Stm32AppStartAddress && resetAddress < Stm32AppEndAddress;
     }
 }

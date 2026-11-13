@@ -304,7 +304,7 @@
                     <!-- Main-page status bar -->
                     <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="#C8C8C8" BorderThickness="1,1,1,0" Background="#F5F5F5" Margin="5,2,5,0" Padding="8,4">
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -317,9 +317,8 @@
                             <Border x:Name="CustomerCommStatusBorder" Grid.Column="3" Background="#18C73E" Padding="9,2" Visibility="Collapsed">
                                 <TextBlock x:Name="CommunicationStatusText" Text="通信：未连接" Foreground="Black"/>
                             </Border>
-                            <TextBlock x:Name="CommunicationCountersText" Grid.Row="1" Grid.ColumnSpan="4" Margin="0,4,0,0"
-                                       TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold" Foreground="#333333"
-                                       Text="通信统计：TX 0帧 / RX 0帧 · 超时 0 · CRC 0 · 重连 0"/>
+                            <TextBlock x:Name="CustomerBuildText" Grid.Row="1" Grid.ColumnSpan="4" Margin="0,4,0,0" TextWrapping="Wrap" Text="固件 Build ID：—"/>
+                            <TextBlock x:Name="CustomerClockText" Grid.Row="2" Grid.ColumnSpan="4" Margin="0,4,0,0" TextWrapping="Wrap" Text="板载时间：—" ToolTip="板内使用UTC；此处按电脑本地时区显示，每5秒读取一次。未同步或误差超过5分钟时自动校时。"/>
                         </Grid>
                     </Border>
                 </Grid>
@@ -387,6 +386,7 @@
                 <StackPanel Margin="16">
                     <Button Width="120" HorizontalAlignment="Left" Click="RefreshIdentity_Click">刷新设备信息</Button>
                     <TextBlock x:Name="IdentityText" Margin="0,14,0,20" FontSize="15" Text="—"/>
+                    <TextBlock x:Name="DeviceClockText" Margin="0,0,0,20" FontSize="15" Text="板载时间：—" TextWrapping="Wrap"/>
                     <GroupBox Header="设备 SN" Margin="0,0,0,14">
                         <StackPanel Margin="12">
                             <TextBlock Text="支持 1～32 个可打印 ASCII 字符。连接后先读取参数，再保存并读回确认。" TextWrapping="Wrap"/>
@@ -413,6 +413,45 @@
             </TabItem>
 
 
+            <TabItem x:Name="OtaTab" Header="OTA 升级">
+                <StackPanel Margin="16">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Width="100" Click="BrowseFirmware_Click">选择固件</Button>
+                        <TextBlock x:Name="FirmwareText" Margin="12,0,0,0" VerticalAlignment="Center" Text="未选择固件"/>
+                    </StackPanel>
+                    <WrapPanel Margin="0,14,0,0">
+                        <StackPanel Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center">OTA 架构</TextBlock>
+                        <ComboBox x:Name="OtaTargetBox" Width="210" Margin="8,0">
+                            <ComboBoxItem Content="Auto（自动识别）" Tag="Auto" IsSelected="True"/>
+                            <ComboBoxItem Content="Telink 专用 OTA" Tag="Telink"/>
+                            <ComboBoxItem Content="BMS 串口透传（旧协议需确认）" Tag="Stm32SerialIap"/>
+                        </ComboBox>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center">Telink 模式</TextBlock>
+                        <ComboBox x:Name="OtaModeBox" Width="170" Margin="8,0,8,0">
+                            <ComboBoxItem Content="Auto" Tag="Auto" IsSelected="True"/>
+                            <ComboBoxItem Content="Legacy Fast (16B)" Tag="LegacyFast"/>
+                            <ComboBoxItem Content="Extend 64B" Tag="Extend64"/>
+                        </ComboBox>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" Margin="8,0,0,0">目标软件版本（可选）</TextBlock>
+                        <TextBox x:Name="ExpectedVersionBox" Width="180" Margin="8,0"/>
+                        </StackPanel>
+                    </WrapPanel>
+                    <TextBlock Margin="0,10,0,0" Text="自动模式核对固件包与设备身份，支持统一 YMODEM 升级方案、既有页协议和 Telink 模块 OTA。C060 请选择 .c060，D015 请选择 .d015；同一方案的新项目自动匹配。升级中断后可重试，回读确认通过才显示成功。" TextWrapping="Wrap"/>
+                    <CheckBox x:Name="SerialIapRecoveryBox" Margin="0,10,0,0" Content="升级恢复：使用所选串口或蓝牙模块，识别 YMODEM Boot，无需先连接 APP"/>
+                    <ProgressBar x:Name="OtaProgressBar" Height="24" Margin="0,18,0,0" Minimum="0" Maximum="100"/>
+                    <TextBlock x:Name="OtaProgressText" Margin="0,6,0,0" Text="Idle"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button x:Name="StartOtaButton" Width="110" Click="StartOta_Click">开始 OTA</Button>
+                        <Button x:Name="CancelOtaButton" Width="90" Margin="10,0,0,0" IsEnabled="False" Click="CancelOta_Click">取消</Button>
+                    </StackPanel>
+                    <TextBlock x:Name="OtaVerifyText" Margin="0,18,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                </StackPanel>
+            </TabItem>
         </TabControl>
     </Grid>
 </Window>

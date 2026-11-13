@@ -275,20 +275,13 @@ BLE 搜索兼容 `BT_` 和 `BT-`；无名称广播仅在广播带有 Nordic UART
 
 串口连接会记录 `OPEN/WRITE/RX_FRAGMENT/READ_FAIL` 日志，并在轮询连续失败后自动重连。串口没有 BLE 地址，设备身份读取仍以 BMS 寄存器为准；如果 MAC 或蓝牙名称寄存器不存在，界面使用 `串口 COMx` 作为连接端点回退信息。AFE 硬件保护参数写入只允许 BLE 连接，防止把 BLE 专用硬件参数通道误用到直连串口。
 
-## OTA 双架构自动升级
+## 多项目自动升级
 
-Telink OTA 已按仓库内 `tc_ble_single_sdk V3.4.2.8` 的官方 Master/Server 协议重新核对，并加入协议单元测试与 CI 门禁。详细来源、协议字段、D008 Server 状态、Windows 审计结论、修复项和实板验收清单见 [Telink OTA Master、D008 OTA Server 与 Windows OTA](docs/TELINK_OTA_MASTER_AND_WINDOWS_OTA.md)。修改 OTA 代码后必须运行 `./test-ota-protocol.ps1`。
+客户版、内部版和CLI共用升级实现：Telink按专用GATT及镜像预检选择；串口/透明BLE先只读D170能力，再按明确D015身份识别新YMODEM或旧页协议。未知能力直接拒绝，无身份旧STM32只允许明确手工选择，不轮流发送写命令。
 
-OTA 页默认使用 `Auto（自动识别）`：
+新D015选择`.d015`；旧D015使用配套旧APP BIN。新Boot/APP必须首次配套安装，不能借旧在线协议迁移Boot。新D015块错误有限重试、复位/取消后全文件重发，最终按版本/CRC/长度/BMS实时数据确认。两版都有串口Boot恢复入口，无需APP正常运行。
 
-- 发现 Telink 专用 OTA service `00010203-0405-0607-0809-0a0b0c0d1912` 时，使用现有 Telink OTA START/DATA/END 流程；
-- 发现 BMS Nordic UART service `6E400001-B5A3-F393-E0A9-E50E24DCCA9E` 时，使用 STM32 串口 IAP 流程：`0xFFFD` 进入 IAP、`0xFFFE` 每页写 1024 字节、`0xFFFF` 完成。由于现有 IAP 的实际解析约定，页帧使用 `0x10` 的扩展兼容格式：`byte count=0`、`quantity=1024`，不能使用标准 `byte count=0x400`（单字节无法表达）；
-- 直连 `COM` 时自动选择 STM32 Serial IAP，使用同一组 `0xFFFD/0xFFFE/0xFFFF` 命令；进入 IAP 和每一页发送后都等待并校验 Modbus ACK。BLE 链路按 20 字节分片，直连串口按 IAP 缓冲区能力直接发送约 1033 字节页帧，不把 BLE 分片规则误套到 COM；ACK 超时仍立即停止，禁止对无页序号的例程盲目重传；
-- STM32 APP BIN 必须能通过向量表校验（初始栈指针在 SRAM、复位向量在 `0x08001C00..0x0800F800`），按 `0x08001C00` APP 区使用，最大 55 KB，最后一页用 `0xFF` 补齐；已识别为 Telink 格式的文件会被拒绝；
-- STM32 在 ENTER 应答后等待 BMS 复位并重新建立 GATT 连接；如果设备已经处于 IAP 且普通 Modbus 探测无响应，上位机会保留 GATT 连接并允许直接进入 OTA；之后每个升级帧按串口兼容分片发送，并对每个分片使用带响应写入，按 19200 波特率和安全余量动态排空，不重复增加固定等待，必须收到完整 Modbus ACK 才发送下一页；ACK 超时会停止，不会对没有序号的旧 IAP 例程盲目重传；
-- 升级后统一重连并读取软件版本、实时数据验证。
-
-当前 STM32 例程兼容模式能提供文件边界、Modbus CRC16、页 ACK 和升级后通信验证，但例程 IAP 本身没有镜像签名和完整镜像校验，不能单独作为量产级防篡改安全保证。正式量产前必须启用安全 IAP 协议。
+完整支持矩阵、操作及中断恢复见[多项目升级说明](docs/UPGRADE.md)。原Telink说明见[TELINK_OTA_MASTER_AND_WINDOWS_OTA.md](docs/TELINK_OTA_MASTER_AND_WINDOWS_OTA.md)。
 
 ## 客户版发布
 
@@ -354,3 +347,5 @@ BLE整组写要求MTU≥60及桥接模块支持57字节整帧，否则使用直�
 本次仅完成源码及差异审查并补充参数/UI回归断言，未执行测试、构建或EXE发布；须配套本次固件。
 
 内部测试版 AFE 全寄存器、源码调试文件与精确分流器比例：见 [AFE 寄存器调试](docs/AFE_REGISTER_DEBUG.md)。
+
+2026-11-01恢复修复版：Boot C与Modbus应答分片可共存；新D015先只读探测上电窗口，重连后再次核对Boot身份/许可；最终提交断线按结果未知处理并回读。客户/内部/CLI消费共享发送器的一份确认结果。使用与限制见[UPGRADE.md](docs/UPGRADE.md)。

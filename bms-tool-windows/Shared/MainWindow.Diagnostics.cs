@@ -161,7 +161,7 @@ public partial class MainWindow
             }
             if((full || _socRecording) && result.Supported)
                 battery=await client.ReadBatteryAsync(_diagCts.Token);
-            if(!ReferenceEquals(client,_bms)) { result.Errors.Add("采集期间连接改变");result.Status="旧连接的部分证据";ObservationGap("connection_changed_during_capture"); }
+            if(!ReferenceEquals(client,_bms)) { ObservationGap("connection_changed_during_capture");return; }
             var health=BmsHealth.Evaluate(result,identity,battery);
             _diagCapture=result;_diagHealthReport=health;_diagProbedClient=client;
             if (result.EvidenceBlocks.TryGetValue("Sleep", out var sleepWords))

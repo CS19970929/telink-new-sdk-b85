@@ -95,7 +95,7 @@ public sealed class ShortCircuitWindow : Window
         _snapshot = snapshot;
         _device.Text = $"AFE：{snapshot.Info.BackendName} · 分流器 {snapshot.Info.ShuntDisplay} · 短路保护" +
             (((snapshot.Requested[34] & AfeHardwareProtocolMap.CapSc) != 0) ? "已启用" : "已关闭（本页保持开关状态）");
-        bool sh = snapshot.Info.BackendModel == AfeHardwareProtocolMap.ModelSh3673510;
+        bool sh = AfeHardwareProtocolMap.IsSh(snapshot.Info.BackendModel);
         _ocd2.Text = sh
             ? $"OCD2 只读基准：请求 {snapshot.Requested[12] / 10m:0.0} A，有效 {snapshot.Effective[12] / 10m:0.0} A。修改短路不会改变此项。"
             : "本芯片短路阈值独立于 OCD2，修改短路不会改变过流参数。";
@@ -138,7 +138,7 @@ public sealed class ShortCircuitWindow : Window
             MessageBox.Show(this, error, "参数未发送", MessageBoxButton.OK, MessageBoxImage.Warning); return;
         }
         if (candidate.SequenceEqual(_snapshot.Requested)) { _status.Text = "没有待保存的修改。"; return; }
-        ushort effectiveDelay = _snapshot.Info.BackendModel == AfeHardwareProtocolMap.ModelSh3673510
+        ushort effectiveDelay = AfeHardwareProtocolMap.IsSh(_snapshot.Info.BackendModel)
             ? ShDelays.First(d => d >= delay) : (ushort)(((delay * 100u / 781u) * 781u + 50u) / 100u);
         if (MessageBox.Show(this,
                 $"确认保存短路保护？\n\n电流请求 {choice.RequestedA10 / 10m:0.0} A，有效目标 {choice.EffectiveA10 / 10m:0.0} A。\n" +

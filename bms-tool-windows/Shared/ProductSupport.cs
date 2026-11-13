@@ -18,6 +18,12 @@ public static class ProductSupportMatrix
     public static IReadOnlyList<ProductSupportProfile> Products { get; } =
         new ProductSupportProfile[]
         {
+            new("C060", "BQ76930 ×2", "20S split-port", 0, 0, false, null,
+                "C060 identity/realtime/protection/parameter mapping; unified YMODEM format-2 upgrade",
+                "BT-1234567890 BLE upgrade and configuration preservation verified on 2026-11-06; protection behavior and parameter-write board acceptance remain separate"),
+            new("D015", "SH3673520", "0x3520", 0, 2, true, null,
+                "D015 C firmware interop: realtime, protection, MTU23 commit and current calibration",
+                "no D015 physical board validation in this cycle"),
             new(
                 "D008", "DVC1124", "0x1124", 1, 3, true, 2,
                 "firmware build, host contracts, unified diagnostics and client protocol",

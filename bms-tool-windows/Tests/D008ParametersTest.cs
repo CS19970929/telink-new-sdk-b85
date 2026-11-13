@@ -92,6 +92,8 @@ namespace BmsTool.Windows {
  public sealed record AfeHardwareAccessSession(ushort Token);
  public static class BmsRegisters{public const ushort Hardware=0xc012,Software=0xc022;}
  public sealed partial class BmsClient {
+  public bool IsD015 {get;set;}
+
   public bool Supported=true,HeaterSupported=true,FailWrite,FailAccess,AccessActive,MismatchReadback;
   public ushort ProtocolVersion=2,CapabilityFlags=0x007f,FailRead,LastWriteAddress;public int Writes,MaxFrame,Closed,ModeReads;
   private readonly ushort[] serial=new ushort[16];private readonly Dictionary<ushort,ushort[]> saved=new();

@@ -1,5 +1,9 @@
 using System.IO;
 namespace BmsTool.Windows;
+public sealed record FirmwareBuildIdentity(uint BuildId, bool Dirty, bool Production)
+{
+    public string Display => $"{BuildId:x8} · {(Dirty ? "dirty" : "clean")} · {(Production ? "production" : "debug")}";
+}
 public sealed partial class BmsClient
 {
     private bool? _sleepStatusSupported;
@@ -19,6 +23,9 @@ public sealed partial class BmsClient
         return BmsSleepStatus.Decode(await ReadRegistersAsync(BmsSleepStatus.Base, BmsSleepStatus.WordCount, ct));
     }
     public async Task<uint?> TryReadFirmwareBuildIdAsync(CancellationToken ct=default)
+        => (await TryReadFirmwareBuildIdentityAsync(ct))?.BuildId;
+
+    public async Task<FirmwareBuildIdentity?> TryReadFirmwareBuildIdentityAsync(CancellationToken ct=default)
     {
         try
         {
@@ -26,7 +33,7 @@ public sealed partial class BmsClient
             if(words.Length<24 || words[0]!=BmsDiagnostics.Magic || words[1]!=BmsDiagnostics.Schema)
                 return null;
             uint value=BmsDiagnostics.U32(words,22);
-            return value==0?null:value;
+            return value==0 ? null : new FirmwareBuildIdentity(value,(words[13]&8)!=0,(words[13]&4)!=0);
         }
         catch(OperationCanceledException) { throw; }
         catch { return null; }
@@ -55,6 +62,18 @@ public sealed partial class BmsClient
             if(header[0]!=BmsDiagnostics.Magic) {c.Status="固件不支持诊断（magic 不匹配）";return c;}
             if(header[1]!=BmsDiagnostics.Schema) {c.Status=$"未知诊断版本 {header[1]}";return c;}
             c.Supported=true;
+            if(header[2]==0) {
+                // 只声明身份的固件不应被当成完整运行诊断或Trace。
+                var identity=await Read(BmsDiagnostics.Base,24);
+                c.SnapshotConsistent=true;
+                uint build=BmsDiagnostics.U32(identity,22);
+                c.Boot.Add(new DiagnosticField("Firmware Build ID",build==0?"未知":$"{build:x8}"));
+                c.Boot.Add(new DiagnosticField("源码状态",(identity[13]&8)!=0?"dirty（含未提交修改）":"clean"));
+                c.Boot.Add(new DiagnosticField("构建模式",(identity[13]&4)!=0?"production":"debug"));
+                c.Status="仅固件构建标识可用（未提供运行诊断）";
+                return c;
+            }
+
             // The frozen boot block is read separately from the small runtime
             // block: BLE pagination must not require a 200ms sample to stop.
             var words=new ushort[256];

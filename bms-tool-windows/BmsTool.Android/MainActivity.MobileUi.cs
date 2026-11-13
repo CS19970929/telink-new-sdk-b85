@@ -19,8 +19,7 @@ public sealed partial class MainActivity
     private LinearLayout? _cellGrid, _softwarePanel, _hardwarePanel, _serviceActions;
     private Button? _softwareTab, _hardwareTab, _saveSoftwareButton, _saveHardwareButton;
     private readonly HashSet<Button> _connectionRequiredButtons = new();
-    private readonly Queue<string> _visibleLogLines = new();
-    private bool _uiBusy, _logPaused;
+    private bool _uiBusy;
     private DateTimeOffset? _lastBatteryUiUtc;
     private string? _displayedBatteryMac;
 
@@ -55,6 +54,7 @@ public sealed partial class MainActivity
         host.AddView(BuildMobileLogPage());
         host.AddView(BuildMobileDevicePage());
         host.AddView(BuildCellsPage());
+        host.AddView(BuildFirmwarePage());
         root.AddView(host, new LinearLayout.LayoutParams(-1, 0, 1));
 
         var nav = Row();
@@ -140,8 +140,12 @@ public sealed partial class MainActivity
         page.AddView(_cellsView);
         page.AddView(ActionButton("查看全部单体  ›", () => { ShowPage(CellsPage); return Task.CompletedTask; }, false));
         page.AddView(SectionTitle("更多数据"));
-        _summaryView = DataBlock("SOH、循环次数、容量与 MOS 温度等待更新");
+        _summaryView = DataBlock(AppEdition.IsInternal ? "SOH、循环次数、容量与 MOS 温度等待更新" : "循环次数与温度等待更新");
         page.AddView(_summaryView);
+        page.AddView(SectionTitle("设备信息"));
+        _identityView = DataBlock("尚未连接设备");
+        _identityView.SetTextIsSelectable(true);
+        page.AddView(_identityView);
         return Wrap(page);
     }
 
@@ -229,80 +233,37 @@ public sealed partial class MainActivity
 
     private View BuildMobileLogPage()
     {
-        var root = Page();
-        var tabs = Row();
-        var eventsTab = MobileButton("设备事件");
-        var commTab = MobileButton("通信日志");
-        AddEqual(tabs, eventsTab); AddEqual(tabs, commTab);
-        root.AddView(tabs);
-        var host = new FrameLayout(this);
         var page = Page();
-        page.AddView(Note("查看设备记录的事件及相邻记录间隔。"));
+        page.AddView(SectionTitle("设备事件"));
         page.AddView(ActionButton("读取设备事件", ReadEventsAsync));
         _eventView = DataBlock("尚未读取设备事件");
         _eventView.SetTextIsSelectable(true);
         page.AddView(_eventView);
-        var eventsScroll = new ScrollView(this); eventsScroll.AddView(page);
-        host.AddView(eventsScroll);
-        page = Page();
-        var buttons = Row();
-        var pause = ActionButton("暂停显示", () => Task.CompletedTask, false);
-        pause.Click += (_, _) => { _logPaused = !_logPaused; pause.Text = _logPaused ? "继续显示" : "暂停显示"; RenderCommunicationLog(); };
-        AddEqual(buttons, pause);
-        AddEqual(buttons, ActionButton("清空显示", () => { _visibleLogLines.Clear(); _logView!.Text = "暂无通信记录"; return Task.CompletedTask; }, false));
-        AddEqual(buttons, ActionButton("复制", () =>
-        {
-            if (GetSystemService(ClipboardService) is ClipboardManager clipboard)
-                clipboard.PrimaryClip = ClipData.NewPlainText("BMS 通信日志", string.Join("\n", _visibleLogLines));
-            SetStatus("通信日志已复制"); return Task.CompletedTask;
-        }, false));
-        page.AddView(buttons);
-        page.AddView(Note("页面保留最近 200 行；完整通信日志继续写入本机日志文件。暂停显示不影响采集。"));
-        _logView = DataBlock("暂无通信记录");
-        _logView.TextSize = 12;
-        _logView.Typeface = Typeface.Monospace;
-        _logView.SetTextIsSelectable(true);
-        page.AddView(_logView);
-        var commScroll = new ScrollView(this); commScroll.AddView(page);
-        host.AddView(commScroll);
-        root.AddView(host, new LinearLayout.LayoutParams(-1, 0, 1));
-        void Select(bool communication)
-        {
-            eventsScroll.Visibility = communication ? ViewStates.Gone : ViewStates.Visible;
-            commScroll.Visibility = communication ? ViewStates.Visible : ViewStates.Gone;
-            StyleSelection(eventsTab, !communication); StyleSelection(commTab, communication);
-            if (communication) RenderCommunicationLog();
-        }
-        eventsTab.Click += (_, _) => Select(false);
-        commTab.Click += (_, _) => Select(true);
-        Select(false);
-        _pages.Add(root);
-        return root;
+        return Wrap(page);
     }
 
     private View BuildMobileDevicePage()
     {
         var page = Page();
-        page.AddView(SectionTitle("当前设备"));
-        _identityView = DataBlock("尚未连接设备");
-        _identityView.SetTextIsSelectable(true);
-        page.AddView(_identityView);
         _disconnectButton = ActionButton("断开连接", DisposeConnectionAsync);
         page.AddView(_disconnectButton);
         page.AddView(SectionTitle("服务与设备设置"));
         if (AppEdition.IsInternal)
         {
+            page.AddView(ActionButton("固件升级  ›", () => { ShowPage(FirmwarePage); return Task.CompletedTask; }, false));
             page.AddView(ActionButton("业务参数与 SOC 校正  ›", () => { ShowPage(BusinessPage); return Task.CompletedTask; }, false));
             page.AddView(ActionButton("测试工具  ›", () => { ShowPage(ToolsPage); return Task.CompletedTask; }, false));
             page.AddView(ActionButton("高级诊断  ›", () => { ShowPage(DiagnosticsPage); return Task.CompletedTask; }, false));
         }
         else
         {
-            _serviceModeButton = ActionButton("进入服务设置", EnterServiceModeAsync);
+            // Boot recovery needs service access without a successful APP probe.
+            _serviceModeButton = ActionButton("进入服务设置", EnterServiceModeAsync, false);
             page.AddView(_serviceModeButton);
-            _serviceModeStatus = Note("普通模式 · 保护参数与校正入口已收起");
+            _serviceModeStatus = Note("普通模式 · 服务设置已收起");
             page.AddView(_serviceModeStatus);
             _serviceActions = Page();
+            _serviceActions.AddView(ActionButton("固件升级  ›", () => { ShowPage(FirmwarePage); return Task.CompletedTask; }, false));
             _serviceActions.AddView(ActionButton("业务参数、SOC 与电池类型  ›", () => { ShowPage(BusinessPage); return Task.CompletedTask; }, false));
             _serviceActions.AddView(ActionButton("软件 / 硬件保护参数  ›", () => { ShowPage(ProtectionPage); return Task.CompletedTask; }, false));
             _serviceActions.Visibility = ViewStates.Gone;
@@ -310,14 +271,10 @@ public sealed partial class MainActivity
         }
         var connection = Page();
         connection.AddView(Note("扫描附近设备，点击设备名称即可连接；当前连接不会因展开此区域而断开。"));
+        connection.AddView(ActionButton("扫码连接（蓝牙MAC）",StartQrConnectAsync,false));
         connection.AddView(ActionButton("扫描附近的电池", ScanAsync, false));
         _scanResults = new LinearLayout(this) { Orientation = Orientation.Vertical };
         connection.AddView(_scanResults);
-        var manual = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        _macInput = LabeledInput(manual, "设备 MAC", "");
-        _connectButton = ActionButton("连接指定设备", ConnectSelectedAsync, false);
-        manual.AddView(_connectButton);
-        AddFold(connection, "手动连接 / 上次设备", manual);
         AddFold(page, "连接其他电池", connection);
         page.AddView(SectionTitle("应用信息"));
         string appVersion = PackageManager?.GetPackageInfo(PackageName!, PackageInfoFlags.MetaData)?.VersionName ?? "unknown";
@@ -395,20 +352,6 @@ public sealed partial class MainActivity
         card.AddView(toggle); card.AddView(content); parent.AddView(card);
     }
 
-    private void AppendVisibleLog(string line)
-    {
-        _visibleLogLines.Enqueue(line);
-        while (_visibleLogLines.Count > 200) _visibleLogLines.Dequeue();
-        if (!_logPaused && _pages.Count > LogsPage && _pages[LogsPage].Visibility == ViewStates.Visible)
-            RenderCommunicationLog();
-    }
-
-    private void RenderCommunicationLog()
-    {
-        if (_logView is not null && !_logPaused)
-            _logView.Text = _visibleLogLines.Count == 0 ? "暂无通信记录" : string.Join("\n", _visibleLogLines);
-    }
-
     private void RefreshActionAvailability()
     {
         foreach (Button button in _actionButtons)
@@ -429,6 +372,7 @@ public sealed partial class MainActivity
             _dischargeMosButton.Enabled = enabled; _dischargeMosButton.Alpha = enabled ? 1f : 0.4f;
         }
         UpdateProtectionEdits();
+        UpdateC060EditorState();
     }
 
     private void UpdateProtectionEdits()
@@ -500,8 +444,9 @@ public sealed partial class MainActivity
             AddEqual(line!, cell); count++;
         }
         if (line is not null) while (count++ % 3 != 0) AddEqual(line, new View(this));
-        _summaryView!.Text = $"SOH {snapshot.SohPercent}%    循环 {snapshot.CycleCount} 次\n" +
-            $"满充 {snapshot.CapacityFullAh:F2} Ah    额定 {snapshot.CapacityFactoryAh:F2} Ah\n" +
+        _summaryView!.Text = (AppEdition.IsInternal
+            ? $"SOH {snapshot.SohPercent}%    循环 {snapshot.CycleCount} 次\n满充 {snapshot.CapacityFullAh:F2} Ah    额定 {snapshot.CapacityFactoryAh:F2} Ah\n"
+            : $"循环 {snapshot.CycleCount} 次\n") +
             $"电池温度 {snapshot.MinTempC:F1}～{snapshot.MaxTempC:F1} ℃    MOS {snapshot.MosTempC:F1} ℃";
         if (identity is not null)
             _identityView!.Text = $"{identity.BluetoothName}\nMAC  {identity.Mac}\n序列号  {identity.Serial}\n硬件  {identity.Hardware}\n软件  {identity.Software}\nBuild ID  {(buildId.HasValue ? buildId.Value.ToString("x8") : "不可用")}";
@@ -544,7 +489,7 @@ public sealed partial class MainActivity
         _socValue!.Alpha = fresh || !_lastBatteryUiUtc.HasValue ? 1f : 0.45f;
     }
 
-    private sealed class MobileInsetsListener : Java.Lang.Object, View.IOnApplyWindowInsetsListener
+    internal sealed class MobileInsetsListener : Java.Lang.Object, View.IOnApplyWindowInsetsListener
     {
         public WindowInsets OnApplyWindowInsets(View? view, WindowInsets? insets)
         {

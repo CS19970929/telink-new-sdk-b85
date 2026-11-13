@@ -31,8 +31,7 @@ public partial class MainWindow : Window
     private string _connectedName = string.Empty;
     private ConnectionMode _connectionMode = ConnectionMode.Ble;
     private bool _polling;
-    // 客户版无 OTA 和 Flash 耐久操作，供共享通信门禁读取。
-    private bool _otaRunning => false;
+    // 客户版不提供 Flash 耐久操作。
     private bool _shBusy => false;
     private bool _autoReconnectRunning;
     private int _pollFailureCount;
@@ -53,6 +52,7 @@ public partial class MainWindow : Window
 
         Closed += async (_, _) =>
         {
+            _otaCts?.Cancel();
             _pollTimer.Stop();
             StopBleDiscovery();
             await DisposeBmsAsync();
@@ -278,6 +278,7 @@ public partial class MainWindow : Window
             await client.DisposeAsync();
         }
         if (transport is not null) await transport.DisposeAsync();
+        ClearDeviceDisplays();
     }
 
     private void StartAutomaticRefresh()
@@ -302,9 +303,13 @@ public partial class MainWindow : Window
             ? $"串口 {_connectedSerialPort}"
             : _connectedName;
         DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName, ct);
+        var build = await bms.TryReadFirmwareBuildIdentityAsync(ct);
+        await RefreshOptionalDeviceViewAsync("设备时间",()=>RefreshDeviceClockAsync(bms, ct));
         if (!ReferenceEquals(bms, _bms)) return id;
         SetMosIdentity(bms, id);
-        IdentityText.Text = $"蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}";
+        UpdateParameterProfileUi();
+        _identityRefreshRequired = false;
+        IdentityText.Text = $"自动识别：{bms.DeviceModel}\n识别依据：{bms.DeviceDetectionEvidence}\n蓝牙名称：{id.BluetoothName}\nMAC：{id.Mac}\n序列号：{id.Serial}\n硬件版本：{id.Hardware}\n软件版本：{id.Software}\n固件 Build ID：{build?.Display ?? "不可用"}";
         BtNameResultText.Text = id.BluetoothName;
         if (id.BluetoothName.StartsWith("BT_", StringComparison.OrdinalIgnoreCase) ||
             id.BluetoothName.StartsWith("BT-", StringComparison.OrdinalIgnoreCase))
@@ -315,20 +320,31 @@ public partial class MainWindow : Window
     private async Task RefreshBatteryAsync(CancellationToken ct = default)
     {
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-        BatterySnapshot snapshot = await bms.ReadBatteryAsync(ct);
+        BatterySnapshot snapshot;
+        try { snapshot = await bms.ReadBatteryAsync(ct); }
+        catch (NotSupportedException ex) {
+            if (ReferenceEquals(bms, _bms)) {
+                ConnectionText.Text = "已连接：" + bms.DeviceModel;
+                LastUpdateText.Text = ex.Message;
+            }
+            return;
+        }
         if (!ReferenceEquals(bms, _bms)) return;
         ApplyBatterySnapshot(snapshot);
-        await RefreshMosControlStateAsync(bms, default);
-        await RefreshMosMonitorAsync(bms);
-        await RefreshSleepStatusAsync(bms);
+        if (bms.IsC060) return;
+        await RefreshOptionalDeviceViewAsync("MOS许可",()=>RefreshMosControlStateAsync(bms, default));
+        await RefreshOptionalDeviceViewAsync("MOS诊断",()=>RefreshMosMonitorAsync(bms));
+        await RefreshOptionalDeviceViewAsync("休眠状态",()=>RefreshSleepStatusAsync(bms));
+        await RefreshOptionalDeviceViewAsync("设备时间",()=>RefreshDeviceClockAsync(bms));
     }
 
     private void ApplyBatterySnapshot(BatterySnapshot s)
     {
+        UpdateProtectionProductDisplay(_bms?.IsD015 == true);
         RecordMosSnapshot(s);
         PackVoltageText.Text = $"{s.PackVoltageV:F2} V";
         CurrentText.Text = $"{s.CurrentA:+0.0;-0.0;0.0} A（{s.WorkState}）";
-        SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohPercent}%";
+        SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohDisplay}";
         WorkStateText.Text = s.WorkState;
 
         MosStateText.Text =
@@ -343,6 +359,10 @@ public partial class MainWindow : Window
             $"制冷：{OnOff(s.CoolingOn)}\n" +
             $"系统：{(s.PreparingSleep ? "准备休眠" : "运行中")}";
 
+        if (!s.HasSystemStatus) {
+            MosStateText.Text = "MOS状态：设备未提供，当前未知";
+            SystemStateText.Text = "系统状态：设备未提供，当前未知";
+        }
         ProtectionSummaryText.Text = s.ProtectionSummary;
         ProtectionLevelsText.Text =
             $"一级：{s.ProtectionLevel1Text}\n" +
@@ -383,8 +403,14 @@ public partial class MainWindow : Window
         _polling = true;
         try
         {
+            if (_identityRefreshRequired) await RefreshIdentityAsync();
             await RefreshBatteryAsync();
             _pollFailureCount = 0;
+        }
+        catch (BmsModbusException ex)
+        {
+            _pollFailureCount = 0;
+            AppendLog("设备已应答但当前请求不可用；保留连接：" + ex.Message, "POLL");
         }
         catch (Exception ex)
         {
@@ -440,13 +466,17 @@ public partial class MainWindow : Window
 
     private async void ReadProtection_Click(object sender, RoutedEventArgs e)
     {
+        if (_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || _autoReconnectRunning) return;
+        bool ownsTransaction = false;
         try
         {
+            _parameterBusy = ownsTransaction = true;
             _pollTimer.Stop();
+            await WaitForCommunicationIdleAsync();
             await ReadProtectionAsync();
         }
         catch (Exception ex) { ShowError("读取保护参数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (ownsTransaction) _parameterBusy = false; StartAutomaticRefresh(); }
     }
 
     private async Task ReadProtectionAsync()
@@ -454,15 +484,19 @@ public partial class MainWindow : Window
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
         ProtectionStatusText.Text = "正在读取...";
         ushort[] values = await bms.ReadProtectionAllAsync();
+        if (!ReferenceEquals(bms, _bms)) return;
         if (values.Length != _protectionRows.Count)
             throw new IOException($"保护参数数量错误：expected={_protectionRows.Count}, actual={values.Length}");
         for (int i = 0; i < values.Length; i++) _protectionRows[i].LoadFromDevice(values[i]);
-        ProtectionStatusText.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}";
+        ProtectionStatusText.Text = $"读取完成 · {DateTime.Now:HH:mm:ss}" +
+            (bms.IsC060 ? " · C060：Second/Third实际扫描；First用于恢复；Filter单位10ms" : "");
         AppendLog($"保护参数读取完成 count={values.Length}; rawRange=0x2100..0x2140", "PARAM");
     }
 
     private async void WriteSelectedProtection_Click(object sender, RoutedEventArgs e)
     {
+        if (_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || _autoReconnectRunning) return;
+        bool ownsTransaction = false;
         try
         {
             CommitProtectionGridEdits();
@@ -478,20 +512,28 @@ public partial class MainWindow : Window
                     MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
 
+            _parameterBusy = ownsTransaction = true;
             _pollTimer.Stop();
+            await WaitForCommunicationIdleAsync();
             var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-            ushort readback = await bms.WriteReadableRegisterAndVerifyAsync(row.Address, value);
-            row.LoadFromDevice(readback);
+            await bms.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{row.Address,value}},
+                (address, values) => {
+                    if (!ReferenceEquals(bms, _bms)) throw new InvalidOperationException("连接已改变，请重新读取。");
+                    for(int i=0;i<5;i++)_protectionRows.Single(r=>r.Address==address+i).LoadFromDevice(values[i]);
+                });
+            ushort readback = row.DeviceValue;
             ProtectionStatusText.Text = $"{row.CustomerName} 写入并校验成功";
             AppendLog($"PROTECTION_WRITE_OK name='{row.CustomerName}'; address=0x{row.Address:X4}; raw={readback}", "PARAM");
             ShowParameterSaved(ProtectionStatusText.Text);
         }
         catch (Exception ex) { ShowError("写保护参数失败", ex); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (ownsTransaction) _parameterBusy = false; StartAutomaticRefresh(); }
     }
 
     private async void WriteChangedProtection_Click(object sender, RoutedEventArgs e)
     {
+        if (_parameterBusy || _diagBusy || _otaRunning || _eventLogReadInProgress || _shBusy || _autoReconnectRunning) return;
+        bool ownsTransaction = false;
         try
         {
             CommitProtectionGridEdits();
@@ -516,12 +558,14 @@ public partial class MainWindow : Window
                     MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
 
+            _parameterBusy = ownsTransaction = true;
             _pollTimer.Stop();
+            await WaitForCommunicationIdleAsync();
             var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
             await bms.WriteProtectionChangesAsync(
                 changed.ToDictionary(x => x.Row.Address, x => x.Parsed),
-                (address, values) =>
-                {
+                (address, values) => {
+                    if (!ReferenceEquals(bms, _bms)) throw new InvalidOperationException("连接已改变，请重新读取。");
                     for (int j = 0; j < values.Length; j++)
                         _protectionRows.Single(row => row.Address == address + j).LoadFromDevice(values[j]);
                     ProtectionStatusText.Text = $"{ProtectionBatch.Name(address)} 整组写入并校验成功";
@@ -531,7 +575,7 @@ public partial class MainWindow : Window
             ShowParameterSaved(ProtectionStatusText.Text);
         }
         catch (Exception ex) { ShowError("批量写保护参数失败", ex, "不同保护组依次提交，已完成组可能已保存；请重新读取全部参数确认，不要直接重发。"); }
-        finally { StartAutomaticRefresh(); }
+        finally { if (ownsTransaction) _parameterBusy = false; StartAutomaticRefresh(); }
     }
 
     private void CommitProtectionGridEdits()

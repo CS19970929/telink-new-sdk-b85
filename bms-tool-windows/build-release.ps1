@@ -1,7 +1,8 @@
 param(
     [string]$TargetFramework = "net8.0-windows10.0.19041.0",
     [string]$ReleaseTag = (Get-Date -Format "yyyyMMdd-HHmmss"),
-    [string]$ReleaseRoot = (Join-Path (Get-Location) "releases/bms-tool-windows")
+    [string]$ReleaseRoot = (Join-Path (Get-Location) "releases/bms-tool-windows"),
+    [string]$OutputRoot
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,6 +15,11 @@ $customerOutput = Join-Path $releaseDirectory "customer"
 $buildTemp = Join-Path $env:LOCALAPPDATA "CodexTemp\bms-tool-windows\$ReleaseTag"
 $internalOutput = Join-Path $releaseDirectory "internal"
 $cliOutput = Join-Path $releaseDirectory "cli"
+if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) {
+    $customerOutput = Join-Path $OutputRoot 'customer'
+    $internalOutput = Join-Path $OutputRoot 'internal'
+    $cliOutput = Join-Path $OutputRoot 'cli'
+}
 
 function Invoke-Dotnet([string[]]$Arguments) {
     & dotnet @Arguments

@@ -6,6 +6,8 @@ foreach ($file in @(
     "BmsTool.Windows/TelinkOtaProtocol.cs",
     "BmsTool.Windows/ModbusRtu.cs",
     "Shared/TelinkOtaCore.cs",
+    "Shared/D015FirmwarePackage.cs",
+    "Shared/SerialFirmwarePackage.cs",
     "Tests/OtaProtocolTest.cs"
 )) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination $testRoot

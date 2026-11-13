@@ -104,7 +104,7 @@ public partial class MainWindow
 
         var bottom = new TextBlock
         {
-            Text = "安全边界：页面只显示设备 capability 声明支持的语义参数；仅允许显式编辑 SCD 使能（0/1），其他使能位保持现状；启用前必须确认短路电流和延时。WDT/Body-Diode 保持固定配置。写入成功后必须同时满足 requested 回读一致、AFE effective 可读、apply_state=OK。",
+            Text = "安全边界：页面只显示设备 capability 声明支持的语义参数；D015支持按实际硬件分组修改使能（OCD1/2共同控制）；其他型号仍仅开放SCD开关；启用前必须确认短路电流和延时。WDT/Body-Diode 保持固定配置。写入成功后必须同时满足 requested 回读一致、AFE effective 可读、apply_state=OK。",
             TextWrapping = TextWrapping.Wrap,
             Foreground = Brushes.DimGray
         };
@@ -156,6 +156,7 @@ public partial class MainWindow
 
             var client = new AfeHardwareClient(bms);
             AfeHardwareSnapshot snapshot = await client.ReadAllAsync();
+            if (!ReferenceEquals(bms, _bms)) return;
             _afeHardwareModel.Load(snapshot);
             _afeHardwareSource = bms;
             ApplyAfeDeviceInfo(snapshot.Info);
@@ -222,6 +223,7 @@ public partial class MainWindow
 
             _afeHardwareSource = null;
             AfeHardwareSnapshot readback = await client.WriteAllAsync(candidate);
+            if (!ReferenceEquals(bms, _bms)) return;
             _afeHardwareModel.Load(readback);
             _afeHardwareSource = bms;
             ApplyAfeDeviceInfo(readback.Info);

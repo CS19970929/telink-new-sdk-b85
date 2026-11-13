@@ -1,0 +1,207 @@
+{
+  "schema": 1,
+  "created_local": "2026-11-05",
+  "scope": "analysis and proposal only; no product code changes or device interaction",
+  "host": {
+    "path": "D:\\telink\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)",
+    "commit": "7d6ba37ea261d97a931c638de7e2f3c556f09349",
+    "branch": "codex-d015-ymodem-host"
+  },
+  "firmware": {
+    "path": "E:\\sync\\git\\me\\c060\\new c060\\c060",
+    "commit": "c767f4659346350164ff41be44eaa4128a085299",
+    "branch": "new-dev-c060",
+    "note": "New C060 IAP is being developed concurrently; inspect actual worktree and installed Boot separately.",
+    "development_upgrade_observation": "Working tree subsequently added D170/12, D17C/8 and 3500=B007; C002 selector, legacy D120 bounds and conventional parameter windows remain unchanged in the inspected diff. Installed board firmware/Boot is not established."
+  },
+  "observed_log": {
+    "file_name": "BmsAssistant_20261105_200835_606.log",
+    "interval_local": "20:09:05-20:09:07",
+    "transport": "BLE",
+    "mtu": 247,
+    "identity_request": "0103C0120010D803",
+    "response": "01830180F0",
+    "error": "Modbus exception function=0x03, code=0x01.",
+    "interpretation": "C060 address invalid; BLE GATT and legacy Modbus probe succeeded"
+  },
+  "offline_repro": {
+    "kind": "actual C# shared client and native C060 production code using project UART/Flash hardware fixtures",
+    "native_sha256": "46fa4376dda92596fea410d9e3c711d27909299ba976abb2c0b589a141610c62",
+    "expected_exit": 1,
+    "required_missing_capabilities": 3,
+    "identity_failure": "03/C012/16 -> 03/01",
+    "battery_failure": "03/D120/11 -> 03/01",
+    "parameter_failure": "2E00 unsupported; capture.Supported=false",
+    "protection_words": 65,
+    "hardware_validated": false,
+    "writes_to_physical_device": false,
+    "firmware_images_generated": false,
+    "firmware_baseline": "c767f4659346350164ff41be44eaa4128a085299 communication and storage paths; does not validate concurrent IAP changes"
+  },
+  "supported_reads": [
+    {
+      "start": "C002",
+      "words": 48,
+      "result": "PASS length"
+    },
+    {
+      "start": "D000",
+      "words": 63,
+      "result": "PASS length"
+    },
+    {
+      "start": "D115",
+      "words": 2,
+      "result": "PASS length"
+    },
+    {
+      "start": "2100",
+      "words": 65,
+      "result": "PASS length"
+    },
+    {
+      "start": "2300",
+      "words": 56,
+      "result": "PASS length"
+    },
+    {
+      "start": "2000",
+      "words": 94,
+      "result": "PASS length"
+    },
+    {
+      "start": "2200",
+      "words": 86,
+      "result": "PASS length"
+    },
+    {
+      "start": "3000",
+      "words": 21,
+      "result": "PASS length"
+    },
+    {
+      "start": "3050",
+      "words": 21,
+      "result": "PASS length"
+    },
+    {
+      "start": "C008",
+      "words": 100,
+      "result": "PASS length"
+    },
+    {
+      "start": "C001",
+      "words": 70,
+      "result": "PASS length"
+    }
+  ],
+  "source_sha256": [
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/BmsClient.cs",
+      "sha256": "e2969a8370ec973f4dd1c86761f9ed0b38a7f4750dc035172b058a6fa4aa992c"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/BmsClient.ParameterRead.cs",
+      "sha256": "2a6600a44d9bd2c3b1791e9e2f74f231162f2d9b0a6432123dee66f467272adc"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/BmsClient.Parameters.cs",
+      "sha256": "3862c38b78c67968f33537f276cc969bf083170b22a9f197e3a771e36e2695ce"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/ProtectionBatch.cs",
+      "sha256": "58b4d950fcf8a6078e716891d0615da268017de4e120997be1fa9f6c7f2af813"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/MainWindow.Parameters.cs",
+      "sha256": "cc577a0d07599c496033c157aa340b9d0e8b9c18e1fe164bdb790ff1127232eb"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/BmsBleTransport.cs",
+      "sha256": "a6bb162c6b33e717e0ec2b753237df8c7ed28d9806727698b243d432e66d6326"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/ProductSupport.cs",
+      "sha256": "572bc65ebfbb555f9e36501cd872841c3ee8ff18c3c490d484354f05a5e495c6"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/Shared/UpgradeDetection.cs",
+      "sha256": "aba26d34f95de1bbbabbd761e22e1c4b13ffdcaf5354ab461c8e2d4df4e6af09"
+    },
+    {
+      "repository": "host",
+      "path": "bms-tool-windows/BmsTool.Windows/Stm32SerialBleOta.cs",
+      "sha256": "2e2205ebb3ded16ac7d860c6f51bcda294931afaa933dbf5693058caebd04896"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/Source/bms_registers.c",
+      "sha256": "e3d04b8c948a869173b57b23d008888b8a971195f876419e84a35ba130c1f130"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/Source/Sci_Upper.h",
+      "sha256": "59f3ed3c28c5cacbe25d47d385c0260021fa6259fd6d9b5236e9c7c9010b4a40"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/Source/bms_protocol.c",
+      "sha256": "7b64afea9f072c3f29adce6095ef8bf1e90c11bbf45300c68c2e5fa766804e2c"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/Source/uart_port.c",
+      "sha256": "64a95bdb564e0ff9e3d3949b1b4c94558e557615700a64cf49324101f7c67bea"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/Source/DataDeal.h",
+      "sha256": "192e1680659ea6966642fb79afecffdc0c6d2b3f213244b734b929774efe1a47"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/NewFunc/ShortFunc.c",
+      "sha256": "15275eb7044e5c2f4e21acb082e7de026d58a9e73dbc323a97c510aa655aa1e5"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/Source/Heat_Cool.h",
+      "sha256": "14b5d504e46bdffb34a52a7acf1c869899a933eed462e11e29960fbdf129d6d1"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/Source/Fault.c",
+      "sha256": "7f798220bdbdc7d1794535a07a01be62616d3dc661ebc04229bfab945d2b4177"
+    },
+    {
+      "repository": "firmware",
+      "path": "Code/Source/bsp/param.c",
+      "sha256": "8737bf046be0bed8d4748121b1a7f542adc28676d6a12f6ab8118b9e9cb27b67"
+    },
+    {
+      "repository": "firmware",
+      "path": "flash_layout.h",
+      "sha256": "88bdebab5f78add0bc6b5ff05f692b27e82d33e14fd1fd8b3d9d20e98ac10a3b"
+    },
+    {
+      "repository": "firmware",
+      "path": "docs/c060-upgrade.md",
+      "sha256": "bc0a36d3bc10181b5deaafe0474b648ca0724eaecb7380939ca906a77688d64b"
+    }
+  ],
+  "limitations": [
+    "Read windows validated in a model, not on a physical board.",
+    "No production fix was applied; the regression is intentionally red.",
+    "Existing current-calibration read windows do not expose all data required by their write format.",
+    "Runtime timing, flash stalls, actual BLE module fragmentation and installed Boot version remain hardware acceptance items."
+  ],
+  "source_hash_scope": "Observed worktree snapshot while a separate C060 upgrade task was modifying files; not a manifest for the earlier native fixture DLL. Native fixture is pinned by its own SHA-256 and the c767 communication baseline. New upgrade paths were not exercised by that DLL."
+}
