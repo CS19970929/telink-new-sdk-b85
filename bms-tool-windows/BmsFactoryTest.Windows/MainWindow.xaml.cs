@@ -45,6 +45,8 @@ public partial class MainWindow : Window
         InitializeBleDiscoveryUi();
         AddMosControlPanel();
         InitializeUiLog();
+        AddC11ValidationTab();
+        AddFaultInjectionTab();
         Loaded += (_, _) => { if (_diagTimer is null) AddDiagnosticTab(); };
         DeviceList.ItemsSource = _devices;
         SerialPortList.ItemsSource = _serialPorts;
@@ -367,6 +369,8 @@ public partial class MainWindow : Window
 
     private async Task DisposeBmsCoreAsync()
     {
+        await CloseFaultInjectionAsync();
+        await CloseC11Async();
         InvalidateCurrentCalibrationConnection();
         ResetMosControlUi();
         _mosCts?.Cancel();
@@ -457,6 +461,9 @@ public partial class MainWindow : Window
             $"放电 MOS：{OnOff(s.DischargeMosOn)}\n" +
             $"预充 MOS：{OnOff(s.PrechargeMosOn)}";
 
+        if (s.FaultInjection is { DriverValid: false } || s.FaultInjectionStateUnknown)
+            MosStateText.Text = "充电 MOS：未知\n放电 MOS：未知\nAFE 状态回读失效或过期";
+
         SystemStateText.Text =
             $"AFE：{(s.Afe1On ? "工作" : "未工作")}\n" +
             $"均衡：{(s.BalancingOn ? "进行中" : "未进行")}\n" +
@@ -468,13 +475,13 @@ public partial class MainWindow : Window
             MosStateText.Text = "MOS状态：设备未提供，当前未知";
             SystemStateText.Text = "系统状态：设备未提供，当前未知";
         }
-        ProtectionSummaryText.Text = s.ProtectionSummary;
         ProtectionLevelsText.Text =
             $"一级：{s.ProtectionLevel1Text}\n" +
             $"二级：{s.ProtectionLevel2Text}\n" +
             $"三级：{s.ProtectionLevel3Text}";
 
         TempsText.Text = $"最高温度：{s.MaxTempC:F1} °C\n最低温度：{s.MinTempC:F1} °C\nMOS 温度：{s.MosTempC:F1} °C";
+        TempsText.ToolTip = FactoryCellTempText.ToolTip = null;
         CellExtremeText.Text = $"最高：{s.MaxCellMv} mV（第 {s.MaxCellPosition} 串）\n最低：{s.MinCellMv} mV（第 {s.MinCellPosition} 串）\n压差：{s.CellDeltaMv} mV";
         CapacityText.Text = $"当前容量：{s.CapacityNowAh:F2} Ah\n满充容量：{s.CapacityFullAh:F2} Ah\n工厂容量：{s.CapacityFactoryAh:F2} Ah\n循环次数：{s.CycleCount}";
         CellsText.Text = string.Join("    ", s.CellMillivolts

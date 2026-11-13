@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\BmsClient.FaultInjection.cs" Link="Shared\BmsClient.FaultInjection.cs" />
+    <Compile Include="..\Shared\BmsClient.C11Validation.cs" Link="Shared\BmsClient.C11Validation.cs" />
+    <Compile Include="..\Shared\C11ValidationModels.cs" Link="Shared\C11ValidationModels.cs" />
+    <Compile Include="..\Shared\C11ValidationRunner.cs" Link="Shared\C11ValidationRunner.cs" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
   </ItemGroup>
 

@@ -352,6 +352,9 @@ public partial class MainWindow : Window
             $"放电 MOS：{OnOff(s.DischargeMosOn)}\n" +
             $"预充 MOS：{OnOff(s.PrechargeMosOn)}";
 
+        if (s.FaultInjection is { DriverValid: false } || s.FaultInjectionStateUnknown)
+            MosStateText.Text = "充电 MOS：未知\n放电 MOS：未知\nAFE 状态回读失效或过期";
+
         SystemStateText.Text =
             $"AFE：{(s.Afe1On ? "工作" : "未工作")}\n" +
             $"均衡：{(s.BalancingOn ? "进行中" : "未进行")}\n" +
@@ -363,7 +366,6 @@ public partial class MainWindow : Window
             MosStateText.Text = "MOS状态：设备未提供，当前未知";
             SystemStateText.Text = "系统状态：设备未提供，当前未知";
         }
-        ProtectionSummaryText.Text = s.ProtectionSummary;
         ProtectionLevelsText.Text =
             $"一级：{s.ProtectionLevel1Text}\n" +
             $"二级：{s.ProtectionLevel2Text}\n" +

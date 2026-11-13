@@ -274,6 +274,7 @@ public static class ModbusRtu
             if (buffer.Count < 4) return null;
             byte command = buffer[2];
             byte status = buffer[3];
+            if(command>=0x10) return status!=0 ? 6 : (buffer.Count>=5 ? buffer[4]+7 : null);
             return command switch
             {
                 0x01 => status == 0 ? 12 : 6,
@@ -289,6 +290,7 @@ public static class ModbusRtu
             if (buffer.Count < 4) return null;
             byte command = buffer[2];
             byte status = buffer[3];
+            if(command>=0x10) return status!=0 ? 6 : (buffer.Count>=5 ? buffer[4]+7 : null);
             if (status != 0) return 6;
             return command switch
             {
@@ -307,6 +309,7 @@ public static class ModbusRtu
             if (buffer.Count < 4) return null;
             byte command = buffer[2];
             byte status = buffer[3];
+            if(command>=0x10) return status!=0 ? 6 : (buffer.Count>=5 ? buffer[4]+7 : null);
             if (status != 0) return 6;
             return command switch
             {

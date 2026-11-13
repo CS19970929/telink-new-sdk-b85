@@ -189,11 +189,6 @@ public partial class MainWindow
             control is { DriverStateValid: true } ? control.ChargeDriverOn : TryGetSwitchState(mos, "充电 MOS"));
         SetLamp(CustomerDischargeMosLamp, CustomerDischargeMosText, mosUnknown ? null :
             control is { DriverStateValid: true } ? control.DischargeDriverOn : TryGetSwitchState(mos, "放电 MOS"));
-
-        string system = SystemStateText.Text ?? string.Empty;
-        string afe = ExtractValue(system, @"AFE：([^\r\n]+)", "—");
-        string systemState = ExtractValue(system, @"系统：([^\r\n]+)", "—");
-        CustomerSystemMonitorText.Text = $"AFE：{afe}    系统：{systemState}";
     }
 
     private static bool? TryGetSwitchState(string source, string label)

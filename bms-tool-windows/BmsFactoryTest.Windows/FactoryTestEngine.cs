@@ -95,6 +95,7 @@ public sealed class FactoryTestEngine
 
             _log(onlyCaseName is null ? "进入 RAM-only Factory Session..." : $"进入 RAM-only Factory Session，单项测试：{onlyCaseName}...");
             session = await client.FactoryOpenAsync(ct);
+            if (session.ProtocolVersion >= 2) throw new IOException("C11 v2 请使用 C11 软件验证页面，旧三级脚本不适用。");
             _log($"会话已建立 token=0x{session.Token:X4} timeout={session.TimeoutSeconds}s protocol=v{session.ProtocolVersion}");
             _sessionUpdated?.Invoke($"已建立 · token=0x{session.Token:X4} · 超时 {session.TimeoutSeconds}s · 协议 v{session.ProtocolVersion}");
             ushort[] parameters = await client.ReadProtectionAllAsync(ct);
@@ -139,6 +140,7 @@ public sealed class FactoryTestEngine
                 }
                 catch (Exception ex) { _log("finally：关闭会话失败：" + ex.Message); }
             }
+            report.Passed = report.Passed && report.CleanupCompleted && report.Steps.Any(x => x.Stage != "跳过");
             report.FinishedAt = DateTimeOffset.Now;
         }
         return report;

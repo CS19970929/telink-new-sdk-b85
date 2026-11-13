@@ -69,6 +69,8 @@ public sealed class BatterySnapshot
     public ushort ProtectionLevel1Raw { get; init; }
     public ushort ProtectionLevel2Raw { get; init; }
     public ushort ProtectionLevel3Raw { get; init; }
+    public BmsFaultInjectionStatus? FaultInjection { get; init; }
+    public bool FaultInjectionStateUnknown { get; init; }
     public IReadOnlyList<ushort> CellMillivolts { get; init; } = Array.Empty<ushort>();
     // D03D: 第 1～16 串；D03E 低 8 位: 第 17～24 串。状态来自 AFE 最后一次回读。
     public uint BalanceCellMask { get; init; }
@@ -98,11 +100,32 @@ public sealed class BatterySnapshot
     public bool CbcCloseIo => Bit(17);
     public bool DriverExternalControl => Bit(18);
 
-    public bool HasProtection => (ProtectionLevel1Raw | ProtectionLevel2Raw | ProtectionLevel3Raw) != 0;
-    public string ProtectionSummary => HasProtection ? "保护中" : "正常";
+    public bool HasProtection => (ProtectionLevel1Raw | ProtectionLevel2Raw | ProtectionLevel3Raw) != 0 ||
+        FaultInjection is { HasInjectedFault: true } or { Hold: true };
+    public string ProtectionSummary => FaultInjectionStateUnknown ? "状态未知" : HasProtection ? "保护中" : "正常";
     public string ProtectionLevel1Text => DecodeProtection(ProtectionLevel1Raw);
     public string ProtectionLevel2Text => DecodeProtection(ProtectionLevel2Raw);
-    public string ProtectionLevel3Text => DecodeProtection(ProtectionLevel3Raw);
+    public string ProtectionLevel3Text
+    {
+        get
+        {
+            var text = new List<string>();
+            string common = DecodeProtection((ushort)(ProtectionLevel3Raw & 0x3fff));
+            if (common != "无") text.Add(common);
+            if ((ProtectionLevel3Raw & 0x4000) != 0 || FaultInjection?.AfeCommunicationFault == true)
+                text.Add("AFE通信失效保护");
+            if ((ProtectionLevel3Raw & 0x8000) != 0) text.Add("NTC采样断线保护");
+            if (FaultInjection?.CurrentShuntDriftFault == true) text.Add("电流采样电阻漂移失效");
+            if (FaultInjection?.PrimaryCutoffFault == true) text.Add("一级关断电路失效");
+            if (FaultInjection is { PrimaryCutoffFault: true, SecondaryShutdownActive: true })
+                text.Add("二级关断电路启用");
+            if (FaultInjection is { McuFaults: not 0 })
+                text.Add(FaultInjection.McuText);
+            if (FaultInjection?.Hold == true && text.Count == 0) text.Add("安全保持关断");
+            if (FaultInjectionStateUnknown) text.Add("故障状态未确认（状态读取超时）");
+            return text.Count == 0 ? "无" : string.Join("、", text);
+        }
+    }
 
     private bool Bit(int bit) => (SystemStatus & (1u << bit)) != 0;
 
@@ -516,6 +539,17 @@ public sealed partial class BmsClient : IAsyncDisposable
             await TryReadOptionalRegistersAsync(BmsRegisters.Realtime, 11, ct).ConfigureAwait(false) ?? Array.Empty<ushort>();
         _realtimeAvailable = realtime.Length >= 11 && realtime[0] == BmsRegisters.RealtimeMagic;
         DateTimeOffset realtimeReadUtc = DateTimeOffset.UtcNow;
+        var injection = await TryReadFaultInjectionAsync(ct).ConfigureAwait(false);
+        // The extended error window belongs to the qualified C11 protocol.
+        // Other devices retain their existing optional D115 status reads.
+        ushort[]? errorsAndStatus = injection is null ? null
+            : await ReadRegistersAsync(0xD109, 14, ct).ConfigureAwait(false);
+        uint systemStatus = errorsAndStatus is null ? (uint)status[0] | ((uint)status[1] << 16)
+            : (uint)errorsAndStatus[12] | ((uint)errorsAndStatus[13] << 16);
+        ushort c11DiagnosticFaults = (ushort)((errorsAndStatus is not null && (errorsAndStatus[0] & 0xff00) != 0 ? 0x4000 : 0) |
+            (errorsAndStatus is not null && (errorsAndStatus[11] & 0xff00) != 0 ? 0x8000 : 0));
+        if (injection?.DriverValid == true)
+            systemStatus = (systemStatus & ~12u) | ((uint)injection.DriverMos << 2);
         bool rt = realtime.Length >= 11 && realtime[0] == BmsRegisters.RealtimeMagic;
 
         ushort chg = legacy[50];
@@ -561,13 +595,15 @@ public sealed partial class BmsClient : IAsyncDisposable
             CapacityNowAh = legacy[54] / 100.0,
             CapacityFullAh = legacy[55] / 100.0,
             CapacityFactoryAh = legacy[56] / 100.0,
-            HasSystemStatus = statusRead is not null,
-            SystemStatus = (uint)status[0] | ((uint)status[1] << 16),
+            HasSystemStatus = statusRead is not null || errorsAndStatus is not null,
+            SystemStatus = systemStatus,
+            FaultInjection = injection,
+            FaultInjectionStateUnknown = FaultInjectionStateUnknown,
             ProtocolVersion = rt ? realtime[1] : (ushort)0,
             UsesRealtimeWindow = rt,
             ProtectionLevel1Raw = legacy[58],
             ProtectionLevel2Raw = legacy[59],
-            ProtectionLevel3Raw = legacy[60],
+            ProtectionLevel3Raw = (ushort)(legacy[60] | c11DiagnosticFaults),
             BalanceCellMask = (uint)legacy[61] | ((uint)(legacy[62] & 0x00FFu) << 16),
             // The first 32 Legacy words are protocol slots, not the configured
             // series count.  61001 marks a slot that is not physically present.

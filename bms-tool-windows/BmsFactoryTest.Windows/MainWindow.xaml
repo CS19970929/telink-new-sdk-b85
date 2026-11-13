@@ -288,9 +288,6 @@
                             <GroupBox Grid.Row="3" Header="系统监控信息" Style="{StaticResource CustomerGroupBox}">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="5">
-                                    <TextBlock x:Name="ProtectionSummaryText" FontWeight="Bold" Text="—"/>
-                                    <TextBlock x:Name="CustomerSystemMonitorText" Margin="0,5,0,0" Text="—" TextWrapping="Wrap"/>
-                                    <Separator Margin="0,8,0,6"/>
                                     <TextBlock Text="实时休眠状态" FontWeight="SemiBold"/>
                                     <TextBlock x:Name="SleepStatusText" Margin="0,5,0,0" Text="未连接，无法确认设备是否休眠" TextWrapping="Wrap"
                                                ToolTip="随实时监控刷新。剩余时间由固件提供；时间到期后仍须通过门禁。断连不能证明设备已休眠。BLE连接和通信读取可能阻止休眠。"/>
