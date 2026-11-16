@@ -478,6 +478,57 @@
           </Files>
         </Group>
         <Group>
+          <GroupName>IAP</GroupName>
+          <Files>
+            <File>
+              <FileName>ct_iap_main.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\iap\ct_iap_main.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_iap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\iap\ct_iap.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>CMSIS</GroupName>
           <Files>
             <File>
@@ -599,6 +650,11 @@
               <FileName>ct_modbus_bridge.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\source\app\ct_modbus_bridge.h</FilePath>
+            </File>
+            <File>
+              <FileName>ct_iap.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\iap\ct_iap.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -979,6 +1035,394 @@
       </TargetOption>
       <Groups>
         <Group>
+          <GroupName>App</GroupName>
+          <Files>
+            <File>
+              <FileName>main.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\main.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_app.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_protocol.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_protocol.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_owc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_owc.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_modbus_bridge.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_modbus_bridge.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_crc16.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_crc16.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_debug_log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_debug_log.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_flash_store.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_flash_store.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_can_gateway.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_can_gateway.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_upgrade_manager.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_upgrade_manager.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_boot_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_boot_control.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_self_iap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\app\ct_self_iap.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>BSP</GroupName>
+          <Files>
+            <File>
+              <FileName>board.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\bsp\board.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>ct_watchdog.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\bsp\ct_watchdog.c</FilePath>
+            </File>
+            <File>
+              <FileName>board_uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\bsp\board_uart.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>board_owc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\bsp\board_owc.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>board_can.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\bsp\board_can.c</FilePath>
+              <FileOption>
+                <CommonProperty>
+                  <UseCPPCompiler>0</UseCPPCompiler>
+                  <RVCTCodeConst>0</RVCTCodeConst>
+                  <RVCTZI>0</RVCTZI>
+                  <RVCTOtherData>0</RVCTOtherData>
+                  <ModuleSelection>0</ModuleSelection>
+                  <IncludeInBuild>0</IncludeInBuild>
+                  <AlwaysBuild>0</AlwaysBuild>
+                  <GenerateAssemblyFile>0</GenerateAssemblyFile>
+                  <AssembleAssemblyFile>0</AssembleAssemblyFile>
+                  <PublicsOnly>0</PublicsOnly>
+                  <StopOnExitCode>3</StopOnExitCode>
+                  <CustomArgument />
+                  <IncludeLibraryModules />
+                </CommonProperty>
+                <FileArmAds />
+              </FileOption>
+            </File>
+            <File>
+              <FileName>stm32f10x_it.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\source\stm32f10x_it.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
           <GroupName>IAP</GroupName>
           <Files>
             <File>
@@ -990,16 +1434,6 @@
               <FileName>ct_iap.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\source\iap\ct_iap.c</FilePath>
-            </File>
-            <File>
-              <FileName>ct_watchdog.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\source\bsp\ct_watchdog.c</FilePath>
-            </File>
-            <File>
-              <FileName>stm32f10x_it.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\source\stm32f10x_it.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1067,9 +1501,9 @@
           <GroupName>Headers</GroupName>
           <Files>
             <File>
-              <FileName>ct_iap.h</FileName>
+              <FileName>ct_board_port.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\source\iap\ct_iap.h</FilePath>
+              <FilePath>..\source\app\ct_board_port.h</FilePath>
             </File>
             <File>
               <FileName>ct_config.h</FileName>
@@ -1077,14 +1511,59 @@
               <FilePath>..\source\app\ct_config.h</FilePath>
             </File>
             <File>
+              <FileName>ct_debug_log.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\app\ct_debug_log.h</FilePath>
+            </File>
+            <File>
+              <FileName>main.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\main.h</FilePath>
+            </File>
+            <File>
+              <FileName>board.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\bsp\board.h</FilePath>
+            </File>
+            <File>
               <FileName>ct_watchdog.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\source\bsp\ct_watchdog.h</FilePath>
             </File>
             <File>
+              <FileName>board_uart.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\bsp\board_uart.h</FilePath>
+            </File>
+            <File>
+              <FileName>board_can.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\bsp\board_can.h</FilePath>
+            </File>
+            <File>
               <FileName>stm32f10x_it.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\source\stm32f10x_it.h</FilePath>
+            </File>
+            <File>
+              <FileName>ct_boot_control.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\app\ct_boot_control.h</FilePath>
+            </File>
+            <File>
+              <FileName>ct_self_iap.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\app\ct_self_iap.h</FilePath>
+            </File>
+            <File>
+              <FileName>ct_modbus_bridge.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\app\ct_modbus_bridge.h</FilePath>
+            </File>
+            <File>
+              <FileName>ct_iap.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\source\iap\ct_iap.h</FilePath>
             </File>
           </Files>
         </Group>

@@ -22,29 +22,31 @@ def prepare(target: str, output: Path, images: bool = False) -> Path:
     selected = next((t for t in targets if t.findtext("TargetName") == target), None)
     if selected is None:
         raise ValueError("未知target: " + target)
-    for item in list(targets):
-        if item is not selected:
-            targets.remove(item)
-    # 所有源文件仍指向唯一源码；只有工程副本和构建产物写到临时区。
-    for node in selected.findall(".//FilePath"):
-        node.text = str((PROJECT.parent / node.text.replace("\\", "/")).resolve())
-        if not Path(node.text).is_file():
-            raise FileNotFoundError(node.text)
-    for node in selected.findall(".//IncludePath"):
-        if node.text:
-            node.text = ";".join(str((PROJECT.parent / part.replace("\\", "/")).resolve())
-                                 for part in node.text.split(";") if part)
-    common = selected.find("TargetOption/TargetCommonOption")
-    common.find("OutputDirectory").text = str(output / "objects") + "\\"
-    common.find("CreateHexFile").text = "1" if images else "0"
-    for node in selected.findall(".//ListingPath"):
-        node.text = str(output / "listings") + "\\"
-    for section in ("BeforeMake", "AfterMake", "BeforeCompile"):
-        for node in common.findall(section + "/*"):
-            if node.tag.startswith("RunUserProg"):
-                node.text = "0"
-    for child in ("objects", "listings"):
-        (output / child).mkdir(parents=True, exist_ok=True)
+    # Preserve the complete multi-target project: removing the other target hid
+    # uVision's group/file merging and duplicate RESET sections during IDE use.
+    for item in targets:
+        target_output = output if item is selected else output / item.findtext("TargetName")
+        # Point both targets to the same canonical source files; only the project
+        # copy, logs and build products live in the user temporary directory.
+        for node in item.findall(".//FilePath"):
+            node.text = str((PROJECT.parent / node.text.replace("\\", "/")).resolve())
+            if not Path(node.text).is_file():
+                raise FileNotFoundError(node.text)
+        for node in item.findall(".//IncludePath"):
+            if node.text:
+                node.text = ";".join(str((PROJECT.parent / part.replace("\\", "/")).resolve())
+                                     for part in node.text.split(";") if part)
+        common = item.find("TargetOption/TargetCommonOption")
+        common.find("OutputDirectory").text = str(target_output / "objects") + "\\"
+        common.find("CreateHexFile").text = "1" if images else "0"
+        for node in item.findall(".//ListingPath"):
+            node.text = str(target_output / "listings") + "\\"
+        for section in ("BeforeMake", "AfterMake", "BeforeCompile"):
+            for node in common.findall(section + "/*"):
+                if node.tag.startswith("RunUserProg"):
+                    node.text = "0"
+        for child in ("objects", "listings"):
+            (target_output / child).mkdir(parents=True, exist_ok=True)
     path = output / PROJECT.name
     ET.indent(tree, space="  ")
     tree.write(path, encoding="utf-8", xml_declaration=True)
@@ -107,7 +109,8 @@ def main() -> int:
                                     "-o", str(log)], timeout=180)
         text = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
         # Keil日志可能是GBK；不以进程返回码代替产物检查。
-        artifacts = list((output / "objects").glob("*.axf"))
+        artifact = output / "objects" / (args.target + ".axf")
+        artifacts = [artifact] if artifact.is_file() else []
         if completed.returncode > 1 or "0 Error(s)" not in text or not artifacts:
             print(text)
             return 1

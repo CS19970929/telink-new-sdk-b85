@@ -8,11 +8,14 @@
 
 工程：../../firmware/comm_tool_f103ret6/keil/COMM_TOOL_F103RET6.uvprojx。
 同一工程有 COMM_TOOL_Release（App）和 COMM_TOOL_IAP 两个独立 target；目标 STM32F103RET6，沿用 ARMCC 与 StdPeriph，不切换 HAL。
+两个 target 的 Groups/Files 必须保持完全相同的顺序和唯一文件清单；App/IAP 专用源文件通过各 target 的 `Include in Target Build`（`FileOption/CommonProperty/IncludeInBuild`）排除，共用启动文件、watchdog、异常处理和标准库各保留一份。不要靠在两个 target 中分别增删同一路径表达编译归属，Keil 打开/保存时可能合并文件树，导致重复 `RESET, +First` 和 L6235E。
 IAP 为 [0x08000000,0x08008000)，App 为 [0x08008000,0x08018000)，缓存从0x08018000开始、元数据页0x0807F800；SRAM末32字节给0x2000FFE0 mailbox。
 Comm Tool 自身升级与被升级 BMS 的地址合同不同，不能互换。
 
 使用 tools/comm-tool/build_comm_tool.py 构建；默认仅生成 AXF/MAP/LST，项目副本、日志和缓存在用户临时区。
+构建入口始终保留完整双 target 工程，通过 `-t` 选择编译目标；两个 target 的输出都重定向到临时区，并关闭自定义后处理。
 可用 --prepare-only 准备临时工程；需要HEX时显式加 --images。本次迁移不生成BIN，不烧录。
+`python -B tools/comm-tool/check_comm_tool_keil.py` 检查两个 target 的有序文件清单、启动/入口归属和临时工程准备结果，不调用编译器。
 供应商文件现在位于 firmware/comm_tool_f103ret6/vendor，不再依赖旧103 + 309目录。
 
 ## 维护工具
@@ -40,7 +43,8 @@ App0.2.7支持自动/A1.3.3/锂神模式，旧0x43/0x44兼容。Windows客户/�
 控制只影响接收器；没有通过一线通修改BMS发送协议、业务参数或执行升级。
 维护Python新协议测试：py -3.9 -B tools/comm-tool/check_comm_tool_owc_dual_host.py。
 双协议C/BSP回放26项、Python维护新协议7组及旧快照4组、C#生产模型/协商68项、两版实际WPF窗口检查通过。
-App/IAP ARMCC编译零错误零警告，AXF入口及分配段范围验证通过；未生成BIN、刷Comm Tool或执行新协议实板验收。
+IDE 保存、重新打开的自动验证被用户按 Esc 中止，此项尚未完成；上述结果是完整双 target 工程的 UV4 命令行编译结果。
+初次迁移的 App/IAP 临时编译只保留单 target，未覆盖双 target 在 Keil IDE 中合并文件树的行为，随后发现 L6235E。修正文件归属并让构建入口保留完整双 target 后，App/IAP ARMCC编译均零错误零警告，AXF入口及分配段范围验证通过；未生成BIN、刷Comm Tool或执行新协议实板验收。
 build-keil技能脚本因缺少tool_config共享模块未能运行，实际构建使用本机UV4.exe和本仓库外置输出入口，日志随发布记录。
 
 维护工具使用：
