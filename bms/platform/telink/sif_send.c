@@ -38,6 +38,12 @@ _attribute_ram_code_ void sif_timer_irq_handler(void)
 
 #if BMS_PRODUCT_SIF_ENABLE
 
+#if BMS_PRODUCT_SIF_PROTOCOL != BMS_SIF_PROTOCOL_A133 && \
+    BMS_PRODUCT_SIF_PROTOCOL != BMS_SIF_PROTOCOL_LISHEN_V111
+#error "Unsupported BMS_PRODUCT_SIF_PROTOCOL"
+#endif
+
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_A133
 /* 构造 SIF 私有单体电压包，只使用有效串数。 */
 static void sif_send_private_cell_voltages(void);
 /* 使用已提交的配置 SN 构造电池编码；不使用共享的编译默认身份。 */
@@ -46,6 +52,10 @@ static void sif_send_private_battery_code(void);
 static void sif_send_private_realtime_info(void);
 /* 构造公共 SIF 报告包供定时器发送。 */
 static void sif_send_public_packet(void);
+#else
+/* 按锂神 V1.1.1 构造固定 6 字节报文；无效测量不发送。 */
+static uint8_t sif_send_lishen_packet(void);
+#endif
 
 /* 停止单线发送并释放输出状态。 */
 static inline void sif_turn_off(void)
@@ -59,16 +69,27 @@ static inline void sif_turn_on(void)
     gpio_write(BMS_BOARD_OWC_TX_PIN, 1);
 }
 
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_LISHEN_V111
+/* TIMER0 每 500us 计一次：同步 62/2ms、位周期 6ms、结束 25/2ms。 */
+#define SIF_SYNC (2u * (62u + 2u))
+#define SIF_SYNC_LOW_TICKS (2u * 62u)
+#define SIF_STOP_LOW_TICKS (2u * 25u)
+#define SIF_STOP_TICKS (2u * (25u + 2u))
+#define SIF_SEND_COUNT 12u
+#define SIF_LISHEN_BYTES 6u
+#else
 #define SIF_INVALID_U8 0xffu
 #define SIF_INVALID_U16 0xffffu
 /* 高4位主版本1、低4位次版本3；文档A1.3.3的末位修订号不另占线字节。 */
 #define SIF_PROTOCOL_VERSION 0x13u
 #define SIF_CELL_PERIOD_TICKS (60000000u * SYSTEM_TIMER_TICK_1US)
 #define SIF_STARTUP_CODE_PACKETS 3u
-
-#define SIF_SYNC (2 * (10 + 1))
-#define SIF_STOP (2 * 5)
-#define SIF_SEND_COUNT 4
+/* A1.3.3：同步 10/1ms、每位 2ms、结束低电平 5ms。 */
+#define SIF_SYNC (2u * (10u + 1u))
+#define SIF_SYNC_LOW_TICKS (2u * 10u)
+#define SIF_STOP (2u * 5u)
+#define SIF_SEND_COUNT 4u
+#endif
 
 static volatile uint8_t sif_sync_tosc = 0;
 static volatile uint8_t sif_send_tosc = 0;
@@ -78,20 +99,24 @@ static volatile uint8_t byte_cnt = 0;
 
 static volatile uint8_t sif_send_length = 0;
 
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_A133
 /* 显式表达遗留 TC32 -fpack-struct 线格式，不直接发送本机结构体映像。 */
 #define SIF_PUBLIC_BYTES 20u
 #define SIF_REALTIME_BYTES 33u
 #define SIF_CELL_BYTES (4u + 2u * BMS_PRODUCT_CELL_COUNT)
 typedef char sif_cell_packet_fits[(SIF_CELL_BYTES <= 64u) ? 1 : -1];
+#endif
 static uint8_t s_packets[2][64];
 static uint8_t s_packet_lengths[2];
 static volatile uint8_t s_active_packet;
 static volatile uint8_t s_packet_ready;
 static volatile uint8_t s_prepare_packet;
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_A133
 static uint8_t s_iswakeup = 1u, s_public_count;
 static uint32_t s_cell_packet_tick;
 static uint8_t s_first_cell_packet = 1u;
 static uint8_t s_code_packet_due;
+#endif
 static volatile uint8_t s_restart_packets;
 static volatile uint8_t s_return_to_idle;
 static uint32_t s_prepared_sample_tick;
@@ -116,12 +141,14 @@ void sif_set_bus_active(uint8_t active)
     }
 }
 
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_A133
 /* 将 16 位值按 SIF 小端线格式写入包。 */
 static void sif_put_u16le(uint8_t *p, uint16_t value)
 {
     p[0] = (uint8_t)value;
     p[1] = (uint8_t)(value >> 8);
 }
+#endif
 
 /* 计算 SIF 包的累加校验值。 */
 static uint8_t sum_verify(const uint8_t *data, uint16_t length)
@@ -137,6 +164,7 @@ static uint8_t sum_verify(const uint8_t *data, uint16_t length)
     return (uint8_t)(res & 0xff);
 }
 
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_A133
 /* A1.3.3 表 A.4：保护优先于异常报警，再优先于预警。
  * 只映射已有状态，不从 MOS 过温猜测 MOS 损坏，也不新增保护阈值。 */
 static uint8_t sif_fault_code(void)
@@ -169,6 +197,7 @@ static uint8_t sif_fault_code(void)
     if (fault->discharge_utp) code = 0x09u;
     return code;
 }
+#endif
 
 /* 处理 SIF 包发送状态；未启用产品保留空入口。 */
 void sif_send_data_handle(void)
@@ -219,7 +248,7 @@ void sif_send_data_handle(void)
         break;
     case SYNC_SIGNAL:
 
-        if (sif_sync_tosc < SIF_SYNC - 1 * 2)
+        if (sif_sync_tosc < SIF_SYNC_LOW_TICKS)
         {
             sif_turn_off();
         }
@@ -247,6 +276,16 @@ void sif_send_data_handle(void)
 
         sif_send_tosc = sif_send_tosc % count;
 
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_LISHEN_V111
+        /* 文档第2页图示按 MSB 先发；各位均先低后高。 */
+        uint8_t data = (uint8_t)((p[byte_cnt] >> (7u - (uint8_t)bit_cnt)) & 0x1u);
+        if (sif_send_tosc < (data ? 4u : 8u))
+            sif_turn_off();
+        else
+            sif_turn_on();
+        if (++sif_send_tosc >= SIF_SEND_COUNT)
+            sif_send_tosc = 0u;
+#else
         uint8_t data = (p[byte_cnt] >> bit_cnt) & 0x1;
 
         if (data)
@@ -287,6 +326,8 @@ void sif_send_data_handle(void)
                 sif_send_tosc++;
             }
         }
+#endif
+
         if (sif_send_tosc == 0)
         {
             if (++bit_cnt > 7)
@@ -304,6 +345,16 @@ void sif_send_data_handle(void)
         break;
     case STOP_SIGNAL:
     {
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_LISHEN_V111
+        if (sif_sync_tosc < SIF_STOP_LOW_TICKS)
+            sif_turn_off();
+        else
+            sif_turn_on();
+        if (++sif_sync_tosc >= SIF_STOP_TICKS) {
+            sif_sync_tosc = 0u;
+            state_mode = SIF_IDLE;
+        }
+#else
         if (sif_sync_tosc++ < SIF_STOP)
         {
             sif_turn_off();
@@ -315,7 +366,7 @@ void sif_send_data_handle(void)
 
             sif_sync_tosc = 0;
         }
-
+#endif
         break;
     }
     case SEND_DATA_COMPLETE:
@@ -334,6 +385,47 @@ void sif_send_data_handle(void)
 
 /* 仅由主循环调用；IRQ 使用另一包直至 STOP 完成。 */
 /* 启用 SIF 时重建待发送包并发布 ready；关闭时为空入口。 */
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_LISHEN_V111
+void sif_prepare_task(uint32_t sample_tick)
+{
+    uint8_t irq_state;
+    uint8_t restarted = 0u;
+
+    if (s_return_to_idle) {
+        s_return_to_idle = 0u;
+        bus_mux_return_to_owc_idle();
+    }
+    if (BUS_STATE_OWC_TX != bus_mux_get_state()) return;
+    if (s_restart_packets) {
+        s_restart_packets = 0u;
+        s_packet_ready = 0u;
+        restarted = 1u;
+    }
+    /* 无效快照只等下一次采样，不在每轮主循环忙重试。 */
+    if (!restarted && sample_tick == s_prepared_sample_tick) return;
+
+    irq_state = irq_disable();
+    if (s_packet_ready) {
+        /* 同步或发送已开始时不覆盖等待包，更不写正在发送的包。 */
+        if (state_mode != SIF_IDLE && state_mode != SEND_DATA_COMPLETE) {
+            irq_restore(irq_state);
+            return;
+        }
+        s_packet_ready = 0u;
+    }
+    irq_restore(irq_state);
+
+    s_prepare_packet = (uint8_t)(s_active_packet ^ 1u);
+    if (!sif_send_lishen_packet()) {
+        s_prepared_sample_tick = sample_tick;
+        return;
+    }
+    s_prepared_sample_tick = sample_tick;
+    __asm__ __volatile__("" ::: "memory");
+    s_packet_ready = 1u;
+}
+
+#else
 void sif_prepare_task(uint32_t sample_tick)
 {
     uint8_t refresh_type = 0u;
@@ -397,6 +489,44 @@ void sif_prepare_task(uint32_t sample_tick)
     s_packet_ready = 1u;
 }
 
+#endif
+
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_LISHEN_V111
+/* V1.1.1：00, SOC(1%), 总压(1V), 电池温度(有符号℃), 00, SUM。
+ * 协议未定义无效值：AFE/电池温度无效或字段越界时跳过该帧。 */
+static uint8_t sif_send_lishen_packet(void)
+{
+    bms_afe_aux_measurements_t measurement;
+    bms_afe_feature_snapshot_t feature;
+    uint16_t voltage_v;
+    int32_t temperature_c;
+    uint8_t *p = s_packets[s_prepare_packet];
+
+    if (!bms_afe_get_aux_measurements(&measurement) ||
+        !bms_afe_get_feature_snapshot(&feature) ||
+        !feature.battery_temp_valid ||
+        g_bms_report.soc.soc_percent > 100u ||
+        g_bms_report.pack_voltage_10mv == 0u)
+        return 0u;
+
+    /* pack_voltage_10mv 单位 V*100，四舍五入至 1V，超出字节范围不伪造值。 */
+    voltage_v = (uint16_t)((g_bms_report.pack_voltage_10mv + 50u) / 100u);
+    if (voltage_v == 0u || voltage_v > 255u) return 0u;
+
+    /* 只采用电池传感器最高温，不用 MOS/加热温度替代。0 可代表有效 -40℃。 */
+    temperature_c = ((int32_t)feature.battery_temp_max_x10 + 5) / 10 - 40;
+    if (temperature_c < -128 || temperature_c > 127) return 0u;
+
+    p[0] = 0u;
+    p[1] = (uint8_t)g_bms_report.soc.soc_percent;
+    p[2] = (uint8_t)voltage_v;
+    p[3] = (uint8_t)(int8_t)temperature_c;
+    p[4] = 0u;
+    p[5] = sum_verify(p, SIF_LISHEN_BYTES - 1u);
+    s_packet_lengths[s_prepare_packet] = SIF_LISHEN_BYTES;
+    return 1u;
+}
+#else
 /* A*10 保留小数；正放电、负充电，线值 = A*10 + 5000。 */
 static uint16_t sif_encoded_current(uint8_t valid)
 {
@@ -555,6 +685,8 @@ static void sif_send_private_battery_code(void)
     p[3u + length] = sum_verify(p, 3u + length);
     s_packet_lengths[s_prepare_packet] = (uint8_t)(length + 4u);
 }
+
+#endif /* BMS_PRODUCT_SIF_PROTOCOL */
 
 #else
 void sif_set_bus_active(uint8_t active) { (void)active; }

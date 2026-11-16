@@ -52,7 +52,7 @@ static void owc_start_tx_only(void)
     gpio_set_input_en(BMS_BOARD_OWC_TX_PIN, 0);
     gpio_set_output_en(BMS_BOARD_OWC_TX_PIN, 1);
     gpio_write(BMS_BOARD_OWC_TX_PIN, 1);
-    /* 发送时仍监听 RX；短窗口排除自身 2 ms 位周期的回波。 */
+    /* 发送时仍监听 RX；2/6 ms 位周期的自身回波不满足 UART 边沿密度。 */
     gpio_en_interrupt_risc0(PIN_OWC_RX, 1);
 }
 /* 监听态GPIO初始化：不发，RX下拉，开启 RISC0 下降沿中断 */
@@ -175,7 +175,7 @@ _attribute_ram_code_ void bus_mux_irq_handler(void)
             uint32_t now = tick_now();
             if (g_state == BUS_STATE_OWC_IDLE) s_wake_activity = 1u;
             /* UART 连续轮询可在 2.5 ms 内产生三个下降沿；
-             * SIF 每位 2 ms，自身回波三个下降沿至少相隔 4 ms。
+             * 两种 SIF 位周期分别为 2/6 ms，本机回波不会在窗口内产生三个下降沿。
              * 确认后锁存并停止边沿 IRQ，等待主循环接管，不在 ISR 初始化 UART。 */
             if (g_fall_cnt == 0u || clock_time_exceed(g_win_start, UART_DETECT_WINDOW_US))
             {
