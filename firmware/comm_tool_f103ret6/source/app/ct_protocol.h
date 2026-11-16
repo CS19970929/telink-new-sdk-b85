@@ -29,6 +29,9 @@
 #define CT_CMD_DEBUG_LOG               0x42u
 #define CT_CMD_OWC_CONTROL             0x43u
 #define CT_CMD_OWC_SNAPSHOT            0x44u
+#define CT_CMD_OWC_INFO                 0x45u
+#define CT_CMD_OWC_CONFIG               0x46u
+#define CT_CMD_OWC_FRAME                0x47u
 
 typedef struct
 {

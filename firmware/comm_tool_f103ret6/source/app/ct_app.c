@@ -76,6 +76,7 @@ static uint8_t command_allowed_during_upgrade(uint8_t cmd)
     switch (cmd)
     {
     case CT_CMD_GET_INFO:
+    case CT_CMD_OWC_INFO:
     case CT_CMD_FW_INFO:
     case CT_CMD_UPGRADE_STATUS:
     case CT_CMD_UPGRADE_ABORT:
@@ -662,6 +663,39 @@ void CtApp_HandleFrame(const CtFrame *frame)
             BoardOwc_Poll();
             length = CtOwc_EncodeSnapshot(frame->payload[0], BoardOwc_IsEnabled(),
                                          CtBoard_GetTickMs(), payload, sizeof(payload));
+            if (length) BoardOwc_KeepAlive();
+            respond(frame, length ? CT_STATUS_OK : CT_STATUS_BAD_PARAM, payload, length);
+        }
+        break;
+    case CT_CMD_OWC_INFO:
+        {
+            uint8_t info[8] = {1u, 7u, 3u, 0u, CT_OWC_V3_HEADER_BYTES, 0u,
+                              (uint8_t)CT_OWC_MAX_BYTES, (uint8_t)(CT_OWC_MAX_BYTES >> 8)};
+#if (CT_COMM_UART_PORT == CT_COMM_UART_PORT_USART3)
+            info[1] = 0u;
+#endif
+            respond(frame, frame->length == 0u ? CT_STATUS_OK : CT_STATUS_BAD_PARAM,
+                    info, frame->length == 0u ? sizeof(info) : 0u);
+        }
+        break;
+    case CT_CMD_OWC_CONFIG:
+        if (frame->length != 2u || frame->payload[0] > 1u || frame->payload[1] > CT_OWC_MODE_LISHEN)
+            respond(frame, CT_STATUS_BAD_PARAM, 0, 0u);
+        else
+            respond(frame, BoardOwc_EnableMode(frame->payload[0], frame->payload[1]) ?
+                    CT_STATUS_OK : CT_STATUS_UNSUPPORTED, 0, 0u);
+        break;
+    case CT_CMD_OWC_FRAME:
+        {
+            uint8_t payload[CT_OWC_V3_HEADER_BYTES + CT_OWC_MAX_BYTES];
+            uint16_t length;
+            if (frame->length != 1u) {
+                respond(frame, CT_STATUS_BAD_PARAM, 0, 0u);
+                break;
+            }
+            BoardOwc_Poll();
+            length = CtOwc_EncodeSnapshotV3(frame->payload[0], BoardOwc_IsEnabled(),
+                        CtBoard_GetTickMs(), payload, sizeof(payload));
             if (length) BoardOwc_KeepAlive();
             respond(frame, length ? CT_STATUS_OK : CT_STATUS_BAD_PARAM, payload, length);
         }

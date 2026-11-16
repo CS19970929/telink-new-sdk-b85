@@ -28,3 +28,8 @@ tools/comm-tool/ 保留原Python维护工具及四种界面变体，共用一份
 [PC串口协议](protocol/COMM_TOOL_SERIAL_PROTOCOL.md)、[BMS CAN-IAP对端合同](protocol/BMS_CAN_IAP_PROTOCOL.md)。
 guides/ 与 devlog/ 是从固定提交迁入的原说明，旧日期、旧BMS默认值及旧目录只代表来源版本，不作为新工程路径或当前硬件验收结论。
 当前双协议控制和快照合同以PC串口协议新增章节为准。
+
+## 双协议回归
+
+py -3.9 -B tools/comm-tool/check_comm_tool_owc.py 保留旧协议回归；check_comm_tool_owc_dual.py 联合编译真实ct_owc.c和board_owc.c，回放两套边沿、模式、坏帧和回绕。
+上述host回放不访问串口。ARMCC工程验证和实板验收分别记录。

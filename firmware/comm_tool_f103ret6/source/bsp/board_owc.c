@@ -51,18 +51,20 @@ void BoardOwc_Init(void)
     CtOwc_Init();
 }
 
-int BoardOwc_Enable(uint8_t enable)
+int BoardOwc_EnableMode(uint8_t enable, uint8_t mode)
 {
 #if (CT_COMM_UART_PORT == CT_COMM_UART_PORT_USART3)
     (void)enable;
+    (void)mode;
     return 0; /* 同一 PC10/11 不能同时用作 PC UART 和 OW。 */
 #else
+    if (enable > 1u || mode > CT_OWC_MODE_LISHEN) return 0;
     NVIC_DisableIRQ(EXTI15_10_IRQn);
     EXTI->IMR &= ~EXTI_Line11;
     s_enabled = enable;
     s_tail = s_head = 0u;
     s_lost = 0u;
-    CtOwc_Init();
+    (void)CtOwc_SetMode(mode);
     s_last_us = (uint16_t)TIM2->CNT;
     s_last_ms = s_lease_ms = Board_GetTickMs();
     if (enable) GPIO_SetBits(GPIOC, GPIO_Pin_10);
@@ -75,6 +77,11 @@ int BoardOwc_Enable(uint8_t enable)
     }
     return 1;
 #endif
+}
+
+int BoardOwc_Enable(uint8_t enable)
+{
+    return BoardOwc_EnableMode(enable, CT_OWC_MODE_A133);
 }
 
 uint8_t BoardOwc_IsEnabled(void) { return s_enabled; }
@@ -104,7 +111,7 @@ void EXTI15_10_IRQHandler(void)
 void BoardOwc_Poll(void)
 {
     OwcEdge edge;
-    uint32_t duration_us;
+    uint32_t duration_us, elapsed_ms;
     uint16_t budget = OWC_EDGE_CAPACITY;
     if (!s_enabled) return;
     if ((uint32_t)(Board_GetTickMs() - s_lease_ms) >= OWC_LEASE_MS) {
@@ -124,9 +131,12 @@ void BoardOwc_Poll(void)
         edge = s_edges[s_tail];
         __DMB();
         s_tail = (uint16_t)((s_tail + 1u) % OWC_EDGE_CAPACITY);
-        /* 长空闲由毫秒 tick 定界，防止 16 bit 定时器回绕伪装成有效脉宽。 */
-        duration_us = ((uint32_t)(edge.tick_ms - s_last_ms) >= 30u) ?
-                      30000u : (uint16_t)(edge.timer_us - s_last_us);
+        /* 短脉冲保留us精度；长间隔用ms防止16位TIM2回绕，保留62ms同步。
+         * 更长空闲饱和到100ms，不允许整数乘法溢出后伪装成短数据位。 */
+        elapsed_ms = (uint32_t)(edge.tick_ms - s_last_ms);
+        duration_us = elapsed_ms >= 30u ?
+                      (elapsed_ms >= 100u ? 100000u : elapsed_ms * 1000u) :
+                      (uint16_t)(edge.timer_us - s_last_us);
         s_last_us = edge.timer_us;
         s_last_ms = edge.tick_ms;
         CtOwc_FeedEdge(duration_us, edge.level, edge.tick_ms);

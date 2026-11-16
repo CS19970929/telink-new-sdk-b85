@@ -19,9 +19,12 @@ ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / "firmware/comm_tool_f103ret6/source/app"
 
 
-def build_library(temp: Path) -> Path:
+def build_library(temp: Path, extra_sources=()) -> Path:
     exports = ("CtOwc_Init", "CtOwc_ResetDecoder", "CtOwc_FeedEdge", "CtOwc_RecordOverflow",
-               "CtOwc_Poll", "CtOwc_EncodeSnapshot", "CtProtocol_Init", "CtProtocol_Feed", "CtProtocol_Encode")
+               "CtOwc_Poll", "CtOwc_EncodeSnapshot", "CtProtocol_Init", "CtProtocol_Feed", "CtProtocol_Encode",
+               "CtOwc_SetMode", "CtOwc_GetMode", "CtOwc_EncodeSnapshotV3")
+    if extra_sources:
+        exports += ("ModelReset", "ModelEdge")
     dll = temp / "owc.dll"
     compiler = shutil.which("cl")
     env = dict(os.environ)
@@ -40,7 +43,7 @@ def build_library(temp: Path) -> Path:
     if not compiler:
         raise RuntimeError("MSVC cl.exe unavailable")
     subprocess.run([compiler, "/nologo", "/LD", "/W4", "/WX", "/TC", "/O2", "/utf-8",
-                    f"/I{APP}", str(APP / "ct_owc.c"), str(APP / "ct_protocol.c"), str(APP / "ct_crc16.c"),
+                    f"/I{APP}", str(APP / "ct_owc.c"), str(APP / "ct_protocol.c"), str(APP / "ct_crc16.c"), *map(str,extra_sources),
                     f"/Fe{dll}", f"/Fo{temp}\\",
                     "/link", *[f"/EXPORT:{name}" for name in exports]],
                    env=env, cwd=temp, check=True)
