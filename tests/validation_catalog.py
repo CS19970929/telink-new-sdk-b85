@@ -61,6 +61,7 @@ register('protection', SH, '真实 backend/guard/SW 联合场景', 'sh_safety_ch
 register('afe', SH, '生产函数体与环境替身', 'sh_sample_atomic_host_check')
 register('storage', SH, '提取函数故障注入', 'sh_storage_host_check')
 register('protocol', ('d008',), '真实封包与固定 wire 向量', 'sif_packet_host_check')
+register('protocol', ('d008',), '真实 V1.1.1 编码/500us 波形状态机/无效帧/双缓冲/总线接管', 'sif_lishen_host_check')
 register('protocol', ('d008',), '真实总线复用与 GPIO/IRQ/UART 端口模型；不替代波形验证', 'd008_bus_mux_host_check')
 register('tooling', ('d014',), '缓存回归', 'soc_replay_freshness_check')
 register('soc', PRODUCTS, '生产 SOC 函数体与环境替身', 'soc_scenarios_host_check')
@@ -77,7 +78,7 @@ SOURCES = {
     'afe': ['bms/core/bms_afe_guard.c', 'bms/core/bms_afe_hw_profile.c', 'bms/afe'],
     'soc': ['bms/core/bms_soc.c', 'bms/core/bms_soc_eta.c', 'bms/app/app.c'],
     'storage': ['bms/core/storage_record.c', 'bms/core/bms_config_store.c', 'bms/core/bms_state_store.c', 'bms/core/bms_event_log.c'],
-    'protocol': ['bms/core/modbus_rtu.c', 'bms/core/bms_sleep_status.c', 'bms/core/bms_parameter_access.c', 'bms/platform/telink/modbus_uart.c'],
+    'protocol': ['bms/core/modbus_rtu.c', 'bms/core/bms_sleep_status.c', 'bms/core/bms_parameter_access.c', 'bms/platform/telink/modbus_uart.c', 'bms/platform/telink/sif_send.c', 'bms/platform/telink/bus_mux.c'],
     'diagnostics': ['bms/core/bms_diag.c', 'bms/core/bms_debug_log.c', 'bms/core/bms_stall_diag.h', 'bms/core/bms_sleep_status.c', 'bms/platform/telink/bms_stall_diag.c'],
     'power': ['bms/app/app.c', 'bms/app/app_power.c', 'bms/core/bms_afe_guard.c'],
     'tooling': ['bms_tools', 'tests'],

@@ -5,6 +5,12 @@
 #include <stdbool.h>
 #define _attribute_ram_code_
 #define BMS_PRODUCT_SIF_ENABLE 1
+/* 旧/新协议测试都显式选择真实产品宏，禁止依靠未定义宏等于0。 */
+#define BMS_SIF_PROTOCOL_A133 1u
+#define BMS_SIF_PROTOCOL_LISHEN_V111 2u
+#ifndef BMS_PRODUCT_SIF_PROTOCOL
+#define BMS_PRODUCT_SIF_PROTOCOL BMS_SIF_PROTOCOL_A133
+#endif
 #define CLOCK_SYS_CLOCK_1US 16
 #define SYSTEM_TIMER_TICK_1US 16u
 #define BMS_SOC_CHEMISTRY_LFP 1u
@@ -57,7 +63,8 @@ static void gpio_write(int p,int v){
  }
  tx_high=v;
 }
-static int gpio_read(int p){(void)p;return 1;}
+static int rx_high=1;
+static int gpio_read(int p){(void)p;return rx_high;}
 static int bus_mux_get_state(void){return bus;}
 static void bus_mux_return_to_owc_idle(void){bus=0;}
 void sif_send_data_handle(void);

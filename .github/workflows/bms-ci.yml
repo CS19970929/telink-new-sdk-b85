@@ -2,7 +2,7 @@ name: Telink BMS CI
 
 on:
   push:
-    branches: [codex-bms-monorepo, 'codex/**', 'feature/**']
+    branches: [codex-bms-monorepo, codex-bms-deep-simplification-20261016, 'codex/**', 'feature/**']
   pull_request:
   workflow_dispatch:
 
