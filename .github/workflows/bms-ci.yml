@@ -30,9 +30,9 @@ jobs:
         run: python tests/sif_lishen_host_check.py
 
   sif-tc32:
-    name: D008 双协议 TC32 原生产源编译
+    name: D008 双协议 TC32 编译与锂神整包链接
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     container:
       image: ghcr.io/telink-semi/telink-dev-tc32@sha256:b624c09e880cfc39d8d034062097b6bfeecab91c816fcc32fccd611eafe8d85a
     env:
@@ -57,6 +57,19 @@ jobs:
               "-DBMS_PRODUCT_SIF_PROTOCOL=$protocol" $includes
             "$TC32_BIN/tc32-elf-size" "/tmp/sif_protocol_$protocol.o"
           done
+      - name: 锂神 V1.1.1 生产完整 ELF 链接与资源校验
+        shell: sh
+        run: |
+          set -eu
+          apt-get update
+          apt-get install -y --no-install-recommends python3
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # 在独立 CI checkout 中临时选择新协议；不修改设备 OTA 参数包或仓库分支。
+          sed -i 's/^#define BMS_PRODUCT_SIF_PROTOCOL BMS_SIF_PROTOCOL_A133$/#define BMS_PRODUCT_SIF_PROTOCOL BMS_SIF_PROTOCOL_LISHEN_V111/' bms/platform/telink/sif_send.h
+          grep -Fq '#define BMS_PRODUCT_SIF_PROTOCOL BMS_SIF_PROTOCOL_LISHEN_V111' bms/platform/telink/sif_send.h
+          export BMS_BUILD_ROOT=/tmp/bms-lishen-validation
+          python3 bms_tools/bms.py --product d008 --production --d008-profile 16s-lfp link --jobs 4
+          python3 bms_tools/bms.py --product d008 --production --d008-profile 16s-lfp resources
 
   host-contract:
     name: Four product host regression and portable core
