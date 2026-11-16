@@ -225,6 +225,8 @@ public partial class MainWindow
 
     private async void CustomerDisconnect_Click(object sender, RoutedEventArgs e)
     {
+        await StopIntegratedOwcAsync();
+        PublishUnifiedReading(null);
         try
         {
             _pollTimer.Stop();

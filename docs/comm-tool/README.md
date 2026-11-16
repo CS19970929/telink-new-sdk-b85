@@ -79,3 +79,5 @@ build-keil技能脚本因缺少tool_config共享模块未能运行，实际构�
 统一客户端CI已包含Comm Tool目录触发、C#/WPF一线通检查、生产C/BSP与Python维护回归、升级边界检查。Keil双target在本机执行，不把host结果当作ARMCC链接或实板结果。本轮未push，无新远端CI运行结论。
 
 升级边界生产策略与PC文件联合回归15项通过；AXF校验同时覆盖执行区和初始化数据装载区，SRAM末32字节保留。没有执行Flash擦写或掉电测试。
+
+2026-11-16后续：App0.2.8支持本项目锂神扩展E1（有符号电流/故障）；Windows一线通已融入主页面并共用持久记录。详见[统一监控](../../bms-tool-windows/docs/OWC_MONITOR.md)。原始波形仍待实板验收。

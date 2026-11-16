@@ -54,7 +54,7 @@ jobs:
         run: |
           $customer = Join-Path $env:BMS_BUILD_ROOT 'bin/BmsTool.Windows/release/BmsTool.Windows.dll'
           $internal = Join-Path $env:BMS_BUILD_ROOT 'bin/BmsFactoryTest.Windows/release/BmsFactoryTest.Windows.dll'
-          foreach ($script in @('test-client-lifecycle.ps1','test-main-window-experience.ps1','test-afe-editor-ui.ps1','test-afe-write-compatibility.ps1','test-business-parameters-ui.ps1','test-owc-ui.ps1')) {
+          foreach ($script in @('test-client-lifecycle.ps1','test-main-window-experience.ps1','test-afe-editor-ui.ps1','test-afe-write-compatibility.ps1','test-business-parameters-ui.ps1','test-unified-monitor.ps1')) {
             & (Join-Path bms-tool-windows $script) -CustomerAssembly $customer -InternalAssembly $internal
             if ($LASTEXITCODE -ne 0) { throw "$script failed" }
           }

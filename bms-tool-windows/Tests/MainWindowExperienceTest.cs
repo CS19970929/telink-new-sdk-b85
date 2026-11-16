@@ -68,6 +68,9 @@ static class MainWindowExperienceTest
         Check(deviceList.SelectedItem is DiscoveredDevice selected && selected.Address == address,
             "同一 MAC 的重复广播不会清除已选设备");
 
+        var unified = (UnifiedMonitorView)type.GetField("_unifiedMonitor", PrivateInstance)!.GetValue(window)!;
+        unified.OperationsContainer.IsExpanded = true;
+        Arrange((FrameworkElement)window.Content, new Size(1280, 850));
         GroupBox system = Descendants(window).OfType<GroupBox>()
             .Single(box => Equals(box.Header, "系统状态"));
         string systemText = string.Join("|", VisibleText(system));
@@ -81,30 +84,16 @@ static class MainWindowExperienceTest
 
         Check(window.MinWidth <= 900 && window.MinHeight <= 600,
             "窗口最小尺寸适配 900x600 可用区域");
-        var realtimeScroller = window.FindName("RealtimeScrollViewer") as ScrollViewer;
-        Check(realtimeScroller is not null &&
-              realtimeScroller.HorizontalScrollBarVisibility == ScrollBarVisibility.Auto &&
+        var realtimeScroller = (ScrollViewer)unified.Content;
+        Check(realtimeScroller.HorizontalScrollBarVisibility == ScrollBarVisibility.Disabled &&
               realtimeScroller.VerticalScrollBarVisibility == ScrollBarVisibility.Auto,
-            "实时监控页在小窗口下可滚动访问完整内容");
-        var realtimeContent = realtimeScroller?.Content as FrameworkElement;
-        Binding? widthBinding = realtimeContent is null
-            ? null
-            : BindingOperations.GetBinding(realtimeContent, FrameworkElement.WidthProperty);
-        Check(realtimeContent is not null &&
-              widthBinding?.ElementName == "RealtimeScrollViewer" &&
-              widthBinding.Path?.Path == "ViewportWidth" &&
-              realtimeContent.Margin == new Thickness(0),
-            "实时监控页按可视区宽度排版，宽屏不会被电芯列表横向撑开");
+            "统一主页面按窗口宽度排版并提供纵向滚动");
         var root = (FrameworkElement)window.Content;
-        foreach (var size in new[] { new Size(1180, 760), new Size(1920, 1000) })
+        foreach (var size in new[] { new Size(900,600), new Size(1180,760), new Size(1920,1000) })
         {
-            Arrange(root, size);
-            Check(realtimeScroller!.ScrollableWidth < 1,
-                $"实时监控页在 {size.Width:0}x{size.Height:0} 下无横向溢出");
+            Arrange(root,size);
+            Check(realtimeScroller.ScrollableWidth < 1,$"统一主页面在{size.Width}宽度无横向溢出");
         }
-        Arrange(root, new Size(900, 600));
-        Check(realtimeScroller!.ScrollableWidth > 1,
-            "实时监控页仅在小于设计宽度时提供横向滚动");
         foreach (string name in new[] { "CustomerAlarm1Text", "CustomerAlarm2Text", "CustomerAlarm3Text" })
         {
             var alarm = (TextBlock)window.FindName(name);

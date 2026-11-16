@@ -59,6 +59,7 @@ public partial class MainWindow : Window
 
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _pollTimer.Tick += async (_, _) => await PollTickAsync();
+        InitializeUnifiedMonitor();
 
         Closed += async (_, _) =>
         {
@@ -81,6 +82,8 @@ public partial class MainWindow : Window
     private void ConnectionModeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsInitialized) return;
+        if (!TryChangeUnifiedMode()) return;
+        if (IsOwcMode) { RefreshSerialPorts(); UpdateUnifiedMonitorState(); return; }
         bool serial = IsSerialConnectionMode;
         DeviceList.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
         SerialPortList.Visibility = serial ? Visibility.Visible : Visibility.Collapsed;
@@ -198,7 +201,7 @@ public partial class MainWindow : Window
 
     private void ScanButton_Click(object sender, RoutedEventArgs e)
     {
-        try { if (IsSerialConnectionMode) RefreshSerialPorts(); else StartBleDiscovery(); }
+        try { if (IsSerialConnectionMode || IsOwcMode) RefreshSerialPorts(); else StartBleDiscovery(); }
         catch (Exception ex) { ShowError("启动搜索失败", ex); }
     }
 
@@ -209,6 +212,8 @@ public partial class MainWindow : Window
 
     private async void ConnectButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsOwcMode) { await StartIntegratedOwcAsync(); return; }
+        if (_integratedOwcTask is not null) await StopIntegratedOwcAsync();
         if (_otaRunning || _manualConnectionInProgress) return;
         _manualConnectionInProgress = true;
         _connectionDesired = true;
@@ -458,6 +463,7 @@ public partial class MainWindow : Window
 
     private void ApplyBatterySnapshot(BatterySnapshot s)
     {
+        PublishUnifiedBattery(s);
         UpdateProtectionProductDisplay(_bms?.IsD015 == true);
         RecordMosSnapshot(s);
         PackVoltageText.Text = $"{s.PackVoltageV:F2} V";

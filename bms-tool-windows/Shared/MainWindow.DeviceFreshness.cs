@@ -12,6 +12,7 @@ public partial class MainWindow
 
     private bool CheckDeviceDisplayFreshness()
     {
+        if (_integratedOwcTask is not null) return true;
         if (_bms?.LastSuccessfulResponseAge is not TimeSpan age || age >= DeviceDisplayTimeout)
         {
             ClearDeviceDisplays();
@@ -23,6 +24,7 @@ public partial class MainWindow
 
     private void ClearDeviceDisplays()
     {
+        if (_integratedOwcTask is null) PublishUnifiedReading(null);
         if (!_deviceDisplaysCleared)
         {
             _deviceClockClient = null;

@@ -63,7 +63,7 @@ public partial class MainWindow
     private void RefreshBleDeviceList()
     {
         if (_bleWindowClosed || !IsInitialized || BleDiscoveryStatusText is null) return;
-        bool serial = IsSerialConnectionMode;
+        bool serial = IsSerialConnectionMode || IsOwcMode;
         BleDiscoveryStatusText.Visibility = ShowHistoryDevicesBox.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
         if (serial) return;
         var all = _watcher?.Snapshot(true) ?? Array.Empty<DiscoveredDevice>();
