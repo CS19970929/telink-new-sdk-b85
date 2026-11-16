@@ -1,0 +1,17 @@
+#ifndef CT_STATUS_H
+#define CT_STATUS_H
+
+typedef enum
+{
+    CT_STATUS_OK = 0x00,
+    CT_STATUS_CRC_ERROR = 0x01,
+    CT_STATUS_UNSUPPORTED = 0x02,
+    CT_STATUS_BAD_PARAM = 0x03,
+    CT_STATUS_BAD_STATE = 0x04,
+    CT_STATUS_FLASH_ERROR = 0x05,
+    CT_STATUS_CAN_TIMEOUT = 0x06,
+    CT_STATUS_BMS_ERROR = 0x07
+} CtStatus;
+
+#endif
+

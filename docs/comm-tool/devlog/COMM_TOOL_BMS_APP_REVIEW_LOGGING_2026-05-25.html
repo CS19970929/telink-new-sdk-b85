@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comm Tool 与 BMS App 审阅、日志和运行架构</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --text: #1f2933;
+      --muted: #5f6b7a;
+      --line: #d8dee8;
+      --panel: #f7f9fc;
+      --ok: #13795b;
+      --warn: #9a6700;
+      --bad: #b42318;
+      --blue: #1d4ed8;
+    }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background: #ffffff;
+      line-height: 1.55;
+    }
+    header {
+      padding: 24px 32px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #eef4ff;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 28px 0 12px;
+      font-size: 20px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 6px;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 16px;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 18px 32px 42px;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      background: #eef2f7;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      vertical-align: top;
+    }
+    th {
+      background: var(--panel);
+      text-align: left;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .box {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 12px 14px;
+      border-radius: 6px;
+    }
+    .ok { color: var(--ok); font-weight: 600; }
+    .warn { color: var(--warn); font-weight: 600; }
+    .bad { color: var(--bad); font-weight: 600; }
+    .blue { color: var(--blue); font-weight: 600; }
+    .flow {
+      display: grid;
+      gap: 8px;
+      margin: 10px 0 16px;
+    }
+    .step {
+      border-left: 4px solid var(--blue);
+      background: #f8fbff;
+      padding: 8px 12px;
+    }
+    ul {
+      padding-left: 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Comm Tool 与 BMS App 审阅、日志和运行架构</h1>
+    <div>日期：2026-05-25；范围：PC 上位机、comm tool F103RET6 App、BMS App 通信服务、Debug/Release 日志策略。</div>
+  </header>
+
+  <main>
+    <h2>结论</h2>
+    <div class="grid">
+      <div class="box">
+        <div class="ok">已修复</div>
+        <p>BMS App 的 EasyLogger 现在只在 Debug profile 打开，Release profile 由 <code>Project_BuildGuard.h</code> 硬性禁止。</p>
+      </div>
+      <div class="box">
+        <div class="ok">已新增</div>
+        <p>comm tool 新增 Debug 环形结构化日志，PC 通过 <code>0x42 DEBUG_LOG</code> 或 <code>tools/comm_tool_host.py debug-log</code> 读取，不把文本日志混入二进制串口协议。</p>
+      </div>
+      <div class="box">
+        <div class="warn">使用建议</div>
+        <p>串口可以用于 BMS Debug 串口日志，但不建议在 comm tool 协议 UART 上直接 <code>printf</code>。更好的方式是结构化诊断命令、CAN 诊断计数、上位机 CSV 和 ST-Link/Keil Watch。</p>
+      </div>
+    </div>
+
+    <h2>审阅发现</h2>
+    <table>
+      <thead>
+        <tr><th>级别</th><th>位置</th><th>发现</th><th>处理结果</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="bad">Bug</td>
+          <td><code>AppInit.c</code></td>
+          <td>原逻辑如果打开 <code>ELOG_OUTPUT_ENABLE</code>，会在 <code>AppInit_InitSci()</code> 后再次调用 <code>InitUSART_CommonUpper()</code>，并可能重复初始化日志。</td>
+          <td>已改为只初始化 SCI 一次，随后在 Debug 日志开关下调用 <code>elogInit()</code>。</td>
+        </tr>
+        <tr>
+          <td class="bad">Bug 风险</td>
+          <td>comm tool UART</td>
+          <td>comm tool 的 UART 是二进制帧协议。如果直接输出 ASCII 日志，上位机会把日志字节当成协议流，造成 CRC 错误、超时或错帧。</td>
+          <td>已新增内存环形日志和 <code>DEBUG_LOG</code> 命令，避免污染协议 UART。</td>
+        </tr>
+        <tr>
+          <td class="warn">可靠性风险</td>
+          <td><code>CtBoard_CanSend()</code> / CAN 升级链路</td>
+          <td>CAN 发送失败、无邮箱、超时以前只能看 <code>CAN_DIAG</code> 当前快照，缺少按时间排序的过程日志。</td>
+          <td>已把 CAN 发送失败、超时、升级阶段、升级错误写入 Debug 环形日志。</td>
+        </tr>
+        <tr>
+          <td class="warn">配置风险</td>
+          <td>BMS Release</td>
+          <td>Release 必须禁止串口日志、<code>ELOG_OUTPUT_ENABLE</code>、<code>printf</code> 相关调试输出，否则会影响通信和体积。</td>
+          <td>已增加 <code>PROJECT_CFG_DEBUG_SERIAL_LOG_ENABLE</code> 和 Release 编译保护。</td>
+        </tr>
+        <tr>
+          <td class="blue">建议</td>
+          <td>comm tool Keil 工程</td>
+          <td>当前正式工程目标仍是 <code>COMM_TOOL_Release</code>。Debug 日志可通过定义 <code>CT_BUILD_PROFILE=1</code> 打开。</td>
+          <td>建议后续单独增加 <code>COMM_TOOL_Debug</code> Target，避免手动改 Define。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>日志策略</h2>
+    <table>
+      <thead>
+        <tr><th>对象</th><th>Release</th><th>Debug</th><th>读取方式</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>comm tool</td>
+          <td>关闭，<code>CT_DEBUG_LOG_ENABLE=0</code></td>
+          <td>打开，<code>CT_BUILD_PROFILE=1</code> 时启用</td>
+          <td><code>tools/comm_tool_host.py debug-log --port COMx --baud 115200</code></td>
+          <td>结构化环形日志，不占用额外串口，不破坏二进制协议。</td>
+        </tr>
+        <tr>
+          <td>BMS App</td>
+          <td>关闭，编译保护禁止</td>
+          <td><code>PROJECT_CFG_DEBUG_SERIAL_LOG_ENABLE=1</code> 时启用 EasyLogger</td>
+          <td>调试串口终端或 USB-UART</td>
+          <td>只适合台架调试；不要和上位机协议通信同时抢同一个串口。</td>
+        </tr>
+        <tr>
+          <td>现场问题采集</td>
+          <td>允许</td>
+          <td>允许</td>
+          <td><code>CAN_DIAG</code>、BMS 事件日志、上位机 CSV、ST-Link 快照</td>
+          <td>生产和现场优先使用结构化数据，不依赖 printf。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>comm tool 运行架构</h2>
+    <div class="flow">
+      <div class="step">PC UI / <code>comm_tool_host.py</code> 通过 UART 发送 <code>55 AA</code> 二进制帧。</div>
+      <div class="step"><code>CtProtocol_Feed()</code> 完成帧同步、长度检查和 CRC16 校验。</div>
+      <div class="step"><code>CtApp_HandleFrame()</code> 分发 <code>GET_INFO</code>、<code>SET_CAN</code>、<code>BMS_READ</code>、<code>FW_*</code>、<code>UPGRADE</code>、<code>CAN_DIAG</code>、<code>DEBUG_LOG</code>。</div>
+      <div class="step"><code>CtCanGateway</code> 把 BMS 寄存器读写、老化控制、进入 IAP 转成 CAN App 服务帧。</div>
+      <div class="step"><code>CtUpgrade_Task()</code> 使用缓存区固件，按 HELLO / START / DATA / COMMIT / END 状态机完成 CAN-IAP 升级。</div>
+    </div>
+
+    <h2>BMS App 运行流程</h2>
+    <div class="flow">
+      <div class="step"><code>main()</code> 调用 <code>AppInit_Boot()</code>，完成时钟、IO、SCI、Flash、AFE、CAN、ADC、SOC、Timer、RTC 初始化。</div>
+      <div class="step">主循环只调用 <code>Runtime_RunOnce()</code>，避免初始化逻辑散落在主循环。</div>
+      <div class="step"><code>Runtime_RunFrontTasks()</code> 处理任务标志、工厂老化、灯条、AFE 数据。</div>
+      <div class="step"><code>Runtime_RunIoAndPowerTasks()</code> 处理上位机通信、模拟校准、低功耗、CAN 服务。</div>
+      <div class="step"><code>Runtime_RunBackgroundTasks()</code> 处理 Flash 更新、事件日志、生产 ID 和看门狗喂狗。</div>
+    </div>
+
+    <h2>关键地址和安全边界</h2>
+    <table>
+      <thead>
+        <tr><th>项目</th><th>地址/值</th><th>约束</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>BMS IAP</td><td><code>0x08000000</code></td><td>禁止把 BMS App bin 裸写到该地址。</td></tr>
+        <tr><td>BMS App</td><td><code>0x08004800</code></td><td>升级 BMS App 必须确认该地址。</td></tr>
+        <tr><td>comm tool App</td><td><code>0x08008000</code></td><td>comm tool 自升级使用该地址。</td></tr>
+        <tr><td>comm tool 缓存</td><td><code>0x08018000</code></td><td>PC 先下载到缓存，再由 CAN-IAP 写目标板。</td></tr>
+        <tr><td>日志开关</td><td><code>PROJECT_CFG_DEBUG_SERIAL_LOG_ENABLE</code></td><td>Debug 默认 1，Release 必须 0。</td></tr>
+      </tbody>
+    </table>
+
+    <h2>调试命令</h2>
+    <pre><code>py -3.9 tools\comm_tool_host.py can-diag --port COM4 --baud 115200
+py -3.9 tools\comm_tool_host.py debug-log --port COM4 --baud 115200 --count 32
+py -3.9 tools\comm_tool_host.py debug-log --port COM4 --baud 115200 --count 64 --clear</code></pre>
+
+    <h2>后续建议</h2>
+    <ul>
+      <li>给 comm tool Keil 工程补一个正式 <code>COMM_TOOL_Debug</code> Target，Define 固定为 <code>CT_BUILD_PROFILE=1,_DEBUG_</code>。</li>
+      <li>上位机 UI 可增加“读取 Debug Log”按钮，内部复用 <code>0x42 DEBUG_LOG</code>。</li>
+      <li>BMS App 如果需要现场长期日志，优先扩展 Flash 事件日志或只读诊断寄存器，不建议打开串口文本日志。</li>
+      <li>升级失败定位优先看：<code>debug-log</code>、<code>can-diag</code>、<code>UPGRADE_STATUS.last_error</code>、BMS 事件日志。</li>
+    </ul>
+  </main>
+</body>
+</html>

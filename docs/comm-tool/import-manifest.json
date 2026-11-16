@@ -1,0 +1,636 @@
+{
+  "source_commit": "5521e851d77e517b76bec679dd215bbd3e2d4528",
+  "source_branch": "comm-tool-branch",
+  "imported_files": [
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/core_cm3.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/core_cm3.c",
+      "sha256": "e93a7e36349e7810f328276a3fed56701e10536779f7527a8ccd140618a556b0"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/core_cm3.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/core_cm3.h",
+      "sha256": "de4668aa9d314d05769dfb29f028e205b50577c6b2150fc6bccb34bd34179bbb"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/startup_stm32f10x_hd.s",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/startup_stm32f10x_hd.s",
+      "sha256": "e4033cdb1624962cd9c60e72267071bab2f34ac2494f1d27025f149aa7482ae4"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/startup_stm32f10x_hd_Old.s",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/startup_stm32f10x_hd_Old.s",
+      "sha256": "1ad6e0a965254d4cd1a6cc289011214c8d3f1468d77e9ad1f235d80792cda2fc"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/stm32f10x.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/stm32f10x.h",
+      "sha256": "7dc8e1087c7f7dd57bb13c338cf6d5b08db6f63ec1b04eedfbb4749c69845c9e"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/stm32f10x_conf.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/stm32f10x_conf.h",
+      "sha256": "92c89a37c0f71561a40ec4bfd3f79fa5db8f3220796375d089d58c7ce716bbf3"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/stm32f10x_it.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/stm32f10x_it.c",
+      "sha256": "25f3fb720e83d10c6543748890a2aeef4ac47e7bda3f3c884263bec34fa3faee"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/stm32f10x_it.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/stm32f10x_it.h",
+      "sha256": "f78f5b207a41fbf651767769089abeac09210bc1c7da0ea9cf8536de80c96d0d"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/system_stm32f10x.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/system_stm32f10x.c",
+      "sha256": "a2900ffaef584edf0cc81721bf0266db35f63d2260fbddf5e1750a3736dd00da"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/system_stm32f10x.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/drivers/system_stm32f10x.h",
+      "sha256": "919dc1f5c6bbba74cb712e8ec7cf73f1988eafa9438c706526fb401a2ab4672d"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/misc.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/misc.h",
+      "sha256": "40c918f726035dfa67a7bfadefac8e922196d7918f915a7f2db1e652625c7e41"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_adc.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_adc.h",
+      "sha256": "005a122259e9657bd6b3171dd0e478c143c2a70f8e364b505b84f3fd0a8b1b9f"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_bkp.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_bkp.h",
+      "sha256": "bd3ae6fe6a6e617216d60a11a7437be97dca2ea02f3ad78afe889850473fdb16"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_can.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_can.h",
+      "sha256": "df4e1602f2b208b335fa22890908ff518de18c6e27ffb94b92cd498e8212b248"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_cec.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_cec.h",
+      "sha256": "620485eb06b33c96a5a8de3fb1116db876162a44da15441883f0cc675e890059"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_crc.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_crc.h",
+      "sha256": "98e5537eb5e8837de2170472b774d9f9559f14b60dfcb09d9f839611bc18cb66"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_dac.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_dac.h",
+      "sha256": "446107ab9e933ccc284be0cd8f0c32edc3e96ba6f990dea8bd1f1cf080d35ef6"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_dbgmcu.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_dbgmcu.h",
+      "sha256": "998751256df8a0423dc73be45e489fc04cb2b124a6f04a6ad65e4d53e59f45ba"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_dma.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_dma.h",
+      "sha256": "2ba038050d07735a42645f2508e62078c217dc750878097f7f113660e0d58ffb"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_exti.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_exti.h",
+      "sha256": "661b039483459137a58bfdea7522528b9b6e923d61966d4c7c8a5035bd375f5f"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_flash.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_flash.h",
+      "sha256": "952ca72ee4d01e49d392d55af2b146bd9f15763230660334e78ac2cad8cb8982"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_fsmc.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_fsmc.h",
+      "sha256": "b2e640d05f6dd11e1fe70bfa0db8aa53cb0a918eef412d6a35630b1357dc5ff6"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_gpio.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_gpio.h",
+      "sha256": "ef945fe7b2e4a8f3bf8fa22d44274085444dec80424f91606a1467ea4e69626f"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_i2c.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_i2c.h",
+      "sha256": "08b14d416090815765a02e6fecf78cbdd3de4ad330d3bc04b2133f8f4f3f2daa"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_iwdg.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_iwdg.h",
+      "sha256": "4a0e65ceebeb69dee10923ab5478938ec7af1357849fbf862d45d19dbb01091a"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_pwr.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_pwr.h",
+      "sha256": "b7b31d2bfb3d56e763d70e9db4eecfc996664619916ac4bee9d9928430ffac79"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_rcc.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_rcc.h",
+      "sha256": "894e140a70b0cdc94e4e96c5011def9dca5a103752783c3bb7cab538fc426f9e"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_rtc.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_rtc.h",
+      "sha256": "4a0ef73054c3f7f7ad325c6ef0268edb3c5e8987978bdac8a695dc548e13b94c"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_sdio.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_sdio.h",
+      "sha256": "35f5d75421ab3c76d1d76e2c26d0910864161966cc16b74f8327c173ae123deb"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_spi.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_spi.h",
+      "sha256": "e5dce165ef95fd872a8802cc4f9205b389e4ecdd28a0d74f8aa6c9c3d1ea4225"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_tim.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_tim.h",
+      "sha256": "dddf89f9b7134a2f15ed9cc2521589ee9a2e18c0553a6017c71b5d5b394524e5"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_usart.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_usart.h",
+      "sha256": "9d4c2067e54defd64b000076e6561726d758c872d354bed6eea66a6767c08bce"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_wwdg.h",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/inc/stm32f10x_wwdg.h",
+      "sha256": "eb1a01bbaa33babc416d8ecdb40b5a97a21522eb5c7952ba1bec09924580790e"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/misc.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/misc.c",
+      "sha256": "152c632e56151b2564121c56ff359d0f041621f0da6ed101d7fd376a139a5c75"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_adc.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_adc.c",
+      "sha256": "d269b826f617c7b1426155cdfc8a220d05aee74580b80b92f86bf33ea9d8be98"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_bkp.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_bkp.c",
+      "sha256": "f78d5077029cfec54da52ea4f9d8796dabdf1da5dc6cc29e3395e0f6923645a0"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_can.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_can.c",
+      "sha256": "bf9d3bec0785b8f28d9eb046bc67181071586e10014d4f595ba0e582257f31ad"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_cec.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_cec.c",
+      "sha256": "5cf689d7a2ecc3244b18099ae254dc6b0bff023406c898a82dbbd42a29b86e7c"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_crc.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_crc.c",
+      "sha256": "962aa1381467118ee7e9bea68ad01b3ca3f9fbbd749242211e2d340bf896d0d4"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_dac.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_dac.c",
+      "sha256": "789a92c1dbb0dc74688fff8e415a93da816956a7a44882488d25af7ac055cbc7"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_dbgmcu.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_dbgmcu.c",
+      "sha256": "9bfb6f964cd3b06a04c67772e52f31814e5a3d39a951a27bf9f2ef352237e23d"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_dma.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_dma.c",
+      "sha256": "b0ac759af150deaa84d8a337a8873a2fbc03e36b1db6623175ab2443efa45d6f"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_exti.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_exti.c",
+      "sha256": "5783d10d46275d8baee9f2861cf434b5c12a4bc8f42ed4af9e503c1818941ebe"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_flash.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_flash.c",
+      "sha256": "902b84d67d66f1172c3bb8641fd0de85f7844ac2fb36a1606bb63b972ad9c343"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_fsmc.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_fsmc.c",
+      "sha256": "1b623840bba04095a150fcf051fd2a3df4838799b96ae2e36f28675e92c23e44"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_gpio.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_gpio.c",
+      "sha256": "f3bedc2c8f1ed6dc199df07e92412b950b5192118fdc10f4d776ae0f57bee66f"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_i2c.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_i2c.c",
+      "sha256": "a6f37a8a16b404b0416eda63fc0f4e60376ae1f79054a36d02733c8c5d0f2fb6"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_iwdg.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_iwdg.c",
+      "sha256": "bdae6086ce189dac8d464d10bb2ab58a957bbd8f89834e1cc7716faf3e34c9ce"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_pwr.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_pwr.c",
+      "sha256": "3f8c77033caad162a69fe9780d7be2ab973f02be0e736e37c2e633f4a4e2bd28"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_rcc.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_rcc.c",
+      "sha256": "f23bbc9b83e44e69f5dc34f072867f0087a3eb0452034ab09c363088d2354cd9"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_rtc.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_rtc.c",
+      "sha256": "59bc07137d60efbbf69703b88e72bb2153c2e97beee16a1d262a7050686fb00b"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_sdio.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_sdio.c",
+      "sha256": "d042b43fbfd5431719a7310ebe2d38c861a663d07e0c0735e466785e07fc1d97"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_spi.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_spi.c",
+      "sha256": "0214f213058353f2fd9d3a4036ccabbea0b73b60aae0652acf36df539adbb9c6"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_tim.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_tim.c",
+      "sha256": "bd12bf18b03b8585ac2ba6bd0e80ec39d8fd0c89307eb54f5a7be38a46894d03"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_usart.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_usart.c",
+      "sha256": "a89281c1b17033137edef0be412f9878fe81fcfda9cc25f60ab338c3fd63fcda"
+    },
+    {
+      "source": "103 + 309/Project/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_wwdg.c",
+      "path": "firmware/comm_tool_f103ret6/vendor/STM32F10x_StdPeriph_Lib_V3.5.0/src/stm32f10x_wwdg.c",
+      "sha256": "1d51fbbe3da7731b2303408f00693b51dbf62226590b1264cbbf35be01aa90ea"
+    },
+    {
+      "source": "docs/devlog/COMM_TOOL_BMS_APP_REVIEW_LOGGING_2026-05-25.html",
+      "path": "docs/comm-tool/devlog/COMM_TOOL_BMS_APP_REVIEW_LOGGING_2026-05-25.html",
+      "sha256": "6aeb9c251e071ade5ac9be7f9965a40c33cd7a0d38b200b4abe6ecd416db17e7"
+    },
+    {
+      "source": "docs/devlog/COMM_TOOL_CAN_IAP_ARCHITECTURE_2026-05-22.md",
+      "path": "docs/comm-tool/devlog/COMM_TOOL_CAN_IAP_ARCHITECTURE_2026-05-22.md",
+      "sha256": "6f7e9f3fe01804e8ee0c65141fb907e9d090c5ef31e08f9260868af4835fbbbc"
+    },
+    {
+      "source": "docs/devlog/COMM_TOOL_F103RET6_KEIL_PORT_2026-05-23.md",
+      "path": "docs/comm-tool/devlog/COMM_TOOL_F103RET6_KEIL_PORT_2026-05-23.md",
+      "sha256": "b109f6b94b7559078f86c04d35ae75068e67a82726a3621ddf266b50741e0b5a"
+    },
+    {
+      "source": "docs/devlog/COMM_TOOL_UART_SELECT_2026-05-25.md",
+      "path": "docs/comm-tool/devlog/COMM_TOOL_UART_SELECT_2026-05-25.md",
+      "sha256": "7c1ba9cf93dda49b34cd7c260147a582e1bdf0c67c1defc62663e3177b74c9c1"
+    },
+    {
+      "source": "docs/devlog/COMM_TOOL_UPGRADE_UI_2026-05-23.md",
+      "path": "docs/comm-tool/devlog/COMM_TOOL_UPGRADE_UI_2026-05-23.md",
+      "sha256": "30a1042d958cc9ce7bd928a1fe79ebafa0ad2f7d30c62b4b3092937067991a9f"
+    },
+    {
+      "source": "docs/guides/BMS_COMM_TOOL_UPPER_COMPLETE_GUIDE.md",
+      "path": "docs/comm-tool/guides/BMS_COMM_TOOL_UPPER_COMPLETE_GUIDE.md",
+      "sha256": "810d91aadc4683a56d44cd7e184360dc6b99db752ceed44245a7491592701040"
+    },
+    {
+      "source": "docs/guides/BMS_WITHOUT_COMM_TOOL_GUIDE.md",
+      "path": "docs/comm-tool/guides/BMS_WITHOUT_COMM_TOOL_GUIDE.md",
+      "sha256": "2b80fb32c7424949878737dcefa7c614d815f1fcc96f2fb13c4045bf3a460da3"
+    },
+    {
+      "source": "docs/guides/CAN_UPPER_COMPUTER_TECHNICAL_GUIDE.md",
+      "path": "docs/comm-tool/guides/CAN_UPPER_COMPUTER_TECHNICAL_GUIDE.md",
+      "sha256": "cb09fd2a421b889d0442892591ff9618ec50d9baee009cec4d1f001fd056613b"
+    },
+    {
+      "source": "docs/guides/CAN_UPPER_UI_EDITION_AND_LANGUAGE_GUIDE.md",
+      "path": "docs/comm-tool/guides/CAN_UPPER_UI_EDITION_AND_LANGUAGE_GUIDE.md",
+      "sha256": "628f3ae83605f6a52ccc17f69d4358b731a61aab3a5c8e8e1d7bdedc89df46e1"
+    },
+    {
+      "source": "docs/guides/COMM_TOOL_FUNCTION_LOGIC_PROTOCOL_PLAN.md",
+      "path": "docs/comm-tool/guides/COMM_TOOL_FUNCTION_LOGIC_PROTOCOL_PLAN.md",
+      "sha256": "cd5b7d19a6fee509502dfdc8892b3c1174e93638232d4051f724e386d7be231a"
+    },
+    {
+      "source": "docs/protocol/BMS_CAN_IAP_PROTOCOL.md",
+      "path": "docs/comm-tool/protocol/BMS_CAN_IAP_PROTOCOL.md",
+      "sha256": "c171ca3c75db192d369ddae726606a19145a2483aa59bf630d9bca13d1e5e8a7"
+    },
+    {
+      "source": "docs/protocol/COMM_TOOL_SERIAL_PROTOCOL.md",
+      "path": "docs/comm-tool/protocol/COMM_TOOL_SERIAL_PROTOCOL.md",
+      "sha256": "22ba6ba0510c802869e26184be0387754876beb21f6fb63a852459ab00d4fd2f"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/keil/COMM_TOOL_F103RET6.uvprojx",
+      "path": "firmware/comm_tool_f103ret6/keil/COMM_TOOL_F103RET6.uvprojx",
+      "sha256": "69d91aaad5db1870388b549e7daf40cf952c3615f53fe2171733db61a6b127e2"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/README.md",
+      "path": "firmware/comm_tool_f103ret6/source/app/README.md",
+      "sha256": "d90eb513ce7afc065fef1ae49d446851afc2c5da148ec5ea1cc66f9e41c85c7c"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_app.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_app.c",
+      "sha256": "0abe6e0ae740172a4ad749162996608721dcc0b835c25e6a48e3a352361568b0"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_app.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_app.h",
+      "sha256": "46f78c548371f09c0f17a3516be48a78185a89c2716be5dedaf9f8e242ce1f87"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_board_port.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_board_port.h",
+      "sha256": "4ecb5581f28bf32e9686731f6fecea95c85eb4a9f6ac9a79a4b553273bcadb6d"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_boot_control.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_boot_control.c",
+      "sha256": "689aa0dc51f95e57d3eedf5afbec2dc28500758696b42b7e202e7dbc0b46c6a4"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_boot_control.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_boot_control.h",
+      "sha256": "42c380d835ec2168db728c2bdf46ac6a71912568365af63da78d7b9e423db27e"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_can_gateway.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_can_gateway.c",
+      "sha256": "29f6392451c7468f3606b90a7a1e1832adc81219721c5b22ea88f4b90ad7ca8e"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_can_gateway.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_can_gateway.h",
+      "sha256": "70b3471ea9dbe63c22f0d7f62e337a6fd5b84112d2cb56459c4e4904a067c1d7"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_config.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_config.h",
+      "sha256": "96361645fa22dc751a59f291049f6595a002e7d5e4fe5ecb654064ca7bbc6787"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_crc16.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_crc16.c",
+      "sha256": "09080c6230f5281a3a714b46822389cfb1d8c2a597bb47fd5e3e60a79332d70d"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_crc16.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_crc16.h",
+      "sha256": "eee1ee935299b554b801f431231b653a22cb17400d7fd4cfd867e08fb95f6b0b"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_debug_log.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_debug_log.c",
+      "sha256": "d0d8c6b5631eb4d3b54ab9814d1c0c882c8f2b23465c3cb7c8c0d52a7838110b"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_debug_log.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_debug_log.h",
+      "sha256": "d332dbced0ad469272a195153029a7b8dc755678d2a41346585c546be4b809ce"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_flash_store.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_flash_store.c",
+      "sha256": "a3bb2880f9088e9c0cebf8e77fd6f331ca83b13be5f42bc75cdbf04cd06f7c87"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_flash_store.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_flash_store.h",
+      "sha256": "59023fd2aa50c610e8b9c2042c2566b11b66fa11fc4e03bdf3d1ebb6be322373"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_modbus_bridge.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_modbus_bridge.c",
+      "sha256": "3c031e85d39c05f7f1509dca966f7c8bb575004545245ba5242fccd9a9ffe61c"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_modbus_bridge.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_modbus_bridge.h",
+      "sha256": "0d7e00ec8838f20a6b8f251a458a3da99b27e5bcd15afc8aa1e21af5054af691"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_owc.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_owc.c",
+      "sha256": "5045e3e1d45ca871d4ee6aeed808aedaccd09c1011fb486ffaa6ba0aa18275b7"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_owc.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_owc.h",
+      "sha256": "93d29aaf54a4e1622e4f214f089af50a056ef3120935776a189985331d965998"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_protocol.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_protocol.c",
+      "sha256": "d81ea7340e5c88e58d99078591e08fa94a525c01e0fc2143fff250b20eccdf49"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_protocol.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_protocol.h",
+      "sha256": "846ba58007b4f9871e59ef6c5d06141ff5891f0c223ecc27059df26adba0a493"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_self_iap.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_self_iap.c",
+      "sha256": "bc6a6408aac14d99add2f44a40538fb1eaf294bce8ba4e112fe8c4f5c79866b5"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_self_iap.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_self_iap.h",
+      "sha256": "2f7694a00e982d282050401cce7615131ee4114c33009bf0cf959ea03c0a3e22"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_status.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_status.h",
+      "sha256": "edb75f481afcad2be17a59b73bfb1dd1de4f63a4c712ed6f2a1f0b4df656633e"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_upgrade_manager.c",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_upgrade_manager.c",
+      "sha256": "4ec577d88c253a064100cc8c1682afff1a14a74d17d01552f4cd62098687d499"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/app/ct_upgrade_manager.h",
+      "path": "firmware/comm_tool_f103ret6/source/app/ct_upgrade_manager.h",
+      "sha256": "43d08f224d3629bfdd274597408ee567e01a180e85a97b6881a9a3f3775e3d3b"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/board.c",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/board.c",
+      "sha256": "a042b75e35ce4b0a7430409812de43834991a892f7c21ea2c3c027e896da473a"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/board.h",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/board.h",
+      "sha256": "dc4a3b07730b8260790ca4bb70656be2663e14241d5cf18c4834b33e3d1943b4"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/board_can.c",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/board_can.c",
+      "sha256": "4dba424f0b79710305c8c16123226f26c3dce447d385b07c71b5be18717a8597"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/board_can.h",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/board_can.h",
+      "sha256": "98db44e14041481867f004ea9ff7b93a427629453fe88a11525fa5467483026f"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/board_owc.c",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/board_owc.c",
+      "sha256": "2260bdc7d621796158ef3adf9e782f9795c4c94bf074bd723fd4ce4df102266a"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/board_owc.h",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/board_owc.h",
+      "sha256": "e4a901f5e1e20dddb8523ee1f5a66236550f6306c00393e688c6fe6c480f3251"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/board_uart.c",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/board_uart.c",
+      "sha256": "a73b05e7b1c6c9967ea37baacfc192eafe2ffad8ce5afa2f61e2862e84ec99cb"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/board_uart.h",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/board_uart.h",
+      "sha256": "91d36dfb59d05ede148c84b79a6eb5d86a0bea9c96f9a6966226c35682748e7e"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/ct_watchdog.c",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/ct_watchdog.c",
+      "sha256": "618c29e902ce4149c66a499bb0431f7012fc73c582347bdcecb716ab0e903c30"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/bsp/ct_watchdog.h",
+      "path": "firmware/comm_tool_f103ret6/source/bsp/ct_watchdog.h",
+      "sha256": "2944ed08f4e5ee2a0caf46d4fb56161bc1b98d19878ede37d0291ce5f054734c"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/iap/ct_iap.c",
+      "path": "firmware/comm_tool_f103ret6/source/iap/ct_iap.c",
+      "sha256": "d6fead44fb01f8ee3817f95994882e7ebc177c28f1e160922ff9e16652d251b7"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/iap/ct_iap.h",
+      "path": "firmware/comm_tool_f103ret6/source/iap/ct_iap.h",
+      "sha256": "00de894d8d57baa2a2315f86566a7ae12cadc1987f31bee5fb6c4de4140a6290"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/iap/ct_iap_main.c",
+      "path": "firmware/comm_tool_f103ret6/source/iap/ct_iap_main.c",
+      "sha256": "036d6f0e652d59b6e231b1c8e58b7d882db7b4a28ea220ce26730a7b3fb76ee8"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/main.c",
+      "path": "firmware/comm_tool_f103ret6/source/main.c",
+      "sha256": "ea78d6723a162b08d1bc44e7f39e7bd96487676952fdef01fb81bb1117661594"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/main.h",
+      "path": "firmware/comm_tool_f103ret6/source/main.h",
+      "sha256": "c1d0335f28d4e3117e850c2078576d26692cd0eabf0eb80293156bd1e1d1273c"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/startup_default_handler.c",
+      "path": "firmware/comm_tool_f103ret6/source/startup_default_handler.c",
+      "sha256": "27efe48dea672222ebc6c5ef4bb3204702e204899a429a982fb578e98b498b70"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/stm32f10x_it.c",
+      "path": "firmware/comm_tool_f103ret6/source/stm32f10x_it.c",
+      "sha256": "33f3ea3d36d705a665e52231ac1099dc5f36d05a4e53961f8e087e257d9b4b5b"
+    },
+    {
+      "source": "firmware/comm_tool_f103ret6/source/stm32f10x_it.h",
+      "path": "firmware/comm_tool_f103ret6/source/stm32f10x_it.h",
+      "sha256": "3ac0487da680a1de9c2f531597ab6275e6457957d27ecf39d4f684b494f1a0f3"
+    },
+    {
+      "source": "tools/build_comm_tool_upgrade_ui_exe.ps1",
+      "path": "tools/comm-tool/build_comm_tool_upgrade_ui_exe.ps1",
+      "sha256": "ffc150cc289b70cec0090c95da8fce4f1e6690b18013feaac6b7c3c8e36adcbb"
+    },
+    {
+      "source": "tools/check_comm_tool_owc.py",
+      "path": "tools/comm-tool/check_comm_tool_owc.py",
+      "sha256": "07d7fbd3d75aa7254a51076922890eac44fa0ec111d8cf733c98c33b0767b3a9"
+    },
+    {
+      "source": "tools/check_comm_tool_owc_snapshot.py",
+      "path": "tools/comm-tool/check_comm_tool_owc_snapshot.py",
+      "sha256": "877bde8107f3df1f40ffdf5202685380b04f89de2bd496482e8686c7604001c7"
+    },
+    {
+      "source": "tools/comm_tool_host.py",
+      "path": "tools/comm-tool/comm_tool_host.py",
+      "sha256": "57df53f221bf8d7a43ce6784a6a9d05a910c557d3fd7051e48fbb1e756d408e9"
+    },
+    {
+      "source": "tools/comm_tool_owc.py",
+      "path": "tools/comm-tool/comm_tool_owc.py",
+      "sha256": "eba0a93d1067133e8948b8654f69b7496dd16512c85e67147d8c8bd7be93afe4"
+    },
+    {
+      "source": "tools/comm_tool_reliability_test.py",
+      "path": "tools/comm-tool/comm_tool_reliability_test.py",
+      "sha256": "afe3db74cd4ac99f52252a1c406e92aa89dce4048511ddbe8fcf6f7100a16760"
+    },
+    {
+      "source": "tools/comm_tool_upgrade_ui.py",
+      "path": "tools/comm-tool/comm_tool_upgrade_ui.py",
+      "sha256": "226385e616235d3cbf2d14c713d2b964be838fe8dc009db9b2ab29498662fb5d"
+    },
+    {
+      "source": "tools/comm_tool_upgrade_ui_i18n.py",
+      "path": "tools/comm-tool/comm_tool_upgrade_ui_i18n.py",
+      "sha256": "e0a0cfcb9d84cf67fbe072984b0cf5c947ff93e2b048f9417b21571e2c473699"
+    },
+    {
+      "source": "tools/set_comm_tool_uart.ps1",
+      "path": "tools/comm-tool/set_comm_tool_uart.ps1",
+      "sha256": "f503d37b1726ab2b13470c9d6d99f0cc5a2cf03f834713c9953cd069da87daaa"
+    },
+    {
+      "source": "tools/start_comm_tool_host.ps1",
+      "path": "tools/comm-tool/start_comm_tool_host.ps1",
+      "sha256": "94e3cc0a4751e53b819ef9221f803c879e94e266c22d59181e9e79dad266146c"
+    },
+    {
+      "source": "tools/start_comm_tool_reliability_test.ps1",
+      "path": "tools/comm-tool/start_comm_tool_reliability_test.ps1",
+      "sha256": "4b3a8d680ee08021f9cbdd4c1adb06f68347acf3cd7fadb51c58fabe93111ead"
+    },
+    {
+      "source": "tools/start_comm_tool_upgrade_ui.ps1",
+      "path": "tools/comm-tool/start_comm_tool_upgrade_ui.ps1",
+      "sha256": "ff2ac008a5391370dcc2bcf63e644d0b2f1774b61dc5329cdb618e4f61dc866f"
+    }
+  ],
+  "notes": [
+    "只迁移Comm Tool与所需标准库，未迁移旧BMS业务固件。",
+    "Keil App工程加入IAP target并改为仓库内vendor路径。",
+    "原始SHA用于溯源，后续适配差异由Git记录。"
+  ]
+}
