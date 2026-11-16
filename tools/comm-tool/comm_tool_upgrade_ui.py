@@ -1034,7 +1034,7 @@ class OwcMonitorWindow(tk.Toplevel):
         ttk.Button(top, text="开始监控", command=self._start).pack(side=tk.LEFT, padx=6)
         ttk.Button(top, text="停止监控", command=self._stop).pack(side=tk.LEFT)
         ttk.Label(self, textvariable=self.status_var, wraplength=980).pack(fill=tk.X, padx=8, pady=4)
-        ttk.Label(self, text=tr("接收模式不会修改BMS协议；锂神模式仅提供SOC、总压和电池温度。"), wraplength=980).pack(fill=tk.X, padx=8)
+        ttk.Label(self, text=tr("接收模式不会修改BMS协议；标准锂神提供三项，本项目扩展增加电流和故障。"), wraplength=980).pack(fill=tk.X, padx=8)
         ttk.Label(self, text=tr("校验失败和过期数据不显示为实时测量值。监控期间串口被独占；停止后恢复其它操作。"), wraplength=980).pack(fill=tk.X, padx=8, pady=4)
         body = ttk.Frame(self, padding=8)
         body.pack(fill=tk.BOTH, expand=True)
@@ -1152,7 +1152,7 @@ class OwcMonitorWindow(tk.Toplevel):
                         display_name = (tr("单体") + " " + field[5:]) if field.startswith("Cell ") else tr(field_names.get(field, field))
                         self.tree.insert("", tk.END, values=(label, display_name, value, unit))
         if latest and latest.protocol == 2:
-            self.tree.insert("", tk.END, values=(tr("锂神 V1.1.1"), tr("协议范围"), tr("仅提供SOC、总压和电池温度"), ""))
+            self.tree.insert("", tk.END, values=(tr("锂神 V1.1.1"), tr("协议范围"), tr("标准三项；扩展按实际报文提供电流和故障"), ""))
         self.raw_text.configure(state="normal")
         self.raw_text.delete("1.0", tk.END)
         self.raw_text.insert("1.0", "\n".join(raw_lines))

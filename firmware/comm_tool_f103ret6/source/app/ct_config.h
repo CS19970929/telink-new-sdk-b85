@@ -6,7 +6,7 @@
 #define CT_PROTOCOL_VERSION            1u
 #define CT_FW_VERSION_MAJOR            0u
 #define CT_FW_VERSION_MINOR            2u
-#define CT_FW_VERSION_PATCH            7u
+#define CT_FW_VERSION_PATCH            8u
 
 #define CT_BUILD_PROFILE_RELEASE       0u
 #define CT_BUILD_PROFILE_DEBUG         1u

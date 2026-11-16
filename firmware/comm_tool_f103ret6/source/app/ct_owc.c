@@ -149,8 +149,9 @@ static void append_bit(uint8_t bit)
     }
     s_raw[s_length++]=s_byte; s_byte=0u;
     if (s_frame_protocol==CT_OWC_MODE_LISHEN) {
-        if ((s_length==1u && s_raw[0]!=0u) || (s_length==2u && s_raw[1]>100u) ||
-            (s_length==5u && s_raw[4]!=0u)) reject_timing();
+        if ((s_length==2u && s_raw[1]>100u) ||
+            (s_length==5u && !((s_raw[0]==0u && s_raw[4]==0u) ||
+              ((s_raw[4]&0xc0u)==0xc0u && (s_raw[4]&0x3fu)<=0x29u)))) reject_timing();
         return;
     }
     if (s_length==1u && packet_slot(s_raw[0])==0u) reject_timing();

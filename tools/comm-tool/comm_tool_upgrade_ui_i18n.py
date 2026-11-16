@@ -16,6 +16,9 @@ _patched = False
 
 
 _EXACT_EN = {
+    "接收模式不会修改BMS协议；标准锂神提供三项，本项目扩展增加电流和故障。": "Receiver mode does not change the BMS protocol; the project extension adds current and faults.",
+    "标准三项；扩展按实际报文提供电流和故障": "Three standard fields; current and faults require extension frames",
+    "Lishen project extension": "Lishen project extension",
     "请选择固件文件": "Select a firmware file",
     "锂神实时": "Lishen live data",
     "协议范围": "Available fields",

@@ -51,7 +51,7 @@ class OwcSnapshot:
     def fresh(self) -> bool:
         if not self.raw or not self.enabled or not self.checksum_ok:
             return False
-        return self.age_ms <= (75000 if self.raw[0] in (0x3B, 0x3C) else 5000)
+        return self.age_ms <= (75000 if self.frame_protocol == 1 and self.raw[0] in (0x3B, 0x3C) else 5000)
 
 
 def decode_snapshot(payload: bytes, requested_id: int = 0, extended: bool = False) -> OwcSnapshot:
@@ -96,7 +96,7 @@ def decode_snapshot(payload: bytes, requested_id: int = 0, extended: bool = Fals
 
 def _validate_shape(raw: bytes, protocol: int = 1) -> None:
     if protocol == 2:
-        if len(raw) != 6 or raw[0] or raw[1] > 100 or raw[4]:
+        if len(raw) != 6 or raw[1] > 100 or not ((raw[0] == 0 and raw[4] == 0) or ((raw[4] & 0xC0) == 0xC0 and (raw[4] & 0x3F) <= 0x29)):
             raise ValueError("Lishen V1.1.1 packet invalid")
         return
     if protocol != 1:
@@ -123,8 +123,17 @@ def decode_fields(raw: bytes, protocol: int = 1) -> list[tuple[str, str, str]]:
     _validate_shape(raw, protocol)
     if protocol == 2:
         temperature = raw[3] if raw[3] < 128 else raw[3] - 256
-        return [("Protocol", "Lishen V1.1.1", ""), ("SOC", str(raw[1]), "%"),
-                ("Voltage", str(raw[2]), "V"), ("Battery temperature", str(temperature), "℃")]
+        extended = (raw[4] & 0xC0) == 0xC0
+        rows = [("Protocol", "Lishen project extension" if extended else "Lishen V1.1.1", ""),
+                ("SOC", str(raw[1]), "%"), ("Voltage", str(raw[2]), "V"),
+                ("Battery temperature", str(temperature), "℃")]
+        if extended:
+            current = raw[0] if raw[0] < 128 else raw[0] - 256
+            fault = raw[4] & 0x3F
+            rows += [("Current", "--" if raw[0] == 128 else str(current), "A"),
+                     ("Fault code", f"0x{fault:02X}", ""),
+                     ("Fault", FAULT_NAMES.get(fault, "未定义/保留"), "")]
+        return rows
     rows = [("ID", f"0x{raw[0]:02X}", ""), ("Protocol", f"0x{raw[1]:02X}", "")]
 
     def u16(offset: int) -> int:

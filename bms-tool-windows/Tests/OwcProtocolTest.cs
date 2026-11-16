@@ -84,6 +84,17 @@ static class OwcProtocolTest
         byte[] bad = (byte[])raw.Clone(); bad[1] = 101;
         bad[^1] = (byte)(bad.Take(5).Sum(b => (int)b) & 255);
         Reject(() => CommToolOwcProtocol.DecodeSnapshotV3(Extended(bad), 0x80), "非法SOC");
+        foreach (int current in new[] { -127, -60, -1, 0, 1, 59, 60, 127, -128 })
+        {
+            byte[] ext = [unchecked((byte)current), 73, 76, 31, 0xC4, 0];
+            ext[5] = (byte)(ext.Take(5).Sum(x => (int)x) & 255);
+            var sample = CommToolOwcProtocol.DecodeSnapshotV3(Extended(ext), 0x80);
+            var values = CommToolOwcProtocol.DecodeFields(ext, OwcWireProtocol.LishenV111)
+                .ToDictionary(x => x.Name, x => x.Value);
+            Check(values["电流"] == (current == -128 ? "--" : current.ToString()), "扩展电流符号/无效值");
+            Check(values["故障码"] == "0x04" && values["故障"] == "充电高温保护", "扩展故障沿用映射");
+            Check(!(sample with { AgeMs = 5001 }).Fresh, "电流59/60不误用A133静态帧有效期");
+        }
         byte[] capabilities = [1, 7, 3, 0, 36, 0, 3, 1];
         Check(CommToolOwcProtocol.DecodeCapabilities(capabilities) == 7, "能力合同");
         Reject(() => CommToolOwcProtocol.DecodeCapabilities([1, 7, 3]), "截断能力");

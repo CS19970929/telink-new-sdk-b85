@@ -120,6 +120,19 @@ void ModelEdge(uint32_t now_ms,uint16_t timer_us,uint8_t level) {
     fields={k:v for k,v,_ in visible_fields(decoded,{0:decoded,0x80:decoded})}
     check(fields["SOC"]=="80" and fields["Voltage"]=="76" and fields["Battery temperature"]=="-20",
           "真实C快照经过Python生产解析保持量纲")
+    for current in (-127, -60, -1, 0, 1, 59, 60, 127, -128):
+        reset(2)
+        data=bytes([current&255,73,76,31,0xC4])
+        ext=data+bytes([sum(data)&255])
+        frame(ext,2)
+        sample=decode_snapshot(snapshot(0x80),0x80,True)
+        fields={k:v for k,v,_ in visible_fields(sample,{0:sample,0x80:sample})}
+        check(fields["Current"]==("--" if current==-128 else str(current)),
+              "C接收/Python解析扩展电流"+str(current))
+        check(fields["Fault code"]=="0x04","C接收/Python解析扩展故障")
+        from dataclasses import replace
+        check(not replace(sample,age_ms=5001).fresh,"扩展不借用静态帧有效期")
+    reset(2);frame(raw,2);s=snapshot(0x80)
     check(s[30:32]!=b"\0\0","固定模式首个有效报文取得会话")
     check(not snapshot(0,legacy=True),"新协议不会流入旧v2快照")
     check(not snapshot(0x7f) and not snapshot(0,capacity=35),"非法selector和短buffer被拒绝")

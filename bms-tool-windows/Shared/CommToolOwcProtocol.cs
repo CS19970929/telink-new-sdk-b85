@@ -16,7 +16,7 @@ public sealed record OwcSnapshot(bool Enabled, bool ChecksumOk, uint AgeMs, uint
     public OwcWireProtocol FrameProtocol { get; init; } = OwcWireProtocol.A133;
     public OwcWireProtocol MismatchProtocol { get; init; }
     public bool Fresh => Enabled && ChecksumOk && Raw.Length > 0 &&
-        AgeMs <= (Raw[0] is 0x3B or 0x3C ? 75000u : 5000u);
+        AgeMs <= (FrameProtocol == OwcWireProtocol.A133 && Raw[0] is 0x3B or 0x3C ? 75000u : 5000u);
 }
 
 public sealed record OwcField(string Packet, string Name, string Value, string Unit);
@@ -148,9 +148,13 @@ public static class CommToolOwcProtocol
 
     private static void ValidateLishen(byte[] raw)
     {
-        if (raw.Length != 6 || raw[0] != 0 || raw[1] > 100 || raw[4] != 0)
+        if (raw.Length != 6 || raw[1] > 100 ||
+            !((raw[0] == 0 && raw[4] == 0) || IsLishenExtended(raw)))
             throw new FormatException("锂神V1.1.1报文格式非法");
     }
+
+    public static bool IsLishenExtended(byte[] raw) =>
+        raw.Length == 6 && (raw[4] & 0xC0) == 0xC0 && (raw[4] & 0x3F) <= 0x29;
 
     private static uint U32(ReadOnlySpan<byte> data, int offset) =>
         BinaryPrimitives.ReadUInt32LittleEndian(data[offset..]);
@@ -205,10 +209,18 @@ public static class CommToolOwcProtocol
         if (protocol == OwcWireProtocol.LishenV111)
         {
             ValidateLishen(raw);
-            rows.Add(new("锂神", "协议", "锂神 V1.1.1", ""));
+            rows.Add(new("锂神", "协议", IsLishenExtended(raw) ? "锂神扩展（本项目）" : "锂神 V1.1.1", ""));
             rows.Add(new("锂神", "SOC", raw[1].ToString(CultureInfo.InvariantCulture), "%"));
             rows.Add(new("锂神", "总电压", raw[2].ToString(CultureInfo.InvariantCulture), "V"));
             rows.Add(new("锂神", "电池温度", unchecked((sbyte)raw[3]).ToString(CultureInfo.InvariantCulture), "℃"));
+            if (IsLishenExtended(raw))
+            {
+                rows.Add(new("锂神", "电流", raw[0] == 0x80 ? "--" :
+                    unchecked((sbyte)raw[0]).ToString(CultureInfo.InvariantCulture), "A"));
+                byte fault = (byte)(raw[4] & 0x3F);
+                rows.Add(new("锂神", "故障码", $"0x{fault:X2}", ""));
+                rows.Add(new("锂神", "故障", FaultName(fault), ""));
+            }
             return rows;
         }
         if (protocol != OwcWireProtocol.A133) throw new FormatException("未知一线通报文协议");
@@ -270,7 +282,7 @@ public static class CommToolOwcProtocol
         return rows;
     }
 
-    private static string FaultName(byte code) => code switch
+    public static string FaultName(byte code) => code switch
     {
         0 => "无故障", 1 => "放电过流二级保护", 2 => "放电过流一级保护", 3 => "低温充电保护",
         4 => "充电高温保护", 5 => "放电高温保护", 6 => "欠压保护", 7 => "过压保护",
