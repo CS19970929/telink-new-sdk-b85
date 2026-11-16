@@ -22,6 +22,15 @@
 #error "SIF protocol must be A133 or LISHEN_V111"
 #endif
 
+/* 本项目锂神扩展：保留字节0=int8电流(1A/bit)，80=缺测；
+ * 保留字节4=C0|A1.3.3故障码。0保留标准V1.1.1的两个00。 */
+#ifndef BMS_PRODUCT_SIF_LISHEN_EXTENDED
+#define BMS_PRODUCT_SIF_LISHEN_EXTENDED 1u
+#endif
+#if BMS_PRODUCT_SIF_LISHEN_EXTENDED > 1u
+#error "BMS_PRODUCT_SIF_LISHEN_EXTENDED must be 0 or 1"
+#endif
+
 typedef enum
 {
     SIF_IDLE = 0,

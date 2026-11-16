@@ -164,7 +164,7 @@ static uint8_t sum_verify(const uint8_t *data, uint16_t length)
     return (uint8_t)(res & 0xff);
 }
 
-#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_A133
+#if BMS_PRODUCT_SIF_PROTOCOL == BMS_SIF_PROTOCOL_A133 || BMS_PRODUCT_SIF_LISHEN_EXTENDED
 /* A1.3.3 表 A.4：保护优先于异常报警，再优先于预警。
  * 只映射已有状态，不从 MOS 过温猜测 MOS 损坏，也不新增保护阈值。 */
 static uint8_t sif_fault_code(void)
@@ -522,6 +522,25 @@ static uint8_t sif_send_lishen_packet(void)
     p[2] = (uint8_t)voltage_v;
     p[3] = (uint8_t)(int8_t)temperature_c;
     p[4] = 0u;
+#if BMS_PRODUCT_SIF_LISHEN_EXTENDED
+    /* 单字节只承担显示量纲，不影响保护。超量程/双向同时非零均缺测；
+     * 先以0.1A整数取整，正放电、负充电，避免有符号截断和回绕。 */
+    {
+        uint16_t discharge = g_bms_report.discharge_current_a10;
+        uint16_t charge = g_bms_report.charge_current_a10;
+        int32_t current_a = 0;
+        p[0] = 0x80u;
+        if (!(discharge && charge)) {
+            int32_t current_a10 = (int32_t)discharge - (int32_t)charge;
+            current_a = current_a10 >= 0 ? (current_a10 + 5) / 10 :
+                                          -((-current_a10 + 5) / 10);
+            if (current_a >= -127 && current_a <= 127)
+                p[0] = (uint8_t)(int8_t)current_a;
+        }
+        /* 高两位是本项目扩展标识；低6位沿用既有故障优先级。 */
+        p[4] = (uint8_t)(0xc0u | sif_fault_code());
+    }
+#endif
     p[5] = sum_verify(p, SIF_LISHEN_BYTES - 1u);
     s_packet_lengths[s_prepare_packet] = SIF_LISHEN_BYTES;
     return 1u;

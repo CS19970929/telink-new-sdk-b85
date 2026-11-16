@@ -164,6 +164,30 @@ int main(void){
  return 0;
 }
 ''';
+# 同一真实生产TU分别覆盖标准和本项目扩展，保留完整逐tick波形检查。
+if os.environ.get('BMS_SIF_EXTENDED') == '1':
+    program = program.replace('#define BMS_PRODUCT_SIF_PROTOCOL 2u',
+                              '#define BMS_PRODUCT_SIF_PROTOCOL 2u\n#define BMS_PRODUCT_SIF_LISHEN_EXTENDED 1u')
+    for old, new in (('0x00u,0x58u','0xc0u,0x18u'),
+                     ('0x00u,0x9au','0xc0u,0x5au'),
+                     ('0x00u,0xd9u','0xc0u,0x99u')):
+        program = program.replace(old,new)
+    checks = []
+    for discharge, charge, encoded in ((0,0,0),(123,0,12),(0,123,244),
+                                      (1270,0,127),(0,1270,129),
+                                      (1275,0,128),(0,1275,128),(1,1,128)):
+        checks.append('g_bms_report.discharge_current_a10=%du; g_bms_report.charge_current_a10=%du; '
+                      'g_bms_report.soc.soc_percent=50; g_bms_report.pack_voltage_10mv=4800; '
+                      'assert(sif_send_lishen_packet()); assert(s_packets[s_prepare_packet][0]==%du); '
+                      'assert((s_packets[s_prepare_packet][4]&0xc0u)==0xc0u);' %
+                      (discharge,charge,encoded))
+    checks.append('g_bms_report.fault_third.bits.charge_otp=1; assert(sif_send_lishen_packet()); '
+                  'assert(s_packets[s_prepare_packet][4]==0xc4u); '
+                  'g_bms_report.fault_third.bits.cell_ovp=1; assert(sif_send_lishen_packet()); '
+                  'assert(s_packets[s_prepare_packet][4]==0xc7u); '
+                  'memset(&g_bms_report.fault_third,0,sizeof(g_bms_report.fault_third));')
+    checks.append('g_bms_report.discharge_current_a10=g_bms_report.charge_current_a10=0;')
+    program = program.replace(' assert(SIF_TIMER_INTERVAL_US', '\n'.join(checks)+'\n assert(SIF_TIMER_INTERVAL_US')
 with tempfile.TemporaryDirectory(prefix='sif-lishen-') as folder:
     c = Path(folder) / 'lishen.c'
     exe = Path(folder) / 'lishen.exe'

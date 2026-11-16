@@ -183,3 +183,5 @@ DVC1124-2 DS V1.1 原 PDF 第 1 页规定 4～24 串且电池包不超过 100V�
 | 静态分析要本机模板 | 使用 `static --no-report`，保留机器可读结果 |
 
 文档修改默认审查链接、源码引用和 Git 差异；文档 contract 等检查脚本也只在用户要求测试时执行。本机结果不等于远端 CI，host/ELF 结果不等于实板 MOS、Flash 掉电或低功耗验证。
+
+锂神扩展E1专项：设置环境变量 BMS_SIF_EXTENDED=1 后运行 python tests/sif_lishen_host_check.py，复用真实TU及逐tick波形检查，增加有符号电流、取整、超量程和双向无效场景；清除此变量复验标准模式。均不生成BIN。

@@ -28,6 +28,10 @@ jobs:
         run: python tests/sif_packet_host_check.py
       - name: 锂神 V1.1.1 报文与逐tick波形
         run: python tests/sif_lishen_host_check.py
+      - name: 本项目锂神扩展电流故障与逐tick波形
+        env:
+          BMS_SIF_EXTENDED: '1'
+        run: python tests/sif_lishen_host_check.py
 
   sif-tc32:
     name: D008 双协议 TC32 编译与锂神整包链接
