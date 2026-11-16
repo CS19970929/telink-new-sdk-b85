@@ -9,6 +9,19 @@
 #include "stdint.h"
 #include "common/types.h"
 
+/* D008 一线通编译期协议选择（无需修改 bms_product.h 或 OTA 参数包）：
+ * 1=A1.3.3（原有默认）；2=锂神 V1.1.1。
+ * 仅改此宏，重新编译时不会把通信协议选择计入电池/保护默认参数摘要。 */
+#define BMS_SIF_PROTOCOL_A133 1u
+#define BMS_SIF_PROTOCOL_LISHEN_V111 2u
+#ifndef BMS_PRODUCT_SIF_PROTOCOL
+#define BMS_PRODUCT_SIF_PROTOCOL BMS_SIF_PROTOCOL_A133
+#endif
+#if BMS_PRODUCT_SIF_PROTOCOL != BMS_SIF_PROTOCOL_A133 && \
+    BMS_PRODUCT_SIF_PROTOCOL != BMS_SIF_PROTOCOL_LISHEN_V111
+#error "SIF protocol must be A133 or LISHEN_V111"
+#endif
+
 typedef enum
 {
     SIF_IDLE = 0,
