@@ -36,3 +36,11 @@
 - 客户端任务不执行仓库历史 `bms_tools/bms.py build/rebuild/ci` 或 VS Code 发送固件任务；这些会构建或发送固件。用户未要求时不生成固件 BIN、不烧录、不安装。
 - 测试结果区分源码/host、桌面/App 编译、真实传输、实板行为；不能把 fake transport 或 APK 编译当作手机和 BMS 验收。
 - 保留无关 dirty 改动。较大变更分阶段提交，只提交本次相关文件；交付报告实际分支、提交、验证及是否新增分支。
+
+## 配套Comm Tool
+
+- firmware/comm_tool_f103ret6/属于本客户端主线配套设备；App/IAP/BSP和vendor可按Comm Tool任务维护，旧BMS业务固件不迁入。
+- 当前目标STM32F103RET6、StdPeriph V3.5.0、同一Keil工程两个target；Flash/RAM/mailbox边界见docs/comm-tool/README.md，不套用Telink或被升级BMS的地址。
+- Comm Tool编译使用tools/comm-tool/build_comm_tool.py，产物外置，默认仅AXF；用户未要求镜像时不使用--images，不自动生成BIN、烧录或升级。
+- 双协议接收和PC兼容合同见docs/comm-tool/protocol/COMM_TOOL_SERIAL_PROTOCOL.md；Windows两版共用现有Shared实现，维护Python工具共用单一源码。
+- 本次feature分支恢复是用户明确批准的任务例外，完成后合回client/main；不改变后续统一入口。

@@ -4,10 +4,17 @@ using System.Text;
 
 namespace BmsTool.Windows;
 
+public enum OwcReceiveMode : byte { Auto = 0, A133 = 1, LishenV111 = 2 }
+public enum OwcWireProtocol : byte { Unknown = 0, A133 = 1, LishenV111 = 2 }
+
 public sealed record OwcSnapshot(bool Enabled, bool ChecksumOk, uint AgeMs, uint Good,
     uint ChecksumErrors, uint TimingErrors, uint Overflows, uint Sequence,
     byte[] Raw, ushort Session, byte Version)
 {
+    public OwcReceiveMode Mode { get; init; } = OwcReceiveMode.A133;
+    public OwcWireProtocol Protocol { get; init; } = OwcWireProtocol.A133;
+    public OwcWireProtocol FrameProtocol { get; init; } = OwcWireProtocol.A133;
+    public OwcWireProtocol MismatchProtocol { get; init; }
     public bool Fresh => Enabled && ChecksumOk && Raw.Length > 0 &&
         AgeMs <= (Raw[0] is 0x3B or 0x3C ? 75000u : 5000u);
 }
@@ -15,11 +22,30 @@ public sealed record OwcSnapshot(bool Enabled, bool ChecksumOk, uint AgeMs, uint
 public sealed record OwcField(string Packet, string Name, string Value, string Unit);
 public sealed record CommToolOwcFrame(byte Flags, ushort Sequence, byte Command, byte Status, byte[] Payload);
 
-// PC快照与BMS线协议独立：只接受已交付的v1/v2头，业务字段统一按A1.3.3解释。
+// 旧v1/v2仅解释A1.3.3；新命令v3显式携带协议，禁止按raw首字节猜协议。
 public static class CommToolOwcProtocol
 {
     public static readonly byte[] PacketIds = [1, 0x3A, 0x3B, 0x3C, 0];
+    public static readonly byte[] ExtendedPacketIds = [1, 0x3A, 0x3B, 0x3C, 0x80, 0];
+    public const byte LishenSelector = 0x80;
     public const int HeaderSize = 32;
+    public const int ExtendedHeaderSize = 36;
+    public static string ProtocolName(OwcWireProtocol protocol) => protocol switch
+    {
+        OwcWireProtocol.A133 => "A1.3.3",
+        OwcWireProtocol.LishenV111 => "锂神 V1.1.1",
+        _ => "正在识别"
+    };
+    public static byte DecodeCapabilities(ReadOnlySpan<byte> payload)
+    {
+        if (payload.Length != 8 || payload[0] != 1 || (payload[1] & ~7) != 0 ||
+            payload[2] != 3 || payload[3] != 0 ||
+            BinaryPrimitives.ReadUInt16LittleEndian(payload[4..]) != ExtendedHeaderSize ||
+            BinaryPrimitives.ReadUInt16LittleEndian(payload[6..]) != 259)
+            throw new FormatException("Comm Tool一线通能力响应非法或版本不支持");
+        return payload[1];
+    }
+
 
     public static ushort Crc16(ReadOnlySpan<byte> data)
     {
@@ -59,31 +85,71 @@ public static class CommToolOwcProtocol
             frame[6], frame[7], frame[10..^2]);
     }
 
-    public static OwcSnapshot DecodeSnapshot(ReadOnlySpan<byte> payload, byte requestedId)
+    public static OwcSnapshot DecodeSnapshot(ReadOnlySpan<byte> payload, byte requestedId) =>
+        DecodeSnapshotCore(payload, requestedId, false);
+    public static OwcSnapshot DecodeSnapshotV3(ReadOnlySpan<byte> payload, byte requestedId) =>
+        DecodeSnapshotCore(payload, requestedId, true);
+
+    private static OwcSnapshot DecodeSnapshotCore(ReadOnlySpan<byte> payload, byte requestedId, bool extended)
     {
-        if (payload.Length < HeaderSize) throw new FormatException("一线通快照头不完整");
+        int header = extended ? ExtendedHeaderSize : HeaderSize;
+        if (payload.Length < header) throw new FormatException("一线通快照头不完整");
         byte version = payload[0];
-        if (version is not (1 or 2)) throw new FormatException($"不支持的快照版本：{version}");
-        if (!PacketIds.Contains(requestedId) || payload[1] > 1 || payload[2] > 1 || payload[3] > 1)
+        if (extended ? version != 3 : version is not (1 or 2))
+            throw new FormatException($"不支持的快照版本：{version}");
+        if (!(extended ? ExtendedPacketIds : PacketIds).Contains(requestedId) ||
+            payload[1] > 1 || payload[2] > 1 || payload[3] > 1)
             throw new FormatException("一线通快照头非法");
+        var mode = OwcReceiveMode.A133;
+        var protocol = OwcWireProtocol.A133;
+        var frameProtocol = OwcWireProtocol.A133;
+        var mismatch = OwcWireProtocol.Unknown;
+        if (extended)
+        {
+            if (payload[32] > 2 || payload[33] > 2 || payload[34] > 2 || payload[35] > 2)
+                throw new FormatException("快照协议标识非法");
+            mode = (OwcReceiveMode)payload[32]; protocol = (OwcWireProtocol)payload[33];
+            frameProtocol = (OwcWireProtocol)payload[34]; mismatch = (OwcWireProtocol)payload[35];
+            if (mode != OwcReceiveMode.Auto && protocol != OwcWireProtocol.Unknown &&
+                (byte)mode != (byte)protocol) throw new FormatException("固定接收模式与锁定协议冲突");
+        }
         ushort session = BinaryPrimitives.ReadUInt16LittleEndian(payload[30..]);
         if (version == 1 && session != 0) throw new FormatException("v1保留字段必须为零");
         int length = BinaryPrimitives.ReadUInt16LittleEndian(payload[28..]);
-        if (length != payload.Length - HeaderSize || length > 259 || (payload[2] != 0) != (length != 0))
+        if (length != payload.Length - header || length > 259 || (payload[2] != 0) != (length != 0))
             throw new FormatException("一线通快照长度非法");
-        byte[] raw = payload[HeaderSize..].ToArray();
+        byte[] raw = payload[header..].ToArray();
         bool valid = payload[3] != 0;
         if (raw.Length != 0)
         {
-            ValidatePacket(raw);
-            if (requestedId != 0 && raw[0] != requestedId) throw new FormatException("一线通报文ID不一致");
-            if (version == 2 && valid && session == 0) throw new FormatException("v2有效报文缺少会话");
+            if (frameProtocol == OwcWireProtocol.LishenV111)
+            {
+                ValidateLishen(raw);
+                if (requestedId is not (0 or LishenSelector)) throw new FormatException("锂神快照selector不一致");
+            }
+            else if (frameProtocol == OwcWireProtocol.A133)
+            {
+                ValidatePacket(raw);
+                if (requestedId == LishenSelector || (requestedId != 0 && raw[0] != requestedId))
+                    throw new FormatException("一线通报文ID不一致");
+            }
+            else throw new FormatException("非空快照缺少报文协议");
+            if (version >= 2 && valid && session == 0) throw new FormatException("有效报文缺少会话");
+            if (extended && valid && protocol != frameProtocol) throw new FormatException("快照跨接收协议");
             if (valid != SumOk(raw)) throw new FormatException("一线通SUM与有效标志不一致");
             if (requestedId != 0 && !valid) throw new FormatException("有效缓存含坏SUM");
         }
-        else if (valid) throw new FormatException("空快照标记有效");
+        else if (valid || (extended && frameProtocol != OwcWireProtocol.Unknown))
+            throw new FormatException("空快照标识非法");
         return new OwcSnapshot(payload[1] != 0, valid, U32(payload, 4), U32(payload, 8),
-            U32(payload, 12), U32(payload, 16), U32(payload, 20), U32(payload, 24), raw, session, version);
+            U32(payload, 12), U32(payload, 16), U32(payload, 20), U32(payload, 24), raw, session, version)
+            { Mode = mode, Protocol = protocol, FrameProtocol = frameProtocol, MismatchProtocol = mismatch };
+    }
+
+    private static void ValidateLishen(byte[] raw)
+    {
+        if (raw.Length != 6 || raw[0] != 0 || raw[1] > 100 || raw[4] != 0)
+            throw new FormatException("锂神V1.1.1报文格式非法");
     }
 
     private static uint U32(ReadOnlySpan<byte> data, int offset) =>
@@ -107,15 +173,19 @@ public static class CommToolOwcProtocol
         (raw.Take(raw.Length - 1).Sum(value => (int)value) & 255) == raw[^1];
 
     public static bool Online(IReadOnlyDictionary<byte, OwcSnapshot> snapshots) =>
-        snapshots.Values.Any(s => s.Enabled && s.ChecksumOk && s.Raw.Length != 0 && s.AgeMs <= 5000);
+        snapshots.Values.Any(s => s.Enabled && s.ChecksumOk && s.Raw.Length != 0 && s.AgeMs <= 5000 &&
+            s.Protocol != OwcWireProtocol.Unknown && s.Protocol == s.FrameProtocol && s.MismatchProtocol == OwcWireProtocol.Unknown);
 
     public static bool Coherent(IEnumerable<OwcSnapshot> snapshots) =>
-        snapshots.Select(s => (s.Version, s.Session, s.Enabled)).Distinct().Count() == 1;
+        snapshots.Select(s => (s.Version, s.Session, s.Enabled, s.Mode, s.Protocol)).Distinct().Count() == 1;
 
     public static IReadOnlyList<OwcField> VisibleFields(OwcSnapshot snapshot,
         IReadOnlyDictionary<byte, OwcSnapshot> snapshots)
     {
-        if (!snapshot.Enabled || !snapshot.ChecksumOk || snapshot.Raw.Length == 0) return [];
+        if (!snapshot.Enabled || !snapshot.ChecksumOk || snapshot.Raw.Length == 0 ||
+            snapshot.MismatchProtocol != OwcWireProtocol.Unknown) return [];
+        if (snapshot.FrameProtocol == OwcWireProtocol.LishenV111)
+            return Online(snapshots) && snapshot.Fresh ? DecodeFields(snapshot.Raw, snapshot.FrameProtocol) : [];
         byte id = snapshot.Raw[0];
         if (id != 1 && (!Online(snapshots) || !snapshot.Fresh)) return [];
         if (id == 0x3B && snapshots.TryGetValue(0x3A, out var realtime) && realtime.Raw.Length != 0 &&
@@ -128,10 +198,20 @@ public static class CommToolOwcProtocol
         return fields;
     }
 
-    public static List<OwcField> DecodeFields(byte[] raw)
+    public static List<OwcField> DecodeFields(byte[] raw, OwcWireProtocol protocol = OwcWireProtocol.A133)
     {
         var rows = new List<OwcField>();
         if (!SumOk(raw)) return rows;
+        if (protocol == OwcWireProtocol.LishenV111)
+        {
+            ValidateLishen(raw);
+            rows.Add(new("锂神", "协议", "锂神 V1.1.1", ""));
+            rows.Add(new("锂神", "SOC", raw[1].ToString(CultureInfo.InvariantCulture), "%"));
+            rows.Add(new("锂神", "总电压", raw[2].ToString(CultureInfo.InvariantCulture), "V"));
+            rows.Add(new("锂神", "电池温度", unchecked((sbyte)raw[3]).ToString(CultureInfo.InvariantCulture), "℃"));
+            return rows;
+        }
+        if (protocol != OwcWireProtocol.A133) throw new FormatException("未知一线通报文协议");
         ValidatePacket(raw);
         string packet = $"0x{raw[0]:X2}";
         void Add(string name, string value, string unit = "") => rows.Add(new(packet, name, value, unit));

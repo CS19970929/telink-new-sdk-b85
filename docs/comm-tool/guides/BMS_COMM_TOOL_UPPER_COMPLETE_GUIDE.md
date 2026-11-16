@@ -1,6 +1,9 @@
 # BMS 新上位机完整设计、协议与维护手册
 
-> **维护提示（2026-09-09）：** 本文保留为历史综合手册。当前上位机事实以 [CAN 上位机完整技术说明](CAN_UPPER_COMPUTER_TECHNICAL_GUIDE.md) 为准，CAN 帧级事实以 [BMS CAN 通信协议完整说明](../protocol/can_protocol.md) 为准。特别注意：两种 GUI 通信模式当前都依赖 Comm Tool；BMS CAN 老化命令 `0x07～0x0A` 未编译；`0x14F80208` 老化字段为固定占位值。
+> 固定来源说明：本文来自comm-tool-branch@5521e851，保留当时的行为记录。当前目录、Keil工程、双协议合同及验证范围见[当前入口](../README.md)。
+
+
+> **维护提示（2026-09-09）：** 本文保留为历史综合手册。当前上位机事实以 [CAN 上位机完整技术说明](CAN_UPPER_COMPUTER_TECHNICAL_GUIDE.md) 为准，CAN 帧级事实以 [BMS CAN 通信协议完整说明](https://github.com/CS19970929/103-309-template/blob/5521e851d77e517b76bec679dd215bbd3e2d4528/docs/protocol/can_protocol.md) 为准。特别注意：两种 GUI 通信模式当前都依赖 Comm Tool；BMS CAN 老化命令 `0x07～0x0A` 未编译；`0x14F80208` 老化字段为固定占位值。
 
 > 文档状态：REFERENCE（由上述 CURRENT 文档替代现状说明）
 >

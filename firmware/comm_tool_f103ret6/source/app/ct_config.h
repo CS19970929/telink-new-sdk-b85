@@ -48,7 +48,7 @@
 
 #define CT_BMS_IAP_BASE_ADDR           0x08000000u
 #define CT_BMS_APP_BASE_ADDR           0x08004800u
-#define CT_BMS_APP_LIMIT_ADDR          0x08020000u
+#define CT_BMS_APP_LIMIT_ADDR          0x0801F800u
 
 #define CT_SELF_FLASH_BASE             0x08000000u
 #define CT_SELF_FLASH_SIZE             0x00080000u

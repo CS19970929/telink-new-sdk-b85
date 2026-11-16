@@ -5,12 +5,18 @@ on:
     branches: [client/main]
     paths:
       - 'bms-tool-windows/**'
+      - 'firmware/comm_tool_f103ret6/**'
+      - 'tools/comm-tool/**'
+      - 'docs/comm-tool/**'
       - 'AGENTS.md'
       - '.github/workflows/windows-afe-editor-ci.yml'
   pull_request:
     branches: [client/main]
     paths:
       - 'bms-tool-windows/**'
+      - 'firmware/comm_tool_f103ret6/**'
+      - 'tools/comm-tool/**'
+      - 'docs/comm-tool/**'
       - '.github/workflows/windows-afe-editor-ci.yml'
   workflow_dispatch:
 
@@ -39,7 +45,7 @@ jobs:
       - name: Shared protocol and compatibility regressions
         shell: pwsh
         run: |
-          foreach ($script in @('test-ota-protocol.ps1','test-diagnostics.ps1','test-afe-fragments.ps1','test-afe-registers.ps1','test-soc-hil-protocol.ps1','test-ble-discovery.ps1','test-c077-compatibility.ps1','test-c11-client.ps1','test-serial-upgrade.ps1')) {
+          foreach ($script in @('test-ota-protocol.ps1','test-diagnostics.ps1','test-afe-fragments.ps1','test-afe-registers.ps1','test-soc-hil-protocol.ps1','test-ble-discovery.ps1','test-c077-compatibility.ps1','test-c11-client.ps1','test-serial-upgrade.ps1','test-owc-protocol.ps1')) {
             & (Join-Path bms-tool-windows $script)
             if ($LASTEXITCODE -ne 0) { throw "$script failed" }
           }
@@ -48,12 +54,25 @@ jobs:
         run: |
           $customer = Join-Path $env:BMS_BUILD_ROOT 'bin/BmsTool.Windows/release/BmsTool.Windows.dll'
           $internal = Join-Path $env:BMS_BUILD_ROOT 'bin/BmsFactoryTest.Windows/release/BmsFactoryTest.Windows.dll'
-          foreach ($script in @('test-client-lifecycle.ps1','test-main-window-experience.ps1','test-afe-editor-ui.ps1','test-afe-write-compatibility.ps1','test-business-parameters-ui.ps1')) {
+          foreach ($script in @('test-client-lifecycle.ps1','test-main-window-experience.ps1','test-afe-editor-ui.ps1','test-afe-write-compatibility.ps1','test-business-parameters-ui.ps1','test-owc-ui.ps1')) {
             & (Join-Path bms-tool-windows $script) -CustomerAssembly $customer -InternalAssembly $internal
             if ($LASTEXITCODE -ne 0) { throw "$script failed" }
           }
           & bms-tool-windows/test-cli-offline.ps1 -CliDll (Join-Path $env:BMS_BUILD_ROOT 'bin/BmsTool.Cli/release/bms-cli.dll')
           if ($LASTEXITCODE -ne 0) { throw 'CLI offline failed' }
+      - name: Comm Tool production decoder and maintenance compatibility
+        shell: pwsh
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          PYTHONIOENCODING: utf-8
+          PIP_CACHE_DIR: ${{ runner.temp }}/bms-client/pip
+        run: |
+          python -m pip install pyserial
+          if ($LASTEXITCODE -ne 0) { throw 'pyserial install failed' }
+          foreach ($script in @('check_comm_tool_owc_snapshot.py','check_comm_tool_owc.py','check_comm_tool_owc_dual.py','check_comm_tool_owc_dual_host.py','check_comm_tool_upgrade_boundaries.py')) {
+            python -B "tools/comm-tool/$script"
+            if ($LASTEXITCODE -ne 0) { throw "$script failed" }
+          }
       - name: Publish Windows tools
         shell: pwsh
         run: |

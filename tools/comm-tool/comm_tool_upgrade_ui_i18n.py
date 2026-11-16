@@ -16,6 +16,19 @@ _patched = False
 
 
 _EXACT_EN = {
+    "请选择固件文件": "Select a firmware file",
+    "锂神实时": "Lishen live data",
+    "协议范围": "Available fields",
+    "仅提供SOC、总压和电池温度": "SOC, pack voltage and battery temperature only",
+    "此Comm Tool仅支持A1.3.3；锂神接收需要升级Comm Tool App": "This legacy Comm Tool supports A1.3.3 only; update its App for Lishen",
+    "Comm Tool接收模式不可用，请核对PC10/11配置或升级App": "Receiver unavailable; check PC10/11 configuration or update the App",
+    "自动识别": "Auto detect",
+    "锂神 V1.1.1": "Lishen V1.1.1",
+    "电池温度": "Battery temperature",
+    "接收模式不会修改BMS协议；锂神模式仅提供SOC、总压和电池温度。": "Receiver mode does not change the BMS protocol; Lishen provides SOC, pack voltage and battery temperature only.",
+    "；旧Comm Tool仅支持A1.3.3": "; this legacy Comm Tool supports A1.3.3 only",
+    "接收协议不匹配，请切换模式": "Protocol mismatch; select the matching receiver mode",
+    "正在识别协议，等待连续两帧": "Detecting protocol; waiting for two valid frames",
     "一线通监控": "One-wire Monitor",
     "A1.3.3 标准字段；加密、充电策略和互认未实现。公有帧仅保留接入信息，实时测量以 0x3A 为准。": "A1.3.3 fields; encryption, charging policy and mutual recognition are not implemented. Public frames retain connection information; live measurements come from 0x3A.",
     "厂家代码": "Manufacturer code",

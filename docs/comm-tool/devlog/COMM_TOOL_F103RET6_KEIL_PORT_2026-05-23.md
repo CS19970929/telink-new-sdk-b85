@@ -1,5 +1,8 @@
 # COMM TOOL F103RET6 Keil 工程说明
 
+> 固定来源说明：本文来自comm-tool-branch@5521e851，保留当时的行为记录。当前目录、Keil工程、双协议合同及验证范围见[当前入口](../README.md)。
+
+
 ## 工程入口
 
 - App Keil 工程：`firmware/comm_tool_f103ret6/keil/COMM_TOOL_F103RET6.uvprojx`

@@ -7,6 +7,7 @@ import re
 import struct
 import tempfile
 from check_comm_tool_owc import APP, build_library
+from comm_tool_owc import decode_snapshot, visible_fields
 
 def main():
     parent=Path(os.environ["LOCALAPPDATA"])/"CodexTemp/comm-tool"
@@ -48,7 +49,7 @@ void ModelEdge(uint32_t now_ms,uint16_t timer_us,uint8_t level) {
 }
 """
     (temp/"board_model.c").write_text(model,encoding="utf-8")
-    lib=ctypes.CDLL(str(build_library(temp,[temp/"board_model.c"])))
+    lib=ctypes.CDLL(str(build_library(temp,[temp/"board_model.c"],("ModelReset","ModelEdge"))))
     lib.ModelReset.argtypes=[ctypes.c_uint32,ctypes.c_uint16,ctypes.c_uint8]
     lib.ModelEdge.argtypes=[ctypes.c_uint32,ctypes.c_uint16,ctypes.c_uint8]
     lib.CtOwc_Poll.argtypes=[ctypes.c_uint32]
@@ -115,6 +116,10 @@ void ModelEdge(uint32_t now_ms,uint16_t timer_us,uint8_t level) {
     s=snapshot(0x80)
     check(len(s)==42 and s[36:]==raw,"board实际计时保留62ms同步并按MSB解码6字节")
     check(s[0]==3 and s[32:36]==bytes([2,2,2,0]),"新快照显式区分模式、锁定协议和报文协议")
+    decoded=decode_snapshot(s,0x80,True)
+    fields={k:v for k,v,_ in visible_fields(decoded,{0:decoded,0x80:decoded})}
+    check(fields["SOC"]=="80" and fields["Voltage"]=="76" and fields["Battery temperature"]=="-20",
+          "真实C快照经过Python生产解析保持量纲")
     check(s[30:32]!=b"\0\0","固定模式首个有效报文取得会话")
     check(not snapshot(0,legacy=True),"新协议不会流入旧v2快照")
     check(not snapshot(0x7f) and not snapshot(0,capacity=35),"非法selector和短buffer被拒绝")

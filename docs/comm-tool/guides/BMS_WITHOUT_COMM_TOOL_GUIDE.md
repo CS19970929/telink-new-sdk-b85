@@ -1,5 +1,8 @@
 # 无 Comm Tool 的 BMS 通信接入指南
 
+> 固定来源说明：本文来自comm-tool-branch@5521e851，保留当时的行为记录。当前目录、Keil工程、双协议合同及验证范围见[当前入口](../README.md)。
+
+
 文档状态：CURRENT
 
 源码验证：FULL（BMS App）/ PARTIAL（客户侧硬件需现场确认）
@@ -45,7 +48,7 @@
 | `0x14F80205` | MOS、故障、容量 | 约 500 ms |
 | `0x14F80208` | 工厂容量、占位老化数据、日期 | 约 500 ms |
 
-完整字段见 [BMS CAN 通信协议完整说明](../protocol/can_protocol.md)。
+完整字段见 [BMS CAN 通信协议完整说明](https://github.com/CS19970929/103-309-template/blob/5521e851d77e517b76bec679dd215bbd3e2d4528/docs/protocol/can_protocol.md)。
 
 ### 3.2 使用仓库现有命令行工具
 
@@ -219,7 +222,7 @@ BMS 软件默认串口参数为 19200、8N1、从站地址 1。Modbus 路径和 
 - 具备 ST-Link 或安全烧录脚本等恢复手段；
 - 不把 App bin 写到 `0x08000000`。
 
-详细帧级协议见 [BMS CAN 通信协议完整说明](../protocol/can_protocol.md)。
+详细帧级协议见 [BMS CAN 通信协议完整说明](https://github.com/CS19970929/103-309-template/blob/5521e851d77e517b76bec679dd215bbd3e2d4528/docs/protocol/can_protocol.md)。
 
 ## 8. 推荐决策
 
@@ -229,7 +232,7 @@ BMS 软件默认串口参数为 19200、8N1、从站地址 1。Modbus 路径和 
 
 ## 9. 建议给客户的交付包
 
-- 本文和 [BMS CAN 通信协议完整说明](../protocol/can_protocol.md)；
+- 本文和 [BMS CAN 通信协议完整说明](https://github.com/CS19970929/103-309-template/blob/5521e851d77e517b76bec679dd215bbd3e2d4528/docs/protocol/can_protocol.md)；
 - CAN 连接器针脚和线束图；
 - DBC 文件（当前仓库未见权威 DBC，建议后续生成并实车验证）；
 - python-can 最小读取示例或扩展后的 `can_bms_host.py`；

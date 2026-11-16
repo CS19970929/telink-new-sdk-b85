@@ -20,7 +20,8 @@ $argsList = @(
 )
 
 if ($Bin) {
-    $binPath = (Resolve-Path (Join-Path $repoRoot $Bin)).Path
+    $candidate = if ([IO.Path]::IsPathRooted($Bin)) { $Bin } else { Join-Path $repoRoot $Bin }
+    $binPath = (Resolve-Path -LiteralPath $candidate).Path
     $argsList += @("--bin", $binPath)
 }
 if ($DownloadCache) {

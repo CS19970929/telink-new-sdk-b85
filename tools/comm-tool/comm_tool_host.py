@@ -25,7 +25,7 @@ BMS_APP_BASE_ADDR = 0x08004800
 COMM_TOOL_APP_BASE_ADDR = 0x08008000
 APP_BASE_ADDR = BMS_APP_BASE_ADDR
 IAP_BASE_ADDR = 0x08000000
-BMS_APP_FLASH_LIMIT = 0x08020000
+BMS_APP_FLASH_LIMIT = 0x0801F800
 COMM_TOOL_APP_FLASH_LIMIT = 0x08018000
 SRAM_BASE = 0x20000000
 SRAM_LIMIT = 0x20010000
@@ -169,6 +169,12 @@ def read_frame(ser, timeout: float) -> Frame:
     raise TimeoutError("等待 comm tool 响应超时")
 
 
+class CommToolCommandError(RuntimeError):
+    def __init__(self, status: int):
+        self.status = status
+        super().__init__(f"comm tool 返回错误: {STATUS_TEXT.get(status, f'0x{status:02X}')}")
+
+
 class CommToolClient:
     def __init__(self, port: str, baud: int, timeout: float):
         serial = require_pyserial()
@@ -197,8 +203,7 @@ class CommToolClient:
             if (resp.flags & FLAG_ACK) == 0:
                 continue
             if resp.status != 0:
-                status_name = STATUS_TEXT.get(resp.status, f"0x{resp.status:02X}")
-                raise RuntimeError(f"comm tool 返回错误: {status_name}")
+                raise CommToolCommandError(resp.status)
             return resp
         raise TimeoutError(f"等待命令 0x{cmd:02X} 响应超时")
 

@@ -11,6 +11,9 @@ namespace BmsTool.Windows;
 public sealed class OwcMonitorWindow : Window
 {
     private readonly ComboBox _ports = new() { Width = 140, Margin = new Thickness(4), IsEditable = true };
+    private readonly ComboBox _protocol = new() { Width = 150, Margin = new Thickness(4),
+        ItemsSource = new[] { "自动识别", "A1.3.3", "锂神 V1.1.1" }, SelectedIndex = 0 };
+    private bool _restartAfterStop;
     private readonly Button _refresh = new() { Content = "刷新串口", Margin = new Thickness(4), Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _start = new() { Content = "开始监控", Margin = new Thickness(4), Padding = new Thickness(10, 4, 10, 4) };
     private readonly Button _stop = new() { Content = "停止监控", Margin = new Thickness(4), Padding = new Thickness(10, 4, 10, 4), IsEnabled = false };
@@ -31,7 +34,7 @@ public sealed class OwcMonitorWindow : Window
 
     public OwcMonitorWindow()
     {
-        Title = "一线通监控 · A1.3.3";
+        Title = "一线通监控";
         Width = 1000; Height = 760; MinWidth = 740; MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var layout = new Grid { Margin = new Thickness(12) };
@@ -42,12 +45,12 @@ public sealed class OwcMonitorWindow : Window
         layout.RowDefinitions.Add(new() { Height = new GridLength(160) });
         var controls = new WrapPanel();
         controls.Children.Add(new TextBlock { Text = "Comm Tool / 115200 8N1", VerticalAlignment = VerticalAlignment.Center });
-        foreach (var control in new UIElement[] { _ports, _refresh, _start, _stop }) controls.Children.Add(control);
+        foreach (var control in new UIElement[] { _ports, _refresh, _protocol, _start, _stop }) controls.Children.Add(control);
         layout.Children.Add(controls);
         Grid.SetRow(_status, 1); layout.Children.Add(_status);
         var note = new TextBlock
         {
-            Text = "只读A1.3.3公开字段；加密、充电策略和互认未实现。实时测量以0x3A为准。\n换电池或BMS重启后请停止再开始监控；仅连接Comm Tool串口，普通USB串口不能直接接一线通。",
+            Text = "选择接收协议；切换后自动重新接收。锂神模式只提供SOC、总压和电池温度。\n仅连接Comm Tool串口；接收模式不会改变BMS发送协议。换电池后请停止再开始。",
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4, 6, 4, 8), Foreground = Brushes.DimGray
         };
         Grid.SetRow(note, 2); layout.Children.Add(note);
@@ -63,6 +66,7 @@ public sealed class OwcMonitorWindow : Window
         _refresh.Click += (_, _) => RefreshPorts();
         _start.Click += Start_Click;
         _stop.Click += (_, _) => Stop();
+        _protocol.SelectionChanged += (_, _) => { ClearData(); if (_running is not null) Stop(true); };
         Closing += ClosingWindow;
         RefreshPorts();
     }
@@ -83,7 +87,7 @@ public sealed class OwcMonitorWindow : Window
         ClearData(); SetRunning(true);
         _status.Text = "正在连接 " + port;
         _stopSource = new CancellationTokenSource();
-        _running = MonitorAsync(port, _stopSource.Token);
+        _running = MonitorAsync(port, (OwcReceiveMode)_protocol.SelectedIndex, _stopSource.Token);
         try { await _running; }
         finally
         {
@@ -92,17 +96,22 @@ public sealed class OwcMonitorWindow : Window
             SetRunning(false);
             if (_status.Text == "正在停止监控") _status.Text = "已停止监控";
             if (_closing) Close();
+            else if (_restartAfterStop)
+            {
+                _restartAfterStop = false;
+                Start_Click(this, new RoutedEventArgs());
+            }
         }
     }
 
-    private Task MonitorAsync(string port, CancellationToken token) => Task.Run(async () =>
+    private Task MonitorAsync(string port, OwcReceiveMode mode, CancellationToken token) => Task.Run(async () =>
     {
         try
         {
             using var client = new CommToolOwcClient(port);
             try
             {
-                client.SetEnabled(true, token);
+                client.Start(mode, token);
                 while (true)
                 {
                     token.ThrowIfCancellationRequested();
@@ -141,10 +150,16 @@ public sealed class OwcMonitorWindow : Window
         bool online = CommToolOwcProtocol.Online(snapshots);
         var rows = new List<OwcField>();
         var raw = new StringBuilder();
-        foreach (byte id in CommToolOwcProtocol.PacketIds)
+        var latestSnapshot = snapshots.GetValueOrDefault((byte)0);
+        OwcWireProtocol protocol = latestSnapshot?.Protocol ?? OwcWireProtocol.A133;
+        byte[] visibleIds = protocol == OwcWireProtocol.LishenV111 ? [0x80, 0] :
+            protocol == OwcWireProtocol.Unknown ? [0] : CommToolOwcProtocol.PacketIds;
+        foreach (byte id in visibleIds)
         {
             if (!snapshots.TryGetValue(id, out var snapshot)) continue;
-            var fields = id == 0 ? [] : CommToolOwcProtocol.VisibleFields(snapshot, snapshots);
+            var fields = id == 0 || latestSnapshot?.MismatchProtocol != OwcWireProtocol.Unknown
+                ? new List<OwcField>() : CommToolOwcProtocol.VisibleFields(snapshot, snapshots);
+            string packetName = id == 0x80 ? "锂神实时" : $"0x{id:X2}";
             string state = !snapshot.Enabled ? "接收关闭" :
                 snapshot.Raw.Length == 0 ? "等待" : !snapshot.ChecksumOk ? "校验失败" :
                 id == 1 ? (online ? "接入信息" : "接入信息（离线）") :
@@ -152,13 +167,19 @@ public sealed class OwcMonitorWindow : Window
                 id == 0x3B && fields.Count == 0 ? "测量不可用" : "有效";
             string age = snapshot.Raw.Length == 0 ? "--" : $"{snapshot.AgeMs / 1000.0:g}s";
             string session = snapshot.Session == 0 ? "--" : snapshot.Session.ToString();
-            raw.AppendLine($"0x{id:X2} | {state} | age={age} | snapshot=v{snapshot.Version} | session={session} | seq={snapshot.Sequence}");
+            raw.AppendLine($"{packetName} | {state} | age={age} | snapshot=v{snapshot.Version} | session={session} | seq={snapshot.Sequence}");
             raw.AppendLine(Convert.ToHexString(snapshot.Raw));
-            if (id != 0) { rows.Add(new($"0x{id:X2}", "状态", state, age)); rows.AddRange(fields); }
+            if (id != 0) { rows.Add(new(packetName, "状态", state, age)); rows.AddRange(fields); }
         }
+        if (protocol == OwcWireProtocol.LishenV111)
+            rows.Add(new("锂神", "协议范围", "仅提供SOC、总压、电池温度", ""));
         _fields.ItemsSource = rows; _raw.Text = raw.ToString();
         if (snapshots.TryGetValue(0, out var latest))
-            _status.Text = $"{(online ? "在线" : "已失联")}  snapshot=v{latest.Version}  session={(latest.Session == 0 ? "--" : latest.Session.ToString())}  有效帧={latest.Good}  SUM错误={latest.ChecksumErrors}  时序错误={latest.TimingErrors}  溢出={latest.Overflows}";
+            _status.Text = $"{CommToolOwcProtocol.ProtocolName(latest.Protocol)} · {(online ? "在线" : "等待有效数据")}  snapshot=v{latest.Version}  session={(latest.Session == 0 ? "--" : latest.Session.ToString())}  有效帧={latest.Good}  SUM错误={latest.ChecksumErrors}  时序错误={latest.TimingErrors}  溢出={latest.Overflows}";
+        if (latestSnapshot?.MismatchProtocol is { } other && other != OwcWireProtocol.Unknown)
+            _status.Text = $"检测到{CommToolOwcProtocol.ProtocolName(other)}，请切换接收模式；旧测量已隐藏";
+        else if (latestSnapshot?.Version is 1 or 2)
+            _status.Text += "；此Comm Tool仅支持A1.3.3，锂神接收需升级App";
     }
 
     private void SetRunning(bool running)
@@ -167,8 +188,9 @@ public sealed class OwcMonitorWindow : Window
         _stop.IsEnabled = running;
     }
     private void ClearData() { _fields.ItemsSource = null; _raw.Clear(); }
-    private void Stop()
+    private void Stop(bool restart = false)
     {
+        _restartAfterStop = restart;
         _stopSource?.Cancel();
         ClearData(); _stop.IsEnabled = false;
         _status.Text = "正在停止监控";

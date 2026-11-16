@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
@@ -49,6 +50,41 @@ def prepare(target: str, output: Path, images: bool = False) -> Path:
     tree.write(path, encoding="utf-8", xml_declaration=True)
     return path
 
+def verify_layout(path: Path, target: str) -> dict:
+    data = path.read_bytes()
+    if data[:6] != bytes.fromhex("7f454c460101"):
+        raise ValueError("不支持的AXF格式")
+    base, limit = (0x08008000, 0x08018000) if target == "COMM_TOOL_Release" else (0x08000000, 0x08008000)
+    entry = struct.unpack_from("<I", data, 24)[0]
+    if not base <= (entry & ~1) < limit:
+        raise ValueError("AXF入口越界")
+    start = struct.unpack_from("<I", data, 32)[0]
+    size, count = struct.unpack_from("<HH", data, 46)
+    flash_end, ram_end = base, 0x20000000
+    for i in range(count):
+        _, _, flags, addr, _, length, _, _, _, _ = struct.unpack_from("<10I", data, start + i * size)
+        if not flags & 2 or not length:
+            continue
+        end = addr + length
+        if 0x08000000 <= addr < 0x08100000:
+            if addr < base or end > limit:
+                raise ValueError("AXF Flash段越界")
+            flash_end = max(flash_end, end)
+        elif 0x20000000 <= addr < 0x20010000:
+            if end > 0x2000FFE0:
+                raise ValueError("AXF占用SRAM mailbox")
+            ram_end = max(ram_end, end)
+    program_offset = struct.unpack_from("<I", data, 28)[0]
+    program_size, program_count = struct.unpack_from("<HH", data, 42)
+    for i in range(program_count):
+        kind, _, _, physical, file_bytes, _, _, _ = struct.unpack_from("<8I", data, program_offset + i * program_size)
+        if kind == 1 and file_bytes and 0x08000000 <= physical < 0x08100000:
+            if physical < base or physical + file_bytes > limit:
+                raise ValueError("AXF初始化数据装载区越界")
+            flash_end = max(flash_end, physical + file_bytes)
+    return {"entry": hex(entry), "flash_end": hex(flash_end), "ram_end": hex(ram_end)}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--target", choices=["COMM_TOOL_Release", "COMM_TOOL_IAP"], required=True)
@@ -77,6 +113,7 @@ def main() -> int:
             return 1
         result["artifacts"] = [str(p) for p in artifacts]
         result["log"] = str(log)
+        result["layout"] = verify_layout(artifacts[0], args.target)
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

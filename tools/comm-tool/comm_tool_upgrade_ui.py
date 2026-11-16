@@ -21,7 +21,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from comm_tool_upgrade_ui_i18n import LANG_EN, LANG_ZH, contains_chinese, install_ui_language, tr
-from comm_tool_owc import CMD_OWC_CONTROL, read_snapshots, link_online, visible_fields
+from comm_tool_owc import read_snapshots, link_online, visible_fields, start_receiver, control_receiver
 
 from comm_tool_host import (
     BMS_APP_BASE_ADDR as APP_BASE_ADDR,
@@ -1025,11 +1025,16 @@ class OwcMonitorWindow(tk.Toplevel):
         top = ttk.Frame(self, padding=8)
         top.pack(fill=tk.X)
         ttk.Label(top, text=f"{port} / Comm Tool / 115200 8N1").pack(side=tk.LEFT)
-        ttk.Label(top, text="  A1.3.3").pack(side=tk.LEFT, padx=6)
+        self.mode_box = ttk.Combobox(top, width=18, state="readonly",
+                                    values=[tr("自动识别"), "A1.3.3", tr("锂神 V1.1.1")])
+        self.mode_box.current(0)
+        self.mode_box.pack(side=tk.LEFT, padx=6)
+        self.restart_pending = False
+        self.mode_box.bind("<<ComboboxSelected>>", self._mode_changed)
         ttk.Button(top, text="开始监控", command=self._start).pack(side=tk.LEFT, padx=6)
-        ttk.Button(top, text="停止监控", command=self.stop_event.set).pack(side=tk.LEFT)
+        ttk.Button(top, text="停止监控", command=self._stop).pack(side=tk.LEFT)
         ttk.Label(self, textvariable=self.status_var, wraplength=980).pack(fill=tk.X, padx=8, pady=4)
-        ttk.Label(self, text=tr("A1.3.3 标准字段；加密、充电策略和互认未实现。公有帧仅保留接入信息，实时测量以 0x3A 为准。"), wraplength=980).pack(fill=tk.X, padx=8)
+        ttk.Label(self, text=tr("接收模式不会修改BMS协议；锂神模式仅提供SOC、总压和电池温度。"), wraplength=980).pack(fill=tk.X, padx=8)
         ttk.Label(self, text=tr("校验失败和过期数据不显示为实时测量值。监控期间串口被独占；停止后恢复其它操作。"), wraplength=980).pack(fill=tk.X, padx=8, pady=4)
         body = ttk.Frame(self, padding=8)
         body.pack(fill=tk.BOTH, expand=True)
@@ -1059,27 +1064,40 @@ class OwcMonitorWindow(tk.Toplevel):
         self.snapshots = {}
         self._render()
         self.stop_event.clear()
-        self.thread = threading.Thread(target=self._worker, daemon=True)
+        self.thread = threading.Thread(target=self._worker, args=(self.mode_box.current(),), daemon=True)
         self.thread.start()
 
-    def _worker(self):
+    def _mode_changed(self, _event=None):
+        self.snapshots = {}
+        self._render()
+        if self.thread and self.thread.is_alive():
+            self.restart_pending = True
+            self.stop_event.set()
+
+    def _stop(self):
+        self.restart_pending = False
+        self.stop_event.set()
+        self.snapshots = {}
+        self._render()
+
+    def _worker(self, mode):
         try:
             with CommToolClient(self.port, COMM_TOOL_PC_BAUD, timeout=1.0) as client:
-                client.command(CMD_OWC_CONTROL, b"\x01")
+                extended, active_mode = start_receiver(client, mode)
                 try:
                     while not self.stop_event.is_set():
-                        snapshots = read_snapshots(client)
+                        snapshots = read_snapshots(client, extended)
                         if not snapshots[0].enabled:
                             self.messages.put(("recovering", None))
                             # 留出当前 BMS 帧结束与空闲检测时间，使其重新发送接入资料。
                             if self.stop_event.wait(2.0):
                                 break
-                            client.command(CMD_OWC_CONTROL, b"\x01")
+                            control_receiver(client, True, active_mode, extended)
                         else:
                             self.messages.put(("data", snapshots))
                         self.stop_event.wait(1.0)
                 finally:
-                    client.command(CMD_OWC_CONTROL, b"\x00")
+                    control_receiver(client, False, active_mode, extended)
         except Exception as exc:
             self.messages.put(("error", str(exc)))
         finally:
@@ -1090,9 +1108,14 @@ class OwcMonitorWindow(tk.Toplevel):
         self.tree.delete(*self.tree.get_children())
         raw_lines = []
         online = link_online(self.snapshots)
+        latest = self.snapshots.get(0)
         for packet_id, snapshot in self.snapshots.items():
-            label = tr("最近完整帧") if packet_id == 0 else f"0x{packet_id:02X}"
-            fields = visible_fields(snapshot, self.snapshots) if packet_id else []
+            if latest and latest.protocol == 2 and packet_id not in (0, 0x80):
+                continue
+            if latest and latest.protocol != 2 and packet_id == 0x80:
+                continue
+            label = tr("最近完整帧") if packet_id == 0 else tr("锂神实时") if packet_id == 0x80 else f"0x{packet_id:02X}"
+            fields = visible_fields(snapshot, self.snapshots) if packet_id and not (latest and latest.mismatch_protocol) else []
             if not snapshot.enabled:
                 state = tr("接收器关闭")
             elif not snapshot.raw:
@@ -1113,7 +1136,7 @@ class OwcMonitorWindow(tk.Toplevel):
                 self.tree.insert("", tk.END, values=(label, tr("状态"), state, age))
                 if fields:
                     field_names = {"Protocol": "协议版本", "Voltage": "总电压", "Current": "电流",
-                                   "Max temperature": "最高温度",
+                                   "Battery temperature": "电池温度", "Max temperature": "最高温度",
                                    "Min temperature": "最低温度", "MOS temperature": "MOS温度", "Fault code": "故障码",
                                    "Fault": "故障说明", "Work status": "工作状态", "Work status (raw)": "工作状态原值",
                                    "Response requested": "请求应答设备", "Rated voltage": "额定电压", "Rated capacity": "额定容量",
@@ -1128,6 +1151,8 @@ class OwcMonitorWindow(tk.Toplevel):
                     for field, value, unit in fields:
                         display_name = (tr("单体") + " " + field[5:]) if field.startswith("Cell ") else tr(field_names.get(field, field))
                         self.tree.insert("", tk.END, values=(label, display_name, value, unit))
+        if latest and latest.protocol == 2:
+            self.tree.insert("", tk.END, values=(tr("锂神 V1.1.1"), tr("协议范围"), tr("仅提供SOC、总压和电池温度"), ""))
         self.raw_text.configure(state="normal")
         self.raw_text.delete("1.0", tk.END)
         self.raw_text.insert("1.0", "\n".join(raw_lines))
@@ -1136,17 +1161,25 @@ class OwcMonitorWindow(tk.Toplevel):
     def _drain(self):
         while not self.messages.empty():
             kind, payload = self.messages.get_nowait()
-            if kind == "data":
+            if kind == "data" and not self.stop_event.is_set():
                 self.snapshots = payload
                 latest = payload[0]
                 self.status_var.set(f"{tr('在线') if link_online(payload) else tr('已失联')}  snapshot=v{latest.snapshot_version}  session={latest.session or '--'}  {tr('接收启用')}={latest.enabled}  {tr('有效帧')}={latest.good}  {tr('校验失败')}={latest.checksum_errors}  {tr('时序错误')}={latest.timing_errors}  {tr('队列溢出')}={latest.overflows}")
+                if latest.snapshot_version < 3:
+                    self.status_var.set(self.status_var.get() + tr("；旧Comm Tool仅支持A1.3.3"))
+                elif latest.mismatch_protocol:
+                    self.status_var.set(tr("接收协议不匹配，请切换模式"))
+                elif not latest.protocol:
+                    self.status_var.set(tr("正在识别协议，等待连续两帧"))
+                if latest.protocol:
+                    self.status_var.set(("A1.3.3" if latest.protocol == 1 else tr("锂神 V1.1.1")) + " · " + self.status_var.get())
                 self._render()
             elif kind == "recovering":
                 self.snapshots = {}
                 self._render()
                 self.status_var.set(tr("接收租约已到期，已清空缓存，正在重新启用；等待 BMS 数据。"))
             elif kind == "error":
-                self.status_var.set(tr("通信异常，测量值已清空；上拉将在失联超时后释放：") + payload)
+                self.status_var.set(tr("通信异常，测量值已清空；上拉将在失联超时后释放：") + tr(payload))
                 self.snapshots = {}
                 self._render()
             elif kind == "stopped":
@@ -1154,6 +1187,9 @@ class OwcMonitorWindow(tk.Toplevel):
                 self._render()
                 if not self.status_var.get().startswith(tr("通信异常")):
                     self.status_var.set(tr("监控已停止"))
+        if self.restart_pending and not self.closing and (not self.thread or not self.thread.is_alive()):
+            self.restart_pending = False
+            self._start()
         if self.closing and (not self.thread or not self.thread.is_alive()):
             self.destroy()
             return
@@ -1161,7 +1197,7 @@ class OwcMonitorWindow(tk.Toplevel):
 
     def _close(self):
         self.closing = True
-        self.stop_event.set()
+        self._stop()
 
 
 class UpgradeUi(tk.Tk):
@@ -3943,6 +3979,9 @@ class UpgradeUi(tk.Tk):
             raise RuntimeError("comm tool 缓存 CRC 与所选文件不一致")
 
     def _describe_selected_bin(self) -> None:
+        if not self.bin_var.get().strip():
+            self.image_var.set("请选择固件文件")
+            return
         path = Path(self.bin_var.get()).resolve()
         try:
             if not path.exists():

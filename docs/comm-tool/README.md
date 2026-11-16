@@ -33,3 +33,45 @@ guides/ 与 devlog/ 是从固定提交迁入的原说明，旧日期、旧BMS默
 
 py -3.9 -B tools/comm-tool/check_comm_tool_owc.py 保留旧协议回归；check_comm_tool_owc_dual.py 联合编译真实ct_owc.c和board_owc.c，回放两套边沿、模式、坏帧和回绕。
 上述host回放不访问串口。ARMCC工程验证和实板验收分别记录。
+
+## 当前实现与验证（2026-11-16）
+
+App0.2.7支持自动/A1.3.3/锂神模式，旧0x43/0x44兼容。Windows客户/内部版与Python维护窗口都能选择模式，旧Comm Tool明确回退A1.3.3。
+控制只影响接收器；没有通过一线通修改BMS发送协议、业务参数或执行升级。
+维护Python新协议测试：py -3.9 -B tools/comm-tool/check_comm_tool_owc_dual_host.py。
+双协议C/BSP回放26项、Python维护新协议7组及旧快照4组、C#生产模型/协商68项、两版实际WPF窗口检查通过。
+App/IAP ARMCC编译零错误零警告，AXF入口及分配段范围验证通过；未生成BIN、刷Comm Tool或执行新协议实板验收。
+build-keil技能脚本因缺少tool_config共享模块未能运行，实际构建使用本机UV4.exe和本仓库外置输出入口，日志随发布记录。
+
+维护工具使用：
+- py -3.9 -B tools/comm-tool/comm_tool_upgrade_ui.py --edition internal
+- tools/comm-tool/start_comm_tool_upgrade_ui.ps1支持空固件选择；镜像由用户显式导入。
+- tools/comm-tool/build_comm_tool_upgrade_ui_exe.ps1共用单一源码生成客户/内部、中/英文四变体，需安装PyInstaller。
+旧Python维护工具的CAN/Modbus对端仍按其合同工作；不会因此自动获得D008经一线通写参数或升级的能力。
+
+迁移的相关原说明：
+- [COMM_TOOL_BMS_APP_REVIEW_LOGGING_2026-05-25.html](devlog/COMM_TOOL_BMS_APP_REVIEW_LOGGING_2026-05-25.html)
+- [COMM_TOOL_CAN_IAP_ARCHITECTURE_2026-05-22.md](devlog/COMM_TOOL_CAN_IAP_ARCHITECTURE_2026-05-22.md)
+- [COMM_TOOL_F103RET6_KEIL_PORT_2026-05-23.md](devlog/COMM_TOOL_F103RET6_KEIL_PORT_2026-05-23.md)
+- [COMM_TOOL_UART_SELECT_2026-05-25.md](devlog/COMM_TOOL_UART_SELECT_2026-05-25.md)
+- [COMM_TOOL_UPGRADE_UI_2026-05-23.md](devlog/COMM_TOOL_UPGRADE_UI_2026-05-23.md)
+- [BMS_COMM_TOOL_UPPER_COMPLETE_GUIDE.md](guides/BMS_COMM_TOOL_UPPER_COMPLETE_GUIDE.md)
+- [BMS_WITHOUT_COMM_TOOL_GUIDE.md](guides/BMS_WITHOUT_COMM_TOOL_GUIDE.md)
+- [CAN_UPPER_COMPUTER_TECHNICAL_GUIDE.md](guides/CAN_UPPER_COMPUTER_TECHNICAL_GUIDE.md)
+- [CAN_UPPER_UI_EDITION_AND_LANGUAGE_GUIDE.md](guides/CAN_UPPER_UI_EDITION_AND_LANGUAGE_GUIDE.md)
+- [COMM_TOOL_FUNCTION_LOGIC_PROTOCOL_PLAN.md](guides/COMM_TOOL_FUNCTION_LOGIC_PROTOCOL_PLAN.md)
+- [BMS_CAN_IAP_PROTOCOL.md](protocol/BMS_CAN_IAP_PROTOCOL.md)
+- [COMM_TOOL_SERIAL_PROTOCOL.md](protocol/COMM_TOOL_SERIAL_PROTOCOL.md)
+
+## 被升级BMS的边界
+
+维护工具中的旧BMS App白名单为[0x08004800,0x0801F800)，保留最后2KiB参数页。
+导入源代码曾使用0x08020000旧上限，与源项目当前AGENTS合同不一致；本次统一PC文件校验和Comm Tool缓存准入上限。
+启动时对持久缓存描述的大小、地址和上限再校验，不擦写旧缓存，不改变元数据格式；非法缓存不能取得升级资格。
+这只适用于原维护工具对应的旧BMS合同，不授权将其它BMS套入该地址；Comm Tool自身App仍为[0x08008000,0x08018000)。
+
+## 持续验证
+
+统一客户端CI已包含Comm Tool目录触发、C#/WPF一线通检查、生产C/BSP与Python维护回归、升级边界检查。Keil双target在本机执行，不把host结果当作ARMCC链接或实板结果。本轮未push，无新远端CI运行结论。
+
+升级边界生产策略与PC文件联合回归15项通过；AXF校验同时覆盖执行区和初始化数据装载区，SRAM末32字节保留。没有执行Flash擦写或掉电测试。

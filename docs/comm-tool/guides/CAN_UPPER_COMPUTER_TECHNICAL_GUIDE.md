@@ -1,5 +1,8 @@
 # CAN 上位机完整技术说明
 
+> 固定来源说明：本文来自comm-tool-branch@5521e851，保留当时的行为记录。当前目录、Keil工程、双协议合同及验证范围见[当前入口](../README.md)。
+
+
 文档状态：CURRENT / 维护入口
 
 源码验证：FULL
@@ -141,7 +144,7 @@ CLI：`py -3.9 tools/comm_tool_host.py owc-monitor --port COMx`，Ctrl+C停止�
 
 参数页采用“整块读取 → 修改内存副本 → 整块写入 → 回读确认”的方式，避免局部字段与设备状态不一致。当前页面分为保护参数、均衡/限流、休眠、SOC/系统四个页签；电压、电流、温度、MOS 和 AFE 短路全部集中在同一个“保护参数”界面，内部按左右分区和矩阵行对齐。
 
-顶部提供“读取当前页、全部读取、写入修改(N)、放弃修改”。修改项以浅黄色高亮；放弃修改会恢复最近一次读取或回写确认值，而不是只清除状态标记。详细布局和后续 AI 修改要求见 [CAN 上位机参数设置页设计与 AI 修改指南](../design/CAN_UPPER_UI_PARAMETER_PAGE_DESIGN.md)。
+顶部提供“读取当前页、全部读取、写入修改(N)、放弃修改”。修改项以浅黄色高亮；放弃修改会恢复最近一次读取或回写确认值，而不是只清除状态标记。详细布局和后续 AI 修改要求见 [CAN 上位机参数设置页设计与 AI 修改指南](https://github.com/CS19970929/103-309-template/blob/5521e851d77e517b76bec679dd215bbd3e2d4528/docs/design/CAN_UPPER_UI_PARAMETER_PAGE_DESIGN.md)。
 
 | 参数组 | 地址范围 | 长度 |
 |---|---|---:|
@@ -259,7 +262,7 @@ dist/BMS_CommTool_Upgrade_UI_Internal_EN.exe
 - 与客户身份和语言匹配的固定名称 EXE；
 - 匹配版本的 Comm Tool 固件；
 - USB 驱动说明；
-- [BMS CAN 通信协议完整说明](../protocol/can_protocol.md)；
+- [BMS CAN 通信协议完整说明](https://github.com/CS19970929/103-309-template/blob/5521e851d77e517b76bec679dd215bbd3e2d4528/docs/protocol/can_protocol.md)；
 - 连接线定义和终端电阻说明；
 - 已验证的 BMS App/IAP 版本组合。
 

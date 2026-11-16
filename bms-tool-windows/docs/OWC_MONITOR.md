@@ -1,23 +1,42 @@
 # 一线通监控
 
-Windows客户版与内部版在实时监控连接区域提供“一线通监控”。先断开原BLE/串口BMS连接并等待任务结束，打开窗口，选择Comm Tool的COM口，点击开始；PC串口固定115200 8N1，不使用主窗口Modbus的19200波特率。模态窗口独占该操作入口，串口由操作系统独占打开。
+Windows客户版与内部版共用Shared下的CommToolOwcProtocol、CommToolOwcClient和OwcMonitorWindow。
+先断开原BMS串口/BLE连接并等待任务清理，在实时监控连接区打开“一线通监控”，选择Comm Tool COM口后开始。
+PC侧固定115200 8N1；普通USB-UART、RS485或BLE不能直接代替Comm Tool采集OW信号。
 
-只移植上位机功能，来源为Comm Tool仓库提交 `5521e85` 的 `tools/comm_tool_owc.py` 和监控流程。不改BMS、Comm Tool、Android或现有CLI命令。两版WPF共用 `Shared/CommToolOwcProtocol.cs`、`CommToolOwcClient.cs`、`OwcMonitorWindow.cs` 和 `MainWindow.Owc.cs`，不启动Python或另一个EXE。
+## 接收模式
 
-## 连接与显示
+默认“自动识别”，也可固定“A1.3.3”或“锂神 V1.1.1”。运行中换模式会取消并等待旧读取/停止命令结束，清空显示后以新模式重新接收。
+选择的是Comm Tool接收模式，不会修改BMS固件的编译宏；换电池仍应停止再开始。
+自动模式由Comm Tool连续两帧检查通过后锁定；失联超过5秒清缓存并重新识别，坏帧不能取得锁定或刷新测量。
 
-- 使用现有Comm Tool硬件接BMS OW/P-；普通USB-UART、USB-RS485或BLE不能直接代替Comm Tool采集一线通。
-- PC外层为 `55 AA`、小端、CRC16-Modbus；只发送 `0x43 OWC_CONTROL` 和 `0x44 OWC_SNAPSHOT`。每条命令有1s上限，读等待可取消；停止和关闭尝试发送停止命令，失败后由Comm Tool已有10s租约释放上拉。
-- 同时识别32字节头的快照v1/v2。v1末两字节必须为零，不是会话号；v2使用真实session。五ID查询版本、enable、session不一致时整组重读一次，再不一致则停止报错。v1没有自动会话隔离；换电池或BMS重启后必须停止再开始，启用命令会清缓存。
-- 所有BMS字段统一按A1.3.3解释，不提供Telink legacy选项。电流为 `raw*0.1-500 A`，正放电负充电；温度为 `raw-40 ℃`，SOC为 `raw*0.5%`。无效及超范围值显示 `--`。
-- 展示公有静态资料、3A实时测量/故障/工作状态、3B单体和3C电池编码，以及报文原始字节、年龄、序号、SUM/时序/溢出计数。3C仅显示可打印ASCII；空白、FF及非法编码显示 `--`。
-- 5s内有有效帧才在线；3A有效期5s，3B/3C有效期75s。离线隐藏测量及编码；01仅保留静态接入资料，标记离线。3A电压无效或过期时隐藏旧单体。停止、串口错误或租约重启清显示。
-- 加密、充电策略和互认按用户要求标记未实现，不解码加密BMS状态，不推断认证成功，也不发送充电应答或参数写入。
+| 协议 | 可显示字段与单位 |
+|---|---|
+|A1.3.3|公开静态信息、3A实时数据、3B单体、3C编码；SOC0.5%、总压0.1V、电流raw*0.1-500A、温度raw-40℃|
+|锂神V1.1.1|6字节原始帧；SOC1%、总压1V、电池温度int8摄氏度；其它测量标记为协议未提供|
 
-## 验证与交付
+A1.3.3未实现加密、充电协商和互认，不从原始加密状态推断MOS或授权。
+锂神不产生电流、单体、编码或MOS温度；温度负数保留原始有符号语义。
+5秒内有同协议有效帧才在线；A1.3.3单体/编码75秒缓存期限不能代替在线判据。
+离线、协议不匹配、停止、错误或切换时隐藏测量；A1.3.3电压无效立即隐藏旧单体。保留原始字节、年龄、SUM/时序/溢出等诊断。
+PC查询selector 0x80是锂神缓存槽，BMS实际报文首字节仍为00。
 
-`powershell -ExecutionPolicy Bypass -File bms-tool-windows/test-owc-protocol.ps1` 仅回放PC快照和BMS报文，不连接设备或生成固件。覆盖v1/v2、量纲、长度/SUM/CRC、非法字段、身份编码、会话一致性和过期隐藏；不能替代实板验证。
+## 新旧Comm Tool兼容
 
-`test-owc-ui.ps1 -CustomerAssembly <客户DLL> -InternalAssembly <内部DLL>` 离屏创建两版已编译窗口，检查入口、v1实时数据显示和离线清空，临时截图放用户临时区。2026-10-13协议41项检查与两版窗口检查通过，三入口发布成功；新EXE启动/关闭及CLI帮助入口通过。客户版有原有 `MainWindow._socRecording` 未赋值编译警告，本次新增代码无编译警告；未连接实板复验。
+新App为0.2.7。先查询0x45能力，新设备使用0x46模式控制、0x47快照v3。
+只有明确UNSUPPORTED响应才按旧设备回退，CRC、超时或非法能力都报错。
+旧Comm Tool在自动/A1.3.3选择下继续使用0x43/0x44及快照v1/v2，并明确显示“仅支持A1.3.3”；选择锂神会提示升级Comm Tool App。
+新设备继续支持旧上位机：旧0x43 enable=1始终配置A1.3.3，旧0x44原合同保持。
+快照v3显式携带mode/锁定protocol/raw protocol/session；读取整组检查一致，变化重读一次，不拼接不同会话或协议。
+每条串口命令等待有1秒上限，取消会在有界读取中退出；停止失败由Comm Tool原10秒租约释放上拉。
+USART3与PC10/11一线通功能冲突，能力查询返回不可用，不能强行启用。
 
-编译客户版、内部版和原CLI，编译缓存放用户临时区。正式包放用户指定固件项目根目录 `releases/bms-tool-windows/<发布标签>/customer`、`internal`、`cli`，附源码提交、原有未提交修改及EXE SHA-256。当前工作树的已有修改保留，发布清单如实标记，不提交无关文件。
+[完整串口合同](../../docs/comm-tool/protocol/COMM_TOOL_SERIAL_PROTOCOL.md)、
+[Comm Tool App/IAP统一工程与维护工具](../../docs/comm-tool/README.md)。
+
+## 验证范围
+
+test-owc-protocol.ps1编译真实C#解析和客户端，覆盖旧v1/v2、新v3、能力协商、单位、长度/SUM/CRC、会话/协议一致性、过期与取消。
+test-owc-ui.ps1加载两版实际WPF程序集，验证入口、默认模式、显示、切换清空、取消/重启、停止撤销重启和过期隔离，并在用户临时区输出界面预览。
+Comm Tool生产C/BSP边沿回放和Keil双target验证见Comm Tool说明。
+这些结果不替代新App实际升级、接线、电平、示波器波形及两套协议的板上验收；本轮不自动烧录或生成BIN。

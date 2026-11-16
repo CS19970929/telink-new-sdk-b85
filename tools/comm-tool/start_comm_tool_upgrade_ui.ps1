@@ -27,15 +27,15 @@ try {
     $ArgsList = @(
         "-$PythonVersion",
         "tools\comm-tool\comm_tool_upgrade_ui.py",
-        "--baud", [string]$Baud,
-        "--bin", $Bin
+        "--baud", [string]$Baud
     )
+    if (-not [string]::IsNullOrWhiteSpace($Bin)) { $ArgsList += @("--bin", $Bin) }
     if (-not [string]::IsNullOrWhiteSpace($Port)) {
         $ArgsList += @("--port", $Port)
     }
 
     $ArgString = ($ArgsList | ForEach-Object { Quote-ProcessArg $_ }) -join " "
-    $Process = Start-Process -FilePath $Py -ArgumentList $ArgString -WorkingDirectory $RepoRoot -PassThru
+    $Process = Start-Process -FilePath $Py -ArgumentList $ArgString -WorkingDirectory $RepoRoot -WindowStyle Hidden -PassThru
     Write-Host ("comm tool upgrade UI started. PID={0}" -f $Process.Id)
 }
 catch {

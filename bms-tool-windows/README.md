@@ -23,7 +23,7 @@
 
 本目录是 BMS 仓库中的独立 Windows 项目区，与固件源码并列维护。
 
-客户版与内部版提供[一线通监控](docs/OWC_MONITOR.md)，通过 Comm Tool 采集 A1.3.3 公开字段，支持 PC 快照 v1/v2。
+客户版与内部版提供[一线通监控](docs/OWC_MONITOR.md)，通过 Comm Tool 自动识别或手动选择 A1.3.3 / 锂神 V1.1.1，兼容旧快照 v1/v2 与新 v3。
 
 - `BmsTool.Windows/`：客户版 BMS Assistant，面向客户交付。
 - `BmsFactoryTest.Windows/`：内部完整测试版 BMS Assistant，保留工程/调试/出厂测试页面及当前设备合同对应的 3520 参数入口，启动后不需要密码。

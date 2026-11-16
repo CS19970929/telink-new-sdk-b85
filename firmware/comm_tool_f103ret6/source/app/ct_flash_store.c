@@ -123,7 +123,10 @@ void CtFlash_Init(void)
     const CtFirmwareInfo *stored;
 
     stored = (const CtFirmwareInfo *)CT_FW_META_PAGE;
-    if ((stored->magic == CT_FW_MAGIC) && (stored->valid == CT_FW_VALID))
+    /* 描述来自持久Flash，必须先验证范围；不擦除旧缓存或改变布局。 */
+    if ((stored->magic == CT_FW_MAGIC) && (stored->valid == CT_FW_VALID) &&
+        (stored->size > 0u) && (stored->size <= CT_FW_CACHE_SIZE) &&
+        app_addr_supported(stored->app_addr, stored->size))
     {
         memcpy(&s_fw_info, stored, sizeof(s_fw_info));
     }

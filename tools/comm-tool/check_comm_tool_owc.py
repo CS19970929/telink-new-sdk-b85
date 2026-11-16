@@ -19,18 +19,24 @@ ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / "firmware/comm_tool_f103ret6/source/app"
 
 
-def build_library(temp: Path, extra_sources=()) -> Path:
+def build_library(temp: Path, extra_sources=(), extra_exports=()) -> Path:
     exports = ("CtOwc_Init", "CtOwc_ResetDecoder", "CtOwc_FeedEdge", "CtOwc_RecordOverflow",
                "CtOwc_Poll", "CtOwc_EncodeSnapshot", "CtProtocol_Init", "CtProtocol_Feed", "CtProtocol_Encode",
                "CtOwc_SetMode", "CtOwc_GetMode", "CtOwc_EncodeSnapshotV3")
-    if extra_sources:
-        exports += ("ModelReset", "ModelEdge")
+    exports += tuple(extra_exports)
     dll = temp / "owc.dll"
     compiler = shutil.which("cl")
     env = dict(os.environ)
     if not compiler:
-        vcvars = next(Path(os.environ.get("ProgramFiles", "C:/Program Files")).glob(
-            "Microsoft Visual Studio/2022/*/VC/Auxiliary/Build/vcvars64.bat"))
+        vswhere = Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
+        if vswhere.is_file():
+            install = subprocess.check_output([str(vswhere), "-latest", "-products", "*",
+                "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                "-property", "installationPath"], text=True).strip()
+            vcvars = Path(install) / "VC/Auxiliary/Build/vcvars64.bat"
+        else:
+            vcvars = next(Path(os.environ.get("ProgramFiles", "C:/Program Files")).glob(
+                "Microsoft Visual Studio/2022/*/VC/Auxiliary/Build/vcvars64.bat"))
         setup = temp / "msvc-env.cmd"
         setup.write_text(f'@echo off\ncall "{vcvars}" >nul\nif errorlevel 1 exit /b 1\nset\n', encoding="ascii")
         result = subprocess.run(["cmd", "/d", "/c", str(setup)],

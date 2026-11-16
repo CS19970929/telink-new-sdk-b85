@@ -1,5 +1,8 @@
 # COMM TOOL 串口选择说明
 
+> 固定来源说明：本文来自comm-tool-branch@5521e851，保留当时的行为记录。当前目录、Keil工程、双协议合同及验证范围见[当前入口](../README.md)。
+
+
 ## 当前配置
 
 COMM TOOL 的 App 和 IAP 串口统一由 `firmware/comm_tool_f103ret6/source/app/ct_config.h` 控制：
