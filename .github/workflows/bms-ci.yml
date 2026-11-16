@@ -14,6 +14,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  sif-protocol:
+    name: D008 双协议真实发送代码回归
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # 独立于产品参数更新包；直接编译真实 SIF TU 和 GPIO 定时器替身。
+      - name: A1.3.3 报文与接入状态
+        run: python tests/sif_packet_host_check.py
+      - name: 锂神 V1.1.1 报文与逐tick波形
+        run: python tests/sif_lishen_host_check.py
+
   host-contract:
     name: Four product host regression and portable core
     runs-on: ubuntu-latest

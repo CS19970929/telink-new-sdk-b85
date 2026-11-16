@@ -13,6 +13,7 @@ source = (ROOT / 'bms/platform/telink/sif_send.c').read_text(encoding='utf8')
 source = re.sub(r'^#include[^\n]*', '', source, flags=re.M)
 fixture = (ROOT / 'tests/fixtures/sif_wire_model.h').read_text(encoding='utf8')
 program = r'''
+#include <stdlib.h>
 #define BMS_PRODUCT_SIF_PROTOCOL 2u
 #define BMS_PRODUCT_CELL_COUNT 23u
 #define BMS_PRODUCT_CHEMISTRY 1u
@@ -23,7 +24,7 @@ typedef struct {
 } bms_afe_feature_snapshot_t;
 static uint8_t feature_available=1, feature_temp_valid=1;
 static uint16_t feature_temp=300u;
-static unsigned aux_calls, feature_calls;
+static unsigned feature_calls;
 static uint8_t bms_afe_get_feature_snapshot(bms_afe_feature_snapshot_t *out){
  ++feature_calls;
  out->battery_temp_valid=feature_temp_valid;
