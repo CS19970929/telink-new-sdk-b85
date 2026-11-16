@@ -21,7 +21,8 @@
 |---|---|---|
 | 产品选择 | `bms.py --product`；D008 另用 `--d008-profile` | 不靠修改源码清单切产品 |
 | 容量 | 产品 `dXXX_protection_config.h` | 容量为 BUSINESS；单位 0.1 Ah |
-| 编译名称/软件版本、通信模式 | 产品 `bms_product.h` | 编译名称/版本不等于用户 SN/蓝牙持久后缀 |
+| 编译名称/软件版本、UART/RS485 使能 | 产品 `bms_product.h` | 编译名称/版本不等于用户 SN/蓝牙持久后缀 |
+| D008 一线通协议选择 | `bms/platform/telink/sif_send.h` 的 `BMS_PRODUCT_SIF_PROTOCOL` | `BMS_SIF_PROTOCOL_A133`（1，默认）或 `BMS_SIF_PROTOCOL_LISHEN_V111`（2），编译期切换，不改变 OTA 参数包摘要 |
 | 电池类型及关联默认值 | 产品 `BMS_PRODUCT_CHEMISTRY`；D008 `d008_product_profile.h` / `d008_protection_config.h`；公共 `bms/products/bms_battery_defaults.h` | 联动 SW、AFE、BUSINESS、SOC 的编译默认；已保存值按 BIN 中选择更新 |
 | SH GPIO、串数、Rsense、NTC、能力、AFE 默认 | 产品 `bms_product.h` | 固定设置直接编译；`SH3673510_HW_DEFAULT_*` 对应 AFE |
 | DVC 固定配置 | D008 `bms_product.h` 包含的私有 `dvc1124_product_defaults.h` | 固定板级、Rsense 和故障安全策略 |
@@ -35,6 +36,8 @@
 | 开发日志 | `EXTRA_DEFINES`、`bms_debug_log_config.h` | 编译期，生产禁用 |
 
 产品 include 路径由构建器选择。各模块显式引入所需产品配置；公共整数类型使用 `stdint.h`。State/Event 保存周期归各自实现，有限重试周期由 `bms_storage_platform.h` 定义。
+
+D008 使用锂神 V1.1.1 时，将 `sif_send.h` 中 `#define BMS_PRODUCT_SIF_PROTOCOL BMS_SIF_PROTOCOL_A133` 改成 `#define BMS_PRODUCT_SIF_PROTOCOL BMS_SIF_PROTOCOL_LISHEN_V111` 并重新编译；无需修改产品 `bms_product.h` 或制作新 OTA 参数包。原协议已实板确认可用，新协议仍须在对应仪表上完成 5V 上拉、输出波形和数据显示验收。
 
 四产品独立参数文件与 App/Windows 密码切换的当前入口见 [电池类型切换](BATTERY_TYPE_SWITCH.md)。
 

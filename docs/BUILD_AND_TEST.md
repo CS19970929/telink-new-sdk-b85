@@ -78,7 +78,7 @@ try {
 | 参数/存储/OTA 分组更新 | `storage_host_check.py`（四产品公共存储）、`flash_quick_check.py`、Modbus 检查 |
 | SOC | `core_contract_check.py`、`soc_scenarios_host_check.py`、对应方向/采样有效性 tests |
 | 日志/协议 | `diagnostics_host_check.py`、`modbus_host_check.py` |
-| D008 一线通双协议 | `python tests/sif_packet_host_check.py`、`python tests/sif_lishen_host_check.py`；CI `sif-tc32` 采用官方 TC32 4.5.1 分别编译两种宏配置下的真实 `sif_send.c`，独立于 OTA 参数包校验 |
+| D008 一线通双协议 | `python tests/sif_packet_host_check.py`、`python tests/sif_lishen_host_check.py`；CI `sif-tc32` 用 TC32 4.5.1 编译两种模式的真实 `sif_send.c`，且在临时切换 V1.1.1 后完成 D008 16S 生产 ELF `link` 和 `resources`（不生成 BIN、不变更 OTA 参数包） |
 | 常驻休眠状态协议 | 四产品 `sleep_status_host_check.py`（开发/生产/服务诊断）、相关 D008/SH PM 与 Modbus 检查 |
 
 ## 3. 可移植核心与静态分析
