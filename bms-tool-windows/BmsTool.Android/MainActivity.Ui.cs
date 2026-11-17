@@ -66,17 +66,20 @@ public sealed partial class MainActivity
 
     private View BuildProtectionPage() => BuildMobileProtectionPage();
 
+    private LinearLayout? _d008ParameterPanel;
     private View BuildParameterPage()
     {
         LinearLayout page = Page();
         page.AddView(ActionButton("‹ 返回设备", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
-        page.AddView(SectionTitle("整套电池类型切换"));
+        var d008=Page();_d008ParameterPanel=d008;
+        d008.AddView(SectionTitle("整套电池类型切换"));
         _batteryTypeStatus = Note("请确认实际电芯类型，并先断开充电器和负载。");
-        page.AddView(_batteryTypeStatus);
-        page.AddView(ActionButton("读取当前电池类型", ReadBatteryTypeFromUiAsync));
-        page.AddView(ActionButton("一键切换磷酸铁锂", () => SwitchBatteryTypeFromUiAsync(1)));
-        page.AddView(ActionButton("一键切换三元锂", () => SwitchBatteryTypeFromUiAsync(2)));
-        BuildSocProfileControls(page);
+        d008.AddView(_batteryTypeStatus);
+        d008.AddView(ActionButton("读取当前电池类型", ReadBatteryTypeFromUiAsync));
+        d008.AddView(ActionButton("一键切换磷酸铁锂", () => SwitchBatteryTypeFromUiAsync(1)));
+        d008.AddView(ActionButton("一键切换三元锂", () => SwitchBatteryTypeFromUiAsync(2)));
+        BuildSocProfileControls(d008);
+        page.AddView(d008);
         page.AddView(SectionTitle("SOC 校正"));
         page.AddView(Note("输入目标电量百分比，保存后读取设备确认。"));
         _socInput = LabeledInput(page, "目标 SOC / %", "");
@@ -88,16 +91,16 @@ public sealed partial class MainActivity
         legacy.AddView(Note("先读取设备当前参数。修改后保存并核对；设备序列号只读。"));
         _parameterStatus = DataBlock("未读取");
         legacy.AddView(_parameterStatus);
-        _capacityInput = LabeledInput(page, "额定容量 / Ah", "");
+        _capacityInput = LabeledInput(legacy, "额定容量 / Ah", "");
         legacy.AddView(ActionButton("保存额定容量", SaveCapacityAsync));
-        _cycleInput = LabeledInput(page, "循环次数", "");
+        _cycleInput = LabeledInput(legacy, "循环次数", "");
         legacy.AddView(ActionButton("保存循环次数", SaveCycleAsync));
-        _serialInput = LabeledInput(page, "设备 SN（只读）", "");
+        _serialInput = LabeledInput(legacy, "设备 SN（只读）", "");
         _serialInput.Enabled = false;
         _heaterEnable = new CheckBox(this) { Text = "启用加热（仍受固件安全条件约束）" };
         legacy.AddView(_heaterEnable);
-        _heaterStartInput = LabeledInput(page, "加热启动温度 / ℃", "");
-        _heaterStopInput = LabeledInput(page, "加热停止温度 / ℃", "");
+        _heaterStartInput = LabeledInput(legacy, "加热启动温度 / ℃", "");
+        _heaterStopInput = LabeledInput(legacy, "加热停止温度 / ℃", "");
         legacy.AddView(ActionButton("保存整组加热参数", SaveHeaterAsync));
         legacy.AddView(SectionTitle("分组恢复默认"));
         foreach (var item in new[] { ("软件保护", (ushort)1), ("AFE 硬件保护", (ushort)2), ("业务参数", (ushort)3) })

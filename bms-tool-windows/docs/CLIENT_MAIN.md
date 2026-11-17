@@ -123,4 +123,4 @@ foreach ($edition in @('Customer','Internal')) {
 
 C077原始BIN经过固件产品/地址/容量/向量/长度检查后使用现有YMODEM；已有Telink升级分流不变。Android固件页新增可选“LK8353模块·19200波特率优化”：有响应≤120字节写入，按UART排空节流；默认标准20字节。该选项不改模块/Boot的波特率，也不用于Telink无线OTA。不用无响应突发或240字节。客户版保留服务授权，内部版仍保留额外诊断。
 
-正式交付Windows两版/CLI和Android两版放项目`releases/`，缓存/测试证据放TEMP；手机安装以发布目录中同一APK为准。Android正式版本提升0.9.2/17。校准与OTA均不会自动编程309 EEPROM；实际传输和精度验收分别记录。
+正式交付Windows两版/CLI和Android两版放项目`releases/`，缓存/测试证据放TEMP；手机安装以发布目录中同一APK为准。Android首轮版本0.9.2/17；手机验收发现旧D008输入框父容器错误及不支持的电池类型卡片仍显示，修正归属并按已识别C060/C077能力隐藏，最终Android版本0.9.3/18。校准与OTA均不会自动编程309 EEPROM；实际传输和精度验收分别记录。

@@ -354,6 +354,9 @@ public sealed partial class MainActivity
 
     private void RefreshActionAvailability()
     {
+        bool nativeParameters=_client?.UsesC060Protocol==true;
+        if(_d008ParameterPanel is not null)_d008ParameterPanel.Visibility=nativeParameters?ViewStates.Gone:ViewStates.Visible;
+        if(_legacyParameterPanel is not null)_legacyParameterPanel.Visibility=nativeParameters?ViewStates.Gone:ViewStates.Visible;
         foreach (Button button in _actionButtons)
         {
             bool busyAllowed = _busyAllowedButtons.Contains(button);
