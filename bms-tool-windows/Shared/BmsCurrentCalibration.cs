@@ -88,6 +88,7 @@ public sealed class CurrentCalibrationSession
     public BmsClient Client { get; }
     public DeviceIdentity Identity { get; }
     public CurrentCalibrationCoefficients Original { get; }
+    public bool C060Native { get; internal init; }
     public AfeHardwareAccessSession Access { get; }
     public DateTimeOffset StartedUtc { get; } = DateTimeOffset.UtcNow;
     public CurrentCalibrationSamples? Zero { get; set; }
@@ -142,21 +143,42 @@ public sealed class CurrentCalibrationSession
 public sealed partial class BmsClient
 {
     public const ushort LinearCurrentCalibrationCapability = 0x0400;
-    private async Task RequireLinearCurrentCalibrationAsync(CancellationToken ct)
+    private async Task<bool> RequireLinearCurrentCalibrationAsync(CancellationToken ct)
     {
         var header = await ReadRegistersAsync(0x2E00, 3, ct);
+        if (header is [0xC060,1,1]) return true;
         if (header.Length != 3 || header[0] != D008Parameters.Magic ||
             !D008Parameters.SupportsProtocol(header[1]) || (header[2] & LinearCurrentCalibrationCapability) == 0)
             throw new NotSupportedException("当前固件未声明支持持久电流校准；请使用配套固件。未发送参数写入。");
+        return false;
     }
     public async Task<CurrentCalibrationSession> BeginCurrentCalibrationAsync(CancellationToken ct)
     {
-        await RequireLinearCurrentCalibrationAsync(ct);
+        bool native=await RequireLinearCurrentCalibrationAsync(ct);
         var identity = await ReadIdentityAsync(ct);
+        if(native && (!IsC060 || IsC077))throw new IOException("校准能力与当前设备身份不一致。");
         var original = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
-        var access = await OpenAfeHardwareAccessAsync(ct);
-        var session = new CurrentCalibrationSession(this, identity, original, access);
-        try { await VerifyCurrentCalibrationContinuityAsync(session, ct); return session; }
+        AfeHardwareAccessSession access;
+        if(native) {
+            await WriteSingleRegisterAsync(0x2E30,0xCA01,ct);
+            var lease=await ReadRegistersAsync(0x2E30,4,ct);
+            if(lease.Length!=4 || lease[0]==0 || lease[1]!=30 || lease[2]!=1 || lease[3]!=0x7693)
+                throw new IOException("C060 校准授权无效；请等待原授权超时后重新开始。");
+            access=new(lease[0],lease[1],(byte)lease[2],lease[3]);
+        } else access=await OpenAfeHardwareAccessAsync(ct);
+        var session = new CurrentCalibrationSession(this, identity, original, access){C060Native=native};
+        try {
+            if(native) {
+                var ready=Stopwatch.StartNew();
+                while(true) {
+                    var sample=await ReadRegistersAsync(0x2E28,7,ct);
+                    if(sample[4]==1){session.ObserveSample(sample);break;}
+                    if(ready.Elapsed>TimeSpan.FromSeconds(2))throw new IOException("尚未取得有效的新电流转换，请检查 AFE 状态。");
+                    await Task.Delay(100,ct);
+                }
+            } else await VerifyCurrentCalibrationContinuityAsync(session, ct);
+            return session;
+        }
         catch { await EndCurrentCalibrationAsync(session); throw; }
     }
     private void RequireCurrentCalibrationConnection(CurrentCalibrationSession session)
@@ -170,6 +192,7 @@ public sealed partial class BmsClient
         RequireCurrentCalibrationConnection(session);
         try
         {
+            if(session.C060Native){await WriteSingleRegisterAsync(0x2E31,session.Access.Token,ct);return;}
             try { await AfeHardwareHeartbeatAsync(session.Access.Token, ct); }
             catch (TimeoutException) when (IsD015 && _transport.IsConnected && !ct.IsCancellationRequested)
             {
@@ -202,7 +225,7 @@ public sealed partial class BmsClient
         if (session.Closed || !ReferenceEquals(session.Client, this)) throw new IOException("校准会话已失效。");
         // 沿用 RAM 授权 token：MCU 重启、其他会话接管或超时后，不重新 OPEN 冒充原会话。
         await HeartbeatCurrentCalibrationAsync(session, ct);
-        await RequireLinearCurrentCalibrationAsync(ct);
+        if(await RequireLinearCurrentCalibrationAsync(ct)!=session.C060Native)throw new IOException("校准协议已变化，旧会话失效。");
         var current = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
         if (current != session.Original) throw new IOException("采集期间设备校准参数已变化，请重新采集。");
         await VerifyCurrentCalibrationContinuityAsync(session, ct);
@@ -251,7 +274,7 @@ public sealed partial class BmsClient
         await ReadCurrentCalibrationSampleAsync(session, ct);
         ct.ThrowIfCancellationRequested();
         session.WriteAttempted = true;
-        await WriteRegistersAsync(0x2E24, candidate.Words, ct);
+        await WriteRegistersAsync(0x2E24, session.C060Native ? new[]{session.Access.Token}.Concat(candidate.Words).ToArray() : candidate.Words, ct);
         var actual = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
         if (actual != candidate) throw new IOException("校准写入后读回不一致，请重新读取；不要盲目重复写入。");
         await HeartbeatCurrentCalibrationAsync(session, ct);
@@ -297,7 +320,8 @@ public sealed partial class BmsClient
                 session.ObserveSample(sample);
                 // CLOSE本身由固件核对token及所属串口；旧授权已过期/被替换时不会关闭别人的会话。
             }
-            await TryCloseAfeHardwareAccessAsync(session.Access.Token, timeout.Token);
+            if(session.C060Native)await WriteSingleRegisterAsync(0x2E32,session.Access.Token,timeout.Token);
+            else await TryCloseAfeHardwareAccessAsync(session.Access.Token, timeout.Token);
         }
         catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException)
         {

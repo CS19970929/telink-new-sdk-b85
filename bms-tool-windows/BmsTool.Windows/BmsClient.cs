@@ -192,6 +192,7 @@ public sealed partial class BmsClient : IAsyncDisposable
     private static readonly TimeSpan SerialResponseTurnaroundDelay = TimeSpan.FromMilliseconds(20);
     private static readonly TimeSpan C060ResponseTurnaroundDelay=TimeSpan.FromMilliseconds(50);
     private static readonly TimeSpan C077SerialIdleWakeThreshold=TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan C060IdleWakeThreshold=TimeSpan.FromSeconds(3);
     private static readonly TimeSpan C077ReportPublishWait=TimeSpan.FromSeconds(2);
     private readonly TimeSpan? _responseTurnaround;
     private long _lastReceiveTick;
@@ -315,12 +316,13 @@ public sealed partial class BmsClient : IAsyncDisposable
         // C077 RTC may consume the first serial frame while restoring UART power.
         // Only an identified, idle serial connection gets one read retry. Writes
         // remain single-shot because their result can be unknown after a timeout.
-        bool wakeRetry=IsC077&&_transport.RequiresSerialWakeup&&LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold;
+        bool c060Wake=IsC060&&LastSuccessfulResponseAge>=C060IdleWakeThreshold;
+        bool wakeRetry=c060Wake || IsC077&&_transport.RequiresSerialWakeup&&LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold;
         byte[] request=ModbusRtu.ReadHolding(start,quantity);
         byte[] rsp;
-        try {rsp=await TransactAsync(request,ct,responseTimeout).ConfigureAwait(false);}
+        try {rsp=await TransactAsync(request,ct,c060Wake ? responseTimeout??TimeSpan.FromMilliseconds(650) : responseTimeout).ConfigureAwait(false);}
         catch(TimeoutException) when(wakeRetry&&!ct.IsCancellationRequested) {
-            Log?.Invoke("[C077] idle serial read timed out; retrying read once after RTC wake");
+            Log?.Invoke(c060Wake?"[C060] 正在唤醒设备，原连接上重试只读请求一次。":"[C077] idle serial read timed out; retrying read once after RTC wake");
             await Task.Delay(100,ct).ConfigureAwait(false);
             rsp=await TransactAsync(request,ct,responseTimeout).ConfigureAwait(false);
         }
@@ -709,14 +711,15 @@ public sealed partial class BmsClient : IAsyncDisposable
     {
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, _disposedCancellation.Token);
         ct = lifetime.Token;
-        if(IsC077&&_transport.RequiresSerialWakeup&&request.Length>=2&&request[1] is 0x06 or 0x10&&
-           LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold) {
+        bool c060Idle=IsC060&&LastSuccessfulResponseAge>=C060IdleWakeThreshold;
+        if((c060Idle || IsC077&&_transport.RequiresSerialWakeup&&LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold) &&
+           request.Length>=2&&request[1] is 0x06 or 0x10) {
             // Wake with a read before the one-shot write. A lost write ACK must
             // never cause a setting/control/EEPROM command to be repeated.
-            Log?.Invoke("[C077] idle serial write: confirming APP with a read before sending command");
+            Log?.Invoke(c060Idle?"[C060] 写入前先用只读请求唤醒并确认原设备。":"[C077] idle serial write: confirming APP with a read before sending command");
             var capability=await ReadRegistersAsync(0xD170,12,ct,TimeSpan.FromMilliseconds(650)).ConfigureAwait(false);
-            if(capability[0]!=0x5550||capability[1]!=1||capability[2]!=0xC077||capability[3]!=0x0016||capability[10]!=0)
-                throw new IOException("C077 APP身份/运行状态尚未确认；写命令未发送。");
+            if(capability[0]!=0x5550||capability[1]!=1||capability[2]!=(c060Idle?0xC060:0xC077)||capability[3]!=(c060Idle?0x0020:0x0016)||capability[10]!=0)
+                throw new IOException(c060Idle?"C060 APP身份/运行状态尚未确认；写命令未发送。":"C077 APP身份/运行状态尚未确认；写命令未发送。");
         }
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);

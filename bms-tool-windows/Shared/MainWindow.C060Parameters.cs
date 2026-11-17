@@ -21,6 +21,7 @@ public partial class MainWindow
     private readonly CheckBox _c060ImportCalibration=new(){Content="导入工厂校准/采样参数",Margin=new Thickness(8)};
     private readonly TextBox _c060Soc=new(){Width=70};
     private readonly TextBox _c060Serial=new(){Width=260},_c060Hardware=new(){Width=260},_c060Software=new(){Width=260};
+    private Button? _c060SoftwareSave;
 #if BMS_FACTORY_APP
     private static bool C060FactoryEdition=>true;
 #else
@@ -45,8 +46,7 @@ public partial class MainWindow
     {
         var page=new DockPanel{Margin=new Thickness(12)};
         var top=new StackPanel();DockPanel.SetDock(top,Dock.Top);page.Children.Add(top);
-        top.Children.Add(CreateParameterProfileSelector());
-        _c060Intro.Text="C060 / C077 · 分口。软件保护在‘保护参数’页；保存前重新读取整组并保留未编辑字段。";
+        _c060Intro.Text="参数按组保存，保存后自动读回。软件保护在“保护参数”页。";
         top.Children.Add(_c060Intro);
         top.Children.Add(_c060Status);
         var tools=new WrapPanel();top.Children.Add(tools);
@@ -65,6 +65,7 @@ public partial class MainWindow
         });
         Button("导入并预览修改",()=>{ImportC060Parameters();return Task.CompletedTask;});
         Button("恢复业务参数默认",()=>RunC060ResetAsync());
+        Button("蓝牙名称",()=>RunC060ParameterAsync(EditBleNameAsync,"修改蓝牙名称",requireCapture:false,refreshAfter:false));
         top.Children.Add(_c077Tools);top.Children.Add(_c077Status);
         void AfeButton(string label,Func<Task> action) {
             var b=new Button{Content=label,Margin=new Thickness(4),Padding=new Thickness(10,5,10,5)};
@@ -103,6 +104,7 @@ public partial class MainWindow
             text.IsReadOnly=factory&&!C060FactoryEdition;
             if(!factory||C060FactoryEdition) {
                 var save=new Button{Content="保存"+label,Margin=new Thickness(0,4,0,0)};
+                if(address==0xFFF2)_c060SoftwareSave=save;
                 save.Click+=async(_,_)=>{
                     if(MessageBox.Show(this,"确认保存"+label+"？空文本会清除该项。","生产信息",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
                     string value=text.Text;
@@ -113,10 +115,11 @@ public partial class MainWindow
             identity.Children.Add(panel);
         }
         Identity("SN",_c060Serial,0xFFF0,false);Identity("硬件版本",_c060Hardware,0xFFF1,true);Identity("软件版本",_c060Software,0xFFF2,true);
-        foreach(var field in C060Parameters.Fields)_c060Rows.Add(new(){Field=field});
+        foreach(var field in C060Parameters.FieldsFor(false))_c060Rows.Add(new(){Field=field});
         _c060Grid.ItemsSource=_c060Rows;
         void Column(string label,string path,bool readOnly=true,int width=150)=>_c060Grid.Columns.Add(new DataGridTextColumn{Header=label,Binding=new Binding(path){UpdateSourceTrigger=UpdateSourceTrigger.PropertyChanged},IsReadOnly=readOnly,Width=width});
-        Column("类别","Group");Column("参数","Name",width:200);Column("设备值","DeviceValue",width:110);Column("待保存值","EditValue",false,120);Column("单位","Unit",width:115);Column("说明","Hint",width:420);
+        Column("类别","Group");Column("参数","Name",width:200);Column("设备值","DeviceValue",width:110);Column("待保存值","EditValue",false,120);Column("单位","Unit",width:115);
+        var rowStyle=new Style(typeof(DataGridRow));rowStyle.Setters.Add(new Setter(ToolTipProperty,new Binding("Hint")));_c060Grid.RowStyle=rowStyle;
         var editStyle=new Style(typeof(TextBlock));
         editStyle.Setters.Add(new Setter(TextBlock.BackgroundProperty,System.Windows.Media.Brushes.AliceBlue));
         editStyle.Setters.Add(new Setter(TextBlock.PaddingProperty,new Thickness(8,4,8,4)));
@@ -130,25 +133,55 @@ public partial class MainWindow
         _c060Grid.BeginningEdit+=(_,e)=>{if(e.Row.Item is C060ParameterRow row&&!CanEditC060Field(row.Field))e.Cancel=true;};
         page.Children.Add(CreateParameterBrowser(_c060Grid,item=>((C060ParameterRow)item).Group,_c060Rows.Select(r=>r.Group)));
         ((DataGridTextColumn)_c060Grid.Columns[3]).ElementStyle=editStyle;
-        _c060ParameterTab=new TabItem{Header="C060参数",Content=new ScrollViewer{Content=page,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled},Visibility=Visibility.Collapsed};MainTabs.Items.Add(_c060ParameterTab);
+        _c060ParameterTab=new TabItem{Header="基本参数",Content=new ScrollViewer{Content=page,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled},Visibility=Visibility.Collapsed};_parameterSections.Items.Insert(0,_c060ParameterTab);
     }
     private bool CanEditC060Field(C060ParameterField field)=>field.Editable&&(!field.FactoryOnly||C060FactoryEdition)&&(!field.Compatibility||_c060Compatibility.IsChecked==true);
+    private async Task EditBleNameAsync(BmsClient client,CancellationToken ct)
+    {
+        if(_bmsTransport is not BmsBleTransport transport)throw new InvalidOperationException("请通过蓝牙连接后修改模块名称。");
+        string original=await transport.ReadDeviceNameAsync(ct);
+        if(!ReferenceEquals(_bms,client))throw new InvalidOperationException("连接已改变，请重新操作。");
+        var panel=new StackPanel{Margin=new Thickness(18)};
+        panel.Children.Add(new TextBlock{Text="蓝牙名称",Margin=new Thickness(0,0,0,8)});
+        var name=new TextBox{Text=original,MinWidth=320};panel.Children.Add(name);
+        panel.Children.Add(new TextBlock{Text="以 BT_ 或 BT- 开头，最多16个UTF-8字节。\n保存后断开并重新搜索，确认广播名称。",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,10,0,8)});
+        var error=new TextBlock{TextWrapping=TextWrapping.Wrap};panel.Children.Add(error);
+        var dialog=new Window{Title="蓝牙名称",Owner=this,Content=panel,SizeToContent=SizeToContent.WidthAndHeight,ResizeMode=ResizeMode.NoResize,WindowStartupLocation=WindowStartupLocation.CenterOwner};
+        var save=new Button{Content="保存",IsDefault=true,HorizontalAlignment=HorizontalAlignment.Right,Padding=new Thickness(18,5,18,5),Margin=new Thickness(0,10,0,0)};
+        save.Click+=(_,_)=>{try{BmsBleTransport.ValidateDeviceName(name.Text);dialog.DialogResult=true;}catch(ArgumentException ex){error.Text=ex.Message;}};
+        panel.Children.Add(save);
+        if(dialog.ShowDialog()!=true)return;
+        ct.ThrowIfCancellationRequested();
+        if(!ReferenceEquals(_bms,client)||!ReferenceEquals(_bmsTransport,transport))throw new InvalidOperationException("连接已改变，请重新读取名称。");
+        if(name.Text==original){_c060Status.Text="名称未改变。";return;}
+        await transport.WriteDeviceNameAsync(name.Text,ct);
+        _c060Status.Text="模块名称已写入并读回。请断开后重新搜索确认广播名称；断电保持由模块固件决定。";
+    }
     private void UpdateParameterProfileUi()
     {
         bool c060=_bms?.UsesC060Protocol==true,c077=_bms?.IsC077==true;
         _c077Tools.Visibility=_c077Status.Visibility=c077?Visibility.Visible:Visibility.Collapsed;
         _c060Intro.Text=c077 ? "C077 · 16串分口 / 双SH367309。仅AFE1采电流和RAM校零，AFE2未启用CADC；最低充电硬门限40A。硬保护在内部版独立编辑：先保存Flash，再明确下发EEPROM；软件过流不再自动改变硬保护。" :
-            "C060 · 20串分口 / 双BQ76930。软件保护在‘保护参数’页；保存前重新读取整组。";
-        if(_c060RowsC077!=c077) {
+            "参数按组保存，保存后自动读回。软件保护在“保护参数”页。";
+        _c060Compatibility.Visibility=c077?Visibility.Visible:Visibility.Collapsed;
+        _c060Software.IsReadOnly=!c077||!C060FactoryEdition;
+        if(_c060SoftwareSave is not null)_c060SoftwareSave.Visibility=c077?Visibility.Visible:Visibility.Collapsed;
+        _c060ImportCalibration.Content=c077?"导入工厂校准/采样参数":"导入工厂采样参数";
+        if(_c060RowsC077!=c077 || _c060Rows.Count!=C060Parameters.FieldsFor(c077).Count) {
             _c060Rows.Clear();foreach(var field in C060Parameters.FieldsFor(c077))_c060Rows.Add(new(){Field=field});
             _c060RowsC077=c077;
         }
-        if(_c060ParameterTab is not null)_c060ParameterTab.Header=c077?"C077参数":"C060参数";
+        if(_c060ParameterTab is not null)_c060ParameterTab.Header="基本参数";
         if(_c060ParameterTab is null||_businessParameterTab is null)return;
         _c060ParameterTab.Visibility=c060?Visibility.Visible:Visibility.Collapsed;
-        _businessParameterTab.Visibility=c060?Visibility.Collapsed:Visibility.Visible;
-        if(c060&&MainTabs.SelectedItem==_businessParameterTab)MainTabs.SelectedItem=_c060ParameterTab;
-        else if(!c060&&MainTabs.SelectedItem==_c060ParameterTab)MainTabs.SelectedItem=_businessParameterTab;
+        if(_currentCalibrationParameterTab is not null)_currentCalibrationParameterTab.Visibility=c077?Visibility.Collapsed:Visibility.Visible;
+        _businessParameterTab.Visibility=Visibility.Visible;
+        foreach(var tab in _parameterProductTabs)tab.Visibility=c060?Visibility.Collapsed:Visibility.Visible;
+        UpdateD015ParameterVisibility();
+        if(c060 && _parameterSections.SelectedItem is TabItem selected && selected.Visibility!=Visibility.Visible)
+            _parameterSections.SelectedItem=_c060ParameterTab;
+        else if(!c060&&_parameterSections.SelectedItem==_c060ParameterTab)
+            _parameterSections.SelectedItem=_parameterProductTabs.FirstOrDefault(t=>t.Visibility==Visibility.Visible);
         if(!c060)ClearC060ParameterCapture();
     }
     private void ClearC060ParameterCapture()

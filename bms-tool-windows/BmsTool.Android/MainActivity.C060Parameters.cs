@@ -9,6 +9,7 @@ namespace BmsTool.Android;
 public sealed partial class MainActivity
 {
     private const int C060ImportRequest=1003;
+    private IReadOnlyList<C060ParameterField> C060ParameterFields=>C060Parameters.FieldsFor(_c060Capture?.Product=="C077");
     private C060ParameterCapture? _c060Capture;
     private BmsClient? _c060CaptureClient,_protectionCaptureClient,_c060ImportClient;
     private LinearLayout? _c060Panel,_c060RowsPanel,_legacyParameterPanel;
@@ -65,9 +66,10 @@ public sealed partial class MainActivity
     private void RenderC060Parameters()
     {
         if(_c060Capture is null)return;
+        if(_c060Compatibility is not null)_c060Compatibility.Visibility=_c060Capture.Product=="C077"?ViewStates.Visible:ViewStates.Gone;
         _c060Panel!.Visibility=ViewStates.Visible;_legacyParameterPanel!.Visibility=ViewStates.Gone;
         _c060RowsPanel!.RemoveAllViews();_c060Inputs.Clear();
-        foreach(var group in C060Parameters.Fields.Where(f=>f.Address>=0x2100).GroupBy(f=>f.Group)) {
+        foreach(var group in C060ParameterFields.Where(f=>f.Address>=0x2100).GroupBy(f=>f.Group)) {
             var rows=Page();
             foreach(var field in group) {
                 if(!C060Parameters.TryValue(_c060Capture,field,out ushort raw))continue;
@@ -89,7 +91,7 @@ public sealed partial class MainActivity
         bool current=_client is not null && ReferenceEquals(_client,_c060CaptureClient),valid=true;int changed=0;
         if(_c060Compatibility is not null)_c060Compatibility.Enabled=current&&!_uiBusy;
         foreach(var pair in _c060Inputs) {
-            var field=C060Parameters.Fields.Single(f=>f.Address==pair.Key);
+            var field=C060ParameterFields.Single(f=>f.Address==pair.Key);
             bool allowed=field.Editable&&(!field.FactoryOnly||AppEdition.IsInternal)&&(!field.Compatibility||_c060Compatibility?.Checked==true);
             pair.Value.Enabled=current&&!_uiBusy&&allowed;
             try {
@@ -112,7 +114,7 @@ public sealed partial class MainActivity
         var changes=C060Parameters.CollectChanges(_c060Capture,edits,_c060Compatibility?.Checked==true,AppEdition.IsInternal);
         if(changes.Count==0){SetStatus("C060 参数没有修改");return;}
         string detail=string.Join("\n",changes.Select(p=>{
-            var f=C060Parameters.Fields.Single(f=>f.Address==p.Key);C060Parameters.TryValue(_c060Capture,f,out ushort old);
+            var f=C060ParameterFields.Single(f=>f.Address==p.Key);C060Parameters.TryValue(_c060Capture,f,out ushort old);
             return $"{f.Name}：{f.Format(old)} → {f.Format(p.Value)} {f.Unit}";
         }));
         if(!await ConfirmAsync("保存 C060 参数",detail+"\n\n确认后按完整参数组写入并回读；中断时部分组可能已保存。"))return;
@@ -153,7 +155,7 @@ public sealed partial class MainActivity
             }
             var imported=C060Parameters.Import(path);
             if(_connectedMac!=_c060ImportMac||!ReferenceEquals(_client,_c060ImportClient)||!ReferenceEquals(_client,_c060CaptureClient))throw new IOException("连接已变化，未载入候选。");
-            foreach(var field in C060Parameters.Fields.Where(f=>f.Editable&&!f.FactoryOnly&&!f.Compatibility))
+            foreach(var field in C060ParameterFields.Where(f=>f.Editable&&!f.FactoryOnly&&!f.Compatibility))
                 if(_c060Inputs.TryGetValue(field.Address,out var edit)&&C060Parameters.TryValue(imported,field,out ushort raw))edit.Text=field.Format(raw);
             if(imported.Blocks.TryGetValue("Protection",out var protection)&&_protectionModel is not null) {
                 var candidates=ProtectionParameterCatalog.Create();

@@ -21,6 +21,9 @@ public partial class MainWindow
     private readonly TextBox _parameterReadback=new(){IsReadOnly=true,AcceptsReturn=true,TextWrapping=TextWrapping.Wrap,MinHeight=150};
     private TabItem? _d015ParameterTab;
     private readonly List<TabItem> _d015LegacyTabs=new();
+    private readonly TabControl _parameterSections=new();
+    private readonly List<TabItem> _parameterProductTabs=new();
+    private TabItem? _currentCalibrationParameterTab;
     private void AddParameterTab()
     {
         var page=new DockPanel{Margin=new Thickness(14)};
@@ -28,11 +31,12 @@ public partial class MainWindow
             Background=System.Windows.Media.Brushes.AliceBlue,Child=_parameterStatus};
         DockPanel.SetDock(statusCard,Dock.Top);page.Children.Add(statusCard);
         var selector=CreateParameterProfileSelector();DockPanel.SetDock(selector,Dock.Top);page.Children.Add(selector);
-        var sections=new TabControl();page.Children.Add(sections);
+        var sections=_parameterSections;page.Children.Add(sections);
         StackPanel Section(string title) {
             var panel=new StackPanel{Margin=new Thickness(12),MaxWidth=850,HorizontalAlignment=HorizontalAlignment.Left};
             var tab=new TabItem{Header=title,Content=new ScrollViewer{Content=panel,VerticalScrollBarVisibility=ScrollBarVisibility.Auto}};
             sections.Items.Add(tab);
+            if(title!="电流校准")_parameterProductTabs.Add(tab);else _currentCalibrationParameterTab=tab;
             if(title=="D015配置") { _d015ParameterTab=tab;tab.Visibility=Visibility.Collapsed; }
             if(title is "加热" or "均衡" or "休眠" or "电池类型" or "SOC / OCV" or "恢复默认")_d015LegacyTabs.Add(tab);
             return panel;
@@ -108,7 +112,7 @@ public partial class MainWindow
 #if BMS_FACTORY_APP
         root.Children.Add(new Expander{Header="原始读回",Content=_parameterReadback,Margin=new Thickness(4)});
 #endif
-        _businessParameterTab=new TabItem{Header="业务参数",Content=page};MainTabs.Items.Add(_businessParameterTab);
+        _businessParameterTab=new TabItem{Header="参数设置",Content=page};MainTabs.Items.Add(_businessParameterTab);
         AddC060ParameterTab();
         var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
         timer.Tick+=async(_,_)=>{

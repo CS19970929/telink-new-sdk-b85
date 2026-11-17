@@ -43,13 +43,20 @@ public sealed class C060ParameterCapture
     public DateTimeOffset CapturedUtc {get;set;}=DateTimeOffset.UtcNow;
     public Dictionary<string,ushort[]> Blocks {get;set;}=new();
     public List<string> Errors {get;set;}=new();
-    public string[] Incomplete {get;set;}={"分段电流校准未提供全部K/B和端点；此包不是整机无损克隆。"};
+    public string[] Incomplete {get;set;}={"不包含运行快照和日志；电流校准使用校准向导单独保存。"};
 }
 public static class C060Parameters
 {
     public static readonly C060ParameterGroup[] Groups={new(0x2300,8,"均衡"),new(0x2308,8,"电流与SOC表"),new(0x2310,8,"兼容休眠"),new(0x2318,4,"容量与SOC"),new(0x231C,4,"系统"),new(0x2320,24,"兼容热冷")};
     public static readonly IReadOnlyList<C060ParameterField> Fields=CreateFields();
-    public static IReadOnlyList<C060ParameterField> FieldsFor(bool c077) => !c077 ? Fields :
+    public static IReadOnlyList<C060ParameterField> FieldsFor(bool c077) => !c077 ? Fields
+        .Where(f=>f.Address is >=0x2300 and <=0x2301 or >=0x2308 and <=0x230C or
+            >=0x2312 and <=0x2313 or >=0x2318 and <=0x231E)
+        .Select(f=>f.Address switch {
+            0x2312=>f with {Compatibility=false,Group="休眠",Name="低压休眠电压",Hint="低于该单体电压时禁止周期RTC，并按低压等待时间进入深睡。"},
+            0x2313=>f with {Compatibility=false,Group="休眠",Name="低压休眠等待",Hint="低压且无有效充电电流时的等待时间；0表示立即执行。"},
+            _=>f
+        }).ToArray() :
         Fields.Select(f=>f.Address switch {
             >=0x2020 and <=0x203F or
             >=0x204E and <=0x204F or >=0x2054 and <=0x205B =>
@@ -74,7 +81,7 @@ public static class C060Parameters
         for(int a=0x2303;a<=0x2307;a++)Add(a,"均衡保留字段",editable:false,hint:"未编辑值随整组原样保留。");
         Add(0x2308,"计算充电电流上限","A",10,editable:false,hint:"由固件按采样电阻与并联数重算。");
         Add(0x2309,"计算放电电流上限","A",10,editable:false,hint:"由固件按采样电阻与并联数重算。");
-        Add(0x230A,"硬件短路延时","μs",10,min:1,max:4000,factory:true,hint:"按50/100/200/400μs档位向上取整；参数回读不代表AFE写入确认。");
+        Add(0x230A,"硬件短路延时","μs",10,min:1,max:4000,factory:true,hint:"按70/100/200/400μs档位向上取整；参数回读不代表AFE写入确认。");
         Add(0x230B,"硬件短路电流","A",10,min:1,max:50000,factory:true,hint:"按电阻与AFE硬件档位取整；界面保存前显示有效值。");
         Add(0x230C,"SOC表编号",min:1,max:2,factory:true,hint:"仅切换已有SOC表；不等同于完整化学体系切换。");
         Add(0x230D,"旧密码保留",editable:false);Add(0x230E,"旧限流压差","mV",editable:false);Add(0x230F,"旧限流电流","A",10,editable:false);
@@ -192,7 +199,8 @@ public sealed partial class BmsClient
         foreach(var block in C060Parameters.Groups.Select(g=>(Key:g.Address.ToString("X4"),Address:g.Address,Count:g.Count)).Concat(new (string Key,ushort Address,ushort Count)[]{
             ("Calibration",(ushort)0x2000,(ushort)94),("Protection",(ushort)0x2100,(ushort)65),
             ("Identity",(ushort)0xC002,(ushort)48),("Realtime",(ushort)0xD000,(ushort)63),("SocTable",(ushort)0x2200,(ushort)86),
-            ("DischargeSummary",(ushort)0x3000,(ushort)21),("ChargeSummary",(ushort)0x3050,(ushort)21)}).Where(b=>(includeCalibration||b.Key is not ("Calibration" or "DischargeSummary" or "ChargeSummary"))&&(!IsC077||b.Key is not ("DischargeSummary" or "ChargeSummary")))) {
+            ("DischargeSummary",(ushort)0x3000,(ushort)21),("ChargeSummary",(ushort)0x3050,(ushort)21)}).Where(b=>(includeCalibration||b.Key is not ("Calibration" or "DischargeSummary" or "ChargeSummary"))&&
+                (IsC077 ? b.Key is not ("DischargeSummary" or "ChargeSummary") : b.Key is not ("Calibration" or "DischargeSummary" or "ChargeSummary" or "SocTable")))) {
             var words=await TryReadOptionalRegistersAsync(block.Address,block.Count,ct);
             if(words is null)capture.Errors.Add($"{block.Key} 未提供或读取未确认");else capture.Blocks[block.Key]=words;
         }
@@ -262,6 +270,7 @@ public sealed partial class BmsClient
     public async Task WriteC060IdentityAsync(ushort address,string text,CancellationToken ct=default)
     {
         if(!UsesC060Protocol||address is <0xFFF0 or >0xFFF2)throw new ArgumentException("C060生产信息地址无效。");
+        if(IsC060&&address==0xFFF2)throw new NotSupportedException("软件版本由固件提供，只读；未发送写入。");
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         if(text.Any(char.IsControl))throw new ArgumentException("生产信息不能包含换行或控制字符。");
         byte[] encoded=Encoding.GetEncoding(936,EncoderFallback.ExceptionFallback,DecoderFallback.ExceptionFallback).GetBytes(text);

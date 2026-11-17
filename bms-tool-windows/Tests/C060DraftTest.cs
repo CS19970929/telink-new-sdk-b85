@@ -8,14 +8,14 @@ static class Test
         var capture=new C060ParameterCapture();
         foreach(var g in C060Parameters.Groups)capture.Blocks[g.Address.ToString("X4")]=new ushort[g.Count];
         capture.Blocks["Calibration"]=new ushort[94];
-        foreach(var f in C060Parameters.Fields){
+        foreach(var f in C060Parameters.FieldsFor(false)){
             ushort raw=f.Signed?unchecked((ushort)(short)f.Minimum):(ushort)f.Minimum;
             string key=f.Address<0x2100?"Calibration":f.WriteAddress.ToString("X4");
             capture.Blocks[key][f.Address-(f.Address<0x2100?0x2000:f.WriteAddress)]=raw;
         }
         var saved=capture.Blocks.ToDictionary(p=>p.Key,p=>p.Value.ToArray());
         Check(C060Parameters.Fields.Count==150,"same 150-field definition is shared with desktop");
-        foreach(var f in C060Parameters.Fields){
+        foreach(var f in C060Parameters.FieldsFor(false)){
             Check(C060Parameters.TryValue(capture,f,out ushort old),"field can be read");
             var same=new Dictionary<ushort,string>{{f.Address,f.Format(old)}};
             Check(C060Parameters.CollectChanges(capture,same).Count==0,"unchanged values never require permission or a write");
@@ -41,7 +41,8 @@ static class Test
             Check(!mobile.Blocks.ContainsKey("Calibration")&&!mobile.Blocks.ContainsKey("DischargeSummary")&&!mobile.Blocks.ContainsKey("ChargeSummary"),"mobile capture excludes calibration data");
             Check(!peer.Reads.Any(a=>a is 0x2000 or 0x3000 or 0x3050),"mobile sends no calibration read requests");
             var desktop=await client.ReadC060ParametersAsync();
-            Check(desktop.Blocks.ContainsKey("Calibration")&&desktop.Blocks.ContainsKey("DischargeSummary")&&desktop.Blocks.ContainsKey("ChargeSummary"),"desktop capture remains complete");
+            Check(!desktop.Blocks.ContainsKey("Calibration")&&!desktop.Blocks.ContainsKey("DischargeSummary")&&!desktop.Blocks.ContainsKey("ChargeSummary"),"desktop new C060 capture also excludes retired K/B");
+            Check(!peer.Reads.Any(a=>a is 0x2000 or 0x3000 or 0x3050),"neither client sends retired C060 calibration reads");
         }
         Console.WriteLine($"PASS C060 mobile draft: {checks} field/permission/unit/ownership checks");
     }

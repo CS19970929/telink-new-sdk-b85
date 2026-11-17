@@ -413,6 +413,65 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
         Diag($"[CONNECT] DEVICE_STATUS_CHANGED status={sender.ConnectionStatus}; name='{sender.Name}'");
     }
 
+    // Use the standard GAP name only. The UART and the module's own OTA/control
+    // characteristics are not interchangeable with a name-management channel.
+    public Task<string> ReadDeviceNameAsync(CancellationToken ct = default) =>
+        WithDeviceNameAsync(async characteristic =>
+        {
+            var result = await characteristic.ReadValueAsync(BluetoothCacheMode.Uncached).AsTask(ct);
+            if (result.Status != GattCommunicationStatus.Success) throw new IOException($"读取蓝牙名称失败：{result.Status}");
+            CryptographicBuffer.CopyToByteArray(result.Value, out byte[] bytes);
+            return System.Text.Encoding.UTF8.GetString(bytes ?? Array.Empty<byte>()).TrimEnd('\0');
+        }, ct);
+
+    public static void ValidateDeviceName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Any(char.IsControl) ||
+            System.Text.Encoding.UTF8.GetByteCount(name) > 16)
+            throw new ArgumentException("名称须为1～16个UTF-8字节，且不能含控制字符。");
+        if (!IsBmsName(name)) throw new ArgumentException("名称请以 BT_ 或 BT- 开头，便于现有手机和上位机发现。");
+    }
+
+    public async Task<string> WriteDeviceNameAsync(string name, CancellationToken ct = default)
+    {
+        ValidateDeviceName(name);
+        var originalDevice = _device;
+        await WithDeviceNameAsync(async characteristic =>
+        {
+            if (!characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Write))
+                throw new IOException("当前模块未开放蓝牙名称写入，需要模块专用管理固件支持。");
+            var buffer = CryptographicBuffer.CreateFromByteArray(System.Text.Encoding.UTF8.GetBytes(name));
+            var result = await characteristic.WriteValueWithResultAsync(buffer, GattWriteOption.WriteWithResponse).AsTask(ct);
+            if (result.Status != GattCommunicationStatus.Success)
+                throw new IOException($"蓝牙名称写入被拒绝：{result.Status}，ATT={result.ProtocolError}。未发送UART AT命令。");
+            return true;
+        }, ct);
+        // A failed readback is an unknown result; never replay the write.
+        if (!ReferenceEquals(originalDevice, _device)) throw new IOException("蓝牙连接已改变，名称写入结果待重新读取确认。");
+        string readback = await ReadDeviceNameAsync(ct);
+        if (readback != name) throw new IOException("名称写入后读回不一致，请重新连接核对；没有自动重写。");
+        return readback;
+    }
+
+    private async Task<T> WithDeviceNameAsync<T>(Func<GattCharacteristic, Task<T>> operation, CancellationToken ct)
+    {
+        var device = _device;
+        if (device is null || !IsConnected) throw new IOException("请先连接蓝牙设备。");
+        var services = await device.GetGattServicesForUuidAsync(Guid.Parse("00001800-0000-1000-8000-00805f9b34fb"), BluetoothCacheMode.Uncached).AsTask(ct);
+        try
+        {
+            if (services.Status != GattCommunicationStatus.Success || services.Services.Count != 1)
+                throw new IOException("当前模块未提供可访问的GAP名称服务。");
+            var result = await services.Services[0].GetCharacteristicsForUuidAsync(Guid.Parse("00002a00-0000-1000-8000-00805f9b34fb"), BluetoothCacheMode.Uncached).AsTask(ct);
+            if (result.Status != GattCommunicationStatus.Success || result.Characteristics.Count != 1)
+                throw new IOException("当前模块未提供可访问的蓝牙名称特征。");
+            if (!ReferenceEquals(_device, device) || !IsConnected) throw new IOException("蓝牙连接已改变，请重新读取名称。");
+            ct.ThrowIfCancellationRequested();
+            return await operation(result.Characteristics[0]);
+        }
+        finally { foreach (var service in services.Services) service.Dispose(); }
+    }
+
     private void OnValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
     {
         CryptographicBuffer.CopyToByteArray(args.CharacteristicValue, out byte[] bytes);

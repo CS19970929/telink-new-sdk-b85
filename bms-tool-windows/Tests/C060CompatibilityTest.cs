@@ -1,9 +1,57 @@
 using BmsTool.Windows;
 using System.Text;
+using System.Diagnostics;
+using System.IO;
 
 internal static class Program
 {
     static void Check(bool value,string why) { if(!value)throw new Exception(why); }
+    private static async Task CheckNativeCalibrationAsync()
+    {
+        var peer=new Peer{Advertised=true,NativeCalibration=true,RawCurrentMa=230};
+        await using var client=new BmsClient(peer);
+        await client.ReadIdentityAsync();
+        int identityWrites=peer.Writes;
+        try{await client.WriteC060IdentityAsync(0xFFF2,"wrong",default);throw new Exception("C060 software version write accepted");}catch(NotSupportedException){}
+        Check(peer.Writes==identityWrites,"C060 software version is read-only without a write");
+        BmsBleTransport.ValidateDeviceName("BT_测试");
+        foreach(string bad in new[]{"other","BT_"+new string('x',14),"BT_\n"}) {
+            try{BmsBleTransport.ValidateDeviceName(bad);throw new Exception("invalid BLE name accepted");}catch(ArgumentException){}
+        }
+        var policy=new CurrentCalibrationPolicy(SampleCount:4,TimeoutSeconds:4);
+        var session=await client.BeginCurrentCalibrationAsync(default);
+        Check(session.C060Native && session.Original==new CurrentCalibrationCoefficients(0,1000000),"native C060 lease and independent mA/ppm defaults");
+        session.Zero=await client.CollectCurrentCalibrationAsync(session,true,policy,null,default);
+        Check(session.Zero.MeanMa==230,"fresh CC zero samples");
+        peer.RawCurrentMa=8230;
+        session.Loaded=await client.CollectCurrentCalibrationAsync(session,false,policy,null,default);
+        session.Candidate=policy.Calculate(session.Zero,session.Loaded,10000);
+        Check(session.Candidate==new CurrentCalibrationCoefficients(230,1250000),"two point gain from external 10 A reference");
+        int value=await client.SaveCurrentCalibrationAsync(session,session.Candidate,default);
+        Check(value==10000 && session.SaveVerified && peer.NativeCoefficientWrites==1,"single atomic native save and fresh formula verification");
+        Check(peer.SentRequests.Where(q=>q[1]==16&&q[2]==0x2e).All(q=>q.Length==19),"native grouped write works at MTU23");
+        Check(peer.SentRequests.All(q=>q[1]!=0x42)&&peer.Reads.All(q=>q.Item1<0x2000||q.Item1>=0x205e),"native calibration never opens old AFE authorization or K/B registers");
+        await client.EndCurrentCalibrationAsync(session);
+        Check(peer.NativeToken==0,"native lease released");
+        var restore=await client.BeginCurrentCalibrationAsync(default);
+        Check(restore.Access.Token==session.Access.Token+1,"restore keeps generation continuity");
+        Check(await client.SaveCurrentCalibrationAsync(restore,session.Original,default)==8230,"original parameters restore without calibration tables");
+        await client.EndCurrentCalibrationAsync(restore);
+        var failed=await client.BeginCurrentCalibrationAsync(default);
+        peer.NativeToken=0;int before=peer.NativeCoefficientWrites;
+        try{await client.SaveCurrentCalibrationAsync(failed,new(0,1000000),default);throw new Exception("stale token accepted");}catch(IOException){}
+        Check(peer.NativeCoefficientWrites==before,"expired/restarted lease cannot write");
+        await client.EndCurrentCalibrationAsync(failed);
+        var wake=new Peer{Advertised=true};await using var awake=new BmsClient(wake);
+        await awake.ReadIdentityAsync();await Task.Delay(3100);wake.SilentReads=1;
+        await awake.WriteSingleRegisterAsync(0x1005,67);
+        Check(wake.Soc==67&&wake.Writes==1&&wake.Reconnects==0,"idle C060 read wake retries without rebuilding GATT or repeating write");
+        int writes=wake.Writes;wake.SilentWrites=1;
+        try{await awake.WriteSingleRegisterAsync(0x1005,68,default,TimeSpan.FromMilliseconds(200));throw new Exception("missing write ACK accepted");}catch(TimeoutException){}
+        Check(wake.Writes==writes+1,"lost write response never causes blind retry");
+        Console.WriteLine("PASS native C060 calibration: real freshness intervals, offset/gain, one 19-byte save, readback/formula, restore, expired-token refusal; idle wake read retry and one-shot writes");
+    }
+
     static async Task Main()
     {
         foreach(bool advertised in new[]{false,true}) {
@@ -66,7 +114,7 @@ internal static class Program
         }
         var parameters=new Peer();await using(var c=new BmsClient(parameters)) {
             await c.ReadIdentityAsync();var capture=await c.ReadC060ParametersAsync();
-            Check(capture.Errors.Count==0&&capture.Blocks["Calibration"].Length==94&&C060Parameters.Fields.Count==150,"complete conventional map");
+            Check(capture.Errors.Count==0&&!capture.Blocks.ContainsKey("Calibration")&&C060Parameters.FieldsFor(false).All(f=>f.Address>=0x2300),"new C060 map excludes old K/B and segmented calibration reads");
             var capacity=C060Parameters.Fields.Single(f=>f.Address==0x2318);
             Check(capacity.Format(240)=="24"&&capacity.Parse("24.5")==245,"capacity parameter unit");
             try{capacity.Parse("24.05");throw new Exception("imprecise capacity accepted");}catch(ArgumentException){}
@@ -75,18 +123,17 @@ internal static class Program
             Check(parameters.Other[0]==3900&&parameters.Other[3]==44&&parameters.Other[24]==245&&parameters.Other[26]==4200,"fresh read preserves untouched words");
             int count=parameters.Writes;await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2318,245}},(_,_)=>{});
             Check(parameters.Writes==count,"same conventional values skip writes");
-            await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2001,unchecked((ushort)(short)-123)}},(_,_)=>{});
-            Check(parameters.Calibration[1]==unchecked((ushort)(short)-123)&&parameters.Calibration[0]==1024,"K/B sign magnitude write and complement read");
-            var bFrame=parameters.SentRequests.Last(r=>r[1]==16&&r[2]==0x20);
-            Check(bFrame[9]==0x80&&bFrame[10]==123,"negative B on the wire");
+            int oldWrites=parameters.Writes;
+            try{await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2001,123}},(_,_)=>{});throw new Exception("old K/B write accepted");}catch(ArgumentException){}
+            Check(parameters.Writes==oldWrites,"C060 rejects removed K/B before sending any write");
             await c.SetCycleCountAndVerifyAsync(77);
             Check(parameters.Other[25]==77&&parameters.SentRequests.Last(r=>r[1]==16&&r[2]==0x23)[5]==4,"quick cycle button uses whole four-word group");
             await c.SetSocAndVerifyAsync(66);Check(parameters.Soc==66,"SOC read from data, not write-only command register");
             int before=parameters.Writes;
             try{await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2311,3}},(_,_)=>{});throw new Exception("compatibility not gated");}catch(ArgumentException){}
             Check(parameters.Writes==before,"compatibility edits opt in");
-            await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2311,3}},(_,_)=>{},true);
-            Check(parameters.Other[17]==3&&parameters.Other[16]==4600,"compatibility group preserved");
+            try{await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2311,3}},(_,_)=>{},true);throw new Exception("retired C060 field accepted");}catch(ArgumentException){}
+            Check(parameters.Other[17]==120&&parameters.Other[16]==4600,"retired C060 fields remain untouched");
             try{await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,19}},(_,_)=>{});throw new Exception("physical map changed");}catch(ArgumentException){}
             await c.WriteC060IdentityAsync(0xFFF0,"中文SN");Check(BmsClient.DecodeIdentityText(parameters.Identity[..16])=="中文SN","GBK identity roundtrip");
             before=parameters.Writes;
@@ -110,13 +157,28 @@ internal static class Program
         }
         var normalized=C060Parameters.NormalizeCurrentGroup(new ushort[]{4000,4000,750,600,1,0,1000,30},2,4);
         Check(normalized[2]==1000&&normalized[3]==660,"production short-circuit quantization golden");
-        Console.WriteLine("PASS C060 parameters: 150 field map, fresh grouped saves, reserved fields, exact units, signed K/B, cycle/SOC, compatibility gating, GBK identity, package product checks, MTU preflight");
+        await CheckNativeCalibrationAsync();
+        Console.WriteLine("PASS C060 parameters: new field map without old K/B, fresh grouped saves, reserved fields, exact units, cycle/SOC, compatibility gating, GBK identity, package product checks, MTU preflight");
         Console.WriteLine("PASS C060 protection: 13 groups/65 words, MTU23 19-byte atomic writes, preflight, same-value skip, partial failure and bad readback");
         Console.WriteLine("PASS C060 connection: old/new capabilities, GBK, 20 cells/61001, units, optional rejection, unknown/generic fallback, no reconnect, session cache");
     }
 }
 internal sealed class Peer : IBmsTransport, IBmsMtuTransport
 {
+    public bool NativeCalibration=false;
+    public int RawCurrentMa,NativeOffsetMa,NativeCoefficientWrites;
+    public uint NativeGainPpm=1000000;
+    public ushort NativeToken;private ushort nativeGeneration;
+    private readonly long nativeClockStarted=Stopwatch.GetTimestamp();
+    private byte[]? NativeWrite(byte[] q,int a,int n)
+    {
+        ushort Word(int at)=>(ushort)(q[at]*256+q[at+1]);
+        byte[] Denied()=>Frame(new byte[]{1,(byte)(q[1]|128),7});
+        if(q[1]==6&&a==0x2e30&&n==0xca01){if(NativeToken!=0)return Denied();NativeToken=++nativeGeneration;return Frame(q[..6]);}
+        if(q[1]==6&&a is 0x2e31 or 0x2e32){if(NativeToken==0||n!=NativeToken)return Denied();if(a==0x2e32)NativeToken=0;return Frame(q[..6]);}
+        if(q[1]==16&&a==0x2e24){if(n!=5||NativeToken==0||Word(7)!=NativeToken)return Denied();NativeOffsetMa=unchecked((int)((uint)Word(9)|((uint)Word(11)<<16)));NativeGainPpm=(uint)Word(13)|((uint)Word(15)<<16);NativeCoefficientWrites++;return Frame(q[..6]);}
+        return null;
+    }
     public bool C077=false,ServiceFailure=false,Bad309Schema=false,SecondaryUnavailable=false,PrimaryUnavailable=false,PrimaryZeroFailed=false; public bool SerialWakeup=false; public int SilentReads,SilentWrites; public int ServiceCommands,ServicePolls; public ushort OutputRequest=0; private int pendingService;
     public bool Advertised=false,Unknown=false,SeparateIdentity=false,NoStatus=false,NoIdentity=false,SilentRealtime=false;
     public int Writes,Reconnects;public int Soc=55;public int DelayedSocReads,DelayedCycleReads,StartupSampleReads;private int? pendingSoc;private ushort reportedCycle;public List<byte[]> SentRequests=new();public int FailWriteAddress=0;public bool CorruptReadback=false;public List<int> WriteLengths=new();public int? NegotiatedMtu {get;set;}=247;
@@ -137,7 +199,9 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
             reply=w is null?Frame(new byte[]{1,0x83,1}):Frame(new byte[]{1,3,(byte)(w.Length*2)}.Concat(w.SelectMany(x=>new[]{(byte)(x>>8),(byte)x})).ToArray());
         } else {
             Writes++;WriteLengths.Add(q.Length);if(SilentWrites>0){SilentWrites--;return Task.CompletedTask;}
-            if(address==FailWriteAddress)reply=Frame(new byte[]{1,(byte)(q[1]|128),4});
+            var native=NativeCalibration?NativeWrite(q,address,n):null;
+            if(native is not null)reply=native;
+            else if(address==FailWriteAddress)reply=Frame(new byte[]{1,(byte)(q[1]|128),4});
             else {
                 if(q[1]==16&&address>=0x2100&&address+n<=0x2141) {
                     for(int i=0;i<n;i++)Protection[address-0x2100+i]=(ushort)(q[7+2*i]*256+q[8+2*i]);
@@ -164,7 +228,13 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
     }
     ushort[]? Read(int a,int n)
     {
-        if(a>=0x2000&&a+n<=0x205E)return Calibration.Skip(a-0x2000).Take(n).ToArray();
+        if(NativeCalibration) {
+            if(a==0x2e00&&n==3)return new ushort[]{0xc060,1,1};
+            if(a==0x2e24&&n==4)return D008Parameters.Calibration(NativeOffsetMa,NativeGainPpm);
+            if(a==0x2e30&&n==4)return new ushort[]{NativeToken,30,1,0x7693};
+            if(a==0x2e28&&n==7){uint tick=unchecked((uint)(Stopwatch.GetElapsedTime(nativeClockStarted).TotalSeconds*32000));tick=tick/8000*8000;int final=new CurrentCalibrationCoefficients(NativeOffsetMa,NativeGainPpm).ApplyMilliampere(RawCurrentMa);return D008Parameters.Calibration(RawCurrentMa,unchecked((uint)final)).Concat(new ushort[]{1,(ushort)tick,(ushort)(tick>>16)}).ToArray();}
+        }
+        if(a>=0x2000&&a+n<=0x205E)return C077||Unknown||SeparateIdentity?Calibration.Skip(a-0x2000).Take(n).ToArray():null;
         if(Unknown)return null;
         if(NoIdentity&&a>=0xC000&&a<0xC100)return null;
         if(a==0xD170&&n==12&&Advertised)return new ushort[]{0x5550,1,(ushort)(C077?0xC077:0xC060),(ushort)(C077?0x16:0x20),2,2,0x800,0x1C00,0,0xCC00,0,0};

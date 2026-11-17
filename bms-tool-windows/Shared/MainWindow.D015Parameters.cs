@@ -51,12 +51,17 @@ public partial class MainWindow
             _d015SaveButtons.Add(button);root.Children.Add(button);
         }
     }
-    private void ShowD015Parameters(D008ParameterCapture capture)
+    private void UpdateD015ParameterVisibility()
     {
         bool d015=_bms?.IsD015==true;
         UpdateProtectionProductDisplay(d015);
         if(_d015ParameterTab is not null)_d015ParameterTab.Visibility=d015?Visibility.Visible:Visibility.Collapsed;
-        foreach(var tab in _d015LegacyTabs)tab.Visibility=d015?Visibility.Collapsed:Visibility.Visible;
+        foreach(var tab in _d015LegacyTabs)tab.Visibility=d015||_bms?.UsesC060Protocol==true?Visibility.Collapsed:Visibility.Visible;
+    }
+    private void ShowD015Parameters(D008ParameterCapture capture)
+    {
+        bool d015=_bms?.IsD015==true;
+        UpdateD015ParameterVisibility();
         _d015BasicGrid.ItemsSource=null;_d015OcvGrid.ItemsSource=null;
         if(!d015)return;
         if(capture.Blocks.TryGetValue("D015Basic",out var w) && w.Length==32) {

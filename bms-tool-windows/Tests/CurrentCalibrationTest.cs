@@ -209,7 +209,9 @@ internal sealed class CalibrationTransport : IBmsTransport
             else if (address is BmsRegisters.Hardware or BmsRegisters.Serial or BmsRegisters.Software)
             {
                 byte[] ascii = Encoding.ASCII.GetBytes(Product);
-                for (int i = 0; i < ascii.Length; i++) words[i / 2] |= (ushort)(ascii[i] << (i % 2 == 0 ? 8 : 0));
+                // The production client first requests the complete 48-word identity.
+                foreach (int offset in count == 48 ? new[] { 0, 16, 32 } : new[] { 0 })
+                    for (int i = 0; i < ascii.Length; i++) words[offset + i / 2] |= (ushort)(ascii[i] << (i % 2 == 0 ? 8 : 0));
             }
             body = new byte[3 + count * 2]; body[0] = 1; body[1] = 3; body[2] = (byte)(count * 2);
             for (int i = 0; i < count; i++) BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3 + 2 * i, 2), words[i]);

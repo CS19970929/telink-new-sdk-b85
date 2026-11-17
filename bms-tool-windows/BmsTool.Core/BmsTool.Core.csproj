@@ -35,6 +35,7 @@
     <Compile Include="..\Shared\BmsClient.EventLog.cs" Link="Shared\BmsClient.EventLog.cs" />
     <Compile Include="..\Shared\BmsClient.DeviceClock.cs" Link="Shared\BmsClient.DeviceClock.cs" />
     <Compile Include="..\Shared\BuildIdentity.cs" Link="BuildIdentity.cs" />
+    <Compile Include="..\Shared\BmsCurrentCalibration.cs" Link="BmsCurrentCalibration.cs" />
     <Compile Include="..\Shared\BmsClient.Parameters.cs" Link="BmsClient.Parameters.cs" />
     <Compile Include="..\Shared\BmsClient.ParameterRead.cs" Link="BmsClient.ParameterRead.cs" />
     <Compile Include="..\Shared\ProtectionBatch.cs" Link="ProtectionBatch.cs" />
