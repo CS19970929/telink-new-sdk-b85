@@ -11,7 +11,6 @@ public sealed partial class MainActivity
     private TextView? _firmwareStatus;
     private ProgressBar? _upgradeProgress;
     private TextView? _upgradeTargetView, _selectedFirmwareView;
-    private CheckBox? _lk8353Upgrade;
     private string _firmwarePath = string.Empty;
     private View BuildFirmwarePage()
     {
@@ -31,8 +30,6 @@ public sealed partial class MainActivity
         }
         _firmwareStatus=DataBlock("选择固件后开始升级");page.AddView(_firmwareStatus);
         _upgradeProgress=new ProgressBar(this,null,global::Android.Resource.Attribute.ProgressBarStyleHorizontal){Max=100};page.AddView(_upgradeProgress);
-        _lk8353Upgrade=new CheckBox(this){Text="LK8353 模块 · 19200 波特率优化",Checked=false};
-        page.AddView(_lk8353Upgrade);
         _otaButton=ActionButton("开始升级",StartOtaAsync,false);page.AddView(_otaButton);
         var cancel=ActionButton("取消升级",()=>{CancelCurrentOperation();return Task.CompletedTask;},false);
         _busyAllowedButtons.Add(cancel);page.AddView(cancel);
@@ -63,8 +60,7 @@ public sealed partial class MainActivity
         if(_uiBusy){UpgradeStatus("当前操作未完成，请稍后重试",true);return;}
         var package=image.Package??throw new InvalidDataException("需要带身份和CRC的YMODEM包。");
         CheckUpgradeEndpoint(mac,false);
-        bool paced=_lk8353Upgrade?.Checked==true;
-        string detail=$"设备 {mac}\n固件 {image.FileName}\n版本 {package.Version:X8}\n传输 {(paced?"LK8353 / 19200 优化":"标准")}\n\n确认开始升级？";
+        string detail=$"设备 {mac}\n固件 {image.FileName}\n版本 {package.Version:X8}\n传输 标准\n\n确认开始升级？";
         if(AppEdition.IsInternal) detail+=$"\n板号 {package.BoardId:X8} · APP {package.AppAddress:X8}\n长度 {package.PayloadLength} · CRC {package.PayloadCrc:X8}";
         if(!await ConfirmAsync("确认升级",detail))return;
         _operationCts?.Cancel();_operationCts?.Dispose();
@@ -77,7 +73,7 @@ public sealed partial class MainActivity
             await DisposeConnectionCoreAsync();
             UpgradeStatus("正在连接设备…");
             SerialUpgradeReadback verified;
-            await using(var transport=new AndroidBmsBleTransport(this,mac){UseLk8353Ymodem=paced}) {
+            await using(var transport=new AndroidBmsBleTransport(this,mac)) {
                 transport.ConnectionProgress+=AppendLog;await transport.ConnectAsync(token);
                 var device=await UpgradeDetection.WaitForYmodemAsync(transport,token,package);
                 UpgradeDetection.CheckImage(device,image);
