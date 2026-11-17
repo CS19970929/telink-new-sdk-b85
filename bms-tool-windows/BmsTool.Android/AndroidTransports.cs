@@ -1,4 +1,5 @@
 using Android.Content;
+using System.Diagnostics;
 using BmsTool.Windows;
 
 namespace BmsTool.Android;
@@ -28,7 +29,18 @@ public sealed class AndroidBmsBleTransport : IBmsTransport, IBmsMtuTransport
 
     public Task ConnectAsync(CancellationToken ct = default) => _channel.ConnectAsync(ct);
     public Task ReconnectAsync(CancellationToken ct = default) => _channel.ConnectAsync(ct);
-    public Task WriteAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default) => _channel.WriteAsync(data, withResponse: true, ct);
+    public async Task WriteAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default)
+    {
+        var elapsed=Stopwatch.StartNew();
+        await _channel.WriteAsync(data,withResponse:true,ct);
+        // Android can ACK much earlier than Windows; an ATT ACK does not mean
+        // the LK8353 has emptied its UART bridge. Keep a conservative 120ms
+        // interval for bulk chunks; the shared sender still enforces UART drain.
+        if(UseLk8353Ymodem && data.Length>20) {
+            int delay=120-(int)elapsed.ElapsedMilliseconds;
+            if(delay>0)await Task.Delay(delay,ct);
+        }
+    }
     public ValueTask DisposeAsync() => _channel.DisposeAsync();
 }
 
