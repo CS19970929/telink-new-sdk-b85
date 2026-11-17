@@ -75,13 +75,16 @@ static class Test
         try {
             File.WriteAllBytes(file,good);FirmwareImage image=FirmwareImage.LoadForTarget(file,OtaTargetKind.Stm32SerialIap);
             if(args.Length>2&&args[2]=="ble") {
-                await using var transport=new ReceiverProcess(args[0]);
+              foreach(var profile in new[]{(Mtu:23,Limit:20,Max:20),(Mtu:247,Limit:120,Max:120),(Mtu:23,Limit:120,Max:20)}) {
+                await using var transport=new ReceiverProcess(args[0]){NegotiatedMtu=profile.Mtu,YmodemBlePayloadLimit=profile.Limit};
                 var device=await UpgradeDetection.ReadAsync(transport,false,default);
                 var sender=new SerialYmodemClient(transport,chunkForBle:true);
                 Check(await sender.UpgradeAsync(image,device,default),"BLE stream -> production receiver");
-                Check(transport.MaxWriteBytes<=20&&transport.WriteCalls>100,"all BLE fragments respect MTU23 and preserve stream");
+                Check(transport.MaxWriteBytes==profile.Max&&transport.WriteCalls>10,"BLE fragments respect negotiated MTU and explicit module limit");
                 Check(sender.Verified?.PayloadCrc==SerialFirmwarePackage.Parse(good).PayloadCrc,"BLE final metadata matches payload");
-                Console.WriteLine($"PASS {(c060?"C060":"D015")} production receiver with MTU23 BLE stream: {transport.WriteCalls} writes, max {transport.MaxWriteBytes} bytes");return;
+                Console.WriteLine($"PASS {(c060?"C060":"D015")} production receiver MTU={profile.Mtu}, limit={profile.Limit}: {transport.WriteCalls} writes, max {transport.MaxWriteBytes} bytes");
+              }
+              return;
             }
             foreach(bool loseAck in new[]{false,true}) {
                 await using var transport=new ReceiverProcess(args[0]) {Faults=loseAck};
@@ -150,8 +153,10 @@ static class Test
         Console.WriteLine($"PASS: {(c060?"C060":"D015")} host -> production C YMODEM; bad CRC, lost ACK, final ACK ambiguity, cancel/reset/retry, APP entry, read-only detection and exact post-verification");
     }
 }
-sealed class ReceiverProcess : IBmsTransport
+sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
 {
+    public int? NegotiatedMtu {get;init;}=23;
+    public int YmodemBlePayloadLimit {get;init;}=20;
     readonly Process _process;readonly SemaphoreSlim _gate=new(1);readonly CancellationTokenSource _stop=new();readonly Task _poll;
     public bool Faults,Corrupted,DroppedAck,DroppedFinalAck,DisconnectAtFinal,FinalDisconnected,WrongBootOnReconnect;
     public int DataBlocks,MaxWriteBytes,WriteCalls;

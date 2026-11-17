@@ -17,4 +17,7 @@ public interface IBmsTransport : IAsyncDisposable
 public interface IBmsMtuTransport
 {
     int? NegotiatedMtu { get; }
+    // Opt in only after validating the transparent module's UART buffering.
+    // ATT MTU alone does not establish its sustained serial throughput.
+    int YmodemBlePayloadLimit => 20;
 }

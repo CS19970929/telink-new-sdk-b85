@@ -28,11 +28,21 @@ public sealed class SerialYmodemClient
     private async Task WriteAsync(byte[] data,CancellationToken ct)
     {
         if(!_ble) { await _transport.WriteAsync(data,ct);return; }
-        // UART transparent modules cannot accept a whole 1K block at ATT link speed.
-        for(int i=0;i<data.Length;i+=20) {
-            int n=Math.Min(20,data.Length-i);
+        var link=_transport as IBmsMtuTransport;
+        bool paced=link is { YmodemBlePayloadLimit: >20 };
+        // BT_BM56EA: 120-byte acknowledged writes passed complete upgrades;
+        // 240-byte and unacknowledged writes failed despite ATT MTU 247.
+        // Other transports keep their validated 20-byte / 15-ms behavior.
+        int chunk=paced ? Math.Min(Math.Clamp(link!.NegotiatedMtu-3??20,20,244),
+            Math.Clamp(link.YmodemBlePayloadLimit,20,120)) : 20;
+        for(int i=0;i<data.Length;i+=chunk) {
+            int n=Math.Min(chunk,data.Length-i);
+            var elapsed=Stopwatch.StartNew();
             await _transport.WriteAsync(data.AsMemory(i,n),ct);
-            await Task.Delay(15,ct); // 19200 8N1 + module drain margin.
+            // At 19200 8N1 the UART drains while GATT waits for its response.
+            // Credit that time instead of adding another delay afterwards.
+            int delay=paced ? (n*10000+19199)/19200+4-(int)elapsed.ElapsedMilliseconds : 15;
+            if(delay>0)await Task.Delay(delay,ct);
         }
     }
     private async Task<byte> ControlAsync(int timeoutMs,CancellationToken ct)

@@ -37,6 +37,17 @@ static class Test
         var device=Device(0xC0600020,0x08001C00,51*1024);
         UpgradeDetection.CheckImage(device,image);
         Check(!image.IsD015Package,"C060 image remains separate from D015");
+        byte[] raw=image.Bytes.AsSpan(32).ToArray();
+        Check(SerialFirmwarePackage.WrapC060Bin(raw)!.SequenceEqual(image.Bytes),"C060 BIN envelope matches existing format-2 package byte for byte");
+        string rawPath=Path.Combine(work,"current-c060.bin");File.WriteAllBytes(rawPath,raw);
+        Check(FirmwareImage.Inspect(rawPath).SerialPackage?.BoardId==0xC0600020,"BIN is recognized by its embedded C060 identity");
+        Check(FirmwareImage.LoadForBluetoothUpgrade(rawPath).Bytes.SequenceEqual(image.Bytes),"Bluetooth BIN loader preserves package payload and CRC");
+        Reject(()=>FirmwareImage.LoadForTarget(rawPath,OtaTargetKind.Telink),"C060 BIN cannot enter Telink OTA");
+        byte[] invalid=(byte[])raw.Clone();invalid[196]^=1;
+        Reject(()=>SerialFirmwarePackage.WrapC060Bin(invalid),"wrong C060 BIN address rejected");
+        invalid=(byte[])raw.Clone();BinaryPrimitives.WriteUInt32LittleEndian(invalid.AsSpan(204),(uint)invalid.Length+1);
+        Reject(()=>SerialFirmwarePackage.WrapC060Bin(invalid),"wrong C060 BIN linked length rejected");
+        Check(SerialFirmwarePackage.WrapC060Bin(Package(0xD0150320,0x08002000).AsSpan(32)) is null,"D015 legacy BIN loading remains unchanged");
         image.Bytes[240]^=1;
         Reject(()=>UpgradeDetection.CheckImage(device,image),"modified loaded bytes rejected before ENTER");
         image.Bytes[240]^=1;

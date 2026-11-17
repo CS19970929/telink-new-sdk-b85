@@ -165,6 +165,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
 
     public bool IsConnected => _device?.ConnectionStatus == BluetoothConnectionStatus.Connected && _request is not null && _response is not null;
     public int? NegotiatedMtu => _session?.MaxPduSize;
+    public int YmodemBlePayloadLimit => 120;
     public string DiscoveryDescription { get; private set; } = "BMS SPP not connected";
     public string CurrentStage => _currentStage;
 
