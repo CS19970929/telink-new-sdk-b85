@@ -70,6 +70,8 @@ pwsh -NoProfile -File bms-tool-windows/check-client-worktree.ps1 `
 
 所有中间文件放到源码树外。以下仅构建客户端，不构建固件：
 
+最终安装包按用户2026-11-17要求直接交付到项目根 `releases/`：APK 位于 `releases/bms-tool-android/<日期-功能-提交>/<customer|internal>/`，EXE 位于 `releases/bms-tool-windows/<发布标识>/<customer|internal|cli>/`。TEMP 仅用于缓存、日志和构建中间文件，不作为最终安装包入口。发布时保留版本、源码提交及 SHA256；手机安装使用同一发布目录中的 APK 并核对手机实际安装包，历史包不覆盖。
+
 ```powershell
 $out = Join-Path $env:LOCALAPPDATA 'CodexTemp/bms-client/current'
 foreach ($project in @('BmsTool.Windows','BmsFactoryTest.Windows','BmsTool.Cli')) {

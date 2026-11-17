@@ -33,6 +33,7 @@
 
 - 公共客户端修改后构建客户 WPF、内部 WPF 和 CLI；影响 Core 或 Android 的改动还需构建 Android 两版。按修改范围运行现有相关回归，不自动运行实板脚本。
 - 构建、测试、缓存、截图及中间文件全部写到用户临时区；例如 `$env:LOCALAPPDATA\CodexTemp\bms-client\<task-id>`。使用 `--artifacts-path`，禁止在工作树内创建临时目录或生成 `bin/obj` 缓存。
+- 按用户2026-11-17要求，最终可安装/交付的 APK、EXE 直接输出到项目根目录的 `releases/`：Android 使用 `releases/bms-tool-android/<日期-功能-提交>/<customer|internal>/`，Windows 使用 `releases/bms-tool-windows/<发布标识>/<customer|internal|cli>/`。构建缓存仍在 TEMP，不能把 TEMP 路径作为最终安装包交付。安装手机时使用并核验项目发布目录中的同一 APK；保留版本、提交和 SHA256 清单，不覆盖历史发布包。
 - 客户端任务不执行仓库历史 `bms_tools/bms.py build/rebuild/ci` 或 VS Code 发送固件任务；这些会构建或发送固件。用户未要求时不生成固件 BIN、不烧录、不安装。
 - 测试结果区分源码/host、桌面/App 编译、真实传输、实板行为；不能把 fake transport 或 APK 编译当作手机和 BMS 验收。
 - 保留无关 dirty 改动。较大变更分阶段提交，只提交本次相关文件；交付报告实际分支、提交、验证及是否新增分支。
