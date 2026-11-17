@@ -2,11 +2,11 @@
 
 ## 定位与固定入口
 
-- 本工作树用于 Windows 上位机、Android App 和配套 CLI，负责分支固定为 `client/main`。本机目录：`C:\Users\Administrator\source\bms-client`，源码在其 `bms-tool-windows/`。
-- 仓库仍为 `CS19970929/telink-new-sdk-b85`；客户端基础适用于今后的多种 BMS 串口/BLE 项目，不限 Telink。其他电脑可有不同目录，但应使用同一负责分支。
-- 开工先执行 `pwsh -NoProfile -File bms-tool-windows/check-client-worktree.ps1`，核对仓库、分支、HEAD 和 dirty 状态，并简短报告。分支不符时先定位已有 `client/main` 工作树，不从当前固件/旧客户端分支继续开发。
+- Windows 上位机、Android App 和配套 CLI 在本仓库主工作目录下开发，源码在其 `bms-tool-windows/`。按用户要求，2026-11-17 已迁回当前 D 盘目录，原 `C:\Users\Administrator\source\bms-client` linked worktree 已移除；不要重新创建。
+- 仓库仍为 `CS19970929/telink-new-sdk-b85`，长期客户端主线为 `client/main`；客户端基础适用于今后的多种 BMS 串口/BLE 项目，不限 Telink。其他电脑可有不同主目录。
+- 开工先执行 `pwsh -NoProfile -File bms-tool-windows/check-client-worktree.ps1`，核对仓库主目录、分支、HEAD 和 dirty 状态，并简短报告。用户明确指定已有功能分支时传入 `-ExpectedBranch <分支名>`；默认检查 `client/main`。当前任务继续使用已获授权的 `feature/ui-unified-monitor-lishen-20261116`。
 - 新聊天、新需求、新板型、编译、测试、安装包和客户/内部版本均不自动新建分支。未经本次明确授权，不得创建分支、复制长期客户端线，或用 detached HEAD 开发未归并新线。
-- 此次是在已有客户端分支上收回有效进度后重命名；旧产品/功能分支保留历史，后续增量直接提交 `client/main`。不擅自删除旧分支、强推、重置用户工作或切换固件工作树。
+- 同一主目录通过 `git switch` 切换已有客户端或固件分支；切换前保存并妥善保留未提交改动，关闭当前工程，避免 IDE 向另一分支写回。旧产品/功能分支保留历史；不擅自删除旧分支、强推、重置用户工作或切换任务分支。
 - 现状、来源、平台边界及构建说明见 [统一客户端开发指南](bms-tool-windows/docs/CLIENT_MAIN.md)。GitHub 仓库的默认 `master` 并非客户端负责分支。
 
 ## 源码与修改边界
