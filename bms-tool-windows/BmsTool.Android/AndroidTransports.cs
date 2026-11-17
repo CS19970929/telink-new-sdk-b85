@@ -12,6 +12,9 @@ public sealed class AndroidBmsBleTransport : IBmsTransport, IBmsMtuTransport
 
     public bool IsConnected => _channel.IsConnected;
     public int? NegotiatedMtu => _channel.NegotiatedMtu;
+    // Explicit LK8353/19200 profile; MTU alone cannot establish UART buffering.
+    public bool UseLk8353Ymodem {get;set;}
+    public int YmodemBlePayloadLimit => UseLk8353Ymodem ? 120 : 20;
     public string DiscoveryDescription => IsConnected ? $"Android BLE 已连接 · MTU {NegotiatedMtu}" : "Android BLE 未连接";
     public event Action<ReadOnlyMemory<byte>>? DataReceived;
     public event Action<string>? ConnectionProgress;

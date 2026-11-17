@@ -208,6 +208,7 @@ public sealed partial class MainActivity : Activity
     private async Task WithClientAsync(string title, Func<BmsClient, CancellationToken, Task> action,
         TimeSpan? timeout = null)
     {
+        if (_mobileCalibrationSession is not null) {SetStatus("请先完成或取消电流校准。",true);return;}
         if (_client is null)
         {
             SetStatus("请先扫描并连接 BMS", true);

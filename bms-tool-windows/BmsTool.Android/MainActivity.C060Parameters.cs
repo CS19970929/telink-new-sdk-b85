@@ -26,7 +26,7 @@ public sealed partial class MainActivity
             await c.SelectC060ParametersAsync(t);await ReadC060ParametersCoreAsync(c,t);
         })));
         _c060Panel=Page();_c060Panel.Visibility=ViewStates.Gone;
-        _c060Panel.AddView(SectionTitle("C060 常规参数"));
+        _c060Panel.AddView(SectionTitle("基本参数"));
         _c060Panel.AddView(Note("读取值与待保存值分开。保存前核对整组，保留未编辑字段；保护参数在保护页保存。"));
         _c060Status=DataBlock("未读取");_c060Panel.AddView(_c060Status);
         _c060Compatibility=new CheckBox(this){Text="允许编辑兼容字段（部分不参与当前运行）"};
@@ -61,12 +61,12 @@ public sealed partial class MainActivity
                 _protectionModel=rows;_protectionCaptureClient=client;RenderProtectionRows(rows);
             }
         });
-        SetStatus(capture.Errors.Count==0?"C060 保护与常规参数读取完成":"C060 部分参数未读取；连接保持可用",capture.Errors.Count!=0);
+        SetStatus(capture.Errors.Count==0?"保护与常规参数读取完成":"部分参数未读取；连接保持可用",capture.Errors.Count!=0);
     }
     private void RenderC060Parameters()
     {
         if(_c060Capture is null)return;
-        if(_c060Compatibility is not null)_c060Compatibility.Visibility=_c060Capture.Product=="C077"?ViewStates.Visible:ViewStates.Gone;
+        if(_c060Compatibility is not null)_c060Compatibility.Visibility=ViewStates.Gone;
         _c060Panel!.Visibility=ViewStates.Visible;_legacyParameterPanel!.Visibility=ViewStates.Gone;
         _c060RowsPanel!.RemoveAllViews();_c060Inputs.Clear();
         foreach(var group in C060ParameterFields.Where(f=>f.Address>=0x2100).GroupBy(f=>f.Group)) {
@@ -89,11 +89,11 @@ public sealed partial class MainActivity
     private void UpdateC060EditorState()
     {
         bool current=_client is not null && ReferenceEquals(_client,_c060CaptureClient),valid=true;int changed=0;
-        if(_c060Compatibility is not null)_c060Compatibility.Enabled=current&&!_uiBusy;
+        if(_c060Compatibility is not null)_c060Compatibility.Enabled=current&&!_uiBusy&&_mobileCalibrationSession is null;
         foreach(var pair in _c060Inputs) {
             var field=C060ParameterFields.Single(f=>f.Address==pair.Key);
             bool allowed=field.Editable&&(!field.FactoryOnly||AppEdition.IsInternal)&&(!field.Compatibility||_c060Compatibility?.Checked==true);
-            pair.Value.Enabled=current&&!_uiBusy&&allowed;
+            pair.Value.Enabled=current&&!_uiBusy&&_mobileCalibrationSession is null&&allowed;
             try {
                 ushort raw=field.Parse(pair.Value.Text??"");
                 pair.Value.Error=null;
@@ -102,23 +102,23 @@ public sealed partial class MainActivity
         }
         if(_c060SaveButton is not null) {
             _c060SaveButton.Text=$"保存全部常规参数修改（{changed}项）";
-            _c060SaveButton.Enabled=current&&!_uiBusy&&valid&&changed>0&&(AppEdition.IsInternal||_serviceMode);
+            _c060SaveButton.Enabled=current&&!_uiBusy&&_mobileCalibrationSession is null&&valid&&changed>0&&(AppEdition.IsInternal||_serviceMode);
         }
     }
     private async Task SaveC060ParametersAsync()
     {
-        if(!EnsureServiceAccess("保存 C060 参数"))return;
+        if(!EnsureServiceAccess("保存 设备参数"))return;
         var owner=_client;
-        if(owner is null||_c060Capture is null||!ReferenceEquals(owner,_c060CaptureClient)){SetStatus("请先读取当前设备的 C060 参数",true);return;}
+        if(owner is null||_c060Capture is null||!ReferenceEquals(owner,_c060CaptureClient)){SetStatus("请先读取当前设备的 设备参数",true);return;}
         var edits=_c060Inputs.Where(p=>p.Value.Enabled).ToDictionary(p=>p.Key,p=>p.Value.Text??"");
         var changes=C060Parameters.CollectChanges(_c060Capture,edits,_c060Compatibility?.Checked==true,AppEdition.IsInternal);
-        if(changes.Count==0){SetStatus("C060 参数没有修改");return;}
+        if(changes.Count==0){SetStatus("设备参数没有修改");return;}
         string detail=string.Join("\n",changes.Select(p=>{
             var f=C060ParameterFields.Single(f=>f.Address==p.Key);C060Parameters.TryValue(_c060Capture,f,out ushort old);
             return $"{f.Name}：{f.Format(old)} → {f.Format(p.Value)} {f.Unit}";
         }));
-        if(!await ConfirmAsync("保存 C060 参数",detail+"\n\n确认后按完整参数组写入并回读；中断时部分组可能已保存。"))return;
-        await WithClientAsync("保存 C060 参数",async(c,t)=>{
+        if(!await ConfirmAsync("保存 设备参数",detail+"\n\n确认后按完整参数组写入并回读；中断时部分组可能已保存。"))return;
+        await WithClientAsync("保存 设备参数",async(c,t)=>{
             if(!ReferenceEquals(c,owner))throw new IOException("连接已变化，请重新读取参数。");
             await c.WriteC060ParameterChangesAsync(changes,(_,_)=>{},_c060Compatibility?.Checked==true,t);
             await ReadC060ParametersCoreAsync(c,t);
@@ -127,7 +127,7 @@ public sealed partial class MainActivity
     private Task ExportC060ParametersAsync()
     {
         if(_c060Capture is null||!ReferenceEquals(_client,_c060CaptureClient)){SetStatus("请先读取当前设备参数",true);return Task.CompletedTask;}
-        string path=OutputPath($"C060_parameters_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.json");
+        string path=OutputPath($"{_c060Capture.Product}_parameters_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.json");
         C060Parameters.Export(path,_c060Capture);SetStatus("参数 JSON 已保存："+path);return Task.CompletedTask;
     }
     private Task PickC060Parameters()
@@ -153,7 +153,7 @@ public sealed partial class MainActivity
                 byte[] buffer=new byte[8192];int total=0,n;
                 while((n=await input.ReadAsync(buffer))>0){total+=n;if(total>1024*1024)throw new InvalidDataException("参数文件超过1MiB");await output.WriteAsync(buffer.AsMemory(0,n));}
             }
-            var imported=C060Parameters.Import(path);
+            var imported=C060Parameters.Import(path,_c060Capture.Product);
             if(_connectedMac!=_c060ImportMac||!ReferenceEquals(_client,_c060ImportClient)||!ReferenceEquals(_client,_c060CaptureClient))throw new IOException("连接已变化，未载入候选。");
             foreach(var field in C060ParameterFields.Where(f=>f.Editable&&!f.FactoryOnly&&!f.Compatibility))
                 if(_c060Inputs.TryGetValue(field.Address,out var edit)&&C060Parameters.TryValue(imported,field,out ushort raw))edit.Text=field.Format(raw);

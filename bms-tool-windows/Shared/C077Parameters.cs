@@ -13,16 +13,18 @@ public sealed record C077AfeChip(bool ProfileMatches,int ZeroState,short OffsetC
 public sealed record C077AfeSnapshot(ushort ServiceState,ushort ServiceError,ushort Protection,ushort OutputRequest,
     ushort Permissions,bool BalanceOff,bool SampleValid,bool OpeningPending,bool DriverFault,IReadOnlyList<C077AfeChip> Chips,ushort ServicePosition)
 {
+    public ushort Schema {get;init;}=2;
+    public bool UsesPersistentCalibration=>Schema>=3;
     public bool ServiceFailed=>ServiceError!=0;
     public bool ZeroReady=>Chips.All(c=>c.ProfileMatches)&&Chips[0].ZeroState==2&&!Chips[1].CurrentEnabled;
     public string Summary=>$"维修状态{ServiceState}，结果={C077Parameters.ErrorText(ServiceError)}，位置=AFE{(ServicePosition>>8)+1}/0x{ServicePosition&255:X2}；软件输出=0x{OutputRequest:X2}，AFE许可/状态=0x{Permissions:X2}，聚合保护=0x{Protection:X2}，采样有效={SampleValid}，开启待确认={OpeningPending}，控制故障={DriverFault}\n"+
-        string.Join("\n",Chips.Select((c,i)=>$"AFE{i+1}：档案{(c.ProfileMatches?"匹配":"不匹配")}，校零{c.ZeroStateText}"+
-            (c.CurrentEnabled?$"，{c.OffsetCounts} counts，样本{c.ZeroSamples}/8，电流(充正/放负){c.CurrentTenthA/10m}A":"，电流采样未启用")+
+        string.Join("\n",Chips.Select((c,i)=>$"AFE{i+1}：档案{(c.ProfileMatches?"匹配":"不匹配")}，{(UsesPersistentCalibration?"启动检查":"校零")}{c.ZeroStateText}"+
+            (c.CurrentEnabled?$"，样本{c.ZeroSamples}/8，电流(充正/放负){c.CurrentTenthA/10m}A":"，电流采样未启用")+
             $"，测量有效={c.Valid}；CONF=0x{c.Conf:X2}，BSTATUS={c.Status1:X2}/{c.Status2:X2}/{c.Status3:X2}；最近错误={C077Parameters.ErrorText(c.LastError)}@0x{c.LastRegister:X2}；{c.HardwareCurrentText}"));
     public static C077AfeSnapshot Parse(ushort[] words)
     {
-        if(words.Length!=64||words[0]!=0xC077||words[1]!=2||words[2]>3||words[3]>9||words[7]>1||words[58]>1||words[59]>3||words[61]>8||words[62]>7)
-            throw new InvalidDataException("C077 309诊断版本或长度不匹配，要求本轮schema 2。");
+        if(words.Length!=64||words[0]!=0xC077||words[1] is not (2 or 3)||words[2]>3||words[3]>9||words[7]>1||words[58]>1||words[59]>3||words[61]>8||words[62]>7)
+            throw new InvalidDataException("C077 309诊断版本或长度不匹配，支持schema 2/3。");
         var chips=new List<C077AfeChip>();
         for(int i=0;i<2;i++) {
             int n=8+i*12;
@@ -35,7 +37,7 @@ public sealed record C077AfeSnapshot(ushort ServiceState,ushort ServiceError,ush
                 words[n+1],words[n+2],words[n+3],words[n+4],words[n+5],words[n+6],unchecked((short)words[n+7]),words[n+8]!=0,eeprom,
                 words[n+9],words[n+10],words[n+11]!=0));
         }
-        return new(words[2],words[3],words[4],words[5],words[6],words[7]!=0,words[58]!=0,(words[62]&2)!=0,(words[62]&4)!=0,chips,words[63]);
+        return new(words[2],words[3],words[4],words[5],words[6],words[7]!=0,words[58]!=0,(words[62]&2)!=0,(words[62]&4)!=0,chips,words[63]) {Schema=words[1]};
     }
 }
 public static class C077Parameters
@@ -43,7 +45,7 @@ public static class C077Parameters
     public const ushort DiagnosticBase=0x2A40,ServiceRegister=0x2A7F,ProgramProfile=0xC077,RetryZero=0x5A07;
     public static readonly ushort[] OvercurrentMillivolts={20,30,40,50,60,70,80,90,100,110,120,130,140,160,180,200};
     public static readonly ushort[] ShortMillivolts={50,80,110,140,170,200,230,260,290,320,350,400,500,600,800,1000};
-    public static string ErrorText(ushort error)=>error switch {0=>"正常",1=>"参数/前置条件",2=>"I2C传输",3=>"CRC",4=>"配置不匹配",5=>"读回不一致",6=>"复位/RAM异常",7=>"采样超时",8=>"NTC无效",9=>"校零未完成",_=>"未知"};
+    public static string ErrorText(ushort error)=>error switch {0=>"正常",1=>"参数/前置条件",2=>"I2C传输",3=>"CRC",4=>"配置不匹配",5=>"读回不一致",6=>"复位/RAM异常",7=>"采样超时",8=>"NTC无效",9=>"启动采样检查未完成",_=>"未知"};
     public static int OvercurrentCode(ushort deciamps)
     {
         if(deciamps==0||deciamps>4000)throw new ArgumentException("C077软件过流阈值必须大于0且不超过400A。");
@@ -242,7 +244,7 @@ public sealed partial class BmsClient
     {
         if(!IsC077)throw new NotSupportedException("设备必须明确识别为C077。");
         var h=await ReadRegistersAsync(C077Hardware.Header,7,ct);
-        if(h[0]!=0xC077||h[1]!=1||h[2]!=32||h[3]!=2||h[6]!=6)throw new NotSupportedException("固件未提供双309 Flash硬保护编辑协议schema1，未发送写命令。");
+        if(h[0]!=0xC077||h[1]!=1||h[2]!=32||h[3]!=2||h[6] is not (6 or 7))throw new NotSupportedException("固件未提供双309 Flash硬保护编辑协议schema1，未发送写命令。");
         var flags=await ReadRegistersAsync(0x2A28,1,ct);
         if(flags.Length!=1||(flags[0]&1)==0)throw new IOException("MCU Flash参数尚未就绪；当前RAM默认值不能作为已保存Flash配置，请先检查存储诊断。");
     }

@@ -123,6 +123,8 @@ public sealed partial class MainActivity
 
     private async Task DisposeConnectionCoreAsync()
     {
+        _mobileCalibrationStep?.Cancel();await EndMobileCalibrationCoreAsync(false);
+        _mobileCalibrationRecord=null;
         BmsClient? client = _client;
         AndroidBmsBleTransport? transport = _transport;
         _client = null;
@@ -161,7 +163,7 @@ public sealed partial class MainActivity
             {
                 RunOnUiThread(UpdateBatteryFreshness);
                 BmsClient? client = _client;
-                if (client is null || !await _operationGate.WaitAsync(0, ct)) continue;
+                if (_mobileCalibrationSession is not null || client is null || !await _operationGate.WaitAsync(0, ct)) continue;
                 try { await RefreshOverviewCoreAsync(client, ct, identity: false); }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
                 catch (Exception ex) { AppendLog($"AUTO_REFRESH_FAIL {ex.Message}"); }
@@ -308,7 +310,7 @@ public sealed partial class MainActivity
     private Task ReadParametersAsync() => WithClientAsync("读取参数", async (client, ct) =>
     {
         await client.ReadIdentityAsync(_connectedMac??string.Empty,"",ct);
-        if(client.IsC060){await ReadC060ParametersCoreAsync(client,ct);return;}
+        if(client.UsesC060Protocol){await ReadC060ParametersCoreAsync(client,ct);return;}
         D008ParameterCapture capture = await client.ReadD008ParametersAsync(ct);
         _parameterCapture = capture;
         RunOnUiThread(() => ShowParameters(capture));
@@ -689,6 +691,7 @@ public sealed partial class MainActivity
 
     private async Task StartOtaAsync(bool skipConfirmation, bool requireExistingConnection)
     {
+        if(_mobileCalibrationSession is not null){UpgradeStatus("请先完成或取消电流校准。",true);return;}
         if (!EnsureServiceAccess("固件升级")) return;
         string mac = (_selectedMac ?? string.Empty).ToUpperInvariant();
         string firmware = _firmwarePath;
@@ -835,7 +838,7 @@ public sealed partial class MainActivity
             while (await timer.WaitForNextTickAsync(ct))
             {
                 BmsClient? client = _client;
-                if (client is null || !await _operationGate.WaitAsync(0, ct)) continue;
+                if (_mobileCalibrationSession is not null || client is null || !await _operationGate.WaitAsync(0, ct)) continue;
                 try
                 {
                     BatterySnapshot snapshot = await client.ReadBatteryAsync(ct);

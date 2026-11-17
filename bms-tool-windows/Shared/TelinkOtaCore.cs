@@ -103,7 +103,7 @@ public sealed class FirmwareImage
     {
         byte[] all = File.ReadAllBytes(path);
         if (SerialFirmwarePackage.HasHeader(all)) { var package=SerialFirmwarePackage.Parse(all); return new(Path.GetFileName(path),all.Length,false,true,package.BoardId==D015FirmwarePackage.BoardId,package); }
-        if(SerialFirmwarePackage.WrapC060Bin(all) is {} wrapped)
+        if((SerialFirmwarePackage.WrapC060Bin(all) ?? SerialFirmwarePackage.WrapC077Bin(all)) is {} wrapped)
             return new(Path.GetFileName(path),all.Length,false,true,false,SerialFirmwarePackage.Parse(wrapped));
         bool telink = all.Length >= 0x1C &&
                       BinaryPrimitives.ReadUInt32LittleEndian(all.AsSpan(0x18, 4)) is uint declared &&
@@ -154,7 +154,7 @@ public sealed class FirmwareImage
     {
         byte[] all = File.ReadAllBytes(path);
         if (SerialFirmwarePackage.HasHeader(all)) { _ = SerialFirmwarePackage.Parse(all); return new FirmwareImage(Path.GetFileName(path),all,OtaTargetKind.Stm32SerialIap); }
-        if(SerialFirmwarePackage.WrapC060Bin(all) is {} wrapped)
+        if((SerialFirmwarePackage.WrapC060Bin(all) ?? SerialFirmwarePackage.WrapC077Bin(all)) is {} wrapped)
             return new FirmwareImage(Path.GetFileName(path),wrapped,OtaTargetKind.Stm32SerialIap);
         FirmwareInspection inspection = Inspect(path);
         if (all.Length == 0 || all.Length > Stm32AppCapacity || !inspection.FitsStm32App)

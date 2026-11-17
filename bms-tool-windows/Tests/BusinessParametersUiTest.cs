@@ -155,7 +155,7 @@ static class BusinessParametersUiTest
         }
         typeof(BmsClient).GetProperty("IsC077")!.SetValue(c060Client,true);Call("UpdateParameterProfileUi");
         Check(Field<DataGrid>("_c060Grid").ItemsSource.Cast<C060ParameterRow>().Count()==C060Parameters.FieldsFor(true).Count,"C077原字段合同保留");
-        Check(Field<TabItem>("_currentCalibrationParameterTab").Visibility==Visibility.Collapsed,"C077不显示不支持的通用线性校准");
+        Check(Field<TabItem>("_currentCalibrationParameterTab").Visibility==Visibility.Visible,"C077显示能力门控的两点电流校准");
         typeof(BmsClient).GetProperty("IsC077")!.SetValue(c060Client,false);
         typeof(BmsClient).GetProperty("IsC060")!.SetValue(c060Client,false);Call("UpdateParameterProfileUi");
         Check(Field<TabItem>("_businessParameterTab").Visibility==Visibility.Visible,"未识别设备保留通用参数与手动选择入口");

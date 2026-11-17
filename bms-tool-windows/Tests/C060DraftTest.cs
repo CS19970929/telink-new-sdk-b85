@@ -14,7 +14,7 @@ static class Test
             capture.Blocks[key][f.Address-(f.Address<0x2100?0x2000:f.WriteAddress)]=raw;
         }
         var saved=capture.Blocks.ToDictionary(p=>p.Key,p=>p.Value.ToArray());
-        Check(C060Parameters.Fields.Count==150,"same 150-field definition is shared with desktop");
+        Check(C060Parameters.Fields.Count==56,"shared definition excludes retired K/B");
         foreach(var f in C060Parameters.FieldsFor(false)){
             Check(C060Parameters.TryValue(capture,f,out ushort old),"field can be read");
             var same=new Dictionary<ushort,string>{{f.Address,f.Format(old)}};

@@ -82,6 +82,7 @@ public sealed partial class MainActivity
         _socInput = LabeledInput(page, "目标 SOC / %", "");
         page.AddView(ActionButton("保存 SOC 并核对", SaveSocAsync));
         BuildC060ParameterControls(page);
+        BuildMobileCurrentCalibration(page);
         var legacy=Page();_legacyParameterPanel=legacy;
         legacy.AddView(SectionTitle("业务参数"));
         legacy.AddView(Note("先读取设备当前参数。修改后保存并核对；设备序列号只读。"));

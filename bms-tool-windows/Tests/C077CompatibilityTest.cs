@@ -31,8 +31,10 @@ static class Test
         Check(peer.Other[28]==13&&peer.Other[29]==2&&peer.Other[30]==4,"13-series group commits and reads back with fixed shunt");
         var thirteen=await c.ReadBatteryAsync();Check(thirteen.ValidCellCount==13&&thirteen.CellMillivolts[13]==61001,"13 real cells and missing slots survive client decoding");
         await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,16}},(_,_)=>{});
-        Check(new ushort[]{0x2020,0x203F,0x204E,0x2054}.All(a=>!C060Parameters.FieldsFor(true).Single(f=>f.Address==a).Editable),"unused cells/current/temp channels read only");
-        Check(new ushort[]{0x2000,0x2040,0x2042,0x2044,0x2046,0x2048,0x204A,0x2050,0x2052,0x205C}.All(a=>C060Parameters.FieldsFor(true).Single(f=>f.Address==a).Editable),"real16-cell/total/temperature/MOS coefficients retained");
+        Check(C060Parameters.FieldsFor(true).Count==14,"14 actively consumed basic parameters");
+        Check(C060Parameters.FieldsFor(true).All(f=>f.Address>=0x2300),"retired K/B are absent");
+        Check(!capture.Blocks.ContainsKey("Calibration"),"no retired calibration reads");
+        await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2000,1024}},(_,_)=>{}),"retired K/B writes rejected before transport");
         await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2318,245}},(_,_)=>{});Check(peer.Other[24]==245,"shared capacity group on C077");
         int before=peer.Writes;
         await Reject(()=>c.WriteProtectionChangesAsync(new Dictionary<ushort,ushort>{{0x2102,4000}},(_,_)=>{}),"invalid voltage order rejected");

@@ -71,12 +71,12 @@ public partial class MainWindow
             var b=new Button{Content=label,Margin=new Thickness(4),Padding=new Thickness(10,5,10,5)};
             b.Click+=async(_,_)=>await action();_c077Tools.Children.Add(b);
         }
-        AfeButton("读取双309诊断 / 零偏",()=>RunC060ParameterAsync(async(c,t)=>{
+        AfeButton("读取双309诊断",()=>RunC060ParameterAsync(async(c,t)=>{
             _c077Status.Text=(await c.ReadC077AfeAsync(t)).Summary;
         },"读取309诊断",false,requireCapture:false));
         AfeButton("关闭输出后重试零偏",async()=>{
             if(MessageBox.Show(this,"请先确认充/放电及预充关闭，当前没有真实通路电流。确认重新采集AFE1 CADC零偏（AFE2未启用）？偏置只保存在RAM。","309零偏重试",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
-            await RunC060ParameterAsync(async(c,t)=>{_c077Status.Text=(await c.RunC077ServiceAsync(false,t)).Summary;},"309重新校零",requireCapture:false);
+            await RunC060ParameterAsync(async(c,t)=>{_c077Status.Text=(await c.RunC077ServiceAsync(false,t)).Summary;},"重新检查电流采样",requireCapture:false);
         });
 #if BMS_FACTORY_APP
         AfeButton("编辑双309硬件保护（Flash / EEPROM）",()=>RunC060ParameterAsync((c,t)=>{
@@ -161,12 +161,12 @@ public partial class MainWindow
     {
         bool c060=_bms?.UsesC060Protocol==true,c077=_bms?.IsC077==true;
         _c077Tools.Visibility=_c077Status.Visibility=c077?Visibility.Visible:Visibility.Collapsed;
-        _c060Intro.Text=c077 ? "C077 · 16串分口 / 双SH367309。仅AFE1采电流和RAM校零，AFE2未启用CADC；最低充电硬门限40A。硬保护在内部版独立编辑：先保存Flash，再明确下发EEPROM；软件过流不再自动改变硬保护。" :
+        _c060Intro.Text=c077 ? "C077 · 16串分口 / 双SH367309。AFE1采电流，AFE2仅采电压与温度。硬保护在内部版独立编辑：先保存Flash，再明确下发EEPROM；软件过流不再自动改变硬保护。" :
             "参数按组保存，保存后自动读回。软件保护在“保护参数”页。";
-        _c060Compatibility.Visibility=c077?Visibility.Visible:Visibility.Collapsed;
-        _c060Software.IsReadOnly=!c077||!C060FactoryEdition;
-        if(_c060SoftwareSave is not null)_c060SoftwareSave.Visibility=c077?Visibility.Visible:Visibility.Collapsed;
-        _c060ImportCalibration.Content=c077?"导入工厂校准/采样参数":"导入工厂采样参数";
+        _c060Compatibility.Visibility=Visibility.Collapsed;
+        _c060Software.IsReadOnly=true;
+        if(_c060SoftwareSave is not null)_c060SoftwareSave.Visibility=Visibility.Collapsed;
+        _c060ImportCalibration.Content="导入工厂采样参数";
         if(_c060RowsC077!=c077 || _c060Rows.Count!=C060Parameters.FieldsFor(c077).Count) {
             _c060Rows.Clear();foreach(var field in C060Parameters.FieldsFor(c077))_c060Rows.Add(new(){Field=field});
             _c060RowsC077=c077;
@@ -174,7 +174,7 @@ public partial class MainWindow
         if(_c060ParameterTab is not null)_c060ParameterTab.Header="基本参数";
         if(_c060ParameterTab is null||_businessParameterTab is null)return;
         _c060ParameterTab.Visibility=c060?Visibility.Visible:Visibility.Collapsed;
-        if(_currentCalibrationParameterTab is not null)_currentCalibrationParameterTab.Visibility=c077?Visibility.Collapsed:Visibility.Visible;
+        if(_currentCalibrationParameterTab is not null)_currentCalibrationParameterTab.Visibility=Visibility.Visible;
         _businessParameterTab.Visibility=Visibility.Visible;
         foreach(var tab in _parameterProductTabs)tab.Visibility=c060?Visibility.Collapsed:Visibility.Visible;
         UpdateD015ParameterVisibility();

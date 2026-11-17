@@ -10,7 +10,7 @@ static class Test
         await using var wire=new NativeTransport(args[0]);
         await using var client=new BmsClient(wire);
         await client.ReadIdentityAsync();Check(client.IsC077,"production C capability selects C077");
-        var initial=await client.ReadC077AfeAsync();
+        var initial=await client.ReadC077AfeAsync();Check(initial.Schema==3&&initial.UsesPersistentCalibration,"new startup-check diagnostics");
         Check(!initial.Chips[1].ProfileMatches&&!initial.SampleValid,"actual C fixture begins with AFE2 mismatch");
         var programmed=await client.RunC077ServiceAsync(true);
         Check(programmed.ZeroReady&&programmed.SampleValid&&programmed.Chips.All(c=>c.Valid),"C driver differential programming, reset, zero and recovery complete");
@@ -48,7 +48,7 @@ static class Test
         await wire.Configure("@unready");int serviceBefore=wire.ServiceWrites;
         try {await client.ReadC077HardwareAsync();throw new Exception("unready RAM advertised as saved Flash");}catch(System.IO.IOException){}
         Check(wire.ServiceWrites==serviceBefore,"unready parameters reject before maintenance write");await wire.Configure("@ready");
-        Console.WriteLine("PASS shared C# BmsClient / production C309 service: schema2 + hardware schema1, independent Flash/selected program/readback, actual profile/zero completion, disabled AFE2 CADC, interrupted EEPROM, no blind replay and explicit recovery");
+        Console.WriteLine("PASS shared C# BmsClient / production C309 service: schema3 + hardware schema1, independent Flash/selected program/readback, actual profile/zero completion, disabled AFE2 CADC, interrupted EEPROM, no blind replay and explicit recovery");
     }
 }
 sealed class NativeTransport : IBmsTransport

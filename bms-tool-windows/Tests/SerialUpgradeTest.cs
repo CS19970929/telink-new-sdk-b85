@@ -59,6 +59,9 @@ static class Test
         var c077image=FirmwareImage.LoadForTarget(c077,OtaTargetKind.Stm32SerialIap);
         var c077device=Device(0xC0770016,0x08001C00,51*1024);
         UpgradeDetection.CheckImage(c077device,c077image);
+        string raw077=Path.Combine(work,"c077.bin");File.WriteAllBytes(raw077,c077image.Bytes.AsSpan(32).ToArray());
+        Check(FirmwareImage.LoadForTarget(raw077,OtaTargetKind.Stm32SerialIap).Bytes.SequenceEqual(c077image.Bytes),"C077 raw BIN wraps identically");
+        Check(SerialFirmwarePackage.WrapC060Bin(c077image.Bytes.AsSpan(32)) is null,"C077 raw BIN never inferred as C060");
         Check(FirmwareImage.Inspect(c077).Description.Contains("C077"),"C077 product named from its package");
         Reject(()=>UpgradeDetection.CheckImage(device,c077image),"C077 rejected on C060");
         Reject(()=>UpgradeDetection.CheckImage(c077device,image),"C060 rejected on C077");

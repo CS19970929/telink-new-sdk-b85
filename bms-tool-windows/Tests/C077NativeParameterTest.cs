@@ -14,7 +14,7 @@ static class Test
         var changes=Enumerable.Range(0,13).ToDictionary(i=>(ushort)(0x2104+i*5),i=>(ushort)(101+i));
         await c.WriteProtectionChangesAsync(changes,(_,_)=>verified++);Check(verified==13,"13 atomic production RTU and Flash commits");
         foreach(var entry in changes)expected[entry.Key-0x2100]=entry.Value;
-        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2318,245},{0x2047,unchecked((ushort)(short)-123)}},(_,_)=>{});
+        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2318,245}},(_,_)=>{});
         await c.WriteC060IdentityAsync(0xFFF0,"C077联测SN");
         var hard=await c.ReadC077HardwareAsync();var a=(ushort[])hard.Saved[0].Clone();var b=(ushort[])hard.Saved[1].Clone();
         a[1]=4240;b[1]=4320;a[17]=256;b[19]=20;
@@ -25,11 +25,16 @@ static class Test
         Check(after.Blocks["Protection"].SequenceEqual(expected),"every parameter persists after production reload");
         Check(after.Blocks["231C"].SequenceEqual(new ushort[]{13,2,4,10}),"13 series saves and reloads through actual C parameter/Flash engine");
         Check(after.Blocks["2318"][0]==245&&after.Blocks["2308"][2]==1280&&after.Blocks["2308"][3]==3400,"capacity and legacy compatibility fields preserved");
-        Check(after.Blocks["Calibration"][0x47]==unchecked((ushort)(short)-123),"signed current calibration survives Flash reload");
+        Check(!after.Blocks.ContainsKey("Calibration") && after.Schema==2,"retired K/B absent and new package schema");
+        var native=await c.ReadRegistersAsync(0x2E00,3);Check(native.SequenceEqual(new ushort[]{0xC077,1,1}),"actual C native calibration capability");
+        await c.WriteSingleRegisterAsync(0x2E30,0xCA01);var lease=await c.ReadRegistersAsync(0x2E30,4);
+        await c.WriteRegistersAsync(0x2E24,new[]{lease[0]}.Concat(new CurrentCalibrationCoefficients(-230,1250000).Words).ToArray());
+        await c.WriteSingleRegisterAsync(0x2E32,lease[0]);await wire.Configure("@reload");
+        Check(CurrentCalibrationCoefficients.Decode(await c.ReadRegistersAsync(0x2E24,4))==new CurrentCalibrationCoefficients(-230,1250000),"new signed mA/ppm survives actual Flash reload");
         var reloaded=await c.ReadC077HardwareAsync();Check(reloaded.Saved[0].SequenceEqual(a)&&reloaded.Saved[1].SequenceEqual(b),"both full independent hard protection profiles persist through actual Flash reload");
         var identity=await c.ReadIdentityAsync();Check(identity.Serial=="C077联测SN","GBK identity persisted");
         string output=Path.Combine(Path.GetTempPath(),"CodexTemp","bms-tool-windows","native-c077-"+Guid.NewGuid()+".json");
         C060Parameters.Export(output,after);Check(C060Parameters.Import(output,"C077").Blocks["Protection"].SequenceEqual(expected),"host parameter export/import roundtrip");
-        Console.WriteLine("PASS shared C# BmsClient / production C RTU+parameters+Flash A/B: independent 65 defaults, all 13 group saves, capacity/short/current K-B/GBK identity and production reload");
+        Console.WriteLine("PASS shared C# BmsClient / production C RTU+parameters+Flash A/B: independent 65 defaults, all 13 group saves, capacity/short/native current offset/gain/GBK identity and production reload");
     }
 }

@@ -88,7 +88,8 @@ public sealed class CurrentCalibrationSession
     public BmsClient Client { get; }
     public DeviceIdentity Identity { get; }
     public CurrentCalibrationCoefficients Original { get; }
-    public bool C060Native { get; internal init; }
+    public ushort NativeProduct { get; internal init; }
+    public bool UsesNativeProtocol => NativeProduct != 0;
     public AfeHardwareAccessSession Access { get; }
     public DateTimeOffset StartedUtc { get; } = DateTimeOffset.UtcNow;
     public CurrentCalibrationSamples? Zero { get; set; }
@@ -100,6 +101,7 @@ public sealed class CurrentCalibrationSession
     public bool SaveVerified { get; internal set; }
     public bool ConnectionLost { get; internal set; }
     public bool Closed { get; internal set; }
+    public void InvalidateConnection() => ConnectionLost=true;
     private uint? _lastSampleTick;
     private long _lastSampleObservedAt;
     internal uint ObserveSample(ushort[] words)
@@ -143,30 +145,31 @@ public sealed class CurrentCalibrationSession
 public sealed partial class BmsClient
 {
     public const ushort LinearCurrentCalibrationCapability = 0x0400;
-    private async Task<bool> RequireLinearCurrentCalibrationAsync(CancellationToken ct)
+    private async Task<ushort> RequireLinearCurrentCalibrationAsync(CancellationToken ct)
     {
         var header = await ReadRegistersAsync(0x2E00, 3, ct);
-        if (header is [0xC060,1,1]) return true;
+        if (header is [0xC060 or 0xC077,1,1]) return header[0];
         if (header.Length != 3 || header[0] != D008Parameters.Magic ||
             !D008Parameters.SupportsProtocol(header[1]) || (header[2] & LinearCurrentCalibrationCapability) == 0)
             throw new NotSupportedException("当前固件未声明支持持久电流校准；请使用配套固件。未发送参数写入。");
-        return false;
+        return 0;
     }
     public async Task<CurrentCalibrationSession> BeginCurrentCalibrationAsync(CancellationToken ct)
     {
-        bool native=await RequireLinearCurrentCalibrationAsync(ct);
+        ushort nativeProduct=await RequireLinearCurrentCalibrationAsync(ct);
+        bool native=nativeProduct!=0;
         var identity = await ReadIdentityAsync(ct);
-        if(native && (!IsC060 || IsC077))throw new IOException("校准能力与当前设备身份不一致。");
+        if(native && (nativeProduct==0xC077 ? !IsC077 : !IsC060 || IsC077))throw new IOException("校准能力与当前设备身份不一致。");
         var original = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
         AfeHardwareAccessSession access;
         if(native) {
             await WriteSingleRegisterAsync(0x2E30,0xCA01,ct);
             var lease=await ReadRegistersAsync(0x2E30,4,ct);
-            if(lease.Length!=4 || lease[0]==0 || lease[1]!=30 || lease[2]!=1 || lease[3]!=0x7693)
-                throw new IOException("C060 校准授权无效；请等待原授权超时后重新开始。");
+            if(lease.Length!=4 || lease[0]==0 || lease[1]!=30 || lease[2]!=1 || lease[3]!=(nativeProduct==0xC077?0x0309:0x7693))
+                throw new IOException("校准授权无效；请等待原授权超时后重新开始。");
             access=new(lease[0],lease[1],(byte)lease[2],lease[3]);
         } else access=await OpenAfeHardwareAccessAsync(ct);
-        var session = new CurrentCalibrationSession(this, identity, original, access){C060Native=native};
+        var session = new CurrentCalibrationSession(this, identity, original, access){NativeProduct=nativeProduct};
         try {
             if(native) {
                 var ready=Stopwatch.StartNew();
@@ -192,7 +195,7 @@ public sealed partial class BmsClient
         RequireCurrentCalibrationConnection(session);
         try
         {
-            if(session.C060Native){await WriteSingleRegisterAsync(0x2E31,session.Access.Token,ct);return;}
+            if(session.UsesNativeProtocol){await WriteSingleRegisterAsync(0x2E31,session.Access.Token,ct);return;}
             try { await AfeHardwareHeartbeatAsync(session.Access.Token, ct); }
             catch (TimeoutException) when (IsD015 && _transport.IsConnected && !ct.IsCancellationRequested)
             {
@@ -225,7 +228,7 @@ public sealed partial class BmsClient
         if (session.Closed || !ReferenceEquals(session.Client, this)) throw new IOException("校准会话已失效。");
         // 沿用 RAM 授权 token：MCU 重启、其他会话接管或超时后，不重新 OPEN 冒充原会话。
         await HeartbeatCurrentCalibrationAsync(session, ct);
-        if(await RequireLinearCurrentCalibrationAsync(ct)!=session.C060Native)throw new IOException("校准协议已变化，旧会话失效。");
+        if(await RequireLinearCurrentCalibrationAsync(ct)!=session.NativeProduct)throw new IOException("校准协议已变化，旧会话失效。");
         var current = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
         if (current != session.Original) throw new IOException("采集期间设备校准参数已变化，请重新采集。");
         await VerifyCurrentCalibrationContinuityAsync(session, ct);
@@ -274,7 +277,7 @@ public sealed partial class BmsClient
         await ReadCurrentCalibrationSampleAsync(session, ct);
         ct.ThrowIfCancellationRequested();
         session.WriteAttempted = true;
-        await WriteRegistersAsync(0x2E24, session.C060Native ? new[]{session.Access.Token}.Concat(candidate.Words).ToArray() : candidate.Words, ct);
+        await WriteRegistersAsync(0x2E24, session.UsesNativeProtocol ? new[]{session.Access.Token}.Concat(candidate.Words).ToArray() : candidate.Words, ct);
         var actual = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
         if (actual != candidate) throw new IOException("校准写入后读回不一致，请重新读取；不要盲目重复写入。");
         await HeartbeatCurrentCalibrationAsync(session, ct);
@@ -320,7 +323,7 @@ public sealed partial class BmsClient
                 session.ObserveSample(sample);
                 // CLOSE本身由固件核对token及所属串口；旧授权已过期/被替换时不会关闭别人的会话。
             }
-            if(session.C060Native)await WriteSingleRegisterAsync(0x2E32,session.Access.Token,timeout.Token);
+            if(session.UsesNativeProtocol)await WriteSingleRegisterAsync(0x2E32,session.Access.Token,timeout.Token);
             else await TryCloseAfeHardwareAccessAsync(session.Access.Token, timeout.Token);
         }
         catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException)

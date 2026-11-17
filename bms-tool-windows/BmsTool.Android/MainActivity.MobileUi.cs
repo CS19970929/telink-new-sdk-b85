@@ -357,22 +357,23 @@ public sealed partial class MainActivity
         foreach (Button button in _actionButtons)
         {
             bool busyAllowed = _busyAllowedButtons.Contains(button);
-            button.Enabled = (!_uiBusy || busyAllowed) && (!_connectionRequiredButtons.Contains(button) || _client is not null);
+            button.Enabled = ((!_uiBusy && _mobileCalibrationSession is null) || busyAllowed) && (!_connectionRequiredButtons.Contains(button) || _client is not null);
             button.Alpha = button.Enabled ? 1f : 0.4f;
         }
         if (_disconnectButton is not null) _disconnectButton.Enabled = _client is not null || _uiBusy;
         if (_chargeMosButton is not null)
         {
-            bool enabled = !_uiBusy && _client is not null && _mosControlCapabilityChecked && _mosControlState is not null;
+            bool enabled = !_uiBusy && _mobileCalibrationSession is null && _client is not null && _mosControlCapabilityChecked && _mosControlState is not null;
             _chargeMosButton.Enabled = enabled; _chargeMosButton.Alpha = enabled ? 1f : 0.4f;
         }
         if (_dischargeMosButton is not null)
         {
-            bool enabled = !_uiBusy && _client is not null && _mosControlCapabilityChecked && _mosControlState is not null;
+            bool enabled = !_uiBusy && _mobileCalibrationSession is null && _client is not null && _mosControlCapabilityChecked && _mosControlState is not null;
             _dischargeMosButton.Enabled = enabled; _dischargeMosButton.Alpha = enabled ? 1f : 0.4f;
         }
         UpdateProtectionEdits();
         UpdateC060EditorState();
+        UpdateMobileCalibrationControls();
     }
 
     private void UpdateProtectionEdits()
@@ -400,13 +401,13 @@ public sealed partial class MainActivity
         if (_saveSoftwareButton is not null)
         {
             _saveSoftwareButton.Text = $"保存修改 · {softwareChanges} 项";
-            _saveSoftwareButton.Enabled = !_uiBusy && _client is not null && _protectionModel is not null && softwareValid && softwareChanges > 0;
+            _saveSoftwareButton.Enabled = !_uiBusy && _mobileCalibrationSession is null && _client is not null && _protectionModel is not null && softwareValid && softwareChanges > 0;
             _saveSoftwareButton.Alpha = _saveSoftwareButton.Enabled ? 1f : 0.4f;
         }
         if (_saveHardwareButton is not null)
         {
             _saveHardwareButton.Text = $"保存修改 · {hardwareChanges} 项";
-            _saveHardwareButton.Enabled = !_uiBusy && _client is not null && _afeModel is not null && hardwareValid && hardwareChanges > 0;
+            _saveHardwareButton.Enabled = !_uiBusy && _mobileCalibrationSession is null && _client is not null && _afeModel is not null && hardwareValid && hardwareChanges > 0;
             _saveHardwareButton.Alpha = _saveHardwareButton.Enabled ? 1f : 0.4f;
         }
     }

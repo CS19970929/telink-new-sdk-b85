@@ -314,10 +314,10 @@ public sealed partial class BmsClient : IAsyncDisposable
     {
         if (quantity is 0 or > 125) throw new ArgumentOutOfRangeException(nameof(quantity), "Modbus 0x03 quantity must be 1..125.");
         // C077 RTC may consume the first serial frame while restoring UART power.
-        // Only an identified, idle serial connection gets one read retry. Writes
+        // Only an identified, idle C060/C077 link gets one read retry. Writes
         // remain single-shot because their result can be unknown after a timeout.
         bool c060Wake=IsC060&&LastSuccessfulResponseAge>=C060IdleWakeThreshold;
-        bool wakeRetry=c060Wake || IsC077&&_transport.RequiresSerialWakeup&&LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold;
+        bool wakeRetry=c060Wake || IsC077&&LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold;
         byte[] request=ModbusRtu.ReadHolding(start,quantity);
         byte[] rsp;
         try {rsp=await TransactAsync(request,ct,c060Wake ? responseTimeout??TimeSpan.FromMilliseconds(650) : responseTimeout).ConfigureAwait(false);}
@@ -712,7 +712,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, _disposedCancellation.Token);
         ct = lifetime.Token;
         bool c060Idle=IsC060&&LastSuccessfulResponseAge>=C060IdleWakeThreshold;
-        if((c060Idle || IsC077&&_transport.RequiresSerialWakeup&&LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold) &&
+        if((c060Idle || IsC077&&LastSuccessfulResponseAge>=C077SerialIdleWakeThreshold) &&
            request.Length>=2&&request[1] is 0x06 or 0x10) {
             // Wake with a read before the one-shot write. A lost write ACK must
             // never cause a setting/control/EEPROM command to be repeated.

@@ -6,9 +6,9 @@ using System.IO;
 internal static class Program
 {
     static void Check(bool value,string why) { if(!value)throw new Exception(why); }
-    private static async Task CheckNativeCalibrationAsync()
+    private static async Task CheckNativeCalibrationAsync(bool c077=false)
     {
-        var peer=new Peer{Advertised=true,NativeCalibration=true,RawCurrentMa=230};
+        var peer=new Peer{C077=c077,Advertised=true,NativeCalibration=true,RawCurrentMa=230};
         await using var client=new BmsClient(peer);
         await client.ReadIdentityAsync();
         int identityWrites=peer.Writes;
@@ -20,7 +20,7 @@ internal static class Program
         }
         var policy=new CurrentCalibrationPolicy(SampleCount:4,TimeoutSeconds:4);
         var session=await client.BeginCurrentCalibrationAsync(default);
-        Check(session.C060Native && session.Original==new CurrentCalibrationCoefficients(0,1000000),"native C060 lease and independent mA/ppm defaults");
+        Check(session.NativeProduct==(c077?0xC077:0xC060) && session.Original==new CurrentCalibrationCoefficients(0,1000000),"native C060 lease and independent mA/ppm defaults");
         session.Zero=await client.CollectCurrentCalibrationAsync(session,true,policy,null,default);
         Check(session.Zero.MeanMa==230,"fresh CC zero samples");
         peer.RawCurrentMa=8230;
@@ -49,7 +49,7 @@ internal static class Program
         int writes=wake.Writes;wake.SilentWrites=1;
         try{await awake.WriteSingleRegisterAsync(0x1005,68,default,TimeSpan.FromMilliseconds(200));throw new Exception("missing write ACK accepted");}catch(TimeoutException){}
         Check(wake.Writes==writes+1,"lost write response never causes blind retry");
-        Console.WriteLine("PASS native C060 calibration: real freshness intervals, offset/gain, one 19-byte save, readback/formula, restore, expired-token refusal; idle wake read retry and one-shot writes");
+        Console.WriteLine($"PASS native {(c077?"C077":"C060")} calibration: real freshness intervals, offset/gain, one 19-byte save, readback/formula, restore, expired-token refusal; idle wake read retry and one-shot writes");
     }
 
     static async Task Main()
@@ -157,7 +157,7 @@ internal static class Program
         }
         var normalized=C060Parameters.NormalizeCurrentGroup(new ushort[]{4000,4000,750,600,1,0,1000,30},2,4);
         Check(normalized[2]==1000&&normalized[3]==660,"production short-circuit quantization golden");
-        await CheckNativeCalibrationAsync();
+        await CheckNativeCalibrationAsync();await CheckNativeCalibrationAsync(true);
         Console.WriteLine("PASS C060 parameters: new field map without old K/B, fresh grouped saves, reserved fields, exact units, cycle/SOC, compatibility gating, GBK identity, package product checks, MTU preflight");
         Console.WriteLine("PASS C060 protection: 13 groups/65 words, MTU23 19-byte atomic writes, preflight, same-value skip, partial failure and bad readback");
         Console.WriteLine("PASS C060 connection: old/new capabilities, GBK, 20 cells/61001, units, optional rejection, unknown/generic fallback, no reconnect, session cache");
@@ -229,9 +229,9 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
     ushort[]? Read(int a,int n)
     {
         if(NativeCalibration) {
-            if(a==0x2e00&&n==3)return new ushort[]{0xc060,1,1};
+            if(a==0x2e00&&n==3)return new ushort[]{(ushort)(C077?0xc077:0xc060),1,1};
             if(a==0x2e24&&n==4)return D008Parameters.Calibration(NativeOffsetMa,NativeGainPpm);
-            if(a==0x2e30&&n==4)return new ushort[]{NativeToken,30,1,0x7693};
+            if(a==0x2e30&&n==4)return new ushort[]{NativeToken,30,1,(ushort)(C077?0x0309:0x7693)};
             if(a==0x2e28&&n==7){uint tick=unchecked((uint)(Stopwatch.GetElapsedTime(nativeClockStarted).TotalSeconds*32000));tick=tick/8000*8000;int final=new CurrentCalibrationCoefficients(NativeOffsetMa,NativeGainPpm).ApplyMilliampere(RawCurrentMa);return D008Parameters.Calibration(RawCurrentMa,unchecked((uint)final)).Concat(new ushort[]{1,(ushort)tick,(ushort)(tick>>16)}).ToArray();}
         }
         if(a>=0x2000&&a+n<=0x205E)return C077||Unknown||SeparateIdentity?Calibration.Skip(a-0x2000).Take(n).ToArray():null;
@@ -240,8 +240,8 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
         if(a==0xD170&&n==12&&Advertised)return new ushort[]{0x5550,1,(ushort)(C077?0xC077:0xC060),(ushort)(C077?0x16:0x20),2,2,0x800,0x1C00,0,0xCC00,0,0};
         if(C077&&a>=0x2A40&&a+n<=0x2A80) {
             if(a==0x2A40&&pendingService!=0 && ++ServicePolls>=2)pendingService=0;
-            var w=new ushort[64];w[0]=0xC077;w[1]=(ushort)(Bad309Schema?1:2);w[2]=(ushort)pendingService;w[3]=(ushort)(ServiceFailure?5:0);w[5]=OutputRequest;w[7]=1;
-            w[58]=(ushort)(pendingService==0?1:0);w[59]=(ushort)(pendingService==0?2:1);w[60]=unchecked((ushort)(short)-12);w[61]=(ushort)(pendingService==0?8:3);w[63]=0x010E;
+            var w=new ushort[64];w[0]=0xC077;w[1]=(ushort)(Bad309Schema?1:NativeCalibration?3:2);w[2]=(ushort)pendingService;w[3]=(ushort)(ServiceFailure?5:0);w[5]=OutputRequest;w[7]=1;
+            w[58]=(ushort)(pendingService==0?1:0);w[59]=(ushort)(pendingService==0?2:1);w[60]=NativeCalibration?(ushort)0:unchecked((ushort)(short)-12);w[61]=(ushort)(pendingService==0?8:3);w[63]=0x010E;
             for(int i=0;i<2;i++) {
                 int at=8+i*12;w[at]=1;w[at+1]=(ushort)(i==0?8:0);w[at+6]=64;w[at+8]=(ushort)(pendingService==0?1:0);w[at+11]=(ushort)(i==0?1:0);
                 byte[] profile=Convert.FromHexString(i==0?"501C8F54833E828CC36432FA26F6420004000000000000000040":"501C8F5C833E828CC36432FA26F6530004000000000000000040");

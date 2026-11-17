@@ -49,23 +49,16 @@ public static class C060Parameters
 {
     public static readonly C060ParameterGroup[] Groups={new(0x2300,8,"均衡"),new(0x2308,8,"电流与SOC表"),new(0x2310,8,"兼容休眠"),new(0x2318,4,"容量与SOC"),new(0x231C,4,"系统"),new(0x2320,24,"兼容热冷")};
     public static readonly IReadOnlyList<C060ParameterField> Fields=CreateFields();
-    public static IReadOnlyList<C060ParameterField> FieldsFor(bool c077) => !c077 ? Fields
-        .Where(f=>f.Address is >=0x2300 and <=0x2301 or >=0x2308 and <=0x230C or
-            >=0x2312 and <=0x2313 or >=0x2318 and <=0x231E)
+    public static IReadOnlyList<C060ParameterField> FieldsFor(bool c077) => Fields
+        .Where(f=>f.Address is >=0x2300 and <=0x2301 or >=0x2308 and <=0x230C or >=0x2318 and <=0x231E ||
+            !c077 && f.Address is 0x2312 or 0x2313)
         .Select(f=>f.Address switch {
             0x2312=>f with {Compatibility=false,Group="休眠",Name="低压休眠电压",Hint="低于该单体电压时禁止周期RTC，并按低压等待时间进入深睡。"},
             0x2313=>f with {Compatibility=false,Group="休眠",Name="低压休眠等待",Hint="低压且无有效充电电流时的等待时间；0表示立即执行。"},
+            0x231C when c077=>f with {Minimum=5,Maximum=16,Editable=true,Hint="须与实际串数一致；先关闭输出和均衡，再保存并核对两片AFE配置。"},
+            0x230A or 0x230B when c077=>f with {Editable=false,Hint="硬件保护使用双309专用编辑器，Flash保存与AFE EEPROM应用分别确认。"},
+            0x231D or 0x231E when c077=>f with {Editable=false,Hint="每片独立4颗2mΩ并联，固定0.5mΩ。"},
             _=>f
-        }).ToArray() :
-        Fields.Select(f=>f.Address switch {
-            >=0x2020 and <=0x203F or
-            >=0x204E and <=0x204F or >=0x2054 and <=0x205B =>
-                f with {Editable=false,Hint="C077未使用该通道；电流仅采用AFE1开机RAM零偏与固定分流换算，缺失串位不参与采样。"},
-            0x231C => f with {Minimum=5,Maximum=16,Editable=true,Hint="C077支持5～16串；先关闭输出/均衡，保存实际串数，再明确核对/下发两片AFE EEPROM。缺少串位上报61001。"},
-            0x230A => f with {Minimum=640,Maximum=8960,Editable=false,Hint="历史兼容字段；硬件短路延时请在双309硬保护编辑页分别设置。"},
-            0x230B => f with {Maximum=16000,Editable=false,Hint="历史兼容字段；硬件短路电流请在双309硬保护编辑页分别设置。"},
-            0x231D or 0x231E => f with {Editable=false,Hint="每颗309独立4颗2mΩ并联，固定0.5mΩ。"},
-            _ => f
         }).ToArray();
     static IReadOnlyList<C060ParameterField> CreateFields()
     {
@@ -102,11 +95,6 @@ public static class C060Parameters
         Add(0x2323,"制冷开启温度","℃",10,400,max:2000,compatibility:true);
         Add(0x2324,"制冷关闭温度","℃",10,400,max:2000,compatibility:true);
         for(int a=0x2325;a<0x2338;a++)Add(a,"热冷保留字段",editable:false,hint:"保留；当前无活跃热冷控制。");
-        for(int i=0;i<47;i++) {
-            string channel=i<32?$"单体{i+1}":new[]{"AFE1","AFE2","总压","充电电流","放电电流","温度1","温度2","温度3","温度4","温度5","温度6","环境温度1","环境温度2","环境温度3","MOS温度"}[i-32];
-            fields.Add(new((ushort)(0x2000+2*i),(ushort)(0x2000+2*i),"通道系数",channel+" K","原始值/1024",1,0,512,1536,FactoryOnly:true,Hint:"1024代表1倍；通道可保存不代表当前固件实际消费该校准系数。"));
-            fields.Add(new((ushort)(0x2001+2*i),(ushort)(0x2000+2*i),"通道系数",channel+" B","有符号原始值",1,0,-30000,30000,FactoryOnly:true,Signed:true,Hint:"读取补码，写入符号位+幅值，由客户端转换。"));
-        }
         return fields;
     }
     public static bool TryValue(C060ParameterCapture capture,C060ParameterField field,out ushort value)
@@ -138,11 +126,11 @@ public static class C060Parameters
         if(new FileInfo(path).Length>1024*1024)throw new InvalidDataException("参数包超过1MiB。");
         string json=File.ReadAllText(path);
         using var document=JsonDocument.Parse(json);
-        if(!document.RootElement.TryGetProperty("Schema",out var schema)||!schema.TryGetInt32(out int version)||version!=1||
+        if(!document.RootElement.TryGetProperty("Schema",out var schema)||!schema.TryGetInt32(out int version)||version!=(expectedProduct=="C077"?2:1)||
            !document.RootElement.TryGetProperty("Product",out var product)||product.ValueKind!=JsonValueKind.String||product.GetString()!=expectedProduct)
             throw new InvalidDataException($"参数包必须明确声明{expectedProduct}及受支持的Schema。");
         var package=JsonSerializer.Deserialize<C060ParameterCapture>(json)??throw new InvalidDataException("参数包为空。");
-        if(package.Schema!=1||package.Product!=expectedProduct||package.Blocks is null||package.Blocks.Any(b=>b.Value is null||b.Value.Length>125))throw new InvalidDataException($"参数包产品、版本或块长度不匹配{expectedProduct}。");
+        if(package.Schema!=(expectedProduct=="C077"?2:1)||package.Product!=expectedProduct||package.Blocks is null||package.Blocks.Any(b=>b.Value is null||b.Value.Length>125))throw new InvalidDataException($"参数包产品、版本或块长度不匹配{expectedProduct}。");
         foreach(var group in Groups)if(package.Blocks.TryGetValue(group.Address.ToString("X4"),out var words)&&words.Length!=group.Count)throw new InvalidDataException($"{group.Name}长度错误。");
         if(package.Blocks.TryGetValue("Calibration",out var calibration)&&calibration.Length!=94)throw new InvalidDataException("校准块长度错误。");
         if(package.Blocks.TryGetValue("Protection",out var protection)){if(protection.Length!=65)throw new InvalidDataException("保护块长度错误。");if(expectedProduct=="C077")C077Parameters.ValidateProtection(protection);else ProtectionBatch.ValidateC060(protection);}
@@ -194,13 +182,11 @@ public sealed partial class BmsClient
     public async Task<C060ParameterCapture> ReadC060ParametersAsync(bool includeCalibration,CancellationToken ct=default)
     {
         if(!UsesC060Protocol)throw new NotSupportedException("尚未识别为C060；连接保持，可在参数页手动选择项目。");
-        var capture=new C060ParameterCapture{Product=ParameterProduct};
+        var capture=new C060ParameterCapture{Product=ParameterProduct,Schema=IsC077?2:1};
         if(IsC077)capture.Incomplete=new[]{"不包含运行快照/日志写回；309 EEPROM仅由显式专用维修事务处理。"};
         foreach(var block in C060Parameters.Groups.Select(g=>(Key:g.Address.ToString("X4"),Address:g.Address,Count:g.Count)).Concat(new (string Key,ushort Address,ushort Count)[]{
-            ("Calibration",(ushort)0x2000,(ushort)94),("Protection",(ushort)0x2100,(ushort)65),
-            ("Identity",(ushort)0xC002,(ushort)48),("Realtime",(ushort)0xD000,(ushort)63),("SocTable",(ushort)0x2200,(ushort)86),
-            ("DischargeSummary",(ushort)0x3000,(ushort)21),("ChargeSummary",(ushort)0x3050,(ushort)21)}).Where(b=>(includeCalibration||b.Key is not ("Calibration" or "DischargeSummary" or "ChargeSummary"))&&
-                (IsC077 ? b.Key is not ("DischargeSummary" or "ChargeSummary") : b.Key is not ("Calibration" or "DischargeSummary" or "ChargeSummary" or "SocTable")))) {
+            ("Protection",(ushort)0x2100,(ushort)65),("Identity",(ushort)0xC002,(ushort)48),
+            ("Realtime",(ushort)0xD000,(ushort)63)})) {
             var words=await TryReadOptionalRegistersAsync(block.Address,block.Count,ct);
             if(words is null)capture.Errors.Add($"{block.Key} 未提供或读取未确认");else capture.Blocks[block.Key]=words;
         }
@@ -270,7 +256,7 @@ public sealed partial class BmsClient
     public async Task WriteC060IdentityAsync(ushort address,string text,CancellationToken ct=default)
     {
         if(!UsesC060Protocol||address is <0xFFF0 or >0xFFF2)throw new ArgumentException("C060生产信息地址无效。");
-        if(IsC060&&address==0xFFF2)throw new NotSupportedException("软件版本由固件提供，只读；未发送写入。");
+        if(UsesC060Protocol&&address==0xFFF2)throw new NotSupportedException("软件版本由固件提供，只读；未发送写入。");
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         if(text.Any(char.IsControl))throw new ArgumentException("生产信息不能包含换行或控制字符。");
         byte[] encoded=Encoding.GetEncoding(936,EncoderFallback.ExceptionFallback,DecoderFallback.ExceptionFallback).GetBytes(text);

@@ -12,13 +12,15 @@ public sealed record SerialFirmwarePackage(uint BoardId,uint AppAddress,uint Ver
         0xD0150320=>"D015", 0xC0600020=>"C060", 0xC0770016=>"C077", _=>$"板号 0x{BoardId:X8}"
     };
     public static bool HasHeader(ReadOnlySpan<byte> bytes) => bytes.Length>=4 && BinaryPrimitives.ReadUInt32LittleEndian(bytes)==Magic;
-    public static byte[]? WrapC060Bin(ReadOnlySpan<byte> app)
+    public static byte[]? WrapC060Bin(ReadOnlySpan<byte> app)=>WrapAppBin(app,0xC0600020u);
+    public static byte[]? WrapC077Bin(ReadOnlySpan<byte> app)=>WrapAppBin(app,0xC0770016u);
+    private static byte[]? WrapAppBin(ReadOnlySpan<byte> app,uint board)
     {
-        // Only C060's self-identifying APP BIN opts in. Telink and legacy
+        // Only self-identifying C060/C077 APP BINs opt in. Telink and legacy
         // STM32/D015 files retain their existing loaders and protocol checks.
-        if(app.Length<208 || BinaryPrimitives.ReadUInt32LittleEndian(app[192..])!=0xC0600020u)return null;
+        if(app.Length<208 || BinaryPrimitives.ReadUInt32LittleEndian(app[192..])!=board)return null;
         if(app.Length>51*PageBytes || BinaryPrimitives.ReadUInt32LittleEndian(app[196..])!=0x08001C00u)
-            throw new InvalidDataException("C060 APP BIN 地址或长度不符合 0x08001C00 / 51 KiB 分区。");
+            throw new InvalidDataException("APP BIN 地址或长度不符合 0x08001C00 / 51 KiB 分区。");
         byte[] result=new byte[HeaderBytes+app.Length];
         BinaryPrimitives.WriteUInt32LittleEndian(result,Magic);
         BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(4),2);
