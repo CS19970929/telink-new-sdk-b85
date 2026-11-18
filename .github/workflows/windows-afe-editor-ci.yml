@@ -2,7 +2,7 @@ name: BMS client main CI
 
 on:
   push:
-    branches: [client/main]
+    branches: [feature/windows-classic-ui-20261118]
     paths:
       - 'bms-tool-windows/**'
       - 'firmware/comm_tool_f103ret6/**'
@@ -11,7 +11,7 @@ on:
       - 'AGENTS.md'
       - '.github/workflows/windows-afe-editor-ci.yml'
   pull_request:
-    branches: [client/main]
+    branches: [feature/windows-classic-ui-20261118]
     paths:
       - 'bms-tool-windows/**'
       - 'firmware/comm_tool_f103ret6/**'

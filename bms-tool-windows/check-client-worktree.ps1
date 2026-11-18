@@ -1,5 +1,7 @@
-param([string]$ExpectedBranch = 'client/main')
+param([string]$ExpectedBranch)
 $ErrorActionPreference = 'Stop'
+$mainBranch = 'feature/windows-classic-ui-20261118'
+if (-not $PSBoundParameters.ContainsKey('ExpectedBranch')) { $ExpectedBranch = $mainBranch }
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $top = & git -C $root rev-parse --show-toplevel
 if ($LASTEXITCODE -ne 0 -or [IO.Path]::GetFullPath($top) -ne $root) {
@@ -16,7 +18,7 @@ if ($mainRoot -ne $root) {
 $branch = & git -C $root symbolic-ref --quiet --short HEAD
 if ($LASTEXITCODE -ne 0) { throw '客户端开发不使用 detached HEAD，请先核对用户指定的现有分支。' }
 if ([string]::IsNullOrWhiteSpace($ExpectedBranch) -or $branch -cne $ExpectedBranch) {
-    throw ('客户端当前分支为 ' + $branch + '，预期为 ' + $ExpectedBranch + '。默认使用 client/main；用户明确指定功能分支时通过 -ExpectedBranch 传入，不自动创建或切换分支。')
+    throw ('客户端当前分支为 ' + $branch + '，预期为 ' + $ExpectedBranch + '。默认使用 ' + $mainBranch + '。用户明确指定其他已有分支时通过 -ExpectedBranch 传入。')
 }
 & git -C $root cat-file -e 'HEAD:bms-tool-windows/BmsTool.Windows/BmsTool.Windows.csproj'
 if ($LASTEXITCODE -ne 0) {
@@ -27,7 +29,7 @@ if ($LASTEXITCODE -ne 0) { throw '无法读取客户端 HEAD。' }
 Write-Output ('仓库主目录：' + $root)
 Write-Output ('源码目录：' + (Join-Path $root 'bms-tool-windows'))
 Write-Output ('负责分支：' + $branch)
-Write-Output '长期客户端主线：client/main'
+Write-Output ('长期客户端主线：' + $mainBranch)
 Write-Output ('HEAD：' + $head)
 $dirty = & git -C $root status --short
 if ($LASTEXITCODE -ne 0) { throw '无法读取工作区状态。' }

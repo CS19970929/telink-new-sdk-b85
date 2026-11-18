@@ -1,6 +1,6 @@
 # BMS 上位机、Android App 与 CLI
 
-**当前长期开发分支为 `client/main`。** 本机固定源码目录为 `C:\Users\Administrator\source\bms-client\bms-tool-windows`，供今后多个 BMS 串口/BLE 项目持续复用。开工执行 `check-client-worktree.ps1`；来源、平台边界与当前验证见 [统一客户端开发指南](docs/CLIENT_MAIN.md)。以下带日期的记录包含历史界面状态和历史实板结果，不能覆盖本轮指南。
+**当前长期开发分支为 `feature/windows-classic-ui-20261118`。** 本机在 D 盘仓库主目录的 `bms-tool-windows/` 维护客户端源码，供多个 BMS 串口/BLE 项目持续复用。开工执行 `check-client-worktree.ps1`；来源、平台边界与当前验证见 [统一客户端开发指南](docs/CLIENT_MAIN.md)。以下带日期的记录包含历史界面状态和历史实板结果，不能覆盖本轮指南。
 
 ## 蓝牙搜索与连接（2026-11-11）
 

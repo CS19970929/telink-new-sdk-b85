@@ -1,20 +1,20 @@
 # BMS 上位机与 App 统一开发指南
 
-更新：2026-11-17。客户端源码整合基线：`0a9eb6bcc152349ef3b80c9a70655a1922b07a08`；后续文档/测试入口提交在同一分支持续追加。
+更新于 2026-11-18。下文保留客户端首次整合基线 `0a9eb6bcc152349ef3b80c9a70655a1922b07a08` 的来源和验证记录。
 
 ## 唯一日常开发入口
 
 | 项目 | 固定入口 |
 |---|---|
 | 仓库 | `CS19970929/telink-new-sdk-b85` |
-| 长期客户端分支 | `client/main` |
+| 长期客户端分支 | `feature/windows-classic-ui-20261118` |
 | 本机工作目录 | 本仓库的 D 盘主目录，见下方命令；不使用额外客户端 worktree |
 | 客户端源码 | 主目录中的 `bms-tool-windows/` |
 | Windows 客户版 / 内部版 | `BmsTool.Windows/` / `BmsFactoryTest.Windows/` |
 | Android Customer / Internal | 同一个 `BmsTool.Android/`，由 `BmsAppEdition` 选择 |
 | CLI / 公共基础 | `BmsTool.Cli/` / `BmsTool.Core/`、`Shared/` |
 
-今后适配新的 MCU、AFE、BMS 项目、串口或蓝牙时，继续在这条客户端主线或用户明确指定的已有功能分支增加适配。当前任务分支为 `feature/ui-unified-monitor-lishen-20261116`，尚未合回 `client/main`。同一仓库的固件与客户端可在主目录依次切换分支；其他独立项目仍保留各自目录。选择目标固件的现有协议/能力完成客户端适配，不为每块板复制客户端或创建永久分支。仓库名称包含 Telink 不限制客户端复用范围。
+今后适配新的 MCU、AFE、BMS 项目、串口或蓝牙时，继续在这条客户端主线或用户明确指定的已有功能分支增加适配。2026-11-18 用户将包含经典界面及此前适配的 `feature/windows-classic-ui-20261118` 定为长期主线。原 `client/main` 保留为历史分支。同一仓库的固件与客户端可在主目录依次切换分支；其他独立项目仍保留各自目录。选择目标固件的现有协议/能力完成客户端适配，不为每块板复制客户端或创建永久分支。仓库名称包含 Telink 不限制客户端复用范围。
 
 2026-11-17 按用户选择将上位机迁回主目录，并移除 `C:\Users\Administrator\source\bms-client` linked worktree。原分支、用户保存的 Keil 改动和本地文件均保留；旧 D 盘未跟踪上位机副本已单独归档。本轮仅移除这个客户端工作树，其他工作树未清理。下方 2026-11-14 的来源和验证记录仍是当时的历史证据。
 
@@ -22,14 +22,10 @@
 
 ```powershell
 Set-Location 'D:\telink\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)\tc_ble_single_sdk-V3.4.2.8_Patch_0001 (1)'
-# 日常 client/main 使用默认参数；当前已获授权的功能分支使用：
-pwsh -NoProfile -File bms-tool-windows/check-client-worktree.ps1 `
-    -ExpectedBranch feature/ui-unified-monitor-lishen-20261116
-# 切回 client/main 后使用：
-# pwsh -NoProfile -File bms-tool-windows/check-client-worktree.ps1
+pwsh -NoProfile -File bms-tool-windows/check-client-worktree.ps1
 ```
 
-此入口只检查主工作目录、预期分支、HEAD 内的客户端工程与工作区，不创建/切换分支。默认要求 `client/main`；只有用户明确指定功能分支时传入对应名称，不能用当前分支名自动填充来绕过核对。根 `AGENTS.md` 记录本次迁移后的入口。其他电脑使用各自仓库主目录即可，本机路径不是源码硬编码。仓库远端默认分支不代表客户端主线，远端状态按需现场核实。
+此入口只检查主工作目录、预期分支、HEAD 内的客户端工程与工作区，不创建/切换分支。默认要求 `feature/windows-classic-ui-20261118`。只有用户明确指定其他已有分支时，才传入 `-ExpectedBranch <分支名>`。根 `AGENTS.md` 记录本次迁移后的入口。其他电脑使用各自仓库主目录即可，本机路径不是源码硬编码。仓库远端默认分支不代表客户端主线，远端状态按需现场核实。
 
 切换分支前先保存并关闭当前工程，提交或妥善备份本分支未提交修改，再执行 `git switch <已有分支>`。切换影响整个仓库的受跟踪文件，不只是上位机目录；不要让 Keil 或编辑器将旧分支内存内容写回新分支。当前已迁移的 Keil 工程位于 `firmware/comm_tool_f103ret6/keil/COMM_TOOL_F103RET6.uvprojx`。
 
@@ -102,7 +98,7 @@ foreach ($edition in @('Customer','Internal')) {
 | 升级与内部验证 | Telink OTA/串口升级、41 项升级包/能力检查、C11 9 项通过 |
 | Android 与 CLI 离线 | 升级端点 24 项、服务权限 17 项、扫码解析 52 项及 CLI JSON/比较报告通过 |
 
-客户端 CI 已配置为监听 `client/main`，执行 Windows/CLI 编译与 host/UI 回归，构建/发布中间文件位于 runner 临时区；Android 两版在本轮本地验证。因尚未推送，本轮没有远端 CI 运行结果。
+当时的客户端 CI 监听 `client/main`。此次主线调整同步更新了本地工作流的分支过滤。工作流执行 Windows/CLI 编译与 host/UI 回归，产物在 runner 临时区。上表的 Android 验证为本地结果。
 
 完整日志、构建产物与截图在本机 `$env:LOCALAPPDATA\CodexTemp\bms-client-unification-20261114`；正式摘要与输入程序集指纹见 [本轮证据](CLIENT_MAIN_EVIDENCE_20261114.json)。编译产物不提交为源码。Android 版本字段仍为 0.9.1 / 16，本轮没有重新发布、安装或交付同版本客户包。
 
@@ -110,12 +106,12 @@ foreach ($edition in @('Customer','Internal')) {
 
 ## 后续日常规则
 
-1. 在仓库主目录核对 `client/main` 或用户明确指定的已有功能分支、HEAD 与 dirty，再开发；不自动创建客户端 worktree。
+1. 在仓库主目录核对 `feature/windows-classic-ui-20261118` 或用户明确指定的其他已有分支、HEAD 与 dirty，再开发；不自动创建客户端 worktree。
 2. 新项目作为现有客户端适配增量，客户/内部和 Windows/Android/CLI 按能力共用公共实现。
 3. 跑相关 host/UI 检查与平台编译，在同一分支分阶段提交，记录源码和发布物版本。
 4. 未获明确授权不创建分支、不整体合固件分支、不删除历史、不强推。正式发布才按现有流程产出安装包并记录源码 SHA。
 
-本轮完成的是本地客户端主线；尚未推送远端，也未修改 GitHub 默认分支。后续同步使用这条 `client/main` 的首次正常推送建立同名跟踪，不能再把增量推回旧 feature/产品分支。远端保护规则尚未配置，开工检查与 AGENTS 是本地约束，不能冒充服务器强制门禁。
+此处的主线是客户端日常开发入口。涉及远端同步、默认分支或分支保护时，先核对对应仓库的实际状态。
 
 ## 2026-11-17 C077新项目适配
 
