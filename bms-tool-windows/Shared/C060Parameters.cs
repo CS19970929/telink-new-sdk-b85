@@ -176,7 +176,9 @@ public sealed partial class BmsClient
     public void ResetParameterProfile()
     {
         IsC060=IsC077=IsD015=IsSh3520=false;_identityConflict=false;_realtimeAvailable=null;_legacyUnavailable=false;
-        _unavailableReads.Clear();DeviceModel="自动识别中";
+        _unavailableReads.Clear();
+        _c077MeasurementsAvailable=null;
+        DeviceModel="自动识别中";
     }
     public Task<C060ParameterCapture> ReadC060ParametersAsync(CancellationToken ct=default) => ReadC060ParametersAsync(true,ct);
     public async Task<C060ParameterCapture> ReadC060ParametersAsync(bool includeCalibration,CancellationToken ct=default)

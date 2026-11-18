@@ -1318,7 +1318,15 @@ Safety:
             s.Battery.ProtectionLevel1Text,
             s.Battery.ProtectionLevel2Text,
             s.Battery.ProtectionLevel3Text,
-            s.Battery.WorkState
+            s.Battery.WorkState,
+            measurements = s.Battery.Measurements is { } measured ? new
+            {
+                status = measured,
+                packVoltageV = measured.PackVoltageValid ? (double?)s.Battery.PackVoltageV : null,
+                currentA = measured.CurrentValid ? (double?)s.Battery.CurrentA : null,
+                cellMillivolts = Enumerable.Range(0, measured.SeriesCount).Select(i =>
+                    s.Battery.IsCellVoltageValid(i) ? (ushort?)s.Battery.CellMillivolts[i] : null).ToArray()
+            } : null
         }
     };
 
@@ -1332,8 +1340,18 @@ Safety:
         Console.WriteLine($"Software:  {s.Identity.Software}");
         Console.WriteLine($"Build ID:  {s.FirmwareBuildId?.ToString("x8") ?? "unknown"}");
         Console.WriteLine($"D008:      {s.IsD008}");
-        Console.WriteLine($"Battery:   {s.Battery.PackVoltageV:F2} V, {s.Battery.CurrentA:+0.0;-0.0;0.0} A, SOC {s.Battery.SocPercent}%");
-        Console.WriteLine($"Cells:     min {s.Battery.MinCellMv} mV, max {s.Battery.MaxCellMv} mV, delta {s.Battery.CellDeltaMv} mV");
+        Console.WriteLine($"Battery:   {s.Battery.PackVoltageDisplay}, {s.Battery.CurrentDisplay}, SOC {s.Battery.SocPercent}%");
+        if (s.Battery.ValidCellCount > 0)
+            Console.WriteLine($"Cells:     min {s.Battery.MinCellMv} mV, max {s.Battery.MaxCellMv} mV, delta {s.Battery.CellDeltaMv} mV");
+        if (s.Battery.Measurements is { } measured)
+        {
+            Console.WriteLine(measured.VoltageDetails);
+            Console.WriteLine(string.Join("  ", Enumerable.Range(0, measured.SeriesCount)
+                .Select(i => $"{i + 1:00}: {(s.Battery.IsCellVoltageValid(i) ? $"{s.Battery.CellMillivolts[i]} mV" : "—")}")));
+            Console.WriteLine(measured.TemperatureDetails);
+            if (measured.FaultDetails.Length > 0) Console.WriteLine(measured.FaultDetails);
+            Console.WriteLine(measured.SleepDetails);
+        }
         Console.WriteLine($"Protection:{s.Battery.ProtectionSummary}");
     }
 }

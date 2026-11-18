@@ -32,6 +32,7 @@
     <Compile Include="..\BmsTool.Windows\Stm32SerialBleOta.cs" Link="Shared\Stm32SerialBleOta.cs" />
     <Compile Include="..\Shared\BmsDiagnosticSession.cs" Link="Shared\BmsDiagnosticSession.cs" />
     <Compile Include="..\Shared\BmsDiagnostics.cs" Link="Shared\BmsDiagnostics.cs" />
+    <Compile Include="..\Shared\C077Measurements.cs" Link="Shared\C077Measurements.cs" />
     <Compile Include="..\Shared\BmsHealth.cs" Link="Shared\BmsHealth.cs" />
     <Compile Include="..\Shared\BmsTestEngine.cs" Link="Shared\BmsTestEngine.cs" />
     <Compile Include="..\Shared\SocInputRecording.cs" Link="Shared\SocInputRecording.cs" />

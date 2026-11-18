@@ -37,6 +37,7 @@ public partial class MainWindow
         _identityRefreshRequired = true;
         _customerLastDataUtc = DateTime.MinValue;
         _customerLastCellsRaw = string.Empty;
+        _customerC077Snapshot = null;
         foreach (string name in new[] {
             "PackVoltageText", "CurrentText", "SocText", "WorkStateText", "MosStateText", "SystemStateText",
             "ProtectionSummaryText", "ProtectionLevelsText", "TempsText", "CellExtremeText", "CapacityText", "CellsText",

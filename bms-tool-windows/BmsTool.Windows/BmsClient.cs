@@ -42,7 +42,17 @@ public sealed class BatterySnapshot
     public DateTimeOffset CellsReadUtc { get; init; }
     public DateTimeOffset StatusReadUtc { get; init; }
     public DateTimeOffset RealtimeReadUtc { get; init; }
-    public string CellDataWindow => "D000";
+    public string CellDataWindow => Measurements is null ? "D000" : "2C00";
+    public C077Measurements? Measurements { get; init; }
+    public bool PackVoltageValid => Measurements?.PackVoltageValid ?? true;
+    public bool CurrentValid => Measurements?.CurrentValid ?? true;
+    public bool BatteryTemperatureAvailable => Measurements?.BatteryTemperatureAvailable ?? true;
+    public bool MosTemperatureAvailable => Measurements?.MosTemperatureAvailable ?? true;
+    public string PackVoltageDisplay => PackVoltageValid ? $"{PackVoltageV:F2} V" : "—";
+    public string CurrentDisplay => CurrentValid ? $"{CurrentA:+0.0;-0.0;0.0} A" : "—";
+
+    public bool IsCellVoltageValid(int index) => (uint)index < (uint)CellMillivolts.Count &&
+        CellMillivolts[index] != BmsRegisters.MissingCellVoltageMv && (Measurements?.CellValid(index) ?? true);
     public double PackVoltageV { get; init; }
     public double CurrentA { get; init; }
     public int SocPercent { get; init; }
@@ -65,7 +75,7 @@ public sealed class BatterySnapshot
     public uint SystemStatus { get; init; }
     public ushort ProtocolVersion { get; init; }
     public bool UsesRealtimeWindow { get; init; }
-    public int ValidCellCount => CellMillivolts.Count(value => value != BmsRegisters.MissingCellVoltageMv);
+    public int ValidCellCount => Enumerable.Range(0, CellMillivolts.Count).Count(IsCellVoltageValid);
     public ushort ProtectionLevel1Raw { get; init; }
     public ushort ProtectionLevel2Raw { get; init; }
     public ushort ProtectionLevel3Raw { get; init; }
@@ -75,12 +85,11 @@ public sealed class BatterySnapshot
     // D03D: 第 1～16 串；D03E 低 8 位: 第 17～24 串。状态来自 AFE 最后一次回读。
     public uint BalanceCellMask { get; init; }
     public bool IsCellBalancing(int zeroBasedCellIndex) =>
-        (uint)zeroBasedCellIndex < 24u && zeroBasedCellIndex < CellMillivolts.Count &&
-        CellMillivolts[zeroBasedCellIndex] != BmsRegisters.MissingCellVoltageMv &&
+        (uint)zeroBasedCellIndex < 24u && IsCellVoltageValid(zeroBasedCellIndex) &&
         (BalanceCellMask & (1u << zeroBasedCellIndex)) != 0;
 
 
-    public string WorkState => CurrentA > 0.05 ? "放电" : CurrentA < -0.05 ? "充电" : "静置";
+    public string WorkState => !CurrentValid ? "电流状态未知" : CurrentA > 0.05 ? "放电" : CurrentA < -0.05 ? "充电" : "静置";
     public bool PrechargeMosOn => Bit(1);
     public bool ChargeMosOn => Bit(2);
     public bool DischargeMosOn => Bit(3);
@@ -93,7 +102,7 @@ public sealed class BatterySnapshot
     public bool Afe1On => Bit(10);
     public bool Afe2On => Bit(11);
     public bool BalancingOn => Bit(12);
-    public bool PreparingSleep => Bit(13);
+    public bool PreparingSleep => Measurements is { } measured ? measured.DeepReason != 0 : Bit(13);
     public bool ButtonCloseIo => Bit(14);
     public bool HeatCloseIo => Bit(15);
     public bool SystemLimited => Bit(16);
@@ -298,7 +307,7 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     // Optional failures belong to this connection, never to a global product flag.
     private readonly HashSet<(ushort Address, ushort Count)> _unavailableReads = new();
-    private bool? _realtimeAvailable;
+    private bool? _realtimeAvailable, _c077MeasurementsAvailable;
     private bool _legacyUnavailable, _identityConflict;
     public bool IsC060 { get; private set; }
     public bool IsC077 { get; private set; }
@@ -528,6 +537,19 @@ public sealed partial class BmsClient : IAsyncDisposable
     public async Task<BatterySnapshot> ReadBatteryAsync(CancellationToken ct = default)
     {
         DateTimeOffset readStartedUtc = DateTimeOffset.UtcNow;
+        if (IsC077 && _c077MeasurementsAvailable != false)
+        {
+            if (!_c077MeasurementsAvailable.HasValue)
+            {
+                var header = await TryReadOptionalRegistersAsync(C077Measurements.Address, 2, ct).ConfigureAwait(false);
+                _c077MeasurementsAvailable = header is [0xC077, 1];
+            }
+            if (_c077MeasurementsAvailable == true)
+            {
+                var values = await ReadRegistersAsync(C077Measurements.Address, C077Measurements.WordCount, ct).ConfigureAwait(false);
+                return DecodeC077Battery(C077Measurements.Parse(values), readStartedUtc);
+            }
+        }
         if (_legacyUnavailable) throw new NotSupportedException("设备未提供通用实时数据窗口，连接与其它可用通信保持正常。");
         ushort[] legacy;
         try { legacy = await ReadRegistersAsync(BmsRegisters.Legacy, 63, ct).ConfigureAwait(false); }
@@ -612,6 +634,26 @@ public sealed partial class BmsClient : IAsyncDisposable
             // The first 32 Legacy words are protocol slots, not the configured
             // series count.  61001 marks a slot that is not physically present.
             CellMillivolts = legacy.Take(BmsRegisters.CellVoltageSlotCount).ToArray()
+        };
+    }
+
+    private static BatterySnapshot DecodeC077Battery(C077Measurements measured, DateTimeOffset startedUtc)
+    {
+        var data = measured.Report;
+        var observed = DateTimeOffset.UtcNow;
+        return new BatterySnapshot
+        {
+            Measurements = measured,
+            ReadStartedUtc = startedUtc, CellsReadUtc = observed, StatusReadUtc = observed, RealtimeReadUtc = observed,
+            PackVoltageV = data[37] / 100.0, CurrentA = NormalizeLegacyCurrentTenthA(data[50], data[51]) / 10.0,
+            SocPercent = data[52], SohPercent = data[53], CapacityNowAh = data[54] / 100.0,
+            CapacityFullAh = data[55] / 100.0, CapacityFactoryAh = data[56] / 100.0, CycleCount = data[57],
+            MaxTempC = data[48] / 10.0 - 40, MinTempC = data[49] / 10.0 - 40, MosTempC = data[47] / 10.0 - 40,
+            MaxCellMv = data[32], MinCellMv = data[33], MaxCellPosition = data[34], MinCellPosition = data[35],
+            CellDeltaMv = data[36], SystemStatus = measured.SystemStatus,
+            ProtectionLevel1Raw = data[58], ProtectionLevel2Raw = data[59], ProtectionLevel3Raw = data[60],
+            BalanceCellMask = (uint)data[61] | ((uint)(data[62] & 0x00FFu) << 16),
+            CellMillivolts = data[..BmsRegisters.CellVoltageSlotCount].ToArray()
         };
     }
 

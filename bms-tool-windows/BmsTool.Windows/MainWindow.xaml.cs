@@ -352,11 +352,12 @@ public partial class MainWindow : Window
 
     private void ApplyBatterySnapshot(BatterySnapshot s)
     {
+        _customerC077Snapshot = s.Measurements is null ? null : s;
         PublishUnifiedBattery(s);
         UpdateProtectionProductDisplay(_bms?.IsD015 == true);
         RecordMosSnapshot(s);
-        PackVoltageText.Text = $"{s.PackVoltageV:F2} V";
-        CurrentText.Text = $"{s.CurrentA:+0.0;-0.0;0.0} A（{s.WorkState}）";
+        PackVoltageText.Text = s.PackVoltageDisplay;
+        CurrentText.Text = s.CurrentValid ? $"{s.CurrentDisplay}（{s.WorkState}）" : "—";
         SocText.Text = $"SOC {s.SocPercent}%\nSOH {s.SohDisplay}";
         WorkStateText.Text = s.WorkState;
 
@@ -384,13 +385,24 @@ public partial class MainWindow : Window
             $"二级：{s.ProtectionLevel2Text}\n" +
             $"三级：{s.ProtectionLevel3Text}";
 
-        TempsText.Text = $"最高温度：{s.MaxTempC:F1} °C\n最低温度：{s.MinTempC:F1} °C\nMOS 温度：{s.MosTempC:F1} °C";
+        string maxTemp = s.BatteryTemperatureAvailable ? $"{s.MaxTempC:F1} °C" : "—";
+        string minTemp = s.BatteryTemperatureAvailable ? $"{s.MinTempC:F1} °C" : "—";
+        string mosTemp = s.MosTemperatureAvailable ? $"{s.MosTempC:F1} °C" : "—";
+        TempsText.Text = $"最高温度：{maxTemp}\n最低温度：{minTemp}\nMOS 温度：{mosTemp}";
+        if (s.Measurements is { } measured)
+        {
+            SystemStateText.Text = $"{SystemStateText.Text}\n{measured.SleepDetails} · {measured.VoltageDetails}\n{measured.TemperatureDetails}";
+            if (!string.IsNullOrEmpty(measured.FaultDetails))
+                SystemStateText.Text += "\n" + measured.FaultDetails;
+        }
         CellExtremeText.Text = $"最高：{s.MaxCellMv} mV（第 {s.MaxCellPosition} 串）\n最低：{s.MinCellMv} mV（第 {s.MinCellPosition} 串）\n压差：{s.CellDeltaMv} mV";
         CapacityText.Text = $"当前容量：{s.CapacityNowAh:F2} Ah\n满充容量：{s.CapacityFullAh:F2} Ah\n工厂容量：{s.CapacityFactoryAh:F2} Ah\n循环次数：{s.CycleCount}";
         CellsText.Text = string.Join("    ", s.CellMillivolts
             .Select((mv, i) => (mv, Index: i + 1))
             .Where(cell => cell.mv != BmsRegisters.MissingCellVoltageMv)
-            .Select(cell => FormattableString.Invariant($"第{cell.Index}串 {cell.mv / 1000.0:F3} V{(s.IsCellBalancing(cell.Index - 1) ? " [均衡]" : "")}")));
+            .Select(cell => s.IsCellVoltageValid(cell.Index - 1)
+                ? FormattableString.Invariant($"第{cell.Index}串 {cell.mv / 1000.0:F3} V{(s.IsCellBalancing(cell.Index - 1) ? " [均衡]" : "")}")
+                : $"第{cell.Index}串 —"));
 
         _customerLastDataUtc = DateTime.UtcNow;
         LastUpdateText.Text = $"最后更新：{DateTime.Now:HH:mm:ss}";

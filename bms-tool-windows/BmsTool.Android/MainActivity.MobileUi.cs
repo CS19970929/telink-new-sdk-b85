@@ -421,17 +421,23 @@ public sealed partial class MainActivity
         _displayedBatteryMac = _connectedMac;
         _socValue!.Text = $"{snapshot.SocPercent}%";
         _workState!.Text = snapshot.WorkState;
-        _voltageValue!.Text = $"{snapshot.PackVoltageV:F2} V";
-        _currentValue!.Text = $"{snapshot.CurrentA:+0.0;-0.0;0.0}";
+        _voltageValue!.Text = snapshot.PackVoltageDisplay;
+        _currentValue!.Text = snapshot.CurrentValid ? $"{snapshot.CurrentA:+0.0;-0.0;0.0}" : "—";
         _capacityValue!.Text = $"{snapshot.CapacityNowAh:F1} Ah";
-        _temperatureValue!.Text = $"{snapshot.MaxTempC:F1} ℃";
+        _temperatureValue!.Text = snapshot.BatteryTemperatureAvailable ? $"{snapshot.MaxTempC:F1} ℃" : "—";
         _stateView!.Text = $"充电 MOS：{(snapshot.ChargeMosOn ? "开启" : "关闭")}    放电 MOS：{(snapshot.DischargeMosOn ? "开启" : "关闭")}\n" +
             $"均衡：{(snapshot.BalancingOn ? "运行中" : "未运行")}    保护：{snapshot.ProtectionSummary}" +
             (snapshot.HasProtection ? $"\n一级：{snapshot.ProtectionLevel1Text}\n二级：{snapshot.ProtectionLevel2Text}\n三级：{snapshot.ProtectionLevel3Text}" : "") +
             $"\n加热：{(snapshot.HeatingOn ? "运行中" : "未运行")}    制冷：{(snapshot.CoolingOn ? "运行中" : "未运行")}";
-        _stateView.SetTextColor(Color.ParseColor(snapshot.HasProtection ? "#A33625" : Ink));
+        if (snapshot.Measurements is { } measured)
+            _stateView.Text += $"\n{measured.SleepDetails} · {measured.VoltageDetails}\n{measured.FaultDetails}";
+        _stateView.SetTextColor(Color.ParseColor(snapshot.HasProtection ||
+            !string.IsNullOrEmpty(snapshot.Measurements?.FaultDetails) ? "#A33625" : Ink));
         SetMosDriverIndicators(snapshot.ChargeMosOn, snapshot.DischargeMosOn);
-        _cellsView!.Text = $"{snapshot.ValidCellCount} 串 · 最低 {snapshot.MinCellMv} mV · 最高 {snapshot.MaxCellMv} mV\n压差 {snapshot.CellDeltaMv} mV";
+        string cellCount = snapshot.Measurements is { } cells
+            ? $"{snapshot.ValidCellCount}/{cells.SeriesCount} 串有效" : $"{snapshot.ValidCellCount} 串";
+        _cellsView!.Text = snapshot.ValidCellCount == 0 ? cellCount :
+            $"{cellCount} · 最低 {snapshot.MinCellMv} mV · 最高 {snapshot.MaxCellMv} mV\n压差 {snapshot.CellDeltaMv} mV";
         _cellGrid!.RemoveAllViews();
         LinearLayout? line = null;
         int count = 0;
@@ -441,9 +447,10 @@ public sealed partial class MainActivity
             if (mv == BmsRegisters.MissingCellVoltageMv) continue;
             if (count % 3 == 0) { line = Row(); _cellGrid.AddView(line); }
             var cell = Card(); cell.SetPadding(Dp(10), Dp(10), Dp(8), Dp(10));
-            string marker = mv == snapshot.MinCellMv ? " · 最低" : mv == snapshot.MaxCellMv ? " · 最高" : "";
+            bool valid = snapshot.IsCellVoltageValid(i);
+            string marker = !valid ? "" : mv == snapshot.MinCellMv ? " · 最低" : mv == snapshot.MaxCellMv ? " · 最高" : "";
             cell.AddView(Label($"{i + 1:00} 串{marker}", 11, Muted));
-            cell.AddView(Label($"{mv} mV", 17, Ink, true));
+            cell.AddView(Label(valid ? $"{mv} mV" : "—", 17, Ink, true));
             if (snapshot.IsCellBalancing(i)) cell.AddView(Label("均衡中", 11, Accent));
             AddEqual(line!, cell); count++;
         }
@@ -451,7 +458,8 @@ public sealed partial class MainActivity
         _summaryView!.Text = (AppEdition.IsInternal
             ? $"SOH {snapshot.SohPercent}%    循环 {snapshot.CycleCount} 次\n满充 {snapshot.CapacityFullAh:F2} Ah    额定 {snapshot.CapacityFactoryAh:F2} Ah\n"
             : $"循环 {snapshot.CycleCount} 次\n") +
-            $"电池温度 {snapshot.MinTempC:F1}～{snapshot.MaxTempC:F1} ℃    MOS {snapshot.MosTempC:F1} ℃";
+            (snapshot.Measurements?.TemperatureDetails ??
+                $"电池温度 {snapshot.MinTempC:F1}～{snapshot.MaxTempC:F1} ℃    MOS {snapshot.MosTempC:F1} ℃");
         if (identity is not null)
             _identityView!.Text = $"{identity.BluetoothName}\nMAC  {identity.Mac}\n序列号  {identity.Serial}\n硬件  {identity.Hardware}\n软件  {identity.Software}\nBuild ID  {(buildId.HasValue ? buildId.Value.ToString("x8") : "不可用")}";
         UpdateBatteryFreshness();

@@ -93,13 +93,18 @@ public partial class MainWindow
 #endif
     }
 
-    private void ShowMonitorCells(IReadOnlyList<(int Index, double Volts, bool Balancing)> cells, int? slotCount = null)
+    private void ShowMonitorCells(IReadOnlyList<(int Index, double Volts, bool Balancing)> cells, int? slotCount = null,
+        IReadOnlyList<int>? invalidCells = null)
     {
         CustomerCellPanel.Children.Clear();
         if (cells.Count == 0)
         {
             CustomerMaxCellText.Text = CustomerMinCellText.Text = CustomerAvgCellText.Text = "—";
-            CustomerDeltaCellText.Text = CustomerCellCountText.Text = "—";
+            CustomerDeltaCellText.Text = "—";
+            CustomerCellCountText.Text = slotCount is int known ? $"0 / {known}" : "—";
+            if (invalidCells is not null)
+                foreach (int index in invalidCells)
+                    CustomerCellPanel.Children.Add(CreateCellVisual(index, null, false, false, false));
             return;
         }
 
@@ -110,7 +115,9 @@ public partial class MainWindow
         CustomerAvgCellText.Text = (cells.Average(cell => cell.Volts) * 1000.0).ToString("F2", CultureInfo.InvariantCulture);
         CustomerDeltaCellText.Text = ((max.Volts - min.Volts) * 1000.0).ToString("F0", CultureInfo.InvariantCulture);
         CustomerCellCountText.Text = slotCount is int slots ? $"{cells.Count} / {slots}" : $"{cells.Count}";
-        foreach (var cell in cells.OrderBy(cell => cell.Index))
+        var displayCells = cells.Select(c => (c.Index, Volts: (double?)c.Volts, c.Balancing))
+            .Concat((invalidCells ?? Array.Empty<int>()).Select(i => (Index: i, Volts: (double?)null, Balancing: false)));
+        foreach (var cell in displayCells.OrderBy(cell => cell.Index))
             CustomerCellPanel.Children.Add(CreateCellVisual(cell.Index, cell.Volts, cell.Index == max.Index, cell.Index == min.Index, cell.Balancing));
     }
 }

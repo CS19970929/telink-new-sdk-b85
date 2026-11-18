@@ -21,6 +21,7 @@
     <Compile Include="..\Shared\Sh3673520Parameters.cs" Link="Sh3673520Parameters.cs" />
     <Compile Include="..\Shared\BmsDiagnosticSession.cs" Link="Shared\BmsDiagnosticSession.cs" />
     <Compile Include="..\Shared\BmsDiagnostics.cs" Link="BmsDiagnostics.cs" />
+    <Compile Include="..\Shared\C077Measurements.cs" Link="Shared\C077Measurements.cs" />
     <Compile Include="..\Shared\BmsHealth.cs" Link="BmsHealth.cs" />
     <Compile Include="..\Shared\BmsTestEngine.cs" Link="BmsTestEngine.cs" />
     <Compile Include="..\Shared\ProductSupport.cs" Link="ProductSupport.cs" />

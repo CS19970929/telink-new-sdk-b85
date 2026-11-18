@@ -74,8 +74,19 @@ public partial class MainWindow
         CustomerMosTempText.Text = ExtractValue(text, @"MOS\s*温度：([^\r\n]+)", "—");
     }
 
+    private BatterySnapshot? _customerC077Snapshot;
+
     private void UpdateCustomerCells()
     {
+        if (_customerC077Snapshot is { Measurements: { } measured } snapshot)
+        {
+            var currentCells = Enumerable.Range(0, measured.SeriesCount).Where(snapshot.IsCellVoltageValid)
+                .Select(i => (i + 1, snapshot.CellMillivolts[i] / 1000.0, snapshot.IsCellBalancing(i))).ToArray();
+            var invalid = Enumerable.Range(0, measured.SeriesCount).Where(i => !snapshot.IsCellVoltageValid(i))
+                .Select(i => i + 1).ToArray();
+            ShowMonitorCells(currentCells, measured.SeriesCount, invalid);
+            return;
+        }
         string raw = CellsText.Text ?? string.Empty;
         if (raw == _customerLastCellsRaw || string.IsNullOrWhiteSpace(raw) || raw == "—") return;
         _customerLastCellsRaw = raw;
@@ -91,7 +102,7 @@ public partial class MainWindow
         if (cells.Count != 0) ShowMonitorCells(cells, BmsRegisters.CellVoltageSlotCount);
     }
 
-    private static UIElement CreateCellVisual(int index, double volts, bool isMax, bool isMin, bool balancing)
+    private static UIElement CreateCellVisual(int index, double? volts, bool isMax, bool isMin, bool balancing)
     {
         var root = new Grid { Width = 160, Height = 48, Margin = new Thickness(4, 4, 4, 5) };
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72) });
@@ -106,7 +117,7 @@ public partial class MainWindow
             BorderBrush = Brushes.Black,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(5),
-            Background = new SolidColorBrush(Color.FromRgb(83, 225, 38))
+            Background = volts.HasValue ? new SolidColorBrush(Color.FromRgb(83, 225, 38)) : Brushes.LightGray
         });
         battery.Children.Add(new Border
         {
@@ -132,7 +143,7 @@ public partial class MainWindow
 
         var voltage = new TextBlock
         {
-            Text = (volts * 1000.0).ToString("F0", CultureInfo.InvariantCulture),
+            Text = volts is double value ? (value * 1000.0).ToString("F0", CultureInfo.InvariantCulture) : "—",
             ToolTip = "均衡标记表示 AFE 最后回读的已启用通道；断连或 AFE 异常时数据可能过期。",
             FontSize = 15,
             FontWeight = isMax || isMin ? FontWeights.Bold : FontWeights.Normal,

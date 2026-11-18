@@ -142,7 +142,8 @@ public partial class MainWindow
     {
         string endpoint = _connectedSerialPort ?? _connectedAddress?.ToString("X12") ?? "";
         var cells = sample.CellMillivolts.Select((mv, i) => (mv, i))
-            .Where(x => x.mv != BmsRegisters.MissingCellVoltageMv && x.mv > 0 && x.mv <= 10000)
+            .Where(x => sample.IsCellVoltageValid(x.i) &&
+                (sample.Measurements is not null || (x.mv > 0 && x.mv <= 10000)))
             .ToDictionary(x => x.i + 1, x => (double)x.mv);
         var observedUtc = DateTimeOffset.UtcNow;
         PublishUnifiedReading(new MonitorReading {
@@ -151,14 +152,16 @@ public partial class MainWindow
             Protocol = _bms?.DeviceModel ?? "BMS", SegmentKey = $"{endpoint}/{_connectionGeneration}",
             Sequence = $"{_connectionGeneration}/{observedUtc.UtcTicks}",
             Soc = sample.SocPercent is >= 0 and <= 100 ? sample.SocPercent : null,
-            Voltage = double.IsFinite(sample.PackVoltageV) ? sample.PackVoltageV : null,
-            Current = double.IsFinite(sample.CurrentA) ? sample.CurrentA : null,
-            Temperature = double.IsFinite(sample.MaxTempC) ? sample.MaxTempC : null,
-            MinTemperature = sample.MinTempC, MosTemperature = sample.MosTempC, Cycles = sample.CycleCount,
+            Voltage = sample.PackVoltageValid && double.IsFinite(sample.PackVoltageV) ? sample.PackVoltageV : null,
+            Current = sample.CurrentValid && double.IsFinite(sample.CurrentA) ? sample.CurrentA : null,
+            Temperature = sample.BatteryTemperatureAvailable && double.IsFinite(sample.MaxTempC) ? sample.MaxTempC : null,
+            MinTemperature = sample.BatteryTemperatureAvailable ? sample.MinTempC : null,
+            MosTemperature = sample.MosTemperatureAvailable ? sample.MosTempC : null, Cycles = sample.CycleCount,
             FaultCode = (sample.ProtectionLevel1Raw | sample.ProtectionLevel2Raw | sample.ProtectionLevel3Raw) == 0 ? (byte)0 : (byte)255,
-            Fault = string.Join("；", new[] { sample.ProtectionLevel1Text, sample.ProtectionLevel2Text, sample.ProtectionLevel3Text }
+            Fault = string.Join("；", new[] { sample.ProtectionLevel1Text, sample.ProtectionLevel2Text,
+                sample.ProtectionLevel3Text, sample.Measurements?.FaultDetails }
                 .Where(x => !string.IsNullOrWhiteSpace(x) && x != "无")),
-            HasCurrent = true, HasFault = true, HasCells = true, Cells = cells
+            HasCurrent = sample.CurrentValid, HasFault = true, HasCells = true, Cells = cells
         });
     }
 

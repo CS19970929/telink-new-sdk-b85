@@ -13,6 +13,31 @@ static class Test
         Check(c.IsC077&&!c.IsC060&&c.UsesC060Protocol&&c.ParameterProduct=="C077","explicit C077 identity stays distinct");
         var battery=await c.ReadBatteryAsync();Check(battery.ValidCellCount==16&&battery.CellMillivolts[16]==61001&&battery.CurrentA==-2,"16 cells, absent61001, normalized current");
         Check(!peer.Reads.Any(r=>r.Item1==0xD120),"no unsupported realtime probing");
+        var newer=new Peer { C077=true, Advertised=true, MeasurementSnapshot = new ushort[C077Measurements.WordCount] };
+        var data=newer.MeasurementSnapshot!;
+        data[0]=0xC077;data[1]=1;data[2]=0x0B;data[3]=0xFFFF;data[4]=0x021A;data[5]=1;
+        data[6]=0xFFFF;data[7]=0xFFFB;data[8]=0x80;data[9]=0x10;data[10]=8;data[11]=1;
+        data[12]=25;data[14]=27;data[20]=0x021B;data[21]=16;data[22]=1;data[23]=3;
+        Array.Fill(data,(ushort)3330,24,16);Array.Fill(data,(ushort)61001,40,16);
+        data[24+37]=5328;data[24+50]=20;data[24+38+1]=0;data[87+3]=unchecked((ushort)(short)-200);
+        await using (var realtime=new BmsClient(newer))
+        {
+            await realtime.ReadIdentityAsync();
+            var mixed=await realtime.ReadBatteryAsync();
+            Check(mixed.Measurements is { } && mixed.PackVoltageV==53.28 && mixed.CurrentA==-2 &&
+                mixed.ValidCellCount==16 && mixed.IsCellVoltageValid(2) && mixed.CellMillivolts[16]==61001,
+                "new snapshot keeps valid voltage/current during NTC and cell faults");
+            Check(mixed.Measurements!.TemperaturesC[0] is null && mixed.Measurements.TemperaturesC[1]==-40 &&
+                mixed.Measurements.CellDifferencesMv[3]==-200 && mixed.Measurements.FaultDetails.Contains("3330/3530"),
+                "valid -40 C and signed dual AFE mismatch survive decoding");
+            Check(!newer.Reads.Any(r=>r.Item1==0xD000) && newer.Reads.Any(r=>r==(0x2C00,103)),
+                "numbers and validity are fetched in one response");
+            data[2]=9;data[3]=data[6]=0xFFFB;data[22]=0;
+            var incomplete=await realtime.ReadBatteryAsync();
+            Check(!incomplete.PackVoltageValid && incomplete.PackVoltageDisplay=="—" &&
+                incomplete.ValidCellCount==15 && !incomplete.IsCellVoltageValid(2),
+                "missing measurement is distinct from a missing physical cell");
+        }
         var capture=await c.ReadC060ParametersAsync();Check(capture.Product=="C077"&&capture.Blocks.ContainsKey("231C")&&capture.Blocks.ContainsKey("C077Afe"),"shared parameter wire contract, separate product tag");
         Check(!peer.Reads.Any(r=>r.Item1 is 0x3000 or 0x3050),"C077 does not resurrect retired segmented current calibration");
         foreach(ushort address in new ushort[]{0x231D,0x231E}) {

@@ -226,8 +226,12 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
         for(int at=0;at<reply.Length;at+=7)DataReceived?.Invoke(reply.AsMemory(at,Math.Min(7,reply.Length-at)));
         return Task.CompletedTask;
     }
+    public ushort[]? MeasurementSnapshot { get; set; }
+
     ushort[]? Read(int a,int n)
     {
+        if (MeasurementSnapshot is { } snapshot && a >= 0x2C00 && a+n <= 0x2C00+snapshot.Length)
+            return snapshot.Skip(a-0x2C00).Take(n).ToArray();
         if(NativeCalibration) {
             if(a==0x2e00&&n==3)return new ushort[]{(ushort)(C077?0xc077:0xc060),1,1};
             if(a==0x2e24&&n==4)return D008Parameters.Calibration(NativeOffsetMa,NativeGainPpm);
