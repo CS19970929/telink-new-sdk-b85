@@ -21,12 +21,20 @@ static class Test
   rows.Add(new DeviceEventLogRow(1,"单体欠压","—","发生",10,new DateTimeOffset(2026,11,3,12,34,56,TimeSpan.Zero),120,"软件保护","3级",2790,3500,-123,250,600,3));
   rows.Add(new DeviceEventLogRow(2,"AFE通信异常","—","稳定恢复",9,null,90,"系统","—",null,null,null,null,600));
   var view=CollectionViewSource.GetDefaultView(rows);Check(view.Cast<object>().Count()==2,"默认显示两条");
+  bool factory=type.Assembly.GetName().Name=="BmsFactoryTest.Windows";
+  var grid=((DockPanel)tab.Content).Children.OfType<DataGrid>().Single();
+  if(factory) {
   ((ComboBox)Field("_eventSource")!).SelectedIndex=2;Call("RefreshEventFilter");Check(view.Cast<object>().Count()==1,"来源筛选");
   ((ComboBox)Field("_eventSource")!).SelectedIndex=0;
   ((DatePicker)Field("_eventFrom")!).SelectedDate=new DateTime(2026,11,3);Call("RefreshEventFilter");Check(view.Cast<object>().Count()==1,"日期筛选排除未知时间");
   ((DatePicker)Field("_eventFrom")!).SelectedDate=null;
   ((TextBox)Field("_eventSearch")!).Text="AFE";Call("RefreshEventFilter");Check(view.Cast<object>().Count()==1,"事件名称筛选");
   ((TextBox)Field("_eventSearch")!).Text="";Call("RefreshEventFilter");
+  } else {
+   Check(grid.Columns.Select(c=>c.Header.ToString()).SequenceEqual(new[]{"序号","事件"}),"客户版事件仅显示序号和名称");
+   string csv=(string)type.GetMethod("ExportEventList",BindingFlags.Static|BindingFlags.NonPublic)!.Invoke(null,new[]{rows})!;
+   Check(csv.StartsWith("序号,事件")&&csv.Contains("单体欠压")&&!csv.Contains("2026")&&!csv.Contains("UTC"),"客户版CSV不含时间");
+  }
   foreach(var size in new[]{new Size(1440,900),new Size(1000,700)}){
    var root=(FrameworkElement)window.Content;root.Measure(size);root.Arrange(new Rect(size));root.UpdateLayout();
    var bitmap=new RenderTargetBitmap((int)size.Width,(int)size.Height,96,96,PixelFormats.Pbgra32);bitmap.Render(root);

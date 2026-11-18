@@ -49,8 +49,10 @@ public static class C060Parameters
 {
     public static readonly C060ParameterGroup[] Groups={new(0x2300,8,"均衡"),new(0x2308,8,"电流与SOC表"),new(0x2310,8,"兼容休眠"),new(0x2318,4,"容量与SOC"),new(0x231C,4,"系统"),new(0x2320,24,"兼容热冷")};
     public static readonly IReadOnlyList<C060ParameterField> Fields=CreateFields();
+    internal static readonly ushort[] ShortThresholdMillivolts = { 22, 33, 44, 67, 89, 111, 133, 155, 178, 200 };
+    internal static readonly ushort[] ShortDelayTenthsUs = { 700, 1000, 2000, 4000 };
     public static IReadOnlyList<C060ParameterField> FieldsFor(bool c077) => Fields
-        .Where(f=>f.Address is >=0x2300 and <=0x2301 or >=0x2308 and <=0x230C or >=0x2318 and <=0x231E ||
+        .Where(f=>f.Address is >=0x2300 and <=0x2302 or >=0x2308 and <=0x230C or >=0x2318 and <=0x231E ||
             !c077 && f.Address is 0x2312 or 0x2313)
         .Select(f=>f.Address switch {
             0x2312=>f with {Compatibility=false,Group="休眠",Name="低压休眠电压",Hint="低于该单体电压时禁止周期RTC，并按低压等待时间进入深睡。"},
@@ -70,7 +72,7 @@ public static class C060Parameters
         }
         Add(0x2300,"均衡起始单体电压","mV",min:1000,max:5000);
         Add(0x2301,"均衡启动压差","mV",min:1,max:2000);
-        Add(0x2302,"旧均衡关闭压差","mV",max:2000,compatibility:true,hint:"兼容字段；当前充电均衡未使用此停止阈值。");
+        Add(0x2302,"均衡关闭压差","mV",max:2000,hint:"须小于启动压差；均衡串与最低串的压差达到此值时停止。");
         for(int a=0x2303;a<=0x2307;a++)Add(a,"均衡保留字段",editable:false,hint:"未编辑值随整组原样保留。");
         Add(0x2308,"计算充电电流上限","A",10,editable:false,hint:"由固件按采样电阻与并联数重算。");
         Add(0x2309,"计算放电电流上限","A",10,editable:false,hint:"由固件按采样电阻与并联数重算。");
@@ -146,10 +148,8 @@ public static class C060Parameters
         if (limit == 0 || limit > ushort.MaxValue)
             throw new ArgumentException("采样参数导致电流上限不可表示。");
 
-        ushort[] delays = { 700, 1000, 2000, 4000 }; // 0.1 us
-        ushort[] thresholds = { 22, 33, 44, 67, 89, 111, 133, 155, 178, 200 }; // mV
-        ushort delay = delays.FirstOrDefault(x => x >= words[2], (ushort)4000);
-        ushort threshold = thresholds.FirstOrDefault(x =>
+        ushort delay = ShortDelayTenthsUs.FirstOrDefault(x => x >= words[2], (ushort)4000);
+        ushort threshold = ShortThresholdMillivolts.FirstOrDefault(x =>
             (ulong)words[3] * resistance <= (ulong)x * parallel * 10u, (ushort)200);
         uint actual = (uint)threshold * parallel * 10u / resistance;
         if (actual == 0 || actual > ushort.MaxValue)
@@ -215,6 +215,7 @@ public sealed partial class BmsClient
                 foreach(var field in group)candidate[field.Address-group.Key]=changes[field.Address];
                 if(group.Key<0x2100)
                     foreach(var pairField in C060Parameters.Fields.Where(f=>f.WriteAddress==group.Key))pairField.Parse(pairField.Format(candidate[pairField.Address-group.Key]));
+                if(group.Key==0x2300&&candidate[1]<=candidate[2])throw new ArgumentException("均衡启动压差必须大于关闭压差。");
                 if(group.Key==0x2318&&candidate[3]>=candidate[2])throw new ArgumentException("SOC 0%端点必须低于100%端点。");
                 if(group.Key==0x231C) {
                     if(IsC077) {

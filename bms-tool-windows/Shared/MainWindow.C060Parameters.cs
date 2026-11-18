@@ -46,8 +46,7 @@ public partial class MainWindow
     {
         var page=new DockPanel{Margin=new Thickness(12)};
         var top=new StackPanel();DockPanel.SetDock(top,Dock.Top);page.Children.Add(top);
-        _c060Intro.Text="参数按组保存，保存后自动读回。软件保护在“保护参数”页。";
-        top.Children.Add(_c060Intro);
+        if (C060FactoryEdition) top.Children.Add(_c060Intro);
         top.Children.Add(_c060Status);
         var tools=new WrapPanel();top.Children.Add(tools);
         void Button(string label,Func<Task> action) {
@@ -95,7 +94,8 @@ public partial class MainWindow
             if(MessageBox.Show(this,$"确认将当前SOC设置为{value}%？该值先更新RAM，运行快照按固件既有规则保存。","设置SOC",MessageBoxButton.YesNo,MessageBoxImage.Question)!=MessageBoxResult.Yes)return;
             await RunC060ParameterAsync(async(c,t)=>{await c.SetSocAndVerifyAsync(value,t);},"设置当前SOC");
         };
-        socRow.Children.Add(socSave);socRow.Children.Add(new TextBlock{Text="RAM值；深睡/升级时按固件规则保存快照。",VerticalAlignment=VerticalAlignment.Center});top.Children.Add(socRow);
+        socRow.Children.Add(socSave);
+        top.Children.Add(socRow);
         top.Children.Add(_c060Compatibility);
         if(C060FactoryEdition)top.Children.Add(_c060ImportCalibration);
         var identity=new WrapPanel{Margin=new Thickness(4)};top.Children.Add(identity);
@@ -131,11 +131,15 @@ public partial class MainWindow
         ReadOnlyStyle("Field.Editable",false);
         if(!C060FactoryEdition)ReadOnlyStyle("Field.FactoryOnly",true);
         _c060Grid.BeginningEdit+=(_,e)=>{if(e.Row.Item is C060ParameterRow row&&!CanEditC060Field(row.Field))e.Cancel=true;};
-        page.Children.Add(CreateParameterBrowser(_c060Grid,item=>((C060ParameterRow)item).Group,_c060Rows.Select(r=>r.Group)));
+        bool ShowField(C060ParameterRow row) => C060FactoryEdition || row.Field.WriteAddress is 0x2300 or 0x2310 or 0x2318;
+        page.Children.Add(CreateParameterBrowser(_c060Grid,item=>((C060ParameterRow)item).Group,
+            _c060Rows.Where(ShowField).Select(r=>r.Group),item=>ShowField((C060ParameterRow)item)));
         ((DataGridTextColumn)_c060Grid.Columns[3]).ElementStyle=editStyle;
         _c060ParameterTab=new TabItem{Header="基本参数",Content=new ScrollViewer{Content=page,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled},Visibility=Visibility.Collapsed};_parameterSections.Items.Insert(0,_c060ParameterTab);
     }
-    private bool CanEditC060Field(C060ParameterField field)=>field.Editable&&(!field.FactoryOnly||C060FactoryEdition)&&(!field.Compatibility||_c060Compatibility.IsChecked==true);
+    private bool CanEditC060Field(C060ParameterField field)=>field.Editable&&
+        (C060FactoryEdition || !field.FactoryOnly && field.WriteAddress is 0x2300 or 0x2310 or 0x2318)&&
+        (!field.Compatibility||_c060Compatibility.IsChecked==true);
     private async Task EditBleNameAsync(BmsClient client,CancellationToken ct)
     {
         if(_bmsTransport is not BmsBleTransport transport)throw new InvalidOperationException("请通过蓝牙连接后修改模块名称。");
@@ -160,7 +164,7 @@ public partial class MainWindow
     private void UpdateParameterProfileUi()
     {
         bool c060=_bms?.UsesC060Protocol==true,c077=_bms?.IsC077==true;
-        _c077Tools.Visibility=_c077Status.Visibility=c077?Visibility.Visible:Visibility.Collapsed;
+        _c077Tools.Visibility=_c077Status.Visibility=c077&&C060FactoryEdition?Visibility.Visible:Visibility.Collapsed;
         _c060Intro.Text=c077 ? "C077 · 16串分口 / 双SH367309。AFE1采电流，AFE2仅采电压与温度。硬保护在内部版独立编辑：先保存Flash，再明确下发EEPROM；软件过流不再自动改变硬保护。" :
             "参数按组保存，保存后自动读回。软件保护在“保护参数”页。";
         _c060Compatibility.Visibility=Visibility.Collapsed;

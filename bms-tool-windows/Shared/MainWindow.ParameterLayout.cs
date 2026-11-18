@@ -59,7 +59,10 @@ public partial class MainWindow
         };
         // 长说明放在下方，避免把编辑数值挤出可视区域。
         if (table.Columns.Count > 5) table.Columns[table.Columns.Count - 1].Visibility = Visibility.Collapsed;
-        DockPanel.SetDock(detail, Dock.Bottom); content.Children.Add(detail); content.Children.Add(table);
+#if BMS_FACTORY_APP
+        DockPanel.SetDock(detail, Dock.Bottom); content.Children.Add(detail);
+#endif
+        content.Children.Add(table);
         Grid.SetColumn(content, 1); root.Children.Add(content);
         return root;
     }
@@ -76,7 +79,7 @@ public partial class MainWindow
         var header = parent.Children.OfType<StackPanel>().Single();
         var buttons = header.Children.OfType<StackPanel>().Single(p => p.Orientation == Orientation.Horizontal);
         var shortCircuit = new Button { Content = "硬件短路保护", MinWidth = 125, Height = 30,
-            Margin = new Thickness(8, 0, 0, 0), ToolTip = "设置 AFE 短路电流和延时；保持放电过流2及其它参数。" };
+            Margin = new Thickness(8, 0, 0, 0), ToolTip = "读取或设置 AFE 硬件短路电流和延时" };
         shortCircuit.Click += OpenShortCircuitSettings_Click;
         buttons.Children.Insert(3, shortCircuit);
     }

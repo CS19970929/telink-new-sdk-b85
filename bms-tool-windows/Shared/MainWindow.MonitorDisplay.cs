@@ -26,7 +26,10 @@ public partial class MainWindow
         if (owc)
         {
             DeviceList.Visibility = SerialBaudRateBox.Visibility = StopScanButton.Visibility = Visibility.Collapsed;
-            ShowHistoryDevicesBox.Visibility = BleDiscoveryStatusText.Visibility = Visibility.Collapsed;
+            BleDiscoveryStatusText.Visibility = Visibility.Collapsed;
+#if BMS_FACTORY_APP
+            ShowHistoryDevicesBox.Visibility = Visibility.Collapsed;
+#endif
             SerialPortList.Visibility = Visibility.Visible;
             ScanButton.Content = "刷新";
             ShowOwcReading(null);

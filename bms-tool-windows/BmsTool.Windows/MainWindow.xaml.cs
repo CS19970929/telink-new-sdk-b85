@@ -153,9 +153,7 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException("请先扫描并选择设备。");
 
             if (selected.Source == BleDiscoverySource.Advertisement && !selected.HasRecentAdvertisement)
-                throw new InvalidOperationException("所选设备的广播已过期，请重新搜索或从历史记录手动验证。");
-            if (selected.Source == BleDiscoverySource.History)
-                AppendLog("正在手动验证历史设备；系统记录不代表在线。", "CONNECT");
+                throw new InvalidOperationException("所选设备已离开搜索范围，请重新搜索。");
             _bleScanRunning = false;
             AppendLog($"用户发起连接；name='{selected.Name}'; address={selected.Address:X12}; rssi={selected.Rssi}dBm", "CONNECT");
             if (_watcher is not null)

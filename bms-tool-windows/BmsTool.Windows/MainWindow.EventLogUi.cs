@@ -12,11 +12,13 @@ public partial class MainWindow
     private bool _eventLogReadInProgress;
     private const ushort EventLogRegister = 0xC008;
     private const ushort EventLogCount = 100;
+#if BMS_FACTORY_APP
     private DatePicker? _eventFrom, _eventTo;
     private ComboBox? _eventSource, _eventState;
     private TextBox? _eventSearch;
     private DateTimeOffset _eventReadUtc;
     private string _eventReadIdentity = "";
+#endif
 
     private void AddEventLogTab()
     {
@@ -26,9 +28,10 @@ public partial class MainWindow
         var actions = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) }; toolbar.Children.Add(actions);
         var read = new Button { Content = "读取事件日志", Padding = new Thickness(12, 5, 12, 5) };
         read.Click += ReadEventLogs_Click; actions.Children.Add(read);
-        var export = new Button { Content = "导出当前筛选CSV", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(8, 0, 8, 0) };
+        var export = new Button { Content = "导出 CSV", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(8, 0, 8, 0) };
         export.Click += ExportEventLogs_Click; actions.Children.Add(export);
         _eventLogStatus = new TextBlock { Text = "未读取", VerticalAlignment = VerticalAlignment.Center }; actions.Children.Add(_eventLogStatus);
+#if BMS_FACTORY_APP
         var filters = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) }; toolbar.Children.Add(filters);
         filters.Children.Add(new TextBlock { Text = "本地日期：", VerticalAlignment = VerticalAlignment.Center });
         _eventFrom = new DatePicker { Width = 130 }; _eventTo = new DatePicker { Width = 130 };
@@ -42,18 +45,23 @@ public partial class MainWindow
         _eventFrom.SelectedDateChanged += (_, _) => RefreshEventFilter(); _eventTo.SelectedDateChanged += (_, _) => RefreshEventFilter();
         _eventSource.SelectionChanged += (_, _) => RefreshEventFilter(); _eventState.SelectionChanged += (_, _) => RefreshEventFilter(); _eventSearch.TextChanged += (_, _) => RefreshEventFilter();
         toolbar.Children.Add(new TextBlock { Text = "D015保留最近100条重点事件；按顺序号排列。时间未同步时显示启动后秒数；日期筛选仅包含有日期的记录。", Foreground = Brushes.DimGray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
+#endif
         var grid = new DataGrid { AutoGenerateColumns = false, CanUserAddRows = false, CanUserDeleteRows = false, IsReadOnly = true, ItemsSource = _deviceEventLogs };
+#if BMS_FACTORY_APP
         foreach (var col in new[] { ("序号", "Position", 55d), ("时间（本地）", "TimeText", 215d), ("事件", "EventName", 160d), ("状态", "StateText", 85d), ("来源", "SourceText", 110d), ("故障现场", "SnapshotText", 400d), ("明细", "DetailText", 220d) })
             grid.Columns.Add(new DataGridTextColumn { Header = col.Item1, Binding = new Binding(col.Item2), Width = col.Item3 });
-#if BMS_FACTORY_APP
         grid.Columns.Add(new DataGridTextColumn { Header = "等级", Binding = new Binding("LevelText"), Width = 60 });
         grid.Columns.Add(new DataGridTextColumn { Header = "顺序号", Binding = new Binding("Sequence"), Width = 90 });
         grid.Columns.Add(new DataGridTextColumn { Header = "原始标志", Binding = new Binding("EventFlags") { StringFormat = "0x{0:X2}" }, Width = 90 });
-#endif
         CollectionViewSource.GetDefaultView(_deviceEventLogs).Filter = EventMatchesFilter;
+#else
+        grid.Columns.Add(new DataGridTextColumn { Header = "序号", Binding = new Binding(nameof(DeviceEventLogRow.Position)), Width = 70 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "事件", Binding = new Binding(nameof(DeviceEventLogRow.EventName)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+#endif
         root.Children.Add(grid);
         MainTabs.Items.Insert(Math.Min(3, MainTabs.Items.Count), new TabItem { Header = "事件日志", Content = root });
     }
+#if BMS_FACTORY_APP
     private bool EventMatchesFilter(object value)
     {
         if (value is not DeviceEventLogRow r) return false;
@@ -64,6 +72,7 @@ public partial class MainWindow
         return string.IsNullOrWhiteSpace(_eventSearch?.Text) || r.EventName.Contains(_eventSearch.Text.Trim(), StringComparison.OrdinalIgnoreCase);
     }
     private void RefreshEventFilter() => CollectionViewSource.GetDefaultView(_deviceEventLogs).Refresh();
+#endif
     private async void ReadEventLogs_Click(object sender, RoutedEventArgs e)
     {
         if (_eventLogReadInProgress) return;
@@ -73,7 +82,7 @@ public partial class MainWindow
         {
             _pollTimer.Stop(); await WaitForCommunicationIdleAsync();
             BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接BMS。");
-            _eventLogStatus!.Text = "正在读取一致的日志记录…";
+            _eventLogStatus!.Text = "正在读取…";
             IReadOnlyList<DeviceEventLogRow> rows; string status;
             if (bms.IsD015)
             {
@@ -92,12 +101,14 @@ public partial class MainWindow
                 ushort[] words = await bms.ReadRegistersAsync(EventLogRegister, EventLogCount);
                 rows = words.Select((w, i) => new DeviceEventLogRow(i + 1, DecodeLegacyEventName((byte)(w >> 8)), DecodeEventInterval((byte)w), "旧格式"))
                     .Where((r, i) => (words[i] >> 8) != 0).ToArray();
-                status = $"旧格式{rows.Count}/100条，无绝对时间";
+                status = $"已读取 {rows.Count} 条";
             }
             if (!ReferenceEquals(_bms, bms)) throw new IOException("连接已变化，未发布上一个设备的日志。");
             _deviceEventLogs.Clear(); foreach (var row in rows) _deviceEventLogs.Add(row);
+#if BMS_FACTORY_APP
             _eventReadUtc = DateTimeOffset.UtcNow; _eventReadIdentity = IdentityText.Text ?? "";
-            _eventLogStatus.Text = status + $" · {_eventReadUtc.LocalDateTime:HH:mm:ss}";
+#endif
+            _eventLogStatus.Text = status;
             AppendLog($"EVENT_LOG_READ_OK count={rows.Count}", "LOG");
         }
         catch (Exception ex)
@@ -115,13 +126,32 @@ public partial class MainWindow
     }
     private void ExportEventLogs_Click(object sender, RoutedEventArgs e)
     {
+#if BMS_FACTORY_APP
         var rows = CollectionViewSource.GetDefaultView(_deviceEventLogs).Cast<DeviceEventLogRow>().ToArray();
-        if (rows.Length == 0) { MessageBox.Show(this, "当前筛选没有可导出的记录。", "事件日志"); return; }
+#else
+        var rows = _deviceEventLogs.ToArray();
+#endif
+        if (rows.Length == 0) { MessageBox.Show(this, "没有可导出的事件。", "事件日志"); return; }
         var dialog = new SaveFileDialog { Filter = "CSV文件|*.csv", FileName = $"BMS事件日志-{DateTime.Now:yyyyMMdd-HHmmss}.csv" };
         if (dialog.ShowDialog(this) != true) return;
-        try { File.WriteAllText(dialog.FileName, DeviceEventCsv.Export(rows, _eventReadIdentity, _eventReadUtc), new UTF8Encoding(true)); }
+#if BMS_FACTORY_APP
+        string csv = DeviceEventCsv.Export(rows, _eventReadIdentity, _eventReadUtc);
+#else
+        string csv = ExportEventList(rows);
+#endif
+        try { File.WriteAllText(dialog.FileName, csv, new UTF8Encoding(true)); }
         catch (Exception ex) { ShowError("导出事件日志失败", ex); }
     }
+#if !BMS_FACTORY_APP
+    private static string ExportEventList(IEnumerable<DeviceEventLogRow> rows)
+    {
+        var csv = new StringBuilder();
+        csv.AppendLine("序号,事件");
+        foreach (var row in rows)
+            csv.Append(row.Position).Append(",\"").Append(row.EventName.Replace("\"", "\"\"")).AppendLine("\"");
+        return csv.ToString();
+    }
+#endif
     private static string DecodeLegacyEventName(byte id) => id switch { 17 => "CBC错误", 18 => "AFE1错误", 19 => "AFE2错误", 20 => "EEPROM错误", _ => BmsClient.EventName(id) };
     private static string DecodeEventInterval(byte code) => code switch { 0 => "启动记录 / 0", 171 => "≤1分钟", 170 => ">168小时", >= 1 and <= 168 => $"约{code}小时", _ => $"未知间隔编码{code}" };
 }

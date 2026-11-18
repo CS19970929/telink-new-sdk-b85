@@ -41,7 +41,6 @@
                             <Button x:Name="HomeRecordStartButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2">开始监控</Button>
                             <Button x:Name="HomeRecordStopButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2">停止</Button>
                             <Button x:Name="HomeRecordExportButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2">导出 CSV / Excel</Button>
-                            <Button x:Name="HomeRecordsButton" Style="{StaticResource CustomerButton}" Margin="0,2,10,2">查看记录</Button>
                             <TextBlock x:Name="HomeRecordStatusText" Text="未开始" VerticalAlignment="Center" Foreground="DimGray"
                                        MaxWidth="340" TextTrimming="CharacterEllipsis"/>
                         </WrapPanel>
@@ -255,8 +254,6 @@
                                         <DockPanel Margin="0,4,0,0" LastChildFill="False">
                                             <Button x:Name="CancelConnectionButton" DockPanel.Dock="Right" Content="取消连接" Click="CancelConnection_Click"
                                                     IsEnabled="False" Padding="8,2" Visibility="Collapsed"/>
-                                            <CheckBox x:Name="ShowHistoryDevicesBox" VerticalAlignment="Center"
-                                                      Content="显示历史设备（不代表在线）" Checked="ShowHistoryDevices_Changed" Unchecked="ShowHistoryDevices_Changed"/>
                                         </DockPanel>
                                         <WrapPanel HorizontalAlignment="Right" Margin="0,4,0,0">
                                             <Button x:Name="DisconnectButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2" Click="CustomerDisconnect_Click">断开</Button>
@@ -364,7 +361,6 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0">
-                        <TextBlock Text="按左侧类别选择保护项，在蓝色数值栏编辑。点击写入后才保存到设备；写入全部包含其它类别中的修改。" TextWrapping="Wrap"/>
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,8">
                             <Button Width="105" Click="ReadProtection_Click">读取全部</Button>
                             <Button Width="115" Margin="8,0,0,0" Click="WriteSelectedProtection_Click">写入选中项</Button>
@@ -420,7 +416,6 @@
                     <TextBlock x:Name="DeviceClockText" Margin="0,0,0,20" FontSize="15" Text="板载时间：—" TextWrapping="Wrap"/>
                     <GroupBox Header="设备 SN" Margin="0,0,0,14">
                         <StackPanel Margin="12">
-                            <TextBlock Text="支持 1～32 个可打印 ASCII 字符。连接后先读取参数，再保存并读回确认。" TextWrapping="Wrap"/>
                             <WrapPanel Margin="0,10,0,0">
                                 <TextBox x:Name="DeviceSerialBox" Width="300" Height="32" MaxLength="32" Margin="0,0,10,6"/>
                                 <Button Padding="12,5" Margin="0,0,8,6" Click="ReadDeviceSerial_Click">读取参数 / SN</Button>
@@ -431,7 +426,6 @@
                     </GroupBox>
                     <GroupBox Header="修改蓝牙名">
                         <StackPanel Margin="12">
-                            <TextBlock Text="设备名称固定以 BT_ 开头。此处只填写后缀，支持字母、数字、下划线和短横线。" TextWrapping="Wrap"/>
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                 <TextBlock VerticalAlignment="Center" FontSize="16" Text="BT_"/>
                                 <TextBox x:Name="NameSuffixBox" Width="240" Height="30" Margin="4,0,10,0"/>
@@ -447,10 +441,10 @@
             <TabItem x:Name="OtaTab" Header="OTA 升级">
                 <StackPanel Margin="16">
                     <StackPanel Orientation="Horizontal">
-                        <Button Width="100" Click="BrowseFirmware_Click">选择固件</Button>
-                        <TextBlock x:Name="FirmwareText" Margin="12,0,0,0" VerticalAlignment="Center" Text="未选择固件"/>
+                        <Button Width="100" Click="BrowseFirmware_Click">选择升级包</Button>
+                        <TextBlock x:Name="FirmwareText" Margin="12,0,0,0" VerticalAlignment="Center" Text="未选择升级包"/>
                     </StackPanel>
-                    <WrapPanel Margin="0,14,0,0">
+                    <WrapPanel Visibility="Collapsed">
                         <StackPanel Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center">OTA 架构</TextBlock>
                         <ComboBox x:Name="OtaTargetBox" Width="210" Margin="8,0">
@@ -472,12 +466,13 @@
                         <TextBox x:Name="ExpectedVersionBox" Width="180" Margin="8,0"/>
                         </StackPanel>
                     </WrapPanel>
-                    <TextBlock Margin="0,10,0,0" Text="自动模式核对固件包与设备身份，支持统一 YMODEM 升级方案、既有页协议和 Telink 模块 OTA。C060 请选择 .c060，C077 请选择 .c077，D015 请选择 .d015；同一方案的新项目自动匹配。升级中断后可重试，回读确认通过才显示成功。" TextWrapping="Wrap"/>
-                    <CheckBox x:Name="SerialIapRecoveryBox" Margin="0,10,0,0" Content="升级恢复：使用所选串口或蓝牙模块，识别 YMODEM Boot，无需先连接 APP"/>
+                    <Expander Header="升级恢复" Margin="0,10,0,0">
+                        <CheckBox x:Name="SerialIapRecoveryBox" Margin="16,6,0,0" Content="使用选中的串口或蓝牙设备恢复升级"/>
+                    </Expander>
                     <ProgressBar x:Name="OtaProgressBar" Height="24" Margin="0,18,0,0" Minimum="0" Maximum="100"/>
-                    <TextBlock x:Name="OtaProgressText" Margin="0,6,0,0" Text="Idle"/>
+                    <TextBlock x:Name="OtaProgressText" Margin="0,6,0,0" Text="待升级"/>
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                        <Button x:Name="StartOtaButton" Width="110" Click="StartOta_Click">开始 OTA</Button>
+                        <Button x:Name="StartOtaButton" Width="110" Click="StartOta_Click">开始升级</Button>
                         <Button x:Name="CancelOtaButton" Width="90" Margin="10,0,0,0" IsEnabled="False" Click="CancelOta_Click">取消</Button>
                     </StackPanel>
                     <TextBlock x:Name="OtaVerifyText" Margin="0,18,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>

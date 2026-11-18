@@ -113,13 +113,18 @@ static class BusinessParametersUiTest
             Check(edit.Cancel==row.IsReadOnly,"宏禁止进入编辑，Flash参数保留编辑能力");
         }
         Check((Field<DataGrid>("_d015OcvGrid").Parent is not null)!=customer,"D015 OCV编辑仅内部版提供");
-        Check(window.FindName("SerialIapRecoveryBox") is CheckBox recovery && recovery.Content.ToString()!.Contains("YMODEM"),"两版均提供通用 YMODEM Boot 恢复入口");
+        Check(window.FindName("SerialIapRecoveryBox") is CheckBox recovery &&
+            (customer ? recovery.Parent is Expander { IsExpanded: false } : recovery.Content.ToString()!.Contains("YMODEM")),
+            "两版均提供 YMODEM 恢复，客户版折叠显示");
         var ota=(TabItem)window.FindName("OtaTab");
         Check(ota.Visibility==Visibility.Visible && window.FindName("OtaTargetBox") is ComboBox,"两版升级页可见并提供协议选择");
         if(args.Length>0) {
             tabs.SelectedItem=ota;var upgrade=(FrameworkElement)ota.Content;
             upgrade.Measure(new Size(820,620));upgrade.Arrange(new Rect(0,0,820,620));upgrade.UpdateLayout();
-            Check(((TextBox)window.FindName("ExpectedVersionBox")).ActualWidth>0,"窄窗口升级控件布局");
+            var expectedVersion=(TextBox)window.FindName("ExpectedVersionBox");
+            bool factoryEdition=type.Assembly.GetName().Name=="BmsFactoryTest.Windows";
+            Check(factoryEdition ? expectedVersion.IsVisible || expectedVersion.ActualWidth>0 : expectedVersion.ActualWidth==0,
+                "客户版升级默认自动识别并隐藏手动项");
             var bitmap=new RenderTargetBitmap(820,620,96,96,PixelFormats.Pbgra32);
             var background=new DrawingVisual();using(var draw=background.RenderOpen())draw.DrawRectangle(Brushes.White,null,new Rect(0,0,820,620));
             bitmap.Render(background);bitmap.Render(upgrade);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));
@@ -136,6 +141,10 @@ static class BusinessParametersUiTest
         Check(!c060Rows.Any(r=>r.Field.Name.Contains("保留") || r.Field.Compatibility),"客户和测试版均隐藏新C060无效占位参数");
         bool CanEdit(C060ParameterRow row)=>(bool)type.GetMethod("CanEditC060Field",Private)!.Invoke(window,new object[]{row.Field})!;
         Check(CanEdit(c060Rows.Single(r=>r.Field.Address==0x2318)),"容量可编辑");
+        Check(CanEdit(c060Rows.Single(r=>r.Field.Address==0x2302)),"均衡关闭压差可编辑");
+        bool isFactory=type.Assembly.GetName().Name=="BmsFactoryTest.Windows";
+        Check(c060Grid.Items.Cast<C060ParameterRow>().All(r=>isFactory || r.Field.WriteAddress is 0x2300 or 0x2310 or 0x2318),
+            "客户版基本参数不显示电流与SOC表及系统字段");
         Check(!CanEdit(c060Rows.Single(r=>r.Field.Address==0x231C)),"不把允许参数串数当实际硬件适配");
         Check(!c060Rows.Any(r=>r.Field.Address<0x2100 || r.Field.Address==0x2311),"C060不显示旧K/B或退役Sleep字段");
         Check(CanEdit(c060Rows.Single(r=>r.Field.Address==0x2312)) && CanEdit(c060Rows.Single(r=>r.Field.Address==0x2313)),"活跃低压休眠参数可编辑");

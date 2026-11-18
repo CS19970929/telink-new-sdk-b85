@@ -11,19 +11,22 @@ public partial class MainWindow
 
     private async void OpenShortCircuitSettings_Click(object sender, RoutedEventArgs e)
     {
-        if (_currentCalibrationOwner is not null || _shortCircuitWindowOpened) return;
-        _shortCircuitWindowOpened = true;
+        if (_currentCalibrationOwner is not null || _shortCircuitWindowOpened || _parameterBusy || _diagBusy ||
+            _eventLogReadInProgress || _otaRunning) return;
+        _shortCircuitWindowOpened = _parameterBusy = true;
         try
         {
             _pollTimer.Stop();
             await WaitForCommunicationIdleAsync();
             BmsClient bms = _bms ?? throw new InvalidOperationException("请先连接 BMS。");
-            new ShortCircuitWindow(bms) { Owner = this }.ShowDialog();
+            Window editor = bms.UsesC060Protocol ? new PackShortCircuitWindow(bms) : new ShortCircuitWindow(bms);
+            editor.Owner = this;
+            editor.ShowDialog();
         }
         catch (Exception ex) { ShowError("打开硬件短路保护失败", ex); }
         finally
         {
-            _shortCircuitWindowOpened = false;
+            _shortCircuitWindowOpened = _parameterBusy = false;
             StartAutomaticRefresh();
         }
     }

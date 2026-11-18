@@ -14,7 +14,8 @@ public sealed class SessionLogger : IDisposable
     public SessionLogger()
     {
         string root = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetEnvironmentVariable("BMS_ASSISTANT_LOG_ROOT") ??
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "BmsAssistant",
             "Logs");
         Directory.CreateDirectory(root);

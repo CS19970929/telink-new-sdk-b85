@@ -44,8 +44,6 @@ public partial class MainWindow
         AddAfeHardwareTab();
         if (_advancedFeaturesInitialized) return;
         _advancedFeaturesInitialized = true;
-        AddSh3520ParameterTab();
-
         AddEventLogTab();
 
         _advancedFeatureTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };

@@ -45,7 +45,11 @@ public partial class MainWindow
 
     private void InitializeUnifiedMonitor()
     {
+#if BMS_FACTORY_APP
         BuildUnifiedRecordPage();
+        HomeRecordsButton.Click += (_, _) => MainTabs.SelectedItem = _unifiedRecordTab;
+        MainTabs.Items.Insert(1, _unifiedRecordTab);
+#endif
         HomeRecordIntervalBox.ItemsSource = _recordInterval.ItemsSource;
         HomeRecordIntervalBox.SetBinding(ComboBox.SelectedIndexProperty, new Binding(nameof(ComboBox.SelectedIndex))
         {
@@ -55,11 +59,9 @@ public partial class MainWindow
         HomeRecordStartButton.Click += UnifiedRecordStart_Click;
         HomeRecordStopButton.Click += async (_, _) => await StopUnifiedRecordingAsync();
         HomeRecordExportButton.Click += UnifiedRecordExport_Click;
-        HomeRecordsButton.Click += (_, _) => MainTabs.SelectedItem = _unifiedRecordTab;
         HomeRecordStatusText.SetBinding(TextBlock.TextProperty, new Binding(nameof(TextBlock.Text)) { Source = _recordStatus });
         HomeRecordStatusText.SetBinding(ToolTipProperty, new Binding(nameof(TextBlock.Text)) { Source = _recordStatus });
         SetMonitorModeDisplay();
-        MainTabs.Items.Insert(1, _unifiedRecordTab);
         _unifiedTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _unifiedTimer.Tick += (_, _) => UpdateUnifiedMonitorState();
         _unifiedTimer.Start();
@@ -118,7 +120,7 @@ public partial class MainWindow
 
     private bool TryChangeUnifiedMode()
     {
-        if (_unifiedRecordTab is null) return true;
+        if (_unifiedTimer is null) return true;
         if (ConnectionModeBox.SelectedIndex != _unifiedModeIndex &&
             (_integratedOwcTask is not null || _bmsTransport is not null || _manualConnectionInProgress ||
              _autoReconnectRunning || _recording?.IsRunning == true))
@@ -165,6 +167,7 @@ public partial class MainWindow
         if (reading is not null && !reading.IsFresh) reading = null;
         _monitorReading = reading;
         if (IsOwcMode) ShowOwcReading(reading);
+        if (_unifiedRecordTab is null) return;
         if (reading is null)
         {
             if (!_trendGap) _trend.Add(new("gap", DateTimeOffset.UtcNow, 0, null, "数据中断"));
@@ -188,7 +191,7 @@ public partial class MainWindow
 
     private void UpdateUnifiedMonitorState()
     {
-        if (_unifiedRecordTab is null) return;
+        if (_unifiedTimer is null) return;
         bool busy = _manualConnectionInProgress || _autoReconnectRunning || _otaRunning || _connectionOperations.IsBusy || ShFactoryBusy();
         bool owc = _integratedOwcTask is not null;
         OwcModeBox.IsEnabled = !owc && !busy && _recording?.IsRunning != true;
@@ -232,13 +235,13 @@ public partial class MainWindow
         if (_recordExport is not null) _recordExport.IsEnabled = idle && _recordDirectory is not null;
         _recordInterval.IsEnabled = HomeRecordIntervalBox.IsEnabled = HomeRecordStartButton.IsEnabled = idle;
         HomeRecordStopButton.IsEnabled = running && !_recordStopping;
-        HomeRecordExportButton.IsEnabled = idle && _recordDirectory is not null;
+        HomeRecordExportButton.IsEnabled = idle && (!UnifiedTestEdition || _recordDirectory is not null);
     }
 
     private async void UnifiedRecordStart_Click(object sender, RoutedEventArgs e)
     {
-        if (_recording?.IsRunning == true || _recordStopping || _recordExportBusy || _recordHistoryBusy) { MainTabs.SelectedItem = _unifiedRecordTab; return; }
-        if (_bmsTransport is null && _integratedOwcTask is null) { _recordStatus.Text = "请先连接设备"; MainTabs.SelectedItem = _unifiedRecordTab; return; }
+        if (_recording?.IsRunning == true || _recordStopping || _recordExportBusy || _recordHistoryBusy) return;
+        if (_bmsTransport is null && _integratedOwcTask is null) { _recordStatus.Text = "请先连接设备"; return; }
         var dialog = new OpenFolderDialog { Title = "选择记录保存位置" };
         if (dialog.ShowDialog(this) != true) return;
         try
@@ -248,8 +251,10 @@ public partial class MainWindow
             _recording = new MonitorRecording(dialog.FolderName, new[] { 1, 5, 10, 30, 60 }[_recordInterval.SelectedIndex]);
             _recordDirectory = _recording.DirectoryPath;
             _recording.Capture(_monitorReading);
-            ShowLiveRecordTrend();
-            MainTabs.SelectedItem = _unifiedRecordTab;
+            if (_unifiedRecordTab is not null) {
+                ShowLiveRecordTrend();
+                MainTabs.SelectedItem = _unifiedRecordTab;
+            }
             UpdateUnifiedMonitorState();
         }
         catch (Exception ex) { HandleUnifiedRecordError(ex); }
@@ -307,13 +312,20 @@ public partial class MainWindow
 
     private async void UnifiedRecordExport_Click(object sender, RoutedEventArgs e)
     {
-        if (_recordDirectory is null || _recording?.IsRunning == true || _recordStopping || _recordExportBusy) return;
+        if (_recording?.IsRunning == true || _recordStopping || _recordExportBusy || _recordHistoryBusy) return;
+        string? directory = _recordDirectory;
+        if (directory is null)
+        {
+            var folder = new OpenFolderDialog { Title = "选择要导出的记录目录" };
+            if (folder.ShowDialog(this) != true) return;
+            directory = folder.FolderName;
+        }
         var dialog = new SaveFileDialog { Filter = "CSV (*.csv)|*.csv|Excel (*.xlsx)|*.xlsx", FileName = $"BMS-{DateTime.Now:yyyyMMdd-HHmmss}", AddExtension = true };
         if (dialog.ShowDialog(this) != true) return;
         _recordExportBusy = true;
-        _recordExport!.IsEnabled = HomeRecordExportButton.IsEnabled = false;
+        HomeRecordExportButton.IsEnabled = false;
+        if (_recordExport is not null) _recordExport.IsEnabled = false;
         _recordStatus.Text = "正在导出…";
-        string directory = _recordDirectory;
         try
         {
             _recordExportTask = Task.Run(() => {

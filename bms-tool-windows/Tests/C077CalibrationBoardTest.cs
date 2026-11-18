@@ -23,7 +23,7 @@ static class Test
         var hardware=await client.ReadC077HardwareAsync(ct:ct);var eeprom=hardware.Actual.Chips.Select(c=>c.Eeprom.ToArray()).ToArray();
         Check(hardware.Actual.Schema==3&&hardware.Actual.SampleValid&&hardware.Actual.ZeroReady,"dual AFE ready with new startup schema");
         var capture=await client.ReadC060ParametersAsync(ct);
-        Check(capture.Schema==2&&!capture.Blocks.ContainsKey("Calibration")&&C060Parameters.FieldsFor(true).Count==14,"generic parameters without retired K/B");
+        Check(capture.Schema==2&&!capture.Blocks.ContainsKey("Calibration")&&C060Parameters.FieldsFor(true).Count==15,"generic parameters without retired K/B");
         double connectSeconds=connect.Elapsed.TotalSeconds;
         await Task.Delay(35000,ct);var wake=Stopwatch.StartNew();await client.ReadBatteryAsync(ct);double wakeSeconds=wake.Elapsed.TotalSeconds;
         var session=await client.BeginCurrentCalibrationAsync(ct);var original=session.Original;bool restored=false;

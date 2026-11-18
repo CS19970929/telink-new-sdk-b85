@@ -59,20 +59,20 @@ static class UnifiedMonitorTest
         var modeDetails = Find<ComboBox>("OwcModeBox");
         var monitor = Find<ScrollViewer>("RealtimeScrollViewer");
         tabs.SelectedItem = realtime;
-        var otherTabs = tabs.Items.OfType<TabItem>().Skip(2).ToArray();
         bool factory = type.Assembly.GetName().Name!.Contains("Factory");
+        var otherTabs = tabs.Items.OfType<TabItem>().Where(t => t != realtime && !Equals(t.Header, "趋势与记录")).ToArray();
         Check(tabs.TabStripPlacement == Dock.Top && ReferenceEquals(tabs.Items[0], realtime) &&
-            Equals(realtime.Header, "实时监控") && Equals(((TabItem)tabs.Items[1]).Header, "趋势与记录"),
-            "旧版顶部页签、实时监控和趋势记录页均在主窗口");
+            Equals(realtime.Header, "实时监控") && tabs.Items.OfType<TabItem>().Any(t => Equals(t.Header, "趋势与记录")) == factory,
+            "实时监控保留在首页，独立趋势页仅供内部版使用");
         Check(mode.Items.Cast<ComboBoxItem>().Select(item => item.Content.ToString())
             .SequenceEqual(new[] { "蓝牙", "串口", "一线通" }), "同一个下拉框提供三种通信方式");
         Check(Find<ComboBox>("DeviceList").Visibility == Visibility.Visible &&
-            history.Visibility == Visibility.Visible && ports.Visibility == Visibility.Collapsed,
-            "蓝牙显示设备及历史列表，隐藏 COM 端口");
+            (factory ? history?.Visibility == Visibility.Visible : history is null) && ports.Visibility == Visibility.Collapsed,
+            "客户版蓝牙显示附近设备，隐藏 COM 端口");
         int windows = app.Windows.Count;
         mode.SelectedIndex = 1;
         Check(ports.Visibility == Visibility.Visible && baud.Visibility == Visibility.Visible &&
-            Find<ComboBox>("DeviceList").Visibility == Visibility.Collapsed && history.Visibility == Visibility.Collapsed &&
+            Find<ComboBox>("DeviceList").Visibility == Visibility.Collapsed && (history is null || history.Visibility == Visibility.Collapsed) &&
             modeDetails.Visibility == Visibility.Collapsed, "串口使用原 COM 与波特率控件");
         mode.SelectedIndex = 2;
         Check(ReferenceEquals(tabs.SelectedItem, realtime) && app.Windows.Count == windows &&
@@ -140,18 +140,23 @@ static class UnifiedMonitorTest
         Call("UpdateUnifiedMonitorState");
         mode.SelectedIndex = 0;
         Check(mode.IsEnabled && mode.SelectedIndex == 0 && Find<GroupBox>("MonitorMosGroup").Visibility == Visibility.Visible &&
-            Find<ComboBox>("DeviceList").Visibility == Visibility.Visible && history.Visibility == Visibility.Visible,
+            Find<ComboBox>("DeviceList").Visibility == Visibility.Visible && (history is null || history.Visibility == Visibility.Visible),
             "断开后可切回蓝牙，并恢复原设备入口");
         var interval = Find<ComboBox>("HomeRecordIntervalBox");
         interval.SelectedIndex = 2;
         var recordInterval = (ComboBox)Field("_recordInterval")!;
-        Check(recordInterval.SelectedIndex == 2, "首页记录间隔与趋势页同步");
-        recordInterval.SelectedIndex = 1;
-        Check(interval.SelectedIndex == 1, "趋势页修改间隔会同步回首页");
-        Find<Button>("HomeRecordsButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        var plot = (MonitorPlot)Field("_recordPlot")!;
-        Check(Equals(((TabItem)tabs.SelectedItem).Header, "趋势与记录") &&
-            plot.Entries.Any(entry => entry.Kind == "sample"), "首页记录入口打开当前实时趋势");
+        Check(recordInterval.SelectedIndex == 2, "首页选择记录间隔");
+        var trendButton = Find<Button>("HomeRecordsButton");
+        if (factory)
+        {
+            recordInterval.SelectedIndex = 1;
+            Check(interval.SelectedIndex == 1, "趋势页修改间隔会同步回首页");
+            trendButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var plot = (MonitorPlot)Field("_recordPlot")!;
+            Check(Equals(((TabItem)tabs.SelectedItem).Header, "趋势与记录") &&
+                plot.Entries.Any(entry => entry.Kind == "sample"), "内部版查看当前实时趋势");
+        }
+        else Check(trendButton is null && Find<Button>("HomeRecordExportButton").IsEnabled, "客户版首页可直接导出历史记录");
         tabs.SelectedItem = realtime;
         var recorder=new MonitorRecording(output,1);
         type.GetField("_recording",Flags)!.SetValue(window,recorder);

@@ -64,10 +64,17 @@ public partial class MainWindow
     {
         if (_bleWindowClosed || !IsInitialized || BleDiscoveryStatusText is null) return;
         bool serial = IsSerialConnectionMode || IsOwcMode;
-        BleDiscoveryStatusText.Visibility = ShowHistoryDevicesBox.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
+        BleDiscoveryStatusText.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
+#if BMS_FACTORY_APP
+        ShowHistoryDevicesBox.Visibility = BleDiscoveryStatusText.Visibility;
+#endif
         if (serial) return;
+#if BMS_FACTORY_APP
         var all = _watcher?.Snapshot(true) ?? Array.Empty<DiscoveredDevice>();
         var visible = all.Where(d => d.IsNearby || ShowHistoryDevicesBox.IsChecked == true).ToList();
+#else
+        var visible = _watcher?.Snapshot().ToList() ?? new List<DiscoveredDevice>();
+#endif
         if (_connectionMode == ConnectionMode.Ble && _connectedAddress is ulong active && _bmsTransport?.IsConnected == true)
         {
             visible.RemoveAll(d => d.Address == active);
@@ -78,6 +85,7 @@ public partial class MainWindow
             if (!visible.Any(d => d.Address == item.Address)) { _devices.Remove(item); _deviceMap.Remove(item.Address); }
         foreach (var item in visible) UpsertDevice(item);
         if (selected is ulong address && _deviceMap.TryGetValue(address, out var restored)) DeviceList.SelectedItem = restored;
+#if BMS_FACTORY_APP
         int nearby = all.Count(d => d.IsNearby);
         int history = all.Count - nearby;
         string state = _bleScanRunning && _watcher?.IsDiscoveryAvailable == true
@@ -85,8 +93,13 @@ public partial class MainWindow
             : _bleScanProblem ?? "搜索已停止";
         BleDiscoveryStatusText.Text = $"{state}\n最近12秒确认发现：{nearby}台；历史记录：{history}台。历史记录不代表在线。";
         BleDiscoveryStatusText.ToolTip = BleDiscoveryStatusText.Text;
+#else
+        BleDiscoveryStatusText.Text = _bleScanProblem ?? (_bleScanRunning ? "正在搜索蓝牙设备…" : "");
+#endif
     }
+#if BMS_FACTORY_APP
     private void ShowHistoryDevices_Changed(object sender, RoutedEventArgs e) => RefreshBleDeviceList();
+#endif
     private async void CancelConnection_Click(object sender, RoutedEventArgs e)
     {
         CancelConnectionButton.IsEnabled = false;

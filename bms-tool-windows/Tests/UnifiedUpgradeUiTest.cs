@@ -22,7 +22,8 @@ static class Test
             var path=typeof(MainWindow).GetField("_firmwarePath",BindingFlags.Instance|BindingFlags.NonPublic)!;
             var label=(TextBlock)window.FindName("FirmwareText");
             load.Invoke(window,new object[]{args[0]});
-            Check((string?)path.GetValue(window)==args[0] && label.Text.Contains("C060") && !label.Text.Contains("D015"),"C060 selection must show actual package identity");
+            Check((string?)path.GetValue(window)==args[0] && FirmwareImage.Inspect(args[0]).SerialPackage?.BoardId==0xC0600020,
+                "C060 selection validates the actual package identity");
             byte[] sample=new byte[1056];
             void Put(int at,uint value)=>BinaryPrimitives.WriteUInt32LittleEndian(sample.AsSpan(at),value);
             Put(0,SerialFirmwarePackage.Magic);BinaryPrimitives.WriteUInt16LittleEndian(sample.AsSpan(4),2);
@@ -32,10 +33,11 @@ static class Test
             Put(24,SerialFirmwarePackage.Crc32(sample.AsSpan(32)));Put(28,SerialFirmwarePackage.Crc32(sample.AsSpan(0,28)));
             string fixture=Path.Combine(output,"unknown-board.sample");File.WriteAllBytes(fixture,sample);
             load.Invoke(window,new object[]{fixture});
-            Check(label.Text.Contains("1234ABCD"),"new board selection needs no compiled product table");
+            Check((string?)path.GetValue(window)==fixture && FirmwareImage.Inspect(fixture).SerialPackage?.BoardId==0x1234ABCD,
+                "new board selection needs no compiled product table");
             sample[28]^=1;File.WriteAllBytes(fixture,sample);bool refused=false;
             try {load.Invoke(window,new object[]{fixture});}catch(TargetInvocationException ex)when(ex.InnerException is InvalidDataException){refused=true;}
-            Check(refused && path.GetValue(window) is null && label.Text=="未选择固件","bad package clears selected candidate before any device action");
+            Check(refused && path.GetValue(window) is null && (label.Text is "未选择固件" or "未选择升级包"),"bad package clears selected candidate before any device action");
             load.Invoke(window,new object[]{args[0]});
             var recovery=(CheckBox)window.FindName("SerialIapRecoveryBox");
             Check(recovery is not null && !recovery.Content.ToString()!.Contains("D015"),"recovery entry is common to all standard YMODEM boards");

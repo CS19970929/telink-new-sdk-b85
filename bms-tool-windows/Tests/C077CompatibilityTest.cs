@@ -31,7 +31,7 @@ static class Test
         Check(peer.Other[28]==13&&peer.Other[29]==2&&peer.Other[30]==4,"13-series group commits and reads back with fixed shunt");
         var thirteen=await c.ReadBatteryAsync();Check(thirteen.ValidCellCount==13&&thirteen.CellMillivolts[13]==61001,"13 real cells and missing slots survive client decoding");
         await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,16}},(_,_)=>{});
-        Check(C060Parameters.FieldsFor(true).Count==14,"14 actively consumed basic parameters");
+        Check(C060Parameters.FieldsFor(true).Count==15,"15 actively consumed basic parameters");
         Check(C060Parameters.FieldsFor(true).All(f=>f.Address>=0x2300),"retired K/B are absent");
         Check(!capture.Blocks.ContainsKey("Calibration"),"no retired calibration reads");
         await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x2000,1024}},(_,_)=>{}),"retired K/B writes rejected before transport");

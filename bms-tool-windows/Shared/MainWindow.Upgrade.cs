@@ -27,12 +27,12 @@ public partial class MainWindow
     private void LoadFirmwareCandidate(string path)
     {
         _firmwarePath=null;
-        FirmwareText.Text="未选择固件";
+        FirmwareText.Text=UnifiedTestEdition ? "未选择固件" : "未选择升级包";
         FirmwareInspection inspection=FirmwareImage.Inspect(path);
         if(!inspection.LooksLikeTelink && !inspection.FitsStm32App)
             throw new InvalidDataException("文件不满足已知 BMS 升级包或 APP 镜像格式。");
         _firmwarePath=path;
-        FirmwareText.Text=inspection.Description;
+        FirmwareText.Text=UnifiedTestEdition ? inspection.Description : inspection.FileName;
         AppendLog($"Firmware candidate loaded file='{inspection.FileName}' size={inspection.FileSize}; telink={inspection.LooksLikeTelink}; stm32={inspection.FitsStm32App}","OTA");
     }
 

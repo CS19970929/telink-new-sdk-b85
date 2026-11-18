@@ -16,6 +16,7 @@ static class MainWindowExperienceTest
         var app = new Application();
         var window = new MainWindow();
         var type = typeof(MainWindow);
+        bool factory = type.Assembly.GetName().Name!.Contains("Factory");
 
         void Check(bool ok, string message)
         {
@@ -32,13 +33,17 @@ static class MainWindowExperienceTest
         const ulong historical = 0x102030405060;
         catalog.ObserveSystem(historical, "BT_历史测试");
         refresh.Invoke(window, null);
-        Check(historyBox.IsChecked != true && discoveryList.Items.Count == 0, "默认列表不显示系统历史缓存");
-        historyBox.IsChecked = true;
-        refresh.Invoke(window, null);
-        Check(discoveryList.Items.Count == 1 && ((DiscoveredDevice)discoveryList.Items[0]).Source == BleDiscoverySource.History,
-            "历史设备只能显式打开并标记未确认在线");
+        Check(historyBox?.IsChecked != true && discoveryList.Items.Count == 0, "默认列表不显示系统历史缓存");
+        if (factory)
+        {
+            historyBox.IsChecked = true;
+            refresh.Invoke(window, null);
+            Check(discoveryList.Items.Count == 1 && ((DiscoveredDevice)discoveryList.Items[0]).Source == BleDiscoverySource.History,
+                "内部版可以显式查看历史设备");
+            historyBox.IsChecked = false;
+        }
+        else Check(historyBox is null, "客户版没有历史设备入口");
         catalog.ObserveAdvertisement(historical, "BT_附近测试", -55);
-        historyBox.IsChecked = false;
         refresh.Invoke(window, null);
         Check(discoveryList.Items.Count == 1 && ((DiscoveredDevice)discoveryList.Items[0]).HasRecentAdvertisement,
             "真实广播进入两版附近设备列表");
@@ -128,7 +133,6 @@ static class MainWindowExperienceTest
             string path = preview + "-" + typeof(MainWindow).Assembly.GetName().Name + ".png";
             using var file = System.IO.File.Create(path); encoder.Save(file);
         }
-        bool factory=type.Assembly.GetName().Name=="BmsFactoryTest.Windows";
         Check((window.FindName("CommunicationCountersText") is not null)==factory,
             "仅测试版显示底部通信统计");
         var sections=Descendants((DependencyObject)businessTab.Content).OfType<TabItem>();
@@ -171,19 +175,23 @@ static class MainWindowExperienceTest
         type.GetField("_bms",PrivateInstance)!.SetValue(window,null);
         checkFreshness.Invoke(window,null);
         Check(((TextBlock)window.FindName("PackVoltageText")).Text=="—","手动断开与更换连接立即清空");
-        type.GetMethod("AddSh3520ParameterTab", PrivateInstance)!.Invoke(window, null);
-        var hsTab = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "3520 参数"));
-        var hsGrid = Descendants((DependencyObject)hsTab.Content).OfType<DataGrid>().Single();
-        Check(hsGrid.Columns.Count == 5 && !hsGrid.AutoGenerateColumns && !hsGrid.CanUserAddRows,
-            "3520 参数使用明确列定义，禁止插入或隐式生成寄存器行");
-        string hsText = string.Join("|", VisibleText((DependencyObject)hsTab.Content));
-        Check(hsText.Contains("只读测量值"), "3520 页面区分测量和可写配置");
-        var hsButtons = Descendants((DependencyObject)hsTab.Content).OfType<Button>().ToArray();
-        Check(hsButtons.Any(b => Equals(b.Content, "保存整组硬件保护并读回")) &&
-              hsButtons.Any(b => Equals(b.Content, "保存 SN")), "两版均提供3520硬件保护和SN读写入口");
-        hsButtons.Single(b => Equals(b.Content, "读取 3520 参数及基本信息")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        var hsStatus = (TextBlock)type.GetField("_hs3520Status", PrivateInstance)!.GetValue(window)!;
-        Check(hsStatus.Text.Contains("请先连接"), "3520页面未连接时不执行事务");
+        type.GetMethod("InitializeAdvancedFeatures", PrivateInstance)!.Invoke(window, null);
+        var hsTab = tabs.Items.OfType<TabItem>().SingleOrDefault(item => Equals(item.Header, "3520 参数"));
+        Check((hsTab is not null) == factory, "3520维护页仅在内部版开放");
+        if (hsTab is not null)
+        {
+            var hsGrid = Descendants((DependencyObject)hsTab.Content).OfType<DataGrid>().Single();
+            Check(hsGrid.Columns.Count == 5 && !hsGrid.AutoGenerateColumns && !hsGrid.CanUserAddRows,
+                "3520 参数使用明确列定义，禁止插入或隐式生成寄存器行");
+            string hsText = string.Join("|", VisibleText((DependencyObject)hsTab.Content));
+            Check(hsText.Contains("只读测量值"), "3520 页面区分测量和可写配置");
+            var hsButtons = Descendants((DependencyObject)hsTab.Content).OfType<Button>().ToArray();
+            Check(hsButtons.Any(b => Equals(b.Content, "保存整组硬件保护并读回")) &&
+                  hsButtons.Any(b => Equals(b.Content, "保存 SN")), "内部版提供3520硬件保护和SN读写入口");
+            hsButtons.Single(b => Equals(b.Content, "读取 3520 参数及基本信息")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var hsStatus = (TextBlock)type.GetField("_hs3520Status", PrivateInstance)!.GetValue(window)!;
+            Check(hsStatus.Text.Contains("请先连接"), "3520页面未连接时不执行事务");
+        }
 
         window.Close();
         Console.WriteLine(_passed ? "MAIN_WINDOW_EXPERIENCE_PASS" : "MAIN_WINDOW_EXPERIENCE_FAIL");
