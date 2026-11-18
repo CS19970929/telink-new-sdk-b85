@@ -14,292 +14,331 @@
         <Style x:Key="CustomerValue" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
         <Style x:Key="CustomerButton" TargetType="Button">
             <Setter Property="Height" Value="30"/>
-            <Setter Property="MinWidth" Value="72"/>
+            <Setter Property="MinWidth" Value="64"/>
             <Setter Property="Padding" Value="10,2"/>
         </Style>
     </Window.Resources>
 
     <Grid Margin="8">
         <TabControl x:Name="MainTabs">
-            <TabItem Header="实时监控">
-                <ScrollViewer x:Name="RealtimeScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                <Grid MinWidth="1020" MinHeight="700" Width="{Binding ViewportWidth, ElementName=RealtimeScrollViewer}">
+            <TabItem x:Name="RealtimeTab" Header="实时监控">
+                <Grid>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="35*"/>
-                        <ColumnDefinition Width="27*"/>
-                        <ColumnDefinition Width="38*"/>
-                    </Grid.ColumnDefinitions>
+                    <Border Margin="5,4,5,3" Padding="8,4" BorderBrush="#CDCDCD" BorderThickness="1" Background="White">
+                        <WrapPanel VerticalAlignment="Center">
+                            <TextBlock Text="长期监控" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock Text="记录间隔" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox x:Name="HomeRecordIntervalBox" Width="82" Height="28" Margin="0,2,10,2"
+                                      AutomationProperties.Name="记录间隔"/>
+                            <Button x:Name="HomeRecordStartButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2">开始监控</Button>
+                            <Button x:Name="HomeRecordStopButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2">停止</Button>
+                            <Button x:Name="HomeRecordExportButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2">导出 CSV / Excel</Button>
+                            <Button x:Name="HomeRecordsButton" Style="{StaticResource CustomerButton}" Margin="0,2,10,2">查看记录</Button>
+                            <TextBlock x:Name="HomeRecordStatusText" Text="未开始" VerticalAlignment="Center" Foreground="DimGray"
+                                       MaxWidth="340" TextTrimming="CharacterEllipsis"/>
+                        </WrapPanel>
+                    </Border>
+                    <ScrollViewer x:Name="RealtimeScrollViewer" Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <Grid MinHeight="620" Height="{Binding ViewportHeight, ElementName=RealtimeScrollViewer}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="35*"/>
+                                <ColumnDefinition Width="27*"/>
+                                <ColumnDefinition Width="38*"/>
+                            </Grid.ColumnDefinitions>
 
-                    <!-- Left: cell voltages -->
-                    <GroupBox Grid.Row="0" Grid.Column="0" Header="单体电压(mV)" Style="{StaticResource CustomerGroupBox}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="76"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <Grid Grid.Row="0" Margin="4,0,4,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
-                                    <TextBlock Text="最高电压" Width="76" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CustomerMaxCellText" Foreground="Red" FontWeight="Bold" FontSize="16" VerticalAlignment="Center" Text="—"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
-                                    <TextBlock Text="最低电压" Width="76" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CustomerMinCellText" Foreground="Green" FontWeight="Bold" FontSize="16" VerticalAlignment="Center" Text="—"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
-                                    <TextBlock Text="平均电压" Width="76" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CustomerAvgCellText" VerticalAlignment="Center" Text="—"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
-                                    <TextBlock Text="最大压差" Width="76" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CustomerDeltaCellText" VerticalAlignment="Center" Text="—"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal">
-                                    <TextBlock Text="有效串数" Width="76" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CustomerCellCountText" VerticalAlignment="Center" Text="—"/>
-                                </StackPanel>
-                            </Grid>
-                            <TextBlock x:Name="CustomerOpenWireText" Visibility="Collapsed"/>
-                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                <WrapPanel x:Name="CustomerCellPanel" Margin="5" ItemWidth="205"/>
-                            </ScrollViewer>
-
-                            <!-- Existing update targets retained as hidden raw sources. -->
-                            <TextBlock x:Name="CellExtremeText" Visibility="Collapsed"/>
-                            <TextBlock x:Name="CellsText" Visibility="Collapsed"/>
-                        </Grid>
-                    </GroupBox>
-
-                    <!-- Center: basic information + temperatures -->
-                    <Grid Grid.Row="0" Grid.Column="1">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="48*"/>
-                            <RowDefinition Height="52*"/>
-                        </Grid.RowDefinitions>
-
-                        <GroupBox Grid.Row="0" Header="基础信息" Style="{StaticResource CustomerGroupBox}">
-                            <Grid Margin="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="58*"/>
-                                    <ColumnDefinition Width="42*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid Grid.Column="0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="92"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
+                            <!-- Left: cell voltages -->
+                            <GroupBox Grid.Row="0" Grid.Column="0" Header="单体电压(mV)" Style="{StaticResource CustomerGroupBox}">
+                                <Grid>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="*"/>
-                                        <RowDefinition Height="*"/>
-                                        <RowDefinition Height="*"/>
-                                        <RowDefinition Height="*"/>
-                                        <RowDefinition Height="*"/>
-                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="76"/>
+                                        <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="总压" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="PackVoltageText" Grid.Row="0" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
-                                    <TextBlock Grid.Row="1" Text="电流" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CurrentText" Grid.Row="1" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
-                                    <TextBlock Grid.Row="2" Text="SOH" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CustomerSohText" Grid.Row="2" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
-                                    <TextBlock Grid.Row="3" Text="剩余容量" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CustomerRemainCapacityText" Grid.Row="3" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
-                                    <TextBlock Grid.Row="4" Text="满电容量" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CustomerFullCapacityText" Grid.Row="4" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
-                                    <TextBlock Grid.Row="5" Text="循环次数" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="CustomerCycleText" Grid.Row="5" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
-                                    <TextBlock Grid.Row="6" Text="工作状态" VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="WorkStateText" Grid.Row="6" Grid.Column="1" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" Text="—"/>
-                                </Grid>
-
-                                <Grid Grid.Column="1" HorizontalAlignment="Center" Margin="4">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="42"/>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
-                                    <TextBlock x:Name="CustomerSocText" Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Text="SOC:—"/>
-                                    <Grid Grid.Row="1" Width="78" Height="170" VerticalAlignment="Center">
-                                        <Border BorderBrush="#666" BorderThickness="5" CornerRadius="12" Background="#FAFAFA" Margin="5,9,5,0"/>
-                                        <Border Width="28" Height="10" Background="#666" CornerRadius="2" VerticalAlignment="Top"/>
-                                        <Grid Margin="11,22,11,9" ClipToBounds="True">
-                                            <Border x:Name="CustomerSocFill" Height="0" Background="#32B965" CornerRadius="3" VerticalAlignment="Bottom"/>
-                                        </Grid>
+                                    <Grid Grid.Row="0" Margin="4,0,4,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
+                                            <TextBlock Text="最高电压" Width="60" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomerMaxCellText" Foreground="Red" FontWeight="Bold" FontSize="16" VerticalAlignment="Center" Text="—"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                                            <TextBlock Text="最低电压" Width="60" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomerMinCellText" Foreground="Green" FontWeight="Bold" FontSize="16" VerticalAlignment="Center" Text="—"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
+                                            <TextBlock Text="平均电压" Width="60" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomerAvgCellText" VerticalAlignment="Center" Text="—"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                                            <TextBlock Text="最大压差" Width="60" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomerDeltaCellText" VerticalAlignment="Center" Text="—"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal">
+                                            <TextBlock Text="有效串数" Width="60" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomerCellCountText" VerticalAlignment="Center" Text="—"/>
+                                        </StackPanel>
                                     </Grid>
+                                    <TextBlock x:Name="OwcCellStatusText" Grid.Row="1" Margin="4,0,4,6" TextWrapping="Wrap"
+                                               Foreground="DimGray" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="CustomerOpenWireText" Visibility="Collapsed"/>
+                                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <WrapPanel x:Name="CustomerCellPanel" Margin="5" ItemWidth="175"/>
+                                    </ScrollViewer>
+
+                                    <!-- Existing update targets retained as hidden raw sources. -->
+                                    <TextBlock x:Name="CellExtremeText" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="CellsText" Visibility="Collapsed"/>
                                 </Grid>
+                            </GroupBox>
 
-                                <TextBlock x:Name="SocText" Visibility="Collapsed"/>
-                                <TextBlock x:Name="CapacityText" Visibility="Collapsed"/>
-                            </Grid>
-                        </GroupBox>
-
-                        <GroupBox Grid.Row="1" Header="温度(℃)" Style="{StaticResource CustomerGroupBox}">
-                            <Grid Margin="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="110"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
+                            <!-- Center: basic information + temperatures -->
+                            <Grid Grid.Row="0" Grid.Column="1">
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="48*"/>
+                                    <RowDefinition Height="52*"/>
+                                </Grid.RowDefinitions>
+
+                                <GroupBox Grid.Row="0" Header="基础信息" Style="{StaticResource CustomerGroupBox}">
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="64*"/>
+                                            <ColumnDefinition Width="36*" MinWidth="76"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid Grid.Column="0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="57"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Text="总压" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="PackVoltageText" Grid.Row="0" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
+                                            <TextBlock Grid.Row="1" Text="电流" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CurrentText" Grid.Row="1" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
+                                            <TextBlock Grid.Row="2" Text="SOH" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomerSohText" Grid.Row="2" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
+                                            <TextBlock Grid.Row="3" Text="剩余容量" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomerRemainCapacityText" Grid.Row="3" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
+                                            <TextBlock Grid.Row="4" Text="满电容量" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomerFullCapacityText" Grid.Row="4" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
+                                            <TextBlock Grid.Row="5" Text="循环次数" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomerCycleText" Grid.Row="5" Grid.Column="1" Style="{StaticResource CustomerValue}" Text="—"/>
+                                            <TextBlock Grid.Row="6" Text="工作状态" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="WorkStateText" Grid.Row="6" Grid.Column="1" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" Text="—"/>
+                                        </Grid>
+
+                                        <Grid Grid.Column="1" Margin="2,0,0,0">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="42"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <Viewbox StretchDirection="DownOnly" Margin="1">
+                                                <TextBlock x:Name="CustomerSocText" FontSize="18" Text="SOC:—"/>
+                                            </Viewbox>
+                                            <Viewbox Grid.Row="1" StretchDirection="DownOnly" VerticalAlignment="Center">
+                                                <Grid Width="78" Height="170">
+                                                    <Border BorderBrush="#666" BorderThickness="5" CornerRadius="12" Background="#FAFAFA" Margin="5,9,5,0"/>
+                                                    <Border Width="28" Height="10" Background="#666" CornerRadius="2" VerticalAlignment="Top"/>
+                                                    <Grid Margin="11,22,11,9" ClipToBounds="True">
+                                                        <Border x:Name="CustomerSocFill" Height="0" Background="#32B965" CornerRadius="3" VerticalAlignment="Bottom"/>
+                                                    </Grid>
+                                                </Grid>
+                                            </Viewbox>
+                                        </Grid>
+
+                                        <TextBlock x:Name="SocText" Visibility="Collapsed"/>
+                                        <TextBlock x:Name="CapacityText" Visibility="Collapsed"/>
+                                    </Grid>
+                                </GroupBox>
+
+                                <GroupBox Grid.Row="1" Header="温度(℃)" Style="{StaticResource CustomerGroupBox}">
+                                    <Grid Margin="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock x:Name="MonitorTemperatureLabel" Grid.Row="0" Text="最高温度" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="CustomerMaxTempText" Grid.Row="0" Grid.Column="1" FontSize="16" Foreground="Red" FontWeight="Bold" VerticalAlignment="Center" Text="—"/>
+                                        <TextBlock Grid.Row="1" Text="最低温度" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="CustomerMinTempText" Grid.Row="1" Grid.Column="1" FontSize="16" Foreground="Green" FontWeight="Bold" VerticalAlignment="Center" Text="—"/>
+                                        <TextBlock Grid.Row="2" Text="MOS温度" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="CustomerMosTempText" Grid.Row="2" Grid.Column="1" FontSize="15" VerticalAlignment="Center" Text="—"/>
+                                        <TextBlock Grid.Row="3" Text="数据更新时间" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="LastUpdateText" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" Text="未读取"/>
+                                        <TextBlock x:Name="TempsText" Visibility="Collapsed"/>
+                                    </Grid>
+                                </GroupBox>
+                            </Grid>
+
+                            <!-- Right: communications, status and alarms -->
+                            <Grid Grid.Row="0" Grid.Column="2">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="最高温度" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="CustomerMaxTempText" Grid.Row="0" Grid.Column="1" FontSize="16" Foreground="Red" FontWeight="Bold" VerticalAlignment="Center" Text="—"/>
-                                <TextBlock Grid.Row="1" Text="最低温度" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="CustomerMinTempText" Grid.Row="1" Grid.Column="1" FontSize="16" Foreground="Green" FontWeight="Bold" VerticalAlignment="Center" Text="—"/>
-                                <TextBlock Grid.Row="2" Text="MOS温度" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="CustomerMosTempText" Grid.Row="2" Grid.Column="1" FontSize="15" VerticalAlignment="Center" Text="—"/>
-                                <TextBlock Grid.Row="3" Text="数据更新时间" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="LastUpdateText" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" Text="未读取"/>
-                                <TextBlock x:Name="TempsText" Visibility="Collapsed"/>
+
+                                <GroupBox Grid.Row="0" Header="通信设置" Style="{StaticResource CustomerGroupBox}">
+                                    <StackPanel Margin="4">
+                                        <DockPanel LastChildFill="False">
+                                            <ComboBox x:Name="ConnectionModeBox" DockPanel.Dock="Left" Width="80" Height="30"
+                                                      SelectedIndex="0" SelectionChanged="ConnectionModeBox_SelectionChanged"
+                                                      AutomationProperties.Name="通信方式">
+                                                <ComboBoxItem Content="蓝牙"/>
+                                                <ComboBoxItem Content="串口"/>
+                                                <ComboBoxItem Content="一线通"/>
+                                            </ComboBox>
+                                            <Button x:Name="ConnectButton" DockPanel.Dock="Right" Style="{StaticResource CustomerButton}" Click="ConnectButton_Click">连接</Button>
+                                            <Button x:Name="StopScanButton" DockPanel.Dock="Right" Style="{StaticResource CustomerButton}" Margin="0,0,6,0" Click="StopScanButton_Click">停止</Button>
+                                            <Button x:Name="ScanButton" DockPanel.Dock="Right" Style="{StaticResource CustomerButton}" Margin="0,0,6,0" Click="ScanButton_Click">搜索</Button>
+                                        </DockPanel>
+                                        <Grid Margin="0,6,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox x:Name="DeviceList" Grid.ColumnSpan="2" Height="30"
+                                                      ToolTip="{Binding SelectedItem, RelativeSource={RelativeSource Self}}">
+                                                <ComboBox.GroupStyle>
+                                                    <GroupStyle>
+                                                        <GroupStyle.HeaderTemplate>
+                                                            <DataTemplate><TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="DimGray" Margin="4,6,0,2"/></DataTemplate>
+                                                        </GroupStyle.HeaderTemplate>
+                                                    </GroupStyle>
+                                                </ComboBox.GroupStyle>
+                                            </ComboBox>
+                                            <ComboBox x:Name="SerialPortList" Height="30" Visibility="Collapsed"
+                                                      AutomationProperties.Name="COM 端口"/>
+                                            <ComboBox x:Name="SerialBaudRateBox" Grid.Column="1" Width="96" Height="30" Margin="6,0,0,0"
+                                                      IsEditable="True" Text="19200" Visibility="Collapsed" AutomationProperties.Name="波特率">
+                                                <ComboBoxItem Content="9600"/>
+                                                <ComboBoxItem Content="19200"/>
+                                                <ComboBoxItem Content="38400"/>
+                                                <ComboBoxItem Content="57600"/>
+                                                <ComboBoxItem Content="115200"/>
+                                            </ComboBox>
+                                            <ComboBox x:Name="OwcModeBox" Grid.Column="1" Width="158" Height="30" Margin="6,0,0,0"
+                                                      SelectedIndex="0" Visibility="Collapsed" AutomationProperties.Name="一线通协议">
+                                                <ComboBoxItem Content="自动识别"/>
+                                                <ComboBoxItem Content="A1.3.3"/>
+                                                <ComboBoxItem Content="锂神（含本项目扩展）"/>
+                                            </ComboBox>
+                                        </Grid>
+                                        <DockPanel Margin="0,4,0,0" LastChildFill="False">
+                                            <Button x:Name="CancelConnectionButton" DockPanel.Dock="Right" Content="取消连接" Click="CancelConnection_Click"
+                                                    IsEnabled="False" Padding="8,2" Visibility="Collapsed"/>
+                                            <CheckBox x:Name="ShowHistoryDevicesBox" VerticalAlignment="Center"
+                                                      Content="显示历史设备（不代表在线）" Checked="ShowHistoryDevices_Changed" Unchecked="ShowHistoryDevices_Changed"/>
+                                        </DockPanel>
+                                        <WrapPanel HorizontalAlignment="Right" Margin="0,4,0,0">
+                                            <Button x:Name="DisconnectButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2" Click="CustomerDisconnect_Click">断开</Button>
+                                            <Button x:Name="MonitorSleepButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2" Click="SleepBms_Click">休眠</Button>
+                                            <Button x:Name="MonitorRenameButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2" Click="OpenNamePage_Click">改名</Button>
+                                            <Button x:Name="MonitorOtaButton" Style="{StaticResource CustomerButton}" Margin="0,2,0,2" Click="OpenOtaPage_Click">OTA</Button>
+                                        </WrapPanel>
+                                        <TextBlock x:Name="BleDiscoveryStatusText" Text="尚未搜索附近设备" TextWrapping="Wrap" FontSize="11"/>
+                                        <TextBlock x:Name="ConnectionText" TextWrapping="Wrap" FontSize="11"/>
+                                        <TextBlock x:Name="OwcStatusText" TextWrapping="Wrap" FontSize="11" Visibility="Collapsed"/>
+                                    </StackPanel>
+                                </GroupBox>
+
+                                <GroupBox x:Name="MonitorMosGroup" Grid.Row="1" Header="系统状态" Style="{StaticResource CustomerGroupBox}">
+                                    <Grid Margin="2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                                            <TextBlock Text="充电MOS" HorizontalAlignment="Center"/>
+                                            <Border x:Name="CustomerChargeMosLamp" Width="62" Height="34" Margin="0,6,0,0" CornerRadius="5" Background="#B0B0B0"><TextBlock x:Name="CustomerChargeMosText" Text="--" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                            <TextBlock Text="放电MOS" HorizontalAlignment="Center"/>
+                                            <Border x:Name="CustomerDischargeMosLamp" Width="62" Height="34" Margin="0,6,0,0" CornerRadius="5" Background="#B0B0B0"><TextBlock x:Name="CustomerDischargeMosText" Text="--" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                        </StackPanel>
+                                        <TextBlock x:Name="MosStateText" Visibility="Collapsed"/>
+                                        <TextBlock x:Name="SystemStateText" Visibility="Collapsed"/>
+                                    </Grid>
+                                </GroupBox>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition x:Name="MonitorSecondaryAlarmRow" Height="*"/>
+                                        <RowDefinition x:Name="MonitorTertiaryAlarmRow" Height="*"/>
+                                        <RowDefinition Height="2.5*"/>
+                                    </Grid.RowDefinitions>
+                                    <GroupBox x:Name="MonitorPrimaryAlarm" Grid.Row="0" Header="一级告警" Style="{StaticResource CustomerGroupBox}">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <TextBlock x:Name="CustomerAlarm1Text" Margin="2" FontSize="16" FontWeight="SemiBold" Text="—" TextWrapping="Wrap"/>
+                                        </ScrollViewer>
+                                    </GroupBox>
+                                    <GroupBox x:Name="MonitorSecondaryAlarm" Grid.Row="1" Header="二级告警" Style="{StaticResource CustomerGroupBox}">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <TextBlock x:Name="CustomerAlarm2Text" Margin="2" FontSize="16" FontWeight="SemiBold" Text="—" TextWrapping="Wrap"/>
+                                        </ScrollViewer>
+                                    </GroupBox>
+                                    <GroupBox x:Name="MonitorTertiaryAlarm" Grid.Row="2" Header="三级保护" Style="{StaticResource CustomerGroupBox}">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <TextBlock x:Name="CustomerAlarm3Text" Margin="2" FontSize="16" FontWeight="SemiBold" Text="—" TextWrapping="Wrap"/>
+                                        </ScrollViewer>
+                                    </GroupBox>
+                                    <GroupBox Grid.Row="3" Header="系统监控信息" Style="{StaticResource CustomerGroupBox}">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <StackPanel Margin="5">
+                                                <StackPanel x:Name="ModbusMonitorDetails">
+                                                    <TextBlock x:Name="CustomerSystemMonitorText" Margin="0,0,0,5" TextWrapping="Wrap" Text="—"/>
+                                                    <Separator Margin="0,0,0,5"/>
+                                                    <TextBlock Text="实时休眠状态" FontWeight="SemiBold"/>
+                                                    <TextBlock x:Name="SleepStatusText" Margin="0,5,0,0" Text="未连接，无法确认设备是否休眠" TextWrapping="Wrap"
+                                                       ToolTip="随实时监控刷新。剩余时间由固件提供；时间到期后仍须通过门禁。断连不能证明设备已休眠。BLE连接和通信读取可能阻止休眠。"/>
+                                                </StackPanel>
+                                                <StackPanel x:Name="OwcMonitorDetails" Visibility="Collapsed">
+                                                    <TextBlock x:Name="OwcProtocolText" Text="协议：—" TextWrapping="Wrap"/>
+                                                    <Expander Header="接收诊断" IsExpanded="True" Margin="0,6,0,0">
+                                                        <TextBox x:Name="OwcRawText" IsReadOnly="True" FontFamily="Consolas" FontSize="11"
+                                                                 TextWrapping="Wrap" MaxHeight="110" VerticalScrollBarVisibility="Auto"/>
+                                                    </Expander>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                    </GroupBox>
+                                    <TextBlock x:Name="ProtectionLevelsText" Visibility="Collapsed"/>
+                                </Grid>
                             </Grid>
-                        </GroupBox>
-                    </Grid>
 
-                    <!-- Right: communications, status and alarms -->
-                    <Grid Grid.Row="0" Grid.Column="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="236"/>
-                            <RowDefinition Height="132"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <GroupBox Grid.Row="0" Header="通信设置" Style="{StaticResource CustomerGroupBox}">
-                            <Grid Margin="4">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="36"/>
-                                    <RowDefinition Height="36"/>
-                                    <RowDefinition Height="28"/>
-                                    <RowDefinition Height="36"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <ComboBox x:Name="ConnectionModeBox" Grid.Row="0" Grid.Column="0" Width="86" Height="30" Margin="0,4,6,4" SelectedIndex="0" SelectionChanged="ConnectionModeBox_SelectionChanged">
-                                    <ComboBoxItem Content="BLE"/>
-                                    <ComboBoxItem Content="串口"/>
-                                </ComboBox>
-                                <ComboBox x:Name="SerialBaudRateBox" Grid.Row="0" Grid.Column="1" Width="96" Height="30" Margin="0,4,6,4" IsEditable="True" Text="19200" Visibility="Collapsed">
-                                    <ComboBoxItem Content="9600"/>
-                                    <ComboBoxItem Content="19200"/>
-                                    <ComboBoxItem Content="38400"/>
-                                    <ComboBoxItem Content="57600"/>
-                                    <ComboBoxItem Content="115200"/>
-                                </ComboBox>
-                                <ComboBox x:Name="DeviceList" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" ToolTip="{Binding SelectedItem, RelativeSource={RelativeSource Self}}" Height="30" Margin="0,4,8,4">
-                                    <ComboBox.GroupStyle>
-                                        <GroupStyle>
-                                            <GroupStyle.HeaderTemplate>
-                                                <DataTemplate><TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="DimGray" Margin="4,6,0,2"/></DataTemplate>
-                                            </GroupStyle.HeaderTemplate>
-                                        </GroupStyle>
-                                    </ComboBox.GroupStyle>
-                                </ComboBox>
-                                <ComboBox x:Name="SerialPortList" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Height="30" Margin="0,4,8,4" Visibility="Collapsed"/>
-                                <Button x:Name="ScanButton" Grid.Row="0" Grid.Column="3" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="ScanButton_Click">搜索</Button>
-                                <Button x:Name="StopScanButton" Grid.Row="0" Grid.Column="4" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="StopScanButton_Click">停止</Button>
-                                <Button x:Name="ConnectButton" Grid.Row="0" Grid.Column="5" Style="{StaticResource CustomerButton}" Margin="0,4,0,4" Click="ConnectButton_Click">连接</Button>
-
-                                <StackPanel Grid.Row="3" Grid.ColumnSpan="6" Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button x:Name="OwcMonitorButton" Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="OpenOwcMonitor_Click">一线通监控</Button>
-                                    <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="CustomerDisconnect_Click">断开</Button>
-                                    <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="SleepBms_Click">休眠</Button>
-                                    <Button Style="{StaticResource CustomerButton}" Margin="0,4,6,4" Click="OpenNamePage_Click">改名</Button>
-                                    <Button Style="{StaticResource CustomerButton}" Margin="0,4,0,4" Click="OpenOtaPage_Click">OTA</Button>
-                                </StackPanel>
-                                <CheckBox x:Name="ShowHistoryDevicesBox" Grid.Row="2" Grid.ColumnSpan="4" VerticalAlignment="Center"
-                                    Content="显示历史设备（不代表在线）" Checked="ShowHistoryDevices_Changed" Unchecked="ShowHistoryDevices_Changed"/>
-                                <Button x:Name="CancelConnectionButton" Grid.Row="2" Grid.Column="4" Grid.ColumnSpan="2"
-                                    Content="取消连接" Click="CancelConnection_Click" IsEnabled="False" HorizontalAlignment="Right" Padding="8,0"/>
-                                <StackPanel Grid.Row="4" Grid.ColumnSpan="6">
-                                    <TextBlock x:Name="BleDiscoveryStatusText" Text="尚未搜索附近设备" TextWrapping="Wrap" FontSize="11"/>
-                                    <TextBlock Text="{Binding Text, ElementName=ConnectionText}" TextWrapping="Wrap" FontSize="11"/>
-                                </StackPanel>
-                                <TextBlock x:Name="ConnectionText" Visibility="Collapsed"/>
-                            </Grid>
-                        </GroupBox>
-
-                        <GroupBox Grid.Row="1" Header="系统状态" Style="{StaticResource CustomerGroupBox}">
-                            <Grid Margin="2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                                    <TextBlock Text="充电MOS" HorizontalAlignment="Center"/>
-                                    <Border x:Name="CustomerChargeMosLamp" Width="62" Height="34" Margin="0,6,0,0" CornerRadius="5" Background="#B0B0B0"><TextBlock x:Name="CustomerChargeMosText" Text="--" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                                    <TextBlock Text="放电MOS" HorizontalAlignment="Center"/>
-                                    <Border x:Name="CustomerDischargeMosLamp" Width="62" Height="34" Margin="0,6,0,0" CornerRadius="5" Background="#B0B0B0"><TextBlock x:Name="CustomerDischargeMosText" Text="--" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
-                                </StackPanel>
-                                <TextBlock x:Name="MosStateText" Visibility="Collapsed"/>
-                                <TextBlock x:Name="SystemStateText" Visibility="Collapsed"/>
-                            </Grid>
-                        </GroupBox>
-
-                        <Grid Grid.Row="2">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="2.5*"/>
-                            </Grid.RowDefinitions>
-                            <GroupBox Grid.Row="0" Header="一级告警" Style="{StaticResource CustomerGroupBox}">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <TextBlock x:Name="CustomerAlarm1Text" Margin="5" FontSize="16" FontWeight="SemiBold" Text="无" TextWrapping="Wrap"/>
-                                </ScrollViewer>
-                            </GroupBox>
-                            <GroupBox Grid.Row="1" Header="二级告警" Style="{StaticResource CustomerGroupBox}">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <TextBlock x:Name="CustomerAlarm2Text" Margin="5" FontSize="16" FontWeight="SemiBold" Text="无" TextWrapping="Wrap"/>
-                                </ScrollViewer>
-                            </GroupBox>
-                            <GroupBox Grid.Row="2" Header="三级保护" Style="{StaticResource CustomerGroupBox}">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                    <TextBlock x:Name="CustomerAlarm3Text" Margin="5" FontSize="16" FontWeight="SemiBold" Text="无" TextWrapping="Wrap"/>
-                                </ScrollViewer>
-                            </GroupBox>
-                            <GroupBox Grid.Row="3" Header="系统监控信息" Style="{StaticResource CustomerGroupBox}">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <StackPanel Margin="5">
-                                    <TextBlock Text="实时休眠状态" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="SleepStatusText" Margin="0,5,0,0" Text="未连接，无法确认设备是否休眠" TextWrapping="Wrap"
-                                               ToolTip="随实时监控刷新。剩余时间由固件提供；时间到期后仍须通过门禁。断连不能证明设备已休眠。BLE连接和通信读取可能阻止休眠。"/>
-                                </StackPanel>
-                                </ScrollViewer>
-                            </GroupBox>
-                            <TextBlock x:Name="ProtectionLevelsText" Visibility="Collapsed"/>
                         </Grid>
-                    </Grid>
-
+                    </ScrollViewer>
                     <!-- Main-page status bar -->
-                    <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="#C8C8C8" BorderThickness="1,1,1,0" Background="#F5F5F5" Margin="5,2,5,0" Padding="8,4">
+                    <Border Grid.Row="2" BorderBrush="#C8C8C8" BorderThickness="1,1,1,0" Background="#F5F5F5" Margin="5,2,5,0" Padding="8,4">
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
@@ -322,7 +361,6 @@
                         </Grid>
                     </Border>
                 </Grid>
-                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="保护 / BMS 参数">

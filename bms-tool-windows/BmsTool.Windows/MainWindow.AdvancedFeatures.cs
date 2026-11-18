@@ -46,7 +46,6 @@ public partial class MainWindow
         _advancedFeaturesInitialized = true;
         AddSh3520ParameterTab();
 
-        AddLongTermMonitorToolbarToMainPage();
         AddEventLogTab();
 
         _advancedFeatureTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };

@@ -48,7 +48,6 @@ public partial class MainWindow
         _advancedFeaturesInitialized = true;
         AddSh3520ParameterTab();
 
-        AddLongTermMonitorToolbarToMainPage();
         AddAfeHardwareTab();
         AddAfeRegisterTab();
         AddEventLogTab();

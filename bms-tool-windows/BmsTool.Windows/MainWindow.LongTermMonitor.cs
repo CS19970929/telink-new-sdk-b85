@@ -10,21 +10,6 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow
 {
-    private void AddLongTermMonitorToolbarToMainPage()
-    {
-        TabItem? realtimeTab = MainTabs.Items.OfType<TabItem>()
-            .FirstOrDefault(t => string.Equals(t.Header?.ToString(), "实时监控", StringComparison.Ordinal));
-        if (realtimeTab?.Content is not UIElement existing) return;
-
-        realtimeTab.Content = null;
-        var wrapper = new DockPanel();
-        Border toolbar = BuildLongTermMonitorToolbar();
-        DockPanel.SetDock(toolbar, Dock.Top);
-        wrapper.Children.Add(toolbar);
-        wrapper.Children.Add(existing);
-        realtimeTab.Content = wrapper;
-    }
-
     private Border BuildLongTermMonitorToolbar()
     {
         var border = new Border

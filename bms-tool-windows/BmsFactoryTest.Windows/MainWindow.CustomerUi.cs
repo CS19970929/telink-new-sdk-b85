@@ -30,11 +30,13 @@ public partial class MainWindow
 
     private void RefreshCustomerUiFromExistingSnapshot()
     {
+        if (IsOwcMode) return;
         if (!CheckDeviceDisplayFreshness()) { UpdateCommunicationStatus(); return; }
         UpdateCustomerSocAndCapacity();
         UpdateCustomerTemperatures();
         UpdateCustomerCells();
         UpdateCustomerSystemLamps();
+        CustomerSystemMonitorText.Text = string.IsNullOrWhiteSpace(SystemStateText.Text) ? "—" : SystemStateText.Text;
         UpdateCustomerAlarms();
         UpdateCustomerIdentityFooter();
         UpdateCustomerCommunicationIndicator();
@@ -87,27 +89,12 @@ public partial class MainWindow
                 cells.Add((index, volts, match.Groups[3].Success));
         }
 
-        if (cells.Count == 0) return;
-
-        var max = cells.MaxBy(c => c.Volts);
-        var min = cells.MinBy(c => c.Volts);
-        double avgMv = cells.Average(c => c.Volts) * 1000.0;
-        double deltaMv = (max.Volts - min.Volts) * 1000.0;
-
-        CustomerMaxCellText.Text = $"{max.Volts * 1000.0:F0}    {max.Index}";
-        CustomerMinCellText.Text = $"{min.Volts * 1000.0:F0}    {min.Index}";
-        CustomerAvgCellText.Text = avgMv.ToString("F2", CultureInfo.InvariantCulture);
-        CustomerDeltaCellText.Text = deltaMv.ToString("F0", CultureInfo.InvariantCulture);
-        CustomerCellCountText.Text = $"{cells.Count} / {BmsRegisters.CellVoltageSlotCount}";
-
-        CustomerCellPanel.Children.Clear();
-        foreach (var cell in cells.OrderBy(c => c.Index))
-            CustomerCellPanel.Children.Add(CreateCellVisual(cell.Index, cell.Volts, cell.Index == max.Index, cell.Index == min.Index, cell.Balancing));
+        if (cells.Count != 0) ShowMonitorCells(cells, BmsRegisters.CellVoltageSlotCount);
     }
 
     private static UIElement CreateCellVisual(int index, double volts, bool isMax, bool isMin, bool balancing)
     {
-        var root = new Grid { Width = 200, Height = 58, Margin = new Thickness(4, 4, 4, 5) };
+        var root = new Grid { Width = 160, Height = 48, Margin = new Thickness(4, 4, 4, 5) };
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(72) });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
@@ -238,6 +225,7 @@ public partial class MainWindow
             _nextReconnectUtc = DateTime.MaxValue;
             CustomerCommStatusBorder.Visibility = Visibility.Collapsed;
             await DisposeBmsAsync();
+            ConnectionText.Text = "已断开";
             AppendLog("用户主动断开 BMS；设备显示已清空。", "CONNECT");
         }
         catch (Exception ex)

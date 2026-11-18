@@ -44,7 +44,7 @@ static class CommunicationLayoutTest
                     Console.WriteLine(JsonSerializer.Serialize(new {
                         width, height, scale, large, visible, counterTop = bounds.Top,
                         counterBottom = bounds.Bottom, pageHeight = page.ActualHeight,
-                        footerRowHeight = page.RowDefinitions[1].ActualHeight
+                        footerRowHeight = page.RowDefinitions[Grid.GetRow(footer)].ActualHeight
                     }));
                     passed &= visible;
                     if (args.Length > 0 && scale == 1 && !large) {

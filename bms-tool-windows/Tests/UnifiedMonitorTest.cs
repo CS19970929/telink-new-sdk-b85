@@ -23,13 +23,6 @@ static class UnifiedMonitorTest
         if (!task.IsCompleted) throw new TimeoutException("等待后台记录完成超时");
         task.GetAwaiter().GetResult();
     }
-    static IEnumerable<DependencyObject> Desc(DependencyObject root)
-    {
-        yield return root;
-        for (int i=0;i<VisualTreeHelper.GetChildrenCount(root);i++)
-            foreach(var x in Desc(VisualTreeHelper.GetChild(root,i))) yield return x;
-    }
-    static string Text(DependencyObject root) => string.Join("|",Desc(root).OfType<TextBlock>().Select(x=>x.Text));
     static MonitorReading Sample(string token="1") => new() {
         Source="一线通",Endpoint="COM-DEMO",Protocol="A1.3.3",SegmentKey="COM-DEMO/7",Sequence=token,
         Identity="DEMO-D008-023",Soc=72.5,Voltage=76.4,Current=-12.3,Temperature=31,
@@ -54,51 +47,119 @@ static class UnifiedMonitorTest
         var type=typeof(MainWindow);
         object? Field(string name)=>type.GetField(name,Flags)!.GetValue(window);
         void Call(string name,params object?[] args)=>type.GetMethod(name,Flags)!.Invoke(window,args);
-        var view=(UnifiedMonitorView)Field("_unifiedMonitor")!;
-        var tabs=(TabControl)window.FindName("MainTabs");
-        bool factory=type.Assembly.GetName().Name!.Contains("Factory");
-        Check(tabs.TabStripPlacement==Dock.Left,"使用统一侧边导航");
-        Check(Equals(((TabItem)tabs.Items[0]).Header,"实时总览")&&Equals(((TabItem)tabs.Items[1]).Header,"趋势与记录"),"主页面与记录页共享导航");
-        Check(((ComboBox)window.FindName("ConnectionModeBox")).Items.Count==3,"蓝牙/串口/一线通三个入口");
-        for(int i=0;i<30;i++) Call("PublishUnifiedReading",Sample("chart-"+i) with {
-            ObservedUtc=DateTimeOffset.UtcNow.AddSeconds(i-30),Voltage=76.1+i*.008+Math.Sin(i*.3)*.07 });
-        Call("PublishUnifiedReading",Sample());
-        void Render(string name,int width=1360,int height=980)
-        {
-            var root=(FrameworkElement)window.Content;
-            root.Measure(new Size(width,height));root.Arrange(new Rect(0,0,width,height));root.UpdateLayout();
-            var bitmap=new RenderTargetBitmap(width,height,96,96,PixelFormats.Pbgra32);
-            bitmap.Render(root);var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));
-            using var stream=File.Create(Path.Combine(output,name+".png"));png.Save(stream);
-        }
+        T Find<T>(string name) where T : class => (T)window.FindName(name);
+        string Text(string name) => Find<TextBlock>(name).Text;
+        var tabs = Find<TabControl>("MainTabs");
+        var realtime = Find<TabItem>("RealtimeTab");
+        var mode = Find<ComboBox>("ConnectionModeBox");
+        var ports = Find<ComboBox>("SerialPortList");
+        var baud = Find<ComboBox>("SerialBaudRateBox");
+        var history = Find<CheckBox>("ShowHistoryDevicesBox");
+        var cells = Find<Panel>("CustomerCellPanel");
+        var modeDetails = Find<ComboBox>("OwcModeBox");
+        var monitor = Find<ScrollViewer>("RealtimeScrollViewer");
+        tabs.SelectedItem = realtime;
+        var otherTabs = tabs.Items.OfType<TabItem>().Skip(2).ToArray();
+        bool factory = type.Assembly.GetName().Name!.Contains("Factory");
+        Check(tabs.TabStripPlacement == Dock.Top && ReferenceEquals(tabs.Items[0], realtime) &&
+            Equals(realtime.Header, "实时监控") && Equals(((TabItem)tabs.Items[1]).Header, "趋势与记录"),
+            "旧版顶部页签、实时监控和趋势记录页均在主窗口");
+        Check(mode.Items.Cast<ComboBoxItem>().Select(item => item.Content.ToString())
+            .SequenceEqual(new[] { "蓝牙", "串口", "一线通" }), "同一个下拉框提供三种通信方式");
+        Check(Find<ComboBox>("DeviceList").Visibility == Visibility.Visible &&
+            history.Visibility == Visibility.Visible && ports.Visibility == Visibility.Collapsed,
+            "蓝牙显示设备及历史列表，隐藏 COM 端口");
+        int windows = app.Windows.Count;
+        mode.SelectedIndex = 1;
+        Check(ports.Visibility == Visibility.Visible && baud.Visibility == Visibility.Visible &&
+            Find<ComboBox>("DeviceList").Visibility == Visibility.Collapsed && history.Visibility == Visibility.Collapsed &&
+            modeDetails.Visibility == Visibility.Collapsed, "串口使用原 COM 与波特率控件");
+        mode.SelectedIndex = 2;
+        Check(ReferenceEquals(tabs.SelectedItem, realtime) && app.Windows.Count == windows &&
+            ports.Visibility == Visibility.Visible && baud.Visibility == Visibility.Collapsed &&
+            modeDetails.Visibility == (factory ? Visibility.Visible : Visibility.Collapsed) &&
+            Find<GroupBox>("MonitorMosGroup").Visibility == Visibility.Collapsed,
+            "一线通留在原主窗，测试版才提供协议选项，设备操作隐藏");
+
+        ports.ItemsSource = new[] { new SerialPortEndpoint("COM-DEMO") };
+        ports.SelectedIndex = 0;
+        var receive = type.GetField("_integratedOwcTask", Flags)!;
+        receive.SetValue(window, Task.CompletedTask);
         Call("UpdateUnifiedMonitorState");
-        Render("unified-a133");
-        Check(Text(view).Contains("76.4")&&Text(view).Contains(factory?"-12.3":"12.3"),"真实主窗口消费有符号测量");
-        Check(Desc(view).Contains(view.Raw)==factory,"客户版不展示原始报文，测试版保留");
-        view.OperationsContainer.IsExpanded=true; Render("unified-operations");
-        Check(Desc(view).OfType<Button>().Any(x=>x.ToolTip?.ToString()?.Contains("用户许可")==true),"保留既有MOS操作入口和门禁");
-        view.OperationsContainer.IsExpanded=factory;
-        var raw=Wire(-12);
-        var reading=MonitorReading.FromOwc(new Dictionary<byte,OwcSnapshot>{{0,raw},{0x80,raw}},"COM-DEMO");
-        Check(reading?.Current==-12&&reading.FaultCode==4&&reading.HasCurrent,"扩展帧进入主页面模型");
-        Call("PublishUnifiedReading",reading);
-        Render("unified-lishen-extension");
-        raw=Wire(0,0);
-        reading=MonitorReading.FromOwc(new Dictionary<byte,OwcSnapshot>{{0,raw},{0x80,raw}},"COM-DEMO");
-        Check(reading?.HasCurrent==false&&reading.Current is null&&reading.Fault is null,"标准锂神保留字节不伪造成测量");
-        Call("PublishUnifiedReading",reading);
-        Render("unified-lishen-standard");
-        Check(!Text(view).Contains("充电电流")&&!Text(view).Contains("单体压差"),"标准锂神隐藏不存在的数据");
-        var stale=Sample() with {SourceAgeMs=9000};
-        Call("PublishUnifiedReading",stale);Call("UpdateUnifiedMonitorState");
-        Check(!Text(view).Contains("12.3"),"失联清除当前值");
-        Render("unified-offline");
-        Call("PublishUnifiedReading",Sample("2"));Render("unified-compact",960,760);
-        Check(view.ActualWidth<=960,"小窗口页面宽度受约束");
+        mode.SelectedIndex = 0;
+        Check(mode.SelectedIndex == 2 && !mode.IsEnabled && Find<Button>("DisconnectButton").IsEnabled &&
+            otherTabs.All(tab => tab.Visibility == Visibility.Collapsed),
+            "一线通接收中保持断开入口，保护其他通信方式及设备页");
+        var root = (FrameworkElement)window.Content;
+        void Render(string name, int width = 1360, int height = 900)
+        {
+            root.InvalidateMeasure();
+            root.Measure(new Size(width, height));
+            root.Arrange(new Rect(0, 0, width, height));
+            root.UpdateLayout();
+            var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(root);
+            var png = new PngBitmapEncoder();
+            png.Frames.Add(BitmapFrame.Create(bitmap));
+            using var stream = File.Create(Path.Combine(output, name + ".png"));
+            png.Save(stream);
+        }
+        for (int i = 0; i < 30; i++) Call("PublishUnifiedReading", Sample("chart-" + i) with {
+            ObservedUtc = DateTimeOffset.UtcNow.AddSeconds(i - 30), Voltage = 76.1 + i * .008 + Math.Sin(i * .3) * .07 });
+        Call("PublishUnifiedReading", Sample());
+        Call("RefreshCustomerUiFromExistingSnapshot");
+        Call("UpdateUnifiedMonitorState");
+        Render("classic-owc-a133");
+        Check(Text("PackVoltageText") == "76.40 V" && Text("CurrentText") == "-12.3 A" &&
+            Text("CustomerSocText") == "SOC:72.5%" && cells.Children.Count == 23 &&
+            Text("OwcCellStatusText").StartsWith("单体更新时间") && Text("CommunicationStatusText").Contains("在线"),
+            "A1.3.3 数据在三栏和底栏显示，保留电流符号、单体和独立时间");
+        Check((window.FindName("OwcRawText") is not null) == factory, "接收原始报文只在测试版界面");
+        var raw = Wire(-12);
+        var reading = MonitorReading.FromOwc(new Dictionary<byte, OwcSnapshot> { { 0, raw }, { 0x80, raw } }, "COM-DEMO");
+        Check(reading?.Current == -12 && reading.FaultCode == 4 && reading.HasCurrent, "锂神扩展帧进入现有模型");
+        Call("PublishUnifiedReading", reading);
+        Check(Text("CurrentText") == "-12 A" && Text("OwcProtocolText").Contains("锂神扩展") &&
+            Text("CustomerAlarm1Text") != "—" && cells.Children.Count == 0, "锂神扩展显示实际电流和故障，无单体卡片");
+        Render("classic-owc-lishen-extension");
+        raw = Wire(0, 0);
+        reading = MonitorReading.FromOwc(new Dictionary<byte, OwcSnapshot> { { 0, raw }, { 0x80, raw } }, "COM-DEMO");
+        Check(reading?.HasCurrent == false && reading.Current is null && reading.Fault is null, "标准锂神保留字节不解释为测量");
+        Call("PublishUnifiedReading", reading);
+        Render("classic-owc-lishen-standard", 900, 600);
+        Check(Text("CurrentText") == "—" && Text("CustomerAlarm1Text") == "当前协议未提供故障信息" &&
+            cells.Children.Count == 0 && Text("OwcCellStatusText").Contains("未提供单体"),
+            "标准锂神将未提供的数据留空，清掉前一帧扩展电流和单体");
+        Call("PublishUnifiedReading", Sample() with { SourceAgeMs = 9000 });
+        Call("UpdateUnifiedMonitorState");
+        Check(Text("PackVoltageText") == "—" && Text("CurrentText") == "—" && Text("CustomerSocText") == "SOC:—" &&
+            cells.Children.Count == 0 && Text("CommunicationStatusText").Contains("等待"),
+            "一线通数据失效后清空当前读数，仍区分适配器正在接收");
+        Check(monitor.ScrollableWidth < 1 && monitor.ScrollableHeight > 0, "小窗口三栏无横向溢出，可纵向滚动");
+        receive.SetValue(window, null);
+        Call("UpdateUnifiedMonitorState");
+        mode.SelectedIndex = 0;
+        Check(mode.IsEnabled && mode.SelectedIndex == 0 && Find<GroupBox>("MonitorMosGroup").Visibility == Visibility.Visible &&
+            Find<ComboBox>("DeviceList").Visibility == Visibility.Visible && history.Visibility == Visibility.Visible,
+            "断开后可切回蓝牙，并恢复原设备入口");
+        var interval = Find<ComboBox>("HomeRecordIntervalBox");
+        interval.SelectedIndex = 2;
+        var recordInterval = (ComboBox)Field("_recordInterval")!;
+        Check(recordInterval.SelectedIndex == 2, "首页记录间隔与趋势页同步");
+        recordInterval.SelectedIndex = 1;
+        Check(interval.SelectedIndex == 1, "趋势页修改间隔会同步回首页");
+        Find<Button>("HomeRecordsButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        var plot = (MonitorPlot)Field("_recordPlot")!;
+        Check(Equals(((TabItem)tabs.SelectedItem).Header, "趋势与记录") &&
+            plot.Entries.Any(entry => entry.Kind == "sample"), "首页记录入口打开当前实时趋势");
+        tabs.SelectedItem = realtime;
         var recorder=new MonitorRecording(output,1);
         type.GetField("_recording",Flags)!.SetValue(window,recorder);
         type.GetField("_recordDirectory",Flags)!.SetValue(window,recorder.DirectoryPath);
         recorder.Capture(Sample("3"));
+        Call("UpdateUnifiedMonitorState");
+        Check(!interval.IsEnabled && Find<Button>("HomeRecordStopButton").IsEnabled && !Find<Button>("HomeRecordExportButton").IsEnabled,
+            "首页和趋势页共享当前记录中的按钮门禁");
         tabs.SelectedIndex=1;tabs.SelectedIndex=0;
         Check(recorder.IsRunning,"切换页面不停止记录");
         var firstStop=(Task)type.GetMethod("StopUnifiedRecordingAsync",Flags)!.Invoke(window,null)!;

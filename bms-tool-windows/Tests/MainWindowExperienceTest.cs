@@ -68,8 +68,6 @@ static class MainWindowExperienceTest
         Check(deviceList.SelectedItem is DiscoveredDevice selected && selected.Address == address,
             "同一 MAC 的重复广播不会清除已选设备");
 
-        var unified = (UnifiedMonitorView)type.GetField("_unifiedMonitor", PrivateInstance)!.GetValue(window)!;
-        unified.OperationsContainer.IsExpanded = true;
         Arrange((FrameworkElement)window.Content, new Size(1280, 850));
         GroupBox system = Descendants(window).OfType<GroupBox>()
             .Single(box => Equals(box.Header, "系统状态"));
@@ -84,15 +82,15 @@ static class MainWindowExperienceTest
 
         Check(window.MinWidth <= 900 && window.MinHeight <= 600,
             "窗口最小尺寸适配 900x600 可用区域");
-        var realtimeScroller = (ScrollViewer)unified.Content;
+        var realtimeScroller = (ScrollViewer)window.FindName("RealtimeScrollViewer");
         Check(realtimeScroller.HorizontalScrollBarVisibility == ScrollBarVisibility.Disabled &&
               realtimeScroller.VerticalScrollBarVisibility == ScrollBarVisibility.Auto,
-            "统一主页面按窗口宽度排版并提供纵向滚动");
+            "三栏实时监控按窗口宽度排版并提供纵向滚动");
         var root = (FrameworkElement)window.Content;
         foreach (var size in new[] { new Size(900,600), new Size(1180,760), new Size(1920,1000) })
         {
             Arrange(root,size);
-            Check(realtimeScroller.ScrollableWidth < 1,$"统一主页面在{size.Width}宽度无横向溢出");
+            Check(realtimeScroller.ScrollableWidth < 1,$"三栏实时监控在 {size.Width} 宽度无横向溢出");
         }
         foreach (string name in new[] { "CustomerAlarm1Text", "CustomerAlarm2Text", "CustomerAlarm3Text" })
         {
@@ -102,7 +100,8 @@ static class MainWindowExperienceTest
 
         type.GetMethod("AddParameterTab", PrivateInstance)!.Invoke(window, null);
         var tabs = (TabControl)window.FindName("MainTabs");
-        var businessTab = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "业务参数"));
+        var businessTab = (TabItem)type.GetField("_businessParameterTab", PrivateInstance)!.GetValue(window)!;
+        Check(tabs.Items.Contains(businessTab), "现有参数设置页仍在顶栏中");
         string businessText = string.Join("|", VisibleText((DependencyObject)businessTab.Content));
         string[] verbosePhrases = {
             "读取的是设备当前保存值", "容量单位为", "SN 为工厂身份字段",
