@@ -82,10 +82,10 @@ public sealed class BatterySnapshot
     public BmsFaultInjectionStatus? FaultInjection { get; init; }
     public bool FaultInjectionStateUnknown { get; init; }
     public IReadOnlyList<ushort> CellMillivolts { get; init; } = Array.Empty<ushort>();
-    // D03D: 第 1～16 串；D03E 低 8 位: 第 17～24 串。状态来自 AFE 最后一次回读。
+    // bit 0 对应逻辑第 1 串，bit 31 对应第 32 串。
     public uint BalanceCellMask { get; init; }
     public bool IsCellBalancing(int zeroBasedCellIndex) =>
-        (uint)zeroBasedCellIndex < 24u && IsCellVoltageValid(zeroBasedCellIndex) &&
+        (uint)zeroBasedCellIndex < BmsRegisters.CellVoltageSlotCount && IsCellVoltageValid(zeroBasedCellIndex) &&
         (BalanceCellMask & (1u << zeroBasedCellIndex)) != 0;
 
 
@@ -307,7 +307,8 @@ public sealed partial class BmsClient : IAsyncDisposable
 
     // Optional failures belong to this connection, never to a global product flag.
     private readonly HashSet<(ushort Address, ushort Count)> _unavailableReads = new();
-    private bool? _realtimeAvailable, _c077MeasurementsAvailable;
+    private bool? _realtimeAvailable, _c077MeasurementsAvailable, _balanceStatusAvailable;
+    private static readonly TimeSpan BalanceReadTimeout = TimeSpan.FromSeconds(1);
     private bool _legacyUnavailable, _identityConflict;
     public bool IsC060 { get; private set; }
     public bool IsC077 { get; private set; }
@@ -547,7 +548,10 @@ public sealed partial class BmsClient : IAsyncDisposable
             if (_c077MeasurementsAvailable == true)
             {
                 var values = await ReadRegistersAsync(C077Measurements.Address, C077Measurements.WordCount, ct).ConfigureAwait(false);
-                return DecodeC077Battery(C077Measurements.Parse(values), readStartedUtc);
+                var observed = DateTimeOffset.UtcNow;
+                var measured = C077Measurements.Parse(values);
+                uint balanceCells = await ReadBalanceCellMaskAsync(measured.Report[61], measured.Report[62], ct).ConfigureAwait(false);
+                return DecodeC077Battery(measured, readStartedUtc, observed, balanceCells);
             }
         }
         if (_legacyUnavailable) throw new NotSupportedException("设备未提供通用实时数据窗口，连接与其它可用通信保持正常。");
@@ -601,6 +605,7 @@ public sealed partial class BmsClient : IAsyncDisposable
             // 单体数组、极值、串号及压差全部保留同一次 D000 应答。
         }
 
+        uint balanceCellMask = await ReadBalanceCellMaskAsync(legacy[61], legacy[62], ct).ConfigureAwait(false);
         return new BatterySnapshot
         {
             ReadStartedUtc = readStartedUtc, CellsReadUtc = cellsReadUtc,
@@ -630,17 +635,52 @@ public sealed partial class BmsClient : IAsyncDisposable
             ProtectionLevel1Raw = legacy[58],
             ProtectionLevel2Raw = legacy[59],
             ProtectionLevel3Raw = (ushort)(legacy[60] | c11DiagnosticFaults),
-            BalanceCellMask = (uint)legacy[61] | ((uint)(legacy[62] & 0x00FFu) << 16),
+            BalanceCellMask = balanceCellMask,
             // The first 32 Legacy words are protocol slots, not the configured
             // series count.  61001 marks a slot that is not physically present.
             CellMillivolts = legacy.Take(BmsRegisters.CellVoltageSlotCount).ToArray()
         };
     }
 
-    private static BatterySnapshot DecodeC077Battery(C077Measurements measured, DateTimeOffset startedUtc)
+    private async Task<uint> ReadBalanceCellMaskAsync(ushort legacyFirst, ushort legacySecond, CancellationToken ct)
+    {
+        if (!_balanceStatusAvailable.HasValue)
+        {
+            try
+            {
+                var words = await ReadRegistersAsync(BmsRegisters.TemplateCapabilities, 10, ct, BalanceReadTimeout).ConfigureAwait(false);
+                _balanceStatusAvailable = words[0] == 0x424D && words[1] == 1 && (words[9] & 0x0010) != 0;
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested && ex is (IOException or TimeoutException))
+            {
+                _balanceStatusAvailable = false;
+            }
+        }
+
+        if (_balanceStatusAvailable == false)
+        {
+            // 旧 C060 的两个字分别对应两片 AFE，每片占 10 个逻辑串位。
+            return IsC060 ? (legacyFirst & 0x03FFu) | ((legacySecond & 0x03FFu) << 10)
+                : legacyFirst | ((legacySecond & 0x00FFu) << 16);
+        }
+
+        try
+        {
+            var words = await ReadRegistersAsync(BmsRegisters.BalanceStatus, 5, ct, BalanceReadTimeout).ConfigureAwait(false);
+            return words is [0x424C, 1, var flags, var low, var high] && (flags & 1) != 0
+                ? (uint)low | ((uint)high << 16) : 0u;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested && ex is (IOException or TimeoutException))
+        {
+            // 已声明支持的设备若本次读取失败，清除标记并在下次刷新重新读取。
+            return 0u;
+        }
+    }
+
+    private static BatterySnapshot DecodeC077Battery(C077Measurements measured, DateTimeOffset startedUtc,
+        DateTimeOffset observed, uint balanceCellMask)
     {
         var data = measured.Report;
-        var observed = DateTimeOffset.UtcNow;
         return new BatterySnapshot
         {
             Measurements = measured,
@@ -652,7 +692,7 @@ public sealed partial class BmsClient : IAsyncDisposable
             MaxCellMv = data[32], MinCellMv = data[33], MaxCellPosition = data[34], MinCellPosition = data[35],
             CellDeltaMv = data[36], SystemStatus = measured.SystemStatus,
             ProtectionLevel1Raw = data[58], ProtectionLevel2Raw = data[59], ProtectionLevel3Raw = data[60],
-            BalanceCellMask = (uint)data[61] | ((uint)(data[62] & 0x00FFu) << 16),
+            BalanceCellMask = balanceCellMask,
             CellMillivolts = data[..BmsRegisters.CellVoltageSlotCount].ToArray()
         };
     }

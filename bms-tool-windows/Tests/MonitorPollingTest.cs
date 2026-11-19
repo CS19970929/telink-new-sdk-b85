@@ -53,7 +53,7 @@ static class MonitorPollingTest
                 w[0]=0x4253; w[1]=1; w[2]=5341; w[4]=76;
                 w[8]=3347; w[9]=3336; w[10]=11; // 较晚窗口已经恢复。
             }
-            else throw new Exception($"Unexpected polling request {address:X4}");
+            else if (address != 0x2AF0) throw new Exception($"Unexpected polling request {address:X4}");
             byte[] body = new byte[3+2*count]; body[0]=1; body[1]=3; body[2]=(byte)(2*count);
             for(int i=0;i<count;i++) BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3+2*i,2),w[i]);
             var frame = ModbusRtu.Frame(body);

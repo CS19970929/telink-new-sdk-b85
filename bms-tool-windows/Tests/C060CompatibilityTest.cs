@@ -54,6 +54,22 @@ internal static class Program
 
     static async Task Main()
     {
+        var balancePeer = new Peer { Advertised = true, LegacyBalanceFirst = 0x200, LegacyBalanceSecond = 0x201 };
+        await using (var client = new BmsClient(balancePeer))
+        {
+            await client.ReadIdentityAsync();
+            var snapshot = await client.ReadBatteryAsync();
+            Check(snapshot.IsCellBalancing(9) && snapshot.IsCellBalancing(10) && snapshot.IsCellBalancing(19) &&
+                !snapshot.IsCellBalancing(16), "legacy C060 uses two 10-bit groups for cells 10/11/20");
+        }
+        var newBalancePeer = new Peer { Advertised = true, LegacyBalanceFirst = 1, BalanceStatus = [0x424C,1,1,0x0400,8] };
+        await using (var client = new BmsClient(newBalancePeer))
+        {
+            await client.ReadIdentityAsync();
+            var snapshot = await client.ReadBatteryAsync();
+            Check(snapshot.IsCellBalancing(10) && snapshot.IsCellBalancing(19) &&
+                !snapshot.IsCellBalancing(0), "C060 advertised balance is indexed by logical cell");
+        }
         foreach(bool advertised in new[]{false,true}) {
             var t=new Peer{Advertised=advertised};await using var c=new BmsClient(t);
             await c.ProbeAsync();var id=await c.ReadIdentityAsync("endpoint","广播名");
@@ -227,9 +243,16 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
         return Task.CompletedTask;
     }
     public ushort[]? MeasurementSnapshot { get; set; }
+    public ushort[]? BalanceStatus { get; set; }
+    public ushort LegacyBalanceFirst { get; set; }
+    public ushort LegacyBalanceSecond { get; set; }
 
     ushort[]? Read(int a,int n)
     {
+        if (BalanceStatus is { } balance) {
+            if (a==0x2AF0 && n==10) return [0x424D,1,0,(ushort)(C077?0xC077:0xC060),0,2,5,(ushort)(C077?16:20),0,16];
+            if (a==0x2D00 && n==5) return balance;
+        }
         if (MeasurementSnapshot is { } snapshot && a >= 0x2C00 && a+n <= 0x2C00+snapshot.Length)
             return snapshot.Skip(a-0x2C00).Take(n).ToArray();
         if(NativeCalibration) {
@@ -265,6 +288,7 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
             if(pendingSoc.HasValue&&DelayedSocReads--<=0){Soc=pendingSoc.Value;pendingSoc=null;}
             ushort[] data=new ushort[63];for(int i=0;i<32;i++)data[i]=(ushort)(i<(C077?Other[28]:20)?3300:61001);
             data[32]=data[33]=3300;data[34]=1;data[35]=2;data[37]=6600;data[47]=650;data[48]=700;data[49]=600;data[50]=20;data[52]=(ushort)Soc;data[53]=100;data[54]=1320;data[55]=data[56]=(ushort)(Other[24]*10);data[57]=DelayedCycleReads-->0?reportedCycle:Other[25];
+            data[61]=LegacyBalanceFirst;data[62]=LegacyBalanceSecond;
             return data.Take(n).ToArray();
         }
         if(a==0xD115&&n==2&&!NoStatus)return new ushort[]{4,0};

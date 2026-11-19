@@ -10,7 +10,6 @@ namespace BmsTool.Windows;
 public partial class MainWindow
 {
     private DispatcherTimer? _customerUiTimer;
-    private string _customerLastCellsRaw = string.Empty;
     private DateTime _customerLastDataUtc = DateTime.MinValue;
 
     private static readonly Brush LampOnBrush = new SolidColorBrush(Color.FromRgb(46, 190, 78));
@@ -72,34 +71,6 @@ public partial class MainWindow
         CustomerMaxTempText.Text = ExtractValue(text, @"最高温度：([^\r\n]+)", "—");
         CustomerMinTempText.Text = ExtractValue(text, @"最低温度：([^\r\n]+)", "—");
         CustomerMosTempText.Text = ExtractValue(text, @"MOS\s*温度：([^\r\n]+)", "—");
-    }
-
-    private BatterySnapshot? _customerC077Snapshot;
-
-    private void UpdateCustomerCells()
-    {
-        if (_customerC077Snapshot is { Measurements: { } measured } snapshot)
-        {
-            var currentCells = Enumerable.Range(0, measured.SeriesCount).Where(snapshot.IsCellVoltageValid)
-                .Select(i => (i + 1, snapshot.CellMillivolts[i] / 1000.0, snapshot.IsCellBalancing(i))).ToArray();
-            var invalid = Enumerable.Range(0, measured.SeriesCount).Where(i => !snapshot.IsCellVoltageValid(i))
-                .Select(i => i + 1).ToArray();
-            ShowMonitorCells(currentCells, measured.SeriesCount, invalid);
-            return;
-        }
-        string raw = CellsText.Text ?? string.Empty;
-        if (raw == _customerLastCellsRaw || string.IsNullOrWhiteSpace(raw) || raw == "—") return;
-        _customerLastCellsRaw = raw;
-
-        var cells = new List<(int Index, double Volts, bool Balancing)>();
-        foreach (Match match in Regex.Matches(raw, @"第\s*(\d+)\s*串\s*([0-9]+(?:\.[0-9]+)?)\s*V(?:\s*(\[均衡\]))?", RegexOptions.IgnoreCase))
-        {
-            if (int.TryParse(match.Groups[1].Value, out int index) &&
-                double.TryParse(match.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double volts))
-                cells.Add((index, volts, match.Groups[3].Success));
-        }
-
-        if (cells.Count != 0) ShowMonitorCells(cells, BmsRegisters.CellVoltageSlotCount);
     }
 
     private static UIElement CreateCellVisual(int index, double? volts, bool isMax, bool isMin, bool balancing)

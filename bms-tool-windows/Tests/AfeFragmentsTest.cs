@@ -27,6 +27,28 @@ static class Test {
   t.BalanceOff=true;battery=await b.ReadBatteryAsync();
   Check(battery.BalanceCellMask==0&&!battery.IsCellBalancing(0),"next snapshot clears stopped balance");
   t.BatteryRead=false;
+  var balancePeer = new BmsBleTransport { BatteryRead = true, BalanceStatusWords = [0x424C, 1, 1, 0x8005, 0x8001] };
+  await using (var balanceClient = new BmsClient(balancePeer))
+  {
+      battery = await balanceClient.ReadBatteryAsync();
+      Check(battery.IsCellBalancing(0) && battery.IsCellBalancing(15) && battery.IsCellBalancing(16) &&
+          battery.IsCellBalancing(31) && !battery.IsCellBalancing(2) && !battery.IsCellBalancing(32),
+          "advertised balance status maps cells 1/16/17/32 and suppresses missing cell 3");
+      balancePeer.BalanceStatusWords[2] = 0;
+      Check((await balanceClient.ReadBatteryAsync()).BalanceCellMask == 0, "unconfirmed mask hides legacy bits");
+      balancePeer.BalanceStatusWords[1] = 2;
+      balancePeer.BalanceStatusWords[2] = 1;
+      Check((await balanceClient.ReadBatteryAsync()).BalanceCellMask == 0, "unknown status schema hides markers");
+      balancePeer.BalanceStatusWords[1] = 1;
+      balancePeer.RejectBalanceStatus = true;
+      battery = await balanceClient.ReadBatteryAsync();
+      Check(battery.BalanceCellMask == 0 && battery.IsCellVoltageValid(0), "status rejection leaves cell data available");
+      balancePeer.RejectBalanceStatus = false;
+      Check((await balanceClient.ReadBatteryAsync()).IsCellBalancing(31), "next poll recovers balance data");
+      balancePeer.BalanceStatusWords[3] = balancePeer.BalanceStatusWords[4] = 0;
+      Check((await balanceClient.ReadBatteryAsync()).BalanceCellMask == 0 && balancePeer.BalanceCapabilityReads == 1,
+          "confirmed stop clears markers and capability is read once");
+  }
   // 2026-10-20 现场：持久请求正常，effective 整组 0xFFFF，不能显示读取成功。
   t.HardwareRead=true;t.EffectiveUnavailable=true;
   try { await new AfeHardwareClient(b).ReadAllAsync();throw new Exception("无效 AFE effective 被当成读取成功"); }
@@ -136,6 +158,13 @@ namespace BmsTool.Windows {
   public int? NegotiatedMtu=>23;public bool IsConnected=>true;public bool RequiresSerialWakeup=>Serial;
   public string DiscoveryDescription=>"host";public bool Serial,BadAck,CancelAfterStage,BatteryRead,BalanceOff,HardwareRead,EffectiveUnavailable;public CancellationTokenSource? Stop;
   public ushort[]? HardwareRequested,HardwareEffective;
+  public ushort[]? BalanceStatusWords;
+  public bool RejectBalanceStatus;
+  public int BalanceCapabilityReads;
+  private static void CheckBalanceCount(ushort actual, ushort expected)
+  {
+      if (actual != expected) throw new Exception($"Balance read expected {expected} words, got {actual}");
+  }
   public bool ChangeOnOpen,ChangeEffectiveOnCommit,ChangeShuntOnOpen;public ushort ShuntElement=2000;
   public byte CommitStatus;public ushort ApplyState=1,LastError,MetadataCapabilities=0xdf,HardwareFeatures;public int EffectiveReads;public bool ChangeTemperatureOnCommit,DropCommitAck;
   public int Opens,Closes,Stages,Commits,MaxLength,Reads,DropReads,Reconnects;public List<byte> Frame=new();
@@ -169,6 +198,19 @@ namespace BmsTool.Windows {
      values[61]=BalanceOff?(ushort)0:(ushort)0x8005;values[62]=BalanceOff?(ushort)0:(ushort)0xFF81;
     }
     else if(address==BmsRegisters.Realtime)values[0]=BmsRegisters.RealtimeMagic;
+    else if(address==0x2AF0) {
+     BalanceCapabilityReads++;
+     CheckBalanceCount(count, 10);
+     values[0]=0x424D;values[1]=1;values[9]=(ushort)(BalanceStatusWords is null ? 0 : 16);
+    }
+    else if(address==0x2D00) {
+     CheckBalanceCount(count, 5);
+     if(RejectBalanceStatus) {
+      DataReceived?.Invoke(ModbusRtu.Frame([1, 0x83, 2]));
+      return Task.CompletedTask;
+     }
+     values=BalanceStatusWords!;
+    }
     body=new byte[3+2*count];body[0]=1;body[1]=3;body[2]=(byte)(2*count);
     for(int i=0;i<count;i++)BinaryPrimitives.WriteUInt16BigEndian(body.AsSpan(3+2*i),values[i]);
    }

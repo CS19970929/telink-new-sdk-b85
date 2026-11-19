@@ -52,6 +52,8 @@ public static class BmsRegisters
     public const ushort Software = 0xC022;
     public const ushort Protect = 0x2100;
     public const ushort ProtectCount = 65;
+    public const ushort TemplateCapabilities = 0x2AF0;
+    public const ushort BalanceStatus = 0x2D00;
     public const ushort Legacy = 0xD000;
     public const ushort SystemStatus = 0xD115;
     public const ushort Realtime = 0xD120;

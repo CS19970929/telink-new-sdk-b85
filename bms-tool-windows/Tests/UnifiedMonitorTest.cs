@@ -142,6 +142,42 @@ static class UnifiedMonitorTest
         Check(mode.IsEnabled && mode.SelectedIndex == 0 && Find<GroupBox>("MonitorMosGroup").Visibility == Visibility.Visible &&
             Find<ComboBox>("DeviceList").Visibility == Visibility.Visible && (history is null || history.Visibility == Visibility.Visible),
             "断开后可切回蓝牙，并恢复原设备入口");
+        bool HasBalanceIcon(int cellIndex)
+        {
+            var contents = (StackPanel)((Grid)cells.Children[cellIndex]).Children[1];
+            return contents.Children.OfType<Border>().Any(icon =>
+                System.Windows.Automation.AutomationProperties.GetName(icon) == "均衡中");
+        }
+        void ShowBattery(BatterySnapshot snapshot)
+        {
+            Call("ApplyBatterySnapshot", snapshot);
+            Call("UpdateCustomerCells");
+        }
+
+        BatterySnapshot C060(uint balanceCells) => new() {
+            CellMillivolts = Enumerable.Repeat((ushort)4050, 20).ToArray(), BalanceCellMask = balanceCells
+        };
+        ShowBattery(C060((1u << 10) | (1u << 19)));
+        Check(cells.Children.Count == 20 && Enumerable.Range(0, 20).Where(HasBalanceIcon).SequenceEqual(new[] { 10, 19 }),
+            "C060 只在第 11、20 串显示均衡图标");
+        ShowBattery(C060(0));
+        Check(cells.Children.Count == 20 && !Enumerable.Range(0, 20).Any(HasBalanceIcon), "均衡停止后保留电压并清除图标");
+        ShowBattery(C060(1u));
+        ShowBattery(new BatterySnapshot { CellMillivolts = Enumerable.Repeat((ushort)61001, 32).ToArray() });
+        Check(cells.Children.Count == 0, "没有有效串位时清除上一帧的均衡图标");
+
+        var measuredWords = new ushort[C077Measurements.WordCount];
+        measuredWords[0] = 0xC077; measuredWords[1] = 1; measuredWords[21] = 5;
+        measuredWords[3] = measuredWords[6] = 0x1B;
+        measuredWords[11] = 1;
+        ShowBattery(new BatterySnapshot {
+            Measurements = C077Measurements.Parse(measuredWords),
+            CellMillivolts = Enumerable.Repeat((ushort)4050, 5).ToArray(),
+            BalanceCellMask = (1u << 2) | (1u << 4)
+        });
+        Check(cells.Children.Count == 5 && Enumerable.Range(0, 5).Where(HasBalanceIcon).SequenceEqual(new[] { 4 }),
+            "C077 只在有效的第 5 串显示均衡图标，隐藏无效的第 3 串标记");
+
         var interval = Find<ComboBox>("HomeRecordIntervalBox");
         interval.SelectedIndex = 2;
         var recordInterval = (ComboBox)Field("_recordInterval")!;
