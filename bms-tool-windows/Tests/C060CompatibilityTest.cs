@@ -244,15 +244,17 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
     }
     public ushort[]? MeasurementSnapshot { get; set; }
     public ushort[]? BalanceStatus { get; set; }
+    public ushort? LowPowerFaultWord { get; set; }
     public ushort LegacyBalanceFirst { get; set; }
     public ushort LegacyBalanceSecond { get; set; }
 
     ushort[]? Read(int a,int n)
     {
-        if (BalanceStatus is { } balance) {
-            if (a==0x2AF0 && n==10) return [0x424D,1,0,(ushort)(C077?0xC077:0xC060),0,2,5,(ushort)(C077?16:20),0,16];
-            if (a==0x2D00 && n==5) return balance;
-        }
+        if (a==0x2AF0 && n==10 && (BalanceStatus is not null || LowPowerFaultWord.HasValue))
+            return [0x424D,1,(ushort)(C077?0xC077:0xC060),(ushort)(C077?0x16:0x20),0,2,5,
+                (ushort)(C077?16:20),0,(ushort)((BalanceStatus is not null ? 0x10 : 0) | (LowPowerFaultWord.HasValue ? 0x20 : 0))];
+        if (a==0x2D00 && n==5 && BalanceStatus is { } balance) return balance;
+        if (a==0xD04F && n==1 && LowPowerFaultWord is ushort fault) return [fault];
         if (MeasurementSnapshot is { } snapshot && a >= 0x2C00 && a+n <= 0x2C00+snapshot.Length)
             return snapshot.Skip(a-0x2C00).Take(n).ToArray();
         if(NativeCalibration) {
