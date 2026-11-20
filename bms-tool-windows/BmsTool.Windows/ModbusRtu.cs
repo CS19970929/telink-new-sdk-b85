@@ -55,6 +55,8 @@ public static class BmsRegisters
     public const ushort TemplateCapabilities = 0x2AF0;
     public const ushort TemplateBalanceStatusCapability = 0x0010;
     public const ushort TemplateLowPowerFaultCapability = 0x0020;
+    public const ushort TemplateHardwareProtectionCapability = 0x0040;
+    public const ushort TemplateProtectionStatus = 0x2D10;
     public const ushort LowPowerFaultStatus = 0xD04F;
     public const ushort BalanceStatus = 0x2D00;
     public const ushort Legacy = 0xD000;

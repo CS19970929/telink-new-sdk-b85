@@ -79,6 +79,8 @@ public sealed class BatterySnapshot
     public ushort ProtectionLevel1Raw { get; init; }
     public ushort ProtectionLevel2Raw { get; init; }
     public ushort ProtectionLevel3Raw { get; init; }
+    public ushort? SoftwareProtectionLevel3Raw { get; init; }
+    public ushort HardwareProtectionRaw { get; init; }
     public bool? LowPowerFault { get; init; }
     public BmsFaultInjectionStatus? FaultInjection { get; init; }
     public bool FaultInjectionStateUnknown { get; init; }
@@ -110,7 +112,9 @@ public sealed class BatterySnapshot
     public bool CbcCloseIo => Bit(17);
     public bool DriverExternalControl => Bit(18);
 
-    public bool HasProtection => (ProtectionLevel1Raw | ProtectionLevel2Raw | ProtectionLevel3Raw) != 0 ||
+    private ushort SoftwareProtectionLevel3ForDisplay => SoftwareProtectionLevel3Raw ?? ProtectionLevel3Raw;
+    public bool HasProtection => (ProtectionLevel1Raw | ProtectionLevel2Raw |
+        SoftwareProtectionLevel3ForDisplay | HardwareProtectionRaw) != 0 ||
         LowPowerFault == true || FaultInjection is { HasInjectedFault: true } or { Hold: true };
     public string ProtectionSummary => FaultInjectionStateUnknown ? "状态未知" : HasProtection ? "保护中" : "正常";
     public string ProtectionLevel1Text => DecodeProtection(ProtectionLevel1Raw);
@@ -120,12 +124,18 @@ public sealed class BatterySnapshot
         get
         {
             var text = new List<string>();
-            string common = DecodeProtection((ushort)(ProtectionLevel3Raw & 0x3fff));
+            ushort third = SoftwareProtectionLevel3ForDisplay;
+            string common = DecodeProtection((ushort)(third & 0x3fff));
             if (common != "无") text.Add(common);
+            if ((HardwareProtectionRaw & 0x01) != 0) text.Add("硬件放电过流");
+            if ((HardwareProtectionRaw & 0x02) != 0) text.Add("放电短路");
+            if ((HardwareProtectionRaw & 0x04) != 0) text.Add("硬件单体过压");
+            if ((HardwareProtectionRaw & 0x08) != 0) text.Add("硬件单体欠压");
+            if ((HardwareProtectionRaw & 0x10) != 0) text.Add("硬件充电过流");
             if (LowPowerFault == true) text.Add("RTC／低功耗故障，MOS 已禁止开启");
-            if ((ProtectionLevel3Raw & 0x4000) != 0 || FaultInjection?.AfeCommunicationFault == true)
+            if ((third & 0x4000) != 0 || FaultInjection?.AfeCommunicationFault == true)
                 text.Add("AFE通信失效保护");
-            if ((ProtectionLevel3Raw & 0x8000) != 0) text.Add("NTC采样断线保护");
+            if ((third & 0x8000) != 0) text.Add("NTC采样断线保护");
             if (FaultInjection?.CurrentShuntDriftFault == true) text.Add("电流采样电阻漂移失效");
             if (FaultInjection?.PrimaryCutoffFault == true) text.Add("一级关断电路失效");
             if (FaultInjection is { PrimaryCutoffFault: true, SecondaryShutdownActive: true })
@@ -555,7 +565,8 @@ public sealed partial class BmsClient : IAsyncDisposable
                 var measured = C077Measurements.Parse(values);
                 uint balanceCells = await ReadBalanceCellMaskAsync(measured.Report[61], measured.Report[62], ct).ConfigureAwait(false);
                 bool? lowPowerFault = await ReadLowPowerFaultAsync(ct).ConfigureAwait(false);
-                return DecodeC077Battery(measured, readStartedUtc, observed, balanceCells, lowPowerFault);
+                var measuredProtection = await ReadHardwareProtectionAsync(ct).ConfigureAwait(false);
+                return DecodeC077Battery(measured, readStartedUtc, observed, balanceCells, lowPowerFault, measuredProtection);
             }
         }
         if (_legacyUnavailable) throw new NotSupportedException("设备未提供通用实时数据窗口，连接与其它可用通信保持正常。");
@@ -610,6 +621,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         }
 
         uint balanceCellMask = await ReadBalanceCellMaskAsync(legacy[61], legacy[62], ct).ConfigureAwait(false);
+        var protection = await ReadHardwareProtectionAsync(ct).ConfigureAwait(false);
         return new BatterySnapshot
         {
             ReadStartedUtc = readStartedUtc, CellsReadUtc = cellsReadUtc,
@@ -639,6 +651,8 @@ public sealed partial class BmsClient : IAsyncDisposable
             ProtectionLevel1Raw = legacy[58],
             ProtectionLevel2Raw = legacy[59],
             ProtectionLevel3Raw = (ushort)(legacy[60] | c11DiagnosticFaults),
+            SoftwareProtectionLevel3Raw = protection?[0],
+            HardwareProtectionRaw = (ushort)((protection?[1] ?? 0) & 0x1f),
             BalanceCellMask = balanceCellMask,
             LowPowerFault = await ReadLowPowerFaultAsync(ct).ConfigureAwait(false),
             // The first 32 Legacy words are protocol slots, not the configured
@@ -692,8 +706,13 @@ public sealed partial class BmsClient : IAsyncDisposable
         return values is [var word] ? (word >> 8) != 0 : null;
     }
 
+    private Task<ushort[]?> ReadHardwareProtectionAsync(CancellationToken ct) =>
+        (_templateCapabilities.GetValueOrDefault() & BmsRegisters.TemplateHardwareProtectionCapability) != 0
+            ? TryReadOptionalRegistersAsync(BmsRegisters.TemplateProtectionStatus, 2, ct)
+            : Task.FromResult<ushort[]?>(null);
+
     private static BatterySnapshot DecodeC077Battery(C077Measurements measured, DateTimeOffset startedUtc,
-        DateTimeOffset observed, uint balanceCellMask, bool? lowPowerFault)
+        DateTimeOffset observed, uint balanceCellMask, bool? lowPowerFault, ushort[]? protection)
     {
         var data = measured.Report;
         return new BatterySnapshot
@@ -707,6 +726,8 @@ public sealed partial class BmsClient : IAsyncDisposable
             MaxCellMv = data[32], MinCellMv = data[33], MaxCellPosition = data[34], MinCellPosition = data[35],
             CellDeltaMv = data[36], SystemStatus = measured.SystemStatus,
             ProtectionLevel1Raw = data[58], ProtectionLevel2Raw = data[59], ProtectionLevel3Raw = data[60],
+            SoftwareProtectionLevel3Raw = protection?[0],
+            HardwareProtectionRaw = (ushort)((protection?[1] ?? 0) & 0x1f),
             BalanceCellMask = balanceCellMask,
             LowPowerFault = lowPowerFault,
             CellMillivolts = data[..BmsRegisters.CellVoltageSlotCount].ToArray()
