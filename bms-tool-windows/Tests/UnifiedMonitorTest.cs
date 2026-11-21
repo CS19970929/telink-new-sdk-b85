@@ -62,7 +62,9 @@ static class UnifiedMonitorTest
         void Put(int offset,uint value)=>BinaryPrimitives.WriteUInt32LittleEndian(app.AsSpan(offset),value);
         Put(0,0x20005000);Put(4,0x08003121);Put(0x104,0xC073000D);Put(0x108,0x08003000);Put(0x10C,17);Put(0x110,900);
         byte[] package=SerialFirmwarePackage.WrapC073Bin(app)!;
-        byte[] meta=[]; bool started=false;
+        byte[] meta=new byte[14];
+        bool started=false, cacheValid=false;
+        int cacheBegins=0, cacheBlocks=0, cacheCommits=0, maxBlockBytes=0;
         uint crc=SerialFirmwarePackage.Crc32(app);
         byte[] Words(params ushort[] words) {
             var bytes=new byte[words.Length*2];
@@ -73,19 +75,113 @@ static class UnifiedMonitorTest
             token.ThrowIfCancellationRequested();
             switch(cmd) {
                 case 2: Check(BinaryPrimitives.ReadUInt32LittleEndian(data)==250000 && data[4]==1 && data[5]==0,"CAN 速率与双节点地址");return [];
-                case 0x20: meta=data;return [];
-                case 0x21: Array.Copy(data,4,cached,BinaryPrimitives.ReadUInt32LittleEndian(data),data.Length-4);return [];
-                case 0x22: Check(data.SequenceEqual(meta[4..]) && app.SequenceEqual(cached),"全部缓存数据及校验字段一致");return [];
-                case 0x23: return [..meta,1];
+                case 0x20: ++cacheBegins;meta=data;cacheValid=false;return [];
+                case 0x21:
+                    ++cacheBlocks;
+                    maxBlockBytes=Math.Max(maxBlockBytes,data.Length-4);
+                    Array.Copy(data,4,cached,BinaryPrimitives.ReadUInt32LittleEndian(data),data.Length-4);
+                    return [];
+                case 0x22:
+                    ++cacheCommits;
+                    Check(data.SequenceEqual(meta[4..]) && app.SequenceEqual(cached),"全部缓存数据及校验字段一致");
+                    cacheValid=true;
+                    return [];
+                case 0x23: return [..meta,cacheValid ? (byte)1 : (byte)0];
                 case 0x31: started=true;return [];
-                case 0x32: byte[] status=new byte[13];if(started){status[0]=2;status[1]=100;BinaryPrimitives.WriteUInt32LittleEndian(status.AsSpan(7),1024);}return status;
+                case 0x32:
+                    byte[] status=new byte[13];
+                    if(started) {
+                        status[0]=2;status[1]=100;
+                        BinaryPrimitives.WriteUInt32LittleEndian(status.AsSpan(3),1024);
+                        BinaryPrimitives.WriteUInt32LittleEndian(status.AsSpan(7),1024);
+                    }
+                    return status;
                 case 0x10: return data[0]==0x70 ? Words(0x5550,1,0xC073,13,2,2,0x0800,0x3000,0,0xB800,0,0)
                     : Words(0,17,0,1024,(ushort)(crc>>16),(ushort)crc,1,0);
                 default: throw new Exception($"意外命令 {cmd:X2}");
             }
         }
         run(package,Adapter,new Progress<(int,string)>(),default);
-        Check(started,"CAN 升级从缓存到 APP 元数据回读");
+        Check(started && cacheBegins==1 && cacheBlocks==22 && cacheCommits==1 && maxBlockBytes==48,
+            "首次升级从第一块开始使用 48 字节写入缓存");
+        started=false;
+        run(package,Adapter,new Progress<(int,string)>(),default);
+        Check(started && cacheBegins==1 && cacheBlocks==22 && cacheCommits==1,
+            "相同固件直接执行 CAN 刷写，跳过缓存擦写");
+
+        started=false;
+        meta[10]^=1;
+        run(package,Adapter,new Progress<(int,string)>(),default);
+        Check(started && cacheBegins==2 && cacheBlocks==44 && cacheCommits==2,
+            "缓存有效但镜像 CRC32 不同时完整写入新缓存");
+
+        started=false;
+        try {
+            run(package,(op,b,ct)=>op==0x10 ? Words(0x5550,1,0xC073,14,2,2,0x0800,0x3000,0,0xB800,0,0)
+                : Adapter(op,b,ct),new Progress<(int,string)>(),default);
+            throw new Exception("不匹配的 CAN 目标被接受");
+        } catch(InvalidDataException ex) {
+            Check(!started && ex.Message.Contains("身份"),"APP 回答但板号错误时禁止启动 CAN 刷写");
+        }
+
+        int statusReads=0, syncs=0;
+        byte[] WithPartialFrame(byte op,byte[] data,CancellationToken ct) {
+            if (op==0x32 && ++statusReads==1) throw new TimeoutException("残留半帧吞掉首次查询");
+            if (op==1) {
+                Check(data.Length==512 && data.All(b=>b==255),"只读 GET_INFO 同步帧覆盖最大残留长度");
+                ++syncs;throw new TimeoutException("同步帧被残留数据消费");
+            }
+            return Adapter(op,data,ct);
+        }
+        run(package,WithPartialFrame,new Progress<(int,string)>(),default);
+        Check(started && syncs==1,"残留半帧后重新读取状态并完成升级");
+        // 注入写入成功后 ACK 丢失，第二次 BEGIN 必须清空并完整重建缓存。
+        int begins=0, starts=0, ends=0, polls=0;
+        bool firstLoss=true, endLost=false;
+        started=false;
+        byte[] WithLoss(byte op, byte[] bytes, CancellationToken ct) {
+            if (op==0x20) { ++begins; Array.Fill(cached,(byte)0xff); }
+            if (op==0x21 && bytes.Length>52) throw new Exception("缓存块超过 48 字节");
+            if (op==0x23 && !endLost) return [..meta,0];
+            if (op==0x31) {
+                ++starts; Adapter(op,bytes,ct);
+                throw new TimeoutException("启动应答丢失");
+            }
+            if (op==0x32 && started && ++polls<3) {
+                if (polls==1) throw new TimeoutException("进度应答丢失");
+                var busy=new byte[13];busy[0]=1;BinaryPrimitives.WriteUInt32LittleEndian(busy.AsSpan(7),1024);return busy;
+            }
+            var reply=Adapter(op,bytes,ct);
+            if (op==0x21 && firstLoss && BinaryPrimitives.ReadUInt32LittleEndian(bytes)>0) {
+                firstLoss=false; throw new TimeoutException("缓存块应答丢失");
+            }
+            if (op==0x22) { ++ends;endLost=true;throw new TimeoutException("提交应答丢失"); }
+            return reply;
+        }
+        run(package,WithLoss,new Progress<(int,string)>(),default);
+        Check(begins==2 && starts==1 && ends==1 && polls==3,"缓存重建一次，提交读回、启动与状态丢应答后仍能确认运行镜像");
+        started=false; begins=0;
+        try {
+            run(package,(op,b,ct)=>{
+                if(op==0x20)++begins;
+                if(op==0x21)throw new TimeoutException();
+                if(op==0x23)return [..meta,0];
+                return Adapter(op,b,ct);
+            },new Progress<(int,string)>(),default);
+            throw new Exception("连续丢应答仍启动升级");
+        } catch(IOException ex) {
+            Check(begins==2 && !started && ex.Message.Contains("0x21") && ex.Message.Contains("0/1024"),"连续缓存超时报告准确偏移且未启动 BMS");
+        }
+        try {
+            run(package,(op,b,ct)=>{
+                if(op==0x31)throw new TimeoutException();
+                if(op==0x32 && endLost) {
+                    var stale=new byte[13];stale[0]=2;BinaryPrimitives.WriteUInt32LittleEndian(stale.AsSpan(7),1024);return stale;
+                }
+                return Adapter(op,b,ct);
+            },new Progress<(int,string)>(),default);
+            throw new Exception("旧完成状态被误报为本次成功");
+        } catch(IOException ex) { Check(ex.Message.Contains("未观察到"),"旧完成状态无法证明本次传输成功"); }
         Put(0x108,0x08001C00); Put(4,0x08001D21);
         try { run(SerialFirmwarePackage.WrapC073Bin(app)!,(_,_,_)=>throw new Exception("不应访问端口"),new Progress<(int,string)>(),default); }
         catch(InvalidDataException) { Check(true,"旧分区在打开升级事务前被拒绝");return; }
