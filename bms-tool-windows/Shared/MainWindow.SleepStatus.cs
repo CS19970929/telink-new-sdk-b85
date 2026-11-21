@@ -7,12 +7,13 @@ public partial class MainWindow
     private BmsClient? _sleepStatusClient;
     private DateTime _sleepStatusReceivedUtc;
 
-    private async Task RefreshSleepStatusAsync(BmsClient client)
+    private async Task RefreshSleepStatusAsync(BmsClient client, CancellationToken token = default)
     {
         try {
-            var status = await client.ReadSleepStatusAsync();
+            var status = await client.ReadSleepStatusAsync(token);
             ApplySleepStatus(client, status);
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (Exception ex) {
             if (!ReferenceEquals(client, _bms)) return;
             _sleepStatusClient = client;

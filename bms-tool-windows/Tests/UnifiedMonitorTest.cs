@@ -11,6 +11,22 @@ using BmsTool.Windows;
 
 static class UnifiedMonitorTest
 {
+    private sealed class BlockingMonitorTransport : IBmsTransport
+    {
+        public int Requests { get; private set; }
+        public bool IsConnected => true;
+        public string DiscoveryDescription => "测试串口";
+        public event Action<ReadOnlyMemory<byte>>? DataReceived { add { } remove { } }
+        public event Action<string>? ConnectionProgress { add { } remove { } }
+        public Task ReconnectAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task WriteAsync(ReadOnlyMemory<byte> data, CancellationToken ct = default)
+        {
+            ++Requests;
+            return Task.Delay(Timeout.Infinite, ct);
+        }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
     const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
     static int checks;
     static void Check(bool ok, string text) { if (!ok) throw new Exception(text); ++checks; Console.WriteLine("PASS " + text); }
@@ -409,15 +425,32 @@ static class UnifiedMonitorTest
             Check(Find<ComboBox>("HomeRecordIntervalBox") is null, "内部版移除记录工具栏");
             var debug = type.Assembly.GetType("BmsTool.Windows.C073DebugWindow", true)!;
             var decode = debug.GetMethod("DecodeWakeHistory", BindingFlags.Static | BindingFlags.NonPublic)!;
-            ushort[] words = new ushort[36];
+            ushort[] words = new ushort[60];
             words[0] = 0x5257; words[1] = 1; words[2] = 2; words[3] = 8;
             words[4] = 0x21; words[5] = 1; words[6] = 1; words[7] = 1464;
             words[8] = 0x02; words[9] = 2;
+            words[2] = 8; words[13] = 8; words[17] = 9;
+            words[21] = 11; words[25] = 34;
+            words[28] = 1; words[29] = 1; // 旧版纯 RTC 巡检记录。
+            words[33] = 1; // 旧版无唤醒标志的 STOP 返回记录。
+            words[38] = 12345;
+            words[39] = words[40] = words[41] = ushort.MaxValue;
+            words[42] = 1;
             var rows = ((System.Collections.IEnumerable)decode.Invoke(null, [words])!).Cast<object>().ToArray();
             string RowValue(object row, string field) => (string)row.GetType().GetProperty(field)!.GetValue(row)!;
-            Check(rows.Length == 2 && RowValue(rows[0], "Source").Contains("RS485 RX") &&
+            Check(rows.Length == 6 && RowValue(rows[0], "Source").Contains("RS485 RX") &&
                 RowValue(rows[0], "Source").Contains("RTC 闹钟") && RowValue(rows[1], "Source").Contains("PB12") &&
                 RowValue(rows[0], "Time").EndsWith("00:01:07.000"), "RTC 窗口解析多源唤醒、顺序和 32 位启动计时");
+            Check(RowValue(rows[2], "Stage").Contains("充电") && RowValue(rows[3], "Stage").Contains("放电") &&
+                RowValue(rows[2], "Source").Contains("无 ISR"), "通过阶段显示巡检发现充放电，不伪造直接唤醒标志");
+            Check(RowValue(rows[4], "Stage").Contains("电压保护") && RowValue(rows[5], "Stage").Contains("欠压"),
+                "显示巡检退出原因，过滤旧版定时和无标志 STOP 记录");
+            Check(RowValue(rows[0], "Elapsed") == "0.00:00:12.345" &&
+                RowValue(rows[1], "Elapsed") == "计时不可用" &&
+                RowValue(rows[2], "Elapsed") == "49.17:02:47.296", "退出原因与时长对应，支持超过 32 位 tick 的时长");
+            var legacyRows = ((System.Collections.IEnumerable)decode.Invoke(null, [words[..36]])!).Cast<object>().ToArray();
+            Check(legacyRows.Length == rows.Length && RowValue(legacyRows[0], "Stage") == RowValue(rows[0], "Stage") &&
+                RowValue(legacyRows[0], "Elapsed") == "—", "新版调试窗口兼容旧版 36 字 RTC 记录");
             words[2] = 9;
             try { decode.Invoke(null, [words]); throw new Exception("错误的 RTC 记录条数被接受"); }
             catch (TargetInvocationException ex) when (ex.InnerException is InvalidDataException)
@@ -427,6 +460,27 @@ static class UnifiedMonitorTest
                 "RTC 调试可暂停主页面轮询");
             Call("SetDebugMonitorPaused", false);
             Check(!(bool)Field("_debugMonitorPaused")!, "退出暂停恢复主页面常规轮询策略");
+            var blocked = new BlockingMonitorTransport();
+            var bms = new BmsClient(blocked);
+            var bmsField = type.GetField("_bms", Flags)!;
+            bmsField.SetValue(window, bms);
+            transportField.SetValue(window, blocked);
+            var tick = type.GetMethod("PollTickAsync", Flags)!;
+            var pending = (Task)tick.Invoke(window, null)!;
+            Check(!pending.IsCompleted && blocked.Requests == 1, "暂停回归先挂起一条真实客户端读请求");
+            var automaticToken = type.GetProperty("AutomaticMonitoringToken", Flags)!;
+            var issued = (CancellationToken)automaticToken.GetValue(window)!;
+            Call("SetDebugMonitorPaused", true);
+            Wait(pending);
+            Wait((Task)tick.Invoke(window, null)!);
+            Check(issued.IsCancellationRequested && blocked.Requests == 1 && (int)Field("_pollFailureCount")! == 0,
+                "暂停取消在途自动读，不发后续请求也不触发重连");
+            bmsField.SetValue(window, null);
+            transportField.SetValue(window, null);
+            Call("SetDebugMonitorPaused", false);
+            Check(!((CancellationToken)automaticToken.GetValue(window)!).IsCancellationRequested,
+                "恢复轮询会提供新的自动请求令牌");
+            Wait(bms.DisposeAsync().AsTask());
             _ = new System.Windows.Interop.WindowInteropHelper(window).EnsureHandle();
             var tools = Find<Button>("DebugToolsButton");
             tools.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

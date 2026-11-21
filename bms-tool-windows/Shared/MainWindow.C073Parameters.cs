@@ -71,7 +71,7 @@ public partial class MainWindow
         fields.Children.Add(save);
     }
 
-    private async Task RunC073OperationAsync(Func<BmsClient,CancellationToken,Task> operation, bool writing, bool requiresUnlock=true)
+    private async Task RunC073OperationAsync(Func<BmsClient,CancellationToken,Task> operation, bool writing, bool requiresUnlock=true, CancellationToken automatic=default)
     {
         if (_bms is not { IsC073:true } client || _parameterBusy || _shBusy || _diagBusy ||
             _otaRunning || _autoReconnectRunning || _eventLogReadInProgress) return;
@@ -81,7 +81,7 @@ public partial class MainWindow
         }
 #endif
         _parameterBusy=_diagBusy=true; _pollTimer.Stop();
-        using var timeout=CancellationTokenSource.CreateLinkedTokenSource(_connectionLifetime.Token);
+        using var timeout=CancellationTokenSource.CreateLinkedTokenSource(_connectionLifetime.Token, automatic);
         timeout.CancelAfter(TimeSpan.FromSeconds(45));
         try {
             await WaitForCommunicationIdleAsync();
@@ -89,6 +89,7 @@ public partial class MainWindow
             await operation(client,timeout.Token);
             if (ReferenceEquals(client,_bms)) _parameterStatus.Text=writing ? "C073 参数已保存并读回。" : "已从 C073 读取参数。";
         }
+        catch (Exception) when (automatic.IsCancellationRequested) { }
         catch (Exception ex) when (ReferenceEquals(client,_bms)) {
             _c073ReadClient=_c073ProtectionClient=null;
             _parameterStatus.Text="C073 参数操作未确认："+ex.Message;

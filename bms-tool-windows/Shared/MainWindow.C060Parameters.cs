@@ -204,7 +204,7 @@ public partial class MainWindow
         foreach(var row in _c060Rows)row.Clear();
         _c060Soc.Clear();_c060Serial.Clear();_c060Hardware.Clear();_c060Software.Clear();_c060Status.Text="当前连接尚未读取产品参数。";_c077Status.Text="";
     }
-    private async Task RunC060ParameterAsync(Func<BmsClient,CancellationToken,Task>? action,string operation="保存参数",bool requiresUnlock=true,bool requireCapture=true,bool refreshAfter=true)
+    private async Task RunC060ParameterAsync(Func<BmsClient,CancellationToken,Task>? action,string operation="保存参数",bool requiresUnlock=true,bool requireCapture=true,bool refreshAfter=true,CancellationToken automatic=default)
     {
         if(_parameterBusy||_diagBusy||_eventLogReadInProgress||_otaRunning||_shBusy||_autoReconnectRunning){_c060Status.Text="设备正忙，请稍后操作。";return;}
         var client=_bms;if(client is null){_c060Status.Text="请先连接设备。";return;}
@@ -213,7 +213,8 @@ public partial class MainWindow
 #endif
         if(action is not null&&requireCapture&&(!ReferenceEquals(_c060CaptureClient,client)||_c060Capture is null)){_c060Status.Text="请先读取当前设备参数。";return;}
         _parameterBusy=_diagBusy=_eventLogReadInProgress=true;
-        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        using var timeout=CancellationTokenSource.CreateLinkedTokenSource(automatic);
+        timeout.CancelAfter(TimeSpan.FromSeconds(120));
         try {
             _pollTimer.Stop();await WaitForCommunicationIdleAsync();
             if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变。");
@@ -238,6 +239,7 @@ public partial class MainWindow
                 (capture.Errors.Count==0?"":"；部分块未提供："+string.Join("；",capture.Errors));
             DeviceSerialStatusText.Text=_parameterStatus.Text=_c060Status.Text;
             if(action is not null&&requireCapture)ShowParameterSaved(_c060Status.Text);
+        } catch(Exception) when (automatic.IsCancellationRequested) {
         } catch(Exception ex){
             _c060Status.Text="操作失败或结果未确认："+ex.Message+"；请重新读取，未自动重发。";
             _c060CaptureClient=null;DeviceSerialStatusText.Text=_c060Status.Text;

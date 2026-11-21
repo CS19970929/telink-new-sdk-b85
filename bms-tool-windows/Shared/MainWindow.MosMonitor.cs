@@ -206,18 +206,20 @@ public partial class MainWindow
         _mosPrevious = snapshot; _mosLastSampleUtc = DateTimeOffset.UtcNow;
     }
 
-    private async Task RefreshMosMonitorAsync(BmsClient client)
+    private async Task RefreshMosMonitorAsync(BmsClient client, CancellationToken token = default)
     {
         if (_mosClosed || _mosBusy || _mosAuto.IsChecked != true || _mosJournal is null ||
             _otaRunning || !ReferenceEquals(client, _bms)) return;
         _mosBusy = true;
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        cts.CancelAfter(TimeSpan.FromSeconds(20));
         _mosCts = cts;
         try {
             await RefreshOpenWireAsync(client, cts.Token);
             var capture = await client.ReadMosHistoryAsync(_mosSequence, _mosBootTick, _mosBuildId, cts.Token);
             ApplyMosCapture(client, capture);
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) { if (!_mosClosed) NoteMosGap("MOS 读取取消或超时"); }
         catch (Exception ex) { NoteMosGap("MOS 诊断读取失败：" + ex.Message); AppendLog(ex.Message, "MOS_MONITOR"); }
         finally { _mosCts = null; _mosBusy = false; }

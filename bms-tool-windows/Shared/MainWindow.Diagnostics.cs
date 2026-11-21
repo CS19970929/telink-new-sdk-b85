@@ -125,18 +125,20 @@ public partial class MainWindow
         _diagTimer=new DispatcherTimer {Interval=TimeSpan.FromSeconds(1)};
         _diagTimer.Tick+=async (_,_)=> {
             RefreshSleepStatusFreshness();
+            var automatic = AutomaticMonitoringToken;
+            if (automatic.IsCancellationRequested) return;
             if(_bms is null) { _diagProbedClient=null;_diagCts?.Cancel();ObservationGap("disconnected");return; }
             if(_observationSession is not null && !_diagBusy && (_otaRunning || _autoReconnectRunning || _shBusy || ShFactoryBusy()))
                 ObservationGap("paused_for_other_operation");
             if(_otaRunning || _autoReconnectRunning || _diagBusy || _eventLogReadInProgress || _shBusy || ShFactoryBusy())return;
             bool first=!ReferenceEquals(_diagProbedClient,_bms);
             if(first || (_diagAuto.IsChecked==true && DateTime.UtcNow>=_diagNextUtc))
-                await CaptureDiagnosticsAsync(false);
+                await CaptureDiagnosticsAsync(false, automatic);
         };
         _diagTimer.Start();
         Closed+=(_,_)=>{_diagTimer.Stop();_diagCts?.Cancel();StopObservationSession("window_closed");};
     }
-    private async Task CaptureDiagnosticsAsync(bool full)
+    private async Task CaptureDiagnosticsAsync(bool full, CancellationToken automatic = default)
     {
         if(_diagBusy || _eventLogReadInProgress || _otaRunning || _shBusy || ShFactoryBusy())return;
         var client=_bms;
@@ -147,7 +149,8 @@ public partial class MainWindow
         }
         if(full && _observationSession is null)_diagAuto.IsChecked=false;
         _diagBusy=true;_eventLogReadInProgress=true;
-        _diagCts=new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        _diagCts=CancellationTokenSource.CreateLinkedTokenSource(automatic);
+        _diagCts.CancelAfter(TimeSpan.FromSeconds(60));
         try {
             _pollTimer.Stop();await WaitForCommunicationIdleAsync();
             if(!ReferenceEquals(client,_bms))throw new InvalidOperationException("连接已改变");
@@ -184,6 +187,7 @@ public partial class MainWindow
             if(_observationSession is not null) _diagStatus.Text += " · 会话写盘："+_observationSession.DirectoryPath;
             if(!result.Supported) { _diagAuto.IsChecked=false;StopObservationSession("unsupported_or_unavailable"); }
         }
+        catch(Exception) when (automatic.IsCancellationRequested) {ObservationGap("automatic_monitoring_paused");}
         catch(DiagnosticSessionReadException ex) {ObservationGap(ex.Message);_diagStatus.Text="会话读取失败："+ex.Message;}
         catch(OperationCanceledException) {ObservationGap("capture_cancelled_or_timeout");}
         catch(Exception ex) {StopObservationSession("failed");_diagStatus.Text="诊断读取失败："+ex.Message;}

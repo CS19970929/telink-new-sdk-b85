@@ -2,6 +2,13 @@ using System.IO;
 namespace BmsTool.Windows;
 public partial class MainWindow
 {
+    private CancellationToken AutomaticMonitoringToken =>
+#if BMS_FACTORY_APP
+        _automaticMonitoringStop.Token;
+#else
+        CancellationToken.None;
+#endif
+
     // A metadata/extension failure must not replace a successful base-data read with a link failure.
     private async Task RefreshOptionalDeviceViewAsync(string feature,Func<Task> read)
     {

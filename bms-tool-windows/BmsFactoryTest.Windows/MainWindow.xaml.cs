@@ -62,6 +62,7 @@ public partial class MainWindow : Window
         Closed += async (_, _) =>
         {
             _pollTimer.Stop();
+            _automaticMonitoringStop.Cancel();
             StopBleDiscovery();
             _otaCts?.Cancel();
             _factoryTestCts?.Cancel();
@@ -69,6 +70,7 @@ public partial class MainWindow : Window
             await DisposeBmsAsync();
             _sessionLog.Write("SESSION", "Window closed");
             _sessionLog.Dispose();
+            _automaticMonitoringStop.Dispose();
         };
 
         AppendLog("应用启动；连接后电池数据自动按 1 秒周期刷新。", "APP");
@@ -458,10 +460,14 @@ public partial class MainWindow : Window
         EnsureCurrentConnection(bms, generation);
         ApplyBatterySnapshot(snapshot);
         if (bms.UsesC060Protocol) return;
-        await RefreshOptionalDeviceViewAsync("MOS许可",()=>RefreshMosControlStateAsync(bms, default));
-        await RefreshOptionalDeviceViewAsync("MOS诊断",()=>RefreshMosMonitorAsync(bms));
-        await RefreshOptionalDeviceViewAsync("休眠状态",()=>RefreshSleepStatusAsync(bms));
-        await RefreshOptionalDeviceViewAsync("设备时间",()=>RefreshDeviceClockAsync(bms));
+        ct.ThrowIfCancellationRequested();
+        await RefreshOptionalDeviceViewAsync("MOS许可",()=>RefreshMosControlStateAsync(bms, ct));
+        ct.ThrowIfCancellationRequested();
+        await RefreshOptionalDeviceViewAsync("MOS诊断",()=>RefreshMosMonitorAsync(bms, ct));
+        ct.ThrowIfCancellationRequested();
+        await RefreshOptionalDeviceViewAsync("休眠状态",()=>RefreshSleepStatusAsync(bms, ct));
+        ct.ThrowIfCancellationRequested();
+        await RefreshOptionalDeviceViewAsync("设备时间",()=>RefreshDeviceClockAsync(bms, ct));
     }
 
     private void ApplyBatterySnapshot(BatterySnapshot s)
@@ -644,13 +650,14 @@ public partial class MainWindow : Window
     {
         if (_polling || _otaRunning || _autoReconnectRunning || _shBusy || _parameterBusy || _manualConnectionInProgress || _connectionOperations.IsBusy || _bleWindowClosed || _debugMonitorPaused) return;
 
+        CancellationToken token = AutomaticMonitoringToken;
         if (_bms is null)
         {
             bool endpointAvailable = _connectionMode == ConnectionMode.Ble
                 ? _connectedAddress is not null
                 : !string.IsNullOrWhiteSpace(_connectedSerialPort);
             if (endpointAvailable && DateTime.UtcNow >= _nextReconnectUtc)
-                await AutoReconnectAsync();
+                await AutoReconnectAsync(token);
             return;
         }
 
@@ -658,11 +665,12 @@ public partial class MainWindow : Window
         _polling = true;
         try
         {
-            if (_identityRefreshRequired) await RefreshIdentityAsync();
-            await RefreshBatteryAsync();
+            if (_identityRefreshRequired) await RefreshIdentityAsync(token);
+            token.ThrowIfCancellationRequested();
+            await RefreshBatteryAsync(token);
             _pollFailureCount = 0;
         }
-        catch (Exception) when (generation != _connectionGeneration) { }
+        catch (Exception) when (token.IsCancellationRequested || generation != _connectionGeneration) { }
         catch (BmsModbusException ex)
         {
             _pollFailureCount = 0;
@@ -674,7 +682,7 @@ public partial class MainWindow : Window
             _pollFailureCount++;
             AppendLog($"AUTO_REFRESH_FAIL count={_pollFailureCount}; type={ex.GetType().Name}; hresult=0x{ex.HResult:X8}; message={ex.Message}", "POLL");
             if (_pollFailureCount >= 3)
-                await AutoReconnectAsync();
+                await AutoReconnectAsync(token);
         }
         finally
         {
@@ -682,9 +690,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task AutoReconnectAsync()
+    private async Task AutoReconnectAsync(CancellationToken token)
     {
-        if (_autoReconnectRunning || _otaRunning || _manualConnectionInProgress || _connectionOperations.IsBusy || !_connectionDesired || _bleWindowClosed) return;
+        if (_autoReconnectRunning || _otaRunning || _manualConnectionInProgress || _connectionOperations.IsBusy || !_connectionDesired || _bleWindowClosed || token.IsCancellationRequested) return;
         if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null) return;
         if (_connectionMode != ConnectionMode.Ble && string.IsNullOrWhiteSpace(_connectedSerialPort)) return;
         _communicationReconnectAttempts++;
@@ -696,17 +704,18 @@ public partial class MainWindow : Window
             ConnectionText.Text = "通信异常，自动重连中...";
             AppendLog("自动重连开始：连续 3 次数据刷新失败。", "RECONNECT");
             if (_connectionMode != ConnectionMode.Ble)
-                await ConnectSerialInternalAsync(_connectedSerialPort!, _serialBaudRate);
+                await ConnectSerialInternalAsync(_connectedSerialPort!, _serialBaudRate, token);
             else
-                await ConnectBmsInternalAsync(_connectedAddress!.Value);
-            if (_manualConnectionInProgress || !_connectionDesired || _bleWindowClosed) return;
-            await RefreshIdentityAsync();
-            await RefreshBatteryAsync();
+                await ConnectBmsInternalAsync(_connectedAddress!.Value, token);
+            if (_manualConnectionInProgress || !_connectionDesired || _bleWindowClosed || token.IsCancellationRequested) return;
+            await RefreshIdentityAsync(token);
+            await RefreshBatteryAsync(token);
             _pollFailureCount = 0;
             _nextReconnectUtc = DateTime.MinValue;
             ConnectionText.Text = string.IsNullOrEmpty(_connectedName) ? "已连接" : $"已连接：{_connectedName}";
             AppendLog("自动重连成功。", "RECONNECT");
         }
+        catch (Exception) when (token.IsCancellationRequested) { }
         catch (Exception ex)
         {
             _sessionLog.WriteException("RECONNECT", "AutoReconnect", ex);

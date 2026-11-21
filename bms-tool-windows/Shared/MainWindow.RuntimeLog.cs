@@ -58,7 +58,9 @@ public partial class MainWindow
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += async (_, _) => {
             if (_bms is null) { _runtimeLogAuto.IsChecked = false; _runtimeLogCts?.Cancel(); return; }
-            if (_runtimeLogAuto.IsChecked == true) await CaptureRuntimeLogsAsync();
+            var automatic = AutomaticMonitoringToken;
+            if (_runtimeLogAuto.IsChecked == true && !automatic.IsCancellationRequested)
+                await CaptureRuntimeLogsAsync(automatic);
         };
         timer.Start();
         Closed += (_, _) => { _runtimeLogClosed = true; timer.Stop(); _runtimeLogCts?.Cancel(); };
@@ -75,7 +77,7 @@ public partial class MainWindow
         if (_runtimeLogBusy) throw new IOException("运行日志尚未停止，请稍后重试 OTA");
     }
 
-    private async Task CaptureRuntimeLogsAsync()
+    private async Task CaptureRuntimeLogsAsync(CancellationToken automatic = default)
     {
         if (_runtimeLogClosed || _runtimeLogBusy || _diagBusy || _eventLogReadInProgress ||
             _otaRunning || _autoReconnectRunning || _shBusy || ShFactoryBusy()) return;
@@ -83,7 +85,8 @@ public partial class MainWindow
         if (client is null) { _runtimeLogStatus.Text = "请先连接 BMS"; return; }
         _runtimeLogBusy = true;
         _eventLogReadInProgress = true;
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(automatic);
+        cts.CancelAfter(TimeSpan.FromSeconds(30));
         _runtimeLogCts = cts;
         try {
             _pollTimer.Stop();
@@ -104,6 +107,8 @@ public partial class MainWindow
             foreach (var entry in batch.Entries) _runtimeLogs.Add(entry);
             while (_runtimeLogs.Count > 2000) _runtimeLogs.RemoveAt(0);
             _runtimeLogStatus.Text = $"Build={batch.Cursor!.BuildId:X8} · 固件等级={batch.DeviceLevel} 模块=0x{batch.ModuleMask:X3} · 新增={batch.Entries.Count} · 本次缺失={batch.Missed} · RAM累计覆盖={batch.Overwritten} · {(batch.Reset ? "设备会话已重置 · " : "")}保留最近 {_runtimeLogs.Count}/2000 条；32K计时会回绕，deep sleep/reset 不保留 RAM。";
+        } catch (Exception) when (automatic.IsCancellationRequested) {
+            _runtimeLogStatus.Text = "自动轮询已暂停";
         } catch (OperationCanceledException) {
             _runtimeLogAuto.IsChecked = false; _runtimeLogStatus.Text = "运行日志采集已停止或超时";
         } catch (Exception ex) {

@@ -118,19 +118,21 @@ public partial class MainWindow
         var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
         timer.Tick+=async(_,_)=>{
             if(_bms is null){_batteryTypeStatus.Text="电池类型：未连接";_parameterProbedClient=null;_parameterCapture=null;_parameterStatus.Text="未连接";_parameterBusinessReadback.Text="设备参数：未连接";UpdateBusinessParameterControls();return;}
-            if(!_identityRefreshRequired && !ReferenceEquals(_bms,_parameterProbedClient) && !_parameterBusy && !_diagBusy && !_otaRunning && !_eventLogReadInProgress && !_shBusy && !ShFactoryBusy())await ParameterRunAsync(null);
+            var automatic = AutomaticMonitoringToken;
+            if(!automatic.IsCancellationRequested && !_identityRefreshRequired && !ReferenceEquals(_bms,_parameterProbedClient) && !_parameterBusy && !_diagBusy && !_otaRunning && !_eventLogReadInProgress && !_shBusy && !ShFactoryBusy())
+                await ParameterRunAsync(null, automatic: automatic);
         };
         timer.Start();Closed+=(_,_)=>timer.Stop();
     }
     private async Task ParameterRunAsync(Func<BmsClient,CancellationToken,Task>? action,bool refresh=true,
-        string? operation="保存参数",bool requiresUnlock=true)
+        string? operation="保存参数",bool requiresUnlock=true,CancellationToken automatic=default)
     {
         if (_bms?.IsC073 == true) {
             if (action is not null) { _parameterStatus.Text="请在 C073 基本参数中选择对应操作。"; return; }
-            await RunC073OperationAsync(ReadC073FieldsAsync, false);
+            await RunC073OperationAsync(ReadC073FieldsAsync, false, automatic: automatic);
             return;
         }
-        if(_bms?.UsesC060Protocol==true){await RunC060ParameterAsync(action,operation??"读取参数",requiresUnlock);return;}
+        if(_bms?.UsesC060Protocol==true){await RunC060ParameterAsync(action,operation??"读取参数",requiresUnlock,automatic: automatic);return;}
         bool modifying=action is not null && operation is not null;
         void Reject(string message) {
             _parameterStatus.Text=message;
@@ -146,7 +148,7 @@ public partial class MainWindow
         _parameterBusy=true;_diagBusy=true;_eventLogReadInProgress=true;
         UpdateBusinessParameterControls();
         long generation = _connectionGeneration;
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_connectionLifetime.Token);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_connectionLifetime.Token, automatic);
         timeout.CancelAfter(TimeSpan.FromSeconds(60));
         try {
             _pollTimer.Stop();await WaitForCommunicationIdleAsync();
@@ -169,7 +171,7 @@ public partial class MainWindow
                     ShowParameterSaved(_parameterStatus.Text);
                 }
             }
-        } catch (Exception) when (generation != _connectionGeneration) {
+        } catch (Exception) when (generation != _connectionGeneration || automatic.IsCancellationRequested) {
         } catch(Exception ex){
             _parameterCapture=null;_parameterProbedClient=null;
             _parameterBusinessReadback.Text="设备参数：读取失败";
