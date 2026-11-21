@@ -213,6 +213,8 @@ static class UnifiedMonitorTest
         tabs.SelectedItem = realtime;
         bool factory = type.Assembly.GetName().Name!.Contains("Factory");
         var otherTabs = tabs.Items.OfType<TabItem>().Where(t => t != realtime && !Equals(t.Header, "趋势与记录")).ToArray();
+        var build = Find<TextBlock>("CustomerBuildText");
+        Check(!build.Text.Contains("Comm Tool"), "蓝牙主页面只显示 BMS 固件 Build ID");
         Check(tabs.TabStripPlacement == Dock.Top && ReferenceEquals(tabs.Items[0], realtime) &&
             Equals(realtime.Header, "实时监控") && tabs.Items.OfType<TabItem>().Any(t => Equals(t.Header, "趋势与记录")) == factory,
             "实时监控保留在首页，独立趋势页仅供内部版使用");
@@ -225,6 +227,17 @@ static class UnifiedMonitorTest
         mode.SelectedIndex = 3;
         Check(ports.Visibility == Visibility.Visible && baud.Visibility == Visibility.Collapsed &&
             Find<Button>("FeidaoButton").Visibility == Visibility.Visible, "CAN 使用 Comm Tool 串口并提供独立广播查看入口");
+        var canType = type.Assembly.GetType("BmsTool.Windows.CommToolCanTransport", true)!;
+        var can = Activator.CreateInstance(canType, "COM-DEMO")!;
+        canType.GetProperty("FirmwareVersion")!.SetValue(can, new Version(0, 2, 9));
+        var transportField = type.GetField("_bmsTransport", Flags)!;
+        transportField.SetValue(window, can);
+        Call("UpdateUnifiedMonitorState");
+        Check(build.Text.Contains("固件 Build ID") && build.Text.Contains("Comm Tool 版本：0.2.9"),
+            $"CAN 在 Build ID 旁显示转接器版本，实际为 {build.Text}");
+        transportField.SetValue(window, null);
+        Call("UpdateUnifiedMonitorState");
+        Check(!build.Text.Contains("Comm Tool"), "CAN 断开后清除上一个转接器版本");
         mode.SelectedIndex = 1;
         Check(ports.Visibility == Visibility.Visible && baud.Visibility == Visibility.Visible &&
             Find<ComboBox>("DeviceList").Visibility == Visibility.Collapsed && (history is null || history.Visibility == Visibility.Collapsed) &&
@@ -239,6 +252,12 @@ static class UnifiedMonitorTest
         ports.ItemsSource = new[] { new SerialPortEndpoint("COM-DEMO") };
         ports.SelectedIndex = 0;
         var receive = type.GetField("_integratedOwcTask", Flags)!;
+        receive.SetValue(window, Task.CompletedTask);
+        type.GetField("_integratedOwcVersion", Flags)!.SetValue(window, new Version(0, 2, 8));
+        Call("UpdateUnifiedMonitorState");
+        Check(build.Text.Contains("Comm Tool 版本：0.2.8"), "一线通已连接且未收到 BMS 数据时仍显示转接器版本");
+        Wait((Task)type.GetMethod("StopIntegratedOwcAsync", Flags)!.Invoke(window, null)!);
+        Check(!build.Text.Contains("Comm Tool"), "一线通停止后清除转接器版本");
         receive.SetValue(window, Task.CompletedTask);
         Call("UpdateUnifiedMonitorState");
         mode.SelectedIndex = 0;

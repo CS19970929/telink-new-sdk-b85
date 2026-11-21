@@ -104,6 +104,7 @@ static class OwcProtocolTest
             commands.Add((command, payload));
             return command switch
             {
+                0x01 => [1, 0, 2, 9, ..new byte[24]],
                 0x45 => capabilities,
                 0x46 => [],
                 0x47 => Extended(payload[0] is 0 or 0x80 ? raw : [], mode: 2),
@@ -113,6 +114,8 @@ static class OwcProtocolTest
         modern.Start(OwcReceiveMode.LishenV111, default);
         Check(modern.UsesExtendedSnapshots && commands[1].Command == 0x46 &&
             commands[1].Payload.SequenceEqual(new byte[] { 1, 2 }), "新设备按所选模式启动");
+        Check(modern.TryReadFirmwareVersion(default) == new Version(0, 2, 9) &&
+            commands[^1].Command == 0x01 && commands[^1].Payload.Length == 0, "只读 GET_INFO 解析 Comm Tool 固件版本");
         Check(modern.ReadSnapshots(default).Count == 6, "新设备查询明确selector并验证整组");
         modern.SetEnabled(false, default);
         Check(commands[^1].Command == 0x46 && commands[^1].Payload.SequenceEqual(new byte[] { 0, 2 }), "停止不丢失所选模式");
@@ -120,11 +123,12 @@ static class OwcProtocolTest
         using var legacy = new CommToolOwcClient((command, payload, _) =>
         {
             commands.Add((command, payload));
-            if (command == 0x45) throw new CommToolCommandException(2, "UNSUPPORTED");
+            if (command is 0x01 or 0x45) throw new CommToolCommandException(2, "UNSUPPORTED");
             return command == 0x43 ? [] : Payload(1, payload[0] is 0 or 0x3A ? realtime : []);
         });
         legacy.Start(OwcReceiveMode.Auto, default);
         Check(!legacy.UsesExtendedSnapshots && commands[^1].Command == 0x43, "旧设备自动选项明确回退A1.3.3");
+        Check(legacy.TryReadFirmwareVersion(default) is null, "不应答 GET_INFO 的旧设备可继续监控");
         Check(legacy.ReadSnapshots(default).Count == 5, "旧设备保留五ID及v1快照");
         commands.Clear();
         Expect<System.IO.IOException>(() => legacy.Start(OwcReceiveMode.LishenV111, default), "旧设备拒绝锂神模式");
@@ -133,6 +137,8 @@ static class OwcProtocolTest
         Expect<TimeoutException>(() => timeout.Start(OwcReceiveMode.Auto, default), "超时不能伪装旧固件");
         using var malformed = new CommToolOwcClient((_, _, _) => [0]);
         Expect<FormatException>(() => malformed.Start(OwcReceiveMode.Auto, default), "非法能力不能回退");
+        Check(malformed.TryReadFirmwareVersion(default) is null && timeout.TryReadFirmwareVersion(default) is null,
+            "不显示截断或超时的固件版本");
         using var pins = new CommToolOwcClient((_, _, _) => [1, 0, 3, 0, 36, 0, 3, 1]);
         Expect<System.IO.IOException>(() => pins.Start(OwcReceiveMode.Auto, default), "无接收引脚能力时禁止启用");
         Expect<OperationCanceledException>(() => modern.Start(OwcReceiveMode.Auto, new CancellationToken(true)), "初始化尊重取消");

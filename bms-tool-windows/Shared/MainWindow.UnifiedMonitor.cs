@@ -34,6 +34,7 @@ public partial class MainWindow
     private Task? _integratedOwcTask, _recordStopTask, _recordExportTask;
     private CancellationTokenSource? _integratedOwcStop;
     private long _integratedOwcEpoch;
+    private Version? _integratedOwcVersion;
     private DispatcherTimer? _unifiedTimer;
     private bool IsCanMode => ConnectionModeBox.SelectedIndex == 3;
     private bool IsOwcMode => ConnectionModeBox.SelectedIndex == 2;
@@ -193,11 +194,21 @@ public partial class MainWindow
         _recordPlot.InvalidateVisual();
     }
 
+    private void UpdateCustomerBuildFooter()
+    {
+        string build = ExtractValue(IdentityText.Text ?? "", @"固件 Build ID：([^\r\n]+)", "—");
+        var commToolVersion = IsCanMode ? (_bmsTransport as CommToolCanTransport)?.FirmwareVersion :
+            IsOwcMode && _integratedOwcTask is not null ? _integratedOwcVersion : null;
+        string versionLabel = commToolVersion is null ? "" : $"  ·  Comm Tool 版本：{commToolVersion}";
+        CustomerBuildText.Text = $"固件 Build ID：{build}{versionLabel}";
+    }
+
     private void UpdateUnifiedMonitorState()
     {
         if (_unifiedTimer is null) return;
         bool busy = _manualConnectionInProgress || _autoReconnectRunning || _otaRunning || _connectionOperations.IsBusy || ShFactoryBusy();
         bool owc = _integratedOwcTask is not null;
+        UpdateCustomerBuildFooter();
         OwcModeBox.IsEnabled = !owc && !busy && _recording?.IsRunning != true;
         ConnectionModeBox.IsEnabled = !owc && !busy && _bmsTransport is null && _recording?.IsRunning != true;
         DisconnectButton.IsEnabled = owc || _bmsTransport is not null || _connectionDesired || busy;
@@ -399,6 +410,12 @@ public partial class MainWindow
                     try
                     {
                         client.Start(mode, token);
+                        var firmwareVersion = client.TryReadFirmwareVersion(token);
+                        await Dispatcher.InvokeAsync(() => {
+                            if (epoch != _integratedOwcEpoch || token.IsCancellationRequested) return;
+                            _integratedOwcVersion = firmwareVersion;
+                            UpdateUnifiedMonitorState();
+                        });
                         while (!token.IsCancellationRequested)
                         {
                             var snapshots = client.ReadSnapshots(token);
@@ -424,7 +441,9 @@ public partial class MainWindow
                     await Dispatcher.InvokeAsync(() => {
                         if (epoch != _integratedOwcEpoch) return;
                         _monitorError = "接收中断，正在重试；详情见日志";
+                        _integratedOwcVersion = null;
                         PublishUnifiedReading(null); AppendLog("一线通：" + ex.Message, "OWC");
+                        UpdateUnifiedMonitorState();
                     });
                     try { await Task.Delay(3000, token); } catch (OperationCanceledException) { break; }
                 }
@@ -438,7 +457,10 @@ public partial class MainWindow
     {
         if (_integratedOwcTask is null) return;
         ++_integratedOwcEpoch; var task = _integratedOwcTask;
-        _integratedOwcStop?.Cancel(); PublishUnifiedReading(null);
+        _integratedOwcStop?.Cancel();
+        _integratedOwcVersion = null;
+        PublishUnifiedReading(null);
+        UpdateUnifiedMonitorState();
         try { await task; } catch (OperationCanceledException) { }
         finally { _integratedOwcTask = null; _integratedOwcStop?.Dispose(); _integratedOwcStop = null; _monitorError = null; UpdateUnifiedMonitorState(); }
     }

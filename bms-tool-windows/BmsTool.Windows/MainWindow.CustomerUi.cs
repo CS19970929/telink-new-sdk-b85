@@ -187,7 +187,7 @@ public partial class MainWindow
         CustomerHardwareText.Text = "硬件版本：" + ExtractValue(text, @"硬件版本：([^\r\n]+)", "—");
         CustomerSoftwareText.Text = "软件版本：" + ExtractValue(text, @"软件版本：([^\r\n]+)", "—");
         CustomerSerialText.Text = "BMS序列号：" + ExtractValue(text, @"序列号：([^\r\n]+)", "—");
-        CustomerBuildText.Text = "固件 Build ID：" + ExtractValue(text, @"固件 Build ID：([^\r\n]+)", "—");
+        UpdateCustomerBuildFooter();
     }
 
     private void UpdateCustomerCommunicationIndicator() => UpdateCommunicationStatus();

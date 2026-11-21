@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Globalization;
+using System.IO;
 using System.Text;
 
 namespace BmsTool.Windows;
@@ -36,6 +37,22 @@ public static class CommToolOwcProtocol
         OwcWireProtocol.LishenV111 => "锂神 V1.1.1",
         _ => "正在识别"
     };
+    internal static Version? TryReadFirmwareVersion(
+        Func<byte, byte[], CancellationToken, byte[]> exchange, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        try
+        {
+            byte[] info = exchange(0x01, [], token);
+            return info.Length >= 20 && info[0] == 1 ? new Version(info[1], info[2], info[3]) : null;
+        }
+        catch (Exception ex) when (ex is IOException or TimeoutException or FormatException)
+        {
+            token.ThrowIfCancellationRequested();
+            return null;
+        }
+    }
+
     public static byte DecodeCapabilities(ReadOnlySpan<byte> payload)
     {
         if (payload.Length != 8 || payload[0] != 1 || (payload[1] & ~7) != 0 ||

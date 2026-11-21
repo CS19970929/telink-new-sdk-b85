@@ -9,6 +9,7 @@ internal sealed class CommToolCanTransport(string portName) : IBmsTransport
     private CommToolSerialConnection? _connection;
     private bool _disposed;
     public bool IsConnected => _connection is not null;
+    public Version? FirmwareVersion { get; private set; }
     public string DiscoveryDescription => $"{portName} · Comm Tool · CAN 250 kbit/s · 地址 0";
     public event Action<ReadOnlyMemory<byte>>? DataReceived;
     public event Action<string>? ConnectionProgress;
@@ -19,6 +20,7 @@ internal sealed class CommToolCanTransport(string portName) : IBmsTransport
         try
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            FirmwareVersion = null;
             _connection?.Dispose(); _connection = null;
             ConnectionProgress?.Invoke($"正在连接 {DiscoveryDescription}");
             await Task.Run(() =>
@@ -30,7 +32,10 @@ internal sealed class CommToolCanTransport(string portName) : IBmsTransport
                     // 旧转接器无法区分 BMS 拒绝与 CAN 失联，必须用实际读取确认在线。
                     var probe = Exchange(ModbusRtu.ReadHolding(BmsRegisters.Legacy, 4), channel.Command, ct);
                     _ = ModbusRtu.ParseRead(probe, 4);
+                    var firmwareVersion = CommToolOwcProtocol.TryReadFirmwareVersion(channel.Command, ct);
+                    ct.ThrowIfCancellationRequested();
                     _connection = channel;
+                    FirmwareVersion = firmwareVersion;
                 }
                 catch { channel.Dispose(); throw; }
             }, ct).ConfigureAwait(false);
@@ -125,7 +130,13 @@ internal sealed class CommToolCanTransport(string portName) : IBmsTransport
     public async ValueTask DisposeAsync()
     {
         await _gate.WaitAsync().ConfigureAwait(false);
-        try { _disposed = true; _connection?.Dispose(); _connection = null; }
+        try
+        {
+            _disposed = true;
+            FirmwareVersion = null;
+            _connection?.Dispose();
+            _connection = null;
+        }
         finally { _gate.Release(); }
     }
 }

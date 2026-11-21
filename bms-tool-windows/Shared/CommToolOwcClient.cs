@@ -44,6 +44,9 @@ internal sealed class CommToolOwcClient : IDisposable
         SetEnabled(true, token);
     }
 
+    public Version? TryReadFirmwareVersion(CancellationToken token) =>
+        CommToolOwcProtocol.TryReadFirmwareVersion(_exchange, token);
+
     public void SetEnabled(bool enabled, CancellationToken token) =>
         Command(UsesExtendedSnapshots ? (byte)0x46 : (byte)0x43,
             UsesExtendedSnapshots ? [enabled ? (byte)1 : (byte)0, (byte)_mode] : [enabled ? (byte)1 : (byte)0], token);
