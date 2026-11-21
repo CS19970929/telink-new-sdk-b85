@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows;
@@ -13,25 +12,23 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow
 {
-    private TabItem? _unifiedRecordTab;
-    private readonly MonitorPlot _recordPlot = new() { Height = 300 };
-    private readonly GroupBox _recordPlotGroup = new() { Header = "实时趋势" };
+#if !BMS_FACTORY_APP
     private readonly ComboBox _recordInterval = new() { Width = 90, ItemsSource = new[] { "1秒", "5秒", "10秒", "30秒", "60秒" }, SelectedIndex = 1 };
     private readonly TextBlock _recordStatus = new() { Text = "未开始", TextWrapping = TextWrapping.Wrap, Margin = new(0, 12, 0, 12) };
-    private readonly TextBlock _recordFileStatus = new() { Foreground = Brushes.SlateGray, FontSize = 12, TextWrapping = TextWrapping.Wrap };
-    private readonly TextBox _recordNote = new() { MinWidth = 180, MaxLength = 2000, Margin = new(8, 0, 8, 0) };
-    private Button? _recordStart, _recordStop, _recordExport;
-    private bool _showHistoryInRecordPlot;
-    private MonitorReading? _monitorReading;
-    private readonly MonitorTrend _trend = new();
+
     private MonitorRecording? _recording;
-    private string? _recordDirectory, _lastTrendSequence;
-    private string? _monitorError, _recordError, _recordNotice;
-    private bool _recordExportBusy, _recordHistoryBusy;
-    private bool _trendGap, _recordStopping, _unifiedClosing, _unifiedCloseReady;
+    private string? _recordDirectory;
+    private string? _recordError, _recordNotice;
+    private bool _recordExportBusy;
+    private bool _recordStopping;
+    private Task? _recordStopTask, _recordExportTask;
+#endif
+    private MonitorReading? _monitorReading;
+    private string? _monitorError;
+    private bool _unifiedClosing, _unifiedCloseReady;
     private int _unifiedModeIndex;
     private readonly Dictionary<TabItem, Visibility> _owcHiddenTabs = new();
-    private Task? _integratedOwcTask, _recordStopTask, _recordExportTask;
+    private Task? _integratedOwcTask;
     private CancellationTokenSource? _integratedOwcStop;
     private long _integratedOwcEpoch;
     private Version? _integratedOwcVersion;
@@ -46,13 +43,16 @@ public partial class MainWindow
         false;
 #endif
 
+    private bool IsUnifiedRecording =>
+#if BMS_FACTORY_APP
+        false;
+#else
+        _recording?.IsRunning == true;
+#endif
+
     private void InitializeUnifiedMonitor()
     {
-#if BMS_FACTORY_APP
-        BuildUnifiedRecordPage();
-        HomeRecordsButton.Click += (_, _) => MainTabs.SelectedItem = _unifiedRecordTab;
-        MainTabs.Items.Insert(1, _unifiedRecordTab);
-#endif
+#if !BMS_FACTORY_APP
         HomeRecordIntervalBox.ItemsSource = _recordInterval.ItemsSource;
         HomeRecordIntervalBox.SetBinding(ComboBox.SelectedIndexProperty, new Binding(nameof(ComboBox.SelectedIndex))
         {
@@ -64,6 +64,7 @@ public partial class MainWindow
         HomeRecordExportButton.Click += UnifiedRecordExport_Click;
         HomeRecordStatusText.SetBinding(TextBlock.TextProperty, new Binding(nameof(TextBlock.Text)) { Source = _recordStatus });
         HomeRecordStatusText.SetBinding(ToolTipProperty, new Binding(nameof(TextBlock.Text)) { Source = _recordStatus });
+#endif
         SetMonitorModeDisplay();
         _unifiedTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _unifiedTimer.Tick += (_, _) => UpdateUnifiedMonitorState();
@@ -74,59 +75,12 @@ public partial class MainWindow
         UpdateUnifiedMonitorState();
     }
 
-    private void BuildUnifiedRecordPage()
-    {
-        var buttonStyle = (Style)FindResource("CustomerButton");
-        Button RecordButton(string label) => new() { Content = label, Style = buttonStyle, Margin = new(0, 0, 6, 0) };
-
-        var body = new StackPanel { Margin = new(12) };
-        var controls = new WrapPanel();
-        controls.Children.Add(new TextBlock { Text = "记录间隔", VerticalAlignment = VerticalAlignment.Center, Margin = new(0, 0, 8, 0) });
-        _recordInterval.Margin = new(0, 0, 8, 0);
-        controls.Children.Add(_recordInterval);
-        _recordStart = RecordButton("开始记录"); _recordStart.Click += UnifiedRecordStart_Click;
-        _recordStop = RecordButton("结束记录"); _recordStop.Click += async (_, _) => await StopUnifiedRecordingAsync();
-        _recordExport = RecordButton("导出记录"); _recordExport.Click += UnifiedRecordExport_Click;
-        controls.Children.Add(_recordStart); controls.Children.Add(_recordStop); controls.Children.Add(_recordExport);
-        var history = RecordButton("打开历史"); history.Click += UnifiedHistory_Click; controls.Children.Add(history);
-        var folder = RecordButton("记录目录"); folder.Click += (_, _) => {
-            if (_recordDirectory is not null) Process.Start(new ProcessStartInfo(_recordDirectory) { UseShellExecute = true });
-        }; controls.Children.Add(folder);
-        body.Children.Add(controls); body.Children.Add(_recordStatus); body.Children.Add(_recordFileStatus);
-        var chartTools = new WrapPanel { Margin = new(0, 18, 0, 10) };
-        var liveTrend = RecordButton("实时趋势");
-        liveTrend.Click += (_, _) => ShowLiveRecordTrend();
-        chartTools.Children.Add(liveTrend);
-        var metric = new ComboBox { Width = 100, ItemsSource = new[] { "总压", "电流", "温度", "SOC" }, SelectedIndex = 0 };
-        metric.SelectionChanged += (_, _) => { _recordPlot.Metric = metric.SelectedItem?.ToString() ?? "总压"; _recordPlot.InvalidateVisual(); };
-        chartTools.Children.Add(metric);
-        var range = new ComboBox { Width = 100, Margin = new(10, 0, 0, 0), ItemsSource = new[] { "30分钟", "2小时", "24小时" }, SelectedIndex = 0 };
-        range.SelectionChanged += (_, _) => { _recordPlot.Range = range.SelectedIndex switch { 1 => TimeSpan.FromHours(2), 2 => TimeSpan.FromHours(24), _ => TimeSpan.FromMinutes(30) }; _recordPlot.InvalidateVisual(); };
-        chartTools.Children.Add(range);
-        body.Children.Add(chartTools);
-        _recordPlotGroup.Style = (Style)FindResource("CustomerGroupBox");
-        _recordPlotGroup.Content = _recordPlot;
-        body.Children.Add(_recordPlotGroup);
-        var notes = new WrapPanel { Margin = new(0, 20, 0, 0) };
-        notes.Children.Add(new TextBlock { Text = "事件备注", VerticalAlignment = VerticalAlignment.Center });
-        notes.Children.Add(_recordNote);
-        var addNote = RecordButton("添加标记");
-        addNote.Click += (_, _) => {
-            try { if (_recording?.IsRunning != true) { _recordStatus.Text = "请先开始记录"; return; }
-                _recording.Note(_recordNote.Text); _recordNote.Clear(); _recordStatus.Text = "已添加事件标记"; }
-            catch (Exception ex) { HandleUnifiedRecordError(ex); }
-        };
-        notes.Children.Add(addNote); body.Children.Add(notes);
-        _unifiedRecordTab = new TabItem { Header = "趋势与记录", Content = new ScrollViewer {
-            Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto } };
-    }
-
     private bool TryChangeUnifiedMode()
     {
         if (_unifiedTimer is null) return true;
         if (ConnectionModeBox.SelectedIndex != _unifiedModeIndex &&
             (_integratedOwcTask is not null || _bmsTransport is not null || _manualConnectionInProgress ||
-             _autoReconnectRunning || _recording?.IsRunning == true))
+             _autoReconnectRunning || IsUnifiedRecording))
         {
             ConnectionModeBox.SelectedIndex = _unifiedModeIndex;
             (IsOwcMode ? OwcStatusText : ConnectionText).Text = "请先结束记录并断开当前连接";
@@ -173,26 +127,6 @@ public partial class MainWindow
         if (reading is not null && !reading.IsFresh) reading = null;
         _monitorReading = reading;
         if (IsOwcMode) ShowOwcReading(reading);
-        if (_unifiedRecordTab is null) return;
-        if (reading is null)
-        {
-            if (!_trendGap) _trend.Add(new("gap", DateTimeOffset.UtcNow, 0, null, "数据中断"));
-            _trendGap = true; _lastTrendSequence = null;
-        }
-        else if (_lastTrendSequence != reading.SegmentKey + reading.Sequence)
-        {
-            _trend.Add(new("sample", reading.ObservedUtc, reading.SegmentKey.GetHashCode(), reading, null));
-            _lastTrendSequence = reading.SegmentKey + reading.Sequence; _trendGap = false;
-        }
-        if (!_showHistoryInRecordPlot) ShowLiveRecordTrend();
-    }
-
-    private void ShowLiveRecordTrend()
-    {
-        _showHistoryInRecordPlot = false;
-        _recordPlotGroup.Header = "实时趋势";
-        _recordPlot.Entries = _trend.ToArray();
-        _recordPlot.InvalidateVisual();
     }
 
     private void UpdateCustomerBuildFooter()
@@ -210,8 +144,8 @@ public partial class MainWindow
         bool busy = _manualConnectionInProgress || _autoReconnectRunning || _otaRunning || _connectionOperations.IsBusy || ShFactoryBusy();
         bool owc = _integratedOwcTask is not null;
         UpdateCustomerBuildFooter();
-        OwcModeBox.IsEnabled = !owc && !busy && _recording?.IsRunning != true;
-        ConnectionModeBox.IsEnabled = !owc && !busy && _bmsTransport is null && _recording?.IsRunning != true;
+        OwcModeBox.IsEnabled = !owc && !busy && !IsUnifiedRecording;
+        ConnectionModeBox.IsEnabled = !owc && !busy && _bmsTransport is null && !IsUnifiedRecording;
         DisconnectButton.IsEnabled = owc || _bmsTransport is not null || _connectionDesired || busy;
         CancelConnectionButton.Visibility = _manualConnectionInProgress && !IsOwcMode ? Visibility.Visible : Visibility.Collapsed;
         StopScanButton.IsEnabled = _bleScanRunning;
@@ -224,7 +158,7 @@ public partial class MainWindow
         else SerialPortList.IsEnabled = true;
         foreach (TabItem tab in MainTabs.Items.OfType<TabItem>())
         {
-            if (owc && tab != _unifiedRecordTab && tab != RealtimeTab)
+            if (owc && tab != RealtimeTab)
             {
                 if (!_owcHiddenTabs.ContainsKey(tab)) _owcHiddenTabs[tab] = tab.Visibility;
                 tab.Visibility = Visibility.Collapsed;
@@ -232,31 +166,30 @@ public partial class MainWindow
             else if (!owc && _owcHiddenTabs.Remove(tab, out var visible)) tab.Visibility = visible;
             if (!UnifiedTestEdition && Equals(tab.Header, "BMS 诊断")) tab.Visibility = Visibility.Collapsed;
         }
+#if !BMS_FACTORY_APP
         if (_recording is not null && !_recordStopping)
         {
             try { _recording.Capture(_monitorReading); }
             catch (Exception ex) { HandleUnifiedRecordError(ex); }
         }
-        bool running = _recording?.IsRunning == true;
+        bool running = IsUnifiedRecording;
         string status = _recording is null ? (_recordDirectory is null ? "未开始" : "记录已结束") :
             _recording.Error is Exception failure ? "记录失败：" + failure.Message :
             _recordStopping ? "正在保存记录…" : !_recording.IsRunning ? "记录已停止" :
             $"正在记录 · {_recording.Elapsed:hh\\:mm\\:ss} · 已写入 {_recording.Written:N0} 条";
         HomeRecordStatusText.Foreground = _recordError is null ? Brushes.DimGray : Brushes.Firebrick;
-        _recordFileStatus.Text = _recordDirectory ?? "开始后自动保存到所选目录";
-        if (!_recordStopping) _recordStatus.Text = _recordError ?? (_recordHistoryBusy ? "正在读取历史…" : _recordExportBusy ? "正在导出…" : running ? status : _recordNotice ?? status);
-        bool idle = !running && !_recordStopping && !_recordExportBusy && !_recordHistoryBusy;
-        if (_recordStart is not null) _recordStart.IsEnabled = idle;
-        if (_recordStop is not null) _recordStop.IsEnabled = running && !_recordStopping;
-        if (_recordExport is not null) _recordExport.IsEnabled = idle && _recordDirectory is not null;
+        if (!_recordStopping) _recordStatus.Text = _recordError ?? (_recordExportBusy ? "正在导出…" : running ? status : _recordNotice ?? status);
+        bool idle = !running && !_recordStopping && !_recordExportBusy;
         _recordInterval.IsEnabled = HomeRecordIntervalBox.IsEnabled = HomeRecordStartButton.IsEnabled = idle;
         HomeRecordStopButton.IsEnabled = running && !_recordStopping;
-        HomeRecordExportButton.IsEnabled = idle && (!UnifiedTestEdition || _recordDirectory is not null);
+        HomeRecordExportButton.IsEnabled = idle;
+#endif
     }
 
+#if !BMS_FACTORY_APP
     private async void UnifiedRecordStart_Click(object sender, RoutedEventArgs e)
     {
-        if (_recording?.IsRunning == true || _recordStopping || _recordExportBusy || _recordHistoryBusy) return;
+        if (_recording?.IsRunning == true || _recordStopping || _recordExportBusy) return;
         if (_bmsTransport is null && _integratedOwcTask is null) { _recordStatus.Text = "请先连接设备"; return; }
         var dialog = new OpenFolderDialog { Title = "选择记录保存位置" };
         if (dialog.ShowDialog(this) != true) return;
@@ -267,10 +200,7 @@ public partial class MainWindow
             _recording = new MonitorRecording(dialog.FolderName, new[] { 1, 5, 10, 30, 60 }[_recordInterval.SelectedIndex]);
             _recordDirectory = _recording.DirectoryPath;
             _recording.Capture(_monitorReading);
-            if (_unifiedRecordTab is not null) {
-                ShowLiveRecordTrend();
-                MainTabs.SelectedItem = _unifiedRecordTab;
-            }
+
             UpdateUnifiedMonitorState();
         }
         catch (Exception ex) { HandleUnifiedRecordError(ex); }
@@ -300,35 +230,9 @@ public partial class MainWindow
         finally { _recording = null; _recordStopping = false; UpdateUnifiedMonitorState(); }
     }
 
-    private async void UnifiedHistory_Click(object sender, RoutedEventArgs e)
-    {
-        if (_recording?.IsRunning == true || _recordStopping || _recordExportBusy || _recordHistoryBusy) { _recordStatus.Text = "请先结束当前记录"; return; }
-        var dialog = new OpenFolderDialog { Title = "选择一条 BMS 记录目录" };
-        if (dialog.ShowDialog(this) != true) return;
-        _recordHistoryBusy = true;
-        try
-        {
-            var entries = await Task.Run(() => {
-                var history = new MonitorTrend();
-                foreach (var entry in MonitorRecording.Read(dialog.FolderName)) history.Add(entry);
-                return history.ToArray();
-            });
-            if (_unifiedClosing || _bleWindowClosed) return;
-            if (entries.Length == 0) throw new IOException("目录内没有记录");
-            _recordDirectory = dialog.FolderName;
-            _showHistoryInRecordPlot = true;
-            _recordPlotGroup.Header = "历史趋势";
-            _recordPlot.Entries = entries;
-            _recordPlot.InvalidateVisual();
-            _recordFileStatus.Text = dialog.FolderName; _recordNotice = _recordStatus.Text = "历史记录已载入 · 最近24小时，较早数据按30秒抽样" + (entries.Any(e => e.Kind == "recovery_gap") ? " · 含异常中断缺口" : "");
-        }
-        catch (Exception ex) { _recordNotice = _recordStatus.Text = "打开记录失败：" + ex.Message; }
-        finally { _recordHistoryBusy = false; UpdateUnifiedMonitorState(); }
-    }
-
     private async void UnifiedRecordExport_Click(object sender, RoutedEventArgs e)
     {
-        if (_recording?.IsRunning == true || _recordStopping || _recordExportBusy || _recordHistoryBusy) return;
+        if (_recording?.IsRunning == true || _recordStopping || _recordExportBusy) return;
         string? directory = _recordDirectory;
         if (directory is null)
         {
@@ -340,7 +244,6 @@ public partial class MainWindow
         if (dialog.ShowDialog(this) != true) return;
         _recordExportBusy = true;
         HomeRecordExportButton.IsEnabled = false;
-        if (_recordExport is not null) _recordExport.IsEnabled = false;
         _recordStatus.Text = "正在导出…";
         try
         {
@@ -358,6 +261,8 @@ public partial class MainWindow
         catch (Exception ex) { _recordNotice = _recordStatus.Text = "导出失败：" + ex.Message; }
         finally { _recordExportBusy = false; UpdateUnifiedMonitorState(); }
     }
+
+#endif
 
     internal static void ExportUnifiedWorkbook(string directory, string destination)
     {
@@ -476,16 +381,23 @@ public partial class MainWindow
 
     private async void UnifiedMonitor_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (_unifiedCloseReady || (_integratedOwcTask is null && _recording is null && !_recordStopping && !_recordExportBusy)) return;
+        if (_unifiedCloseReady) return;
+#if BMS_FACTORY_APP
+        if (_integratedOwcTask is null) return;
+#else
+        if (_integratedOwcTask is null && _recording is null && !_recordStopping && !_recordExportBusy) return;
+#endif
         e.Cancel = true;
         if (_unifiedClosing) return;
         _unifiedClosing = true;
         await StopIntegratedOwcAsync();
+#if !BMS_FACTORY_APP
         await StopUnifiedRecordingAsync();
         if (_recordExportTask is not null)
         {
             try { await _recordExportTask; } catch (Exception ex) { AppendLog("关闭时导出失败：" + ex.Message, "ERROR"); }
         }
+#endif
         _unifiedCloseReady = true; Close();
     }
 }

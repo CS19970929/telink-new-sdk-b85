@@ -34,16 +34,8 @@
                     </Grid.RowDefinitions>
                     <Border Margin="5,4,5,3" Padding="8,4" BorderBrush="#CDCDCD" BorderThickness="1" Background="White">
                         <WrapPanel VerticalAlignment="Center">
-                            <TextBlock Text="长期监控" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBlock Text="记录间隔" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <ComboBox x:Name="HomeRecordIntervalBox" Width="82" Height="28" Margin="0,2,10,2"
-                                      AutomationProperties.Name="记录间隔"/>
-                            <Button x:Name="HomeRecordStartButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2">开始监控</Button>
-                            <Button x:Name="HomeRecordStopButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2">停止</Button>
-                            <Button x:Name="HomeRecordExportButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2">导出 CSV / Excel</Button>
-                            <Button x:Name="HomeRecordsButton" Style="{StaticResource CustomerButton}" Margin="0,2,10,2">查看记录</Button>
-                            <TextBlock x:Name="HomeRecordStatusText" Text="未开始" VerticalAlignment="Center" Foreground="DimGray"
-                                       MaxWidth="340" TextTrimming="CharacterEllipsis"/>
+                            <Button x:Name="DebugToolsButton" Content="调试工具" Click="ShowC073DebugTools_Click"
+                                    Style="{StaticResource CustomerButton}" Margin="0,2,6,2"/>
                         </WrapPanel>
                     </Border>
                     <ScrollViewer x:Name="RealtimeScrollViewer" Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">

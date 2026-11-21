@@ -45,8 +45,6 @@ public partial class MainWindow : Window
         InitializeBleDiscoveryUi();
         AddMosControlPanel();
         InitializeUiLog();
-        AddC11ValidationTab();
-        AddFaultInjectionTab();
         Loaded += (_, _) => { if (_diagTimer is null) AddDiagnosticTab(); };
         DeviceList.ItemsSource = _devices;
         SerialPortList.ItemsSource = _serialPorts;
@@ -406,7 +404,7 @@ public partial class MainWindow : Window
 
     private void StartAutomaticRefresh()
     {
-        if (_bms is not null && !_otaRunning && !_parameterBusy)
+        if (_bms is not null && !_otaRunning && !_parameterBusy && !_debugMonitorPaused)
             _pollTimer.Start();
     }
 
@@ -644,7 +642,7 @@ public partial class MainWindow : Window
 
     private async Task PollTickAsync()
     {
-        if (_polling || _otaRunning || _autoReconnectRunning || _shBusy || _parameterBusy || _manualConnectionInProgress || _connectionOperations.IsBusy || _bleWindowClosed) return;
+        if (_polling || _otaRunning || _autoReconnectRunning || _shBusy || _parameterBusy || _manualConnectionInProgress || _connectionOperations.IsBusy || _bleWindowClosed || _debugMonitorPaused) return;
 
         if (_bms is null)
         {
@@ -719,7 +717,7 @@ public partial class MainWindow : Window
         finally
         {
             _autoReconnectRunning = false;
-            if (!_otaRunning && !_manualConnectionInProgress && _connectionDesired && !_bleWindowClosed) _pollTimer.Start();
+            if (!_otaRunning && !_manualConnectionInProgress && _connectionDesired && !_bleWindowClosed && !_debugMonitorPaused) _pollTimer.Start();
         }
     }
 

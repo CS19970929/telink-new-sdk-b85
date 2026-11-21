@@ -1,0 +1,26 @@
+<Window x:Class="BmsTool.Windows.C073DebugWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="C073 调试工具" Width="680" Height="440" MinWidth="510" MinHeight="330" WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock x:Name="ConnectionStatus" FontWeight="SemiBold" TextWrapping="Wrap"/>
+            <TextBlock x:Name="LiveSample" Margin="0,4,0,12" TextWrapping="Wrap"/>
+            <WrapPanel>
+                <Button x:Name="ReadHistoryButton" Content="读取最近 RTC 唤醒" Padding="12,4" Click="ReadHistory_Click"/>
+                <CheckBox x:Name="PauseMonitor" Content="暂停主页面轮询" Margin="16,0,0,0" VerticalAlignment="Center"
+                          Checked="PauseMonitor_Changed" Unchecked="PauseMonitor_Changed"/>
+            </WrapPanel>
+            <TextBlock Margin="0,8,0,2" TextWrapping="Wrap" Foreground="DimGray"
+                       Text="调试窗口按需读取。测试 RTC 时可先暂停轮询；点击读取本身可能唤醒设备。"/>
+            <TextBlock x:Name="HistoryStatus" Margin="0,2,0,10" TextWrapping="Wrap"/>
+        </StackPanel>
+        <DataGrid x:Name="WakeHistory" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" CanUserSortColumns="False" HeadersVisibility="Column">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="启动后时间" Binding="{Binding Time}" Width="125"/>
+                <DataGridTextColumn Header="阶段" Binding="{Binding Stage}" Width="155"/>
+                <DataGridTextColumn Header="唤醒标志" Binding="{Binding Source}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

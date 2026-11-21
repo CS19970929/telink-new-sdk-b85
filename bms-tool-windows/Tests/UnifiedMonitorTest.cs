@@ -254,12 +254,16 @@ static class UnifiedMonitorTest
         var monitor = Find<ScrollViewer>("RealtimeScrollViewer");
         tabs.SelectedItem = realtime;
         bool factory = type.Assembly.GetName().Name!.Contains("Factory");
-        var otherTabs = tabs.Items.OfType<TabItem>().Where(t => t != realtime && !Equals(t.Header, "趋势与记录")).ToArray();
+        var otherTabs = tabs.Items.OfType<TabItem>().Where(t => t != realtime).ToArray();
         var build = Find<TextBlock>("CustomerBuildText");
         Check(!build.Text.Contains("Comm Tool"), "蓝牙主页面只显示 BMS 固件 Build ID");
         Check(tabs.TabStripPlacement == Dock.Top && ReferenceEquals(tabs.Items[0], realtime) &&
-            Equals(realtime.Header, "实时监控") && tabs.Items.OfType<TabItem>().Any(t => Equals(t.Header, "趋势与记录")) == factory,
-            "实时监控保留在首页，独立趋势页仅供内部版使用");
+            Equals(realtime.Header, "实时监控"), "实时监控保留在首页");
+        string[] removedPages = ["趋势与记录", "C11 软件验证", "故障注入", "3520 参数"];
+        if (factory)
+            Check(!tabs.Items.OfType<TabItem>().Any(t => removedPages.Contains(t.Header?.ToString())),
+                "内部版移除四个页面入口");
+        Check((Find<Button>("DebugToolsButton") is not null) == factory, "仅内部版首页提供调试工具");
         Check(mode.Items.Cast<ComboBoxItem>().Select(item => item.Content.ToString())
             .SequenceEqual(new[] { "蓝牙", "串口", "一线通", "CAN" }), "同一个下拉框提供四种通信方式");
         Check(Find<ComboBox>("DeviceList").Visibility == Visibility.Visible &&
@@ -400,35 +404,62 @@ static class UnifiedMonitorTest
         Check(cells.Children.Count == 5 && Enumerable.Range(0, 5).Where(HasBalanceIcon).SequenceEqual(new[] { 4 }),
             "C077 只在有效的第 5 串显示均衡图标，隐藏无效的第 3 串标记");
 
-        var interval = Find<ComboBox>("HomeRecordIntervalBox");
-        interval.SelectedIndex = 2;
-        var recordInterval = (ComboBox)Field("_recordInterval")!;
-        Check(recordInterval.SelectedIndex == 2, "首页选择记录间隔");
-        var trendButton = Find<Button>("HomeRecordsButton");
         if (factory)
         {
-            recordInterval.SelectedIndex = 1;
-            Check(interval.SelectedIndex == 1, "趋势页修改间隔会同步回首页");
-            trendButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            var plot = (MonitorPlot)Field("_recordPlot")!;
-            Check(Equals(((TabItem)tabs.SelectedItem).Header, "趋势与记录") &&
-                plot.Entries.Any(entry => entry.Kind == "sample"), "内部版查看当前实时趋势");
+            Check(Find<ComboBox>("HomeRecordIntervalBox") is null, "内部版移除记录工具栏");
+            var debug = type.Assembly.GetType("BmsTool.Windows.C073DebugWindow", true)!;
+            var decode = debug.GetMethod("DecodeWakeHistory", BindingFlags.Static | BindingFlags.NonPublic)!;
+            ushort[] words = new ushort[36];
+            words[0] = 0x5257; words[1] = 1; words[2] = 2; words[3] = 8;
+            words[4] = 0x21; words[5] = 1; words[6] = 1; words[7] = 1464;
+            words[8] = 0x02; words[9] = 2;
+            var rows = ((System.Collections.IEnumerable)decode.Invoke(null, [words])!).Cast<object>().ToArray();
+            string RowValue(object row, string field) => (string)row.GetType().GetProperty(field)!.GetValue(row)!;
+            Check(rows.Length == 2 && RowValue(rows[0], "Source").Contains("RS485 RX") &&
+                RowValue(rows[0], "Source").Contains("RTC 闹钟") && RowValue(rows[1], "Source").Contains("PB12") &&
+                RowValue(rows[0], "Time").EndsWith("00:01:07.000"), "RTC 窗口解析多源唤醒、顺序和 32 位启动计时");
+            words[2] = 9;
+            try { decode.Invoke(null, [words]); throw new Exception("错误的 RTC 记录条数被接受"); }
+            catch (TargetInvocationException ex) when (ex.InnerException is InvalidDataException)
+            { Check(true, "RTC 调试记录格式异常时不会展示伪造记录"); }
+            Call("SetDebugMonitorPaused", true);
+            Check((bool)Field("_debugMonitorPaused")! && !((DispatcherTimer)Field("_pollTimer")!).IsEnabled,
+                "RTC 调试可暂停主页面轮询");
+            Call("SetDebugMonitorPaused", false);
+            Check(!(bool)Field("_debugMonitorPaused")!, "退出暂停恢复主页面常规轮询策略");
+            _ = new System.Windows.Interop.WindowInteropHelper(window).EnsureHandle();
+            var tools = Find<Button>("DebugToolsButton");
+            tools.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var opened = (Window)Field("_c073DebugWindow")!;
+            tools.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(ReferenceEquals(opened, Field("_c073DebugWindow")) && opened.Owner == window && window.IsEnabled,
+                "内部调试窗口独立打开且重复点击复用窗口");
+            ((CheckBox)opened.FindName("PauseMonitor")).IsChecked = true;
+            opened.Close();
+            Check(Field("_c073DebugWindow") is null && !(bool)Field("_debugMonitorPaused")!,
+                "关闭调试窗口解除它发起的轮询暂停");
         }
-        else Check(trendButton is null && Find<Button>("HomeRecordExportButton").IsEnabled, "客户版首页可直接导出历史记录");
-        tabs.SelectedItem = realtime;
-        var recorder=new MonitorRecording(output,1);
-        type.GetField("_recording",Flags)!.SetValue(window,recorder);
-        type.GetField("_recordDirectory",Flags)!.SetValue(window,recorder.DirectoryPath);
-        recorder.Capture(Sample("3"));
-        Call("UpdateUnifiedMonitorState");
-        Check(!interval.IsEnabled && Find<Button>("HomeRecordStopButton").IsEnabled && !Find<Button>("HomeRecordExportButton").IsEnabled,
-            "首页和趋势页共享当前记录中的按钮门禁");
-        tabs.SelectedIndex=1;tabs.SelectedIndex=0;
-        Check(recorder.IsRunning,"切换页面不停止记录");
-        var firstStop=(Task)type.GetMethod("StopUnifiedRecordingAsync",Flags)!.Invoke(window,null)!;
-        var secondStop=(Task)type.GetMethod("StopUnifiedRecordingAsync",Flags)!.Invoke(window,null)!;
-        Wait(Task.WhenAll(firstStop,secondStop));
-        Check(MonitorRecording.Read(recorder.DirectoryPath).Any(x=>x.Kind=="sample"),"UI结束记录等待写盘完成");
+        else
+        {
+            var interval = Find<ComboBox>("HomeRecordIntervalBox");
+            interval.SelectedIndex = 2;
+            var recordInterval = (ComboBox)Field("_recordInterval")!;
+            Check(recordInterval.SelectedIndex == 2 && Find<Button>("HomeRecordExportButton").IsEnabled,
+                "客户版保留记录间隔选择和导出");
+            var recorder = new MonitorRecording(output, 1);
+            type.GetField("_recording", Flags)!.SetValue(window, recorder);
+            type.GetField("_recordDirectory", Flags)!.SetValue(window, recorder.DirectoryPath);
+            recorder.Capture(Sample("3"));
+            Call("UpdateUnifiedMonitorState");
+            Check(!interval.IsEnabled && Find<Button>("HomeRecordStopButton").IsEnabled &&
+                !Find<Button>("HomeRecordExportButton").IsEnabled, "记录中的按钮门禁");
+            tabs.SelectedIndex = 1; tabs.SelectedIndex = 0;
+            Check(recorder.IsRunning, "切换页面不停止记录");
+            var firstStop = (Task)type.GetMethod("StopUnifiedRecordingAsync", Flags)!.Invoke(window, null)!;
+            var secondStop = (Task)type.GetMethod("StopUnifiedRecordingAsync", Flags)!.Invoke(window, null)!;
+            Wait(Task.WhenAll(firstStop, secondStop));
+            Check(MonitorRecording.Read(recorder.DirectoryPath).Any(x => x.Kind == "sample"), "UI结束记录等待写盘完成");
+        }
         Wait(Task.Run(async()=>{
             var trend=new MonitorTrend();
             var origin=DateTimeOffset.UtcNow.AddHours(-24); var historySample=Sample();
