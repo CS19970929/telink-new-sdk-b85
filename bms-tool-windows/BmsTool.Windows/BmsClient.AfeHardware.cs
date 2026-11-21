@@ -23,10 +23,14 @@ public sealed partial class BmsClient
             BinaryPrimitives.WriteUInt16BigEndian(raw.AsSpan(i * 2, 2), values[i]);
 
         byte[] request = ModbusRtu.WriteMultiple(start, raw);
-        if (_transport is IBmsMtuTransport mtuTransport && (mtuTransport.NegotiatedMtu ?? 23) < request.Length + 3)
-            throw new IOException("当前BLE载荷不足以发送此整组参数帧；请使用直连串口或更大MTU的透明通道，参数未发送。");
-
-        byte[] rsp = await TransactAsync(request, ct);
+        int fragmentBytes=0;
+        if (_transport is IBmsMtuTransport mtu && (mtu.NegotiatedMtu ?? 23) < request.Length + 3) {
+            if (!IsC073 || start!=0x2B10 || values.Length!=32)
+                throw new IOException("当前BLE载荷不足以发送此整组参数帧；请使用直连串口或更大MTU的透明通道，参数未发送。");
+            // C073 USART1 按 FC10 字节数及 CRC 认领完整帧，只提交一次。
+            fragmentBytes=Math.Max(20,(mtu.NegotiatedMtu ?? 23)-3);
+        }
+        byte[] rsp = await TransactAsync(request, ct, fragmentBytes:fragmentBytes);
         ModbusRtu.ValidateWriteMultipleAck(rsp, start, checked((ushort)values.Length));
     }
 

@@ -837,7 +837,7 @@ public sealed partial class BmsClient : IAsyncDisposable
             throw new IOException("3520 软件参数读回不一致，请重新读取。");
     }
 
-    private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null)
+    private async Task<byte[]> TransactAsync(byte[] request, CancellationToken ct, TimeSpan? responseTimeout = null, int fragmentBytes = 0)
     {
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(ct, _disposedCancellation.Token);
         ct = lifetime.Token;
@@ -868,7 +868,14 @@ public sealed partial class BmsClient : IAsyncDisposable
             Log?.Invoke("TX " + Convert.ToHexString(request));
             long started = Stopwatch.GetTimestamp();
             ct.ThrowIfCancellationRequested();
-            await _transport.WriteAsync(request, ct).WaitAsync(_disposedCancellation.Token).ConfigureAwait(false);
+            if (fragmentBytes==0) {
+                await _transport.WriteAsync(request, ct).WaitAsync(_disposedCancellation.Token).ConfigureAwait(false);
+            } else {
+                for (int offset=0;offset<request.Length;offset+=fragmentBytes) {
+                    int count=Math.Min(fragmentBytes,request.Length-offset);
+                    await _transport.WriteAsync(request.AsMemory(offset,count),ct).WaitAsync(_disposedCancellation.Token).ConfigureAwait(false);
+                }
+            }
             CommunicationStatistics.Sent(request.Length);
             sending = false;
             TimeSpan timeout = responseTimeout ?? TimeSpan.FromSeconds(4);
@@ -888,6 +895,9 @@ public sealed partial class BmsClient : IAsyncDisposable
             return rsp;
         }
         catch (Exception ex) {
+            // 部分帧可能已到 UART，下一请求须避开 C073 的 500 ms 整帧超时窗口。
+            if (fragmentBytes!=0 && sending && !_disposedCancellation.IsCancellationRequested)
+                await Task.Delay(550).ConfigureAwait(false);
             CommunicationStatistics.Failed(ex, sending);
             throw;
         }
