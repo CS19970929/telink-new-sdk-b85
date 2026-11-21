@@ -43,5 +43,7 @@ int CtBoard_SetCanBitrate(uint32_t bitrate);
 int CtBoard_SetBmsUartBaud(uint32_t baudrate);
 void CtBoard_CanGetDiag(CtCanDiag *diag);
 void CtBoard_CanClearDiag(void);
+/* Six little-endian ages in ms followed by their eight CAN data bytes, interleaved. */
+void CtBoard_FeidaoSnapshot(uint8_t snapshot[72]);
 
 #endif

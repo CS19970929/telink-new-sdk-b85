@@ -102,7 +102,7 @@ static void start_offline_upgrade_from_cache(void)
     info = CtFlash_GetInfo();
     if ((info->valid == 0u) ||
         (info->size == 0u) ||
-        (info->app_addr != CT_BMS_APP_BASE_ADDR))
+        (info->app_addr != CT_BMS_APP_BASE_ADDR && info->app_addr != CT_C073_APP_BASE))
     {
         CtDebugLog_Record(CT_LOG_MOD_UPGRADE,
                           CT_LOG_EVT_UPGRADE_ERROR,
@@ -400,7 +400,9 @@ static void handle_bms_write(const CtFrame *req)
         words[i] = rd16(&req->payload[4u + (i << 1)]);
     }
 
-    if (!CtCan_AppWriteRegs(s_app_can_addr, addr, count, words))
+    if (!(req->cmd == CT_CMD_BMS_WRITE_GROUP ?
+          CtCan_AppWriteGroup(s_app_can_addr, addr, count, words) :
+          CtCan_AppWriteRegs(s_app_can_addr, addr, count, words)))
     {
         respond(req, CT_STATUS_BMS_ERROR, 0, 0u);
         return;
@@ -595,6 +597,13 @@ void CtApp_HandleFrame(const CtFrame *frame)
     case CT_CMD_SET_CAN:
         handle_set_can(frame);
         break;
+    case CT_CMD_FEIDAO_SNAPSHOT: {
+        uint8_t snapshot[72];
+        if (frame->length != 0u) { respond(frame, CT_STATUS_BAD_PARAM, 0, 0u); break; }
+        CtBoard_FeidaoSnapshot(snapshot);
+        respond(frame, CT_STATUS_OK, snapshot, sizeof(snapshot));
+        break;
+    }
     case CT_CMD_FW_BEGIN:
         handle_fw_begin(frame);
         break;
@@ -610,6 +619,7 @@ void CtApp_HandleFrame(const CtFrame *frame)
     case CT_CMD_BMS_READ:
         handle_bms_read(frame);
         break;
+    case CT_CMD_BMS_WRITE_GROUP:
     case CT_CMD_BMS_WRITE:
         handle_bms_write(frame);
         break;

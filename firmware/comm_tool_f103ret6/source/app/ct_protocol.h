@@ -16,6 +16,8 @@
 #define CT_CMD_BMS_AGING_STATUS        0x13u
 #define CT_CMD_BMS_AGING_SET_HOURS     0x14u
 #define CT_CMD_SET_BMS_UART            0x15u
+#define CT_CMD_BMS_WRITE_GROUP         0x16u
+#define CT_CMD_FEIDAO_SNAPSHOT         0x17u
 #define CT_CMD_FW_BEGIN                0x20u
 #define CT_CMD_FW_DATA                 0x21u
 #define CT_CMD_FW_END                  0x22u

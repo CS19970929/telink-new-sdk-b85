@@ -36,6 +36,11 @@ static int app_addr_supported(uint32_t app_addr, uint32_t size)
         return 1;
     }
 
+    if (app_addr == CT_C073_APP_BASE)
+    {
+        return size >= 1024u && size <= CT_C073_APP_LIMIT - CT_C073_APP_BASE && (size % 1024u) == 0u;
+    }
+
     if ((app_addr == CT_SELF_APP_BASE) &&
         (size <= CT_SELF_APP_SIZE))
     {
@@ -150,12 +155,13 @@ int CtFlash_Begin(uint32_t app_addr, uint32_t size, uint16_t crc16, uint32_t crc
         return 0;
     }
 
+    memset(&s_fw_info, 0, sizeof(s_fw_info));
     erase_len = align_up_page(size);
-    if (!erase_pages(CT_FW_CACHE_BASE, erase_len))
+    if (!erase_pages(CT_FW_META_PAGE, CT_SELF_FLASH_PAGE_SIZE))
     {
         return 0;
     }
-    if (!erase_pages(CT_FW_META_PAGE, CT_SELF_FLASH_PAGE_SIZE))
+    if (!erase_pages(CT_FW_CACHE_BASE, erase_len))
     {
         return 0;
     }
@@ -171,11 +177,33 @@ int CtFlash_Begin(uint32_t app_addr, uint32_t size, uint16_t crc16, uint32_t crc
 
 int CtFlash_Write(uint32_t offset, const uint8_t *data, uint16_t length)
 {
-    if ((length == 0u) || !range_in_cache(offset, length))
+    if ((s_fw_info.magic != CT_FW_MAGIC) || s_fw_info.valid || !data || !length || (offset & 1u) ||
+        offset > s_fw_info.size || length > s_fw_info.size - offset || !range_in_cache(offset, length))
     {
         return 0;
     }
     return program_bytes(CT_FW_CACHE_BASE + offset, data, length);
+}
+
+static int c073_image_valid(uint32_t size, uint32_t expected_crc)
+{
+    const uint32_t *words = (const uint32_t *)CT_FW_CACHE_BASE;
+    const uint8_t *data = (const uint8_t *)words;
+    uint32_t stack = words[0], entry = words[1], actual = words[0x110u / 4u];
+    uint32_t crc = 0xFFFFFFFFu, i, bit;
+    if (words[0x104u/4u] != CT_C073_BOARD || words[0x108u/4u] != CT_C073_APP_BASE ||
+        actual <= 0x114u || actual > size || ((actual + 1023u) & ~1023u) != size ||
+        stack < 0x200000D0u || stack > 0x20005000u || (stack & 7u) || !(entry & 1u) ||
+        (entry & ~1u) < CT_C073_APP_BASE + 0x114u || (entry & ~1u) >= CT_C073_APP_BASE + actual)
+        return 0;
+    for (i = 0; i < size; ++i)
+    {
+        crc ^= data[i];
+        for (bit = 0; bit < 8u; ++bit)
+            crc = (crc >> 1) ^ ((crc & 1u) ? 0xEDB88320u : 0u);
+        if ((i & 255u) == 0u) CtWatchdog_Feed();
+    }
+    return ~crc == expected_crc;
 }
 
 int CtFlash_End(uint32_t size, uint16_t crc16, uint32_t crc32)
@@ -189,13 +217,15 @@ int CtFlash_End(uint32_t size, uint16_t crc16, uint32_t crc32)
     }
 
     actual_crc = CtCrc16_Calc((const uint8_t *)CT_FW_CACHE_BASE, size);
-    if (actual_crc != crc16)
+    if (actual_crc != crc16 || (s_fw_info.app_addr == CT_C073_APP_BASE && !c073_image_valid(size, crc32)))
     {
         return 0;
     }
 
     s_fw_info.valid = CT_FW_VALID;
-    return save_info(&s_fw_info);
+    if (save_info(&s_fw_info)) return 1;
+    s_fw_info.valid = 0u;
+    return 0;
 }
 
 int CtFlash_Read(uint32_t offset, uint8_t *data, uint16_t length)

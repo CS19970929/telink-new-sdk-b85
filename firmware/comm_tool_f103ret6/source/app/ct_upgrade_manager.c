@@ -131,13 +131,15 @@ int CtUpgrade_StartWithAppAddress(uint8_t node, uint8_t app_can_addr)
 
     info = CtFlash_GetInfo();
     if ((info->valid == 0u) || (info->size == 0u) ||
-        ((info->app_addr != CT_BMS_APP_BASE_ADDR) && (info->app_addr != CT_SELF_APP_BASE)))
+        ((info->app_addr != CT_BMS_APP_BASE_ADDR) && (info->app_addr != CT_SELF_APP_BASE) &&
+         (info->app_addr != CT_C073_APP_BASE)))
     {
         memset(&s_status, 0, sizeof(s_status));
         set_error(1u);
         return 0;
     }
-    if ((info->app_addr == CT_SELF_APP_BASE) && ((app_can_addr & 0x0Fu) != CT_SELF_CAN_APP_ADDR))
+    if (((info->app_addr == CT_SELF_APP_BASE) && ((app_can_addr & 0x0Fu) != CT_SELF_CAN_APP_ADDR)) ||
+        ((info->app_addr == CT_C073_APP_BASE) && (node != 1u || app_can_addr != 0u)))
     {
         memset(&s_status, 0, sizeof(s_status));
         set_error(1u);
@@ -212,7 +214,10 @@ static void handle_fast_hello_wait(void)
     match = CtCan_IapPollAck(s_ctx.node, CT_CAN_IAP_HELLO, &s_status.expect_seq, &code);
     if (match == CT_CAN_IAP_ACK_MATCH_OK)
     {
-        set_phase(CT_UPGRADE_PHASE_START_SEND);
+        if ((CtFlash_GetInfo()->app_addr == CT_C073_APP_BASE) != CtCan_IapIsC073())
+            set_error(0x23u);
+        else
+            set_phase(CT_UPGRADE_PHASE_START_SEND);
         return;
     }
     now = CtBoard_GetTickMs();
@@ -238,7 +243,10 @@ static void handle_iap_hello_wait(void)
     match = CtCan_IapPollAck(s_ctx.node, CT_CAN_IAP_HELLO, &s_status.expect_seq, &code);
     if (match == CT_CAN_IAP_ACK_MATCH_OK)
     {
-        set_phase(CT_UPGRADE_PHASE_START_SEND);
+        if ((CtFlash_GetInfo()->app_addr == CT_C073_APP_BASE) != CtCan_IapIsC073())
+            set_error(0x23u);
+        else
+            set_phase(CT_UPGRADE_PHASE_START_SEND);
         return;
     }
     if (match == CT_CAN_IAP_ACK_MATCH_BAD)
@@ -363,6 +371,18 @@ void CtUpgrade_Task(void)
         break;
 
     case CT_UPGRADE_PHASE_ENTER_APP_IAP:
+        if (info->app_addr == CT_C073_APP_BASE) {
+            uint16_t identity[12];
+            if (!CtCan_AppReadRegs(s_ctx.app_can_addr, 0xD170u, 12u, identity) ||
+                identity[0] != 0x5550u || identity[1] != 1u ||
+                identity[2] != 0xC073u || identity[3] != 0x000Du ||
+                identity[4] != 2u || identity[5] != 2u || identity[6] != 0x0800u ||
+                identity[7] != 0x3000u || identity[8] != 0u || identity[9] != 0xB800u ||
+                identity[10] != 0u || identity[11] != 0u) {
+                set_error(0x23u);
+                break;
+            }
+        }
         if (!CtCan_AppEnterIap(s_ctx.app_can_addr))
         {
             set_error(0x21u);

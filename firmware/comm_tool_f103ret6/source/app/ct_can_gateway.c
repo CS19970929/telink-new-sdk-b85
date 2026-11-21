@@ -21,6 +21,9 @@ enum
     ACK_MATCH_BAD = 2
 };
 
+static uint8_t s_c073_hello;
+int CtCan_IapIsC073(void) { return s_c073_hello; }
+
 static uint8_t s_last_gateway_error;
 
 uint8_t CtCan_GetLastGatewayError(void)
@@ -114,7 +117,8 @@ static int decode_app_ack(const CtCanFrame *frame, uint8_t can_addr, uint8_t cmd
 
     expect_crc = rd_be16(&frame->data[6]);
     actual_crc = CtCrc16_Calc(frame->data, 6u);
-    if ((expect_crc != actual_crc) || (frame->data[3] != 0u))
+    if (expect_crc != actual_crc) return ACK_MATCH_NONE;
+    if (frame->data[3] != 0u)
     {
         return ACK_MATCH_BAD;
     }
@@ -188,17 +192,23 @@ static int send_app_cmd_wait_ack(uint8_t can_addr, uint8_t cmd, uint8_t a0, uint
     uint32_t wait_ms;
     int match;
 
+    uint8_t sent = 0u;
+    /* 写入数据和提交只发一次。ACK 遗失后由上位机提示重读。 */
+    uint8_t once = cmd == CT_CAN_APP_WRITE_COMMIT ||
+                   (cmd >= CT_CAN_APP_GROUP_BEGIN && cmd <= CT_CAN_APP_GROUP_COMMIT);
+    s_last_gateway_error = CT_CAN_GATEWAY_ERR_TIMEOUT;
     start = CtBoard_GetTickMs();
     last_send = start - APP_CMD_RETRY_INTERVAL_MS;
 
     while (!timeout_expired(start, timeout_ms))
     {
-        if ((uint32_t)(CtBoard_GetTickMs() - last_send) >= APP_CMD_RETRY_INTERVAL_MS)
+        if ((!once || !sent) && (uint32_t)(CtBoard_GetTickMs() - last_send) >= APP_CMD_RETRY_INTERVAL_MS)
         {
             if (!send_app_cmd(can_addr, cmd, a0, a1, a2))
             {
                 return 0;
             }
+            sent = 1u;
             last_send = CtBoard_GetTickMs();
         }
 
@@ -212,10 +222,12 @@ static int send_app_cmd_wait_ack(uint8_t can_addr, uint8_t cmd, uint8_t a0, uint
             match = decode_app_ack(&frame, can_addr, cmd, v0, v1);
             if (match == ACK_MATCH_OK)
             {
+                s_last_gateway_error = CT_CAN_GATEWAY_ERR_NONE;
                 return 1;
             }
             if (match == ACK_MATCH_BAD)
             {
+                s_last_gateway_error = CT_CAN_GATEWAY_ERR_BMS;
                 return 0;
             }
         }
@@ -286,7 +298,6 @@ int CtCan_AppReadRegs(uint8_t can_addr, uint16_t addr, uint16_t count, uint16_t 
 
         if (count > APP_SINGLE_READ_FALLBACK_MAX)
         {
-            s_last_gateway_error = CT_CAN_GATEWAY_ERR_BMS;
             return 0;
         }
         for (i = 0u; i < count; ++i)
@@ -300,7 +311,6 @@ int CtCan_AppReadRegs(uint8_t can_addr, uint16_t addr, uint16_t count, uint16_t 
                                        &v1,
                                        APP_REG_CMD_TIMEOUT_MS))
             {
-                s_last_gateway_error = CT_CAN_GATEWAY_ERR_BMS;
                 return 0;
             }
             words[i] = ((uint16_t)v0 << 8) | v1;
@@ -347,6 +357,30 @@ int CtCan_AppReadRegs(uint8_t can_addr, uint16_t addr, uint16_t count, uint16_t 
     }
 
     return 1;
+}
+
+int CtCan_AppWriteGroup(uint8_t can_addr, uint16_t addr, uint16_t count, const uint16_t *words)
+{
+    uint8_t rtu[7u + CT_CAN_APP_READ_BLOCK_MAX_WORDS * 2u];
+    uint8_t hi, lo;
+    uint16_t i, crc;
+    if (!words || !count || count > CT_CAN_APP_READ_BLOCK_MAX_WORDS ||
+        (uint32_t)addr + count > 65536u) return 0;
+    drain_can_rx();
+    if (!send_app_cmd_wait_ack(can_addr, CT_CAN_APP_GROUP_BEGIN, (uint8_t)(addr >> 8),
+            (uint8_t)addr, (uint8_t)count, &hi, &lo, APP_REG_CMD_TIMEOUT_MS) ||
+        (((uint16_t)hi << 8) | lo) != addr) return 0;
+    rtu[0] = 1u; rtu[1] = 16u; wr_be16(rtu+2, addr); wr_be16(rtu+4, count);
+    rtu[6] = (uint8_t)(count * 2u);
+    for (i=0; i<count; ++i) {
+        wr_be16(rtu+7u+2u*i, words[i]);
+        if (!send_app_cmd_wait_ack(can_addr, CT_CAN_APP_GROUP_WORD, (uint8_t)i,
+                (uint8_t)(words[i] >> 8), (uint8_t)words[i], &hi, &lo, APP_REG_CMD_TIMEOUT_MS) ||
+            hi != 0 || lo != i) return 0;
+    }
+    crc = CtCrc16_Calc(rtu, 7u + 2u*count);
+    return send_app_cmd_wait_ack(can_addr, CT_CAN_APP_GROUP_COMMIT, (uint8_t)count,
+            (uint8_t)(crc >> 8), (uint8_t)crc, 0, 0, APP_REG_CMD_TIMEOUT_MS);
 }
 
 int CtCan_AppWriteRegs(uint8_t can_addr, uint16_t addr, uint16_t count, const uint16_t *words)
@@ -663,6 +697,8 @@ uint8_t CtCan_IapPollAck(uint8_t node, uint8_t cmd, uint16_t *expect_seq, uint8_
         {
             *expect_seq = rd_be16(&frame.data[3]);
         }
+        if (cmd == CT_CAN_IAP_HELLO)
+            s_c073_hello = frame.dlc == 8u && frame.data[6] == 0xC0u && frame.data[7] == 0x73u;
         return CT_CAN_IAP_ACK_MATCH_OK;
     }
 

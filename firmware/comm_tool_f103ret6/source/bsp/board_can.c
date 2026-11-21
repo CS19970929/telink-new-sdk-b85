@@ -13,6 +13,25 @@ static volatile uint8_t s_rx_head;
 static volatile uint8_t s_rx_tail;
 static CtCanFrame s_rx_queue[BOARD_CAN_RX_QUEUE_SIZE];
 static CtCanDiag s_diag;
+static uint8_t feidao_seen;
+static uint32_t feidao_tick[6];
+static uint8_t feidao_data[6][8];
+
+void CtBoard_FeidaoSnapshot(uint8_t snapshot[72])
+{
+    unsigned i;
+    for (i = 0; i < 6u; ++i) {
+        uint8_t *entry = snapshot + i * 12u;
+        uint32_t saved = __get_PRIMASK(), age;
+        __disable_irq();
+        age = (feidao_seen & (1u << i)) ? CtBoard_GetTickMs() - feidao_tick[i] : 0xFFFFFFFFu;
+        memcpy(entry + 4, feidao_data[i], 8);
+        __set_PRIMASK(saved);
+        entry[0] = (uint8_t)age; entry[1] = (uint8_t)(age >> 8);
+        entry[2] = (uint8_t)(age >> 16); entry[3] = (uint8_t)(age >> 24);
+    }
+}
+
 
 static void can_diag_latch_regs(void)
 {
@@ -43,6 +62,14 @@ static void can_rx_push(const CanRxMsg *msg)
     uint8_t i;
     CtCanFrame *slot;
 
+    if (msg->RTR != CAN_RTR_Data) return;
+    if (msg->IDE == CAN_ID_EXT && msg->DLC == 8u &&
+        msg->ExtId >= 0x14F80200u && msg->ExtId <= 0x14F80205u) {
+        i = (uint8_t)(msg->ExtId - 0x14F80200u);
+        memcpy(feidao_data[i], msg->Data, 8);
+        feidao_tick[i] = CtBoard_GetTickMs();
+        feidao_seen |= (uint8_t)(1u << i);
+    }
     next = (uint8_t)((s_rx_head + 1u) % BOARD_CAN_RX_QUEUE_SIZE);
     if (next == s_rx_tail)
     {
@@ -114,6 +141,7 @@ static int can_hw_init(uint32_t bitrate)
 
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_CAN1, ENABLE);
     CAN_DeInit(CAN1);
+    feidao_seen = 0u;
     s_rx_head = 0u;
     s_rx_tail = 0u;
     CAN_StructInit(&can);
