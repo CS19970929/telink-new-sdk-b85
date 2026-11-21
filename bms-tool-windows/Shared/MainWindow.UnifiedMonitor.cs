@@ -35,6 +35,7 @@ public partial class MainWindow
     private CancellationTokenSource? _integratedOwcStop;
     private long _integratedOwcEpoch;
     private Version? _integratedOwcVersion;
+    private bool _integratedOwcConnected;
     private DispatcherTimer? _unifiedTimer;
     private bool IsCanMode => ConnectionModeBox.SelectedIndex == 3;
     private bool IsOwcMode => ConnectionModeBox.SelectedIndex == 2;
@@ -414,6 +415,8 @@ public partial class MainWindow
                         await Dispatcher.InvokeAsync(() => {
                             if (epoch != _integratedOwcEpoch || token.IsCancellationRequested) return;
                             _integratedOwcVersion = firmwareVersion;
+                            _integratedOwcConnected = true;
+                            _monitorError = null;
                             UpdateUnifiedMonitorState();
                         });
                         while (!token.IsCancellationRequested)
@@ -440,7 +443,12 @@ public partial class MainWindow
                 {
                     await Dispatcher.InvokeAsync(() => {
                         if (epoch != _integratedOwcEpoch) return;
-                        _monitorError = "接收中断，正在重试；详情见日志";
+                        _monitorError = ex is UnauthorizedAccessException
+                            ? $"无法打开 {port}，可能被占用。释放串口后将自动重试。"
+                            : _integratedOwcConnected
+                                ? "一线通接收中断，正在重试。请检查 Comm Tool 和一线通接线。"
+                                : $"Comm Tool 连接未完成，正在重试。请核对 USB 连接和 {port}。";
+                        _integratedOwcConnected = false;
                         _integratedOwcVersion = null;
                         PublishUnifiedReading(null); AppendLog("一线通：" + ex.Message, "OWC");
                         UpdateUnifiedMonitorState();
@@ -459,6 +467,7 @@ public partial class MainWindow
         ++_integratedOwcEpoch; var task = _integratedOwcTask;
         _integratedOwcStop?.Cancel();
         _integratedOwcVersion = null;
+        _integratedOwcConnected = false;
         PublishUnifiedReading(null);
         UpdateUnifiedMonitorState();
         try { await task; } catch (OperationCanceledException) { }

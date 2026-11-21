@@ -29,9 +29,8 @@ internal sealed class CommToolCanTransport(string portName) : IBmsTransport
                 try
                 {
                     Configure(channel, ct);
-                    // 旧转接器无法区分 BMS 拒绝与 CAN 失联，必须用实际读取确认在线。
-                    var probe = Exchange(ModbusRtu.ReadHolding(BmsRegisters.Legacy, 4), channel.Command, ct);
-                    _ = ModbusRtu.ParseRead(probe, 4);
+                    ConnectionProgress?.Invoke("Comm Tool 已回应，正在等待 BMS 的 CAN 应答");
+                    ProbeBms(channel.Command, ct);
                     var firmwareVersion = CommToolOwcProtocol.TryReadFirmwareVersion(channel.Command, ct);
                     ct.ThrowIfCancellationRequested();
                     _connection = channel;
@@ -41,6 +40,21 @@ internal sealed class CommToolCanTransport(string portName) : IBmsTransport
             }, ct).ConfigureAwait(false);
         }
         finally { _gate.Release(); }
+    }
+
+    internal static void ProbeBms(Func<byte, byte[], CancellationToken, byte[]> command, CancellationToken ct)
+    {
+        byte[] request = ModbusRtu.ReadHolding(BmsRegisters.Legacy, 4);
+        byte[] response;
+        try { response = Exchange(request, command, ct); }
+        catch (TimeoutException ex) when (ex.InnerException is CommToolCommandException { Status: 6 })
+        {
+            // CAN 的首帧可能只产生 RTC 唤醒沿，给接收器恢复时间后重试一次只读探测。
+            ct.WaitHandle.WaitOne(250);
+            ct.ThrowIfCancellationRequested();
+            response = Exchange(request, command, ct);
+        }
+        _ = ModbusRtu.ParseRead(response, 4);
     }
 
     internal static void Configure(CommToolSerialConnection channel, CancellationToken ct)
@@ -102,7 +116,11 @@ internal sealed class CommToolCanTransport(string portName) : IBmsTransport
         byte[] reply;
         try { reply = command(opcode, payload, ct); }
         catch (CommToolCommandException ex) when (ex.Status == 6)
-        { throw new TimeoutException("CAN 等待 BMS 应答超时；写入结果请重读确认", ex); }
+        {
+            string message = function == 3 ? "CAN 等待 BMS 的读取应答超时" :
+                "CAN 写入结果未确认，请重新读取目标值";
+            throw new TimeoutException(message, ex);
+        }
         catch (CommToolCommandException ex) when (ex.Status == 2 && function == 16)
         { throw new NotSupportedException("整组写入需要支持 0x16 的 Comm Tool 固件和对应 BMS 固件", ex); }
         catch (CommToolCommandException ex) when (ex.Status == 7 && function == 3)

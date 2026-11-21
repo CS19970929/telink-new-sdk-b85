@@ -56,6 +56,48 @@ static class UnifiedMonitorTest
             return [0x50,0x55,1,0];
         },default);
         Check(ModbusRtu.ParseRead(result,2).SequenceEqual(new ushort[]{0x5550,1}),"CAN 回读恢复 RTU 字节序和 CRC");
+        var responseErrorType=assembly.GetType("BmsTool.Windows.CommToolCommandException",true)!;
+        var responseError=(Exception)Activator.CreateInstance(responseErrorType,(byte)6,"CAN_TIMEOUT")!;
+        Exception? readFailure=null;
+        try { exchange(ModbusRtu.ReadHolding(0xD000,4),(_,_,_)=>throw responseError,default); }
+        catch(TimeoutException ex) { readFailure=ex; }
+        Check(readFailure?.Message.Contains("读取") == true && !readFailure.Message.Contains("写入"),
+            "读探测超时提示不提及写入");
+        try {
+            exchange(ModbusRtu.WriteSingle(0x1102,0),(_,_,_)=>throw responseError,default);
+            throw new Exception("CAN 写入超时被接受");
+        } catch(TimeoutException ex) {
+            Check(ex.Message.Contains("写入结果未确认"),"真实写入仍提示读回确认");
+        }
+
+        var probe=assembly.GetType("BmsTool.Windows.CommToolCanTransport")!.GetMethod("ProbeBms",BindingFlags.NonPublic|BindingFlags.Static)!
+            .CreateDelegate<Action<Func<byte,byte[],CancellationToken,byte[]>,CancellationToken>>();
+        int reads=0;
+        probe((op,data,_)=>{
+            Check(op==0x10 && data.SequenceEqual(new byte[]{0x00,0xD0,4,0}),"连接探测只读 D000");
+            if (++reads==1) throw responseError;
+            return new byte[8];
+        },default);
+        Check(reads==2,"CAN 首次超时后只重试一次只读探测");
+
+        var connectionText=typeof(MainWindow).GetMethod("DescribeConnectionFailure",BindingFlags.NonPublic|BindingFlags.Static)!
+            .CreateDelegate<Func<int,bool,Exception,string>>();
+        Check(connectionText(3,false,readFailure!).Contains("Comm Tool 已响应，BMS 未回复 CAN"),
+            "CAN 失败区分已连接转接器和 BMS 无回应");
+        Check(connectionText(1,false,new TimeoutException()).Contains("串口已打开") &&
+              connectionText(0,false,new TimeoutException()).Contains("蓝牙连接未完成"),
+            "直连串口和蓝牙提示对应各自链路");
+        Check(connectionText(3,false,new UnauthorizedAccessException()).Contains("串口无法打开"),
+            "COM 无法打开时提示核对占用");
+
+        var balanceText=typeof(MainWindow).GetMethod("DescribeBalanceState",BindingFlags.NonPublic|BindingFlags.Static)!
+            .CreateDelegate<Func<bool,BatterySnapshot,string>>();
+        Check(balanceText(true,new BatterySnapshot())=="通道状态未提供" &&
+              balanceText(false,new BatterySnapshot())=="未进行","C073 缺少均衡通道数据时不显示未进行");
+        var measured=new BatterySnapshot { BalanceCellMask=4, CellMillivolts=new ushort[]{4012,4124,4200} };
+        Check(balanceText(true,measured)=="进行中" && measured.IsCellBalancing(2) && !measured.IsCellBalancing(1),
+            "有有效均衡位图时沿用逐串图标");
+
         var run=assembly.GetType("BmsTool.Windows.CommToolCanUpgrade")!.GetMethod("Run",BindingFlags.NonPublic|BindingFlags.Static)!
             .CreateDelegate<Action<byte[],Func<byte,byte[],CancellationToken,byte[]>,IProgress<(int,string)>,CancellationToken>>();
         byte[] app=new byte[1024], cached=new byte[1024];
@@ -253,12 +295,18 @@ static class UnifiedMonitorTest
         ports.SelectedIndex = 0;
         var receive = type.GetField("_integratedOwcTask", Flags)!;
         receive.SetValue(window, Task.CompletedTask);
+        Call("UpdateUnifiedMonitorState");
+        Check(Text("OwcStatusText").Contains("正在连接 Comm Tool"), "一线通启动时显示正在连接转接器");
+        type.GetField("_integratedOwcConnected", Flags)!.SetValue(window, true);
+        Call("UpdateUnifiedMonitorState");
+        Check(Text("OwcStatusText").Contains("Comm Tool 已连接，等待 BMS 一线通广播"), "转接器就绪与收到 BMS 广播分开显示");
         type.GetField("_integratedOwcVersion", Flags)!.SetValue(window, new Version(0, 2, 8));
         Call("UpdateUnifiedMonitorState");
         Check(build.Text.Contains("Comm Tool 版本：0.2.8"), "一线通已连接且未收到 BMS 数据时仍显示转接器版本");
         Wait((Task)type.GetMethod("StopIntegratedOwcAsync", Flags)!.Invoke(window, null)!);
         Check(!build.Text.Contains("Comm Tool"), "一线通停止后清除转接器版本");
         receive.SetValue(window, Task.CompletedTask);
+        type.GetField("_integratedOwcConnected", Flags)!.SetValue(window, true);
         Call("UpdateUnifiedMonitorState");
         mode.SelectedIndex = 0;
         Check(mode.SelectedIndex == 2 && !mode.IsEnabled && Find<Button>("DisconnectButton").IsEnabled &&

@@ -207,6 +207,7 @@ public partial class MainWindow
             _nextReconnectUtc = DateTime.MaxValue;
             CustomerCommStatusBorder.Visibility = Visibility.Collapsed;
             await DisposeBmsAsync();
+            ConnectionText.ToolTip = null;
             ConnectionText.Text = "已断开";
             AppendLog("用户主动断开 BMS；设备显示已清空。", "CONNECT");
         }

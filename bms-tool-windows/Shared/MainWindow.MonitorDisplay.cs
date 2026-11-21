@@ -7,6 +7,40 @@ namespace BmsTool.Windows;
 
 public partial class MainWindow
 {
+    private void ReportConnectionFailure(Exception error)
+    {
+        _sessionLog.WriteException("CONNECT", "连接失败", error);
+        AppendLog($"连接失败 · 模式={ConnectionModeBox.Text} · {error.GetType().Name} · {error.Message}", "CONNECT");
+        ConnectionText.Text = DescribeConnectionFailure(ConnectionModeBox.SelectedIndex, _bms is not null, error);
+        ConnectionText.ToolTip = $"{error.Message}\n日志文件：{_sessionLog.FilePath}";
+    }
+
+    private static string DescribeConnectionFailure(int mode, bool bmsReady, Exception error)
+    {
+        if (error is InvalidOperationException && !bmsReady) return error.Message;
+        if (mode is 1 or 3 && error is UnauthorizedAccessException)
+            return "串口无法打开，可能被其他程序占用。请释放串口后重试。";
+
+        return mode switch
+        {
+            3 when error.GetBaseException() is CommToolCommandException { Status: 6 } =>
+                "Comm Tool 已响应，BMS 未回复 CAN 请求。请确认钥匙已合上或唤醒 BMS，并检查 CAN 接线后重试。",
+            3 when bmsReady => "CAN 已连通，部分 BMS 数据读取失败。可等待刷新或重新连接。",
+            3 => "未完成 Comm Tool 的 CAN 连接。请检查 USB 连接和所选串口后重试。",
+            1 when bmsReady => "串口已连通，部分 BMS 数据读取失败。可等待刷新或重新连接。",
+            1 when error is TimeoutException => "串口已打开，未收到有效 BMS 数据。请确认供电、接线和波特率后重试。",
+            1 => "串口连接失败。请检查端口、接线和波特率后重试。",
+            _ when bmsReady => "蓝牙已连通，部分 BMS 数据读取失败。可等待刷新或重新连接。",
+            _ => "蓝牙连接未完成。请靠近设备、确认设备在线，再扫描并重试。"
+        };
+    }
+
+    private static string DescribeBalanceState(bool isC073, BatterySnapshot snapshot)
+    {
+        if (isC073 && snapshot.BalanceCellMask == 0) return "通道状态未提供";
+        return snapshot.BalancingOn || isC073 ? "进行中" : "未进行";
+    }
+
     private void SetMonitorModeDisplay()
     {
         bool owc = IsOwcMode;
@@ -17,6 +51,7 @@ public partial class MainWindow
         MonitorSecondaryAlarm.Visibility = MonitorTertiaryAlarm.Visibility = ModbusMonitorDetails.Visibility = modbusVisibility;
         MonitorSecondaryAlarmRow.Height = MonitorTertiaryAlarmRow.Height = owc ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
         ConnectionText.Visibility = modbusVisibility;
+        ConnectionText.ToolTip = null;
         OwcStatusText.Visibility = OwcMonitorDetails.Visibility = OwcCellStatusText.Visibility = owcVisibility;
         OwcModeBox.Visibility = UnifiedTestEdition ? owcVisibility : Visibility.Collapsed;
 #if BMS_FACTORY_APP
@@ -50,11 +85,15 @@ public partial class MainWindow
     {
         bool hasReading = _monitorReading?.Source == "一线通";
         OwcStatusText.Text = hasReading ? "一线通数据在线" :
-            _monitorError ?? (receiving ? "适配器接收中，等待 BMS 数据" : "选择 Comm Tool 串口后连接");
+            _monitorError ?? (receiving
+                ? (_integratedOwcConnected ? "Comm Tool 已连接，等待 BMS 一线通广播" : "正在连接 Comm Tool…")
+                : "选择 Comm Tool 串口后连接");
         CustomerCommStatusBorder.Visibility = Visibility.Visible;
         CustomerCommStatusBorder.Background = hasReading ? LampOnBrush : receiving ? Brushes.Orange : Brushes.LightGray;
         CustomerCommStatusBorder.ToolTip = OwcStatusText.Text;
-        CommunicationStatusText.Text = hasReading ? "通信：一线通在线" : receiving ? "通信：等待数据" : "通信：未连接";
+        CommunicationStatusText.Text = hasReading ? "通信：一线通在线" :
+            !receiving ? "通信：未连接" : _monitorError is not null ? "通信：正在重试" :
+            _integratedOwcConnected ? "通信：等待广播" : "通信：正在连接";
     }
 
     private void ShowOwcReading(MonitorReading? reading)

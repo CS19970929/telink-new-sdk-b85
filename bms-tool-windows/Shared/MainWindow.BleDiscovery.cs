@@ -105,7 +105,10 @@ public partial class MainWindow
         CancelConnectionButton.IsEnabled = false;
         _connectionDesired = false; _pollTimer.Stop();
         _manualConnectCts?.Cancel(); _connectionOperations.Cancel();
-        ConnectionText.Text = "正在取消，等待当前Windows蓝牙查询结束…";
+        ConnectionText.ToolTip = null;
+        ConnectionText.Text = IsCanMode || IsSerialConnectionMode
+            ? "正在取消连接，等待串口操作退出…"
+            : "正在取消连接，等待 Windows 蓝牙查询结束…";
         try
         {
             await DisposeBmsAsync();

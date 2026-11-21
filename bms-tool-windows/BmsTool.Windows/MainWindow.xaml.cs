@@ -126,6 +126,7 @@ public partial class MainWindow : Window
         try
         {
             ConnectButton.IsEnabled = false;
+            ConnectionText.ToolTip = null;
             ConnectionText.Text = "正在连接设备...";
             if (IsSerialConnectionMode || IsCanMode)
             {
@@ -182,8 +183,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            ConnectionText.Text = "连接失败";
-            ShowError("连接失败", ex, "连接阶段、耗时和 Windows BLE 错误已写入本机日志文件：" + _sessionLog.FilePath);
+            ReportConnectionFailure(ex);
         }
         finally
         {
@@ -261,10 +261,15 @@ public partial class MainWindow : Window
 
     private void OnConnectionProgress(long generation, string text)
     {
-        AppendLog(text, "BLE");
-        if (text.Contains("ATTEMPT_BEGIN", StringComparison.Ordinal))
+        bool can = _connectionMode == ConnectionMode.Can;
+        AppendLog(text, can ? "CONNECT" : "BLE");
+        if (can || text.Contains("ATTEMPT_BEGIN", StringComparison.Ordinal))
         {
-            Dispatcher.BeginInvoke(() => { if (generation == _connectionGeneration) ConnectionText.Text = "正在连接设备..."; });
+            Dispatcher.BeginInvoke(() => {
+                if (generation != _connectionGeneration || !_manualConnectionInProgress) return;
+                ConnectionText.ToolTip = null;
+                ConnectionText.Text = can ? text : "正在连接设备...";
+            });
         }
     }
 
@@ -371,7 +376,7 @@ public partial class MainWindow : Window
 
         SystemStateText.Text =
             $"AFE：{(s.Afe1On ? "工作" : "未工作")}\n" +
-            $"均衡：{(s.BalancingOn ? "进行中" : "未进行")}\n" +
+            $"均衡：{DescribeBalanceState(_bms?.IsC073 == true, s)}\n" +
             $"加热：{OnOff(s.HeatingOn)}\n" +
             $"制冷：{OnOff(s.CoolingOn)}\n" +
             $"系统：{(s.PreparingSleep ? "准备休眠" : "运行中")}";
@@ -465,6 +470,7 @@ public partial class MainWindow : Window
         _pollTimer.Stop();
         try
         {
+            ConnectionText.ToolTip = null;
             ConnectionText.Text = "通信异常，自动重连中...";
             AppendLog("自动重连开始：连续 3 次数据刷新失败。", "RECONNECT");
             if (_connectionMode != ConnectionMode.Ble)
