@@ -1,4 +1,5 @@
 using System.IO;
+using System.Buffers.Binary;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -37,12 +38,67 @@ static class UnifiedMonitorTest
         return new(true,true,0,10,0,0,0,1,raw,7,3) {
             Protocol=OwcWireProtocol.LishenV111, FrameProtocol=OwcWireProtocol.LishenV111 };
     }
+    static void CheckCanProtocol()
+    {
+        var assembly=typeof(MainWindow).Assembly;
+        var exchange=assembly.GetType("BmsTool.Windows.CommToolCanTransport")!.GetMethod("Exchange",BindingFlags.NonPublic|BindingFlags.Static)!
+            .CreateDelegate<Func<byte[],Func<byte,byte[],CancellationToken,byte[]>,CancellationToken,byte[]>>();
+        var group=ModbusRtu.WriteMultiple(0x2318,[0x12,0x34,0xAB,0xCD]);
+        int writes=0;
+        byte[] result=exchange(group,(op,data,_)=>{
+            Check(op==0x16 && data.SequenceEqual(new byte[]{0x18,0x23,2,0,0x34,0x12,0xCD,0xAB}),"FC10 整组转接命令和字节序");
+            ++writes; return [];
+        },default);
+        ModbusRtu.ValidateWriteMultipleAck(result,0x2318,2);
+        Check(writes==1,"整组只提交一次");
+        result=exchange(ModbusRtu.ReadHolding(0xD170,2),(op,data,_)=>{
+            Check(op==0x10 && data.SequenceEqual(new byte[]{0x70,0xD1,2,0}),"CAN 读寄存器地址和数量");
+            return [0x50,0x55,1,0];
+        },default);
+        Check(ModbusRtu.ParseRead(result,2).SequenceEqual(new ushort[]{0x5550,1}),"CAN 回读恢复 RTU 字节序和 CRC");
+        var run=assembly.GetType("BmsTool.Windows.CommToolCanUpgrade")!.GetMethod("Run",BindingFlags.NonPublic|BindingFlags.Static)!
+            .CreateDelegate<Action<byte[],Func<byte,byte[],CancellationToken,byte[]>,IProgress<(int,string)>,CancellationToken>>();
+        byte[] app=new byte[1024], cached=new byte[1024];
+        void Put(int offset,uint value)=>BinaryPrimitives.WriteUInt32LittleEndian(app.AsSpan(offset),value);
+        Put(0,0x20005000);Put(4,0x08003121);Put(0x104,0xC073000D);Put(0x108,0x08003000);Put(0x10C,17);Put(0x110,900);
+        byte[] package=SerialFirmwarePackage.WrapC073Bin(app)!;
+        byte[] meta=[]; bool started=false;
+        uint crc=SerialFirmwarePackage.Crc32(app);
+        byte[] Words(params ushort[] words) {
+            var bytes=new byte[words.Length*2];
+            for(int i=0;i<words.Length;++i)BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(i*2),words[i]);
+            return bytes;
+        }
+        byte[] Adapter(byte cmd,byte[] data,CancellationToken token) {
+            token.ThrowIfCancellationRequested();
+            switch(cmd) {
+                case 2: Check(BinaryPrimitives.ReadUInt32LittleEndian(data)==250000 && data[4]==1 && data[5]==0,"CAN 速率与双节点地址");return [];
+                case 0x20: meta=data;return [];
+                case 0x21: Array.Copy(data,4,cached,BinaryPrimitives.ReadUInt32LittleEndian(data),data.Length-4);return [];
+                case 0x22: Check(data.SequenceEqual(meta[4..]) && app.SequenceEqual(cached),"全部缓存数据及校验字段一致");return [];
+                case 0x23: return [..meta,1];
+                case 0x31: started=true;return [];
+                case 0x32: byte[] status=new byte[13];if(started){status[0]=2;status[1]=100;BinaryPrimitives.WriteUInt32LittleEndian(status.AsSpan(7),1024);}return status;
+                case 0x10: return data[0]==0x70 ? Words(0x5550,1,0xC073,13,2,2,0x0800,0x3000,0,0xB800,0,0)
+                    : Words(0,17,0,1024,(ushort)(crc>>16),(ushort)crc,1,0);
+                default: throw new Exception($"意外命令 {cmd:X2}");
+            }
+        }
+        run(package,Adapter,new Progress<(int,string)>(),default);
+        Check(started,"CAN 升级从缓存到 APP 元数据回读");
+        Put(0x108,0x08001C00); Put(4,0x08001D21);
+        try { run(SerialFirmwarePackage.WrapC073Bin(app)!,(_,_,_)=>throw new Exception("不应访问端口"),new Progress<(int,string)>(),default); }
+        catch(InvalidDataException) { Check(true,"旧分区在打开升级事务前被拒绝");return; }
+        throw new Exception("错误分区被接受");
+    }
+
     [STAThread] static int Main()
     {
         string output=Environment.GetEnvironmentVariable("BMS_UNIFIED_TEST_OUTPUT") ?? throw new Exception("缺少输出目录");
         Directory.CreateDirectory(output);
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
         var app=new Application { ShutdownMode=ShutdownMode.OnExplicitShutdown };
+        CheckCanProtocol();
         var window=new MainWindow();
         var type=typeof(MainWindow);
         object? Field(string name)=>type.GetField(name,Flags)!.GetValue(window);
@@ -65,11 +121,14 @@ static class UnifiedMonitorTest
             Equals(realtime.Header, "实时监控") && tabs.Items.OfType<TabItem>().Any(t => Equals(t.Header, "趋势与记录")) == factory,
             "实时监控保留在首页，独立趋势页仅供内部版使用");
         Check(mode.Items.Cast<ComboBoxItem>().Select(item => item.Content.ToString())
-            .SequenceEqual(new[] { "蓝牙", "串口", "一线通" }), "同一个下拉框提供三种通信方式");
+            .SequenceEqual(new[] { "蓝牙", "串口", "一线通", "CAN" }), "同一个下拉框提供四种通信方式");
         Check(Find<ComboBox>("DeviceList").Visibility == Visibility.Visible &&
             (factory ? history?.Visibility == Visibility.Visible : history is null) && ports.Visibility == Visibility.Collapsed,
             "客户版蓝牙显示附近设备，隐藏 COM 端口");
         int windows = app.Windows.Count;
+        mode.SelectedIndex = 3;
+        Check(ports.Visibility == Visibility.Visible && baud.Visibility == Visibility.Collapsed &&
+            Find<Button>("FeidaoButton").Visibility == Visibility.Visible, "CAN 使用 Comm Tool 串口并提供独立广播查看入口");
         mode.SelectedIndex = 1;
         Check(ports.Visibility == Visibility.Visible && baud.Visibility == Visibility.Visible &&
             Find<ComboBox>("DeviceList").Visibility == Visibility.Collapsed && (history is null || history.Visibility == Visibility.Collapsed) &&

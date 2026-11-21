@@ -114,6 +114,15 @@ public partial class MainWindow
     {
         // SN 身份写入复用原授权、分片暂存和读回事务，不复用保护参数的界面解锁门禁。
         string serial = DeviceSerialBox.Text;
+        if (_bms?.IsC073 == true) {
+            if (MessageBox.Show(this, $"确认将 C073 的 SN 修改为 {serial}？", "修改 SN", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+            await RunC073OperationAsync(async (client, ct) => {
+                await client.WriteC060IdentityAsync(0xFFF0, serial, ct);
+                await RefreshIdentityAsync(ct);
+                await ReadC073FieldsAsync(client, ct);
+            }, true, requiresUnlock:false);
+            return;
+        }
         try { if(_bms?.UsesC060Protocol!=true)D008Parameters.SerialWords(serial); }
         catch (Exception ex) { ShowError("SN 格式无效", ex); return; }
         if (MessageBox.Show(this, $"确认将设备 SN 修改为：{serial}？", "修改设备 SN",

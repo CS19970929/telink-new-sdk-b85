@@ -13,7 +13,7 @@ public partial class MainWindow : Window
 {
     private bool ShFactoryBusy() => false;
 
-    private enum ConnectionMode { Ble, Serial }
+    private enum ConnectionMode { Ble, Serial, Can }
 
     private readonly ObservableCollection<DiscoveredDevice> _devices = new();
     private readonly ObservableCollection<SerialPortEndpoint> _serialPorts = new();
@@ -72,10 +72,10 @@ public partial class MainWindow : Window
         if (!IsInitialized) return;
         if (!TryChangeUnifiedMode()) return;
         if (IsOwcMode) { RefreshSerialPorts(); UpdateUnifiedMonitorState(); return; }
-        bool serial = IsSerialConnectionMode;
+        bool serial = IsSerialConnectionMode || IsCanMode;
         DeviceList.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
         SerialPortList.Visibility = serial ? Visibility.Visible : Visibility.Collapsed;
-        SerialBaudRateBox.Visibility = serial ? Visibility.Visible : Visibility.Collapsed;
+        SerialBaudRateBox.Visibility = IsSerialConnectionMode ? Visibility.Visible : Visibility.Collapsed;
         ScanButton.Content = serial ? "刷新" : "搜索";
         StopScanButton.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
         RefreshBleDeviceList();
@@ -104,7 +104,7 @@ public partial class MainWindow : Window
 
     private void ScanButton_Click(object sender, RoutedEventArgs e)
     {
-        try { if (IsSerialConnectionMode || IsOwcMode) RefreshSerialPorts(); else StartBleDiscovery(); }
+        try { if (IsSerialConnectionMode || IsCanMode || IsOwcMode) RefreshSerialPorts(); else StartBleDiscovery(); }
         catch (Exception ex) { ShowError("启动搜索失败", ex); }
     }
 
@@ -127,17 +127,17 @@ public partial class MainWindow : Window
         {
             ConnectButton.IsEnabled = false;
             ConnectionText.Text = "正在连接设备...";
-            if (IsSerialConnectionMode)
+            if (IsSerialConnectionMode || IsCanMode)
             {
                 if (SerialPortList.SelectedItem is not SerialPortEndpoint serial)
                     throw new InvalidOperationException("请先刷新并选择串口。");
 
-                _connectionMode = ConnectionMode.Serial;
-                int baudRate = GetSerialBaudRate();
+                _connectionMode = IsCanMode ? ConnectionMode.Can : ConnectionMode.Serial;
+                int baudRate = IsCanMode ? 115200 : GetSerialBaudRate();
                 _serialBaudRate = baudRate;
                 _connectedAddress = null;
                 _connectedSerialPort = serial.PortName;
-                _connectedName = $"串口 {serial.PortName}";
+                _connectedName = IsCanMode ? $"CAN · Comm Tool {serial.PortName}" : $"串口 {serial.PortName}";
                 _pollFailureCount = 0;
                 AppendLog($"用户发起串口连接；port={serial.PortName}; baud={baudRate}; format=8N1", "CONNECT");
                 await ConnectSerialInternalAsync(serial.PortName, baudRate, _manualConnectCts.Token);
@@ -146,7 +146,7 @@ public partial class MainWindow : Window
                 _manualConnectCts.Token.ThrowIfCancellationRequested();
                 await RefreshBatteryAsync(_manualConnectCts.Token);
                 StartAutomaticRefresh();
-                ConnectionText.Text = $"已连接：{serial.PortName} · {baudRate} 8N1";
+                ConnectionText.Text = IsCanMode ? $"已连接：{_connectedName} · 250 kbit/s" : $"已连接：{serial.PortName} · {baudRate} 8N1";
                 return;
             }
             if (DeviceList.SelectedItem is not DiscoveredDevice selected)
@@ -306,10 +306,10 @@ public partial class MainWindow : Window
     {
         long generation = _connectionGeneration;
         var bms = _bms ?? throw new InvalidOperationException("BMS 未连接。");
-        string fallbackMac = _connectionMode == ConnectionMode.Serial
+        string fallbackMac = _connectionMode != ConnectionMode.Ble
             ? string.Empty
             : BmsBleTransport.FormatBluetoothAddress(_connectedAddress ?? 0);
-        string fallbackName = _connectionMode == ConnectionMode.Serial
+        string fallbackName = _connectionMode != ConnectionMode.Ble
             ? $"串口 {_connectedSerialPort}"
             : _connectedName;
         DeviceIdentity id = await bms.ReadIdentityAsync(fallbackMac, fallbackName, ct);
@@ -459,7 +459,7 @@ public partial class MainWindow : Window
     {
         if (_autoReconnectRunning || _otaRunning || _manualConnectionInProgress || _connectionOperations.IsBusy || !_connectionDesired || _bleWindowClosed) return;
         if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null) return;
-        if (_connectionMode == ConnectionMode.Serial && string.IsNullOrWhiteSpace(_connectedSerialPort)) return;
+        if (_connectionMode != ConnectionMode.Ble && string.IsNullOrWhiteSpace(_connectedSerialPort)) return;
         _communicationReconnectAttempts++;
         _autoReconnectRunning = true;
         _pollTimer.Stop();
@@ -467,7 +467,7 @@ public partial class MainWindow : Window
         {
             ConnectionText.Text = "通信异常，自动重连中...";
             AppendLog("自动重连开始：连续 3 次数据刷新失败。", "RECONNECT");
-            if (_connectionMode == ConnectionMode.Serial)
+            if (_connectionMode != ConnectionMode.Ble)
                 await ConnectSerialInternalAsync(_connectedSerialPort!, _serialBaudRate);
             else
                 await ConnectBmsInternalAsync(_connectedAddress!.Value);
@@ -732,16 +732,17 @@ public partial class MainWindow : Window
         long generation = _connectionGeneration;
         using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct, _connectionLifetime.Token);
         ct = attempt.Token;
-        var transport = new BmsSerialTransport();
+        IBmsTransport transport = _connectionMode == ConnectionMode.Can ? new CommToolCanTransport(portName) : new BmsSerialTransport();
         Action<string> progress = text => OnConnectionProgress(generation, text);
         transport.ConnectionProgress += progress;
         BmsClient? client = null;
         try
         {
-            await transport.ConnectAsync(portName, baudRate, ct);
+            if (transport is BmsSerialTransport serial) await serial.ConnectAsync(portName, baudRate, ct);
+            else await transport.ReconnectAsync(ct);
             client = new BmsClient(transport, _communicationStatistics);
             client.Log += OnProtocolLog;
-            AppendLog("[CONNECT] STEP_BEGIN stage=ModbusProbe transport=Serial", "CONNECT");
+            AppendLog($"[CONNECT] STEP_BEGIN stage=ModbusProbe transport={_connectionMode}", "CONNECT");
             await client.ProbeAsync(ct);
             ct.ThrowIfCancellationRequested();
             if (generation != _connectionGeneration) throw new OperationCanceledException("连接已改变");
@@ -749,7 +750,7 @@ public partial class MainWindow : Window
             _bms = client;
             _connectedAddress = null;
             _connectedSerialPort = portName;
-            AppendLog($"BMS READY transport=Serial; {transport.DiscoveryDescription}", "CONNECT");
+            AppendLog($"BMS READY transport={_connectionMode}; {transport.DiscoveryDescription}", "CONNECT");
         }
         catch
         {

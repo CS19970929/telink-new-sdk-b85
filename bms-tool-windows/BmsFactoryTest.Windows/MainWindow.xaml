@@ -215,6 +215,7 @@
                                                 <ComboBoxItem Content="蓝牙"/>
                                                 <ComboBoxItem Content="串口"/>
                                                 <ComboBoxItem Content="一线通"/>
+                                                <ComboBoxItem Content="CAN" ToolTip="Comm Tool · 250 kbit/s · BMS 地址 0"/>
                                             </ComboBox>
                                             <Button x:Name="ConnectButton" DockPanel.Dock="Right" Style="{StaticResource CustomerButton}" Click="ConnectButton_Click">连接</Button>
                                             <Button x:Name="StopScanButton" DockPanel.Dock="Right" Style="{StaticResource CustomerButton}" Margin="0,0,6,0" Click="StopScanButton_Click">停止</Button>
@@ -261,6 +262,7 @@
                                         <WrapPanel HorizontalAlignment="Right" Margin="0,4,0,0">
                                             <Button x:Name="DisconnectButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2" Click="CustomerDisconnect_Click">断开</Button>
                                             <Button x:Name="MonitorSleepButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2" Click="SleepBms_Click">休眠</Button>
+                                            <Button x:Name="FeidaoButton" Visibility="Collapsed" Margin="0,2,6,2" Padding="8,3" Click="OpenFeidao_Click">飞道广播</Button>
                                             <Button x:Name="MonitorRenameButton" Style="{StaticResource CustomerButton}" Margin="0,2,6,2" Click="OpenNamePage_Click">改名</Button>
                                             <Button x:Name="MonitorOtaButton" Style="{StaticResource CustomerButton}" Margin="0,2,0,2" Click="OpenOtaPage_Click">OTA</Button>
                                         </WrapPanel>

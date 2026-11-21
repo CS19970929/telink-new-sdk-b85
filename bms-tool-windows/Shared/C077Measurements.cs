@@ -9,12 +9,17 @@ public sealed class C077Measurements
 
     private C077Measurements(ushort[] words) => _words = words;
 
-    public static C077Measurements Parse(ushort[] words)
+    public static C077Measurements Parse(ushort[] words) => Parse(words, 0xC077);
+
+    internal static C077Measurements Parse(ushort[] words, ushort product)
     {
-        if (words.Length != WordCount || words[0] != 0xC077 || words[1] != 1 ||
+        if (words.Length != WordCount || words[0] != product || words[1] != 1 ||
             words[11] > 2 || words[16] > 2 || words[17] > 8 ||
             words[21] is < 5 or > 16 || words[22] > 3 || words[23] > 3)
             throw new InvalidDataException("C077 实时测量快照格式或版本无效。");
+        if (product == 0xC073 && (words[7] != 0 || words[9] != 0 || words[10] != 0 ||
+            words[11] > 1 || words[13] != ushort.MaxValue || words[22] > 1 || words[23] > 1))
+            throw new InvalidDataException("C073 单片 AFE 通道状态无效。");
         int installed = (1 << words[21]) - 1;
         if (((words[3] | words[6] | words[7]) & ~installed) != 0 ||
             (words[4] & words[5]) != 0 || ((words[4] | words[5]) & ~words[20]) != 0 ||
@@ -81,7 +86,7 @@ public sealed class C077Measurements
 
     public string VoltageDetails => VoltageSource == 0 ? "电压数据无效" :
         $"AFE{VoltageSource} 电压 · {FormatAge(VoltageSource == 1 ? Afe1VadcAgeMs : Afe2VadcAgeMs)}" +
-        (CompletePacks != 3 ? " · 双片电压未齐" : "");
+        (_words[0] == 0xC077 && CompletePacks != 3 ? " · 双片电压未齐" : "");
 
     private static string FormatAge(ushort age) => age == ushort.MaxValue ? "采样时间未知" : $"{age} ms 前采样";
 

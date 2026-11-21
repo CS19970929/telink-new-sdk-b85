@@ -132,6 +132,10 @@ public sealed class BatterySnapshot
             if ((HardwareProtectionRaw & 0x04) != 0) text.Add("硬件单体过压");
             if ((HardwareProtectionRaw & 0x08) != 0) text.Add("硬件单体欠压");
             if ((HardwareProtectionRaw & 0x10) != 0) text.Add("硬件充电过流");
+            if ((HardwareProtectionRaw & 0x20) != 0) text.Add("硬件充电高温");
+            if ((HardwareProtectionRaw & 0x40) != 0) text.Add("硬件放电高温");
+            if ((HardwareProtectionRaw & 0x80) != 0) text.Add("硬件充电低温");
+            if ((HardwareProtectionRaw & 0x100) != 0) text.Add("硬件放电低温");
             if (LowPowerFault == true) text.Add("RTC／低功耗故障，MOS 已禁止开启");
             if ((third & 0x4000) != 0 || FaultInjection?.AfeCommunicationFault == true)
                 text.Add("AFE通信失效保护");
@@ -324,6 +328,7 @@ public sealed partial class BmsClient : IAsyncDisposable
     private static readonly TimeSpan BalanceReadTimeout = TimeSpan.FromSeconds(1);
     private bool _legacyUnavailable, _identityConflict;
     public bool IsC060 { get; private set; }
+    public bool IsC073 { get; private set; }
     public bool IsC077 { get; private set; }
     public bool UsesC060Protocol => IsC060 || IsC077;
     public string ParameterProduct => IsC077 ? "C077" : "C060";
@@ -444,7 +449,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         string fallbackBluetoothName,
         CancellationToken ct = default)
     {
-        IsC077=false; // C077 has no manual legacy override; require current product evidence.
+        IsC073=IsC077=false; // C077 has no manual legacy override; require current product evidence.
         ushort[]? capability = await TryReadOptionalRegistersAsync(0xD170, 12, ct);
         if (capability is { Length: 12 } && capability[0] == 0x5550 && capability[1] == 1 &&
             capability[4] == 2 && capability[5] == 2 && capability[10] <= 3 && capability[11] == 0 &&
@@ -456,6 +461,11 @@ public sealed partial class BmsClient : IAsyncDisposable
             IsC060=!IsC077;IsD015=IsSh3520=false;_identityConflict=false;
             DeviceDetectionEvidence=$"D170 v1：{capability[2]:X4}{capability[3]:X4} / APP 08001C00 / 51 KiB";
         }
+        if (capability is [0x5550, 1, 0xC073, 0x000D, 2, 2, 0x0800, var app, 0, var limit, 0, 0]
+            && (app, limit) is (0x3000, 0xB800) or (0x1C00, 0xCC00)) {
+            IsC073=true; IsC060=IsD015=IsSh3520=_identityConflict=false;
+            DeviceDetectionEvidence=$"D170 v1 · C073000D / APP 0800{app:X4}";
+        }
         ushort[]? identity = await TryReadOptionalRegistersAsync(BmsRegisters.Serial, 48, ct);
         ushort[] sn = identity?.Take(16).ToArray() ??
             await TryReadOptionalRegistersAsync(BmsRegisters.Serial, 16, ct) ?? Array.Empty<ushort>();
@@ -464,7 +474,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         ushort[] sw = identity?.Skip(32).Take(16).ToArray() ??
             await TryReadOptionalRegistersAsync(BmsRegisters.Software, 16, ct) ?? Array.Empty<ushort>();
         string serial = DecodeIdentityText(sn), hardware = DecodeIdentityText(hw), software = DecodeIdentityText(sw);
-        if (!UsesC060Protocol && identity is { Length:48 } &&
+        if (!IsC073 && !UsesC060Protocol && identity is { Length:48 } &&
             System.Text.RegularExpressions.Regex.IsMatch(hardware + " " + software, @"(?i)(^|[-_\s])C060(?=[V\d\-_\s]|$)")) {
             ushort[]? system = await TryReadOptionalRegistersAsync(0x231C, 4, ct);
             ushort[]? soc = await TryReadOptionalRegistersAsync(0x2318, 4, ct);
@@ -474,7 +484,8 @@ public sealed partial class BmsClient : IAsyncDisposable
                 DeviceDetectionEvidence = "C002整块C060身份 + 20串系统参数/容量结构";
             }
         }
-        if (UsesC060Protocol) {
+        if (IsC073) { DeviceModel="C073 · 同口 / SH367309"; _realtimeAvailable=false; }
+        else if (UsesC060Protocol) {
             DeviceModel=IsC077 ? "C077 · 16串分口 / SH367309 ×2" : "C060 · 20串分口 / BQ76930";
             _realtimeAvailable=false;
         }
@@ -551,18 +562,18 @@ public sealed partial class BmsClient : IAsyncDisposable
     public async Task<BatterySnapshot> ReadBatteryAsync(CancellationToken ct = default)
     {
         DateTimeOffset readStartedUtc = DateTimeOffset.UtcNow;
-        if (IsC077 && _c077MeasurementsAvailable != false)
+        if ((IsC077 || IsC073) && _c077MeasurementsAvailable != false)
         {
             if (!_c077MeasurementsAvailable.HasValue)
             {
                 var header = await TryReadOptionalRegistersAsync(C077Measurements.Address, 2, ct).ConfigureAwait(false);
-                _c077MeasurementsAvailable = header is [0xC077, 1];
+                _c077MeasurementsAvailable = header is [var product, 1] && product == (IsC073 ? 0xC073 : 0xC077);
             }
             if (_c077MeasurementsAvailable == true)
             {
                 var values = await ReadRegistersAsync(C077Measurements.Address, C077Measurements.WordCount, ct).ConfigureAwait(false);
                 var observed = DateTimeOffset.UtcNow;
-                var measured = C077Measurements.Parse(values);
+                var measured = C077Measurements.Parse(values, IsC073 ? (ushort)0xC073 : (ushort)0xC077);
                 uint balanceCells = await ReadBalanceCellMaskAsync(measured.Report[61], measured.Report[62], ct).ConfigureAwait(false);
                 bool? lowPowerFault = await ReadLowPowerFaultAsync(ct).ConfigureAwait(false);
                 var measuredProtection = await ReadHardwareProtectionAsync(ct).ConfigureAwait(false);
@@ -652,7 +663,7 @@ public sealed partial class BmsClient : IAsyncDisposable
             ProtectionLevel2Raw = legacy[59],
             ProtectionLevel3Raw = (ushort)(legacy[60] | c11DiagnosticFaults),
             SoftwareProtectionLevel3Raw = protection?[0],
-            HardwareProtectionRaw = (ushort)((protection?[1] ?? 0) & 0x1f),
+            HardwareProtectionRaw = (ushort)((protection?[1] ?? 0) & (IsC073 ? 0x1ff : 0x1f)),
             BalanceCellMask = balanceCellMask,
             LowPowerFault = await ReadLowPowerFaultAsync(ct).ConfigureAwait(false),
             // The first 32 Legacy words are protocol slots, not the configured
@@ -711,7 +722,7 @@ public sealed partial class BmsClient : IAsyncDisposable
             ? TryReadOptionalRegistersAsync(BmsRegisters.TemplateProtectionStatus, 2, ct)
             : Task.FromResult<ushort[]?>(null);
 
-    private static BatterySnapshot DecodeC077Battery(C077Measurements measured, DateTimeOffset startedUtc,
+    private BatterySnapshot DecodeC077Battery(C077Measurements measured, DateTimeOffset startedUtc,
         DateTimeOffset observed, uint balanceCellMask, bool? lowPowerFault, ushort[]? protection)
     {
         var data = measured.Report;
@@ -727,7 +738,7 @@ public sealed partial class BmsClient : IAsyncDisposable
             CellDeltaMv = data[36], SystemStatus = measured.SystemStatus,
             ProtectionLevel1Raw = data[58], ProtectionLevel2Raw = data[59], ProtectionLevel3Raw = data[60],
             SoftwareProtectionLevel3Raw = protection?[0],
-            HardwareProtectionRaw = (ushort)((protection?[1] ?? 0) & 0x1f),
+            HardwareProtectionRaw = (ushort)((protection?[1] ?? 0) & (IsC073 ? 0x1ff : 0x1f)),
             BalanceCellMask = balanceCellMask,
             LowPowerFault = lowPowerFault,
             CellMillivolts = data[..BmsRegisters.CellVoltageSlotCount].ToArray()

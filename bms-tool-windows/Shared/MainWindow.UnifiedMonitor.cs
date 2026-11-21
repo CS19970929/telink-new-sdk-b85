@@ -35,6 +35,7 @@ public partial class MainWindow
     private CancellationTokenSource? _integratedOwcStop;
     private long _integratedOwcEpoch;
     private DispatcherTimer? _unifiedTimer;
+    private bool IsCanMode => ConnectionModeBox.SelectedIndex == 3;
     private bool IsOwcMode => ConnectionModeBox.SelectedIndex == 2;
     private static bool UnifiedTestEdition =>
 #if BMS_FACTORY_APP
@@ -148,7 +149,7 @@ public partial class MainWindow
         var observedUtc = DateTimeOffset.UtcNow;
         PublishUnifiedReading(new MonitorReading {
             ObservedUtc = observedUtc, CellsUtc = sample.CellsReadUtc == default ? null : sample.CellsReadUtc,
-            Source = _connectionMode == ConnectionMode.Serial ? "串口" : "蓝牙", Endpoint = endpoint,
+            Source = _connectionMode == ConnectionMode.Can ? "CAN" : _connectionMode == ConnectionMode.Serial ? "串口" : "蓝牙", Endpoint = endpoint,
             Protocol = _bms?.DeviceModel ?? "BMS", SegmentKey = $"{endpoint}/{_connectionGeneration}",
             Sequence = $"{_connectionGeneration}/{observedUtc.UtcTicks}",
             Soc = sample.SocPercent is >= 0 and <= 100 ? sample.SocPercent : null,

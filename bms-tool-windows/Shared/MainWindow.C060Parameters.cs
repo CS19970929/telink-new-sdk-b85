@@ -182,6 +182,16 @@ public partial class MainWindow
         _businessParameterTab.Visibility=Visibility.Visible;
         foreach(var tab in _parameterProductTabs)tab.Visibility=c060?Visibility.Collapsed:Visibility.Visible;
         UpdateD015ParameterVisibility();
+        bool c073 = _bms?.IsC073 == true;
+        _c073Tab.Visibility = c073 ? Visibility.Visible : Visibility.Collapsed;
+        if (c073) {
+            foreach (var tab in _parameterProductTabs) tab.Visibility = Visibility.Collapsed;
+            if (_currentCalibrationParameterTab is not null) _currentCalibrationParameterTab.Visibility = Visibility.Collapsed;
+            _parameterSections.SelectedItem = _c073Tab;
+            return;
+        }
+        if (_parameterSections.SelectedItem == _c073Tab)
+            _parameterSections.SelectedItem = c060 ? _c060ParameterTab : _parameterProductTabs.FirstOrDefault();
         if(c060 && _parameterSections.SelectedItem is TabItem selected && selected.Visibility!=Visibility.Visible)
             _parameterSections.SelectedItem=_c060ParameterTab;
         else if(!c060&&_parameterSections.SelectedItem==_c060ParameterTab)

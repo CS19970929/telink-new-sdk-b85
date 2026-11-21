@@ -13,7 +13,7 @@ public partial class MainWindow
         if (_otaRunning) return;
         try
         {
-            var dlg = new OpenFileDialog { Filter = "BMS 固件 (*.c060;*.c077;*.d015;*.bms;*.bin)|*.c060;*.c077;*.d015;*.bms;*.bin|所有文件 (*.*)|*.*" };
+            var dlg = new OpenFileDialog { Filter = "BMS 固件 (*.c060;*.c073;*.c077;*.d015;*.bms;*.bin)|*.c060;*.c073;*.c077;*.d015;*.bms;*.bin|所有文件 (*.*)|*.*" };
             if (dlg.ShowDialog() != true) return;
             LoadFirmwareCandidate(dlg.FileName);
         }
@@ -59,12 +59,58 @@ public partial class MainWindow
         }
     }
 
+    private async Task RunCommToolCanUpgradeAsync()
+    {
+        if (SerialPortList.SelectedItem is not SerialPortEndpoint serial)
+            throw new InvalidOperationException("请选择 Comm Tool 的 COM 口。");
+        if (_bms is not null && (_connectionMode != ConnectionMode.Can ||
+            !string.Equals(serial.PortName, _connectedSerialPort, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("请先断开当前设备，再选择升级端口。");
+        string path = _firmwarePath ?? throw new InvalidOperationException("请先选择 C073 固件。");
+        var image = FirmwareImage.LoadForTarget(path, OtaTargetKind.Stm32SerialIap);
+        var package = SerialFirmwarePackage.Parse(image.Bytes);
+        if (package.BoardId != 0xC073000D || package.AppAddress != 0x08003000)
+            throw new InvalidDataException("请选择新分区 C073 固件。");
+        string expected = ExpectedVersionBox.Text.Trim();
+        if (expected.Length != 0 && !string.Equals(expected, package.Version.ToString("X8"), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException($"镜像版本为 {package.Version:X8}，与填写的预期版本不符。");
+        _otaRunning = true;
+        _otaCts = new CancellationTokenSource();
+        var ct = _otaCts.Token;
+        ConnectButton.IsEnabled = ConnectionModeBox.IsEnabled = SerialPortList.IsEnabled = DeviceList.IsEnabled = false;
+        StartOtaButton.IsEnabled = OtaTargetBox.IsEnabled = OtaModeBox.IsEnabled = ExpectedVersionBox.IsEnabled = false;
+        SerialIapRecoveryBox.IsEnabled = false;
+        CancelOtaButton.IsEnabled = true;
+        OtaProgressBar.Value = 0;
+        OtaVerifyText.Text = string.Empty;
+        _pollTimer.Stop();
+        await StopRuntimeLogsForOtaAsync();
+        await DisposeBmsAsync();
+        ConnectionText.Text = $"正在通过 {serial.PortName} 升级";
+        var progress = new Progress<(int Percent, string Message)>(p => {
+            OtaProgressBar.Value = p.Percent;
+            OtaProgressText.Text = $"{p.Message} · {p.Percent}%";
+        });
+        try
+        {
+            await Task.Run(() => {
+                using var channel = new CommToolSerialConnection(serial.PortName, 9000);
+                CommToolCanUpgrade.Run(image.Bytes, channel.Command, progress, ct);
+            }, ct);
+            OtaVerifyText.Text = $"C073 已重启。版本 {package.Version:X8}、长度 {package.PayloadLength} 和 CRC32 {package.PayloadCrc:X8} 回读一致。";
+            AppendLog(OtaVerifyText.Text, "OTA");
+        }
+        finally { ConnectionText.Text = "点击连接恢复 CAN 实时监控"; }
+    }
+
     private bool _otaRequireD015;
     private async void StartOta_Click(object sender, RoutedEventArgs e)
     {
         if (_otaRunning || _shBusy || _diagBusy || _parameterBusy || _polling || _autoReconnectRunning) return;
         try
         {
+            if (IsCanMode) { await RunCommToolCanUpgradeAsync(); return; }
+            if (IsOwcMode) throw new InvalidOperationException("一线通用于只读监控。");
             bool serialRecovery=SerialIapRecoveryBox.IsChecked==true;
             if(serialRecovery)SelectOtaRecoveryEndpoint();
             string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择固件。");
@@ -152,7 +198,7 @@ public partial class MainWindow
         catch (OperationCanceledException)
         {
             AppendLog("OTA cancelled", "OTA");
-            OtaVerifyText.Text = "升级已取消。YMODEM 写入中断时留在 Boot；若已发送最终提交，结果待确认，请先重连核对版本。";
+            OtaVerifyText.Text = IsCanMode ? "CAN 升级已取消。如已开始写入，可通过同一端口重新升级并核对结果。" : "升级已取消。YMODEM 写入中断时留在 Boot；若已发送最终提交，结果待确认，请先重连核对版本。";
         }
         catch (Exception ex)
         {

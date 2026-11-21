@@ -13,19 +13,15 @@ internal sealed class CommToolCommandException(byte status, string message) : IO
 
 internal sealed class CommToolOwcClient : IDisposable
 {
-    private readonly SerialPort? _port;
-    private readonly Func<byte, byte[], CancellationToken, byte[]>? _exchange;
+    private readonly CommToolSerialConnection? _connection;
+    private readonly Func<byte, byte[], CancellationToken, byte[]> _exchange;
     private OwcReceiveMode _mode = OwcReceiveMode.A133;
     public bool UsesExtendedSnapshots { get; private set; }
     internal CommToolOwcClient(Func<byte, byte[], CancellationToken, byte[]> exchange) => _exchange = exchange;
-    private ushort _sequence;
-
     public CommToolOwcClient(string port)
     {
-        _port = new SerialPort(port, 115200, Parity.None, 8, StopBits.One)
-        { ReadTimeout = 50, WriteTimeout = 1000, Handshake = Handshake.None };
-        try { _port.Open(); }
-        catch { _port.Dispose(); throw; }
+        _connection = new CommToolSerialConnection(port, 1000);
+        _exchange = _connection.Command;
     }
 
     public void Start(OwcReceiveMode mode, CancellationToken token)
@@ -71,14 +67,36 @@ internal sealed class CommToolOwcClient : IDisposable
     private byte[] Command(byte command, byte[] payload, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        if (_exchange is not null) return _exchange(command, payload, token);
+        return _exchange(command, payload, token);
+    }
+    public void Dispose() => _connection?.Dispose();
+}
+
+internal sealed class CommToolSerialConnection : IDisposable
+{
+    private readonly SerialPort _port;
+    private readonly int timeoutMs;
+    private ushort _sequence;
+
+    public CommToolSerialConnection(string port, int timeoutMs)
+    {
+        this.timeoutMs = timeoutMs;
+        _port = new SerialPort(port, 115200, Parity.None, 8, StopBits.One)
+        { ReadTimeout = 50, WriteTimeout = 1000, Handshake = Handshake.None };
+        try { _port.Open(); }
+        catch { _port.Dispose(); throw; }
+    }
+
+    public byte[] Command(byte command, byte[] payload, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
         _sequence = unchecked((ushort)(_sequence + 1));
         if (_sequence == 0) _sequence = 1;
         byte[] request = CommToolOwcProtocol.EncodeCommand(_sequence, command, payload);
         var timer = Stopwatch.StartNew();
-        _port!.Write(request, 0, request.Length);
+        _port.Write(request, 0, request.Length);
         bool prefix = false;
-        while (timer.ElapsedMilliseconds < 1000)
+        while (timer.ElapsedMilliseconds < timeoutMs)
         {
             byte value = ReadExact(1, timer, token)[0];
             if (!prefix) { prefix = value == 0x55; continue; }
@@ -105,10 +123,10 @@ internal sealed class CommToolOwcClient : IDisposable
     {
         byte[] data = new byte[count];
         int received = 0;
-        while (received < count && timer.ElapsedMilliseconds < 1000)
+        while (received < count && timer.ElapsedMilliseconds < timeoutMs)
         {
             token.ThrowIfCancellationRequested();
-            try { received += _port!.Read(data, received, count - received); }
+            try { received += _port.Read(data, received, count - received); }
             catch (TimeoutException) { }
         }
         token.ThrowIfCancellationRequested();
@@ -116,5 +134,5 @@ internal sealed class CommToolOwcClient : IDisposable
         return data;
     }
 
-    public void Dispose() => _port?.Dispose();
+    public void Dispose() => _port.Dispose();
 }

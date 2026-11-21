@@ -208,7 +208,7 @@ public partial class MainWindow
             }
 
             AfeHardwareDeviceInfo info = _afeHardwareModel.DeviceInfo ?? throw new InvalidOperationException("请先读取AFE参数。");
-            string transportText = _connectionMode == ConnectionMode.Serial ? "直连串口" : "BLE透明通道";
+            string transportText = _connectionMode == ConnectionMode.Can ? "Comm Tool CAN" : _connectionMode == ConnectionMode.Serial ? "直连串口" : "BLE透明通道";
             string legacyCorrections = _afeHardwareModel.DescribeLegacyDelayCorrections(candidate);
             string temperatureChanges = _afeHardwareModel.DescribeTemperatureChannelChanges(candidate);
             string switchChanges = _afeHardwareModel.DescribeProtectionSwitchChanges(candidate);

@@ -113,6 +113,7 @@ public partial class MainWindow
         root.Children.Add(new Expander{Header="原始读回",Content=_parameterReadback,Margin=new Thickness(4)});
 #endif
         _businessParameterTab=new TabItem{Header="参数设置",Content=page};MainTabs.Items.Add(_businessParameterTab);
+        AddC073ParameterTab();
         AddC060ParameterTab();
         var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
         timer.Tick+=async(_,_)=>{
@@ -124,6 +125,11 @@ public partial class MainWindow
     private async Task ParameterRunAsync(Func<BmsClient,CancellationToken,Task>? action,bool refresh=true,
         string? operation="保存参数",bool requiresUnlock=true)
     {
+        if (_bms?.IsC073 == true) {
+            if (action is not null) { _parameterStatus.Text="请在 C073 基本参数中选择对应操作。"; return; }
+            await RunC073OperationAsync(ReadC073FieldsAsync, false);
+            return;
+        }
         if(_bms?.UsesC060Protocol==true){await RunC060ParameterAsync(action,operation??"读取参数",requiresUnlock);return;}
         bool modifying=action is not null && operation is not null;
         void Reject(string message) {

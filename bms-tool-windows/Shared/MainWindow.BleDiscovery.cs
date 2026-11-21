@@ -63,7 +63,7 @@ public partial class MainWindow
     private void RefreshBleDeviceList()
     {
         if (_bleWindowClosed || !IsInitialized || BleDiscoveryStatusText is null) return;
-        bool serial = IsSerialConnectionMode || IsOwcMode;
+        bool serial = IsSerialConnectionMode || IsCanMode || IsOwcMode;
         BleDiscoveryStatusText.Visibility = serial ? Visibility.Collapsed : Visibility.Visible;
 #if BMS_FACTORY_APP
         ShowHistoryDevicesBox.Visibility = BleDiscoveryStatusText.Visibility;

@@ -168,6 +168,7 @@ public sealed partial class BmsClient
     private readonly SemaphoreSlim _c060ParameterGate=new(1,1);
     public async Task SelectC060ParametersAsync(CancellationToken ct=default)
     {
+        if (IsC073) throw new NotSupportedException("已识别为 C073，请使用 C073 基本参数。");
         var system=await ReadRegistersAsync(0x231C,4,ct);var soc=await ReadRegistersAsync(0x2318,4,ct);
         if(system[0]!=20||system[1]==0||system[2]==0||soc[0]==0)throw new NotSupportedException("读取结果不符合当前C060参数结构；保留连接，请选择匹配项目。");
         IsC060=true;IsC077=false;IsD015=IsSh3520=false;_identityConflict=false;_realtimeAvailable=false;DeviceModel="C060 · 手动选择旧协议";
@@ -175,7 +176,7 @@ public sealed partial class BmsClient
     }
     public void ResetParameterProfile()
     {
-        IsC060=IsC077=IsD015=IsSh3520=false;_identityConflict=false;_realtimeAvailable=null;_legacyUnavailable=false;
+        IsC073=IsC060=IsC077=IsD015=IsSh3520=false;_identityConflict=false;_realtimeAvailable=null;_legacyUnavailable=false;
         _unavailableReads.Clear();
         _c077MeasurementsAvailable=null;
         DeviceModel="自动识别中";
@@ -258,8 +259,8 @@ public sealed partial class BmsClient
     }
     public async Task WriteC060IdentityAsync(ushort address,string text,CancellationToken ct=default)
     {
-        if(!UsesC060Protocol||address is <0xFFF0 or >0xFFF2)throw new ArgumentException("C060生产信息地址无效。");
-        if(UsesC060Protocol&&address==0xFFF2)throw new NotSupportedException("软件版本由固件提供，只读；未发送写入。");
+        if((!UsesC060Protocol && !IsC073)||address is <0xFFF0 or >0xFFF2)throw new ArgumentException("C060生产信息地址无效。");
+        if(address==0xFFF2)throw new NotSupportedException("软件版本由固件提供，只读；未发送写入。");
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         if(text.Any(char.IsControl))throw new ArgumentException("生产信息不能包含换行或控制字符。");
         byte[] encoded=Encoding.GetEncoding(936,EncoderFallback.ExceptionFallback,DecoderFallback.ExceptionFallback).GetBytes(text);

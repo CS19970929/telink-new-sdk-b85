@@ -10,6 +10,7 @@ public partial class MainWindow
     private void SetMonitorModeDisplay()
     {
         bool owc = IsOwcMode;
+        FeidaoButton.Visibility = IsCanMode ? Visibility.Visible : Visibility.Collapsed;
         Visibility modbusVisibility = owc ? Visibility.Collapsed : Visibility.Visible;
         Visibility owcVisibility = owc ? Visibility.Visible : Visibility.Collapsed;
         MonitorSleepButton.Visibility = MonitorRenameButton.Visibility = MonitorMosGroup.Visibility = modbusVisibility;
@@ -19,7 +20,8 @@ public partial class MainWindow
         OwcStatusText.Visibility = OwcMonitorDetails.Visibility = OwcCellStatusText.Visibility = owcVisibility;
         OwcModeBox.Visibility = UnifiedTestEdition ? owcVisibility : Visibility.Collapsed;
 #if BMS_FACTORY_APP
-        MonitorOtaButton.Visibility = CommunicationCountersText.Visibility = modbusVisibility;
+        CommunicationCountersText.Visibility = modbusVisibility;
+        MonitorOtaButton.Visibility = modbusVisibility;
 #else
         ProtectedFeaturesButton.Visibility = modbusVisibility;
 #endif
