@@ -9,7 +9,6 @@ $src=[Security.SecurityElement]::Escape($PSScriptRoot)
     <ProjectReference Include="$src/BmsTool.Core/BmsTool.Core.csproj"/>
     <PackageReference Include="System.IO.Ports" Version="8.0.0"/>
     <Compile Include="$src/Tests/C073ProtectionTest.cs"/>
-    <Compile Include="$src/Shared/C073Protection.cs"/>
     <Compile Include="$src/Shared/CommToolCanTransport.cs"/>
     <Compile Include="$src/Shared/CommToolOwcProtocol.cs"/>
     <Compile Include="$src/Shared/CommToolOwcClient.cs"/>

@@ -197,6 +197,7 @@ public sealed partial class MainActivity
 
     private Task ReadProtectionAsync() => WithClientAsync("读取软件保护", async (client, ct) =>
     {
+        if (client.IsC073) throw new IOException("C073 请读取 SH367309 硬件保护。");
         ushort[] words = await client.ReadProtectionAllAsync(ct);
         var rows = ProtectionParameterCatalog.Create();
         for (int i = 0; i < rows.Count; i++) rows[i].LoadFromDevice(words[i]);
@@ -255,6 +256,27 @@ public sealed partial class MainActivity
             SetStatus("软件保护参数已写入并逐组读回确认");
         });
     }
+
+    private Task ReadC073ProtectionAsync() => WithClientAsync("读取 SH367309 硬件保护", async (client, ct) =>
+    {
+        var profile = await C073Protection.ReadAsync(client, ct);
+        ct.ThrowIfCancellationRequested();
+        RunOnUiThread(() =>
+        {
+            if (!ReferenceEquals(client, _client) || !client.IsC073) return;
+            _c073ProtectionRows!.RemoveAllViews();
+            foreach (var field in C077Hardware.Fields)
+            {
+                int index = field.Index;
+                string unit = C073Protection.IsCurrentField(index) ? "A" : field.Unit;
+                int saved = C073Protection.DisplayValue(index, field.Value(profile.Saved[index]));
+                int actual = C073Protection.DisplayValue(index, profile.Actual[index]);
+                _c073ProtectionRows.AddView(Note($"{C073Protection.FieldName(field)} · Flash {saved} {unit} · 芯片 {actual} {unit}"));
+            }
+            _c073ProtectionStatus!.Text = profile.Matches ? "Flash 与芯片配置字节一致。" : "Flash 与芯片配置有差异。";
+        });
+        SetStatus("SH367309 硬件保护读取完成");
+    }, TimeSpan.FromSeconds(45));
 
     private Task ReadAfeAsync() => WithClientAsync("读取 AFE 硬件保护", async (client, ct) =>
     {

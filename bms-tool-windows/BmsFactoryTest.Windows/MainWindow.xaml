@@ -357,7 +357,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="保护 / BMS 参数">
+            <TabItem x:Name="ProtectionTab" Header="保护 / BMS 参数">
                 <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>

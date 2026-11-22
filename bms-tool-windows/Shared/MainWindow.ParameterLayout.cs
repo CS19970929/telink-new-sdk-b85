@@ -9,6 +9,8 @@ public partial class MainWindow
 {
     private bool _hideD015SocProtection;
     private ListBox? _protectionNavigation;
+    private FrameworkElement? _softwareProtectionHeader, _softwareProtectionBrowser, _c073ProtectionView;
+    private GroupBox? _protectionBmsParameters;
 
     // 筛选只影响显示；所有行继续由原模型持有，整组校验和写入不依赖可见行。
     private static Grid CreateParameterBrowser(DataGrid table, Func<object, string> group,
@@ -82,6 +84,30 @@ public partial class MainWindow
             Margin = new Thickness(8, 0, 0, 0), ToolTip = "读取或设置 AFE 硬件短路电流和延时" };
         shortCircuit.Click += OpenShortCircuitSettings_Click;
         buttons.Children.Insert(3, shortCircuit);
+        _softwareProtectionHeader = header;
+        _softwareProtectionBrowser = browser;
+        _protectionBmsParameters = parent.Children.OfType<GroupBox>().Single();
+        _c073ProtectionView = CreateC073ProtectionView();
+        Grid.SetRow(_c073ProtectionView, 1);
+        parent.Children.Add(_c073ProtectionView);
+        UpdateProtectionPage(false);
+    }
+
+    private void UpdateProtectionPage(bool c073)
+    {
+        if (_c073ProtectionView is null) return;
+        _softwareProtectionHeader!.Visibility = _softwareProtectionBrowser!.Visibility =
+            c073 ? Visibility.Collapsed : Visibility.Visible;
+        _c073ProtectionView.Visibility = c073 ? Visibility.Visible : Visibility.Collapsed;
+#if BMS_FACTORY_APP
+        ProtectionTab.Header = c073 ? "SH367309 硬件保护 / BMS 参数" : "保护 / BMS 参数";
+#else
+        ProtectionTab.Visibility = c073 || _protectedFeaturesUnlocked ? Visibility.Visible : Visibility.Collapsed;
+        _protectionBmsParameters!.Visibility = !c073 || _protectedFeaturesUnlocked ? Visibility.Visible : Visibility.Collapsed;
+        ProtectionTab.Header = c073
+            ? (_protectedFeaturesUnlocked ? "SH367309 硬件保护 / BMS 参数" : "SH367309 硬件保护")
+            : "软件保护 / BMS 参数";
+#endif
     }
 
     private void UpdateProtectionProductDisplay(bool d015)

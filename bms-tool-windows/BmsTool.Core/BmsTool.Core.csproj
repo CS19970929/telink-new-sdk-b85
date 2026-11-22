@@ -43,6 +43,7 @@
     <Compile Include="..\Shared\TelinkOtaCore.cs" Link="TelinkOtaCore.cs" />
     <Compile Include="..\Shared\D015FirmwarePackage.cs" Link="Shared\D015FirmwarePackage.cs" />
     <Compile Include="..\Shared\SerialFirmwarePackage.cs" Link="Shared\SerialFirmwarePackage.cs" />
+    <Compile Include="..\Shared\C073Protection.cs" Link="Shared\C073Protection.cs" />
     <Compile Include="..\Shared\UpgradeDetection.cs" Link="Shared\UpgradeDetection.cs" />
     <Compile Include="..\Shared\SerialYmodem.cs" Link="Shared\SerialYmodem.cs" />
     <Compile Include="..\Shared\TelinkSerialOta.cs" Link="TelinkSerialOta.cs" />

@@ -88,6 +88,31 @@ static class Test
                 Reject(()=>FirmwareImage.LoadForTarget(path,OtaTargetKind.Stm32SerialIap),$"bad package @{offset} refused");
             }
         }
+        byte[] C073Bin(int kib,uint version,uint address=0x08003000) {
+            byte[] app=new byte[kib*1024];
+            void Put(int offset,uint value)=>BinaryPrimitives.WriteUInt32LittleEndian(app.AsSpan(offset),value);
+            Put(0,0x20004F00);Put(4,address+0x121);Put(0x104,0xC073000D);
+            Put(0x108,address);Put(0x10C,version);Put(0x110,(uint)app.Length-4u);
+            return app;
+        }
+        var oldC073=Device(0xC073000D,0x08003000,46*1024);
+        var newC073=Device(0xC073000D,0x08003000,44*1024);
+        foreach (int size in new[]{1,44}) {
+            var oldApp=SerialFirmwarePackage.Parse(SerialFirmwarePackage.WrapC073Bin(C073Bin(size,0x00010001))!);
+            var newApp=SerialFirmwarePackage.Parse(SerialFirmwarePackage.WrapC073Bin(C073Bin(size,0x00020003))!);
+            UpgradeDetection.CheckPackage(oldC073,oldApp);
+            UpgradeDetection.CheckPackage(newC073,newApp);
+            Reject(()=>UpgradeDetection.CheckPackage(oldC073,newApp),"new generation rejected on 46 KiB even if it fits");
+            Reject(()=>UpgradeDetection.CheckPackage(newC073,oldApp),"old generation rejected on 44 KiB even if it fits");
+        }
+        UpgradeDetection.CheckPackage(oldC073,SerialFirmwarePackage.Parse(
+            SerialFirmwarePackage.WrapC073Bin(C073Bin(46,0x00010000))!));
+        Reject(()=>SerialFirmwarePackage.WrapC073Bin(C073Bin(45,0x00020000)),"44 KiB image cap");
+        Reject(()=>SerialFirmwarePackage.WrapC073Bin(C073Bin(1,0x00030000)),"unknown C073 layout generation");
+        Reject(()=>Device(0xC073000D,0x08003000,45*1024),"unrecognized C073 device capacity");
+        var earlier=Device(0xC073000D,0x08001C00,51*1024);
+        UpgradeDetection.CheckPackage(earlier,SerialFirmwarePackage.Parse(
+            SerialFirmwarePackage.WrapC073Bin(C073Bin(51,0x00010000,0x08001C00))!));
         string renamed=Path.Combine(work,"renamed.d015");File.Copy(c060,renamed,true);
         Check(!FirmwareImage.Inspect(renamed).D015Package,"extension does not override package identity");
         Reject(()=>FirmwareImage.LoadForTarget(c060,OtaTargetKind.Telink),"serial package cannot use Telink radio OTA");

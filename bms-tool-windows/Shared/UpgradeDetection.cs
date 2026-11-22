@@ -14,7 +14,8 @@ public static class UpgradeDetection
         uint board=((uint)words[2]<<16)|words[3],address=((uint)words[6]<<16)|words[7];
         uint capacity=((uint)words[8]<<16)|words[9];
         if(words[1]!=1 || words[4]!=2 || words[5]!=2 || words[10]>3 || words[11]!=0 ||
-           board is 0 or uint.MaxValue || !SerialFirmwarePackage.ValidLayout(address,capacity))
+           board is 0 or uint.MaxValue || !SerialFirmwarePackage.ValidLayout(address,capacity) ||
+           (board == SerialFirmwarePackage.C073BoardId && !SerialFirmwarePackage.IsC073Layout(address,capacity)))
             throw new InvalidDataException("设备公布的升级协议版本、模式或分区不受支持；不会尝试其他升级命令。");
         return new(SerialUpgradeProtocol.YmodemV2,board,address,(int)capacity,words[10],
             $"D170 v1 / YMODEM CRC16 / package v2 / board={board:X8} / APP={address:X8} / capacity={capacity}");
@@ -80,7 +81,9 @@ public static class UpgradeDetection
     }
     public static void CheckPackage(SerialUpgradeDevice device,SerialFirmwarePackage package) {
         if(device.Protocol!=SerialUpgradeProtocol.YmodemV2 || !SerialFirmwarePackage.ValidLayout(device.Address,unchecked((uint)device.Capacity)) || device.Board!=package.BoardId ||
-           device.Address!=package.AppAddress || package.PayloadLength>device.Capacity)
+           device.Address!=package.AppAddress || package.PayloadLength<=0 || package.PayloadLength>device.Capacity ||
+           (package.BoardId == SerialFirmwarePackage.C073BoardId &&
+            SerialFirmwarePackage.C073ImageCapacity(package.AppAddress, package.Version) != device.Capacity))
             throw new InvalidDataException($"升级包与所选设备不匹配：包 board={package.BoardId:X8} APP={package.AppAddress:X8} bytes={package.PayloadLength}；设备 board={device.Board:X8} APP={device.Address:X8} capacity={device.Capacity}。");
     }
     public static void CheckImage(SerialUpgradeDevice device,FirmwareImage image) {

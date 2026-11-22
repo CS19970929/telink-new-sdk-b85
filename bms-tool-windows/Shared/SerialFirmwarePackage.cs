@@ -8,36 +8,53 @@ public sealed record SerialFirmwarePackage(uint BoardId,uint AppAddress,uint Ver
 {
     public const uint Magic=0x32553044;
     public const int HeaderBytes=32, PageBytes=1024, MaximumPayloadBytes=16*1024*1024;
+    internal const uint C073BoardId = 0xC073000D, C073AppBase = 0x08003000, C073EarlyAppBase = 0x08001C00;
+    internal const int C073CompactCapacity = 44 * PageBytes, C073OriginalCapacity = 46 * PageBytes;
+    private const int C073EarlyCapacity = 51 * PageBytes;
+
     public string BoardName => BoardId switch {
-        0xD0150320=>"D015", 0xC0600020=>"C060", 0xC0770016=>"C077", 0xC073000D=>"C073", _=>$"板号 0x{BoardId:X8}"
+        0xD0150320=>"D015", 0xC0600020=>"C060", 0xC0770016=>"C077", C073BoardId=>"C073", _=>$"板号 0x{BoardId:X8}"
     };
     public static bool HasHeader(ReadOnlySpan<byte> bytes) => bytes.Length>=4 && BinaryPrimitives.ReadUInt32LittleEndian(bytes)==Magic;
     public static byte[]? WrapC060Bin(ReadOnlySpan<byte> app)=>WrapAppBin(app,0xC0600020u);
     public static byte[]? WrapC077Bin(ReadOnlySpan<byte> app)=>WrapAppBin(app,0xC0770016u);
-    public static byte[]? WrapC073Bin(ReadOnlySpan<byte> app)=>WrapAppBin(app,0xC073000Du);
+    public static byte[]? WrapC073Bin(ReadOnlySpan<byte> app)=>WrapAppBin(app,C073BoardId);
     private static byte[]? WrapAppBin(ReadOnlySpan<byte> app,uint board)
     {
-        int id = board == 0xC073000Du ? 0x104 : 192;
+        int id = board == C073BoardId ? 0x104 : 192;
         if (app.Length < id + 16 || BinaryPrimitives.ReadUInt32LittleEndian(app[id..]) != board) return null;
         uint address = BinaryPrimitives.ReadUInt32LittleEndian(app[(id+4)..]);
-        bool valid = board == 0xC073000Du ? C073Layout(address, (uint)app.Length)
+        uint version = BinaryPrimitives.ReadUInt32LittleEndian(app[(id+8)..]);
+        bool valid = board == C073BoardId ? app.Length <= C073ImageCapacity(address, version)
             : address == 0x08001C00u && app.Length <= 51 * PageBytes;
-        if (!valid) throw new InvalidDataException("APP BIN 地址或长度超出本板分区。");
+        if (!valid) throw new InvalidDataException("APP BIN 地址、版本族或长度超出本板分区。");
         byte[] result=new byte[HeaderBytes+app.Length];
         BinaryPrimitives.WriteUInt32LittleEndian(result,Magic);
         BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(4),2);
         BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(6),HeaderBytes);
         app.Slice(id,8).CopyTo(result.AsSpan(8));
         BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(16),(uint)app.Length);
-        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(20),BinaryPrimitives.ReadUInt32LittleEndian(app[(id+8)..]));
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(20),version);
         BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(24),Crc32(app));
         BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(28),Crc32(result.AsSpan(0,28)));
         app.CopyTo(result.AsSpan(HeaderBytes));
         _=Parse(result); // Validate embedded identity, vectors and padded length.
         return result;
     }
-    private static bool C073Layout(uint address,uint size) =>
-        address is 0x08003000u or 0x08001C00u && size <= 0x0800E800u - address;
+    internal static bool IsC073Layout(uint address, uint capacity) => (address, capacity) is
+        (C073AppBase, C073CompactCapacity or C073OriginalCapacity) or (C073EarlyAppBase, C073EarlyCapacity);
+
+    internal static bool IsC073RunningIdentity(ushort[]? words) =>
+        words is [0x5550, 1, 0xC073, 0x000D, 2, 2, 0x0800, var address, 0, var capacity, 0, 0] &&
+        IsC073Layout(0x08000000u | address, capacity);
+
+    internal static int C073ImageCapacity(uint address, uint version) => (address, version >> 16) switch
+    {
+        (C073AppBase, 2) => C073CompactCapacity,
+        (C073AppBase, 0 or 1) => C073OriginalCapacity,
+        (C073EarlyAppBase, _) => C073EarlyCapacity,
+        _ => 0
+    };
     internal static bool ValidLayout(uint address,uint capacity) => address>=0x08000000 && address<0x09000000 &&
         address%PageBytes==0 && capacity>0 && capacity<=MaximumPayloadBytes && capacity%PageBytes==0 &&
         (ulong)address+capacity<=0x09000000;
@@ -60,8 +77,8 @@ public sealed record SerialFirmwarePackage(uint BoardId,uint AppAddress,uint Ver
             throw new InvalidDataException("YMODEM 升级包身份、地址、长度或整包 CRC 不正确。");
         var app=bytes[HeaderBytes..];
         uint stack=BinaryPrimitives.ReadUInt32LittleEndian(app),entry=BinaryPrimitives.ReadUInt32LittleEndian(app[4..]);
-        int id = board == 0xC073000Du ? 0x104 : 192;
-        if (board == 0xC073000Du && (!C073Layout(address,length) || stack < 0x200000D0 || stack > 0x20005000))
+        int id = board == C073BoardId ? 0x104 : 192;
+        if (board == C073BoardId && (length > C073ImageCapacity(address, version) || stack < 0x200000D0 || stack > 0x20005000))
             throw new InvalidDataException("C073 APP 分区或栈地址错误。");
         uint actual=BinaryPrimitives.ReadUInt32LittleEndian(app[(id+12)..]);
         if(BinaryPrimitives.ReadUInt32LittleEndian(app[id..])!=board ||

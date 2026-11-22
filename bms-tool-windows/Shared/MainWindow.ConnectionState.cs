@@ -19,6 +19,9 @@ public partial class MainWindow
         _protectionSnapshotClient = null;
         _parameterCapture = null;
         _parameterProbedClient = null;
+        ClearC073ProtectionView();
+        _c073ReadClient = null;
+        UpdateProtectionPage(false);
         _afeHardwareModel.ClearReadback();
         if (_afeHardwareStatus is not null) _afeHardwareStatus.Text = "连接已改变，请重新读取AFE参数";
         if (_afeHardwareDeviceInfo is not null) _afeHardwareDeviceInfo.Text = "设备：未读取";

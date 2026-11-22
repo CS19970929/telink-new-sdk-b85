@@ -461,10 +461,9 @@ public sealed partial class BmsClient : IAsyncDisposable
             IsC060=!IsC077;IsD015=IsSh3520=false;_identityConflict=false;
             DeviceDetectionEvidence=$"D170 v1：{capability[2]:X4}{capability[3]:X4} / APP 08001C00 / 51 KiB";
         }
-        if (capability is [0x5550, 1, 0xC073, 0x000D, 2, 2, 0x0800, var app, 0, var limit, 0, 0]
-            && (app, limit) is (0x3000, 0xB800) or (0x1C00, 0xCC00)) {
+        if (capability is not null && SerialFirmwarePackage.IsC073RunningIdentity(capability)) {
             IsC073=true; IsC060=IsD015=IsSh3520=_identityConflict=false;
-            DeviceDetectionEvidence=$"D170 v1 · C073000D / APP 0800{app:X4}";
+            DeviceDetectionEvidence=$"D170 v1 · C073000D / APP 0800{capability[7]:X4} / {capability[9]/1024} KiB";
         }
         ushort[]? identity = await TryReadOptionalRegistersAsync(BmsRegisters.Serial, 48, ct);
         ushort[] sn = identity?.Take(16).ToArray() ??

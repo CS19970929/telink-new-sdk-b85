@@ -2,9 +2,9 @@ using System.IO;
 
 namespace BmsTool.Windows;
 
-internal sealed record C073ProtectionReadback(ushort[] Saved,int[] Actual,int Tr,bool Matches);
+public sealed record C073ProtectionReadback(ushort[] Saved,int[] Actual,int Tr,bool Matches);
 
-internal static class C073Protection
+public static class C073Protection
 {
     private const ushort Diagnostic=0x2A40, Service=0x2A7F;
 
@@ -12,13 +12,22 @@ internal static class C073Protection
     {
         if (!client.IsC073) throw new InvalidOperationException("设备身份与 C073 不匹配。");
         ushort[] header=await client.ReadRegistersAsync(C077Hardware.Header,7,ct);
-        if (header is not [0xC073,1,32,1,_,_,7])
+        if (header is not [0xC073,1,32,1,_,_,7 or 8])
             throw new InvalidDataException("设备未提供 C073 单片 SH367309 参数档案。");
         if (((await client.ReadRegistersAsync(0x2A28,1,ct))[0]&1)==0)
             throw new IOException("C073 Flash 参数尚未就绪。");
     }
 
-    internal static void Validate(ushort[] values,int tr)
+    public static string FieldName(C077HardwareField field) => field.Index switch
+    {
+        7 => "自主均衡电压", 12 => "一级放电过流", 14 => "二级放电过流",
+        16 => "短路电流", 18 => "充电过流", _ => field.Name
+    };
+
+    public static bool IsCurrentField(int index) => index is 12 or 14 or 16 or 18;
+    public static int DisplayValue(int index, int value) => IsCurrentField(index) ? value * 3 : value;
+
+    public static void Validate(ushort[] values,int tr)
     {
         C077Hardware.Validate(values,tr);
         if ((values[0]&1)==0) throw new ArgumentException("C073 同口板要求 ENMOS 保持开启。");
@@ -35,7 +44,7 @@ internal static class C073Protection
         throw new TimeoutException("309 维护仍在进行，请重新读取结果。");
     }
 
-    internal static async Task<C073ProtectionReadback> ReadAsync(BmsClient client,CancellationToken ct)
+    public static async Task<C073ProtectionReadback> ReadAsync(BmsClient client,CancellationToken ct)
     {
         await RequireProfileAsync(client,ct);
         await WaitForIdleAsync(client,ct);
@@ -56,7 +65,7 @@ internal static class C073Protection
         return new(saved,C077Hardware.Decode(bytes,tr),tr,matches);
     }
 
-    internal static async Task ApplyAsync(BmsClient client,ushort[] observed,ushort[] values,CancellationToken ct)
+    public static async Task ApplyAsync(BmsClient client,ushort[] observed,ushort[] values,CancellationToken ct)
     {
         var before=await ReadAsync(client,ct);
         if (!before.Saved.SequenceEqual(observed)) throw new IOException("Flash 参数已改变，请重新读取。");

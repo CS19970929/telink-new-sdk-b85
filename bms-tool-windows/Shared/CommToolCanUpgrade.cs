@@ -7,26 +7,32 @@ namespace BmsTool.Windows;
 internal static class CommToolCanUpgrade
 {
     private const int CacheBlockBytes = 48;
-    private static readonly ushort[] C073AppIdentity = [0x5550, 1, 0xC073, 0x000D, 2, 2, 0x0800, 0x3000, 0, 0xB800, 0, 0];
+    private static readonly Version CompactLayoutAdapterVersion = new(0, 2, 10);
 
     private static ushort Word(byte[] data, int index) => BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(2 * index));
 
-    private static void ValidateAppIdentity(byte[] info)
+    private static void ValidateAppIdentity(byte[] info, SerialFirmwarePackage package)
     {
-        if (info.Length != C073AppIdentity.Length * 2)
+        if (info.Length != 24)
             throw new InvalidDataException("C073 升级能力回读长度错误。");
-
-        for (int i = 0; i < C073AppIdentity.Length; ++i)
-            if (Word(info, i) != C073AppIdentity[i])
-                throw new InvalidDataException("运行设备的身份、分区或模式不符。");
+        var words = new ushort[12];
+        for (int i = 0; i < words.Length; ++i) words[i] = Word(info, i);
+        if (!SerialFirmwarePackage.IsC073RunningIdentity(words))
+            throw new InvalidDataException("运行设备的身份、分区或模式不符。");
+        UpgradeDetection.CheckPackage(UpgradeDetection.ParseCapabilities(words)!, package);
     }
 
     internal static void Run(byte[] packageBytes, Func<byte, byte[], CancellationToken, byte[]> command,
         IProgress<(int Percent, string Message)> progress, CancellationToken token)
     {
         var package = SerialFirmwarePackage.Parse(packageBytes);
-        if (package.BoardId != 0xC073000D || package.AppAddress != 0x08003000)
+        if (package.BoardId != SerialFirmwarePackage.C073BoardId || package.AppAddress != SerialFirmwarePackage.C073AppBase)
             throw new InvalidDataException("CAN 升级需要 APP 起点为 0x08003000 的 C073 固件。");
+        bool compact = SerialFirmwarePackage.C073ImageCapacity(package.AppAddress, package.Version)
+            == SerialFirmwarePackage.C073CompactCapacity;
+        if (compact && (CommToolOwcProtocol.TryReadFirmwareVersion(command, token) is not { } version ||
+                        version < CompactLayoutAdapterVersion))
+            throw new InvalidDataException("44 KiB CAN 升级要求 Comm Tool 0.2.10 或更新版本。");
         byte[] app = packageBytes[SerialFirmwarePackage.HeaderBytes..];
         byte[] config = new byte[8];
         BinaryPrimitives.WriteUInt32LittleEndian(config, 250000);
@@ -83,13 +89,15 @@ internal static class CommToolCanUpgrade
         {
             try
             {
-                ValidateAppIdentity(command(0x10, [0x70, 0xD1, 12, 0], token));
+                ValidateAppIdentity(command(0x10, [0x70, 0xD1, 12, 0], token), package);
                 break;
             }
             catch (CommToolCommandException ex) when (ex.Status == 6)
             {
                 if (attempt == 0)
                     token.WaitHandle.WaitOne(250);
+                else if (compact)
+                    throw new IOException("CAN 未读到 44 KiB APP 布局。设备若已留在 Boot，请通过直连串口或 BLE 恢复。", ex);
                 else
                     progress.Report((30, "未收到 APP 应答，转入 CAN Boot 身份检查"));
                 token.ThrowIfCancellationRequested();
@@ -197,11 +205,11 @@ internal static class CommToolCanUpgrade
             token.ThrowIfCancellationRequested();
             try
             {
-                ValidateAppIdentity(command(0x10, [0x70, 0xD1, 12, 0], token));
+                ValidateAppIdentity(command(0x10, [0x70, 0xD1, 12, 0], token), package);
                 byte[] image = command(0x10, [0x7C, 0xD1, 8, 0], token);
                 uint Pair(int index) => ((uint)Word(image, index) << 16) | Word(image, index+1);
                 if (image.Length != 16 || Pair(0) != package.Version || Pair(2) != app.Length ||
-                    Pair(4) != package.PayloadCrc || Word(image, 6) != 1)
+                    Pair(4) != package.PayloadCrc || Word(image, 6) != 1 || Word(image, 7) != 0)
                     throw new InvalidDataException("运行 APP 的版本、长度、CRC32 或有效标记不符。");
                 progress.Report((100, "C073 运行镜像校验通过"));
                 return;

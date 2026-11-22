@@ -30,6 +30,15 @@ peer.Ble=true;
 await C073Protection.ApplyAsync(client,before.Saved,candidate,ct);
 if (!peer.Fragments.SequenceEqual(new[]{20,20,20,13}) || peer.Groups!=3)
     throw new Exception("MTU 23 must assemble one 73-byte FC10 request");
+peer.Compact=true;
+await client.ReadIdentityAsync();
+if (!client.IsC073 || !client.DeviceDetectionEvidence.Contains("44 KiB")) throw new Exception("44 KiB identity");
+if (!(await C073Protection.ReadAsync(client,ct)).Matches) throw new Exception("format-8 profile readback");
+if (peer.LegacyProtectionReads != 0) throw new Exception("C073 protection view read the legacy 0x2100 page");
+peer.ConfigFormat=9;
+try { await C073Protection.ReadAsync(client,ct); throw new Exception("unknown profile accepted"); }
+catch (InvalidDataException) { }
+peer.ConfigFormat=8;
 peer.SingleChip=false;
 try { await C073Protection.ReadAsync(client,ct); throw new Exception("wrong hardware accepted"); }
 catch (InvalidDataException) { }
@@ -38,7 +47,9 @@ Console.WriteLine("PASS C073 CAN: identity, 32-word Flash write, EEPROM readback
 sealed class CanPeer : IBmsTransport,IBmsMtuTransport
 {
     public ushort[] Profile=[17,4250,1000,4010,2760,1000,2900,4160,2000,1000,5000,8,30,1000,40,200,50,64,20,1000,200,64,32,700,650,unchecked((ushort)-50),0,700,650,unchecked((ushort)-50),0,2000];
-    public bool LoseAck, Ble, SingleChip=true;
+    public bool LoseAck, Ble, SingleChip=true, Compact;
+    public ushort ConfigFormat;
+    public int LegacyProtectionReads;
     public int? NegotiatedMtu=>Ble ? 23 : 247;
     public List<int> Fragments {get;}=new();
     private readonly List<byte> partial=new();
@@ -81,9 +92,10 @@ sealed class CanPeer : IBmsTransport,IBmsMtuTransport
             return [];
         }
         if(opcode!=0x10)throw new Exception("opcode");
+        if (address==0x2100) ++LegacyProtectionReads;
         ushort[] words=address switch {
-            0xD170 => [0x5550,1,0xC073,13,2,2,0x0800,0x3000,0,0xB800,0,0],
-            0x2B00 => [0xC073,1,32,(ushort)(SingleChip?1:2),0,0,7],
+            0xD170 => [0x5550,1,0xC073,13,2,2,0x0800,0x3000,0,(ushort)(Compact?0xB000:0xB800),0,0],
+            0x2B00 => [0xC073,1,32,(ushort)(SingleChip?1:2),0,0,ConfigFormat != 0 ? ConfigFormat : (ushort)(Compact?8:7)],
             0x2A28 => [1], 0x2B10 => Profile, 0x2318=>soc, _=>new ushort[n]
         };
         if(address==0x2A40){words[0]=0xC073;words[1]=3;words[3]=(ushort)(actualOv==Profile[1]?0:4);words[8]=(ushort)(actualOv==Profile[1]?1:0);}

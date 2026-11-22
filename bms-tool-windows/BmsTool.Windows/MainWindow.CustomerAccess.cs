@@ -69,7 +69,7 @@ public partial class MainWindow
         }
 
         _protectedFeaturesUnlocked = true;
-        ProtectionTab.Visibility = Visibility.Visible;
+        UpdateProtectionPage(_bms?.IsC073 == true);
         UpdateAfeHardwareTabVisibility();
         ProtectedFeaturesButton.Content = "锁定高级功能";
         AppendLog(_afeHardwareEditorLaunchEnabled
@@ -81,7 +81,7 @@ public partial class MainWindow
     private void LockProtectedFeatures()
     {
         _protectedFeaturesUnlocked = false;
-        ProtectionTab.Visibility = Visibility.Collapsed;
+        UpdateProtectionPage(_bms?.IsC073 == true);
         UpdateAfeHardwareTabVisibility();
         ProtectedFeaturesButton.Content = "高级功能";
         if (MainTabs.SelectedItem == ProtectionTab || MainTabs.SelectedItem == _afeHardwareTab)

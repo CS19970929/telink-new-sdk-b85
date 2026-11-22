@@ -183,6 +183,7 @@ public partial class MainWindow
         foreach(var tab in _parameterProductTabs)tab.Visibility=c060?Visibility.Collapsed:Visibility.Visible;
         UpdateD015ParameterVisibility();
         bool c073 = _bms?.IsC073 == true;
+        UpdateProtectionPage(c073);
         _c073Tab.Visibility = c073 ? Visibility.Visible : Visibility.Collapsed;
         if (c073) {
             foreach (var tab in _parameterProductTabs) tab.Visibility = Visibility.Collapsed;

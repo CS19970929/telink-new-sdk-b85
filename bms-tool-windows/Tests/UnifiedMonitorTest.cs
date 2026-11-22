@@ -182,6 +182,41 @@ static class UnifiedMonitorTest
             Check(!started && ex.Message.Contains("身份"),"APP 回答但板号错误时禁止启动 CAN 刷写");
         }
 
+        Put(0x10C,0x00020011);
+        byte[] compactPackage=SerialFirmwarePackage.WrapC073Bin(app)!;
+        crc=SerialFirmwarePackage.Crc32(app);
+        ushort capacity=0xB000;
+        byte patch=10;
+        bool appAnswers=true;
+        byte[] CompactAdapter(byte op,byte[] bytes,CancellationToken token) {
+            if (op==1) {
+                var info=new byte[20]; info[0]=1; info[2]=2; info[3]=patch; return info;
+            }
+            if (op==0x10) {
+                if (!appAnswers) throw responseError;
+                if (bytes[0]==0x70) return Words(0x5550,1,0xC073,13,2,2,0x0800,0x3000,0,capacity,0,0);
+                return Words(2,17,0,1024,(ushort)(crc>>16),(ushort)crc,1,0);
+            }
+            return Adapter(op,bytes,token);
+        }
+        run(compactPackage,CompactAdapter,new Progress<(int,string)>(),default);
+        Check(started,"44 KiB package verifies the running APP");
+        started=false;
+        capacity=0xB800;
+        try { run(compactPackage,CompactAdapter,new Progress<(int,string)>(),default); throw new Exception("44 KiB package sent to old layout"); }
+        catch (InvalidDataException) { Check(!started,"cross-layout CAN rejected before START"); }
+        capacity=0xB000;
+        patch=9;
+        try { run(compactPackage,CompactAdapter,new Progress<(int,string)>(),default); throw new Exception("old Comm Tool accepted the new layout"); }
+        catch (InvalidDataException) { Check(!started,"old Comm Tool rejected before START"); }
+        patch=10;
+        appAnswers=false;
+        try { run(compactPackage,CompactAdapter,new Progress<(int,string)>(),default); throw new Exception("layout-inconclusive CAN Boot accepted"); }
+        catch (IOException) { Check(!started,"44 KiB Boot-only recovery requires verifiable serial identity"); }
+        Put(0x10C,17);
+        crc=SerialFirmwarePackage.Crc32(app);
+        run(package,Adapter,new Progress<(int,string)>(),default);
+
         int statusReads=0, syncs=0;
         byte[] WithPartialFrame(byte op,byte[] data,CancellationToken ct) {
             if (op==0x32 && ++statusReads==1) throw new TimeoutException("残留半帧吞掉首次查询");
@@ -254,6 +289,17 @@ static class UnifiedMonitorTest
         var app=new Application { ShutdownMode=ShutdownMode.OnExplicitShutdown };
         CheckCanProtocol();
         var window=new MainWindow();
+        var updateProtection=typeof(MainWindow).GetMethod("UpdateProtectionPage",Flags)!;
+        var protectionTab=(TabItem)window.FindName("ProtectionTab");
+        var classicProtection=(FrameworkElement)typeof(MainWindow).GetField("_softwareProtectionBrowser",Flags)!.GetValue(window)!;
+        var hardwareProtection=(FrameworkElement)typeof(MainWindow).GetField("_c073ProtectionView",Flags)!.GetValue(window)!;
+        updateProtection.Invoke(window,[true]);
+        Check(protectionTab.Visibility==Visibility.Visible && protectionTab.Header.ToString()!.Contains("SH367309") &&
+              hardwareProtection.Visibility==Visibility.Visible && classicProtection.Visibility==Visibility.Collapsed,
+              "C073 保护页显示 309，隐藏旧软件保护表");
+        updateProtection.Invoke(window,[false]);
+        Check(hardwareProtection.Visibility==Visibility.Collapsed && classicProtection.Visibility==Visibility.Visible,
+              "切换离开 C073 后恢复原保护页");
         var type=typeof(MainWindow);
         object? Field(string name)=>type.GetField(name,Flags)!.GetValue(window);
         void Call(string name,params object?[] args)=>type.GetMethod(name,Flags)!.Invoke(window,args);

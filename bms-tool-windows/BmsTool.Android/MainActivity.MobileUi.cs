@@ -17,6 +17,10 @@ public sealed partial class MainActivity
     private TextView? _socValue, _workState, _voltageValue, _currentValue, _capacityValue, _temperatureValue;
     private TextView? _freshnessView, _pageTitle;
     private LinearLayout? _cellGrid, _softwarePanel, _hardwarePanel, _serviceActions;
+    private LinearLayout? _legacyProtectionTabs, _c073ProtectionPanel, _c073ProtectionRows;
+    private TextView? _c073ProtectionStatus;
+    private BmsClient? _c073ProtectionViewClient;
+    private bool _showHardwareProtection;
     private Button? _softwareTab, _hardwareTab, _saveSoftwareButton, _saveHardwareButton;
     private readonly HashSet<Button> _connectionRequiredButtons = new();
     private bool _uiBusy;
@@ -192,8 +196,8 @@ public sealed partial class MainActivity
     {
         var root = Page();
         root.AddView(ActionButton("‹ 返回设备", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
-        root.AddView(Note("整页均可上下滚动。切换页签只改变当前显示的保护组，不会写入设备。"));
         var tabs = Row();
+        _legacyProtectionTabs = tabs;
         _softwareTab = MobileButton("软件保护");
         _hardwareTab = MobileButton("硬件保护");
         AddEqual(tabs, _softwareTab); AddEqual(tabs, _hardwareTab);
@@ -217,18 +221,38 @@ public sealed partial class MainActivity
         _saveSoftwareButton = ActionButton("保存修改 · 0 项", SaveProtectionAsync);
         _saveHardwareButton = ActionButton("保存修改 · 0 项", SaveAfeAsync);
         root.AddView(_saveSoftwareButton); root.AddView(_saveHardwareButton);
-        void Select(bool hardware)
-        {
-            _softwarePanel.Visibility = hardware ? ViewStates.Gone : ViewStates.Visible;
-            _hardwarePanel.Visibility = hardware ? ViewStates.Visible : ViewStates.Gone;
-            _saveSoftwareButton.Visibility = hardware ? ViewStates.Gone : ViewStates.Visible;
-            _saveHardwareButton.Visibility = hardware ? ViewStates.Visible : ViewStates.Gone;
-            StyleSelection(_softwareTab, !hardware); StyleSelection(_hardwareTab, hardware);
-        }
-        _softwareTab.Click += (_, _) => Select(false);
-        _hardwareTab.Click += (_, _) => Select(true);
-        Select(false);
+        _c073ProtectionPanel = Page();
+        _c073ProtectionPanel.AddView(ActionButton("读取 SH367309 硬件保护", ReadC073ProtectionAsync));
+        _c073ProtectionStatus = DataBlock("尚未读取设备参数");
+        _c073ProtectionPanel.AddView(_c073ProtectionStatus);
+        _c073ProtectionRows = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        _c073ProtectionPanel.AddView(_c073ProtectionRows);
+        root.AddView(_c073ProtectionPanel);
+
+        _softwareTab.Click += (_, _) => { _showHardwareProtection = false; UpdateProtectionPage(); };
+        _hardwareTab.Click += (_, _) => { _showHardwareProtection = true; UpdateProtectionPage(); };
+        UpdateProtectionPage();
         return Wrap(root);
+    }
+
+    private void UpdateProtectionPage()
+    {
+        if (_c073ProtectionPanel is null) return;
+        var client = _client;
+        bool c073 = client?.IsC073 == true;
+        if (!ReferenceEquals(_c073ProtectionViewClient, client)) {
+            _c073ProtectionViewClient = client;
+            _c073ProtectionRows!.RemoveAllViews();
+            _c073ProtectionStatus!.Text = "尚未读取设备参数";
+        }
+        _c073ProtectionPanel.Visibility = c073 ? ViewStates.Visible : ViewStates.Gone;
+        _legacyProtectionTabs!.Visibility = c073 ? ViewStates.Gone : ViewStates.Visible;
+        _softwarePanel!.Visibility = _saveSoftwareButton!.Visibility =
+            !c073 && !_showHardwareProtection ? ViewStates.Visible : ViewStates.Gone;
+        _hardwarePanel!.Visibility = _saveHardwareButton!.Visibility =
+            !c073 && _showHardwareProtection ? ViewStates.Visible : ViewStates.Gone;
+        StyleSelection(_softwareTab!, !_showHardwareProtection);
+        StyleSelection(_hardwareTab!, _showHardwareProtection);
     }
 
     private View BuildMobileLogPage()
@@ -354,6 +378,7 @@ public sealed partial class MainActivity
 
     private void RefreshActionAvailability()
     {
+        UpdateProtectionPage();
         bool nativeParameters=_client?.UsesC060Protocol==true;
         if(_d008ParameterPanel is not null)_d008ParameterPanel.Visibility=nativeParameters?ViewStates.Gone:ViewStates.Visible;
         if(_legacyParameterPanel is not null)_legacyParameterPanel.Visibility=nativeParameters?ViewStates.Gone:ViewStates.Visible;
