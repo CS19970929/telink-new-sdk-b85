@@ -69,7 +69,7 @@ public partial class MainWindow
         string path = _firmwarePath ?? throw new InvalidOperationException("请先选择 C073 固件。");
         var image = FirmwareImage.LoadForTarget(path, OtaTargetKind.Stm32SerialIap);
         var package = SerialFirmwarePackage.Parse(image.Bytes);
-        if (package.BoardId != 0xC073000D || package.AppAddress != 0x08003000)
+        if (!SerialFirmwarePackage.IsC073Board(package.BoardId) || package.AppAddress != SerialFirmwarePackage.C073AppBase)
             throw new InvalidDataException("请选择新分区 C073 固件。");
         string expected = ExpectedVersionBox.Text.Trim();
         if (expected.Length != 0 && !string.Equals(expected, package.Version.ToString("X8"), StringComparison.OrdinalIgnoreCase))

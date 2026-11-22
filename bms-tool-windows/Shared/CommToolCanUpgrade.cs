@@ -8,6 +8,7 @@ internal static class CommToolCanUpgrade
 {
     private const int CacheBlockBytes = 48;
     private static readonly Version CompactLayoutAdapterVersion = new(0, 2, 10);
+    private static readonly Version GuardedLayoutAdapterVersion = new(0, 2, 11);
 
     private static ushort Word(byte[] data, int index) => BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(2 * index));
 
@@ -26,13 +27,15 @@ internal static class CommToolCanUpgrade
         IProgress<(int Percent, string Message)> progress, CancellationToken token)
     {
         var package = SerialFirmwarePackage.Parse(packageBytes);
-        if (package.BoardId != SerialFirmwarePackage.C073BoardId || package.AppAddress != SerialFirmwarePackage.C073AppBase)
+        if (!SerialFirmwarePackage.IsC073Board(package.BoardId) || package.AppAddress != SerialFirmwarePackage.C073AppBase)
             throw new InvalidDataException("CAN 升级需要 APP 起点为 0x08003000 的 C073 固件。");
-        bool compact = SerialFirmwarePackage.C073ImageCapacity(package.AppAddress, package.Version)
+        bool compact = SerialFirmwarePackage.C073ImageCapacity(package.BoardId, package.AppAddress, package.Version)
             == SerialFirmwarePackage.C073CompactCapacity;
+        var minimumAdapter = package.BoardId == SerialFirmwarePackage.C073GuardedBoardId
+            ? GuardedLayoutAdapterVersion : CompactLayoutAdapterVersion;
         if (compact && (CommToolOwcProtocol.TryReadFirmwareVersion(command, token) is not { } version ||
-                        version < CompactLayoutAdapterVersion))
-            throw new InvalidDataException("44 KiB CAN 升级要求 Comm Tool 0.2.10 或更新版本。");
+                        version < minimumAdapter))
+            throw new InvalidDataException($"此 44 KiB CAN 升级要求 Comm Tool {minimumAdapter} 或更新版本。");
         byte[] app = packageBytes[SerialFirmwarePackage.HeaderBytes..];
         byte[] config = new byte[8];
         BinaryPrimitives.WriteUInt32LittleEndian(config, 250000);

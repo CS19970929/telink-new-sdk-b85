@@ -187,6 +187,7 @@ static class UnifiedMonitorTest
         crc=SerialFirmwarePackage.Crc32(app);
         ushort capacity=0xB000;
         byte patch=10;
+        ushort upgradeBoard=13;
         bool appAnswers=true;
         byte[] CompactAdapter(byte op,byte[] bytes,CancellationToken token) {
             if (op==1) {
@@ -194,7 +195,7 @@ static class UnifiedMonitorTest
             }
             if (op==0x10) {
                 if (!appAnswers) throw responseError;
-                if (bytes[0]==0x70) return Words(0x5550,1,0xC073,13,2,2,0x0800,0x3000,0,capacity,0,0);
+                if (bytes[0]==0x70) return Words(0x5550,1,0xC073,upgradeBoard,2,2,0x0800,0x3000,0,capacity,0,0);
                 return Words(2,17,0,1024,(ushort)(crc>>16),(ushort)crc,1,0);
             }
             return Adapter(op,bytes,token);
@@ -213,6 +214,20 @@ static class UnifiedMonitorTest
         appAnswers=false;
         try { run(compactPackage,CompactAdapter,new Progress<(int,string)>(),default); throw new Exception("layout-inconclusive CAN Boot accepted"); }
         catch (IOException) { Check(!started,"44 KiB Boot-only recovery requires verifiable serial identity"); }
+        appAnswers=true;
+        Put(0x104,0xC073002C);
+        byte[] guardedPackage=SerialFirmwarePackage.WrapC073Bin(app)!;
+        crc=SerialFirmwarePackage.Crc32(app);
+        try { run(guardedPackage,CompactAdapter,new Progress<(int,string)>(),default); throw new Exception("0.2.10 accepted guarded CAN"); }
+        catch (InvalidDataException) { Check(!started,"guarded CAN requires Comm Tool 0.2.11"); }
+        patch=11;
+        try { run(guardedPackage,CompactAdapter,new Progress<(int,string)>(),default); throw new Exception("guarded package accepted on historical 44 KiB"); }
+        catch (InvalidDataException) { Check(!started,"guarded CAN rejects historical 44 KiB before START"); }
+        upgradeBoard=0x002C;
+        run(guardedPackage,CompactAdapter,new Progress<(int,string)>(),default);
+        Check(started,"guarded CAN verifies matching 44 KiB identity");
+        started=false;
+        Put(0x104,0xC073000D);
         Put(0x10C,17);
         crc=SerialFirmwarePackage.Crc32(app);
         run(package,Adapter,new Progress<(int,string)>(),default);

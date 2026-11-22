@@ -48,7 +48,7 @@ typedef struct
     uint8_t frame_index;
     uint8_t frames_this_block;
     uint32_t phase_start_ms;
-    uint32_t c073_capacity;
+    uint32_t c073_capacity, c073_board;
     uint32_t offset;
     uint16_t seq;
     uint16_t block_seq;
@@ -124,7 +124,7 @@ void CtUpgrade_Abort(void)
 int CtUpgrade_StartWithAppAddress(uint8_t node, uint8_t app_can_addr)
 {
     const CtFirmwareInfo *info;
-    uint32_t c073_capacity = 0u;
+    uint32_t c073_capacity = 0u, c073_board = 0u;
 
     if (s_status.state == CT_UPGRADE_RUNNING)
     {
@@ -149,7 +149,7 @@ int CtUpgrade_StartWithAppAddress(uint8_t node, uint8_t app_can_addr)
     }
 
     if (info->app_addr == CT_C073_APP_BASE) {
-        c073_capacity = CtFlash_C073Capacity();
+        c073_capacity = CtFlash_C073Capacity(&c073_board);
         if (!c073_capacity) {
             memset(&s_status, 0, sizeof(s_status));
             set_error(0x23u);
@@ -159,6 +159,7 @@ int CtUpgrade_StartWithAppAddress(uint8_t node, uint8_t app_can_addr)
     memset(&s_status, 0, sizeof(s_status));
     reset_context();
     s_ctx.c073_capacity = c073_capacity;
+    s_ctx.c073_board = c073_board;
     s_status.state = CT_UPGRADE_RUNNING;
     s_status.total = info->size;
     s_status.percent = 0u;
@@ -388,7 +389,7 @@ void CtUpgrade_Task(void)
             uint16_t identity[12];
             if (!CtCan_AppReadRegs(s_ctx.app_can_addr, 0xD170u, 12u, identity) ||
                 identity[0] != 0x5550u || identity[1] != 1u ||
-                identity[2] != 0xC073u || identity[3] != 0x000Du ||
+                identity[2] != (uint16_t)(s_ctx.c073_board >> 16) || identity[3] != (uint16_t)s_ctx.c073_board ||
                 identity[4] != 2u || identity[5] != 2u || identity[6] != 0x0800u ||
                 identity[7] != 0x3000u || identity[8] != 0u || identity[9] != s_ctx.c073_capacity ||
                 identity[10] != 0u || identity[11] != 0u) {

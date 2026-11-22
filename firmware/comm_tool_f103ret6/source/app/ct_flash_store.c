@@ -185,8 +185,11 @@ int CtFlash_Write(uint32_t offset, const uint8_t *data, uint16_t length)
     return program_bytes(CT_FW_CACHE_BASE + offset, data, length);
 }
 
-static uint32_t c073_image_capacity(uint32_t version)
+static uint32_t c073_image_capacity(uint32_t board, uint32_t version)
 {
+    if (board == CT_C073_GUARDED_BOARD)
+        return (version >> 16) == 2u ? CT_C073_COMPACT_CAPACITY : 0u;
+    if (board != CT_C073_BOARD) return 0u;
     switch (version >> 16) {
     case 0u:
     case 1u: return CT_C073_ORIGINAL_CAPACITY;
@@ -195,15 +198,16 @@ static uint32_t c073_image_capacity(uint32_t version)
     }
 }
 
-uint32_t CtFlash_C073Capacity(void)
+uint32_t CtFlash_C073Capacity(uint32_t *board)
 {
     const uint32_t *words = (const uint32_t *)CT_FW_CACHE_BASE;
     uint32_t capacity;
     if (s_fw_info.valid != CT_FW_VALID || s_fw_info.app_addr != CT_C073_APP_BASE ||
-        s_fw_info.size < 1024u || words[0x104u/4u] != CT_C073_BOARD ||
-        words[0x108u/4u] != CT_C073_APP_BASE) return 0u;
-    capacity = c073_image_capacity(words[0x10Cu/4u]);
-    return s_fw_info.size <= capacity ? capacity : 0u;
+        s_fw_info.size < 1024u || words[0x108u/4u] != CT_C073_APP_BASE) return 0u;
+    capacity = c073_image_capacity(words[0x104u/4u], words[0x10Cu/4u]);
+    if (s_fw_info.size > capacity) return 0u;
+    *board = words[0x104u/4u];
+    return capacity;
 }
 
 static int c073_image_valid(uint32_t size, uint32_t expected_crc)
@@ -212,8 +216,8 @@ static int c073_image_valid(uint32_t size, uint32_t expected_crc)
     const uint8_t *data = (const uint8_t *)words;
     uint32_t stack = words[0], entry = words[1], actual = words[0x110u / 4u];
     uint32_t crc = 0xFFFFFFFFu, i, bit;
-    if (words[0x104u/4u] != CT_C073_BOARD || words[0x108u/4u] != CT_C073_APP_BASE ||
-        size > c073_image_capacity(words[0x10Cu/4u]) ||
+    if (words[0x108u/4u] != CT_C073_APP_BASE ||
+        size > c073_image_capacity(words[0x104u/4u], words[0x10Cu/4u]) ||
         actual <= 0x114u || actual > size || ((actual + 1023u) & ~1023u) != size ||
         stack < 0x200000D0u || stack > 0x20005000u || (stack & 7u) || !(entry & 1u) ||
         (entry & ~1u) < CT_C073_APP_BASE + 0x114u || (entry & ~1u) >= CT_C073_APP_BASE + actual)

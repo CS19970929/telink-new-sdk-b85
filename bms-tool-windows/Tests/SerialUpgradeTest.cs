@@ -88,20 +88,29 @@ static class Test
                 Reject(()=>FirmwareImage.LoadForTarget(path,OtaTargetKind.Stm32SerialIap),$"bad package @{offset} refused");
             }
         }
-        byte[] C073Bin(int kib,uint version,uint address=0x08003000) {
+        byte[] C073Bin(int kib,uint version,uint address=0x08003000,uint board=0xC073000D) {
             byte[] app=new byte[kib*1024];
             void Put(int offset,uint value)=>BinaryPrimitives.WriteUInt32LittleEndian(app.AsSpan(offset),value);
-            Put(0,0x20004F00);Put(4,address+0x121);Put(0x104,0xC073000D);
+            Put(0,0x20004F00);Put(4,address+0x121);Put(0x104,board);
             Put(0x108,address);Put(0x10C,version);Put(0x110,(uint)app.Length-4u);
             return app;
         }
         var oldC073=Device(0xC073000D,0x08003000,46*1024);
         var newC073=Device(0xC073000D,0x08003000,44*1024);
+        var guardedC073=Device(0xC073002C,0x08003000,44*1024);
+        var guardedApp=SerialFirmwarePackage.Parse(
+            SerialFirmwarePackage.WrapC073Bin(C073Bin(44,0x00020003,board:0xC073002C))!);
+        UpgradeDetection.CheckPackage(guardedC073,guardedApp);
+        Reject(()=>UpgradeDetection.CheckPackage(oldC073,guardedApp),"guarded image rejected on 46 KiB");
+        Reject(()=>UpgradeDetection.CheckPackage(newC073,guardedApp),"guarded image rejected on historical 44 KiB");
+        Reject(()=>Device(0xC073002C,0x08003000,46*1024),"guarded identity requires 44 KiB");
+        Reject(()=>SerialFirmwarePackage.WrapC073Bin(C073Bin(1,0x00010000,board:0xC073002C)),"guarded identity requires version family 2");
         foreach (int size in new[]{1,44}) {
             var oldApp=SerialFirmwarePackage.Parse(SerialFirmwarePackage.WrapC073Bin(C073Bin(size,0x00010001))!);
             var newApp=SerialFirmwarePackage.Parse(SerialFirmwarePackage.WrapC073Bin(C073Bin(size,0x00020003))!);
             UpgradeDetection.CheckPackage(oldC073,oldApp);
             UpgradeDetection.CheckPackage(newC073,newApp);
+            Reject(()=>UpgradeDetection.CheckPackage(guardedC073,newApp),"historical image rejected on guarded 44 KiB");
             Reject(()=>UpgradeDetection.CheckPackage(oldC073,newApp),"new generation rejected on 46 KiB even if it fits");
             Reject(()=>UpgradeDetection.CheckPackage(newC073,oldApp),"old generation rejected on 44 KiB even if it fits");
         }

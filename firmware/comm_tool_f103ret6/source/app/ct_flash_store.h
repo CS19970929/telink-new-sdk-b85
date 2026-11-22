@@ -16,7 +16,7 @@ typedef struct
 
 void CtFlash_Init(void);
 const CtFirmwareInfo *CtFlash_GetInfo(void);
-uint32_t CtFlash_C073Capacity(void);
+uint32_t CtFlash_C073Capacity(uint32_t *board);
 int CtFlash_Begin(uint32_t app_addr, uint32_t size, uint16_t crc16, uint32_t crc32);
 int CtFlash_Write(uint32_t offset, const uint8_t *data, uint16_t length);
 int CtFlash_End(uint32_t size, uint16_t crc16, uint32_t crc32);
