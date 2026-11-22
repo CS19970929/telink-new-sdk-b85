@@ -6,7 +6,7 @@
 #define CT_PROTOCOL_VERSION            1u
 #define CT_FW_VERSION_MAJOR            0u
 #define CT_FW_VERSION_MINOR            2u
-#define CT_FW_VERSION_PATCH            9u
+#define CT_FW_VERSION_PATCH            10u
 
 #define CT_BUILD_PROFILE_RELEASE       0u
 #define CT_BUILD_PROFILE_DEBUG         1u
@@ -48,6 +48,8 @@
 
 #define CT_C073_APP_BASE               0x08003000u
 #define CT_C073_APP_LIMIT              0x0800E800u
+#define CT_C073_COMPACT_CAPACITY       0xB000u
+#define CT_C073_ORIGINAL_CAPACITY      (CT_C073_APP_LIMIT - CT_C073_APP_BASE)
 #define CT_C073_BOARD                  0xC073000Du
 
 #define CT_BMS_IAP_BASE_ADDR           0x08000000u
