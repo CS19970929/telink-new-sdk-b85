@@ -63,7 +63,7 @@ public partial class MainWindow
         }
         else
         {
-            if (device is null) throw new InvalidOperationException("请先搜索并选择要升级的蓝牙模块。");
+            if (device is null) throw new InvalidOperationException("请在「实时监控」页搜索并选择要升级的蓝牙模块。");
             _connectedAddress = device.Address;
             _connectedName = device.Name;
             _connectedSerialPort = null;

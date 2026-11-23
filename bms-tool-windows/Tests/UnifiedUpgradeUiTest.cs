@@ -43,17 +43,40 @@ static class Test
             var modes=(ComboBox)window.FindName("ConnectionModeBox");
             modes.SelectedIndex=0;
             var devices=(ComboBox)window.FindName("DeviceList");
-            devices.ItemsSource=new[]{new DiscoveredDevice(0xECF64CE9F13D,"BT-1234567890",-50)};devices.SelectedIndex=0;
-            var select=typeof(MainWindow).GetMethod("SelectYmodemEndpoint",BindingFlags.Instance|BindingFlags.NonPublic)!;
+            const ulong originalAddress=0xECF64CE9F13D, replacementAddress=0xECF64CE9F13E;
+            const BindingFlags privateInstance=BindingFlags.Instance|BindingFlags.NonPublic;
+            var upsert=typeof(MainWindow).GetMethod("UpsertDevice",privateInstance)!;
+            var refresh=typeof(MainWindow).GetMethod("RefreshBleDeviceList",privateInstance)!;
+            var select=typeof(MainWindow).GetMethod("SelectYmodemEndpoint",privateInstance)!;
+            upsert.Invoke(window,new object[]{new DiscoveredDevice(originalAddress,"BT-1234567890",-50)});
+            upsert.Invoke(window,new object[]{new DiscoveredDevice(replacementAddress,"BT-OTHER",-48)});
+            devices.SelectedIndex=0;
             var address=typeof(MainWindow).GetField("_connectedAddress",BindingFlags.Instance|BindingFlags.NonPublic)!;
             var port=typeof(MainWindow).GetField("_connectedSerialPort",BindingFlags.Instance|BindingFlags.NonPublic)!;
             select.Invoke(window,null);
-            Check((ulong?)address.GetValue(window)==0xECF64CE9F13D && port.GetValue(window) is null,
+            Check((ulong?)address.GetValue(window)==originalAddress && port.GetValue(window) is null,
                 "standard upgrade pins the selected BLE address without an APP connection");
+            // No active GATT connection and an empty discovery snapshot after refresh.
+            refresh.Invoke(window,null);
+            refresh.Invoke(window,null);
+            Check(devices.Items.Count==1 &&
+                devices.SelectedItem is DiscoveredDevice { Source:BleDiscoverySource.Selected } retained &&
+                retained.Address==originalAddress && !retained.IsNearby && retained.LastSeenTimestamp is null,
+                "only the selected BLE target survives discovery expiry, without an online indication");
+            select.Invoke(window,null);
+            Check((ulong?)address.GetValue(window)==originalAddress,"Boot retry still resolves the exact selected MAC");
+
+            upsert.Invoke(window,new object[]{new DiscoveredDevice(replacementAddress,"BT-OTHER",-48)});
+            devices.SelectedItem=devices.Items.Cast<DiscoveredDevice>().Single(d=>d.Address==replacementAddress);
+            refresh.Invoke(window,null);
+            select.Invoke(window,null);
+            Check(devices.Items.Count==1 && (ulong?)address.GetValue(window)==replacementAddress,
+                "changing the explicit selection discards the old retained target");
             devices.SelectedIndex=-1;
+            refresh.Invoke(window,null);
             refused=false;
             try { select.Invoke(window,null); } catch(TargetInvocationException ex) when(ex.InnerException is InvalidOperationException) { refused=true; }
-            Check(refused,"no selected BLE device must not reuse a stale address");
+            Check(refused && devices.Items.Count==0,"clearing the selection does not revive a stale BLE target");
             modes.SelectedIndex=1;
             var ports=(ComboBox)window.FindName("SerialPortList");
             ports.ItemsSource=new[]{new SerialPortEndpoint("COM77")};
@@ -78,7 +101,7 @@ static class Test
             var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));
             using(var stream=File.Create(Path.Combine(output,"ota-page.png")))encoder.Save(stream);
             Console.WriteLine(JsonSerializer.Serialize(new {status="pass",c060CandidateAccepted=true,unknownBoardAccepted=true,badCrcClearsCandidate=true,
-                automaticBootEndpoint=true,otaVisible=true,firmwareLabel=label.Text,screenshot=Path.Combine(output,"ota-page.png")}));
+                automaticBootEndpoint=true,retainedBleSelection=true,otaVisible=true,firmwareLabel=label.Text,screenshot=Path.Combine(output,"ota-page.png")}));
         } finally {window.Close();app.Shutdown();}
     }
 }

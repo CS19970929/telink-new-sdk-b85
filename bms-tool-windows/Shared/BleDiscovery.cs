@@ -1,7 +1,7 @@
 using System.Diagnostics;
 namespace BmsTool.Windows;
 
-public enum BleDiscoverySource { Advertisement, History, Connected, SystemRecent }
+public enum BleDiscoverySource { Advertisement, History, Connected, SystemRecent, Selected }
 
 public sealed record DiscoveredDevice(ulong Address, string Name, short Rssi)
 {
@@ -13,6 +13,7 @@ public sealed record DiscoveredDevice(ulong Address, string Name, short Rssi)
         BleDiscoverySource.Advertisement => "附近设备（直接广播）",
         BleDiscoverySource.SystemRecent => "附近设备（系统广播更新）",
         BleDiscoverySource.Connected => "已连接设备",
+        BleDiscoverySource.Selected => "当前选择",
         _ => "历史设备（未确认在线）"
     };
     public bool IsNearby => Source is BleDiscoverySource.Advertisement or BleDiscoverySource.SystemRecent;
@@ -25,6 +26,7 @@ public sealed record DiscoveredDevice(ulong Address, string Name, short Rssi)
         string state = Source switch
         {
             BleDiscoverySource.Connected => "已连接",
+            BleDiscoverySource.Selected => "已选 · 待连接",
             BleDiscoverySource.History => LastSeenUtc is null ? "历史 · 未发现" : "历史 · 已过期",
             BleDiscoverySource.SystemRecent => LastSeenUtc is { } systemSeen ? $"系统发现 · {Math.Max(0, (int)(DateTimeOffset.UtcNow - systemSeen).TotalSeconds)}秒前" : "系统发现",
             _ => LastSeenUtc is { } seen ? $"最近广播 · {Math.Max(0, (int)(DateTimeOffset.UtcNow - seen).TotalSeconds)}秒前" : "最近广播"

@@ -32,7 +32,6 @@ public partial class MainWindow
         }
         long generation = ++_bleScanGeneration;
         _watcher?.Dispose();
-        _devices.Clear(); _deviceMap.Clear();
         _bleScanProblem = null; _bleScanRunning = true;
         var scanner = new BmsBleScanner(_ => { }, msg => AppendLog(msg, "SCAN"));
         _watcher = scanner;
@@ -80,11 +79,26 @@ public partial class MainWindow
             visible.RemoveAll(d => d.Address == active);
             visible.Insert(0, new(active, _connectedName, 0) { Source = BleDiscoverySource.Connected, LastSeenUtc = null, LastSeenTimestamp = null });
         }
-        ulong? selected = (DeviceList.SelectedItem as DiscoveredDevice)?.Address;
+        // An IAP target may stop advertising while the monitoring connection fails.
+        // Keep the user's exact selection visible for a direct upgrade or retry.
+        var selected = DeviceList.SelectedItem as DiscoveredDevice;
+        if (selected is not null && !visible.Any(d => d.Address == selected.Address))
+            visible.Insert(0, selected with
+            {
+                Source = BleDiscoverySource.Selected,
+                Rssi = 0,
+                LastSeenUtc = null,
+                LastSeenTimestamp = null
+            });
         foreach (var item in _devices.ToArray())
             if (!visible.Any(d => d.Address == item.Address)) { _devices.Remove(item); _deviceMap.Remove(item.Address); }
-        foreach (var item in visible) UpsertDevice(item);
-        if (selected is ulong address && _deviceMap.TryGetValue(address, out var restored)) DeviceList.SelectedItem = restored;
+        foreach (var item in visible)
+        {
+            if (!_deviceMap.TryGetValue(item.Address, out var current) || current != item)
+                UpsertDevice(item);
+        }
+        if (selected is not null && _deviceMap.TryGetValue(selected.Address, out var restored))
+            DeviceList.SelectedItem = restored;
 #if BMS_FACTORY_APP
         int nearby = all.Count(d => d.IsNearby);
         int history = all.Count - nearby;
