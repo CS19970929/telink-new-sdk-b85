@@ -87,7 +87,12 @@ public partial class MainWindow
         await StopRuntimeLogsForOtaAsync();
         await DisposeBmsAsync();
         ConnectionText.Text = $"正在通过 {serial.PortName} 升级";
+        string lastPhase = "";
         var progress = new Progress<(int Percent, string Message)>(p => {
+            if (lastPhase != p.Message) {
+                AppendLog($"{serial.PortName} · {p.Percent}% · {p.Message}", "OTA");
+                lastPhase = p.Message;
+            }
             OtaProgressBar.Value = p.Percent;
             OtaProgressText.Text = $"{p.Message} · {p.Percent}%";
         });

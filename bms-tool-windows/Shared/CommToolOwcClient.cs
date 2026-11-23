@@ -101,17 +101,17 @@ internal sealed class CommToolSerialConnection : IDisposable
         bool prefix = false;
         while (timer.ElapsedMilliseconds < timeoutMs)
         {
-            byte value = ReadExact(1, timer, token)[0];
+            byte value = ReadExact(1, timer, token, command)[0];
             if (!prefix) { prefix = value == 0x55; continue; }
             if (value != 0xAA) { prefix = value == 0x55; continue; }
             prefix = false;
             byte[] header = new byte[10];
             header[0] = 0x55; header[1] = 0xAA;
-            ReadExact(8, timer, token).CopyTo(header, 2);
+            ReadExact(8, timer, token, command).CopyTo(header, 2);
             if (header[2] != 1) throw new IOException("Comm Tool外层协议版本非法");
             int length = BinaryPrimitives.ReadUInt16LittleEndian(header.AsSpan(8));
             if (length > 512) throw new IOException("Comm Tool响应超长");
-            byte[] tail = ReadExact(length + 2, timer, token);
+            byte[] tail = ReadExact(length + 2, timer, token, command);
             byte[] frame = new byte[12 + length];
             header.CopyTo(frame, 0); tail.CopyTo(frame, 10);
             var response = CommToolOwcProtocol.DecodeFrame(frame);
@@ -122,7 +122,7 @@ internal sealed class CommToolSerialConnection : IDisposable
         throw new TimeoutException($"等待Comm Tool命令0x{command:X2}超时");
     }
 
-    private byte[] ReadExact(int count, Stopwatch timer, CancellationToken token)
+    private byte[] ReadExact(int count, Stopwatch timer, CancellationToken token, byte command)
     {
         byte[] data = new byte[count];
         int received = 0;
@@ -133,7 +133,7 @@ internal sealed class CommToolSerialConnection : IDisposable
             catch (TimeoutException) { }
         }
         token.ThrowIfCancellationRequested();
-        if (received != count) throw new TimeoutException("Comm Tool响应超时或不完整");
+        if (received != count) throw new TimeoutException($"Comm Tool 命令 0x{command:X2} 序号 {_sequence} 等待 {timer.ElapsedMilliseconds} ms，当前应答段收到 {received}/{count} 字节。");
         return data;
     }
 
