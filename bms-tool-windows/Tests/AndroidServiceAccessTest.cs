@@ -27,8 +27,17 @@ static class Tests
         Check(state._client is null&&state._serviceMode,"explicitly selected Boot module can enter service mode without APP probe");
         Check(state.ServiceActionsVisible&&state.Access(),"customer controls and operation guard authorize together");
         state.Go(8);Check(state.CurrentPage==8,"authenticated customer can open firmware page");
+        state.ReleaseTransport(Mac);
+        Check(state.Access()&&state.ServiceActionsVisible&&state.CurrentPage==8&&state.PromptCalls==1,
+            "same-device YMODEM handoff lets the customer retry from the firmware page");
         await state.Enter();Check(!state._serviceMode&&!state.ServiceActionsVisible&&state.CurrentPage==6,"exit hides controls and closes service page");
         Check(!state.Access(),"upgrade guard rejects after exit");
+        state.ReleaseTransport(Mac);
+        Check(!state.Access(),"same-device handoff does not grant service access by itself");
+        await state.Enter();state.ReleaseTransport();
+        Check(!state.Access()&&!state.ServiceActionsVisible,"manual disconnect clears service access");
+        await state.Enter();state._selectedMac="00:11:22:33:44:55";state.ReleaseTransport(Mac);
+        Check(!state.Access()&&!state.ServiceActionsVisible,"changing the upgrade target clears service access");
         state=new ServiceState{_selectedMac=Mac,Prompt=()=>Task.FromResult<string?>("wrong")};await state.Enter();
         Check(!state._serviceMode,"wrong password cannot authorize upgrade");
         state=new ServiceState{_selectedMac=Mac,Prompt=()=>Task.FromResult<string?>(null)};await state.Enter();
@@ -64,7 +73,7 @@ partial class ServiceState
     public string? _selectedMac;
     public bool _serviceMode;
     private readonly UiElement _serviceModeButton=new(),_serviceModeStatus=new(),_serviceActions=new();
-    private readonly UiElement _pageTitle=new(),_upgradeTargetView=new();
+    private readonly UiElement _pageTitle=new(),_upgradeTargetView=new(),_batteryTypeStatus=new();
     private readonly List<UiElement> _pages=Enumerable.Range(0,9).Select(_=>new UiElement()).ToList();
     private readonly List<UiElement> _navButtons=new();
     private readonly List<int> _navDestinations=new();
@@ -78,6 +87,8 @@ partial class ServiceState
     private void UpdateBatteryFreshness(){}
     private object? GetSystemService(string name)=>null;
     private void StyleSelection(UiElement button,bool selected){}
+    private void RunOnUiThread(Action action)=>action();
+    public void ReleaseTransport(string? upgradeMac=null)=>UpdateServiceAfterTransportRelease(upgradeMac);
     public Task Enter()=>EnterServiceModeAsync();
     public bool Access()=>EnsureServiceAccess("固件升级");
     public void Go(int page)=>ShowPage(page);

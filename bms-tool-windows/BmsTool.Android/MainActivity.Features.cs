@@ -121,7 +121,7 @@ public sealed partial class MainActivity
         finally { _operationGate.Release(); RunOnUiThread(() => { RefreshActionAvailability(); UpdateBatteryFreshness(); }); }
     }
 
-    private async Task DisposeConnectionCoreAsync()
+    private async Task DisposeConnectionCoreAsync(string? upgradeMac = null)
     {
         _mobileCalibrationStep?.Cancel();await EndMobileCalibrationCoreAsync(false);
         _mobileCalibrationRecord=null;
@@ -138,20 +138,27 @@ public sealed partial class MainActivity
         _mosControlCapabilityChecked = false;
         _socProfile = null;
         RunOnUiThread(() => { if (_socProfileStatus is not null) _socProfileStatus.Text = "未连接，旧读数不代表当前设备"; });
-        if (!AppEdition.IsInternal)
-        {
-            _serviceMode = false;
-            RunOnUiThread(() =>
-            {
-                if (_batteryTypeStatus is not null) _batteryTypeStatus.Text = "未连接，旧读数不代表当前设备";
-                if (_serviceModeButton is not null) _serviceModeButton.Text = "进入服务设置";
-                if (_serviceModeStatus is not null) _serviceModeStatus.Text = "普通模式 · 服务设置已收起";
-                if (_serviceActions is not null) _serviceActions.Visibility = ViewStates.Gone;
-                if (_pages.Count > ProtectionPage && _pages[ProtectionPage].Visibility == ViewStates.Visible) ShowPage(DevicePage);
-            });
-        }
+        UpdateServiceAfterTransportRelease(upgradeMac);
         if (client is not null) await client.DisposeAsync();
         if (transport is not null) await transport.DisposeAsync();
+    }
+
+    private void UpdateServiceAfterTransportRelease(string? upgradeMac)
+    {
+        if (AppEdition.IsInternal) return;
+        // Same-device YMODEM temporarily releases the APP link to open its own GATT.
+        bool keepService = _serviceMode && upgradeMac is not null &&
+            string.Equals(upgradeMac, _selectedMac, StringComparison.OrdinalIgnoreCase);
+        if (!keepService) _serviceMode = false;
+        RunOnUiThread(() =>
+        {
+            if (_batteryTypeStatus is not null) _batteryTypeStatus.Text = "未连接，旧读数不代表当前设备";
+            if (keepService) return;
+            if (_serviceModeButton is not null) _serviceModeButton.Text = "进入服务设置";
+            if (_serviceModeStatus is not null) _serviceModeStatus.Text = "普通模式 · 服务设置已收起";
+            if (_serviceActions is not null) _serviceActions.Visibility = ViewStates.Gone;
+            if (_pages.Count > ProtectionPage && _pages[ProtectionPage].Visibility == ViewStates.Visible) ShowPage(DevicePage);
+        });
     }
 
     private async Task RefreshLoopAsync(CancellationToken ct)

@@ -5,7 +5,7 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Tests/AndroidServiceAccessTest.
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'BmsTool.Android/BluetoothMacCode.cs') -Destination $testRoot
 # Compile the actual async permission and navigation methods with inert UI state.
 $methods=@('using BmsTool.Android; using BmsTool.Windows; partial class ServiceState {')
-foreach($entry in @(@{File='MainActivity.Features.cs';Names=@('EnterServiceModeAsync','EnsureServiceAccess')},@{File='MainActivity.Ui.cs';Names=@('ShowPage')})) {
+foreach($entry in @(@{File='MainActivity.Features.cs';Names=@('EnterServiceModeAsync','EnsureServiceAccess','UpdateServiceAfterTransportRelease')},@{File='MainActivity.Ui.cs';Names=@('ShowPage')})) {
     $source=Get-Content -LiteralPath (Join-Path $PSScriptRoot ('BmsTool.Android/'+$entry.File)) -Raw
     foreach($name in $entry.Names) {
         $match=[regex]::Match($source,'    private (?:async )?(?:Task|bool|void) '+$name+'\(')

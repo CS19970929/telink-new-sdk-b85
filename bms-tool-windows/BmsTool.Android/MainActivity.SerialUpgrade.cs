@@ -70,7 +70,8 @@ public sealed partial class MainActivity
         try {
             await _operationGate.WaitAsync(token);locked=true;
             CheckUpgradeEndpoint(mac,false);
-            await DisposeConnectionCoreAsync();
+            if (!EnsureServiceAccess("固件升级")) return;
+            await DisposeConnectionCoreAsync(upgradeMac: mac);
             UpgradeStatus("正在连接设备…");
             SerialUpgradeReadback verified;
             await using(var transport=new AndroidBmsBleTransport(this,mac)) {
@@ -94,7 +95,12 @@ public sealed partial class MainActivity
             UpgradeStatus(result);
             // Upgrade confirmation does not depend on legacy business views.
             try {await ConnectSelectedCoreAfterOtaAsync(mac,token);UpgradeStatus(result+"\n实时连接已恢复。");}
-            catch(Exception ex)when(ex is not OperationCanceledException){await DisposeConnectionCoreAsync();UpgradeStatus(result+"\n实时视图暂未恢复，可在设备页重新连接。");AppendLog("POST_YMODEM_VIEW "+ex.Message);}
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                await DisposeConnectionCoreAsync(upgradeMac: mac);
+                UpgradeStatus(result+"\n实时视图暂未恢复，可在设备页重新连接。");
+                AppendLog("POST_YMODEM_VIEW "+ex.Message);
+            }
         } catch(OperationCanceledException) {
             UpgradeStatus("升级已取消或等待超时；最终提交若已尝试，结果待确认，请先重连核对。");AppendLog("TEST_RESULT YMODEM_CANCELLED");
         } catch(Exception ex) {
