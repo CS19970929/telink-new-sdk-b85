@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$FirmwareReceiver,[ValidateSet("D015","C060")][string]$Project="D015",[switch]$BleOnly)
+param([Parameter(Mandatory=$true)][string]$FirmwareReceiver,[ValidateSet("D015","C060","C077")][string]$Project="D015",[switch]$BleOnly)
 $ErrorActionPreference='Stop'
 $root=Join-Path $env:LOCALAPPDATA ('CodexTemp/bms-tool-windows/d015-upgrade-'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $root -Force | Out-Null

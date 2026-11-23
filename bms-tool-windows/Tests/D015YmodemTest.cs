@@ -4,10 +4,10 @@ using BmsTool.Windows;
 
 static class Test
 {
-    static bool c060;
-    static uint Board=>c060?0xC0600020:D015FirmwarePackage.BoardId;
-    static uint App=>c060?0x08001C00:D015FirmwarePackage.AppAddress;
-    static ushort Capacity=>c060?(ushort)(51*1024):(ushort)(44*1024);
+    static string project = "D015";
+    static uint Board => project switch { "C060" => 0xC0600020, "C077" => 0xC0770016, _ => D015FirmwarePackage.BoardId };
+    static uint App => project == "D015" ? D015FirmwarePackage.AppAddress : 0x08001C00;
+    static ushort Capacity => project == "D015" ? (ushort)(44 * 1024) : (ushort)(51 * 1024);
     static void Check(bool result,string message) { if(!result)throw new Exception(message); }
     static byte[] Package(int length=2048)
     {
@@ -59,7 +59,7 @@ static class Test
     }
     public static async Task Main(string[] args)
     {
-        c060=args.Length>1 && args[1].Equals("C060",StringComparison.OrdinalIgnoreCase);
+        if (args.Length > 1) project = args[1].ToUpperInvariant();
         await DiscoveryEdges();
         var cap=new ushort[]{0x5550,1,(ushort)(Board>>16),(ushort)Board,2,2,(ushort)(App>>16),(ushort)App,0,Capacity,1,0};
         Check(UpgradeDetection.ParseCapabilities(cap)?.Protocol==SerialUpgradeProtocol.YmodemV2,"capability identification");
@@ -82,7 +82,28 @@ static class Test
                 Check(await sender.UpgradeAsync(image,device,default),"BLE stream -> production receiver");
                 Check(transport.MaxWriteBytes==profile.Max&&transport.WriteCalls>10,"BLE fragments respect negotiated MTU and explicit module limit");
                 Check(sender.Verified?.PayloadCrc==SerialFirmwarePackage.Parse(good).PayloadCrc,"BLE final metadata matches payload");
-                Console.WriteLine($"PASS {(c060?"C060":"D015")} production receiver MTU={profile.Mtu}, limit={profile.Limit}: {transport.WriteCalls} writes, max {transport.MaxWriteBytes} bytes");
+                if (project == "C077")
+                    Check(sender.Verified?.RuntimeDataAvailable == false,
+                        "unsupported C077 monitoring data does not invalidate the verified APP");
+                Console.WriteLine($"PASS {project} production receiver MTU={profile.Mtu}, limit={profile.Limit}: {transport.WriteCalls} writes, max {transport.MaxWriteBytes} bytes");
+              }
+              foreach (var fault in new[] { FastBleFault.Corrupt, FastBleFault.LoseAck }) {
+                await using var transport = new ReceiverProcess(args[0]) {
+                    NegotiatedMtu = 247, YmodemBlePayloadLimit = 120, FirstFastBlockFault = fault
+                };
+                var device = await UpgradeDetection.WaitForYmodemAsync(transport, default, image.Package);
+                var sender = new SerialYmodemClient(transport, chunkForBle: true);
+                var log = new List<string>();
+                sender.Log += log.Add;
+                Check(device.Mode == 1 && await sender.UpgradeAsync(image, device, default),
+                    "upgrade from open Boot recovers a failed first BLE data block");
+                Check(transport.FastBlockFaultInjected && transport.CompatibleRetrySeen && transport.EnterRequests == 0,
+                    "retry uses 20-byte chunks on the same Boot without sending ENTER");
+                Check(log.Any(s => s.Contains("block=1") && s.Contains(fault == FastBleFault.Corrupt ? "reply=NAK" : "响应超时")),
+                    "log identifies the first data block failure");
+                Check(sender.Verified?.PayloadCrc == SerialFirmwarePackage.Parse(good).PayloadCrc,
+                    "BLE compatibility retry verifies the exact running image");
+                Console.WriteLine($"PASS {project} BLE automatic fallback from block 1 after {fault}");
               }
               return;
             }
@@ -150,9 +171,11 @@ static class Test
                 Check(refused && transport.CommitObserved,"post-APP layout mismatch is not reported as upgrade success");
             }
         } finally {File.Delete(file);}
-        Console.WriteLine($"PASS: {(c060?"C060":"D015")} host -> production C YMODEM; bad CRC, lost ACK, final ACK ambiguity, cancel/reset/retry, APP entry, read-only detection and exact post-verification");
+        Console.WriteLine($"PASS: {project} host -> production C YMODEM; bad CRC, lost ACK, final ACK ambiguity, cancel/reset/retry, APP entry, read-only detection and exact post-verification");
     }
 }
+enum FastBleFault { None, Corrupt, LoseAck }
+
 sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
 {
     public int? NegotiatedMtu {get;init;}=23;
@@ -160,6 +183,10 @@ sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
     readonly Process _process;readonly SemaphoreSlim _gate=new(1);readonly CancellationTokenSource _stop=new();readonly Task _poll;
     public bool Faults,Corrupted,DroppedAck,DroppedFinalAck,DisconnectAtFinal,FinalDisconnected,WrongBootOnReconnect;
     public int DataBlocks,MaxWriteBytes,WriteCalls;
+    public FastBleFault FirstFastBlockFault { get; init; }
+    public bool FastBlockFaultInjected { get; private set; }
+    public bool CompatibleRetrySeen { get; private set; }
+    private int _firstFastBlockRemaining;
     public bool DropEnterOnce,WrongCapacityAfterCommit,CommitObserved;
     public int EnterRequests,DroppedEnterRequests,TurnaroundMs,TurnaroundDrops;
     private long lastReplyTick;
@@ -172,7 +199,7 @@ sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
         start.ArgumentList.Add("--server");_process=Process.Start(start)!;_poll=PollAsync();
     }
     public bool IsConnected=>!_process.HasExited;
-    public string DiscoveryDescription=>"production D015 C YMODEM receiver with simulated Flash/AFE";
+    public string DiscoveryDescription=>"production C YMODEM receiver with simulated Flash/AFE";
     public event Action<ReadOnlyMemory<byte>>? DataReceived;
     public event Action<string>? ConnectionProgress {add{}remove{}}
     public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;return Task.CompletedTask;}
@@ -189,6 +216,21 @@ sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
         if(modbus && lastReplyTick!=0 && Stopwatch.GetElapsedTime(lastReplyTick).TotalMilliseconds<TurnaroundMs) { TurnaroundDrops++;return; }
         if(modbus && bytes[1]==6) { EnterRequests++;if(DropEnterOnce) { DropEnterOnce=false;DroppedEnterRequests++;return; } }
         if(bytes.Length==1029)DataBlocks++;
+        bool firstDataFragment = bytes.Length >= 3 && bytes[0] == 2 && bytes[1] == 1 && bytes[2] == 0xFE;
+        if (FirstFastBlockFault != FastBleFault.None && !FastBlockFaultInjected && firstDataFragment && bytes.Length > 20)
+        {
+            FastBlockFaultInjected = true;
+            _firstFastBlockRemaining = 1029;
+            if (FirstFastBlockFault == FastBleFault.Corrupt) bytes[20] ^= 1;
+        }
+        if (_firstFastBlockRemaining > 0)
+        {
+            _firstFastBlockRemaining -= bytes.Length;
+            drop = _firstFastBlockRemaining == 0 && FirstFastBlockFault == FastBleFault.LoseAck;
+        }
+        else if (FastBlockFaultInjected && firstDataFragment && bytes.Length == 20)
+            CompatibleRetrySeen = true;
+        if (CompatibleRetrySeen && bytes.Length > 20) throw new IOException("BLE upgrade resumed large writes after fallback");
         if(bytes.SequenceEqual(new byte[]{0x18,0x18}))CancelSent=true;
         if(Faults && bytes.Length==1029 && bytes[1]==1) {
             if(!Corrupted){bytes[20]^=1;Corrupted=true;}

@@ -473,11 +473,10 @@
                         </StackPanel>
                     </WrapPanel>
                     <TextBlock Margin="0,10,0,0" Text="自动模式核对固件包与设备身份，支持统一 YMODEM 升级方案、既有页协议和 Telink 模块 OTA。C060 请选择 .c060，C077 请选择 .c077，D015 请选择 .d015；同一方案的新项目自动匹配。升级中断后可重试，回读确认通过才显示成功。" TextWrapping="Wrap"/>
-                    <CheckBox x:Name="SerialIapRecoveryBox" Margin="0,10,0,0" Content="升级恢复：使用所选串口或蓝牙模块，识别 YMODEM Boot，无需先连接 APP"/>
                     <ProgressBar x:Name="OtaProgressBar" Height="24" Margin="0,18,0,0" Minimum="0" Maximum="100"/>
                     <TextBlock x:Name="OtaProgressText" Margin="0,6,0,0" Text="Idle"/>
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                        <Button x:Name="StartOtaButton" Width="110" Click="StartOta_Click">开始 OTA</Button>
+                        <Button x:Name="StartOtaButton" Width="110" Click="StartOta_Click">开始升级</Button>
                         <Button x:Name="CancelOtaButton" Width="90" Margin="10,0,0,0" IsEnabled="False" Click="CancelOta_Click">取消</Button>
                     </StackPanel>
                     <TextBlock x:Name="OtaVerifyText" Margin="0,18,0,0" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>

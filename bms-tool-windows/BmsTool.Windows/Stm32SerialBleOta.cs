@@ -55,7 +55,7 @@ public sealed class Stm32SerialBleOtaClient
 
         if (image.HasD015Identity) image.ValidateD015Image();
 
-        if(image.IsSerialPackage) Log?.Invoke("正在只读识别 YMODEM APP/Boot，最多等待 35 秒；恢复模式可在此期间给设备重新上电。");
+        if(image.IsSerialPackage) Log?.Invoke("正在识别所选设备的 YMODEM APP/Boot，最多等待 35 秒。设备无应答时，可在等待期间重新上电。");
         SerialUpgradeDevice device=image.IsSerialPackage
             ? await UpgradeDetection.WaitForYmodemAsync(_transport,ct,image.Package)
             : await UpgradeDetection.ReadAsync(_transport,AllowUnidentifiedLegacy,ct);

@@ -39,16 +39,28 @@ static class Test
             try {load.Invoke(window,new object[]{fixture});}catch(TargetInvocationException ex)when(ex.InnerException is InvalidDataException){refused=true;}
             Check(refused && path.GetValue(window) is null && (label.Text is "未选择固件" or "未选择升级包"),"bad package clears selected candidate before any device action");
             load.Invoke(window,new object[]{args[0]});
-            var recovery=(CheckBox)window.FindName("SerialIapRecoveryBox");
-            Check(recovery is not null && !recovery.Content.ToString()!.Contains("D015"),"recovery entry is common to all standard YMODEM boards");
-            Check(recovery!.Content.ToString()!.Contains("蓝牙"),"Bluetooth module also has a Boot recovery entry");
+            Check(window.FindName("SerialIapRecoveryBox") is null,"the standard upgrade page has one start action");
             var modes=(ComboBox)window.FindName("ConnectionModeBox");
             modes.SelectedIndex=0;
             var devices=(ComboBox)window.FindName("DeviceList");
             devices.ItemsSource=new[]{new DiscoveredDevice(0xECF64CE9F13D,"BT-1234567890",-50)};devices.SelectedIndex=0;
-            typeof(MainWindow).GetMethod("SelectOtaRecoveryEndpoint",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(window,null);
-            Check((ulong?)typeof(MainWindow).GetField("_connectedAddress",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(window)==0xECF64CE9F13D,
-                "recovery pins the selected BLE address without connecting or requiring APP identity");
+            var select=typeof(MainWindow).GetMethod("SelectYmodemEndpoint",BindingFlags.Instance|BindingFlags.NonPublic)!;
+            var address=typeof(MainWindow).GetField("_connectedAddress",BindingFlags.Instance|BindingFlags.NonPublic)!;
+            var port=typeof(MainWindow).GetField("_connectedSerialPort",BindingFlags.Instance|BindingFlags.NonPublic)!;
+            select.Invoke(window,null);
+            Check((ulong?)address.GetValue(window)==0xECF64CE9F13D && port.GetValue(window) is null,
+                "standard upgrade pins the selected BLE address without an APP connection");
+            devices.SelectedIndex=-1;
+            refused=false;
+            try { select.Invoke(window,null); } catch(TargetInvocationException ex) when(ex.InnerException is InvalidOperationException) { refused=true; }
+            Check(refused,"no selected BLE device must not reuse a stale address");
+            modes.SelectedIndex=1;
+            var ports=(ComboBox)window.FindName("SerialPortList");
+            ports.ItemsSource=new[]{new SerialPortEndpoint("COM77")};
+            ports.SelectedIndex=0;
+            select.Invoke(window,null);
+            Check((string?)port.GetValue(window)=="COM77" && address.GetValue(window) is null,
+                "standard upgrade pins the selected serial port without an APP connection");
             var tabs=(TabControl)window.FindName("MainTabs");
             var ota=tabs.Items.OfType<TabItem>().Single(t=>t.Header?.ToString()?.Contains("OTA",StringComparison.OrdinalIgnoreCase)==true);
             Check(ota.Visibility==Visibility.Visible,"OTA page must exist in both editions");tabs.SelectedItem=ota;
@@ -66,7 +78,7 @@ static class Test
             var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));
             using(var stream=File.Create(Path.Combine(output,"ota-page.png")))encoder.Save(stream);
             Console.WriteLine(JsonSerializer.Serialize(new {status="pass",c060CandidateAccepted=true,unknownBoardAccepted=true,badCrcClearsCandidate=true,
-                commonRecovery=true,otaVisible=true,firmwareLabel=label.Text,screenshot=Path.Combine(output,"ota-page.png")}));
+                automaticBootEndpoint=true,otaVisible=true,firmwareLabel=label.Text,screenshot=Path.Combine(output,"ota-page.png")}));
         } finally {window.Close();app.Shutdown();}
     }
 }

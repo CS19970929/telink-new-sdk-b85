@@ -36,27 +36,39 @@ public partial class MainWindow
         AppendLog($"Firmware candidate loaded file='{inspection.FileName}' size={inspection.FileSize}; telink={inspection.LooksLikeTelink}; stm32={inspection.FitsStm32App}","OTA");
     }
 
-    private void SelectOtaRecoveryEndpoint()
+    private void SelectYmodemEndpoint()
     {
-        if(IsSerialConnectionMode) {
-            if(SerialPortList.SelectedItem is not SerialPortEndpoint serial)
-                throw new InvalidOperationException("请先选择要恢复的 COM 端口。");
-            if(_bms is not null && (_connectionMode!=ConnectionMode.Serial || !string.Equals(_connectedSerialPort,serial.PortName,StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidOperationException("请先断开当前设备，再选择要恢复的串口。");
-            _connectionMode=ConnectionMode.Serial;
-            _connectedSerialPort=serial.PortName;
-            _serialBaudRate=GetSerialBaudRate();
-            _connectedAddress=null;
-        } else {
-            if(DeviceList.SelectedItem is not DiscoveredDevice device)
-                throw new InvalidOperationException("请先选择要恢复的蓝牙模块。");
-            if(_bms is not null && (_connectionMode!=ConnectionMode.Ble || _connectedAddress!=device.Address))
-                throw new InvalidOperationException("请先断开当前设备，再选择要恢复的蓝牙模块。");
-            _connectionMode=ConnectionMode.Ble;
-            _connectedAddress=device.Address;
-            _connectedName=device.Name;
-            _connectedSerialPort=null;
+        var mode = IsSerialConnectionMode ? ConnectionMode.Serial : ConnectionMode.Ble;
+        var serial = mode == ConnectionMode.Serial ? SerialPortList.SelectedItem as SerialPortEndpoint : null;
+        var device = mode == ConnectionMode.Ble ? DeviceList.SelectedItem as DiscoveredDevice : null;
+
+        if (_bms is not null)
+        {
+            if (_connectionMode != mode ||
+                (serial is not null && !string.Equals(_connectedSerialPort, serial.PortName, StringComparison.OrdinalIgnoreCase)) ||
+                (device is not null && _connectedAddress != device.Address))
+                throw new InvalidOperationException("请先断开当前设备，再选择要升级的设备或端口。");
+            return;
         }
+
+        // A Boot-only device may never have answered the APP monitoring probe.
+        // Only open the endpoint currently selected by the user.
+        if (mode == ConnectionMode.Serial)
+        {
+            if (serial is null) throw new InvalidOperationException("请先选择要升级的 COM 端口。");
+            _serialBaudRate = GetSerialBaudRate();
+            _connectedSerialPort = serial.PortName;
+            _connectedName = $"串口 {serial.PortName}";
+            _connectedAddress = null;
+        }
+        else
+        {
+            if (device is null) throw new InvalidOperationException("请先搜索并选择要升级的蓝牙模块。");
+            _connectedAddress = device.Address;
+            _connectedName = device.Name;
+            _connectedSerialPort = null;
+        }
+        _connectionMode = mode;
     }
 
     private async Task RunCommToolCanUpgradeAsync()
@@ -70,7 +82,7 @@ public partial class MainWindow
         var image = FirmwareImage.LoadForTarget(path, OtaTargetKind.Stm32SerialIap);
         var package = SerialFirmwarePackage.Parse(image.Bytes);
         if (!SerialFirmwarePackage.IsC073Board(package.BoardId) || package.AppAddress != SerialFirmwarePackage.C073AppBase)
-            throw new InvalidDataException("请选择新分区 C073 固件。");
+            throw new InvalidDataException($"当前 CAN 升级仅支持匹配分区的 C073 固件。{package.BoardName} 请使用直连串口或蓝牙升级。");
         string expected = ExpectedVersionBox.Text.Trim();
         if (expected.Length != 0 && !string.Equals(expected, package.Version.ToString("X8"), StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException($"镜像版本为 {package.Version:X8}，与填写的预期版本不符。");
@@ -79,7 +91,6 @@ public partial class MainWindow
         var ct = _otaCts.Token;
         ConnectButton.IsEnabled = ConnectionModeBox.IsEnabled = SerialPortList.IsEnabled = DeviceList.IsEnabled = false;
         StartOtaButton.IsEnabled = OtaTargetBox.IsEnabled = OtaModeBox.IsEnabled = ExpectedVersionBox.IsEnabled = false;
-        SerialIapRecoveryBox.IsEnabled = false;
         CancelOtaButton.IsEnabled = true;
         OtaProgressBar.Value = 0;
         OtaVerifyText.Text = string.Empty;
@@ -111,21 +122,24 @@ public partial class MainWindow
     private bool _otaRequireD015;
     private async void StartOta_Click(object sender, RoutedEventArgs e)
     {
-        if (_otaRunning || _shBusy || _diagBusy || _parameterBusy || _polling || _autoReconnectRunning) return;
+        if (_otaRunning || _shBusy || _diagBusy || _parameterBusy || _polling || _autoReconnectRunning ||
+            _manualConnectionInProgress || _connectionOperations.IsBusy) return;
         try
         {
             if (IsCanMode) { await RunCommToolCanUpgradeAsync(); return; }
             if (IsOwcMode) throw new InvalidOperationException("一线通用于只读监控。");
-            bool serialRecovery=SerialIapRecoveryBox.IsChecked==true;
-            if(serialRecovery)SelectOtaRecoveryEndpoint();
             string firmwarePath = _firmwarePath ?? throw new InvalidOperationException("请先选择固件。");
             FirmwareInspection candidate=FirmwareImage.Inspect(firmwarePath);
             bool serialPackage=candidate.SerialPackage is not null;
             // A self-describing package is matched against device capabilities,
             // independently of any legacy AFE/parameter-page classification.
             _otaRequireD015 = !serialPackage && _bms?.IsD015 == true;
-            if(serialRecovery && !serialPackage)throw new InvalidDataException("升级恢复请选择带身份和 CRC 的 YMODEM 升级包。");
-            if(serialPackage && GetOtaTargetKind()==OtaTargetKind.Telink)throw new InvalidDataException("所选文件是 BMS YMODEM 包，请选择自动识别或 BMS 串口透传升级。");
+            if (serialPackage)
+            {
+                if (GetOtaTargetKind() == OtaTargetKind.Telink)
+                    throw new InvalidDataException("所选文件是 BMS YMODEM 包，请选择自动识别或 BMS 串口透传升级。");
+                SelectYmodemEndpoint();
+            }
             ulong address = _connectedAddress ?? 0;
             if (_connectionMode == ConnectionMode.Ble && _connectedAddress is null)
                 throw new InvalidOperationException("请先连接 BMS。");
@@ -139,7 +153,6 @@ public partial class MainWindow
             _pollTimer.Stop();
             StartOtaButton.IsEnabled = false;
             CancelOtaButton.IsEnabled = true;
-            SerialIapRecoveryBox.IsEnabled = false;
             OtaProgressBar.Value = 0;
             OtaVerifyText.Text = string.Empty;
             _otaCts = new CancellationTokenSource();
@@ -154,7 +167,7 @@ public partial class MainWindow
             string oldVersion = string.Empty;
             try
             {
-                if (_bms is not null && !serialRecovery) oldVersion = (await _bms.ReadIdentityAsync(_otaCts.Token)).Software;
+                if (_bms is not null && !serialPackage) oldVersion = (await _bms.ReadIdentityAsync(_otaCts.Token)).Software;
             }
             catch (Exception ex)
             {
@@ -220,7 +233,6 @@ public partial class MainWindow
             OtaTargetBox.IsEnabled = OtaModeBox.IsEnabled = ExpectedVersionBox.IsEnabled = true;
             StartOtaButton.IsEnabled = true;
             CancelOtaButton.IsEnabled = false;
-            SerialIapRecoveryBox.IsEnabled = true;
             if (_bms is not null) _pollTimer.Start();
         }
     }

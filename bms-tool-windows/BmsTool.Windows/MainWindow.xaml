@@ -468,9 +468,6 @@
                         <TextBox x:Name="ExpectedVersionBox" Width="180" Margin="8,0"/>
                         </StackPanel>
                     </WrapPanel>
-                    <Expander Header="升级恢复" Margin="0,10,0,0">
-                        <CheckBox x:Name="SerialIapRecoveryBox" Margin="16,6,0,0" Content="使用选中的串口或蓝牙设备恢复升级"/>
-                    </Expander>
                     <ProgressBar x:Name="OtaProgressBar" Height="24" Margin="0,18,0,0" Minimum="0" Maximum="100"/>
                     <TextBlock x:Name="OtaProgressText" Margin="0,6,0,0" Text="待升级"/>
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">

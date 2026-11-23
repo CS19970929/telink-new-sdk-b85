@@ -12,10 +12,18 @@ public sealed record SerialUpgradeReadback(DeviceIdentity? Identity,BatterySnaps
 }
 public sealed class SerialYmodemClient
 {
+    private const int ConservativeBlePayload = 20;
+    private const int ConservativeBleDelayMs = 15;
+    private const int PacketAttempts = 10;
+    private const int SerialPacketResponseTimeoutMs = 2000;
+    // The Boot can wait 2 s after the last UART byte before rejecting a short frame.
+    private const int BlePacketResponseTimeoutMs = 3000;
+
     private readonly IBmsTransport _transport;
     private readonly bool _ble;
     private readonly Channel<byte> _rx=Channel.CreateBounded<byte>(8192);
     private volatile bool _overflow;
+    private bool _useConservativeBle;
     public SerialUpgradeReadback? Verified { get; private set; }
     public event Action<string>? Log;
     public event Action<SerialUpgradeProgress>? Progress;
@@ -25,24 +33,36 @@ public sealed class SerialYmodemClient
         foreach(byte b in data.Span) if(!_rx.Writer.TryWrite(b)) _overflow=true;
     }
     private void Drain() { while(_rx.Reader.TryRead(out _)) {} _overflow=false; }
-    private async Task WriteAsync(byte[] data,CancellationToken ct)
+    private int BlePayloadSize
     {
-        if(!_ble) { await _transport.WriteAsync(data,ct);return; }
-        var link=_transport as IBmsMtuTransport;
-        bool paced=link is { YmodemBlePayloadLimit: >20 };
-        // BT_BM56EA: 120-byte acknowledged writes passed complete upgrades;
-        // 240-byte and unacknowledged writes failed despite ATT MTU 247.
-        // Other transports keep their validated 20-byte / 15-ms behavior.
-        int chunk=paced ? Math.Min(Math.Clamp(link!.NegotiatedMtu-3??20,20,244),
-            Math.Clamp(link.YmodemBlePayloadLimit,20,120)) : 20;
-        for(int i=0;i<data.Length;i+=chunk) {
-            int n=Math.Min(chunk,data.Length-i);
-            var elapsed=Stopwatch.StartNew();
-            await _transport.WriteAsync(data.AsMemory(i,n),ct);
+        get
+        {
+            if (!_useConservativeBle && _transport is IBmsMtuTransport link)
+                return Math.Clamp(Math.Min((link.NegotiatedMtu ?? 23) - 3, link.YmodemBlePayloadLimit),
+                    ConservativeBlePayload, 120);
+            return ConservativeBlePayload;
+        }
+    }
+
+    private async Task WriteAsync(byte[] data, CancellationToken ct, int? blePayload = null)
+    {
+        if (!_ble)
+        {
+            await _transport.WriteAsync(data, ct);
+            return;
+        }
+
+        int chunk = blePayload ?? BlePayloadSize;
+        for (int offset = 0; offset < data.Length; offset += chunk)
+        {
+            int length = Math.Min(chunk, data.Length - offset);
+            var elapsed = Stopwatch.StartNew();
+            await _transport.WriteAsync(data.AsMemory(offset, length), ct);
             // At 19200 8N1 the UART drains while GATT waits for its response.
-            // Credit that time instead of adding another delay afterwards.
-            int delay=paced ? (n*10000+19199)/19200+4-(int)elapsed.ElapsedMilliseconds : 15;
-            if(delay>0)await Task.Delay(delay,ct);
+            int delay = chunk > ConservativeBlePayload
+                ? (length * 10000 + 19199) / 19200 + 4 - (int)elapsed.ElapsedMilliseconds
+                : ConservativeBleDelayMs;
+            if (delay > 0) await Task.Delay(delay, ct);
         }
     }
     private async Task<byte> ControlAsync(int timeoutMs,CancellationToken ct)
@@ -78,21 +98,46 @@ public sealed class SerialYmodemClient
         }
         packet[^2]=(byte)(crc>>8);packet[^1]=(byte)crc;return packet;
     }
-    private async Task SendPacketAsync(byte[] packet,bool expectC,CancellationToken ct)
+    private async Task SendPacketAsync(byte[] packet, bool expectC, CancellationToken ct, bool finalCommit = false)
     {
-        for(int attempt=0;attempt<10;attempt++) {
-            ct.ThrowIfCancellationRequested();Drain();
-            try {
-                await WriteAsync(packet,ct);
-                byte response=await ControlAsync(2000,ct);
-                if(response==6) {
-                    if(expectC)await ExpectAsync(0x43,2000,ct);
+        int timeoutMs = _ble ? BlePacketResponseTimeoutMs : SerialPacketResponseTimeoutMs;
+        string phase = finalCommit ? "commit" : expectC ? "header" : "data";
+        for (int attempt = 1; attempt <= PacketAttempts; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            Drain();
+            int? payload = _ble ? BlePayloadSize : null;
+            var elapsed = Stopwatch.StartNew();
+            string reason;
+            try
+            {
+                await WriteAsync(packet, ct, payload);
+                // A repeated CRC request may already be queued while a header is being sent.
+                var wait = Stopwatch.StartNew();
+                byte response;
+                do { response = await ControlAsync(Math.Max(1, timeoutMs - (int)wait.ElapsedMilliseconds), ct); }
+                while (response == 0x43 && wait.ElapsedMilliseconds < timeoutMs);
+
+                if (response == 0x06)
+                {
+                    if (expectC) await ExpectAsync(0x43, timeoutMs, ct);
                     return;
                 }
-            } catch(TimeoutException) { }
-            Log?.Invoke($"YMODEM block={packet[1]} retry={attempt+1}/10");
+                reason = response == 0x15 ? "NAK" : $"unexpected 0x{response:X2}";
+            }
+            catch (TimeoutException ex)
+            {
+                reason = ex.Message;
+            }
+
+            Log?.Invoke($"YMODEM phase={phase}; block={packet[1]}; attempt={attempt}/{PacketAttempts}; reply={reason}; BLE payload={payload?.ToString() ?? "-"}; elapsed={elapsed.ElapsedMilliseconds}ms");
+            if (!finalCommit && payload > ConservativeBlePayload)
+            {
+                _useConservativeBle = true;
+                Log?.Invoke($"BLE 透传未确认，自动切换到每片 {ConservativeBlePayload} 字节、片间等待 {ConservativeBleDelayMs} ms，重发当前块。");
+            }
         }
-        throw new TimeoutException("YMODEM 数据包连续重试失败。重连后再次开始会从文件起点重新传输。");
+        throw new TimeoutException($"YMODEM 块 {packet[1]}（{phase}）连续未获确认。请在同一设备上重新开始升级。");
     }
     private async Task EndDataAsync(CancellationToken ct)
     {
@@ -175,7 +220,7 @@ public sealed class SerialYmodemClient
                     identity=await client.ReadIdentityAsync(ct);
                     battery=client.IsC077 ? await client.ReadC077ReadyBatteryAsync(ct) : await client.ReadBatteryAsync(ct);
                     if(package.BoardId==D015FirmwarePackage.BoardId)build=await client.TryReadFirmwareBuildIdAsync(ct);
-                } catch(Exception ex) when(ex is IOException or TimeoutException) {
+                } catch(Exception ex) when(ex is IOException or TimeoutException or InvalidDataException) {
                     Log?.Invoke("APP 升级元数据已确认；当前项目的身份/实时视图未完整读取："+ex.Message);
                 }
                 Verified=new(identity,battery,build,package.BoardId,package.Version,package.PayloadCrc,package.PayloadLength);
@@ -189,6 +234,7 @@ public sealed class SerialYmodemClient
     public async Task<bool> UpgradeAsync(FirmwareImage image,SerialUpgradeDevice device,CancellationToken ct)
     {
         Verified=null;
+        _useConservativeBle = false;
         // Validate before ENTER even when this public sender is called directly.
         UpgradeDetection.CheckImage(device,image);
         byte[] file=image.Bytes.ToArray();
@@ -197,7 +243,11 @@ public sealed class SerialYmodemClient
         bool subscribed=false,finalBlockAttempted=false;
         try {
             Log?.Invoke($"识别：{device.Evidence}; mode={device.Mode}; package={package.BoardName}");
-            Progress?.Invoke(new(0,0,file.Length,"准备安全关断"));await EnterBootAsync(device,package,ct);
+            Progress?.Invoke(new(0,0,file.Length,"准备安全关断"));
+            var boot = await EnterBootAsync(device, package, ct);
+            Log?.Invoke($"已确认 Boot：board={boot.Board:X8}; mode={boot.Mode}");
+            if (_ble)
+                Log?.Invoke($"YMODEM BLE MTU={(_transport as IBmsMtuTransport)?.NegotiatedMtu}; payload={BlePayloadSize}");
             _transport.DataReceived+=Receive;subscribed=true;Drain();await ExpectAsync(0x43,8000,ct);
             byte[] header=new byte[128];Encoding.ASCII.GetBytes("app.update\0"+file.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)).CopyTo(header,0);
             await SendPacketAsync(Packet(0,header,128),true,ct);byte seq=1;
@@ -207,7 +257,7 @@ public sealed class SerialYmodemClient
                 Progress?.Invoke(new((offset+n)*95.0/file.Length,offset+n,file.Length,"传输并校验"));
             }
             await EndDataAsync(ct);ct.ThrowIfCancellationRequested();finalBlockAttempted=true;
-            try { await SendPacketAsync(Packet(0,new byte[128],128),false,ct); }
+            try { await SendPacketAsync(Packet(0,new byte[128],128),false,ct,finalCommit:true); }
             catch(Exception ex) when(ex is TimeoutException or IOException) { Log?.Invoke("最终提交结果待确认："+ex.Message+"；重连核对 APP，不重新擦写。"); }
             _transport.DataReceived-=Receive;subscribed=false;
             Progress?.Invoke(new(98,file.Length,file.Length,"等待重启并核对新 APP"));await VerifyAppAsync(package,device,ct);
