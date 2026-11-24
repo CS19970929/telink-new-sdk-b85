@@ -3,7 +3,6 @@
  * 将响应按 Notify 负载分片。
  * bms/platform/telink/app_att.c；实际编译归属见各产品 sources.txt。
  */
-#include "bms_debug_log.h"
 /********************************************************************************************************
  * @file    app_att.c
  *
@@ -193,7 +192,6 @@ static ble_sts_t notify_big_packet(u16 conn, u16 handle, u8 *data, u16 len)
 
 		if (ret != BLE_SUCCESS)
 		{
-            BMS_LOG(BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_BLE_NOTIFY_FAIL, ret, offset);
 			return ret;
 		}
 		offset += chunk;
@@ -218,11 +216,6 @@ static int module_onReceiveData(void *para)
 	{
 		u32 rsp_len = 0u;
 		int ok = modbus_on_frame(data, len, ble_rsp_buf, &rsp_len);
-#if BMS_DEBUG_LOG_ENABLE
-        if (!bms_debug_log_is_read(data, len))
-            BMS_LOG(ok ? BMS_LOG_DEBUG : BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_BLE_FRAME,
-                    ((uint32_t)len << 16) | (len >= 2u ? data[1] : 0u), rsp_len);
-#endif
 
 		if (ok && rsp_len)
 		{

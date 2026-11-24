@@ -4,7 +4,6 @@
  * bms/afe/dvc1124/dvc1124_bms.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_time.h"
-#include "bms_diag.h"
 #include "dvc1124.h"
 #include "bms_afe_driver.h"
 
@@ -256,8 +255,6 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
     uint8_t sw_charge = g_bms_report.fault_third.bits.charge_ocp;
     uint8_t sw_discharge = g_bms_report.fault_third.bits.discharge_ocp;
     uint8_t charge_ready = 0u, discharge_ready = 0u;
-    uint8_t release_reason = 0u;
-    uint8_t before = (uint8_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1));
     (void)io_failed; /* 关闭硬件保护的台架配置不执行清锁存事务。 */
 #if DVC1124_HW_PROTECT_ENABLE
     uint8_t clear_mask, verify;
@@ -274,11 +271,8 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
     /* 软件过流先独立恢复；D008 无充电器拔除输入，OCC 以真实反向放电解除。 */
     charge_ready = s_current_recovery.charge && !sw_charge &&
         snapshot->current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA;
-    if (snapshot->current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
-        release_reason = 2u;
-    else if (dvc_load_removed(now))
-        release_reason = 1u;
-    discharge_ready = s_current_recovery.discharge && !sw_discharge && release_reason;
+    discharge_ready = s_current_recovery.discharge && !sw_discharge &&
+        (snapshot->current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA || dvc_load_removed(now));
 
 #if DVC1124_HW_PROTECT_ENABLE
     clear_mask = (uint8_t)(s_current_recovery.hw_pending &
@@ -308,11 +302,6 @@ static uint8_t dvc_recover_current_faults(const dvc1124_snapshot_t *snapshot,
     if (charge_ready) s_current_recovery.charge = 0u;
     if (discharge_ready) s_current_recovery.discharge = 0u;
 publish_faults:
-    if (before != (uint8_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1)))
-        bms_diag_trace(DIAG_EV_CURRENT_RECOVERY,
-            (uint32_t)(s_current_recovery.charge | (s_current_recovery.discharge << 1)),
-            /* PB1 移除原因为1，反向充电为2，诊断字段位置不变。 */
-            (uint32_t)alarm | ((uint32_t)snapshot->status << 16) | ((uint32_t)release_reason << 24));
     if (s_current_recovery.charge) g_bms_report.fault_third.bits.charge_ocp = 1u;
     if (s_current_recovery.discharge) g_bms_report.fault_third.bits.discharge_ocp = 1u;
     return (uint8_t)(alarm | s_current_recovery.hw_pending);
@@ -353,9 +342,8 @@ static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
     uint8_t ok;
 
     if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &current, 1u)) {
-        bms_diag_command(0u, 0u); return 0u;
+         return 0u;
     }
-    bms_diag_command(current, 1u);
 
     if ((DVC1124_FIELD_GET(DVC1124_FET_CHGC_MASK,
                            DVC1124_FET_CHGC_SHIFT,
@@ -383,7 +371,6 @@ static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t charge_mode,
      */
     bms_afe_publish_fet_status(0u, 0u);
     ok = DVC1124_WriteRegisterSafe(DVC1124_REG_FET_CTRL, target);
-    bms_diag_command(target, ok);
     return ok;
 }
 
@@ -571,7 +558,6 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
     uint8_t io_failed = 0u;
     uint32_t poll_tick;
 
-    uint16_t diag_c = 0u, diag_d = 0u;
 
     bms_afe_sample_status_t result = DVC1124_App_AFEGet();
     DVC1124_GetSnapshot(&snapshot);
@@ -617,14 +603,10 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
 
     bms_sw_protection_update_groups(&sw, DVC1124_SW_PROTECT_ENABLE,
                                     DVC1124_SW_TEMP_PROTECT_ENABLE);
-    if (bms_sw_protection_charge_blocked()) diag_c |= DIAG_BLOCK_SW;
-    if (bms_sw_protection_discharge_blocked()) diag_d |= DIAG_BLOCK_SW;
 
     alarm = dvc_recover_current_faults(&snapshot, alarm, poll_tick, &io_failed);
 #if DVC1124_HW_PROTECT_ENABLE
     dvc_merge_hw_faults(alarm);
-    if (alarm & (DVC1124_ALARM_COV_MASK | DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK)) diag_c |= DIAG_BLOCK_HW;
-    if (alarm & (DVC1124_ALARM_CUV_MASK | DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK | DVC1124_ALARM_SCD_MASK)) diag_d |= DIAG_BLOCK_HW;
 #else
     /*
      * 关闭硬件保护的台架模式不使用 SCD/COV/CUV/OC 标志作为保护输入；
@@ -633,10 +615,6 @@ bms_afe_sample_status_t bms_afe_driver_sample(void)
     bms_error_clear(BMS_ERROR_CBC_DSG);
 #endif
 
-    if (bms_error_get(BMS_ERROR_TEMP_BREAK)) { diag_c |= DIAG_BLOCK_TEMP; diag_d |= DIAG_BLOCK_TEMP; }
-    if (dvc_charge_blocked() && !diag_c) diag_c |= DIAG_BLOCK_BACKEND;
-    if (dvc_discharge_blocked() && !diag_d) diag_d |= DIAG_BLOCK_BACKEND;
-    bms_diag_backend(diag_c, diag_d);
     bms_sw_protection_record_fault_edges();
 
     /*
@@ -666,6 +644,8 @@ uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *measurem
     measurements->voltage_calibration_valid = !s_voltage_check.state && s_voltage_check.healthy;
     measurements->raw_current_ma = snapshot.raw_current_ma;
     measurements->current_ma = snapshot.current_ma;
+    measurements->current_qualified = DVC1124_CurrentQualified(&snapshot, bms_time_ms());
+    measurements->voltage_fresh = snapshot.voltage_fresh;
     measurements->sample_time_ms = snapshot.sample_time_ms;
     measurements->sample_tick_32k = snapshot.sample_tick_32k;
     return 1u;
@@ -713,35 +693,3 @@ uint8_t bms_afe_driver_get_charge_source_present(uint8_t *present)
     if (present != 0) *present = 0u;
     return 0u;
 }
-
-#if BMS_SERVICE_DIAG_ENABLE
-
-/* 从选定后端刷新诊断，遵守总线静默门禁。 */
-void bms_afe_diag_poll(void)
-{
-    uint8_t charge, discharge;
-    uint16_t guard = bms_afe_get_guard_diagnostic_bits();
-    uint32_t c = bms_features_charge_direction_blocked() ? DIAG_BLOCK_HEATER : 0u;
-    uint32_t d = 0u;
-    uint32_t common = 0u;
-    uint16_t params = bms_diag_cached_word(144u);
-    if (!(params & 1u)) common |= DIAG_BLOCK_PARAMS;
-    if (!(params & 2u)) common |= DIAG_BLOCK_UPGRADE;
-    bms_afe_get_requested_fets(&charge, &discharge);
-    if (!(guard & DIAG_GUARD_OUTPUT_ENABLED)) common |= DIAG_BLOCK_OUTPUT;
-    if ((guard & DIAG_GUARD_COMM_INHIBIT) ||
-        ((guard & DIAG_GUARD_BUS_SILENCED) && !bms_afe_shutdown_held())) common |= DIAG_BLOCK_COMM;
-    if (bms_afe_shutdown_held()) common |= DIAG_BLOCK_SHUTDOWN;
-    c |= bms_diag_cached_word(146u); d |= bms_diag_cached_word(147u);
-    if (!(bms_afe_get_remote_allowed_mask() & 1u)) c |= DIAG_BLOCK_REMOTE;
-    if (!(bms_afe_get_remote_allowed_mask() & 2u)) d |= DIAG_BLOCK_REMOTE;
-    bms_diag_mos((uint16_t)(charge | (discharge << 1)), c | common, d | common);
-    if (common & (DIAG_BLOCK_COMM | DIAG_BLOCK_SHUTDOWN)) {
-        bms_afe_publish_fet_status(0u, 0u);
-        bms_diag_command((uint8_t)bms_diag_cached_word(130u), 0u);
-    }
-    bms_diag_mos_capture();
-}
-
-
-#endif

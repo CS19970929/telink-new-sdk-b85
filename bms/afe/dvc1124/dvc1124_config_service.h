@@ -117,12 +117,6 @@ typedef enum
 #define DVC1124_COMM_REG_BASE                   0x2800u
 #define DVC1124_COMM_REG_COUNT                  0x0060u
 
-/*
- * 原始诊断镜像：DVC 0x00..0x90 对应 0x2900..0x2990。服务有意拒绝读清除的 0x01/0x76，
- * 改读 0x2807 缓存 STATUS 与 0x2808 锁存 COTF。
- */
-#define DVC1124_RAW_REG_BASE                    0x2900u
-#define DVC1124_RAW_REG_COUNT                   0x0091u
 
 
 
@@ -135,24 +129,6 @@ dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t field,
 /* 拒绝固定配置和保护窗口写入，返回只读或地址错误。 */
 dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
                                                     u32 value);
-
-/* 两档构建能力：开发允许安全原始读，生产不编译原始访问。 */
-#ifndef BMS_DVC_RAW_DIAG_ENABLE
-#define BMS_DVC_RAW_DIAG_ENABLE (!BMS_PRODUCTION_BUILD)
-#endif
-#if (BMS_DVC_RAW_DIAG_ENABLE != 0) && (BMS_DVC_RAW_DIAG_ENABLE != 1)
-#error "BMS_DVC_RAW_DIAG_ENABLE must be 0 or 1"
-#endif
-#if BMS_PRODUCTION_BUILD && BMS_DVC_RAW_DIAG_ENABLE
-#error "Production firmware must disable BMS_DVC_RAW_DIAG_ENABLE"
-#endif
-#if BMS_DVC_RAW_DIAG_ENABLE
-/* 原始镜像仅供只读诊断；拒绝具有读清除副作用的寄存器，应读取缓存/软件锁存语义诊断。 */
-dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value);
-/* 拒绝原始寄存器写入，返回只读或地址错误。 */
-dvc1124_config_result_t DVC1124_ConfigServiceWriteRaw(u8 reg, u8 value);
-
-#endif
 
 #ifdef __cplusplus
 }

@@ -349,35 +349,3 @@ dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t field,
 
     return DVC1124_CFG_ERR_ADDRESS;
 }
-
-#if BMS_DVC_RAW_DIAG_ENABLE
-/* 按允许范围读取 DVC 原始寄存器。 */
-dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 reg, u8 *value)
-{
-    if (value == 0 || reg > DVC1124_MAX_REGISTER)
-        return DVC1124_CFG_ERR_ADDRESS;
-    if (!bms_afe_bus_access_allowed()) return DVC1124_CFG_ERR_AFE_IO;
-
-    /* STATUS 和 CORE_OT 含读清除字段。 */
-    if (DVC1124_RegReadHasSideEffect(reg))
-        return DVC1124_CFG_ERR_FORBIDDEN;
-
-    return DVC1124_ReadRegisters(reg, value, 1u)
-               ? DVC1124_CFG_OK
-               : DVC1124_CFG_ERR_AFE_IO;
-}
-
-/* 拒绝原始寄存器写入，返回只读或地址错误。 */
-dvc1124_config_result_t DVC1124_ConfigServiceWriteRaw(u8 reg, u8 value)
-{
-    (void)value;
-    if (reg > DVC1124_MAX_REGISTER) return DVC1124_CFG_ERR_ADDRESS;
-
-    /*
-     * 原始镜像仅供诊断。允许原始写入会产生第二个编译期产品配置所有者，
-     * 或绕过保护参数管理。
-     */
-    return DVC1124_CFG_ERR_READ_ONLY;
-}
-
-#endif

@@ -3,7 +3,6 @@
  * OTA 保留已保存的历史事件，不再依据旧编号清空。
  * bms/core/bms_event_log.c；实际编译归属见各产品 sources.txt。
  */
-#include "bms_diag.h"
 #include "bms_event_log.h"
 #include "bms_update_policy.h"
 
@@ -172,28 +171,26 @@ int bms_event_log_init(void)
     u8 payload[BMS_EVENT_PAYLOAD_BYTES];
     int loaded;
     if (g_bms_event_log.ready) return 1;
-    bms_diag_attempt(BMS_STORAGE_DOMAIN_EVENT);
     if (g_bms_event_log.last_failed &&
-        (u32)(bms_time_ms() - g_bms_event_log.last_attempt_ms) < BMS_STORAGE_RETRY_INTERVAL_MS) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_BACKOFF); return 0; }
+        (u32)(bms_time_ms() - g_bms_event_log.last_attempt_ms) < BMS_STORAGE_RETRY_INTERVAL_MS) {  return 0; }
     port = bms_storage_platform_port();
-    if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_PORT); return 0; }
+    if (port == 0) {  return 0; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region)) { return 0; }
     if (!g_bms_event_store.ready && !storage_record_open(&g_bms_event_store, port, region, BMS_EVENT_RECORD_MAGIC,
                              BMS_EVENT_SCHEMA_VERSION, BMS_EVENT_PAYLOAD_BYTES)) {
-        bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_OPEN); return 0;
+         return 0;
     }
     loaded = storage_record_load(&g_bms_event_store, payload) && bms_event_log_decode(payload);
     if (g_bms_event_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
-        bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_INVALID); return 0;
+         return 0;
     }
-    if (!loaded) { bms_event_log_reset_ram_only(); bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_DEFAULTS); }
+    if (!loaded) { bms_event_log_reset_ram_only();  }
     g_bms_event_log.ready = 1u;
     if (!loaded) {
-        if (!bms_event_log_write_snapshot()) { g_bms_event_log.ready = 0u; bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_SAVE); return 0; }
+        if (!bms_event_log_write_snapshot()) { g_bms_event_log.ready = 0u;  return 0; }
     }
     g_bms_event_log.last_attempt_ms = bms_time_ms();
     bms_event_log_clear_runtime_flags();
-    bms_diag_result(BMS_STORAGE_DOMAIN_EVENT, DIAG_OK);
     return 1;
 }
 

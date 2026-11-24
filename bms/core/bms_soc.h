@@ -10,18 +10,10 @@
 #include "bms_timing.h"
 #include "bms_state_store.h"
 #include "bms_soc_defs.h"
-#include "bms_diag.h"
 
 /* 充放电方向和恢复的证据门槛；不屏蔽 SOC 电流积分。 */
-#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 
 /* 实板临时积分测试只改变 SOC 输入；正常固件不编译测试状态。 */
-#ifndef BMS_SOC_BOARD_TEST_ENABLE
-#define BMS_SOC_BOARD_TEST_ENABLE 0
-#endif
-#if BMS_SOC_BOARD_TEST_ENABLE && defined(BMS_PRODUCTION_BUILD) && BMS_PRODUCTION_BUILD
-#error "Production firmware must disable SOC board test"
-#endif
 
 #define BMS_SOC_OCV_WAIT_CURRENT   0u
 #define BMS_SOC_OCV_PREPARE        1u
@@ -89,9 +81,6 @@ extern bms_soc_state_t g_bms_soc;
 /* 整套 Config 或曲线已提交后刷新运行配置；不重复保存。 */
 uint8_t bms_soc_reload_configuration(void);
 /* 取得 SOC 运行诊断快照。 */
-#if BMS_SERVICE_DIAG_ENABLE
-void bms_soc_get_diag(bms_soc_diag_t *diag);
-#endif
 
 /*
  * 应用每 200 ms 提交最新有效电流，按实际应用间隔积分。
@@ -101,14 +90,6 @@ void bms_soc_get_diag(bms_soc_diag_t *diag);
 #define BMS_SOC_MAX_SAMPLE_GAP_MS BMS_SAMPLE_MAX_POLL_GAP_MS
 /* 检查样本与时间差后执行积分和 SOC 策略。 */
 void bms_soc_process_sample(const bms_soc_sample_t *sample);
-#if BMS_SOC_BOARD_TEST_ENABLE
-void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_tick_32k);
-void bms_soc_board_test_note(void);
-void bms_soc_board_test_suspend_exits(uint32_t count);
-uint8_t bms_soc_board_test_active(void);
-uint8_t bms_soc_board_test_keep_awake(void);
-uint16_t bms_soc_board_test_word(uint16_t offset);
-#endif
 /* 持久化成功后发布人工SOC，显示立即同步；人工100%授予100%显示许可。 */
 void set_soc_param(uint8_t soc);
 /* 取得内部计算的真实 SOC 百分比。 */

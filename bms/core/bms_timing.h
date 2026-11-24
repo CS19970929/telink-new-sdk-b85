@@ -7,6 +7,9 @@
 
 /* SOC 不补算长时间盲区；物理保护恢复的连续观察不能跨越调度长间断。 */
 #define BMS_SAMPLE_MAX_POLL_GAP_MS 400u
+
+/* 电流方向与计量共用的零电流区，单位 mA。 */
+#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 #if BMS_SAMPLE_PERIOD_MS != 200u
 #error "Normal BMS scheduling requires the reviewed 200 ms period"
 #endif

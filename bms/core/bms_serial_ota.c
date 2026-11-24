@@ -1,8 +1,8 @@
 /* 分包升级只写备用槽；完整读回CRC通过后，独立COMMIT才改变启动标志。 */
 #include "bms_serial_ota.h"
+#include "bms_build_identity.h"
 #include "bms_crc.h"
 #include "bms_product.h"
-#include "bms_diag.h"
 #include <string.h>
 
 #define OTA_SILENCE_MS 15000u
@@ -16,8 +16,8 @@ enum { OTA_OK, OTA_BAD_FRAME, OTA_BUSY, OTA_SESSION, OTA_SEQUENCE,
 /* 正式BIN内的只读描述，不改变启动头、持久化或BLE协议。客户端据此拒绝跨产品包。 */
 static const uint8_t image_info[20] = {
     'B','M','S','U','8','2','5','1', 1u, BMS_PRODUCT_ID, 1u, 0u,
-    (uint8_t)BMS_DIAG_BUILD_ID, (uint8_t)(BMS_DIAG_BUILD_ID >> 8),
-    (uint8_t)(BMS_DIAG_BUILD_ID >> 16), (uint8_t)(BMS_DIAG_BUILD_ID >> 24),
+    (uint8_t)BMS_BUILD_ID, (uint8_t)(BMS_BUILD_ID >> 8),
+    (uint8_t)(BMS_BUILD_ID >> 16), (uint8_t)(BMS_BUILD_ID >> 24),
     0u, 0xF0u, 1u, 0u
 };
 static struct {

@@ -4,9 +4,7 @@
  * bms/afe/dvc1124/dvc1124.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_time.h"
-#include "bms_diag.h"
 #include "bms_afe_driver.h"
-#include "bms_afe_registers.h"
 #include "dvc1124.h"
 #include "bms_config_store.h"
 
@@ -73,20 +71,9 @@ static uint8_t s_ntc_valid_samples[4]; /* NTC 恢复滤波，按完整有效读�
 
 #define DVC_BALANCE_REFRESH_INTERVAL_MS 45000u
 
-/* 冻结的启动诊断，偏移相对 BMS_DIAG_BASE。 */
-#define DVC_BOOT_ZERO_DIAG_STATUS          110u
-#define DVC_BOOT_ZERO_DIAG_SAMPLE_COUNT    111u
-#define DVC_BOOT_ZERO_DIAG_OFFSET_MA       112u
-#define DVC_BOOT_ZERO_DIAG_RAW1_MA         114u
-#define DVC_BOOT_ZERO_DIAG_RAW2_MA         116u
-#define DVC_BOOT_ZERO_DIAG_CAL1_MA         118u
-#define DVC_BOOT_ZERO_DIAG_CAL2_MA         120u
-#define DVC_BOOT_ZERO_DIAG_FACTORY_OFF_MA  122u
-#define DVC_BOOT_ZERO_DIAG_FACTORY_GAIN    124u
-#define DVC_BOOT_ZERO_DIAG_SHUNT_UOHM      126u
-#define DVC_BOOT_ZERO_DIAG_SPREAD_MA       127u
-
-static dvc1124_boot_zero_diag_t s_boot_zero;
+static uint8_t s_boot_zero_attempted;
+static uint8_t s_boot_zero_ok;
+#define DVC_CURRENT_MAX_AGE_MS 400u
 
 /* 计算 AFE 通信数据的 CRC8 校验值。 */
 static uint8_t dvc_crc8(const uint8_t *data, uint16_t len)
@@ -261,32 +248,6 @@ static int32_t dvc_cc2_to_raw_current_ma(int32_t cc2)
     return current_num / ((int32_t)s_cfg.shunt_uohm * 2);
 }
 
-/* 发布启动零点校准结果和诊断计数。 */
-#if BMS_SERVICE_DIAG_ENABLE
-static void dvc_boot_zero_publish_diag(void)
-{
-    int32_t factory_offset = 0;
-    uint32_t factory_gain = 1000000u;
-    uint32_t shunt = s_cfg.shunt_uohm;
-    (void)bms_config_get_current_calibration(&factory_offset, &factory_gain);
-
-    bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_STATUS, (uint16_t)s_boot_zero.status);
-    bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_SAMPLE_COUNT, s_boot_zero.sample_count);
-    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_OFFSET_MA, (uint32_t)s_boot_zero.learned_offset_ma);
-    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_RAW1_MA, (uint32_t)s_boot_zero.raw_sample1_ma);
-    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_RAW2_MA, (uint32_t)s_boot_zero.raw_sample2_ma);
-    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_CAL1_MA, (uint32_t)s_boot_zero.calibrated_sample1_ma);
-    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_CAL2_MA, (uint32_t)s_boot_zero.calibrated_sample2_ma);
-    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_FACTORY_OFF_MA, (uint32_t)factory_offset);
-    bms_diag_boot_u32(DVC_BOOT_ZERO_DIAG_FACTORY_GAIN, factory_gain);
-    bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_SHUNT_UOHM,
-                       (uint16_t)((shunt > 65535u) ? 65535u : shunt));
-    bms_diag_boot_word(DVC_BOOT_ZERO_DIAG_SPREAD_MA, s_boot_zero.spread_ma);
-}
-#else
-#define dvc_boot_zero_publish_diag() ((void)0)
-#endif
-
 /* 有界等待 CC2 下一次转换，避免重复采集旧读数。 */
 static uint8_t dvc_boot_zero_wait_fresh_cc2(void)
 {
@@ -330,130 +291,44 @@ static uint8_t dvc_boot_zero_force_all_fets_off(void)
 }
 
 /* 读取零点校准所需的电流和 FET 状态。 */
-static uint8_t dvc_boot_zero_read_sample(int32_t *raw_ma,
-                                         int32_t *calibrated_ma,
-                                         dvc1124_boot_zero_status_t *failure)
+static uint8_t dvc_boot_zero_read_sample(int32_t *sample_ma)
 {
     uint8_t ctrl;
     uint8_t cc2_data[3];
     uint32_t raw20;
-    int32_t cc2;
-    const uint8_t command_mask = (uint8_t)(DVC1124_FET_PDSGC_MASK |
-                                           DVC1124_FET_PCHGC_MASK |
-                                           DVC1124_FET_DSGC_MASK |
-                                           DVC1124_FET_CHGC_MASK);
-    const uint8_t flag_mask = (uint8_t)(DVC1124_CC2_PDSGF_MASK |
-                                        DVC1124_CC2_PCHGF_MASK |
-                                        DVC1124_CC2_DSGF_MASK |
-                                        DVC1124_CC2_CHGF_MASK);
+    const uint8_t command_mask = DVC1124_FET_PDSGC_MASK | DVC1124_FET_PCHGC_MASK |
+        DVC1124_FET_DSGC_MASK | DVC1124_FET_CHGC_MASK;
+    const uint8_t flag_mask = DVC1124_CC2_PDSGF_MASK | DVC1124_CC2_PCHGF_MASK |
+        DVC1124_CC2_DSGF_MASK | DVC1124_CC2_CHGF_MASK;
 
-    if ((raw_ma == 0) || (calibrated_ma == 0) || (failure == 0)) return 0u;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &ctrl, 1u))
-    {
-        *failure = DVC1124_BOOT_ZERO_FET_IO_ERROR;
+    if (!DVC1124_ReadRegisters(DVC1124_REG_FET_CTRL, &ctrl, 1u) || (ctrl & command_mask) ||
+        !DVC1124_ReadRegisters(DVC1124_REG_CC2_H, cc2_data, 3u) || (cc2_data[2] & flag_mask))
         return 0u;
-    }
-    if ((ctrl & command_mask) != 0u)
-    {
-        *failure = DVC1124_BOOT_ZERO_FET_ACTIVE;
-        return 0u;
-    }
-    if (!DVC1124_ReadRegisters(DVC1124_REG_CC2_H, cc2_data, 3u))
-    {
-        *failure = DVC1124_BOOT_ZERO_SAMPLE_IO_ERROR;
-        return 0u;
-    }
-    if ((cc2_data[2] & flag_mask) != 0u)
-    {
-        *failure = DVC1124_BOOT_ZERO_FET_ACTIVE;
-        return 0u;
-    }
 
     raw20 = ((uint32_t)cc2_data[0] << 12) |
-            ((uint32_t)cc2_data[1] << 4) |
-            ((uint32_t)cc2_data[2] >> 4);
-    cc2 = dvc_sign_extend20(raw20);
-    *raw_ma = dvc_cc2_to_raw_current_ma(cc2);
-    *calibrated_ma = bms_config_calibrate_current(*raw_ma);
+            ((uint32_t)cc2_data[1] << 4) | ((uint32_t)cc2_data[2] >> 4);
+    *sample_ma = bms_config_calibrate_current(dvc_cc2_to_raw_current_ma(dvc_sign_extend20(raw20)));
     return 1u;
 }
 
 /* 保留 FET 关闭、CAMZ 和新 CC2 检查；软件零点只由持久化 offset 拥有。 */
 uint8_t DVC1124_BootCurrentZeroCalibrate(void)
 {
-    dvc1124_boot_zero_status_t failure = DVC1124_BOOT_ZERO_SAMPLE_IO_ERROR;
-    uint32_t spread;
+#if DVC1124_BOOT_ZERO_ENABLE
+    int32_t first_ma, second_ma;
 
-    if (s_boot_zero.status != DVC1124_BOOT_ZERO_NOT_ATTEMPTED)
-        return (s_boot_zero.status == DVC1124_BOOT_ZERO_VALID ||
-                s_boot_zero.status == DVC1124_BOOT_ZERO_DISABLED) ? 1u : 0u;
+    if (s_boot_zero_attempted) return s_boot_zero_ok;
+    s_boot_zero_attempted = 1u;
+    if (!dvc_boot_zero_force_all_fets_off() || !DVC1124_StartCadcCalibration() ||
+        !dvc_boot_zero_wait_fresh_cc2() || !dvc_boot_zero_read_sample(&first_ma) ||
+        !dvc_boot_zero_wait_fresh_cc2() || !dvc_boot_zero_read_sample(&second_ma) ||
+        dvc_abs_i32(first_ma) > DVC1124_BOOT_ZERO_MAX_ABS_MA ||
+        dvc_abs_i32(second_ma) > DVC1124_BOOT_ZERO_MAX_ABS_MA)
+        return 0u;
 
-#if !DVC1124_BOOT_ZERO_ENABLE
-    s_boot_zero.status = DVC1124_BOOT_ZERO_DISABLED;
-    dvc_boot_zero_publish_diag();
-    return 1u;
+    s_boot_zero_ok = dvc_abs_i32(second_ma - first_ma) <= DVC1124_BOOT_ZERO_MAX_SPREAD_MA;
+    return s_boot_zero_ok;
 #else
-    memset(&s_boot_zero, 0, sizeof(s_boot_zero));
-    s_boot_zero.status = DVC1124_BOOT_ZERO_IN_PROGRESS;
-    dvc_boot_zero_publish_diag();
-
-    if (!dvc_boot_zero_force_all_fets_off())
-    {
-        s_boot_zero.status = DVC1124_BOOT_ZERO_FET_IO_ERROR;
-        dvc_boot_zero_publish_diag();
-        return 0u;
-    }
-    if (!DVC1124_StartCadcCalibration())
-    {
-        s_boot_zero.status = DVC1124_BOOT_ZERO_CAMZ_ERROR;
-        dvc_boot_zero_publish_diag();
-        return 0u;
-    }
-
-    if (!dvc_boot_zero_wait_fresh_cc2() ||
-        !dvc_boot_zero_read_sample(&s_boot_zero.raw_sample1_ma,
-                                   &s_boot_zero.calibrated_sample1_ma,
-                                   &failure))
-    {
-        s_boot_zero.status = failure;
-        dvc_boot_zero_publish_diag();
-        return 0u;
-    }
-    s_boot_zero.sample_count = 1u;
-
-    if (!dvc_boot_zero_wait_fresh_cc2() ||
-        !dvc_boot_zero_read_sample(&s_boot_zero.raw_sample2_ma,
-                                   &s_boot_zero.calibrated_sample2_ma,
-                                   &failure))
-    {
-        s_boot_zero.status = failure;
-        dvc_boot_zero_publish_diag();
-        return 0u;
-    }
-    s_boot_zero.sample_count = 2u;
-
-    if ((dvc_abs_i32(s_boot_zero.calibrated_sample1_ma) > DVC1124_BOOT_ZERO_MAX_ABS_MA) ||
-        (dvc_abs_i32(s_boot_zero.calibrated_sample2_ma) > DVC1124_BOOT_ZERO_MAX_ABS_MA))
-    {
-        s_boot_zero.status = DVC1124_BOOT_ZERO_OUT_OF_RANGE;
-        dvc_boot_zero_publish_diag();
-        return 0u;
-    }
-
-    spread = dvc_abs_i32(s_boot_zero.calibrated_sample2_ma -
-                         s_boot_zero.calibrated_sample1_ma);
-    s_boot_zero.spread_ma = (uint16_t)((spread > 65535u) ? 65535u : spread);
-    if (spread > DVC1124_BOOT_ZERO_MAX_SPREAD_MA)
-    {
-        s_boot_zero.status = DVC1124_BOOT_ZERO_UNSTABLE;
-        dvc_boot_zero_publish_diag();
-        return 0u;
-    }
-
-    /* 旧诊断槽保留为零，不能再次扣除残差而抵消客户保存的 offset。 */
-    s_boot_zero.learned_offset_ma = 0;
-    s_boot_zero.status = DVC1124_BOOT_ZERO_VALID;
-    dvc_boot_zero_publish_diag();
     return 1u;
 #endif
 }
@@ -1276,7 +1151,8 @@ void DVC1124_AFE_Reset(void)
     (void)DVC1124_WriteRegisters(DVC1124_REG_STATUS, &cmd, 1u); /* 配置值：CST=1101。 */
     dvc_delay_ms(DVC1124_RESET_SETTLE_MS);
     memset(&s_snapshot, 0, sizeof(s_snapshot));
-    memset(&s_boot_zero, 0, sizeof(s_boot_zero));
+    s_boot_zero_attempted = 0u;
+    s_boot_zero_ok = 0u;
     memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples));
     s_balance_last_refresh_ms = bms_time_ms();
     s_need_config = 1u;
@@ -1309,22 +1185,18 @@ static uint8_t DVC1124_AFE_IsReady(void)
 void DVC1124_UpdataAfeConfig(void)
 {
     uint8_t ok;
-    bms_diag_boot_word(25u, DIAG_STARTED);
 
     /* AFE 通道使用以 D008 实际装配配置为准。 */
     if (!DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT))
     {
-        bms_diag_boot_word(25u, DIAG_INVALID);
 
         return;
     }
-    if (DVC1124_AFE_IsReady() != 0u) { bms_diag_boot_word(25u, DIAG_INVALID); return; }
+    if (DVC1124_AFE_IsReady() != 0u) {  return; }
 
     ok = dvc_apply_basic_config();
     if (ok) ok = dvc_apply_protection_from_params();
     if (ok) ok = DVC1124_ApplyProjectOperatingConfig();
-    if (ok) ok = bms_afe_register_config_apply();
-    bms_diag_boot_word(25u, ok ? DIAG_OK : DIAG_INVALID);
     if (ok)
     {
         s_need_config = 0u;
@@ -1357,7 +1229,7 @@ static void dvc_publish_current_report(int32_t current_ma)
     else g_bms_report.discharge_current_a10 = (uint16_t)a10;
 }
 
-/* 完整读取后发布电流；时间戳表示 MCU 接受本轮测量的时间。 */
+/* 对外时间戳仍记录接受本轮的时间；反向放行只用 CC2F 对应的时刻。 */
 static void dvc_publish_current_measurement(const uint8_t *data, uint32_t now)
 {
     uint32_t raw20;
@@ -1374,6 +1246,10 @@ static void dvc_publish_current_measurement(const uint8_t *data, uint32_t now)
 
     dvc_publish_current_report(current_ma);
 
+    if (s_snapshot.current_fresh) {
+        s_snapshot.current_seen = 1u;
+        s_snapshot.current_time_ms = now;
+    }
     s_snapshot.sample_time_ms = now;
     s_snapshot.sample_tick_32k = bms_time_now_32k();
 }
@@ -1480,8 +1356,10 @@ bms_afe_sample_status_t DVC1124_App_AFEGet(void)
 
     /* 初始化未完整成功时不消费测量；guard 负责输出禁止和有界恢复。 */
     if (s_need_config) return result;
-    if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES))
+    if (!DVC1124_ReadRegisters(DVC1124_REG_ALARM, data, DVC_MEAS_BYTES)) {
+        s_snapshot.current_seen = 0u;
         return BMS_AFE_SAMPLE_READ_ERROR;
+    }
 
     /* 完整 CRC 校验通过后才发布；事件仅用于具体保护的恢复，不控制采样健康。 */
     s_snapshot.voltage_fresh = (data[DVC1124_REG_STATUS] & DVC1124_STATUS_VADF_MASK) != 0u;
@@ -1661,10 +1539,16 @@ uint8_t DVC1124_ApplyProjectOperatingConfig(void)
     return ok ? 1u : 0u;
 }
 
-/* 直接查询唯一有效 CC2 缓存；等待新转换时保留方向，失效或复位后返回零。 */
+uint8_t DVC1124_CurrentQualified(const dvc1124_snapshot_t *snapshot, uint32_t now_ms)
+{
+    return snapshot->valid && snapshot->current_seen &&
+        (uint32_t)(now_ms - snapshot->current_time_ms) <= DVC_CURRENT_MAX_AGE_MS;
+}
+
+/* 正常转换间隔内可使用缓存的方向；超过 400 ms 或 CRC 失败立即撤销资格。 */
 uint8_t bms_afe_driver_get_direction_allow_mask(void)
 {
-    if (!s_snapshot.valid) return 0u;
+    if (!DVC1124_CurrentQualified(&s_snapshot, bms_time_ms())) return 0u;
     if (s_snapshot.current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)
         return BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK;
     if (s_snapshot.current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA)

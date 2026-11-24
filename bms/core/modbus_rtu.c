@@ -3,8 +3,6 @@
  * 路径。
  * bms/core/modbus_rtu.c；实际编译归属见各产品 sources.txt。
  */
-#include "bms_debug_log.h"
-#include "bms_diag.h"
 #include "bms_sleep_status.h"
 #include "bms_product.h"
 #include "modbus_rtu.h"
@@ -14,7 +12,6 @@
 #include "bms_sw_protection.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_afe_hw_access.h"
-#include "bms_afe_registers.h"
 #include "bms_parameter_access.h"
 #include "bms_config_store.h"
 #include "bms_afe_hw_modbus.h"
@@ -131,7 +128,6 @@ static u16 afe_hw_profile_read_reg(u16 reg, const bms_afe_hw_profile_t *profile,
  */
 static u8 afe_hw_profile_write_block(const u8 *pdata, u16 qty)
 {
-    if (bms_afe_register_debug_held()) return MB_EX_DEVICE_FAILURE;
     switch (bms_afe_hw_profile_commit_be(pdata, qty))
     {
     case BMS_AFE_HW_ERROR_NONE:       return 0u;
@@ -159,20 +155,10 @@ static int dvc_comm_is_semantic(u16 reg)
             reg < (u16)(DVC1124_COMM_REG_BASE + DVC1124_COMM_REG_COUNT));
 }
 
-/* 判断地址是否属于 DVC 原始寄存器窗口。 */
-static int dvc_comm_is_raw(u16 reg)
-{
-    return (reg >= DVC1124_RAW_REG_BASE &&
-            reg < (u16)(DVC1124_RAW_REG_BASE + DVC1124_RAW_REG_COUNT));
-}
-
-/* 读取允许的 DVC 语义或原始配置字段。 */
+/* 读取允许的 DVC 语义配置字段。 */
 static u16 dvc_comm_read(u16 reg)
 {
     u32 value;
-#if BMS_DVC_RAW_DIAG_ENABLE
-    u8 raw;
-#endif
     dvc1124_config_result_t result;
 
     if (dvc_comm_is_semantic(reg))
@@ -184,16 +170,6 @@ static u16 dvc_comm_read(u16 reg)
         return (u16)value;
     }
 
-#if BMS_DVC_RAW_DIAG_ENABLE
-    if (dvc_comm_is_raw(reg))
-    {
-        result = DVC1124_ConfigServiceReadRaw(
-            (u8)(reg - DVC1124_RAW_REG_BASE),
-            &raw);
-        return (result == DVC1124_CFG_OK) ? raw : 0xFFFFu;
-    }
-
-#endif
 
     return 0xFFFFu;
 }
@@ -232,17 +208,6 @@ static u8 dvc_comm_write(u16 reg, u16 val)
         return dvc_result_to_modbus_exception(result);
     }
 
-#if BMS_DVC_RAW_DIAG_ENABLE
-    if (dvc_comm_is_raw(reg))
-    {
-        if (val > 0xFFu) return MB_EX_ILLEGAL_VALUE;
-        result = DVC1124_ConfigServiceWriteRaw(
-            (u8)(reg - DVC1124_RAW_REG_BASE),
-            (u8)val);
-        return dvc_result_to_modbus_exception(result);
-    }
-
-#endif
 
     return MB_EX_ILLEGAL_ADDRESS;
 }
@@ -281,7 +246,6 @@ static int modbus_exception(u8 addr,
 {
     u16 crc;
 
-    BMS_LOG(BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_MODBUS_EXCEPTION, func, exception);
     if (addr == 0x00u) return 0;
 
     rsp[0] = addr;
@@ -301,7 +265,7 @@ static int read_reg(u16 reg, u16 *value)
         uint8_t c, d;
         uint8_t driver = 0u;
         uint8_t driver_valid = bms_afe_get_fet_status(&driver);
-        uint16_t guard = bms_afe_get_guard_diagnostic_bits();
+        uint16_t guard = bms_afe_get_output_status();
         bms_afe_get_requested_fets(&c, &d);
         switch (reg-BMS_MOS_CONTROL_BASE) {
         case 0: *value = BMS_MOS_CONTROL_MAGIC; break;
@@ -310,14 +274,14 @@ static int read_reg(u16 reg, u16 *value)
         case 3: *value = (bms_afe_get_remote_allowed_mask() >> 1) & 1u; break;
         case 4: *value = driver; break;
         case 5: *value = (driver_valid &&
-            (guard & DIAG_GUARD_SAMPLES_QUALIFIED)) ? 1u : 0u; break;
+            (guard & BMS_AFE_STATUS_SAMPLES_QUALIFIED)) ? 1u : 0u; break;
         case 6: *value = guard; break;
         case 7: *value = (uint16_t)(c | (d << 1)); break;
         default: *value = 0u; break;
         }
         return 1;
     }
-    if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg)) {
+    if (dvc_comm_is_semantic(reg)) {
         *value = dvc_comm_read(reg);
         return 1;
     }
@@ -414,7 +378,7 @@ static u8 write_reg(u16 reg, u16 val)
             ? 0u : MB_EX_DEVICE_FAILURE;
     }
     if (afe_hw_profile_is_reg(reg)) return MB_EX_ILLEGAL_ADDRESS;
-    if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
+    if (dvc_comm_is_semantic(reg))
         return dvc_comm_write(reg, val);
 
     if (reg==BMS_PARAM_REG_SOC || reg==BMS_PARAM_REG_CAPACITY || reg==BMS_PARAM_REG_CYCLE ||
@@ -475,14 +439,13 @@ static int modbus_read_holding(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
 
     if ((u32)reg + qty > 65536u)
         return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-    if (bms_debug_log_overlaps(reg, qty)) {
-        if (!bms_debug_log_read(reg, qty, &rsp[3]))
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
+    /* 旧客户端从签名、版本和 0x0040 能力发现生产休眠窗口。 */
+    if (reg >= 0x2A00u && (u32)reg + qty <= 0x2A03u) {
+        static const u16 discovery[] = {0x4447u, 1u, BMS_SLEEP_STATUS_CAPABILITY};
+        for (i = 0u; i < qty; ++i)
+            put_u16be(&rsp[3u + 2u * i], discovery[reg - 0x2A00u + i]);
     } else if (bms_sleep_status_overlaps(reg, qty)) {
         if (!bms_sleep_status_read(reg, qty, &rsp[3]))
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-    } else if (bms_diag_overlaps(reg, qty)) {
-        if (!bms_diag_read(reg, qty, &rsp[3]))
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
     } else if (reg == BMS_EVENT_LOG_REG_BASE && qty <= BMS_EVENT_LOG_REG_COUNT) {
         for (i = 0u; i < qty; ++i)
@@ -553,7 +516,7 @@ static int modbus_write_single(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
     val = u16be(&req[4]);
     if (addr == 0u && reg >= BMS_MOS_CONTROL_BASE && reg < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT)
         return 0; /* 多设备广播不得切换 MOS。 */
-    if (bms_sleep_status_overlaps(reg, 1u) || bms_diag_overlaps(reg, 1u) || bms_debug_log_overlaps(reg, 1u))
+    if (bms_sleep_status_overlaps(reg, 1u))
         return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
     if (reg >= 0x2100u && reg <= 0x2140u) {
         candidate = g_bms_protection_params;
@@ -587,8 +550,7 @@ static int modbus_write_multiple(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_l
     if (req_len < 9u) return 0;
     reg = u16be(&req[2]);
     qty = u16be(&req[4]);
-    if ((u32)reg + qty > 65536u || bms_sleep_status_overlaps(reg, qty) ||
-        bms_diag_overlaps(reg, qty) || bms_debug_log_overlaps(reg, qty))
+    if ((u32)reg + qty > 65536u || bms_sleep_status_overlaps(reg, qty))
         return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
     bytecnt = req[6];
 
@@ -660,7 +622,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     crc_rx = (u16)(((u16)req[req_len - 1u] << 8) | req[req_len - 2u]);
     crc = mb_crc16(req, req_len - 2u);
     if (crc != crc_rx) {
-        BMS_LOG(BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_CRC_REJECT, req_len, ((uint32_t)crc << 16) | crc_rx);
         return 0;
     }
 
@@ -668,10 +629,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     func = req[1];
 
     /* 调试冻结期间只开放读取和专用寄存器会话，避免其它参数写入改变恢复基线。 */
-    if (bms_afe_register_debug_held() && (func == 0x06u || func == 0x10u)) {
-        if (addr == 0u) return 0;
-        return modbus_exception(addr, func, MB_EX_DEVICE_FAILURE, rsp, rsp_len);
-    }
 
     if (func == BMS_AFE_HW_ACCESS_MODBUS_FUNC)
     {

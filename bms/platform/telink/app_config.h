@@ -41,7 +41,6 @@
 #endif
 
 // 功能配置
-#include "bms_debug_log_config.h"
 
 #define BLE_APP_PM_ENABLE								1
 #define PM_DEEPSLEEP_RETENTION_ENABLE					0
@@ -66,37 +65,37 @@
 
 // 调试配置
 #ifndef DEBUG_GPIO_ENABLE
-#define DEBUG_GPIO_ENABLE                    (BMS_PRODUCTION_BUILD ? 0 : 1)
+#define DEBUG_GPIO_ENABLE                    0
 #endif
 #ifndef UART_PRINT_DEBUG_ENABLE
 #define UART_PRINT_DEBUG_ENABLE              0
 #endif
 #ifndef APP_LOG_EN
-#define APP_LOG_EN                           (BMS_PRODUCTION_BUILD ? 0 : 1)
+#define APP_LOG_EN                           0
 #endif
 #ifndef APP_SMP_LOG_EN
 #define APP_SMP_LOG_EN                       0
 #endif
 #ifndef APP_KEY_LOG_EN
-#define APP_KEY_LOG_EN                       (BMS_PRODUCTION_BUILD ? 0 : 1)
+#define APP_KEY_LOG_EN                       0
 #endif
 #ifndef APP_CONTR_EVENT_LOG_EN
-#define APP_CONTR_EVENT_LOG_EN               (BMS_PRODUCTION_BUILD ? 0 : 1)
+#define APP_CONTR_EVENT_LOG_EN               0
 #endif
 #ifndef APP_HOST_EVENT_LOG_EN
-#define APP_HOST_EVENT_LOG_EN                (BMS_PRODUCTION_BUILD ? 0 : 1)
+#define APP_HOST_EVENT_LOG_EN                0
 #endif
 #ifndef APP_OTA_LOG_EN
-#define APP_OTA_LOG_EN                       (BMS_PRODUCTION_BUILD ? 0 : 1)
+#define APP_OTA_LOG_EN                       0
 #endif
 #ifndef APP_FLASH_INIT_LOG_EN
-#define APP_FLASH_INIT_LOG_EN                (BMS_PRODUCTION_BUILD ? 0 : 1)
+#define APP_FLASH_INIT_LOG_EN                0
 #endif
 #ifndef APP_FLASH_PROT_LOG_EN
-#define APP_FLASH_PROT_LOG_EN                (BMS_PRODUCTION_BUILD ? 0 : 1)
+#define APP_FLASH_PROT_LOG_EN                0
 #endif
 #ifndef APP_BATT_CHECK_LOG_EN
-#define APP_BATT_CHECK_LOG_EN                (BMS_PRODUCTION_BUILD ? 0 : 1)
+#define APP_BATT_CHECK_LOG_EN                0
 #endif
 
 // OTA 稳定性
@@ -170,19 +169,14 @@
 	#endif
 #endif
 
-#ifndef BMS_DIAG_BUILD_ID
-#define BMS_DIAG_BUILD_ID 0u
-#endif
-#ifndef BMS_DIAG_BUILD_DIRTY
-#define BMS_DIAG_BUILD_DIRTY 0
-#endif
+#include "bms_build_identity.h"
 
 #if BMS_PRODUCTION_BUILD
     #if defined(BMS_HOST_TEST) && BMS_HOST_TEST
         #error "Production firmware must disable BMS_HOST_TEST"
     #endif
-	#if (BMS_DIAG_BUILD_ID == 0u)
-		#error "Production build requires a nonzero Git diagnostic build ID"
+	#if (BMS_BUILD_ID == 0u)
+		#error "Production build requires a nonzero Git build ID"
 	#endif
 	#ifdef __TEST_SOC__
 		#error "Production build forbids __TEST_SOC__ command hooks"

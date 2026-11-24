@@ -52,6 +52,8 @@ typedef struct
     uint8_t fet_status;          /* R6 CHGF/DSGF，与 R1 CST/RC 事件严格分开。 */
     uint8_t voltage_fresh;      /* 本轮 VADF，仅供电压保护恢复。 */
     uint8_t current_fresh;      /* 本轮 CC2F，仅供电流保护恢复。 */
+    uint8_t current_seen;
+    uint32_t current_time_ms;
     uint32_t sample_time_ms;
     uint32_t sample_tick_32k;    /* MCU 完整读取时刻，SDK 32K 时钟的 32 位回绕值。 */
     int32_t raw_current_ma;     /* 软件工厂校准之前的值。 */
@@ -60,31 +62,7 @@ typedef struct
     uint16_t rpu_ohm;
 } dvc1124_snapshot_t;
 
-typedef enum
-{
-    DVC1124_BOOT_ZERO_NOT_ATTEMPTED = 0u,
-    DVC1124_BOOT_ZERO_IN_PROGRESS = 1u,
-    DVC1124_BOOT_ZERO_VALID = 2u,
-    DVC1124_BOOT_ZERO_DISABLED = 3u,
-    DVC1124_BOOT_ZERO_FET_IO_ERROR = 4u,
-    DVC1124_BOOT_ZERO_FET_ACTIVE = 5u,
-    DVC1124_BOOT_ZERO_CAMZ_ERROR = 6u,
-    DVC1124_BOOT_ZERO_SAMPLE_IO_ERROR = 7u,
-    DVC1124_BOOT_ZERO_OUT_OF_RANGE = 8u,
-    DVC1124_BOOT_ZERO_UNSTABLE = 9u
-} dvc1124_boot_zero_status_t;
-
-typedef struct
-{
-    dvc1124_boot_zero_status_t status;
-    uint8_t sample_count;
-    int32_t learned_offset_ma;      /* 旧诊断槽保留为零；不再叠加 RAM 软件零点。 */
-    int32_t raw_sample1_ma;         /* 持久化工厂校准之前的值。 */
-    int32_t raw_sample2_ma;
-    int32_t calibrated_sample1_ma;  /* 已应用持久化 offset/gain。 */
-    int32_t calibrated_sample2_ma;
-    uint16_t spread_ma;
-} dvc1124_boot_zero_diag_t;
+uint8_t DVC1124_CurrentQualified(const dvc1124_snapshot_t *snapshot, uint32_t now_ms);
 
 #define DVC1124_FIXED_WRITE_ADDR             0x40u
 #define DVC1124_HARDWIRE_BASE_WRITE_ADDR     0xC0u

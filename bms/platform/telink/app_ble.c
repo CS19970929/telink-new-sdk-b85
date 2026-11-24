@@ -33,7 +33,6 @@
 #include "bus_mux.h"
 #include "ble_ota.h"
 #include "app_att.h"
-#include "bms_debug_log.h"
 #include "bms_state.h"
 #include "bms_afe_hw_access.h"
 #include "bms_storage_platform.h"
@@ -81,10 +80,6 @@ static void ble_build_adv_scanrsp(void);
 #define APP_CONN_LATENCY_NORMAL 99
 #define APP_CONN_LATENCY_OTA 0
 
-#if BMS_DEBUG_LOG_ENABLE || (defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE)
-static volatile u32 s_debug_suspend_exits;
-u32 app_ble_suspend_exit_count(void) { return s_debug_suspend_exits; }
-#endif
 
 _attribute_data_retention_ u8 ota_is_working = 0;
 _attribute_data_retention_ own_addr_type_t app_own_address_type = OWN_ADDRESS_PUBLIC;
@@ -273,9 +268,6 @@ static void task_connect(u8 e, u8 *p, int n)
 static void task_suspend_exit(u8 e, u8 *p, int n)
 {
     bus_mux_suspend_exit((p && n > 0) ? p[0] : 0u);
-#if BMS_DEBUG_LOG_ENABLE || (defined(BMS_SOC_BOARD_TEST_ENABLE) && BMS_SOC_BOARD_TEST_ENABLE)
-    ++s_debug_suspend_exits; /* 此处不写环形缓存、不读 tick、不格式化、不执行 I/O。 */
-#endif
 	(void)e;
 	(void)p;
 	(void)n;

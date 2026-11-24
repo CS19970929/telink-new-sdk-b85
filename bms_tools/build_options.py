@@ -118,7 +118,7 @@ DEFAULT_INPUTS = ("bms/products/bms_battery_defaults.h", "bms/core/bms_parameter
                   "bms/core/bms_soc_defs.h", "bms/core/bms_soc_profile.h", "bms/core/bms_soc_profile.c",
                   "bms/core/bms_soc.h", "bms/core/bms_state_store.c", "bms/core/bms_state.h",
                   "bms/app/bms_features.h", "bms/core/bms_update_policy.h",
-                  "bms/core/bms_afe_register_policy.h")
+                  "bms/core/bms_build_identity.h")
 
 
 def _text(path: Path) -> str:

@@ -7,7 +7,6 @@
 #define BMS_AFE_H_
 #include <stdint.h>
 #include "bms_product.h"
-#include "bms_diag_config.h"
 #include "bms_timing.h"
 /* 初始化 guard 与选定后端，完整测量和配置验证前禁止输出。 */
 void bms_afe_init(void);
@@ -57,6 +56,8 @@ uint8_t bms_afe_test_wake(void);
 typedef struct {
     int32_t raw_current_ma;
     int32_t current_ma; /* mA：正放电，负充电 */
+    uint8_t current_qualified;
+    uint8_t voltage_fresh;
     uint8_t voltage_check_active;
     uint8_t voltage_calibration_valid; /* 本轮主动检查完成且未检出异常；普通通信成功不足以置位。 */
     uint32_t sample_time_ms;
@@ -90,10 +91,13 @@ uint8_t bms_afe_set_balance_mask(uint32_t cell_mask, const uint32_t *known_actua
 /* 读取当前后端均衡状态掩码。 */
 uint8_t bms_afe_get_balance_mask(uint32_t *cell_mask);
 /* 取得输出禁止、通信隔离和恢复阶段诊断位。 */
-uint16_t bms_afe_get_guard_diagnostic_bits(void);
-#if BMS_SERVICE_DIAG_ENABLE
-/* 从选定后端刷新开发诊断，遵守总线静默门禁。 */
-void bms_afe_diag_poll(void);
-#endif
+enum {
+    BMS_AFE_STATUS_OUTPUT_ENABLED = 1u,
+    BMS_AFE_STATUS_COMM_INHIBIT = 2u,
+    BMS_AFE_STATUS_BUS_SILENCED = 4u,
+    BMS_AFE_STATUS_FAULT_LATCHED = 8u,
+    BMS_AFE_STATUS_SAMPLES_QUALIFIED = 16u
+};
+uint16_t bms_afe_get_output_status(void);
 
 #endif

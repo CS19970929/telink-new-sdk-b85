@@ -616,7 +616,7 @@ def _effective_extra_defines() -> str:
         _selected_build_options()
     except ValueError as exc:
         _die(str(exc))
-    reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE|BMS_D008_SCD_POLICY_APPROVED|BMS_PRODUCT_RELEASE_APPROVED)(?:\b)"
+    reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_BUILD_ID|BMS_BUILD_DIRTY|D008_PRODUCT_PROFILE|BMS_D008_SCD_POLICY_APPROVED|BMS_PRODUCT_RELEASE_APPROVED)(?:\b)"
     if re.search(reserved, extra):
         _die("Build identity/mode/profile are owned by bms.py; use --production / --d008-profile")
     build_id, dirty = _firmware_git_build_id(), _firmware_git_dirty()
@@ -626,11 +626,7 @@ def _effective_extra_defines() -> str:
         if D008_PROFILE is None:
             _die("D008 production requires a supported assembly profile")
     flags = [extra, f"-DBMS_PRODUCTION_BUILD={int(PRODUCTION)}",
-             f"-DBMS_DIAG_BUILD_ID={build_id}", f"-DBMS_DIAG_BUILD_DIRTY={dirty}"]
-    # 停顿取证只适用于 D014/B85。统一传给所有 TU，不按产品头包含先后选择默认。
-    # 保留 D014 已选择的开发取证及显式覆盖；非法开启仍由 C 编译门禁拒绝。
-    if not re.search(r"(?:-D|-U)\s*BMS_STALL_DIAG_ENABLE\b", extra):
-        flags.append("-DBMS_STALL_DIAG_ENABLE=0")
+             f"-DBMS_BUILD_ID={build_id}", f"-DBMS_BUILD_DIRTY={dirty}"]
     if D008_PROFILE:
         flags.append(f"-DD008_PRODUCT_PROFILE={PROFILE_IDS[D008_PROFILE]}")
     return " ".join(x for x in flags if x)

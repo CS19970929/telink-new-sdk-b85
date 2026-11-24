@@ -21,15 +21,12 @@ bms/platform/telink/app_att.c
 bms/platform/telink/ble_ota.c
 bms/core/bms_afe_guard.c
 bms/core/bms_afe_hw_access.c
-bms/core/bms_afe_registers.c
 bms/core/bms_afe_hw_profile.c
 bms/platform/telink/bms_board.c
 bms/core/bms_config_store.c
 bms/core/bms_sleep_config.c
 bms/core/bms_sleep_status.c
 bms/core/bms_soc_profile.c
-bms/core/bms_debug_log.c
-bms/core/bms_diag.c
 bms/core/bms_event_log.c
 bms/app/bms_features.c
 bms/core/bms_parameter_access.c
@@ -45,7 +42,6 @@ bms/afe/dvc1124/dvc1124_config_service.c
 bms/afe/dvc1124/dvc1124_boot.c
 bms/afe/dvc1124/dvc1124_special.c
 bms/platform/telink/main.c
-bms/platform/telink/bms_stack_monitor.c
 bms/core/modbus_rtu.c
 bms/platform/telink/modbus_uart.c
 bms/core/bms_parameters.c
@@ -101,7 +97,6 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/app/usbcdc.c
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/app/usbkb.c
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/application/app/usbmouse.c
 bms/platform/telink/bms_time.c
-bms/platform/telink/bms_stall_diag.c
 bms/core/bms_crc.c
 bms/core/bms_serial_ota.c
 bms/platform/telink/bms_serial_ota_telink.c

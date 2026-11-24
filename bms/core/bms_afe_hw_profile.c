@@ -5,7 +5,6 @@
  */
 #include "bms_afe_hw_profile.h"
 #include "bms_afe.h"
-#include "bms_afe_registers.h"
 #include "bms_afe_hw_access.h"
 #include "bms_product.h"
 #include "bms_config_store.h"
@@ -274,7 +273,7 @@ static u8 bms_afe_hw_profile_set(const bms_afe_hw_profile_t *p)
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *p)
 {
     bms_afe_hw_profile_t requested;
-    if (p == 0 || bms_afe_register_debug_held() || !bms_afe_hw_profile_get(&requested)) return 0u;
+    if (p == 0 || !bms_afe_hw_profile_get(&requested)) return 0u;
     *p = requested;
 
     {

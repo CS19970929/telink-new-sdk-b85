@@ -8,7 +8,6 @@
 #include <string.h>
 #include "bms_afe_hw_profile.h"
 #include "bms_crc.h"
-#include "bms_afe_registers.h"
 
 static u16 s_token;
 static u32 s_last_activity_ms;
@@ -129,8 +128,6 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
     u16 crc_calc;
     u8 command;
     u8 payload[12];
-    u8 payload_length;
-    u8 register_status;
     u16 token;
 
     if (req == 0 || rsp == 0 || rsp_len == 0) return 0;
@@ -143,8 +140,8 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
 
     command = req[2];
     if (command == 0x10u) {
-        register_status = bms_afe_register_command(req, req_len, payload, &payload_length);
-        return access_response(req[0], command, register_status, payload, payload_length, rsp, rsp_len);
+        return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_UNSUPPORTED,
+                               0, 0u, rsp, rsp_len);
     }
     if (command == BMS_AFE_HW_ACCESS_CMD_OPEN)
     {
@@ -174,12 +171,9 @@ int bms_afe_hw_access_modbus_on_frame(const u8 *req,
         return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_AUTH_REQUIRED, 0, 0u, rsp, rsp_len);
     }
     if (command >= 0x10u) {
-        register_status = bms_afe_register_command(req, req_len, payload, &payload_length);
-        return access_response(req[0], command, register_status, payload, payload_length, rsp, rsp_len);
+        return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_UNSUPPORTED,
+                               0, 0u, rsp, rsp_len);
     }
-    if (bms_afe_register_debug_held() &&
-        (command == BMS_AFE_HW_ACCESS_CMD_STAGE || command == BMS_AFE_HW_ACCESS_CMD_COMMIT))
-        return access_response(req[0], command, BMS_AFE_HW_ACCESS_STATUS_BAD_REQUEST, 0, 0u, rsp, rsp_len);
     if (command == BMS_AFE_HW_ACCESS_CMD_STAGE) {
         u8 count;
         u8 i;

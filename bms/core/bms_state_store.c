@@ -3,7 +3,6 @@
  * 管理缓存、变化保存和恢复默认入口。
  * bms/core/bms_state_store.c；实际编译归属见各产品 sources.txt。
  */
-#include "bms_diag.h"
 #include "bms_update_policy.h"
 #include "bms_state_store.h"
 #include "bms_product.h"
@@ -145,15 +144,14 @@ int bms_state_store_init(void)
     uint8_t payload[BMS_STATE_PAYLOAD_BYTES];
     bms_state_persist_t next;
     if (g_bms_state_ready) return 1;
-    bms_diag_attempt(BMS_STORAGE_DOMAIN_STATE);
     if (g_bms_state_last_failed &&
-        (uint32_t)(bms_time_ms() - g_bms_state_last_attempt_ms) < BMS_STORAGE_RETRY_INTERVAL_MS) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_BACKOFF); return 0; }
+        (uint32_t)(bms_time_ms() - g_bms_state_last_attempt_ms) < BMS_STORAGE_RETRY_INTERVAL_MS) {  return 0; }
     port = bms_storage_platform_port();
-    if (port == 0) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_PORT); goto invalid; }
+    if (port == 0) {  goto invalid; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region)) { goto invalid; }
     if (!g_bms_state_store.ready && !storage_record_open(&g_bms_state_store, port, region, BMS_STATE_RECORD_MAGIC,
                              BMS_STATE_SCHEMA_VERSION, BMS_STATE_PAYLOAD_BYTES)) {
-        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OPEN); goto invalid;
+         goto invalid;
     }
     /* 首次加载后的写失败沿用已验证缓存与底层失败游标，不能重扫后反复擦同一扇区。 */
     if (!s_state_loaded) {
@@ -163,10 +161,10 @@ int bms_state_store_init(void)
         } else {
             storage_record_store_t legacy;
             uint8_t current_status = g_bms_state_store.load_status;
-            if (current_status == STORAGE_RECORD_LOAD_IO_ERROR) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid; }
+            if (current_status == STORAGE_RECORD_LOAD_IO_ERROR) {  goto invalid; }
             /* 仅导入当前 ST4，绝不把任意旧格式或损坏记录当作默认值。 */
             memset(&legacy, 0, sizeof(legacy));
-            if (!storage_record_open(&legacy, port, region, BMS_STATE_LEGACY_MAGIC, 4u, BMS_STATE_LEGACY_BYTES)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OPEN); goto invalid; }
+            if (!storage_record_open(&legacy, port, region, BMS_STATE_LEGACY_MAGIC, 4u, BMS_STATE_LEGACY_BYTES)) {  goto invalid; }
             if (storage_record_load(&legacy, payload)) {
                 uint32_t sector = (legacy.latest_addr - region.base) / port->erase_size;
                 bms_state_decode(&g_bms_state, payload, 1u);
@@ -181,8 +179,7 @@ int bms_state_store_init(void)
                 s_migration_pending = 1u;
             } else if (current_status == STORAGE_RECORD_LOAD_EMPTY && legacy.load_status == STORAGE_RECORD_LOAD_EMPTY) {
                 bms_state_defaults(&g_bms_state);
-                bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_DEFAULTS);
-            } else { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid; }
+            } else {  goto invalid; }
         }
         s_state_loaded = g_bms_state.soc <= 100u && g_bms_state.dsg <= 100u &&
             g_bms_state.cycle <= 65535u && g_bms_state.full_confirmed <= 1u &&
@@ -195,12 +192,11 @@ int bms_state_store_init(void)
     }
     if (next.soc > 100u || next.dsg > 100u || next.cycle > 65535u || next.full_confirmed > 1u ||
         (next.full_confirmed && next.soc < 99u) || (!next.full_confirmed && next.full_basis)) {
-        bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_INVALID); goto invalid;
+         goto invalid;
     }
-    if (!bms_state_save(&next)) { bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_SAVE); return 0; }
+    if (!bms_state_save(&next)) {  return 0; }
     g_bms_state_last_attempt_ms = bms_time_ms();
     g_bms_state_ready = 1u;
-    bms_diag_result(BMS_STORAGE_DOMAIN_STATE, DIAG_OK);
     return 1;
 invalid:
     g_bms_state_last_failed = 1u;

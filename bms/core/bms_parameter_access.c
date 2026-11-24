@@ -4,7 +4,6 @@
  */
 #include "bms_parameter_access.h"
 #include "bms_product.h"
-#include "bms_diag.h"
 #include "bms_update_policy.h"
 #include "bms_config_store.h"
 #include "bms_sleep_config.h"
@@ -238,7 +237,7 @@ static u8 switch_chemistry(const u8 *data, u16 qty)
     /* 读取当前死区用于静置门禁；完整类型/曲线与保护只提交一条 Config。 */
     bms_config_get_soc_profile(&previous_profile);
     if (!bms_protection_params_valid() || !bms_afe_bus_access_allowed() ||
-        !(bms_afe_get_guard_diagnostic_bits() & DIAG_GUARD_SAMPLES_QUALIFIED) ||
+        !(bms_afe_get_output_status() & BMS_AFE_STATUS_SAMPLES_QUALIFIED) ||
         !bms_afe_get_aux_measurements(&sample) ||
         !bms_soc_profile_valid(&previous_profile) ||
         sample.current_ma > (int32_t)previous_profile.current_deadband_ma ||

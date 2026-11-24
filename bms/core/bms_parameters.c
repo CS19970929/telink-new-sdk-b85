@@ -3,7 +3,6 @@
  * 或更新；当前 OTA 依据镜像内的更新范围和一次性标记。
  * bms/core/bms_parameters.c；实际编译归属见各产品 sources.txt。
  */
-#include "bms_diag.h"
 #include "bms_parameters.h"
 #include "bms_error.h"
 #include "bms_sw_protection.h"
@@ -26,11 +25,9 @@ uint8_t bms_protection_params_valid(void)
 static void parameters_load_protection(void)
 {
     s_protection_params_valid = 0u;
-    bms_diag_boot_word(26u, DIAG_STARTED);
 
     /* 启动资格入口已经尝试 Config；这里只读缓存，失败不重试 I/O 或写回默认。 */
     if (!bms_config_store_get_protect(&g_bms_protection_params)) {
-        bms_diag_boot_word(26u, DIAG_INVALID);
         bms_config_store_get_default_protect(&g_bms_protection_params);
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
@@ -41,11 +38,9 @@ static void parameters_load_protection(void)
      * 但发现旧/损坏记录不能将无关客户参数全换默认。
      */
     if (!bms_sw_protection_validate_params(&g_bms_protection_params)) {
-        bms_diag_boot_word(26u, DIAG_INVALID);
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return;
     }
-    bms_diag_boot_word(26u, DIAG_OK);
     s_protection_params_valid = 1u;
 }
 
@@ -93,10 +88,6 @@ static void parameters_validate_storage_startup(void)
     s_storage_startup_valid = config_valid;
     if (!config_valid || !state_valid || !event_valid)
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
-    if (!config_valid) return; /* 保留 Config 自身诊断，在线提交不能解除启动失败。 */
-    if (!state_valid) bms_diag_upgrade(DIAG_UPGRADE_STATE, 0u);
-    else if (!event_valid) bms_diag_upgrade(DIAG_UPGRADE_EVENT, 0u);
-    else bms_diag_upgrade(DIAG_UPGRADE_OK, 0u);
 }
 
 /* 只在启动调用；先确定持久域资格，再加载保护，失败门禁不由在线提交清除。 */
@@ -113,11 +104,3 @@ uint8_t bms_parameters_reload_configuration(void)
     parameters_load_protection();
     return s_protection_params_valid && bms_soc_reload_configuration();
 }
-
-/* 刷新业务参数与启动门禁诊断快照。 */
-#if BMS_SERVICE_DIAG_ENABLE
-void bms_parameters_diag_poll(void)
-{
-    bms_diag_params(s_protection_params_valid, s_storage_startup_valid);
-}
-#endif

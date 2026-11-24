@@ -3,7 +3,6 @@
  * 硬件动作交给 backend。
  * bms/app/bms_features.c；实际编译归属见各产品 sources.txt。
  */
-#include "bms_debug_log.h"
 #include "bms_features.h"
 #include "bms_config_store.h"
 
@@ -39,9 +38,6 @@ typedef struct {
     uint16_t balance_block_reasons;
     uint8_t balance_prev_cell_count;
     uint16_t balance_prev_cell_mv[BMS_AFE_FEATURE_MAX_CELLS];
-#if BMS_DEBUG_LOG_ENABLE
-    uint32_t balance_requested_mask;
-#endif
 #endif
 } bms_feature_state_t;
 
@@ -294,14 +290,8 @@ static uint8_t apply_balance_mask(uint32_t desired, const uint32_t *known_actual
 {
     uint32_t actual;
 
-#if BMS_DEBUG_LOG_ENABLE
-    if (s_feature.balance_requested_mask != desired)
-        BMS_LOG(BMS_LOG_INFO, BMS_LOG_FEATURE, BMS_LOG_BALANCE_REQUEST, s_feature.balance_requested_mask, desired);
-    s_feature.balance_requested_mask = desired;
-#endif
     if (!bms_afe_set_balance_mask(desired, known_actual))
     {
-        BMS_LOG(BMS_LOG_ERROR, BMS_LOG_FEATURE, BMS_LOG_BALANCE_RESULT, desired, UINT32_MAX);
         if (!bms_error_get(BMS_ERROR_BALANCE)) bms_error_raise(BMS_ERROR_BALANCE);
         if (bms_afe_get_balance_mask(&actual)) publish_balance(actual);
         s_feature.balance_off_pending = 1u;
@@ -594,9 +584,6 @@ void bms_features_init(void)
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_block_reasons = BMS_BALANCE_BLOCK_SAMPLE;
     s_feature.balance_prev_cell_count = 0u;
-#if BMS_DEBUG_LOG_ENABLE
-    s_feature.balance_requested_mask = 0u;
-#endif
 #endif
     /* prev_cell_count 为零时不读旧数组；完整有效帧才建立新基线。 */
 #if BMS_FEATURE_HEATER_SUPPORTED
@@ -658,9 +645,6 @@ void bms_features_stop(void)
     s_feature.heater_off_hot_samples = 0u;
 #endif
 #if BMS_FEATURE_BALANCE_SUPPORTED
-#if BMS_DEBUG_LOG_ENABLE
-    s_feature.balance_requested_mask = 0u;
-#endif
     s_feature.balance_off_pending = 1u;
     s_feature.balance_trust_samples = 0u;
     s_feature.balance_block_reasons = BMS_BALANCE_BLOCK_SAMPLE;

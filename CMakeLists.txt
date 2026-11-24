@@ -7,8 +7,6 @@ add_library(bms_core STATIC
     bms/core/storage_record.c
     bms/core/bms_soc_eta.c
     bms/core/bms_state.c
-    bms/core/bms_debug_log.c
-    bms/core/bms_diag.c
     bms/core/bms_sw_protection.c
     bms/core/bms_crc.c
     bms/core/bms_afe_hw_access.c

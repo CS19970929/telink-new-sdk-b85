@@ -3,14 +3,6 @@
 #define BMS_AFE_DRIVER_H_
 #include "bms_afe.h"
 
-/* 固定芯片语义，不属于用户参数，也不进入业务持久记录。 */
-typedef struct {
-    uint32_t failsafe_wait_ms;
-    uint8_t reset_protection_before_init;
-    uint8_t sleep_holds_bus;
-} bms_afe_driver_policy_t;
-extern const bms_afe_driver_policy_t bms_afe_driver_policy;
-
 void bms_afe_driver_init(void);
 /* 恢复前关闭并回读功率控制（含自主反向通路）及均衡；不是物理 Gate 测量。 */
 uint8_t bms_afe_driver_prepare_recovery(void);
@@ -41,8 +33,4 @@ uint8_t bms_afe_driver_set_balance_mask(uint32_t cell_mask, const uint32_t *know
 uint8_t bms_afe_driver_get_balance_mask(uint32_t *cell_mask);
 
 void bms_afe_publish_fet_status(uint8_t driver_bits, uint8_t valid);
-#if BMS_SERVICE_DIAG_ENABLE
-/* 仅诊断读取；总线静默与主动休眠需要不同的阻断原因。 */
-uint8_t bms_afe_shutdown_held(void);
-#endif
 #endif

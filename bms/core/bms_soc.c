@@ -6,10 +6,8 @@
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_parameters.h"
-#include "bms_diag.h"
 #include <string.h>
 
-#define BMS_SOC_DIAG_STATE_ENABLE (BMS_SERVICE_DIAG_ENABLE || BMS_SOC_BOARD_TEST_ENABLE)
 #define SOC_INTEGRAL_PERIOD_MS BMS_SAMPLE_PERIOD_MS
 #define SOC_PERCENT_MAX 100u
 #define SOC_CAPACITY_UNITS_PER_FACTORY 3600u
@@ -37,14 +35,6 @@ typedef struct {
     uint8_t previous_full, previous_empty, full_consumed, empty_consumed, uvp_consumed;
     uint8_t soc_low_active[3], endpoint_state, ocv_high;
     uint16_t soc_low_count[3];
-#if BMS_SOC_DIAG_STATE_ENABLE
-    bms_soc_eta_t eta;
-    uint16_t ocv_mv;
-    uint8_t ocv_center, ocv_low, ocv_confidence, ocv_state, endpoint_event_flags;
-    uint8_t last_sample_state, last_integral_direction, last_soc_action;
-    uint8_t last_soc_before, last_soc_after, last_soc_target, last_decision_detail;
-    uint32_t last_sample_elapsed_32k, last_integral_delta_as10;
-#endif
 } soc_runtime_t;
 
 bms_soc_state_t g_bms_soc;
@@ -53,9 +43,6 @@ static soc_runtime_t g_soc_runtime;
 static int32_t g_soc_integral_remainder;
 static int32_t g_soc_input_current_ma;
 static uint32_t g_soc_sample_ms, g_soc_strategy_pending_ms, g_soc_display_ms;
-#if BMS_SOC_DIAG_STATE_ENABLE
-static uint32_t g_soc_sample_tick_32k;
-#endif
 static uint8_t g_soc_input_valid, g_soc_initialized;
 static uint8_t s_check_requested, s_check_seen_active;
 static soc_integral_dir_t g_soc_last_active_dir;
@@ -71,36 +58,6 @@ static uint32_t add_to_limit(uint32_t value, uint32_t elapsed, uint32_t limit)
 { return elapsed >= limit - value ? limit : value + elapsed; }
 
 /* 记录 SOC 输入样本资格与时序诊断。 */
-#if BMS_SOC_DIAG_STATE_ENABLE
-static void soc_diag_note_sample(uint8_t state, soc_integral_dir_t dir,
-                                 uint32_t elapsed_32k)
-{
-    uint8_t soc = get_soc_real();
-    g_soc_runtime.last_sample_state = state;
-    g_soc_runtime.last_integral_direction = (uint8_t)dir;
-    g_soc_runtime.last_sample_elapsed_32k = elapsed_32k;
-    g_soc_runtime.last_integral_delta_as10 = 0u;
-    g_soc_runtime.last_soc_action = BMS_SOC_ACTION_NONE;
-    g_soc_runtime.last_soc_before = soc;
-    g_soc_runtime.last_soc_after = soc;
-    g_soc_runtime.last_soc_target = soc;
-    g_soc_runtime.last_decision_detail = 0u;
-}
-
-/* 记录 SOC 校正或锚定动作及原因。 */
-static void soc_diag_note_action(uint8_t action, uint8_t before,
-                                 uint8_t target, uint8_t detail)
-{
-    g_soc_runtime.last_soc_action = action;
-    g_soc_runtime.last_soc_before = before;
-    g_soc_runtime.last_soc_after = get_soc_real();
-    g_soc_runtime.last_soc_target = target;
-    g_soc_runtime.last_decision_detail = detail;
-}
-#else
-#define soc_diag_note_sample(...) ((void)0)
-#define soc_diag_note_action(...) ((void)0)
-#endif
 
 uint8_t bms_soh_from_cycle(uint16_t cycle)
 {
@@ -188,10 +145,6 @@ static void soc_reset_ocv_tracking(void)
     g_soc_runtime.rest_started = 0u;
     g_soc_runtime.ocv_correction_ms = 0u;
     memset(g_soc_runtime.minute_sum, 0, sizeof(g_soc_runtime.minute_sum));
-#if BMS_SOC_DIAG_STATE_ENABLE
-    g_soc_runtime.ocv_state = BMS_SOC_OCV_WAIT_CURRENT;
-    g_soc_runtime.ocv_confidence = 0u;
-#endif
 }
 
 static void soc_reset_voltage_confirmation(void)
@@ -210,9 +163,6 @@ static void soc_invalidate_sample_interval(void)
     soc_reset_ocv_tracking();
     soc_reset_voltage_confirmation();
     /* 暂时无样本不抹掉过去已确认的满电证据，也不补算盲区。 */
-#if BMS_SOC_DIAG_STATE_ENABLE
-    bms_soc_eta_reset(&g_soc_runtime.eta);
-#endif
     memset(g_soc_runtime.soc_low_count, 0, sizeof(g_soc_runtime.soc_low_count));
 }
 
@@ -442,10 +392,6 @@ static void soc_integrate(uint32_t elapsed_ms)
         }
         g_bms_soc.discharge_fraction_percent = (uint8_t)discharged;
     }
-    soc_diag_note_action(BMS_SOC_ACTION_INTEGRATE, before, get_soc_real(), 0u);
-#if BMS_SOC_DIAG_STATE_ENABLE
-    g_soc_runtime.last_integral_delta_as10 = delta < 0 ? (uint32_t)-delta : (uint32_t)delta;
-#endif
 }
 
 static uint8_t soc_cells_valid(const bms_soc_sample_t *sample, uint16_t *mean_mv)
@@ -491,8 +437,6 @@ static void soc_apply_endpoint(uint8_t full)
     soc_reset_integral_accumulator();
     soc_update_percent();
     g_soc_runtime.endpoint_state = full ? BMS_SOC_ENDPOINT_CONFIRMED_FULL : BMS_SOC_ENDPOINT_CONFIRMED_EMPTY;
-    soc_diag_note_action(full ? BMS_SOC_ACTION_FULL_ANCHOR : BMS_SOC_ACTION_FORCED_EMPTY,
-                         before, full ? 100u : 0u, 0u);
 }
 
 static uint8_t soc_endpoints(const bms_soc_sample_t *sample, soc_integral_dir_t dir, uint32_t elapsed)
@@ -567,11 +511,6 @@ static uint8_t soc_ocv_upper(uint16_t mv)
         }
     }
     if (band < g_soc_profile->ocv_min_error_band_percent) band = g_soc_profile->ocv_min_error_band_percent;
-#if BMS_SOC_DIAG_STATE_ENABLE
-    g_soc_runtime.ocv_mv = mv;
-    g_soc_runtime.ocv_center = (uint8_t)center;
-    g_soc_runtime.ocv_low = center > band ? (uint8_t)(center - band) : 0u;
-#endif
     return center + band > 100u ? 100u : (uint8_t)(center + band);
 }
 
@@ -635,17 +574,10 @@ static void soc_ocv(const bms_soc_sample_t *sample, uint16_t mean, uint32_t elap
     }
     stable = soc_ocv_window(sample, elapsed);
     g_soc_runtime.rest_ms = add_to_limit(g_soc_runtime.rest_ms, elapsed, BMS_SOC_OCV_REST_MS);
-#if BMS_SOC_DIAG_STATE_ENABLE
-    g_soc_runtime.ocv_state = BMS_SOC_OCV_PREPARE;
-#endif
     if (g_soc_runtime.rest_ms < BMS_SOC_OCV_REST_MS || !stable) {
         g_soc_runtime.ocv_correction_ms = 0u; return;
     }
     g_soc_runtime.ocv_high = soc_ocv_upper(mean);
-#if BMS_SOC_DIAG_STATE_ENABLE
-    g_soc_runtime.ocv_state = BMS_SOC_OCV_READY;
-    g_soc_runtime.ocv_confidence = 25u; /* 工程模型，非统计置信度。 */
-#endif
     target = (g_bms_soc.effective_capacity_as10 * g_soc_runtime.ocv_high + 99u) / 100u;
     if (g_bms_soc.remaining_capacity_as10 <= target) {
         g_soc_runtime.ocv_correction_ms = 0u; return;
@@ -662,86 +594,11 @@ static void soc_ocv(const bms_soc_sample_t *sample, uint16_t mean, uint32_t elap
         (void)before;
         g_bms_soc.remaining_capacity_as10 -= delta;
         soc_update_percent();
-        soc_diag_note_action(BMS_SOC_ACTION_OCV_DOWN, before, g_soc_runtime.ocv_high, 0u);
     }
-#if BMS_SOC_DIAG_STATE_ENABLE
-    g_soc_runtime.ocv_state = BMS_SOC_OCV_CORRECT_DOWN;
-#endif
 }
 /* 取得 SOC 运行诊断快照。 */
-#if BMS_SERVICE_DIAG_ENABLE
-void bms_soc_get_diag(bms_soc_diag_t *diag)
-{
-    uint32_t rest_s;
-    if (diag == 0) return;
-    memset(diag, 0, sizeof(*diag)); /* 原学习诊断槽保留，恒为零。 */
-    if (g_soc_profile == 0) soc_profile_refresh();
-    rest_s = g_soc_runtime.rest_ms / 1000u;
-    if (rest_s > 65535u) rest_s = 65535u;
-
-    diag->chemistry = g_soc_profile->chemistry;
-    diag->profile_id = g_soc_profile->profile_id;
-    diag->profile_version = g_soc_profile->profile_version;
-    diag->soc_estimate = g_bms_soc.soc_estimate_percent;
-    diag->soc_display = (uint8_t)g_bms_report.soc.soc_percent;
-    diag->current_deadband_ma = g_soc_profile->current_deadband_ma;
-    diag->ocv_state = g_soc_runtime.ocv_state;
-    diag->ocv_center = g_soc_runtime.ocv_center;
-    diag->ocv_low = g_soc_runtime.ocv_low;
-    diag->ocv_high = g_soc_runtime.ocv_high;
-    diag->ocv_confidence = g_soc_runtime.ocv_confidence;
-    diag->ocv_cell_mv = g_soc_runtime.ocv_mv;
-    diag->rest_seconds = (uint16_t)rest_s;
-    diag->nominal_capacity_0p1ah = (uint16_t)(g_bms_soc.nominal_capacity_as10 /
-                                               SOC_CAPACITY_UNITS_PER_FACTORY);
-    diag->effective_capacity_0p1ah = (uint16_t)(g_bms_soc.effective_capacity_as10 /
-                                                 SOC_CAPACITY_UNITS_PER_FACTORY);
-    diag->remaining_capacity_0p1ah = (uint16_t)(g_bms_soc.remaining_capacity_as10 /
-                                                 SOC_CAPACITY_UNITS_PER_FACTORY);
-    diag->endpoint_state = g_soc_runtime.endpoint_state;
-    diag->endpoint_event_flags = g_soc_runtime.endpoint_event_flags;
-    diag->filtered_current_ma = g_soc_runtime.eta.eta_filtered_current_ma;
-    diag->current_variation_ma = (g_soc_runtime.eta.eta_variation_ma > 65535u) ?
-        65535u : (uint16_t)g_soc_runtime.eta.eta_variation_ma;
-    diag->time_to_empty_min = g_soc_runtime.eta.time_to_empty_min;
-    diag->time_to_full_min = g_soc_runtime.eta.time_to_full_min;
-    diag->eta_state = g_soc_runtime.eta.eta_state;
-    diag->eta_direction = g_soc_runtime.eta.eta_direction;
-    diag->eta_confidence = g_soc_runtime.eta.eta_confidence;
-    diag->eta_valid = (g_soc_runtime.eta.eta_state == BMS_SOC_ETA_VALID);
-    diag->soh = g_bms_soc.soh;
-    diag->soh_source = BMS_SOC_SOH_SOURCE_ESTIMATED_CYCLE;
-    diag->soh_confidence = 25u; /* 循环经验估算，不是实测容量。 */
-    diag->last_sample_state = g_soc_runtime.last_sample_state;
-    diag->last_integral_direction = g_soc_runtime.last_integral_direction;
-    diag->last_soc_action = g_soc_runtime.last_soc_action;
-    diag->last_soc_before = g_soc_runtime.last_soc_before;
-    diag->last_soc_after = g_soc_runtime.last_soc_after;
-    diag->last_soc_target = g_soc_runtime.last_soc_target;
-    diag->last_decision_detail = g_soc_runtime.last_decision_detail;
-    diag->last_sample_elapsed_32k = g_soc_runtime.last_sample_elapsed_32k;
-    diag->last_integral_delta_as10 = g_soc_runtime.last_integral_delta_as10;
-}
-#endif
 
 /* 用当前有效容量、电流和方向更新剩余时间。 */
-#if BMS_SOC_DIAG_STATE_ENABLE
-static void soc_eta_update(const bms_soc_sample_t *sample, soc_integral_dir_t dir)
-{
-    bms_soc_eta_input_t input;
-    input.current_ma = g_soc_input_current_ma;
-    input.remaining_as10 = g_bms_soc.remaining_capacity_as10;
-    input.full_as10 = g_bms_soc.effective_capacity_as10;
-    input.deadband_ma = g_soc_profile->current_deadband_ma;
-    if (input.deadband_ma < BMS_CURRENT_UNRELIABLE_MAX_MA)
-        input.deadband_ma = BMS_CURRENT_UNRELIABLE_MAX_MA;
-    input.direction = dir == SOC_INTEGRAL_DIR_CHG ? BMS_SOC_ETA_DIR_CHARGE :
-        (dir == SOC_INTEGRAL_DIR_DSG ? BMS_SOC_ETA_DIR_DISCHARGE : BMS_SOC_ETA_DIR_NONE);
-    input.endpoint_active = g_soc_runtime.endpoint_state != BMS_SOC_ENDPOINT_NORMAL;
-    input.near_full = sample->cell_max_mv + g_soc_profile->full_min_margin_mv >= g_soc_profile->full_sync_mv;
-    bms_soc_eta_update(&g_soc_runtime.eta, &input);
-}
-#endif
 
 /* 将低 SOC 保护延时转换为确认样本数。 */
 static uint16_t soc_fault_filter_samples(void)
@@ -818,43 +675,29 @@ static void soc_update_low_faults(void)
 void bms_soc_process_sample(const bms_soc_sample_t *sample)
 {
     uint32_t elapsed, voltage_elapsed;
-#if BMS_SOC_DIAG_STATE_ENABLE
-    uint32_t elapsed_32k = 0u;
-#endif
     uint16_t mean = 0u;
     uint8_t voltage_ready;
     soc_integral_dir_t dir;
     if (!sample || !g_soc_initialized || !sample->sample_valid) {
-        soc_diag_note_sample(BMS_SOC_SAMPLE_INVALID, SOC_INTEGRAL_DIR_NONE, 0u);
         soc_invalidate_sample_interval(); return;
     }
     soc_profile_refresh();
     if (!g_soc_input_valid) {
         g_soc_sample_ms = sample->timestamp_ms;
-#if BMS_SOC_DIAG_STATE_ENABLE
-        g_soc_sample_tick_32k = sample->timestamp_32k;
-#endif
         g_soc_input_current_ma = sample->current_ma;
         g_soc_input_valid = 1u;
-        soc_diag_note_sample(BMS_SOC_SAMPLE_FIRST, SOC_INTEGRAL_DIR_NONE, 0u);
         return;
     }
     elapsed = sample->timestamp_ms - g_soc_sample_ms;
-    if (!elapsed) { soc_diag_note_sample(BMS_SOC_SAMPLE_DUPLICATE, soc_current_direction(0), 0u); return; }
+    if (!elapsed) {  return; }
     g_soc_sample_ms = sample->timestamp_ms;
-#if BMS_SOC_DIAG_STATE_ENABLE
-    elapsed_32k = sample->timestamp_32k - g_soc_sample_tick_32k;
-    g_soc_sample_tick_32k = sample->timestamp_32k;
-#endif
     g_soc_input_current_ma = sample->current_ma;
     if (elapsed > BMS_SOC_MAX_SAMPLE_GAP_MS) {
         soc_invalidate_sample_interval();
         g_soc_input_valid = 1u; /* 当前有效帧成为新的起点。 */
-        soc_diag_note_sample(BMS_SOC_SAMPLE_GAP, SOC_INTEGRAL_DIR_NONE, elapsed_32k);
         return;
     }
     dir = soc_current_direction(0);
-    soc_diag_note_sample(BMS_SOC_SAMPLE_ACCEPTED, dir, elapsed_32k);
     soc_integrate(elapsed); /* 不使用电压、温度或方向死区屏蔽有效电流。 */
     voltage_ready = soc_cells_valid(sample, &mean) && g_soc_profile->profile_version == BMS_SOC_POLICY_VERSION;
     g_soc_runtime.endpoint_state = BMS_SOC_ENDPOINT_NORMAL;
@@ -879,144 +722,7 @@ void bms_soc_process_sample(const bms_soc_sample_t *sample)
     while (g_soc_strategy_pending_ms >= SOC_INTEGRAL_PERIOD_MS) {
         g_soc_strategy_pending_ms -= SOC_INTEGRAL_PERIOD_MS;
         soc_update_low_faults();
-#if BMS_SOC_DIAG_STATE_ENABLE
-        soc_eta_update(sample, dir);
-#endif
     }
     soc_display_follow(elapsed);
     SOC_Result_Pass();
 }
-
-#if BMS_SOC_BOARD_TEST_ENABLE
-/* 使用实板 AFE/调度时间；仅在 SOC 入口替换物理量，AFE 保护与 MOS 不使用这些值。
- * 每段约 20 秒，结果保留 RAM，避免 PC 轮询漏掉 200 ms 样本。 */
-static const int32_t s_board_currents_ma[] = {
-    0, 199, -199, 200, -200, 201, -201, 3000, -3000, 20000, -20000, -3000,
-    -3000, -3000
-};
-#define SOC_BOARD_CASE_COUNT 14u
-#define SOC_BOARD_CASE_TICKS (20u * 32000u)
-static uint16_t s_board_words[SOC_BOARD_CASE_COUNT][20];
-static bms_soc_state_t s_board_saved_soc;
-static uint32_t s_board_started_tick;
-static uint32_t s_board_suspend_count, s_board_suspend_start;
-static uint8_t s_board_started, s_board_case, s_board_saved_display;
-
-static void board_put32(uint16_t *words, uint32_t value)
-{
-    words[0]=(uint16_t)value; words[1]=(uint16_t)(value>>16);
-}
-
-static uint32_t board_get32(const uint16_t *words)
-{
-    return (uint32_t)words[0] | ((uint32_t)words[1]<<16);
-}
-
-uint8_t bms_soc_board_test_active(void)
-{
-    return s_board_started && s_board_case < SOC_BOARD_CASE_COUNT;
-}
-
-void bms_soc_board_test_suspend_exits(uint32_t count)
-{
-    s_board_suspend_count=count;
-}
-
-uint8_t bms_soc_board_test_keep_awake(void)
-{
-    return bms_soc_board_test_active() && s_board_case != 0u && s_board_case != 11u;
-}
-
-void bms_soc_board_test_prepare(bms_soc_sample_t *sample, uint32_t observation_tick_32k)
-{
-    uint16_t *record;
-    uint8_t new_case=0u;
-    if (!s_board_started) {
-        if (!sample->sample_valid || !sample->voltage_valid) return;
-        s_board_saved_soc=g_bms_soc;
-        s_board_saved_display=(uint8_t)g_bms_report.soc.soc_percent;
-        s_board_started=1u;
-        new_case=1u;
-    } else if (s_board_case < SOC_BOARD_CASE_COUNT &&
-               (uint32_t)(observation_tick_32k-s_board_started_tick) >= SOC_BOARD_CASE_TICKS) {
-        s_board_words[s_board_case][0] |= 1u;
-        ++s_board_case;
-        new_case=1u;
-    }
-    if (!bms_soc_board_test_active()) {
-        if (new_case) {
-            g_bms_soc=s_board_saved_soc;
-            soc_invalidate_sample_interval();
-            soc_reset_integral_accumulator();
-            set_dispsoc(s_board_saved_display);
-            SOC_Result_Pass();
-        }
-        return;
-    }
-    record=s_board_words[s_board_case];
-    if (new_case) {
-        s_board_started_tick=observation_tick_32k;
-        s_board_suspend_start=s_board_suspend_count;
-        set_soc_param(50u);
-        record[0]=bms_soc_board_test_keep_awake() ? 2u : 0u;
-        board_put32(&record[2],(uint32_t)s_board_currents_ma[s_board_case]);
-        board_put32(&record[4],sample->timestamp_32k);
-        board_put32(&record[8],g_bms_soc.remaining_capacity_as10);
-    }
-    sample->current_ma=s_board_currents_ma[s_board_case];
-    /* 中段电压与清除 SOC 锚点输入只用于测纯积分，真实报告/硬件保护不变。 */
-    sample->cell_min_mv=3300u; sample->cell_max_mv=3310u; sample->cell_delta_mv=10u;
-    sample->third_cell_ovp=0u; sample->third_cell_uvp=0u; sample->third_pack_uvp=0u;
-    if (s_board_case == 12u || s_board_case == 13u) {
-        /* 在 SOC 输入中验证单串过压不等于整包满电，不修改真实保护报告。 */
-        sample->third_cell_ovp=1u;
-        sample->cell_min_mv=(s_board_case == 12u) ? 3300u : 3500u;
-        sample->cell_max_mv=(s_board_case == 12u) ? 3700u : 3510u;
-        sample->cell_delta_mv=sample->cell_max_mv-sample->cell_min_mv;
-    }
-    sample->cell_count = BMS_PRODUCT_CELL_COUNT;
-    for (uint8_t i = 0u; i < sample->cell_count; ++i) sample->cell_mv[i] = sample->cell_min_mv;
-    sample->cell_mv[sample->cell_count - 1u] = sample->cell_max_mv;
-
-}
-
-void bms_soc_board_test_note(void)
-{
-    uint16_t *record;
-    uint8_t state;
-    if (!bms_soc_board_test_active()) return;
-    record=s_board_words[s_board_case];
-    if (record[1] != 0xFFFFu) ++record[1];
-    board_put32(&record[6],g_soc_sample_tick_32k);
-    board_put32(&record[10],g_bms_soc.remaining_capacity_as10);
-    state=g_soc_runtime.last_sample_state;
-    if (state==BMS_SOC_SAMPLE_ACCEPTED || state==BMS_SOC_SAMPLE_DIRECTION_CHANGE) ++record[12];
-    if (state==BMS_SOC_SAMPLE_GAP) {
-        ++record[13];
-        board_put32(&record[16],board_get32(&record[16])+g_soc_runtime.last_sample_elapsed_32k);
-    }
-    if (state==BMS_SOC_SAMPLE_DUPLICATE) ++record[14];
-    if (state==BMS_SOC_SAMPLE_INVALID) ++record[15];
-    board_put32(&record[18],s_board_suspend_count-s_board_suspend_start);
-}
-
-uint16_t bms_soc_board_test_word(uint16_t offset)
-{
-    if (offset>=16u+SOC_BOARD_CASE_COUNT*20u) return 0u;
-    if (offset>=16u) return s_board_words[(offset-16u)/20u][(offset-16u)%20u];
-    switch (offset) {
-    case 0u:return 0x5342u;
-    case 1u:return 1u;
-    case 2u:return s_board_case;
-    case 3u:return SOC_BOARD_CASE_COUNT;
-    case 4u:return 20u;
-    case 5u:return 20u;
-    case 6u:return bms_soc_board_test_active();
-    case 7u:return bms_soc_board_test_keep_awake();
-    case 8u:return (uint16_t)BMS_DIAG_BUILD_ID;
-    case 9u:return (uint16_t)(BMS_DIAG_BUILD_ID>>16);
-    case 10u:return s_board_saved_soc.soc_estimate_percent;
-    default:return 0u;
-    }
-}
-#endif

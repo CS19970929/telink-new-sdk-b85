@@ -3,9 +3,9 @@
 #include "drivers.h"
 #include "stack/ble/ble.h"
 #include "app.h"
-#include "bms_diag.h"
 #include "bms_time.h"
 #include "bms_serial_ota.h"
+#include "bms_build_identity.h"
 #include "modbus_uart.h"
 #include "flash_store_cfg.h"
 
@@ -74,7 +74,7 @@ int bms_serial_ota_flash_write(uint32_t address, const uint8_t *data, uint32_t l
 void bms_serial_ota_running_image(uint32_t *build, uint32_t *crc)
 {
     uint32_t size, running = ota_program_offset ? 0u : ota_program_bootAddr;
-    *build = BMS_DIAG_BUILD_ID;
+    *build = BMS_BUILD_ID;
     *crc = 0u;
     flash_read_page(running + 0x18u, 4u, (uint8_t *)&size);
     if (size >= 64u && size <= BMS_SERIAL_OTA_SLOT_BYTES)

@@ -24,7 +24,6 @@
  *          limitations under the License.
  *
  *******************************************************************************************************/
-#include "bms_debug_log.h"
 #include "bms_product.h"
 #include "tl_common.h"
 #include "drivers.h"
@@ -32,11 +31,8 @@
 #include "app_config.h"
 #include "app.h"
 #include "app_power.h"
-#include "bms_stall_diag.h"
 #include "modbus_uart.h"
 #include "bms_afe.h"
-#include "bms_afe_registers.h"
-#include "bms_diag.h"
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_soc.h"
@@ -70,7 +66,6 @@ uint8_t deepsleep_en;
 static u8 s_command_seen;
 static u32 s_command_ms;
 /* 诊断字段保留，0表示普通Suspend不再按电流阻断；采样仍为200ms。 */
-#define APP_SUSPEND_CURRENT_THRESHOLD_MA 0u
 /* 策略时间由 Core 推进；提交标志只由应用一次性硬件收尾拥有。 */
 typedef bms_sleep_status_t app_sleep_status_t;
 typedef bms_sleep_policy_t app_protective_sleep_t;
@@ -129,7 +124,6 @@ static void app_prepare_deep_sleep(void)
 /* 命令及到期保护性休眠不受通信、OTA、保存或 AFE 命令成功与否阻断。 */
 static void app_enter_protective_sleep(void)
 {
-    bms_stall_diag_deep_commit();
     s_protective_sleep_committed = 1u;
     app_prepare_deep_sleep();
     bms_sleep_status_committed();
@@ -153,7 +147,6 @@ static u8 app_command_sleep_poll(void)
     if (elapsed < APP_COMMAND_REPLY_MS &&
         (uart_tx_is_busy() || modbus_uart_tx_active() ||
          (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u))) return 0u;
-    BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, 1u, 1u);
     app_enter_protective_sleep();
     return 1u;
 }
@@ -255,39 +248,13 @@ int app_power_before_suspend(void)
 {
     if (s_protective_sleep_committed) return 1;
     if (s_acc_sleep_committed) return 1;
-#if defined(BMS_PRODUCT_NORMAL_SUSPEND_ENABLE) && !BMS_PRODUCT_NORMAL_SUSPEND_ENABLE
-    return 0; /* D014止血：即使SDK许可意外开启，也不允许普通Suspend。 */
-#else
-    if (!s_low_power_mode || bms_afe_register_debug_held() || app_sample_is_due() ||
+    if (!s_low_power_mode || app_sample_is_due() ||
         ota_is_working || !app_flash_lock_restore_enabled()) return 0;
-#if defined(BMS_PRODUCT_SUSPEND_GUARD_US) && BMS_PRODUCT_SUSPEND_GUARD_US
-#if BMS_PRODUCT_SUSPEND_GUARD_US >= APP_SAMPLE_PERIOD_US
-#error "Suspend guard must leave room within the 200 ms sample period"
-#endif
-    /* 旧B85库在本回调之前检查期限（原厂@896）；回调后的GPIO布防耗时
-     * 不能沿用旧检查。先过滤短期限，末尾完成全部布防后再检查一次。
-     * SDK期限可能早于采样期限，且其运行时min不能被3ms工程门限削弱。 */
-    uint32_t prepare_start = clock_time();
-    uint32_t deadline = bls_pm_getSystemWakeupTick();
-    uint32_t guard_us = BMS_PRODUCT_SUSPEND_GUARD_US;
-    uint32_t prepare_end;
-    int32_t remaining_ticks;
-    if (guard_us < g_pm_early_wakeup_time_us.min) guard_us = g_pm_early_wakeup_time_us.min;
-    bms_stall_diag_prepare_begin(prepare_start, deadline,
-        ((uint32_t)g_pm_early_wakeup_time_us.min << 16) | g_pm_early_wakeup_time_us.suspend);
-    remaining_ticks = (int32_t)(deadline - prepare_start);
-    if (remaining_ticks <= (int32_t)(guard_us * SYSTEM_TIMER_TICK_1US)) {
-        bms_stall_diag_prepare_end(prepare_start, BMS_STALL_PREP_EARLY_VETO);
-        bms_stall_diag_suspend_veto(remaining_ticks);
-        return 0;
-    }
-#endif
     return bus_mux_prepare_suspend();
-#endif
 }
 
 
-/* 四产品普通Suspend均保留通信PAD唤醒，采样期限仍由应用定时器负责。 */
+/* 普通 Suspend均保留通信PAD唤醒，采样期限仍由应用定时器负责。 */
 void task_sleep_enter(u8 e, u8 *p, int n)
 {
     (void)e; (void)p; (void)n;
@@ -304,39 +271,13 @@ void app_power_process(const volatile uint8_t *sample_due)
     u8 valid = bms_afe_get_aux_measurements(&m);
     /* 冻结暂停采样，不暂停强制休眠；无效快照不能撤销已确认的低压/过放。 */
     if (app_protective_sleep_poll(elapsed_sec, &m, valid, &protective)) return;
-    u32 pm_block = 0u;
-#if BMS_SERVICE_DIAG_ENABLE
-    u32 voltage_seconds;
-    u8 region;
-#endif
-    u8 ota_busy = ota_is_working ? 1u : 0u;
-    u8 flash_busy = app_flash_lock_restore_enabled() ? 0u : 1u;
-    u8 bus_busy = bus_mux_suspend_ready() ? 0u : 1u;
-
-#if BMS_SERVICE_DIAG_ENABLE
-    /* 诊断沿用原 2=下档、3=上档编码；业务只保存两项独立资格位。 */
-    region = (s_protective_sleep.voltage_conditions & BMS_SLEEP_VOLTAGE_LOW_ACTIVE) ? 2u :
-        ((s_protective_sleep.voltage_conditions & BMS_SLEEP_VOLTAGE_NORMAL_ACTIVE) ? 3u : 0u);
-    voltage_seconds = (region == 3u) ? s_protective_sleep.normal_voltage_seconds :
-        s_protective_sleep.low_voltage_seconds;
-#endif
-
-    if (!valid || bms_afe_register_debug_held()) pm_block |= DIAG_PM_BLOCK_SAMPLE_INVALID;
-    if (ota_busy) pm_block |= DIAG_PM_BLOCK_OTA;
-    if (flash_busy) pm_block |= DIAG_PM_BLOCK_FLASH;
-    if (bus_busy) pm_block |= DIAG_PM_BLOCK_BUS;
-    if ((*sample_due)) pm_block |= DIAG_PM_BLOCK_SAMPLE_PENDING;
-
     /*
      * 0x1102=0x000A 是锁存关机请求，不是空闲 suspend 提示。
      * 应答等待最多500ms，之后直接提交强制入口；保护性计时已在本入口之前推进。
      */
     if (deepsleep_en)
     {
-        pm_block |= DIAG_PM_BLOCK_POWER_OFF;
-        bms_diag_runtime_pm(0u, pm_block, region, voltage_seconds,
-                            (uint8_t)(device_in_connection_state != 0),
-                            (*sample_due), APP_SUSPEND_CURRENT_THRESHOLD_MA);
+
         if (app_command_sleep_poll()) return;
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
@@ -346,10 +287,7 @@ void app_power_process(const volatile uint8_t *sample_due)
 
     if (app_acc_sleep_requested())
     {
-        pm_block |= DIAG_PM_BLOCK_ACC_SLEEP;
-        bms_diag_runtime_pm(0u, pm_block, region, voltage_seconds,
-                            (uint8_t)(device_in_connection_state != 0),
-                            (*sample_due), APP_SUSPEND_CURRENT_THRESHOLD_MA);
+
         if (app_enter_acc_sleep()) return;
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
@@ -361,22 +299,17 @@ void app_power_process(const volatile uint8_t *sample_due)
      * 充放电不要求持续运行；完成采样与必要事务后可睡到下一期限。
      * 无效数据仍保持运行恢复，不能把通信失败当作空闲。
      */
-    if (pm_block != 0u)
+    if (!valid || *sample_due || ota_is_working ||
+        !app_flash_lock_restore_enabled() || !bus_mux_suspend_ready())
     {
         s_low_power_mode = false;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         if (ota_is_working) bls_pm_setManualLatency(0);
-        bms_diag_runtime_pm(0u, pm_block, region, voltage_seconds,
-                            (uint8_t)(device_in_connection_state != 0),
-                            (*sample_due), APP_SUSPEND_CURRENT_THRESHOLD_MA);
     }
     else
     {
         s_low_power_mode = true;
         bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
-        bms_diag_runtime_pm(1u, 0u, region, voltage_seconds,
-                            (uint8_t)(device_in_connection_state != 0),
-                            (*sample_due), APP_SUSPEND_CURRENT_THRESHOLD_MA);
     }
     app_dvc_publish_sleep(&protective, s_low_power_mode, valid);
 }
@@ -392,10 +325,5 @@ uint8_t app_power_prepare_loop(void)
         app_acc_sleep_hold();
         return 1u;
     }
-#if BMS_SERVICE_DIAG_ENABLE
-    bms_parameters_diag_poll();
-    bms_storage_platform_diag_poll();
-    bms_afe_diag_poll();
-#endif
     return 0u;
 }

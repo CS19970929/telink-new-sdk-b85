@@ -5,7 +5,6 @@
  * 实际编译归属见各产品 sources.txt。
  */
 #include "bms_time.h"
-#include "bms_diag.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_storage_platform.h"
 
@@ -17,27 +16,15 @@
 #include "bms_update_policy.h"
 
 extern u8 ota_is_working;
-#if BMS_SERVICE_DIAG_ENABLE
-static bms_storage_diagnostics_t s_flash_diag;
-#endif
 static u32 s_flash_failure_ms;
 static u8 s_flash_failed;
 
 /* 取得 Flash 操作结果及耗时诊断快照。 */
-#if BMS_SERVICE_DIAG_ENABLE
-void bms_storage_platform_get_diagnostics(bms_storage_diagnostics_t *out)
-{
-    if (out != 0) *out = s_flash_diag;
-}
-#endif
 
 /* 记录写后或擦后验证结果。 */
 static int bms_storage_verify_result(int ok)
 {
     if (!ok) {
-#if BMS_SERVICE_DIAG_ENABLE
-        if (s_flash_diag.verify_failures != 0xFFFFFFFFu) ++s_flash_diag.verify_failures;
-#endif
         s_flash_failed = 1u;
         s_flash_failure_ms = bms_time_ms();
     }
@@ -53,14 +40,6 @@ static int bms_storage_telink_begin(void *ctx)
         !app_flash_lock_restore_enabled() ||
 #endif
         (s_flash_failed && (u32)(bms_time_ms() - s_flash_failure_ms) < BMS_STORAGE_RETRY_INTERVAL_MS)) {
-        uint16_t reason = ota_is_working ? DIAG_OTA : DIAG_BACKOFF;
-#if APP_FLASH_PROTECTION_ENABLE
-        if (!ota_is_working && !app_flash_lock_restore_enabled()) reason = DIAG_LOCK;
-#endif
-        bms_diag_storage_error(reason, 0u);
-#if BMS_SERVICE_DIAG_ENABLE
-        if (s_flash_diag.deferred_writes != 0xFFFFFFFFu) ++s_flash_diag.deferred_writes;
-#endif
         return 0;
     }
     s_flash_failed = 0u;
@@ -92,13 +71,7 @@ static int bms_storage_telink_program(void *ctx,
     uint32_t write_addr = addr;
     const uint8_t *write_buf = buf;
     uint32_t write_len = len;
-#if BMS_SERVICE_DIAG_ENABLE
-    u32 started = pm_get_32k_tick(), elapsed;
-#endif
     int ok;
-#if BMS_SERVICE_DIAG_ENABLE
-    if (s_flash_diag.program_calls != 0xFFFFFFFFu) ++s_flash_diag.program_calls;
-#endif
 
     (void)ctx;
     while (write_len != 0u) {
@@ -111,34 +84,17 @@ static int bms_storage_telink_program(void *ctx,
         write_len -= chunk;
     }
     ok = flash_store_verify_bytes((u32)addr, (const u8 *)buf, (u32)len);
-#if BMS_SERVICE_DIAG_ENABLE
-    elapsed = (u32)(pm_get_32k_tick() - started);
-    if (elapsed > s_flash_diag.max_program_ticks_32k) s_flash_diag.max_program_ticks_32k = elapsed;
-#endif
-    if (!ok) bms_diag_storage_error(DIAG_PROGRAM_VERIFY, addr);
     return bms_storage_verify_result(ok);
 }
 
 /* 按擦除粒度擦除 Flash 并记录结果。 */
 static int bms_storage_telink_erase(void *ctx, uint32_t addr, uint32_t len)
 {
-#if BMS_SERVICE_DIAG_ENABLE
-    u32 started, elapsed;
-#endif
     int ok;
     (void)ctx;
     if ((len != FLASH_SECTOR_SIZE) || ((addr % FLASH_SECTOR_SIZE) != 0u)) return 0;
-#if BMS_SERVICE_DIAG_ENABLE
-    started = pm_get_32k_tick();
-    if (s_flash_diag.erase_calls != 0xFFFFFFFFu) ++s_flash_diag.erase_calls;
-#endif
     flash_erase_sector((u32)addr);
     ok = flash_store_verify_erased((u32)addr, FLASH_SECTOR_SIZE);
-    if (!ok) bms_diag_storage_error(DIAG_ERASE_VERIFY, addr);
-#if BMS_SERVICE_DIAG_ENABLE
-    elapsed = (u32)(pm_get_32k_tick() - started);
-    if (elapsed > s_flash_diag.max_erase_ticks_32k) s_flash_diag.max_erase_ticks_32k = elapsed;
-#endif
     return bms_storage_verify_result(ok);
 }
 
@@ -181,7 +137,6 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
     if (region == 0) return 0;
     /* 出厂清理会覆盖完整业务区；未知容量或不匹配的 OTA 布局禁止写入。 */
     if (bms_ota_factory_reset_requested() && flash_store_cfg_get_legacy_base() == 0u) {
-        bms_diag_result((uint8_t)domain, DIAG_LAYOUT);
         return 0;
     }
     switch (domain) {
@@ -201,7 +156,6 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
         return 0;
     }
     if ((base == 0u) || (sectors < 2u)) {
-        bms_diag_result((uint8_t)domain, flash_store_cfg_layout_supported() ? DIAG_REGION : DIAG_LAYOUT);
         return 0;
     }
     region->base = base;
@@ -210,36 +164,3 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
 }
 
 /* 发布启动阶段的存储分区与操作诊断。 */
-#if BMS_SERVICE_DIAG_ENABLE
-void bms_storage_platform_diag_boot(void)
-{
-    bms_diag_boot_word(14u, bms_afe_hw_profile_expected_model());
-    bms_diag_boot_word(15u, 0x8251u);
-    bms_diag_boot_word(16u, blc_flash_capacity);
-    bms_diag_boot_word(17u, (uint16_t)flash_store_cfg_layout_supported());
-#if BLE_OTA_SERVER_ENABLE
-    bms_diag_boot_u32(18u, blc_ota_getCurrentUsedMultipleBootAddress());
-#else
-    bms_diag_boot_u32(18u, 0xFFFFFFFFu);
-#endif
-    bms_diag_boot_u32(20u, blc_flash_capacity == FLASH_SIZE_512K ? 524288u :
-        blc_flash_capacity == FLASH_SIZE_1M ? 1048576u :
-        blc_flash_capacity == FLASH_SIZE_2M ? 2097152u : 0u);
-    bms_diag_boot_u32(32u, flash_store_cfg_get_config_base());
-    bms_diag_boot_u32(34u, FLASH_ADDR_CONFIG_SECTORS * FLASH_SECTOR_SIZE);
-    bms_diag_boot_u32(48u, flash_store_cfg_get_state_base());
-    bms_diag_boot_u32(50u, FLASH_ADDR_STATE_SECTORS * FLASH_SECTOR_SIZE);
-    bms_diag_boot_u32(80u, flash_store_cfg_get_event_log_base());
-    bms_diag_boot_u32(82u, FLASH_ADDR_EVENT_SECTORS * FLASH_SECTOR_SIZE);
-}
-/* 刷新运行阶段的存储诊断字段。 */
-void bms_storage_platform_diag_poll(void)
-{
-    bms_diag_counter(0u, s_flash_diag.program_calls);
-    bms_diag_counter(1u, s_flash_diag.erase_calls);
-    bms_diag_counter(2u, s_flash_diag.verify_failures);
-    bms_diag_counter(3u, s_flash_diag.deferred_writes);
-    bms_diag_counter(4u, s_flash_diag.max_program_ticks_32k);
-    bms_diag_counter(5u, s_flash_diag.max_erase_ticks_32k);
-}
-#endif

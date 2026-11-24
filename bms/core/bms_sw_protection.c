@@ -2,7 +2,6 @@
  * 文件功能：软件三级保护滤波；边界采集 const 输入，私有 Third 负责软件 MOS 阻断。
  * bms/core/bms_sw_protection.c；实际编译归属见各产品 sources.txt。
  */
-#include "bms_debug_log.h"
 #include "bms_sw_protection.h"
 
 #include "bms_error.h"
@@ -525,9 +524,6 @@ void bms_sw_protection_record_fault_edges(void)
         BMS_SW_RISE(mos_otp, 10u);
         BMS_SW_RISE(cell_delta_high, 11u);
 #undef BMS_SW_RISE
-        if (prev->all != now->all)
-            BMS_LOG(BMS_LOG_INFO, BMS_LOG_PROTECT, BMS_LOG_PROTECTION_EDGE,
-                    level + 1u, ((uint32_t)prev->all << 16) | now->all);
         *prev = *now;
     }
 }

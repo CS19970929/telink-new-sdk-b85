@@ -3,7 +3,6 @@
  * bms/platform/telink/modbus_uart.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_time.h"
-#include "bms_debug_log.h"
 #include "bms_product.h"
 
 #include "modbus_uart.h"
@@ -31,7 +30,6 @@ typedef char modbus_dma_packet_size_must_be_272[
 #define MODBUS_UART_BWPC 13u
 #define MODBUS_UART_RECOVERY_US (1000u * 1000u)
 
-volatile bms_rs485_tx_diag_t g_bms_rs485_tx_diag;
 
 static volatile u8 s_rx_ready = 0u;
 static mb_dma_pkt_t s_rx_pkt;
@@ -165,8 +163,6 @@ u8 modbus_uart_send(const u8 *p, u32 len)
     /* uart_send_dma() 无条件重启 DMA，禁止覆盖其使用中的缓冲区。 */
     if (uart_tx_is_busy())
     {
-        ++g_bms_rs485_tx_diag.tx_busy_reject_count;
-        BMS_LOG(BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_TX_BUSY, len, g_bms_rs485_tx_diag.tx_busy_reject_count);
         return 0u;
     }
 
@@ -174,8 +170,6 @@ u8 modbus_uart_send(const u8 *p, u32 len)
     memcpy(s_tx_pkt.data, p, len);
 
 
-    g_bms_rs485_tx_diag.last_tx_len = len;
-    ++g_bms_rs485_tx_diag.tx_start_count;
 
     /* 已验证的 new-new-master TX 路径：DMA 包为 [u32 长度 + 载荷]。 */
     uart_send_dma((u8 *)&s_tx_pkt);
@@ -193,7 +187,7 @@ static void modbus_uart_rx_reset(void)
 static u8 rsp_buf[MODBUS_RTU_FRAME_CAPACITY];
 
 
-/* 接收帧解析、应答与 RX 恢复的主循环所有者；日志读取走同一 TX 路径，不插入裸文本。 */
+/* 主循环解析帧、发送应答并恢复 RX。 */
 void main_loop_modbus(void)
 {
     bms_serial_ota_poll();
@@ -210,11 +204,6 @@ void main_loop_modbus(void)
         int ok = bms_serial_ota_on_frame(req, req_len, rsp_buf, &ota_rsp_len);
         rsp_len = ota_rsp_len;
         if (!ok) ok = modbus_on_frame(req, req_len, rsp_buf, &rsp_len);
-#if BMS_DEBUG_LOG_ENABLE
-        if (!bms_debug_log_is_read(req, req_len))
-            BMS_LOG(ok ? BMS_LOG_DEBUG : BMS_LOG_WARN, BMS_LOG_COMM, BMS_LOG_UART_FRAME,
-                    (req_len << 16) | (req_len >= 2u ? req[1] : 0u), rsp_len);
-#endif
 
         /* 沿用已验证实现：每帧后都重新启用 RX。 */
         modbus_uart_rx_reset();
@@ -237,7 +226,7 @@ void main_loop_modbus(void)
     if (clock_time_exceed(mb_last_ok_tick, MODBUS_UART_RECOVERY_US) &&
         !bms_serial_ota_busy() && !s_rx_ready && !s_rx_pkt.dma_len &&
         !(dma_chn_irq_status_get() & FLD_DMA_CHN_UART_RX) &&
-        !uart_tx_is_busy() && !modbus_uart_tx_active()
+        !modbus_uart_tx_active()
         )
     {
         if (uart_is_parity_error()) uart_clear_parity_error();

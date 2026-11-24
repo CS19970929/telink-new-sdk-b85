@@ -17,12 +17,6 @@
 #error "D008 chemistry must match D008_PRODUCT_PROFILE"
 #endif
 /* 用户本轮 OTA 均衡测试组；置 0 恢复随化学体系选择的正常默认。 */
-#ifndef BMS_D008_BALANCE_TEST_ENABLE
-#define BMS_D008_BALANCE_TEST_ENABLE 1
-#endif
-#if BMS_D008_BALANCE_TEST_ENABLE != 0 && BMS_D008_BALANCE_TEST_ENABLE != 1
-#error "BMS_D008_BALANCE_TEST_ENABLE must be 0 or 1"
-#endif
 #include "dvc1124_product_defaults.h"
 #include "d008_protection_config.h"
 #include "../bms_battery_defaults.h"

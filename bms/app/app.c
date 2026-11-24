@@ -25,7 +25,6 @@
  *          limitations under the License.
  *
  *******************************************************************************************************/
-#include "bms_debug_log.h"
 #include "bms_product.h"
 #include "tl_common.h"
 #include "drivers.h"
@@ -40,7 +39,6 @@
 #include "bms_afe.h"
 #include "bms_features.h"
 #include "bms_afe_hw_access.h"
-#include "bms_diag.h"
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_soc.h"
@@ -52,7 +50,6 @@
 #include "bms_storage_platform.h"
 #include "btname_modbus.h"
 #include "bms_parameters.h"
-#include "bms_stall_diag.h"
 #include "bms_parameter_access.h"
 #include <string.h>
 
@@ -85,8 +82,6 @@ static void app_schedule_sample_wakeup(void)
 {
     bls_pm_setAppWakeupLowPower(
         s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
-    bms_stall_diag_schedule(s_sample_due,
-        s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US);
 }
 
 /* 按秒推进历史事件与运行计时任务。 */
@@ -117,23 +112,10 @@ static void app_storage_1s_task(void)
 	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
 
 	bms_event_log_poll_1s(&sample);
-#if BMS_SOC_BOARD_TEST_ENABLE
-    /* 假电流结果不能进入正常 State checkpoint。 */
-    if (!bms_soc_board_test_active())
-#endif
 	{
         bms_state_store_data_t state = bms_soc_state_snapshot();
         bms_state_store_poll_snapshot(&state);
     }
-#if BMS_DEBUG_LOG_ENABLE
-    {
-        static u32 previous_exits;
-        u32 exits = app_ble_suspend_exit_count();
-        if (exits != previous_exits)
-            BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_POWER, BMS_LOG_PM_CYCLE, exits - previous_exits, exits);
-        previous_exits = exits;
-    }
-#endif
 }
 
 /* 按选定产品初始化 AFE 接口、供电和板级 GPIO。 */
@@ -171,66 +153,26 @@ _attribute_no_inline_ void main_loop(void)
     if (app_sample_is_due()) {
         bls_pm_setAppWakeupLowPower(0u, 0u);
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
-        bms_stall_diag_schedule(s_sample_due, 0u);
     }
     /*
      * SDK唤醒后先恢复UART接收/通信引脚所有权，避免等AFE和Flash任务后
      * 才开始接收主机重发。采样/保护仍优先于协议命令解析。
      */
-    bms_stall_diag_stage(BMS_STALL_SDK_ENTER, 0u);
 	blt_sdk_main_loop();
-    bms_stall_diag_stage(BMS_STALL_SDK_RETURN, 0u);
-    bms_stall_diag_stage(BMS_STALL_UART, 0u);
     bus_mux_task();
 
-#if BMS_DEBUG_LOG_ENABLE
-    /* 在此观察 SDK 回调负责的标志，ISR 不格式化或生产日志。 */
-    {
-        static u8 last_link = 0xFFu, last_ota = 0xFFu;
-        if (last_link != (u8)device_in_connection_state) {
-            last_link = (u8)device_in_connection_state;
-            BMS_LOG(BMS_LOG_INFO, BMS_LOG_COMM, BMS_LOG_LINK_STATE, last_link, 0u);
-        }
-        if (last_ota != ota_is_working) {
-            last_ota = ota_is_working;
-            BMS_LOG(BMS_LOG_INFO, BMS_LOG_OTA, BMS_LOG_OTA_STATE, last_ota, 0u);
-        }
-    }
-#endif
     app_sample_task();
-    bms_stall_diag_stage(BMS_STALL_STORAGE, 0u);
     app_storage_1s_task();
 
 	/* 处理采样/存储期间到来的接管边沿，避免再多等一轮SDK。 */
 	bus_mux_task();
     sif_prepare_task(s_sample_tick);
 #if BMS_PRODUCT_UART_ENABLE
-    bms_stall_diag_stage(BMS_STALL_PROTOCOL, 0u);
 	main_loop_modbus();
 #endif
-    bms_stall_diag_stage(BMS_STALL_POWER, 0u);
 	app_power_process(&s_sample_due);
-#if BMS_SOC_BOARD_TEST_ENABLE
-    if (bms_soc_board_test_keep_awake()) bls_pm_setSuspendMask(SUSPEND_DISABLE);
-#endif
 }
 
-#if BMS_SERVICE_DIAG_ENABLE
-/* 从应用与后端缓存汇总运行诊断，不额外采样 AFE。 */
-static void app_diag_poll_runtime(uint8_t valid, int32_t raw_current_ma,
-                                  int32_t current_ma, uint32_t tick_32k)
-{
-    bms_soc_diag_t soc;
-    bms_diag_runtime_sample(valid,raw_current_ma,current_ma,tick_32k,bms_afe_current_recovery_pending());
-    BMS_LOG(BMS_LOG_DEBUG, BMS_LOG_AFE, BMS_LOG_CELL_RANGE,
-            ((uint32_t)g_bms_report.cell_min_mv << 16) | g_bms_report.cell_max_mv,
-            ((uint32_t)g_bms_report.cell_min_index << 16) | g_bms_report.cell_max_index);
-    bms_soc_get_diag(&soc);
-    bms_diag_runtime_soc(&soc);
-    bms_diag_runtime_faults(g_bms_report.fault_first.all,
-        g_bms_report.fault_second.all,g_bms_report.fault_third.all);
-}
-#endif
 
 /* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
 static void app_sample_task(void)
@@ -241,7 +183,6 @@ static void app_sample_task(void)
 
     if (!app_sample_is_due()) return;
 
-    bms_stall_diag_stage(BMS_STALL_SAMPLE_BEGIN, 0u);
     s_sample_due = 0u;
     s_sample_tick = clock_time();
     result = bms_afe_sample();
@@ -252,31 +193,23 @@ static void app_sample_task(void)
     valid = bms_afe_get_aux_measurements(&m);
     app_update_soc_from_sample(valid, valid ? m.current_ma : 0, valid ? m.voltage_calibration_valid : 0u, valid ? m.voltage_check_active : 0u);
 
-#if BMS_SERVICE_DIAG_ENABLE
-    app_diag_poll_runtime(valid, valid ? m.raw_current_ma : 0,
-                          valid ? m.current_ma : 0,
-                          valid ? m.sample_tick_32k : pm_get_32k_tick());
-#endif
 
     /* 采样期限独立于 BLE 广播间隔；超期只标记下一轮，不补跑历史样本。 */
     if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
     app_schedule_sample_wakeup();
     gpio_toggle(LED_BLUE_PIN);
-    bms_stall_diag_stage(BMS_STALL_SAMPLE_END, result);
 }
 
 /* 四产品共用 BLE 回调；后端差异留在采样和电源流程。 */
 /* 交付一次应用唤醒；回调不执行业务或外设访问。 */
 static void app_sample_wakeup(int type)
 {
-    bms_stall_diag_stage(BMS_STALL_APP_WAKE, 0u);
     (void)type;
     s_sample_due = 1u;
     /* 一次性唤醒已交付：先消费 SDK 期限并交还运行权，主循环采样后重新布防。
      * 此处只改 SDK/RAM 状态，不执行 AFE、保护、SOC、Flash 或串口收发。 */
     bls_pm_setAppWakeupLowPower(0u, 0u);
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
-    bms_stall_diag_schedule(1u, 0u);
 }
 
 
@@ -323,33 +256,15 @@ static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma, uint8_
     sample.third_cell_uvp =
         g_bms_report.fault_third.bits.cell_uvp;
     sample.third_pack_uvp = g_bms_report.fault_third.bits.pack_uvp;
-#if BMS_SOC_BOARD_TEST_ENABLE
-    bms_soc_board_test_suspend_exits(app_ble_suspend_exit_count());
-    bms_soc_board_test_prepare(&sample, pm_get_32k_tick());
-#endif
     bms_soc_process_sample(&sample);
     /* 板测伪电压只用于算法观察，不得触发真实 AFE 激励。 */
-#if BMS_SOC_BOARD_TEST_ENABLE
-    if (!bms_soc_board_test_active())
-#endif
         if (bms_soc_voltage_check_requested()) bms_afe_request_voltage_check();
-#if BMS_SOC_BOARD_TEST_ENABLE
-    bms_soc_board_test_note();
-#endif
 }
 
 /* 参数、AFE 与业务状态启动；由平台完成 BLE 初始化后调用一次。 */
 void app_init(void)
 {
 	{
-#if BMS_SERVICE_DIAG_ENABLE
-		bms_diag_init();
-		bms_storage_platform_diag_boot();
-        bms_diag_set_build_flags((DVC1124_SW_PROTECT_ENABLE ? 1u : 0u) |
-                                 (DVC1124_HW_PROTECT_ENABLE ? 2u : 0u) |
-                                 (BMS_PRODUCTION_BUILD ? 4u : 0u) |
-                                 (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
-#endif
 		board_init();
 		bms_parameters_init();
 
@@ -379,13 +294,4 @@ void app_init(void)
 
 	bms_product_info_refresh();
 	bms_afe_set_output_enabled(1u);
-#if BMS_SERVICE_DIAG_ENABLE
-    bms_diag_set_boot_result(
-        g_bms_system_status.bits.afe1_status ? DIAG_OK : DIAG_INVALID,
-        bms_protection_params_valid() ? DIAG_OK : DIAG_INVALID);
-    bms_parameters_diag_poll();
-    bms_storage_platform_diag_poll();
-    bms_afe_diag_poll();
-    bms_diag_freeze_boot();
-#endif
 }
