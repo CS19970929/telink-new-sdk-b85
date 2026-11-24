@@ -24,12 +24,25 @@
         "-X",
         "utf8",
         "-B",
-        "bms_tools/build_options.py",
-        "show"
+        "bms_tools/configure_d008.py"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "BMS: 选择配置编译并发送 OTA",
+      "dependsOn": "D008 源码配置",
+      "hide": true,
       "problemMatcher": []
     },
     {
@@ -50,10 +63,6 @@
       ],
       "options": {
         "cwd": "${workspaceFolder}"
-      },
-      "group": {
-        "kind": "build",
-        "isDefault": true
       },
       "problemMatcher": []
     }

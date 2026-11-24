@@ -13,6 +13,17 @@ python bms_tools/bms.py --production --d008-profile 16s-lfp resources
 
 `custom` 的构建及发布目录带 `-custom-`，即使串数和化学体系与固定装配相同，也有独立的构建收据和输出目录。
 
+## VS Code 配置窗口
+
+`Ctrl+Shift+B` 打开 `D008 源码配置`。填写串数、化学体系和额定容量，窗口按源码装配表选择对应 profile。固件更新可选择普通保参、指定更新组或独立的恢复出厂。窗口使用当前 Python 自带的 Tk。
+
+- **保存到源码** 写回 D008 装配和参数头。参数更新包由工具生成一次性 ID。
+- **保存并链接 ELF** 保存后按当前装配执行生产链接。正式 BIN 使用独立的签核入口。
+
+`D008 生产链接（无镜像）` 仍可通过 VS Code 的运行任务菜单直接选择。终端也可用 `python -B bms_tools/configure_d008.py` 打开配置窗口。
+
+## 软件验证
+
 ```text
 python tests/run_host_regression.py --output <外部目录>
 python tests/run_host_regression.py --with-targets --output <外部目录>

@@ -1,5 +1,7 @@
 # 配置与简单修改指南
 
+> 本页记录四产品基线 `2e02f32e9af2` 的配置习惯。D008 独立分支的现行入口见 [D008 构建与测试](BUILD_AND_TEST.md)，旧板出厂操作见 [D008 参数更新与出厂操作](OTA_PARAMETERS.md)。
+
 适用四产品 monorepo。[根 README](../README.md) 为总目录；环境和命令见 [构建与验证](BUILD_AND_TEST.md)。以下路径相对仓库根目录。
 
 保护参数、精确并联分流器与 AFE 位定义可直接使用[源码配置窗口](AFE_CONFIGURATION_EDITOR.md)，

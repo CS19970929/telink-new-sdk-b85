@@ -7,7 +7,7 @@
 - 量产候选包括 16S LFP、20S NMC、23S LFP、24S LFP 和受控自定义装配。串数、电芯和 Rsense 以签核装配为准，示例默认仍需实物验收。
 - 板级入口位于 [D008 产品目录](bms/products/d008/AGENTS.md)，唯一编译清单为 [sources.txt](bms/products/d008/sources.txt)。保留 B85 启动、链接 ABI、供应商库和生产 core 禁用跳转表的设置。
 - 生产链接入口为 `python bms_tools/bms.py --production --d008-profile 16s-lfp link --jobs 4`。它产生 ELF/MAP/LST。用同样的配置参数执行 `resources` 查看资源。各量产装配分别核对。
-- 配置用 `python bms_tools/build_options.py show` 查看，按需保存到源码。普通 OTA 默认保留客户数据，专用出厂操作清理业务区。生成固件与发布需符合本分支签核。
+- VS Code 用 `Ctrl+Shift+B` 打开 [D008 源码配置窗口](docs/BUILD_AND_TEST.md)，也可用 `python bms_tools/build_options.py show` 查看配置。普通 OTA 默认保参，专用出厂包初始化业务区。生成固件与发布需符合本分支签核。
 - 完整主机回归入口为 `python tests/run_host_regression.py`。本机验证按 [协作规则](AGENTS.md) 执行。工程产物写到源树外。
 
 ## 资料

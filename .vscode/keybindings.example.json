@@ -1,8 +1,7 @@
 [
   {
     "key": "ctrl+shift+b",
-    "command": "workbench.action.tasks.runTask",
-    "args": "D008 生产链接（无镜像）",
+    "command": "workbench.action.tasks.build",
     "when": "workspaceFolderCount > 0"
   }
 ]
