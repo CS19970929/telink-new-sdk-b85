@@ -11,7 +11,6 @@
 
 #define BMS_AFE_HW_PROFILE_SCHEMA_VERSION 1u
 #define BMS_AFE_HW_MODEL_DVC1124          0x1124u
-#define BMS_AFE_HW_MODEL_SH3673510        0x3510u
 
 #define BMS_AFE_HW_EN_COV   (1u << 0)
 #define BMS_AFE_HW_EN_CUV   (1u << 1)

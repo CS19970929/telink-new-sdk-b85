@@ -1,4 +1,4 @@
-/* UART/RS485升级：只由主循环调用，Flash和SDK状态由Telink端口持有。 */
+/* UART 升级：只由主循环调用，Flash和SDK状态由Telink端口持有。 */
 #pragma once
 #include <stdint.h>
 

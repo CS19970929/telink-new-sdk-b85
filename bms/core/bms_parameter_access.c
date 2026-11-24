@@ -234,9 +234,7 @@ static u8 switch_chemistry(const u8 *data, u16 qty)
     /* 包含结尾 NUL，拒绝截断、前缀和额外密码字节；不保存或记录密码。 */
     if (memcmp(data + 2u, BMS_SERVICE_DEFAULT_PASSWORD, BMS_SERVICE_PASSWORD_BYTES) != 0) return 2u;
     if (chemistry != BMS_SOC_CHEMISTRY_LFP && chemistry != BMS_SOC_CHEMISTRY_NMC) return 3u;
-#if BMS_PRODUCT_ID == 8u
     if (chemistry == BMS_SOC_CHEMISTRY_NMC && BMS_PRODUCT_CELL_COUNT > 23u) return 3u;
-#endif
     /* 读取当前死区用于静置门禁；完整类型/曲线与保护只提交一条 Config。 */
     bms_config_get_soc_profile(&previous_profile);
     if (!bms_protection_params_valid() || !bms_afe_bus_access_allowed() ||

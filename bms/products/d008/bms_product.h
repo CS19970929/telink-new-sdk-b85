@@ -3,10 +3,9 @@
 #include "bms_soc_defs.h"
 
 /* 文件功能：产品身份、AFE 后端及化学体系的编译期选择。 */
-/* 2026-10-08 按用户指示授权生产镜像生成；实板验收仍按硬件清单独立记录。 */
-#define BMS_PRODUCT_RELEASE_APPROVED 1
+/* 独立工程按本分支的出厂合同和实板记录签核生产镜像。 */
+#define BMS_PRODUCT_RELEASE_APPROVED 0
 #define BMS_PRODUCT_ID 8u
-#define BMS_AFE_BACKEND 1
 #define BMS_FEATURE_HEATER_SUPPORTED 1u
 #define BMS_FEATURE_BALANCE_SUPPORTED 1u
 #include "d008_product_profile.h"
@@ -50,12 +49,10 @@
 
 #define BMS_PRODUCT_SIF_ENABLE 1
 #define BMS_PRODUCT_UART_ENABLE 1
-#define BMS_PRODUCT_RS485_ENABLE 0
 /* 仅控制开关/ACC触发休眠；关闭不改变开关输入、MOS逻辑或其他休眠入口。 */
 #ifndef BMS_PRODUCT_SWITCH_SLEEP_ENABLE
 #define BMS_PRODUCT_SWITCH_SLEEP_ENABLE 0
 #endif
-#define BMS_PRODUCT_SWITCH_ENABLE 0
 
 /* D008 无独立开关；ACC-MCU 是预留接口，不是供电请求。 */
 

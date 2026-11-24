@@ -56,7 +56,7 @@ class StaticAnalysis:
             f"SDK_DIR={self.build._junc(self.build.SDK_DIR).as_posix()}",
             f"BUILD_DIR={self.build._junc(self.build.BUILD_DIR).as_posix()}",
             f"PRODUCT={self.build.PRODUCT}",
-            f"AFE_BACKEND={'dvc1124' if self.build.PRODUCT == 'd008' else 'sh3673510'}",
+            "AFE_BACKEND=dvc1124",
             "all",
         ]
         result = subprocess.run(command, cwd=str(self.build._junc(self.build.REPO_ROOT)), env=env, check=False,
@@ -684,7 +684,7 @@ class StaticAnalysis:
         self._write_findings_csv(run_dir / "findings.csv", findings)
 
         header_prefixes = ("bms/core/", "bms/app/", "bms/platform/telink/",
-                           f"bms/products/{self.build.PRODUCT}/", f"bms/afe/{'dvc1124' if self.build.PRODUCT == 'd008' else 'sh3673510'}/")
+                           f"bms/products/{self.build.PRODUCT}/", "bms/afe/dvc1124/")
         project_headers = sorted(
             path.relative_to(self.build.REPO_ROOT).as_posix()
             for path in (self.build.REPO_ROOT / "bms").rglob("*.h")

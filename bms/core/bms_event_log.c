@@ -12,7 +12,6 @@
 #include "storage_record.h"
 #include "bms_time.h"
 #include "bms_product.h"
-#include "bms_afe_backend.h"
 #include <string.h>
 
 #define BMS_EVENT_SAVE_INTERVAL_MS (60u * 1000u)

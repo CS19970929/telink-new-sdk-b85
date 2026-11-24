@@ -7,7 +7,6 @@
 #include "bms_diag.h"
 #include "bms_sleep_status.h"
 #include "bms_product.h"
-#include "bms_afe_backend.h"
 #include "modbus_rtu.h"
 #include "bms_afe.h"
 #include "bms_error.h"
@@ -20,19 +19,12 @@
 #include "bms_config_store.h"
 #include "bms_afe_hw_modbus.h"
 #include "bms_features.h"
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124.h"
-#else
-#include "sh3673510_project_config.h"
-#include "sh3673510_control.h"
-#endif
 #include "bms_parameters.h"
 #include "bms_soc.h"
 #include "bms_event_log.h"
 #include "app_power.h"
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124_config_service.h"
-#endif
 
 #include "btname_modbus.h"
 #include <string.h>
@@ -79,10 +71,6 @@ static u16 read_realtime_status_reg(u16 reg);
 static u16 encode_signed_current_reg(void);
 /* 按地址分派读取一个协议寄存器；返回 0 表示该地址不属于任何只读窗口。 */
 static int read_reg(u16 reg, u16 *value);
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-/* 读取 AFE 实际配置的协议诊断字段。 */
-static u16 read_afe_actual_reg(u16 offset, const sh3673510_protection_actual_t *actual, u8 valid);
-#endif
 /* 校验地址及取值后写入一个协议寄存器。 */
 static u8 write_reg(u16 reg, u16 val);
 
@@ -124,19 +112,11 @@ static u16 afe_hw_profile_read_reg(u16 reg, const bms_afe_hw_profile_t *profile,
     case BMS_AFE_HW_META_CAPABILITIES:      return bms_afe_hw_profile_capabilities();
     case BMS_AFE_HW_META_VALID:             return valid ? 1u : 0u;
     case BMS_AFE_HW_META_CELL_COUNT:        return BMS_PRODUCT_CELL_COUNT;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     case BMS_AFE_HW_META_FEATURES:          return BMS_AFE_HW_FEATURE_DIAGNOSTIC | BMS_AFE_HW_FEATURE_RUNTIME_STATUS;
     case BMS_AFE_HW_META_SHUNT_UOHM:        return DVC1124_DEFAULT_SHUNT_UOHM;
     case BMS_AFE_HW_META_SHUNT_ELEMENT_UOHM: return DVC1124_DEFAULT_SHUNT_UOHM;
     case BMS_AFE_HW_META_SHUNT_PARALLEL_COUNT: return 1u;
     case BMS_AFE_HW_META_WDT_SECONDS:       return DVC1124_I2C_WATCHDOG_SECONDS;
-#else
-    case BMS_AFE_HW_META_SHUNT_UOHM:        return SH3673510_BOARD_SHUNT_UOHM;
-    case BMS_AFE_HW_META_FEATURES:          return BMS_AFE_HW_FEATURE_TEMP_EFFECTIVE | BMS_AFE_HW_FEATURE_DIAGNOSTIC | BMS_AFE_HW_FEATURE_RUNTIME_STATUS;
-    case BMS_AFE_HW_META_SHUNT_ELEMENT_UOHM: return SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
-    case BMS_AFE_HW_META_SHUNT_PARALLEL_COUNT: return SH3673510_BOARD_SHUNT_PARALLEL_COUNT;
-    case BMS_AFE_HW_META_WDT_SECONDS:       return SH3673510_BOARD_WDT_EN ? 32u : 0u;
-#endif
     case BMS_AFE_HW_META_ACCESS_ACTIVE:     return bms_afe_hw_access_is_active() ? 1u : 0u;
     case BMS_AFE_HW_META_APPLY_STATE:       return bms_afe_hw_profile_apply_state();
     case BMS_AFE_HW_META_LAST_ERROR:        return bms_afe_hw_profile_last_error();
@@ -172,7 +152,6 @@ u8 bms_afe_hw_write_complete_frame(const u8 *frame, u32 length)
     return afe_hw_profile_write_block(&frame[7], BMS_AFE_HW_PROFILE_WORD_COUNT);
 }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 /* 判断地址是否属于 DVC 语义配置窗口。 */
 static int dvc_comm_is_semantic(u16 reg)
 {
@@ -267,7 +246,6 @@ static u8 dvc_comm_write(u16 reg, u16 val)
 
     return MB_EX_ILLEGAL_ADDRESS;
 }
-#endif
 
 /* 读取协议地址对应的历史故障编号。 */
 static u16 read_fault_history_reg(u16 reg)
@@ -339,12 +317,10 @@ static int read_reg(u16 reg, u16 *value)
         }
         return 1;
     }
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg)) {
         *value = dvc_comm_read(reg);
         return 1;
     }
-#endif
 
     if (reg < 3u)
     {
@@ -438,10 +414,8 @@ static u8 write_reg(u16 reg, u16 val)
             ? 0u : MB_EX_DEVICE_FAILURE;
     }
     if (afe_hw_profile_is_reg(reg)) return MB_EX_ILLEGAL_ADDRESS;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (dvc_comm_is_semantic(reg) || dvc_comm_is_raw(reg))
         return dvc_comm_write(reg, val);
-#endif
 
     if (reg==BMS_PARAM_REG_SOC || reg==BMS_PARAM_REG_CAPACITY || reg==BMS_PARAM_REG_CYCLE ||
         (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) ||
@@ -537,18 +511,6 @@ static int modbus_read_holding(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
         for (i = 0u; i < qty; ++i)
             put_u16be(&rsp[3u + (u32)i * 2u],
                       afe_hw_profile_read_reg((u16)(reg + i), &requested, valid));
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    } else if (reg >= BMS_AFE_ACTUAL_REG_BASE && reg < BMS_AFE_ACTUAL_REG_BASE+BMS_AFE_ACTUAL_REG_COUNT) {
-        sh3673510_protection_actual_t actual;
-        u16 offset = (u16)(reg - BMS_AFE_ACTUAL_REG_BASE);
-        u8 valid;
-        if ((u32)offset + qty > BMS_AFE_ACTUAL_REG_COUNT)
-            return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
-        valid = sh3673510_control_get_protection_actual(&actual);
-        for (i = 0u; i < qty; ++i)
-            put_u16be(&rsp[3u + (u32)i * 2u],
-                      read_afe_actual_reg((u16)(offset + i), &actual, valid));
-#endif
     } else {
         /* 逐地址读取；任一地址不属于只读窗口即整帧按非法地址拒绝。 */
         i = 0u;
@@ -734,27 +696,6 @@ int modbus_on_frame(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len)
     }
 }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-/* 读取 AFE 实际配置的协议诊断字段。 */
-static u16 read_afe_actual_reg(u16 offset, const sh3673510_protection_actual_t *actual, u8 valid)
-{
-    if (!offset) return valid ? 1u : 0u;
-    if (!valid) return 0xFFFFu;
-    switch (offset) {
-    case 1u: return actual->ov_mv;
-    case 2u: return actual->uv_mv;
-    case 3u: return actual->ocd1_a10;
-    case 4u: return actual->ocd2_a10;
-    case 5u: return actual->occ_a10;
-    case 6u: return actual->ov_delay_ms;
-    case 7u: return actual->uv_delay_ms;
-    case 8u: return actual->ocd1_delay_ms;
-    case 9u: return actual->ocd2_delay_ms;
-    case 10u: return actual->occ_delay_ms;
-    default: return 0xFFFFu;
-    }
-}
-#endif
 
 /* 把有符号电流转换为既有协议编码。 */
 static u16 encode_signed_current_reg(void)

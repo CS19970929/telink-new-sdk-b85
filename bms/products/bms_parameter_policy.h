@@ -2,9 +2,6 @@
 #pragma once
 
 /* 编号依赖产品身份；独立 host 夹具须先声明其模拟产品 ID。 */
-#ifndef BMS_PRODUCT_ID
-#include "bms_product.h"
-#endif
 
 /*
  * 新固件忽略客户旧编号，以 BIN 内更新范围和一次性标记决定是否更新。
@@ -16,11 +13,7 @@
 #error "OTA update revisions are obsolete; select parameter groups and update identifier"
 #endif
 #define BMS_UPDATE_SW_REVISION 1u /* 软件保护 */
-#if BMS_PRODUCT_ID == 8u
-#define BMS_UPDATE_AFE_REVISION 3u /* D008 历史只读值；SCD 默认仍为 200 A。 */
-#else
-#define BMS_UPDATE_AFE_REVISION 1u /* 其他产品 AFE 硬件保护保持原编号。 */
-#endif
+#define BMS_UPDATE_AFE_REVISION 3u /* D008 历史只读值，不代表当前保护设定。 */
 #define BMS_UPDATE_BUSINESS_REVISION 1u /* 容量、加热和均衡 */
 #define BMS_UPDATE_SOC_REVISION 1u /* SOC 算法配置与化学体系 */
 #define BMS_UPDATE_CALIBRATION_REVISION 1u /* 电流校准 */

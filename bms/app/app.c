@@ -27,10 +27,6 @@
  *******************************************************************************************************/
 #include "bms_debug_log.h"
 #include "bms_product.h"
-#include "bms_afe_backend.h"
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-#include "sh3673510_project_config.h"
-#endif
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
@@ -60,10 +56,8 @@
 #include "bms_parameter_access.h"
 #include <string.h>
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "sif_send.h"
 #include "bus_mux.h"
-#endif
 
 /* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
 static void app_sample_task(void);
@@ -142,7 +136,6 @@ static void app_storage_1s_task(void)
 #endif
 }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 /* 按选定产品初始化 AFE 接口、供电和板级 GPIO。 */
 static void board_init(void)
 {
@@ -170,38 +163,6 @@ static void board_init(void)
 	gpio_write(LED_BLUE_PIN, 1);
 }
 
-#else
-
-/* 按选定产品初始化 AFE 接口、供电和板级 GPIO。 */
-static void board_init(void)
-{
-	bms_afe_set_output_enabled(0u);
-
-	/* 加热 GPIO 归功能后端与产品能力管理。 */
-
-	gpio_set_func(BMS_BOARD_SWITCH_PIN, AS_GPIO);
-	gpio_set_input_en(BMS_BOARD_SWITCH_PIN, 1);
-	gpio_set_output_en(BMS_BOARD_SWITCH_PIN, 0);
-
-	/* D014由UART所有者按独立唤醒供电；其余板保持原有通信供电。 */
-	gpio_set_func(BMS_BOARD_CMNT_EN_PIN, AS_GPIO);
-#if BMS_PRODUCT_RS485_POWER_GATING_ENABLE && !BMS_RS485_TX_DIAG_ENABLE
-	gpio_write(BMS_BOARD_CMNT_EN_PIN, 0);
-#else
-	gpio_write(BMS_BOARD_CMNT_EN_PIN, 1);
-#endif
-	gpio_set_input_en(BMS_BOARD_CMNT_EN_PIN, 0);
-	gpio_set_output_en(BMS_BOARD_CMNT_EN_PIN, 1);
-
-	/*
-	 * D014的PD3光耦高电平唤醒由UART所有者配置；不推定其余板的极性。
-	 */
-	gpio_set_func(BMS_BOARD_CMNT_WK_PIN, AS_GPIO);
-	gpio_set_output_en(BMS_BOARD_CMNT_WK_PIN, 0);
-	gpio_set_input_en(BMS_BOARD_CMNT_WK_PIN, 1);
-}
-
-#endif
 /* BLE → 通信接收恢复 → 到期采样 → 状态检查点 → 协议通信 → 低功耗。 */
 _attribute_no_inline_ void main_loop(void)
 {
@@ -220,11 +181,7 @@ _attribute_no_inline_ void main_loop(void)
 	blt_sdk_main_loop();
     bms_stall_diag_stage(BMS_STALL_SDK_RETURN, 0u);
     bms_stall_diag_stage(BMS_STALL_UART, 0u);
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     bus_mux_task();
-#elif BMS_PRODUCT_UART_ENABLE
-    (void)modbus_uart_service_wakeup();
-#endif
 
 #if BMS_DEBUG_LOG_ENABLE
     /* 在此观察 SDK 回调负责的标志，ISR 不格式化或生产日志。 */
@@ -244,11 +201,9 @@ _attribute_no_inline_ void main_loop(void)
     bms_stall_diag_stage(BMS_STALL_STORAGE, 0u);
     app_storage_1s_task();
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 	/* 处理采样/存储期间到来的接管边沿，避免再多等一轮SDK。 */
 	bus_mux_task();
     sif_prepare_task(s_sample_tick);
-#endif
 #if BMS_PRODUCT_UART_ENABLE
     bms_stall_diag_stage(BMS_STALL_PROTOCOL, 0u);
 	main_loop_modbus();
@@ -274,12 +229,6 @@ static void app_diag_poll_runtime(uint8_t valid, int32_t raw_current_ma,
     bms_diag_runtime_soc(&soc);
     bms_diag_runtime_faults(g_bms_report.fault_first.all,
         g_bms_report.fault_second.all,g_bms_report.fault_third.all);
-#if BMS_AFE_BACKEND != BMS_AFE_BACKEND_DVC1124
-    /* DVC 在主循环停机分支之前刷新，保留原诊断时点与总线静默资格。 */
-    bms_storage_platform_diag_poll();
-    bms_parameters_diag_poll();
-    bms_afe_diag_poll();
-#endif
 }
 #endif
 
@@ -312,13 +261,7 @@ static void app_sample_task(void)
     /* 采样期限独立于 BLE 广播间隔；超期只标记下一轮，不补跑历史样本。 */
     if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
     app_schedule_sample_wakeup();
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     gpio_toggle(LED_BLUE_PIN);
-#elif BMS_BOARD_DEBUG_LED_ENABLE
-    /* 调试灯跟随真实采样尝试翻转，避免独立200ms计时在Suspend后相位错开。
-     * AFE失败也翻转：它表示调度仍在运行，不表示采样结果有效。 */
-    gpio_toggle(BMS_BOARD_DEBUG_LED_PIN);
-#endif
     bms_stall_diag_stage(BMS_STALL_SAMPLE_END, result);
 }
 
@@ -402,28 +345,17 @@ void app_init(void)
 #if BMS_SERVICE_DIAG_ENABLE
 		bms_diag_init();
 		bms_storage_platform_diag_boot();
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
         bms_diag_set_build_flags((DVC1124_SW_PROTECT_ENABLE ? 1u : 0u) |
                                  (DVC1124_HW_PROTECT_ENABLE ? 2u : 0u) |
                                  (BMS_PRODUCTION_BUILD ? 4u : 0u) |
                                  (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
-#else
-        bms_diag_set_build_flags((SH3673510_SW_PROTECT_ENABLE ? 1u : 0u) |
-                                 (SH3673510_HW_PROTECT_ENABLE ? 2u : 0u) |
-                                 (BMS_PRODUCTION_BUILD ? 4u : 0u) |
-                                 (BMS_DIAG_BUILD_DIRTY ? 8u : 0u));
-#endif
 #endif
 		board_init();
 		bms_parameters_init();
 
 		bms_afe_init();
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
         cpu_set_gpio_wakeup(BMS_BOARD_LOAD_DETECT_PIN, Level_Low, 0);
         cpu_set_gpio_wakeup(BMS_BOARD_ACC_PIN, Level_Low, 0);
-#else
-        cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 1);
-#endif
 
 		/* 启动电压、电流和温度状态使用同一 AFE 快照。 */
 		bms_afe_sample();
@@ -431,12 +363,8 @@ void app_init(void)
 		soc_param_lib_init(&d);
 	}
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     sif_timer_init();
     bus_mux_init();
-#else
-    modbus_uart_init();
-#endif
 	btname_init();
 	bms_event_log_note_startup();
 

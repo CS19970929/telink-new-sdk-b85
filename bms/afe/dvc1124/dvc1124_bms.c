@@ -12,7 +12,6 @@
 #include "drivers.h"
 #include "bms_product.h"
 #include "bms_soc.h"
-#include "bms_afe_backend.h"
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"

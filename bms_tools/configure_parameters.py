@@ -444,7 +444,7 @@ class Configuration:
 
 
 class Window:
-    def __init__(self, product="d014"):
+    def __init__(self, product="d008"):
         self.root = tk.Tk(); self.root.title("BMS 源码参数与 AFE 寄存器配置")
         self.root.geometry("1320x930")
         self.product = tk.StringVar(value=product)
@@ -871,5 +871,5 @@ class Window:
 
 if __name__ == "__main__":
     import argparse
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument("--product",choices=build_options.PRODUCTS,default="d014")
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument("--product",choices=build_options.PRODUCTS,default="d008")
     Window(parser.parse_args().product).root.mainloop()

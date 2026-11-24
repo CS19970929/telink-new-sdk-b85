@@ -33,7 +33,6 @@
 #include "app.h"
 #include "app_att.h"
 #include "bms_product.h"
-#include "bms_afe_backend.h"
 #include "modbus_rtu.h"
 #include "btname_modbus.h"
 #include "ble_ota.h"

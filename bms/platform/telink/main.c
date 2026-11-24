@@ -4,7 +4,7 @@
  * bms/platform/telink/main.c；实际编译归属见各产品 sources.txt。
  */
 #include "bms_time.h"
-#include "bms_afe_backend.h"
+#include "bms_product.h"
 
 /********************************************************************************************************
  * @file    main.c
@@ -30,7 +30,6 @@
  *
  *******************************************************************************************************/
 #include "tl_common.h"
-#include "bms_product.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
 #include "app.h"
@@ -38,12 +37,8 @@
 #include "bms_stack_monitor.h"
 #include "bms_stall_diag.h"
 #include "modbus_uart.h"
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "bus_mux.h"
 #include "sif_send.h"
-#else
-#include "sh3673510_project_config.h"
-#endif
 
 /* 分派 SDK、UART DMA、单线与总线中断，业务留在主循环。 */
 _attribute_ram_code_ void irq_handler(void)
@@ -51,10 +46,8 @@ _attribute_ram_code_ void irq_handler(void)
     bms_stall_diag_irq(1u);
     irq_blt_sdk_handler();
     modbus_uart_irq_proc();
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     sif_timer_irq_handler();
     bus_mux_irq_handler();
-#endif
     bms_stall_diag_irq(0u);
 }
 
@@ -82,37 +75,16 @@ _attribute_ram_code_ int main (void)    // 必须在 ramcode 中执行。
 
 	gpio_init(!deepRetWakeUp);  // 模拟电阻配置在 deepSleep 中保留，无需重新初始化。
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     /* 先设置供电锁存电平再启用输出，低脉冲会切断 MCU 电源。 */
     gpio_set_func(BMS_BOARD_MCU_LDO_PIN, AS_GPIO);
     gpio_write(BMS_BOARD_MCU_LDO_PIN, 1u);
     gpio_set_input_en(BMS_BOARD_MCU_LDO_PIN, 0u);
     gpio_set_output_en(BMS_BOARD_MCU_LDO_PIN, 1u);
-#else
-    /* ALARM/RESET是AFE开漏输出（SH36735XX CV1.0A原PDF第4页），目前不使用。
-     * 每次启动仅配置一次：高阻、无上下拉、关闭数字输入和PAD唤醒。
-     * 必须早于boot_sleep_hold，避免深睡保留的唤醒使能再次参与入睡。 */
-    static const GPIO_PinTypeDef unused_afe_pins[] = {
-        BMS_BOARD_AFE_ALARM_PIN, BMS_BOARD_AFE_RESET_OUT_PIN
-    };
-    for (u8 i = 0u; i < sizeof(unused_afe_pins) / sizeof(unused_afe_pins[0]); ++i) {
-        gpio_set_output_en(unused_afe_pins[i], 0);
-        gpio_set_input_en(unused_afe_pins[i], 0);
-        gpio_set_func(unused_afe_pins[i], AS_GPIO);
-        gpio_setup_up_down_resistor(unused_afe_pins[i], PM_PIN_UP_DOWN_FLOAT);
-        cpu_set_gpio_wakeup(unused_afe_pins[i], Level_Low, 0);
-    }
-#endif
 
 	clock_init(SYS_CLK_TYPE);
     bms_time_init();
     bms_stall_diag_install_pm();
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    /* OFF只是布防下次ON，禁止经过user_init_normal重新开启AFE/通信。
-     * 每次保持调用都尝试deep sleep；PAD竞争返回才再检查，并非延时等待。 */
-    while (app_power_boot_sleep_hold()) {}
-#endif
 
 	#if (MODULE_WATCHDOG_ENABLE)
 		wd_set_interval_ms(WATCHDOG_INIT_TIMEOUT,CLOCK_SYS_CLOCK_1MS);

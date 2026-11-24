@@ -8,7 +8,7 @@ from pathlib import Path
 class Sources:
     def __init__(self, root):
         self.root=Path(root)
-        self.product=os.environ.get("BMS_PRODUCT", "d014")
+        self.product=os.environ.get("BMS_PRODUCT", "d008")
     def __truediv__(self, name):
         name=str(name)
         if name=="bms_board.c": return self.root/"bms/platform/telink/bms_board.c"
@@ -25,9 +25,9 @@ class Sources:
 
 
 def host_includes(root, product=None):
-    root=Path(root);product=product or os.environ.get("BMS_PRODUCT", "d014")
+    root=Path(root);product=product or os.environ.get("BMS_PRODUCT", "d008")
     dirs=[root,root/"bms/core", root/"bms/app",root/"bms/platform/telink",root/"bms/products"/product,root/"bms/products",
-          root/"bms/afe"/("dvc1124" if product=="d008" else "sh3673510"),
+          root/"bms/afe/dvc1124",
           root/"tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk",
           root/"tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/drivers/B85",
           root/"tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common"]
@@ -36,7 +36,7 @@ def host_includes(root, product=None):
 def selected_source(path, product=None, defines=()):
     """Read only this unit's actual TC32-preprocessed branch, outside the repository."""
     import subprocess,re,shutil,shlex
-    product=product or os.environ.get("BMS_PRODUCT", "d014")
+    product=product or os.environ.get("BMS_PRODUCT", "d008")
     path=Path(path);root=path.parents[2] if path.parts[-3]=="bms" else next(parent for parent in path.parents if (parent/"bms_tools").exists())
     target_cc=Path(os.environ.get("TC32_CC", "C:/TelinkIoTStudio/opt/tc32/bin/tc32-elf-gcc.exe"))
     compiler=[str(target_cc)] if target_cc.is_file() else shlex.split(os.environ.get("CC",shutil.which("gcc") or "cc"))

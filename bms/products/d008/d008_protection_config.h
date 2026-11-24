@@ -15,22 +15,19 @@
 #define BMS_OTA_UPDATE_BUSINESS  0u
 #define BMS_OTA_UPDATE_SOC       0u
 #define BMS_OTA_UPDATE_SOC_STATE 0u
-#define BMS_OTA_UPDATE_FACTORY_RESET 1u /* 专用出厂包，须生成全新一次性 ID */
+#define BMS_OTA_UPDATE_FACTORY_RESET 0u /* 普通镜像保参，出厂包显式选择 */
 #ifndef BMS_OTA_UPDATE_ID_0
 #define BMS_OTA_UPDATE_ID_0 0x0000u
-#define BMS_OTA_UPDATE_ID_1 0xc897u
-#define BMS_OTA_UPDATE_ID_2 0x1b91u
-#define BMS_OTA_UPDATE_ID_3 0x00cfu
-#define BMS_OTA_UPDATE_ID_4 0x55d2u
-#define BMS_OTA_UPDATE_ID_5 0x5507u
+#define BMS_OTA_UPDATE_ID_1 0x0000u
+#define BMS_OTA_UPDATE_ID_2 0x0000u
+#define BMS_OTA_UPDATE_ID_3 0x0000u
+#define BMS_OTA_UPDATE_ID_4 0x0000u
+#define BMS_OTA_UPDATE_ID_5 0x0000u
 #endif
-#define BMS_OTA_UPDATE_CONTENT_SHA256 "ecdbebeafd9639cf0e0803b603aaffd31321466bf8683cb2a68150c0a47512e6"
+#define BMS_OTA_UPDATE_CONTENT_SHA256 "0000000000000000000000000000000000000000000000000000000000000000"
 /* OTA_SOURCE_POLICY_END */
 
 
-#if BMS_PRODUCT_ID != 8u
-#error "d008_protection_config.h is only for D008"
-#endif
 
 /* 一、保护总开关。保持原台架覆盖和生产构建必须全部开启的约束。 */
 /*

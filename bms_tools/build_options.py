@@ -37,9 +37,8 @@ def normalize(options: dict, product: str, profile: str | None) -> dict:
     if not isinstance(options, dict) or set(options) - set(OPTION_KEYS):
         raise ValueError("快捷编译配置包含不支持的字段。")
     result = {}
-    model = options.get("afe_model", "dvc1124" if product == "d008" else "sh3673510")
-    allowed = ("dvc1124",) if product == "d008" else ("sh3673510", "sh3673520")
-    if model not in allowed:
+    model = options.get("afe_model", "dvc1124")
+    if product != "d008" or model != "dvc1124":
         raise ValueError("AFE 型号与板型后端不一致。")
     for key, value in options.items():
         if key in ("update_groups", "update_id"):
@@ -50,28 +49,27 @@ def normalize(options: dict, product: str, profile: str | None) -> dict:
         if key == "chemistry":
             if value not in ("lfp", "nmc"):
                 raise ValueError("电池类型必须为 lfp 或 nmc。")
-            if product == "d008" and profile != "custom":
+            if profile != "custom":
                 expected = "nmc" if profile == "20s-nmc" else "lfp"
                 if value != expected:
                     raise ValueError("D008 电池类型必须与所选装配一致。")
         else:
             if key == "cell_count":
-                maximum = 24 if model == "dvc1124" else (20 if model == "sh3673520" else 10)
+                maximum = 24
             else:
                 maximum = 6553
             if type(value) is not int or not 1 <= value <= maximum:
                 raise ValueError(f"{key} 必须为 1..{maximum} 的整数。")
         result[key] = value
-    if product == "d008" and profile == "custom" and not {"cell_count", "chemistry"} <= result.keys():
+    if profile == "custom" and not {"cell_count", "chemistry"} <= result.keys():
         raise ValueError("D008 自定义配置须同时选择串数和电池类型。")
     if "cell_count" in result:
         if result["cell_count"] < 4 or "chemistry" not in result:
             raise ValueError("串数至少为 4，且须同时选择电池类型。")
-        if product == "d008":
-            if result["chemistry"] == "nmc" and result["cell_count"] * 4200 > 100000:
-                raise ValueError("DVC1124-2 电池包限于 100V，4.20V 三元锂最多 23 串。")
-            if profile != "custom" and result["cell_count"] != int((profile or "16s-lfp").split("s-")[0]):
-                raise ValueError("串数与 D008 装配不一致；任意配置须选择 custom。")
+        if result["chemistry"] == "nmc" and result["cell_count"] * 4200 > 100000:
+            raise ValueError("DVC1124-2 电池包限于 100V，4.20V 三元锂最多 23 串。")
+        if profile != "custom" and result["cell_count"] != int((profile or "16s-lfp").split("s-")[0]):
+            raise ValueError("串数与 D008 装配不一致；任意配置须选择 custom。")
     groups = options.get("update_groups", [])
     if not isinstance(groups, list) or any(type(group) is not str or group not in UPDATE_GROUPS for group in groups):
         raise ValueError("OTA 更新组必须为 sw、afe、business、soc、soc_state 或 factory_reset。")
@@ -94,7 +92,7 @@ def variant(mode: str, product: str, profile: str | None, options: dict) -> str:
     if "cell_count" in options:
         model = "-" + options["afe_model"] if "afe_model" in options else ""
         return f"{mode}{model}-{options['cell_count']}s-{options['chemistry']}"
-    return mode + ("-" + (profile or "16s-lfp") if product == "d008" else "")
+    return mode + "-" + (profile or "16s-lfp")
 
 
 def check_extra_defines(extra: str) -> None:
@@ -109,7 +107,7 @@ def check_extra_defines(extra: str) -> None:
         raise ValueError("EXTRA_DEFINES 残留电池/OTA 策略或旧编号宏，请清除后使用窗口配置。")
 
 
-PRODUCTS = ("d008", "d011", "d013", "d014")
+PRODUCTS = ("d008",)
 PROFILES = {"16s-lfp": (16, "lfp"), "20s-nmc": (20, "nmc"),
             "24s-lfp": (24, "lfp"), "23s-lfp": (23, "lfp")}
 OTA_BEGIN = "/* OTA_SOURCE_POLICY_BEGIN"
@@ -119,9 +117,8 @@ DEFAULT_INPUTS = ("bms/products/bms_battery_defaults.h", "bms/core/bms_parameter
                   "bms/core/bms_config_store.c", "bms/core/bms_afe_hw_profile.c",
                   "bms/core/bms_soc_defs.h", "bms/core/bms_soc_profile.h", "bms/core/bms_soc_profile.c",
                   "bms/core/bms_soc.h", "bms/core/bms_state_store.c", "bms/core/bms_state.h",
-                  "bms/app/bms_features.h", "bms/afe/sh3673510/sh3673510_quantize.h",
-                  "bms/core/bms_update_policy.h", "bms/core/bms_afe_register_policy.h",
-                  "bms/products/sh3673510_parameter_checks.h", "bms/afe/sh3673510/sh3673510_ntc.c")
+                  "bms/app/bms_features.h", "bms/core/bms_update_policy.h",
+                  "bms/core/bms_afe_register_policy.h")
 
 
 def _text(path: Path) -> str:
@@ -164,25 +161,18 @@ def read_source(root: Path, product: str, profile: str | None = None, *, for_edi
     if product not in PRODUCTS:
         raise ValueError("未知产品：" + product)
     folder = root / "bms/products" / product
-    header = _text(folder / "bms_product.h")
     parameters = _text(folder / f"{product}_protection_config.h")
-    if product == "d008":
-        profile = profile or source_profile(root)
-        if profile == "custom":
-            assembly = _text(folder / "d008_product_profile.h")
-            cells = _number(assembly, "D008_CUSTOM_CELL_COUNT")
-            chemistry = _macro(assembly, "D008_CUSTOM_CHEMISTRY", r"BMS_SOC_CHEMISTRY_(?:LFP|NMC)")
-            chemistry = chemistry.rsplit("_", 1)[1].lower()
-        else:
-            if profile not in PROFILES:
-                raise ValueError("未知 D008 装配：" + profile)
-            cells, chemistry = PROFILES[profile]
-        model = "dvc1124"
-    else:
-        cells = _number(header, "SH3673510_BOARD_CELL_COUNT")
-        chemistry = _macro(header, "BMS_PRODUCT_CHEMISTRY", r"BMS_SOC_CHEMISTRY_(?:LFP|NMC)")
+    profile = profile or source_profile(root)
+    if profile == "custom":
+        assembly = _text(folder / "d008_product_profile.h")
+        cells = _number(assembly, "D008_CUSTOM_CELL_COUNT")
+        chemistry = _macro(assembly, "D008_CUSTOM_CHEMISTRY", r"BMS_SOC_CHEMISTRY_(?:LFP|NMC)")
         chemistry = chemistry.rsplit("_", 1)[1].lower()
-        model = "sh367" + str(_number(header, "BMS_BUILD_AFE_MODEL"))
+    else:
+        if profile not in PROFILES:
+            raise ValueError("未知 D008 装配：" + profile)
+        cells, chemistry = PROFILES[profile]
+    model = "dvc1124"
     groups = []
     for group in UPDATE_GROUPS:
         enabled = _number(parameters, "BMS_OTA_UPDATE_" + group.upper())
@@ -215,10 +205,8 @@ def parameter_inputs_hash(root: Path, product: str, options: dict, replacements=
     paths = list(DEFAULT_INPUTS) + [f"bms/products/{product}/bms_product.h",
                                   f"bms/products/{product}/{product}_protection_config.h",
                                   f"bms/products/{product}/afe_register_config.h"]
-    paths.append("bms/products/d008/d008_product_profile.h" if product == "d008"
-                 else "bms/products/sh3673510_defaults.h")
-    if product == "d008":
-        paths.append("bms/products/d008/dvc1124_product_defaults.h")
+    paths.extend(("bms/products/d008/d008_product_profile.h",
+                  "bms/products/d008/dvc1124_product_defaults.h"))
     inputs = {}
     for relative in paths:
         text = replacements.get(relative)
@@ -293,7 +281,7 @@ def save_source(root: Path, product: str, changes: dict, *, new_package=False) -
         requested["update_id"] = old.get("update_id") or "000000000000000000000001"
     else:
         requested.pop("update_id", None)
-    options = normalize(requested, product, "custom" if product == "d008" else None)
+    options = normalize(requested, product, "custom")
     required = []
     if any(options[key] != old[key] for key in ("afe_model", "cell_count", "chemistry")):
         required = CONFIG_UPDATE_GROUPS
@@ -307,25 +295,17 @@ def save_source(root: Path, product: str, changes: dict, *, new_package=False) -
     parameters = _text(root / relative)
     edited = {relative: _replace(parameters, "BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH",
                                 str(options["capacity_0p1ah"]) + "u", r"\d+[uU]?")}
-    if product == "d008":
-        assembly_path = "bms/products/d008/d008_product_profile.h"
-        assembly = _text(root / assembly_path)
-        profile = next((name for name, pair in PROFILES.items()
-                        if pair == (options["cell_count"], options["chemistry"])), "custom")
-        assembly = _replace(assembly, "D008_PRODUCT_PROFILE",
-                            "D008_PRODUCT_PROFILE_" + profile.upper().replace("-", "_"),
-                            r"D008_PRODUCT_PROFILE_[A-Z0-9_]+")
-        assembly = _replace(assembly, "D008_CUSTOM_CELL_COUNT", str(options["cell_count"]) + "u")
-        assembly = _replace(assembly, "D008_CUSTOM_CHEMISTRY",
-                            "BMS_SOC_CHEMISTRY_" + options["chemistry"].upper())
-        edited[assembly_path] = assembly
-    else:
-        board_path = f"bms/products/{product}/bms_product.h"
-        board = _text(root / board_path)
-        board = _replace(board, "SH3673510_BOARD_CELL_COUNT", str(options["cell_count"]) + "u", r"\d+[uU]?")
-        board = _replace(board, "BMS_PRODUCT_CHEMISTRY", "BMS_SOC_CHEMISTRY_" + options["chemistry"].upper())
-        board = _replace(board, "BMS_BUILD_AFE_MODEL", options["afe_model"].removeprefix("sh367") + "u")
-        edited[board_path] = board
+    assembly_path = "bms/products/d008/d008_product_profile.h"
+    assembly = _text(root / assembly_path)
+    profile = next((name for name, pair in PROFILES.items()
+                    if pair == (options["cell_count"], options["chemistry"])), "custom")
+    assembly = _replace(assembly, "D008_PRODUCT_PROFILE",
+                        "D008_PRODUCT_PROFILE_" + profile.upper().replace("-", "_"),
+                        r"D008_PRODUCT_PROFILE_[A-Z0-9_]+")
+    assembly = _replace(assembly, "D008_CUSTOM_CELL_COUNT", str(options["cell_count"]) + "u")
+    assembly = _replace(assembly, "D008_CUSTOM_CHEMISTRY",
+                        "BMS_SOC_CHEMISTRY_" + options["chemistry"].upper())
+    edited[assembly_path] = assembly
     digest = parameter_inputs_hash(root, product, options, edited) if groups else "0" * 64
     old_digest = _macro(parameters, "BMS_OTA_UPDATE_CONTENT_SHA256", r'"[0-9a-f]{64}"').strip('"')
     if groups and (new_package or digest != old_digest or not old.get("update_id")):
@@ -364,8 +344,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="编辑并核对 Git 受控的产品配置；不构建、不发送 OTA。")
     parser.add_argument("action", choices=("show", "save", "verify"))
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--product", choices=PRODUCTS, required=True)
-    parser.add_argument("--afe-model", choices=("dvc1124", "sh3673510", "sh3673520"))
+    parser.add_argument("--product", choices=PRODUCTS, default="d008")
+    parser.add_argument("--afe-model", choices=("dvc1124",))
     parser.add_argument("--cell-count", type=int)
     parser.add_argument("--chemistry", choices=("lfp", "nmc"))
     parser.add_argument("--capacity-0p1ah", type=int)

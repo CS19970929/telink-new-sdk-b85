@@ -1,7 +1,7 @@
 /* 原厂寄存器目录的受控开发接口；不进入 Config/State/Event。 */
 #ifndef BMS_AFE_REGISTERS_H_
 #define BMS_AFE_REGISTERS_H_
-#include "bms_afe_backend.h"
+#include "bms_product.h"
 #include <stdint.h>
 #ifndef BMS_AFE_REGISTER_DEBUG_ENABLE
 #define BMS_AFE_REGISTER_DEBUG_ENABLE 0

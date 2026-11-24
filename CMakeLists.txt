@@ -15,11 +15,7 @@ add_library(bms_core STATIC
     bms/core/bms_sleep_config.c
     bms/core/bms_sleep_status.c)
 target_include_directories(bms_core PUBLIC bms/core)
-set(BMS_HOST_PRODUCT "d014" CACHE STRING "Host test product defaults: d008/d011/d013/d014")
-if(NOT BMS_HOST_PRODUCT MATCHES "^d0(08|11|13|14)$")
-    message(FATAL_ERROR "Unsupported BMS_HOST_PRODUCT")
-endif()
-target_include_directories(bms_core PRIVATE bms/products/${BMS_HOST_PRODUCT} bms/products)
+target_include_directories(bms_core PRIVATE bms/products/d008 bms/products)
 target_compile_features(bms_core PUBLIC c_std_99)
 if(MSVC)
     target_compile_options(bms_core PRIVATE /W4 /WX)

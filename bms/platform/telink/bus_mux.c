@@ -8,7 +8,6 @@
 #include "drivers.h"
 #include "modbus_uart.h"
 #include "bms_product.h"
-#include "bms_afe_backend.h"
 #include "app.h"
 #include "sif_send.h"
 

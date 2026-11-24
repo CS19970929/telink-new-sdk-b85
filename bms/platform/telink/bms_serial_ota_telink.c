@@ -93,7 +93,7 @@ int bms_serial_ota_flash_commit(uint32_t base)
 }
 void bms_serial_ota_reboot(void)
 {
-    /* 给30字节应答及RS485 DE释放留1s，仍须检查硬件发送状态。 */
+    /* 给30字节UART应答留1s，仍须检查硬件发送状态。 */
     if (modbus_uart_tx_active()) return;
     bms_serial_ota_flash_close();
     start_reboot();

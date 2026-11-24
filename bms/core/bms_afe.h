@@ -6,7 +6,7 @@
 #ifndef BMS_AFE_H_
 #define BMS_AFE_H_
 #include <stdint.h>
-#include "bms_afe_backend.h"
+#include "bms_product.h"
 #include "bms_diag_config.h"
 #include "bms_timing.h"
 /* 初始化 guard 与选定后端，完整测量和配置验证前禁止输出。 */

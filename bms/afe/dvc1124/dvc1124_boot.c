@@ -11,7 +11,6 @@ const bms_afe_driver_policy_t bms_afe_driver_policy = { 5000u, 0u, 1u };
 #include "tl_common.h"
 #include "drivers.h"
 #include "bms_product.h"
-#include "bms_afe_backend.h"
 #include "bms_soc.h"
 #include <string.h>
 

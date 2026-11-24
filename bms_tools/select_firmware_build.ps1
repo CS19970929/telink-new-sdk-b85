@@ -4,7 +4,7 @@ param(
     [string]$Target,
     [ValidateSet('production', 'development')][string]$Mode = 'production',
     [ValidateSet('lfp', 'nmc')][string]$Chemistry,
-    [ValidateSet('dvc1124', 'sh3673510', 'sh3673520')][string]$AfeModel,
+    [ValidateSet('dvc1124')][string]$AfeModel,
     [ValidateRange(0, 24)][int]$CellCount = 0,
     [ValidateRange(0, 6553)][int]$Capacity0p1Ah = 0,
     [ValidateSet('sw', 'afe', 'business', 'soc', 'soc_state', 'factory_reset')][string[]]$UpdateGroups = @(),
@@ -24,9 +24,6 @@ $env:PYTHONDONTWRITEBYTECODE = '1'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $targets = @(
     @{ Id = 'd008'; Name = 'D008' },
-    @{ Id = 'd011'; Name = 'D011' },
-    @{ Id = 'd013'; Name = 'D013' },
-    @{ Id = 'd014'; Name = 'D014' }
 )
 if ($Target -and $Target -notin $targets.Id) { throw "Unknown build target: $Target" }
 if ($PlanOnly -and -not $Target) { throw 'PlanOnly requires an explicit Target.' }

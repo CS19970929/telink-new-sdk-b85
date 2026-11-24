@@ -3,7 +3,7 @@
  * 符约束。
  * bms/core/btname_modbus.c；实际编译归属见各产品 sources.txt。
  */
-#include "bms_afe_backend.h"
+#include "bms_product.h"
 #include "btname_modbus.h"
 #include "bms_error.h"
 #include "bms_config_store.h"
@@ -109,11 +109,10 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
     uint16_t i;
 
     /* 保留历史空写入返回结果，存储失败始终报告失败。 */
-    const int empty_result = (BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510) ? 1 : 0;
     (void)addr;
 
     if ((qty == 0u) || (regs == 0)) {
-        return empty_result;
+        return 0;
     }
 
     for (i = 0; i < byte_len && bi < BTNAME_SUFFIX_MAX_LEN; i++) {
@@ -125,7 +124,7 @@ int btname_modbus_on_write_holding(uint16_t addr, uint16_t qty, const uint16_t *
 
     sanitize_suffix(suffix);
     if (suffix[0] == '\0') {
-        return empty_result;
+        return 0;
     }
 
     build_full_name_from_suffix(suffix, new_full);

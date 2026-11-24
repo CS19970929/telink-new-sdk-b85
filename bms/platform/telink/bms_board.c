@@ -7,13 +7,7 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "bms_product.h"
-#include "bms_afe_backend.h"
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-#include "sh3673510_project_config.h"
-#include "sh3673510_control.h"
-#endif
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 /* 初始化当前产品支持的板级功能 GPIO。 */
 void bms_board_features_init(uint8_t heater_fuse_fired)
 {
@@ -68,46 +62,3 @@ void bms_board_heater_fuse_fire(void)
 
 /* 查询产品是否具有有效电芯均衡通道。 */
 uint8_t bms_board_balance_supported(void) { return 1u; }
-#else
-/* 初始化当前产品支持的板级功能 GPIO。 */
-void bms_board_features_init(uint8_t heater_fuse_fired)
-{
-    (void)heater_fuse_fired; /* SH 不支持不可逆熔断，D011 PB5 仍强制安全 LOW。 */
-    /* D014 没有经验证的加热/熔断输出；加热支持关闭时禁止操作遗留 D011 PB4/PB5。 */
-    if (SH3673510_PRODUCT_HEATER_SUPPORTED)
-    {
-        sh3673510_board_force_heater_fuse_safe();
-        sh3673510_board_set_heater(0u);
-    }
-}
-
-/* 查询当前产品是否有已支持的物理加热输出。 */
-uint8_t bms_board_heater_supported(void)
-{
-    return SH3673510_PRODUCT_HEATER_SUPPORTED ? 1u : 0u;
-}
-
-/* 查询产品是否具有有效电芯均衡通道。 */
-uint8_t bms_board_balance_supported(void)
-{
-    return SH3673510_PRODUCT_BALANCE_SUPPORTED ? 1u : 0u;
-}
-
-/* 仅在产品支持时设置物理加热输出。 */
-void bms_board_heater_set(uint8_t enabled)
-{
-    if (SH3673510_PRODUCT_HEATER_SUPPORTED)
-        sh3673510_board_set_heater(enabled ? 1u : 0u);
-    else
-        (void)enabled;
-}
-
-/* 查询是否有支持的不可逆加热熔断输出。 */
-uint8_t bms_board_heater_fuse_supported(void) { return 0u; }
-/* 取得关闭加热后异常温度的报告编码阈值。 */
-uint16_t bms_board_heater_off_fault_temp_x10(void) { return 0u; }
-/* 取得关闭加热后异常温度的确认毫秒数。 */
-uint16_t bms_board_heater_off_fault_confirm_ms(void) { return 0u; }
-/* 仅在产品支持时触发不可逆加热熔断。 */
-void bms_board_heater_fuse_fire(void) { /* 尚无经验证的 SH 自动熔断策略。 */ }
-#endif

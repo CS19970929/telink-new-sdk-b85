@@ -6,13 +6,20 @@
       "detail": "查看原厂位定义、编辑软硬件保护与分流器，仅保存源码，不编译或 OTA",
       "type": "process",
       "command": "python",
-      "args": ["-X", "utf8", "-B", "${workspaceFolder}/bms_tools/configure_parameters.py"],
-      "options": {"cwd": "${workspaceFolder}"},
+      "args": [
+        "-X",
+        "utf8",
+        "-B",
+        "${workspaceFolder}/bms_tools/configure_parameters.py"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "problemMatcher": []
     },
     {
       "label": "BMS: 选择配置编译并发送 OTA",
-      "detail": "四产品配置与 OTA 策略先保存到源码，可直接编译或发送；Git dirty 状态写入构建记录",
+      "detail": "D008 装配配置与 OTA 策略先保存到源码，可直接编译或发送；Git dirty 状态写入构建记录",
       "type": "process",
       "command": "powershell.exe",
       "args": [
@@ -24,12 +31,25 @@
       ],
       "options": {
         "cwd": "${workspaceFolder}",
-        "env": {"PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"}
+        "env": {
+          "PYTHONDONTWRITEBYTECODE": "1",
+          "PYTHONUTF8": "1"
+        }
       },
-      "group": {"kind": "build", "isDefault": true},
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
       "problemMatcher": [],
-      "presentation": {"reveal": "always", "focus": false, "panel": "dedicated", "clear": true},
-      "runOptions": {"instanceLimit": 1}
+      "presentation": {
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "clear": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
     },
     {
       "label": "BMS: compile",
@@ -38,7 +58,7 @@
       "args": [
         "bms_tools/bms.py",
         "--product",
-        "${input:product}",
+        "d008",
         "compile",
         "--jobs",
         "4"
@@ -59,7 +79,7 @@
       "args": [
         "bms_tools/bms.py",
         "--product",
-        "${input:product}",
+        "d008",
         "link",
         "--jobs",
         "4"
@@ -80,7 +100,7 @@
       "args": [
         "bms_tools/bms.py",
         "--product",
-        "${input:product}",
+        "d008",
         "resources"
       ],
       "options": {
@@ -99,7 +119,7 @@
       "args": [
         "bms_tools/bms.py",
         "--product",
-        "${input:product}",
+        "d008",
         "static",
         "--no-report"
       ],
@@ -111,36 +131,6 @@
         }
       },
       "problemMatcher": []
-    },
-    {
-      "label": "BMS: all products link",
-      "type": "process",
-      "command": "python",
-      "args": [
-        "bms_tools/bms.py",
-        "--all-products",
-        "link",
-        "--jobs",
-        "4"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
-    }
-  ],
-  "inputs": [
-    {
-      "id": "product",
-      "type": "pickString",
-      "description": "BMS product",
-      "options": [
-        "d008",
-        "d011",
-        "d013",
-        "d014"
-      ],
-      "default": "d014"
     }
   ]
 }

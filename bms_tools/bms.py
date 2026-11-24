@@ -50,23 +50,21 @@ except ImportError:
 # ----------------------------------------------------------------------------
 # Path resolution (machine-portable)
 # ----------------------------------------------------------------------------
-PRODUCTS = ("d008", "d011", "d013", "d014")
+PRODUCT = "d008"
 _cli = sys.argv[1:]
 _product_args = argparse.ArgumentParser(add_help=False)
-_product_args.add_argument("--product", choices=PRODUCTS, default=os.environ.get("BMS_PRODUCT", "d014"))
-_product_args.add_argument("--all-products", action="store_true")
+_product_args.add_argument("--product", choices=(PRODUCT,), default=PRODUCT)
 _product_args.add_argument("--production", action="store_true", help="enforce production policy on every translation unit")
 _product_args.add_argument("--d008-profile", choices=("16s-lfp", "20s-nmc", "24s-lfp", "23s-lfp", "custom"))
 _selection, _cli = _product_args.parse_known_args(_cli)
-PRODUCT = _selection.product
 PRODUCTION = _selection.production
 D008_PROFILE = _selection.d008_profile
 BUILD_MODE = "production" if PRODUCTION else "development"
 PROFILE_IDS = {"24s-lfp": 1, "20s-nmc": 2, "16s-lfp": 3, "custom": 4, "23s-lfp": 5}
 
 
-def _selection_args(product=None):
-    return (["--product", product or PRODUCT] + (["--production"] if PRODUCTION else []) +
+def _selection_args():
+    return (["--product", PRODUCT] + (["--production"] if PRODUCTION else []) +
             (["--d008-profile", D008_PROFILE] if D008_PROFILE else []))
 
 
@@ -81,7 +79,7 @@ def _selected_build_options():
 
 def _build_configuration():
     configuration = {"product": PRODUCT, "build_mode": BUILD_MODE, "production": PRODUCTION,
-            "d008_profile": (D008_PROFILE or build_options.source_profile(REPO_ROOT)) if PRODUCT == "d008" else None,
+            "d008_profile": D008_PROFILE,
             "core_optimization": "-Os" if PRODUCTION else "-O2"}
     options = _selected_build_options()
     if options:
@@ -94,7 +92,7 @@ def _build_configuration():
 
 _HERE = Path(__file__).resolve().parent
 REPO_ROOT = _HERE.parent
-if PRODUCT == "d008" and D008_PROFILE is None:
+if D008_PROFILE is None:
     D008_PROFILE = build_options.source_profile(REPO_ROOT)
 SDK_SUBDIR = "tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk"
 SDK_DIR = (REPO_ROOT / SDK_SUBDIR).resolve()
@@ -108,7 +106,7 @@ REQUIRED_VENDOR_LIBS = (
 TL_CHECK_FW2 = (SDK_DIR / "script" / "tl_check_fw" / "tl_check_fw2.exe").resolve()
 
 # Per-checkout, per-product build outputs stay outside the source worktree.
-BUILD_ROOT = Path(os.environ.get("BMS_BUILD_ROOT", str(Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir())) / "CodexTemp" / "bms-monorepo-build")))
+BUILD_ROOT = Path(os.environ.get("BMS_BUILD_ROOT", str(Path(os.environ.get("LOCALAPPDATA", tempfile.gettempdir())) / "CodexTemp" / "d008-production-build")))
 BUILD_VARIANT = build_options.variant(BUILD_MODE, PRODUCT, D008_PROFILE, _selected_build_options())
 BUILD_DIR = (BUILD_ROOT / hashlib.sha256(str(REPO_ROOT).encode()).hexdigest()[:12] / BUILD_VARIANT / PRODUCT).resolve()
 FIRMWARE_DIR = REPO_ROOT / "firmware" / BUILD_VARIANT / PRODUCT
@@ -430,7 +428,7 @@ def _discover_managed_sources() -> list[str]:
         if group.exists():
             entries += [x.relative_to(REPO_ROOT).as_posix() for x in sorted(group.iterdir())
                         if x.is_file() and x.suffix in (".c", ".S")]
-    backend = "dvc1124" if PRODUCT == "d008" else "sh3673510"
+    backend = "dvc1124"
     for relative in ("bms/core", "bms/app", "bms/platform/telink", "bms/afe/"+backend,
                      "bms/products/"+PRODUCT):
         entries += [x.relative_to(REPO_ROOT).as_posix() for x in sorted((REPO_ROOT/relative).rglob("*.c"))]
@@ -618,22 +616,22 @@ def _effective_extra_defines() -> str:
         _selected_build_options()
     except ValueError as exc:
         _die(str(exc))
-    reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE|BMS_D008_SCD_POLICY_APPROVED|BMS_D013_HW_CONFIG_APPROVED|BMS_PRODUCT_RELEASE_APPROVED)(?:\b)"
+    reserved = r"(?:-D|-U)\s*(BMS_PRODUCTION_BUILD|BMS_DIAG_BUILD_ID|BMS_DIAG_BUILD_DIRTY|D008_PRODUCT_PROFILE|BMS_D008_SCD_POLICY_APPROVED|BMS_PRODUCT_RELEASE_APPROVED)(?:\b)"
     if re.search(reserved, extra):
         _die("Build identity/mode/profile are owned by bms.py; use --production / --d008-profile")
     build_id, dirty = _firmware_git_build_id(), _firmware_git_dirty()
     if PRODUCTION:
         if build_id == "0u":
             _die("Production requires a valid Git build ID")
-        if PRODUCT == "d008" and D008_PROFILE is None:
-            _die("D008 production requires --d008-profile (16s-lfp, 20s-nmc or 24s-lfp)")
+        if D008_PROFILE is None:
+            _die("D008 production requires a supported assembly profile")
     flags = [extra, f"-DBMS_PRODUCTION_BUILD={int(PRODUCTION)}",
              f"-DBMS_DIAG_BUILD_ID={build_id}", f"-DBMS_DIAG_BUILD_DIRTY={dirty}"]
     # 停顿取证只适用于 D014/B85。统一传给所有 TU，不按产品头包含先后选择默认。
     # 保留 D014 已选择的开发取证及显式覆盖；非法开启仍由 C 编译门禁拒绝。
     if not re.search(r"(?:-D|-U)\s*BMS_STALL_DIAG_ENABLE\b", extra):
-        flags.append(f"-DBMS_STALL_DIAG_ENABLE={int(PRODUCT == 'd014' and not PRODUCTION)}")
-    if PRODUCT == "d008" and D008_PROFILE:
+        flags.append("-DBMS_STALL_DIAG_ENABLE=0")
+    if D008_PROFILE:
         flags.append(f"-DD008_PRODUCT_PROFILE={PROFILE_IDS[D008_PROFILE]}")
     return " ".join(x for x in flags if x)
 
@@ -736,7 +734,7 @@ def _invoke_make(targets: list[str], jobs: int = 1,
            "-j", str(jobs),
            f"REPO_ROOT={repo_j}",
            f"SDK_DIR={sdk_j}",
-           f"BUILD_DIR={build_j}", f"PRODUCT={PRODUCT}", f"AFE_BACKEND={'dvc1124' if PRODUCT == 'd008' else 'sh3673510'}"]
+           f"BUILD_DIR={build_j}", f"PRODUCT={PRODUCT}", "AFE_BACKEND=dvc1124"]
     cmd += targets
     if targets != ["clean"]:
         _info(f"make: {', '.join(targets) if len(targets) < 3 else 'multiple targets'}; jobs={jobs}")
@@ -788,7 +786,7 @@ def _require_release_approval() -> None:
         if os.environ.get("EXTRA_DEFINES", "").strip():
             raise ValueError("交付构建不接受 EXTRA_DEFINES；所有行为配置须保存到源码。")
         build_options.verify_source(REPO_ROOT, PRODUCT, D008_PROFILE)
-        if PRODUCT == "d008" and D008_PROFILE != build_options.source_profile(REPO_ROOT):
+        if D008_PROFILE != build_options.source_profile(REPO_ROOT):
             raise ValueError("交付装配与源码选择不同；请先保存 D008 装配。")
     except ValueError as error:
         _die(str(error))
@@ -1429,8 +1427,7 @@ def cmd_flash_help(args: argparse.Namespace) -> int:
 # ----------------------------------------------------------------------------
 def cmd_test(args: argparse.Namespace) -> int:
     command = [sys.executable, str(REPO_ROOT / "tests/run_host_regression.py")]
-    if not _selection.all_products:
-        command += ["--product", PRODUCT]
+    command += ["--product", PRODUCT]
     if args.output:
         command += ["--output", args.output]
     return subprocess.call(command, cwd=REPO_ROOT)
@@ -1547,7 +1544,7 @@ def cmd_ci(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="bms.py",
-        description="TLSR8251 BMS runner. Global options: --product d008/d011/d013/d014 or --all-products; --production; --d008-profile 16s-lfp/20s-nmc/24s-lfp.",
+        description="D008 / TLSR8251 build tool. Options: --production and --d008-profile.",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -1626,9 +1623,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(_cli if argv is None else argv)
-    if _selection.all_products and argv is None and args.cmd != "test":
-        results = [subprocess.call([sys.executable, str(Path(__file__).resolve()), *_selection_args(product), *_cli]) for product in PRODUCTS]
-        return 1 if any(results) else 0
     try:
         return args.func(args)
     except subprocess.CalledProcessError as e:

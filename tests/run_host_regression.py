@@ -1,4 +1,4 @@
-"""四产品统一验证：源码指纹、故障日志、配置差异、机器报告与人工报告。"""
+"""D008 固件验证：源码指纹、故障日志、配置差异、机器报告与人工报告。"""
 from pathlib import Path
 import argparse
 from datetime import datetime, timezone
@@ -77,7 +77,7 @@ def commands_for(selected, only):
         commands.append(('tooling_unit_tests','shared','tooling','工具单测（内部枚举产品配置与源码编辑保存）',[sys.executable,'-m','unittest','tests.test_bms_tools','tests.test_afe_configuration_editor','-q']))
         commands += [
             ('validation_runner_tests','shared','tooling','工具故障回归',[sys.executable,'-m','unittest','discover','-s','tests','-p','test_validation_runner.py','-q']),
-            ('source_manifests','shared','tooling','四产品实际源码清单',[sys.executable,'bms_tools/bms.py','--all-products','sources','--check'])]
+            ('source_manifests','shared','tooling','D008 实际源码清单',[sys.executable,'bms_tools/bms.py','sources','--check'])]
     for name,meta in sorted(CHECKS.items()):
         if only and name not in only: continue
         for product in meta['products']:
@@ -203,7 +203,7 @@ def main():
     try:
         for name,product,domain,level,command in commands:
             case_id=name+'-'+product
-            env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',PYTHONUTF8='1',BMS_PRODUCT=product if product!='shared' else 'd014',
+            env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',PYTHONUTF8='1',BMS_PRODUCT=product if product!='shared' else 'd008',
                      BMS_CASE_OUTPUT=str(output/case_id))
             code,raw,seconds=execute(command,env,args.timeout)
             log=case_id+'.log';(output/log).write_bytes(raw)

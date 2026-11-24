@@ -2,32 +2,18 @@
 #include "bms_afe.h"
 #if BMS_AFE_REGISTER_DEBUG_ENABLE || BMS_AFE_REGISTER_PRESET_COUNT
 #include "bms_afe_register_policy.h"
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "dvc1124.h"
 #define REGISTER_FIRST 0u
 #define REGISTER_LAST 0x8Fu /* 0x90 起始地址原文存在矛盾，目录显示但不尝试读取。 */
-#else
-#include "sh3673520.h"
-#define REGISTER_FIRST 0x40u
-#define REGISTER_LAST 0x99u
-#endif
 
 static uint8_t register_read(uint8_t reg, uint8_t *value)
 {
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     return DVC1124_ReadRegisters(reg, value, 1u);
-#else
-    return SH3673520_ReadReg(reg, value) == SH3673520_OK;
-#endif
 }
 
 static uint8_t register_write(uint8_t reg, uint8_t value)
 {
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     return DVC1124_WriteRegisters(reg, &value, 1u);
-#else
-    return SH3673520_WriteReg(reg, value) == SH3673520_OK;
-#endif
 }
 
 /* 对稳定 RW 字段执行 CAS、保留位保持及写后读回；从不自动重试上层事务。 */
@@ -38,11 +24,9 @@ static uint8_t register_update(uint8_t reg, uint8_t mask, uint8_t expected,
     if (!register_read(reg, &previous)) return 7u;
     if (compare && previous != expected) return 6u;
     target = (uint8_t)((previous & (uint8_t)~mask) | (value & mask));
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     /* RM p16 DPC=31 为 N/A；p22 COW 自清触发位不能随 RMW 重放。 */
     if (reg == 0x52u && (target & 0x1Fu) == 0x1Fu) return 5u;
     if (reg == 0x6Du) target &= (uint8_t)~0x04u;
-#endif
     if (target != previous && !register_write(reg, target)) return 7u;
     if (!register_read(reg, actual)) return 7u;
     return ((*actual & mask) == (target & mask)) ? 0u : 7u;
@@ -84,13 +68,7 @@ uint8_t bms_afe_register_command(const uint8_t *request, uint32_t length,
         uint16_t model, element;
         uint8_t parallel;
         if (length != 5u) return 1u;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
         model = 0x1124u; element = DVC1124_DEFAULT_SHUNT_UOHM; parallel = 1u;
-#else
-        model = (BMS_BUILD_AFE_MODEL == 3520u) ? 0x3520u : 0x3510u;
-        element = SH3673510_BOARD_SHUNT_ELEMENT_UOHM;
-        parallel = SH3673510_BOARD_SHUNT_PARALLEL_COUNT;
-#endif
         payload[0] = 1u;
         payload[1] = (uint8_t)(model >> 8); payload[2] = (uint8_t)model;
         payload[3] = BMS_AFE_REGISTER_DEBUG_ENABLE;
@@ -117,19 +95,11 @@ uint8_t bms_afe_register_command(const uint8_t *request, uint32_t length,
         if (!bms_afe_register_bus_access_allowed()) return 7u;
         if (request[2] == 0x11u) {
             uint8_t destructive;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
             destructive = DVC1124_RegReadHasSideEffect(reg);
-#else
-            destructive = reg == 0x59u || reg == 0x5Au;
-#endif
             if (request[6] > 1u || (destructive &&
                 (!request[6] || !bms_afe_register_debug_held()))) return 5u;
             if (destructive) {
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
                 if (!DVC1124_ReadRegisterOnce(reg, &actual)) return 7u;
-#else
-                if (SH3673520_ReadRegOnce(reg, &actual) != SH3673520_OK) return 7u;
-#endif
             } else if (!register_read(reg, &actual)) return 7u;
         } else {
             uint8_t result;

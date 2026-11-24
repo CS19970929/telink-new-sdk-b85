@@ -26,10 +26,6 @@
  *******************************************************************************************************/
 #include "bms_debug_log.h"
 #include "bms_product.h"
-#include "bms_afe_backend.h"
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-#include "sh3673510_project_config.h"
-#endif
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
@@ -52,9 +48,7 @@
 #include "bms_sleep_status.h"
 #include <string.h>
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 #include "bus_mux.h"
-#endif
 
 #if (BMS_PRODUCT_SWITCH_SLEEP_ENABLE != 0) && (BMS_PRODUCT_SWITCH_SLEEP_ENABLE != 1)
 #error "BMS_PRODUCT_SWITCH_SLEEP_ENABLE must be 0 or 1"
@@ -83,18 +77,8 @@ typedef bms_sleep_policy_t app_protective_sleep_t;
 static u8 s_protective_sleep_committed;
 static app_protective_sleep_t s_protective_sleep;
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 static u8 s_acc_sleep_committed;
 
-#else
-#if BMS_PRODUCT_SWITCH_ENABLE
-/* 按产品配置读取开关输入状态。 */
-static uint8_t board_switch_is_on(void)
-{
-	return gpio_read(BMS_BOARD_SWITCH_PIN) ? 0u : 1u;
-}
-#endif
-#endif
 
 /* 从低功耗时间差中消费完整秒数并保留余量。 */
 static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
@@ -112,82 +96,11 @@ static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
     return seconds;
 }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-/* B85 pm.h：REG6在深睡保留，watchdog/芯片复位/断电清零；本字节仅由PM持有。
- * bit0保存INT_WK入睡电平；命令/低压在开关ON时入睡，OFF只允许重新布防ON。 */
-#define APP_SH_SWITCH_WAKE_TAG 0xa8u
-#define APP_SH_SWITCH_WAKE_MASK 0xfeu
-
-/* GPIO/clock初始化之后、watchdog/BLE/AFE/业务初始化之前调用。
- * 返回1仅重复本保持动作；不读写Flash、不访问AFE、不恢复通信供电。 */
-u8 app_power_boot_sleep_hold(void)
-{
-    u8 retained = analog_read(DEEP_ANA_REG6);
-#if BMS_PRODUCT_SWITCH_ENABLE
-    if ((pm_get_wakeup_src() & WAKEUP_STATUS_PAD) &&
-        (retained & APP_SH_SWITCH_WAKE_MASK) == APP_SH_SWITCH_WAKE_TAG) {
-        static const GPIO_PinTypeDef inputs[] = { BMS_BOARD_SWITCH_PIN, BMS_BOARD_INT_WK_MCU_PIN };
-        u8 i;
-        for (i = 0u; i < sizeof(inputs) / sizeof(inputs[0]); ++i) {
-            gpio_set_func(inputs[i], AS_GPIO);
-            gpio_set_input_en(inputs[i], 1);
-            gpio_set_output_en(inputs[i], 0);
-        }
-        /* INT_WK同时改变时保留正常唤醒；仅过滤单独的开关OFF。 */
-        if (!board_switch_is_on() &&
-            (gpio_read(BMS_BOARD_INT_WK_MCU_PIN) ? 1u : 0u) == (retained & 1u)) {
-            gpio_set_func(BMS_BOARD_CMNT_EN_PIN, AS_GPIO);
-            gpio_write(BMS_BOARD_CMNT_EN_PIN, 0);
-            gpio_set_input_en(BMS_BOARD_CMNT_EN_PIN, 0);
-            gpio_set_output_en(BMS_BOARD_CMNT_EN_PIN, 1);
-            cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
-            cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 1);
-            cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN,
-                (retained & 1u) ? Level_Low : Level_High, 1);
-            bms_stall_diag_stage(BMS_STALL_BOOT_HOLD, 0u);
-            (void)cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
-            return 1u; /* PAD竞争返回后重新检查；ON或其他输入改变才放行。 */
-        }
-    }
-#else
-    (void)retained;
-#endif
-    analog_write(DEEP_ANA_REG6, 0u);
-    return 0u;
-}
-
-/* 等待原有输入改变，当前静态有效电平不作为拒睡条件。 */
-#if !defined(BMS_PRODUCT_NORMAL_SUSPEND_ENABLE) || BMS_PRODUCT_NORMAL_SUSPEND_ENABLE
-static void app_protective_wakeup_pin(GPIO_PinTypeDef pin)
-{
-    cpu_set_gpio_wakeup(pin, gpio_read(pin) ? Level_Low : Level_High, 1);
-}
-#endif
-#endif
 
 /* D008 已请求断电，不再执行低功耗调用；SH 仅重试深睡，不重复写 Flash/AFE。 */
 static void app_protective_sleep_hold(void)
 {
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     return; /* PC4 已拉低，禁止继续采样、通信或重复保存。 */
-#else
-    u8 wake_high = gpio_read(BMS_BOARD_INT_WK_MCU_PIN) ? 1u : 0u;
-    /* UART 只唤醒普通 Suspend，持续串口活动不能打断已提交的深睡。 */
-    cpu_set_gpio_wakeup(BMS_BOARD_SCI1_RX_PIN, Level_Low, 0);
-    gpio_en_interrupt_risc0(BMS_BOARD_SCI1_RX_PIN, 0);
-    reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;
-#if BMS_PRODUCT_SWITCH_ENABLE
-    u8 switch_on = board_switch_is_on();
-    analog_write(DEEP_ANA_REG6, switch_on ? APP_SH_SWITCH_WAKE_TAG | wake_high : 0u);
-    cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, switch_on ? Level_High : Level_Low, 1);
-#else
-    analog_write(DEEP_ANA_REG6, 0u);
-    cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 0);
-#endif
-    cpu_set_gpio_wakeup(BMS_BOARD_INT_WK_MCU_PIN, wake_high ? Level_Low : Level_High, 1);
-    bms_sleep_status_committed();
-    (void)cpu_sleep_wakeup(DEEPSLEEP_MODE, PM_WAKEUP_PAD, 0u);
-#endif
 }
 
 /* 已锁存的深睡/关机只收尾一次；保存和外设失败不能恢复业务或无限重试。 */
@@ -208,13 +121,8 @@ static void app_prepare_deep_sleep(void)
     (void)bls_ll_setAdvEnable(BLC_ADV_DISABLE);
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
     bls_pm_setAppWakeupLowPower(0u, 0u);
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    /* 强制 DeepSleep 不使用通信唤醒；释放 UART/隔离器引脚后再关闭 CMNT_EN。 */
-    modbus_uart_prepare_deep_sleep();
-#else
     /* 新增通信PAD仅用于普通Suspend，不能唤醒已提交的ACC深睡。 */
     cpu_set_gpio_wakeup(BMS_BOARD_OWC_RX_PIN, Level_High, 0);
-#endif
     s_low_power_mode = true;
 }
 
@@ -224,13 +132,9 @@ static void app_enter_protective_sleep(void)
     bms_stall_diag_deep_commit();
     s_protective_sleep_committed = 1u;
     app_prepare_deep_sleep();
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     bms_sleep_status_committed();
     /* 命令/保护性休眠均切断 MCU 供电；PC4 拉低后禁止再保存或访问 AFE。 */
     gpio_write(BMS_BOARD_MCU_LDO_PIN, 0u);
-#else
-    gpio_write(BMS_BOARD_CMNT_EN_PIN, 0u);
-#endif
     app_protective_sleep_hold();
 }
 
@@ -249,9 +153,7 @@ static u8 app_command_sleep_poll(void)
     if (elapsed < APP_COMMAND_REPLY_MS &&
         (uart_tx_is_busy() || modbus_uart_tx_active() ||
          (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u))) return 0u;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     BMS_LOG(BMS_LOG_INFO, BMS_LOG_POWER, BMS_LOG_SLEEP_ATTEMPT, 1u, 1u);
-#endif
     app_enter_protective_sleep();
     return 1u;
 }
@@ -288,7 +190,6 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec,
     return 0u;
 }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
 
 /* 深睡/关机与普通 suspend 的门禁不同，不能复用 pm_block 推断倒计时。 */
 static void app_dvc_publish_sleep(const app_sleep_status_t *protective,
@@ -348,39 +249,17 @@ static int app_enter_acc_sleep(void)
     return 1;
 }
 
-#else
-
-/* 开关/命令与低压复用同一个已提交深睡入口；失败后不恢复业务。 */
-static u8 app_sh_explicit_sleep_poll(void)
-{
-#if BMS_PRODUCT_SWITCH_ENABLE && BMS_PRODUCT_SWITCH_SLEEP_ENABLE
-    /* 开关OFF优先于命令应答，主循环本次直接提交深睡。 */
-    if (!board_switch_is_on()) {
-        bms_sleep_status_publish(BMS_SLEEP_REASON_SWITCH, 0u, 0u, 0u, 0u, 0u);
-        app_enter_protective_sleep();
-        return 1u;
-    }
-#endif
-    return app_command_sleep_poll();
-}
-
-#endif
 
 /* SDK 最后一道普通 Suspend 检查；直接深睡已提交时绝不被此回调否决。 */
 int app_power_before_suspend(void)
 {
     if (s_protective_sleep_committed) return 1;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (s_acc_sleep_committed) return 1;
-#endif
 #if defined(BMS_PRODUCT_NORMAL_SUSPEND_ENABLE) && !BMS_PRODUCT_NORMAL_SUSPEND_ENABLE
     return 0; /* D014止血：即使SDK许可意外开启，也不允许普通Suspend。 */
 #else
     if (!s_low_power_mode || bms_afe_register_debug_held() || app_sample_is_due() ||
         ota_is_working || !app_flash_lock_restore_enabled()) return 0;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    if (!modbus_uart_suspend_ready()) return 0;
-#endif
 #if defined(BMS_PRODUCT_SUSPEND_GUARD_US) && BMS_PRODUCT_SUSPEND_GUARD_US
 #if BMS_PRODUCT_SUSPEND_GUARD_US >= APP_SAMPLE_PERIOD_US
 #error "Suspend guard must leave room within the 200 ms sample period"
@@ -403,30 +282,7 @@ int app_power_before_suspend(void)
         return 0;
     }
 #endif
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     return bus_mux_prepare_suspend();
-#else
-    /* 当前稳定电平不拒绝普通 Suspend；变化仍唤醒，200ms采样定时器保留。 */
-#if BMS_PRODUCT_SWITCH_ENABLE
-    app_protective_wakeup_pin(BMS_BOARD_SWITCH_PIN);
-#else
-    cpu_set_gpio_wakeup(BMS_BOARD_SWITCH_PIN, Level_Low, 0);
-#endif
-    app_protective_wakeup_pin(BMS_BOARD_INT_WK_MCU_PIN);
-    modbus_uart_suspend_enter();
-#if defined(BMS_PRODUCT_SUSPEND_GUARD_US) && BMS_PRODUCT_SUSPEND_GUARD_US
-    prepare_end = clock_time();
-    remaining_ticks = (int32_t)(deadline - prepare_end);
-    if (remaining_ticks <= (int32_t)(guard_us * SYSTEM_TIMER_TICK_1US)) {
-        modbus_uart_suspend_cancel();
-        bms_stall_diag_prepare_end(prepare_end, BMS_STALL_PREP_LATE_VETO);
-        bms_stall_diag_suspend_veto(remaining_ticks);
-        return 0;
-    }
-    bms_stall_diag_prepare_end(prepare_end, BMS_STALL_PREP_ALLOW);
-#endif
-    return 1;
-#endif
 #endif
 }
 
@@ -448,7 +304,6 @@ void app_power_process(const volatile uint8_t *sample_due)
     u8 valid = bms_afe_get_aux_measurements(&m);
     /* 冻结暂停采样，不暂停强制休眠；无效快照不能撤销已确认的低压/过放。 */
     if (app_protective_sleep_poll(elapsed_sec, &m, valid, &protective)) return;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     u32 pm_block = 0u;
 #if BMS_SERVICE_DIAG_ENABLE
     u32 voltage_seconds;
@@ -524,36 +379,6 @@ void app_power_process(const volatile uint8_t *sample_due)
                             (*sample_due), APP_SUSPEND_CURRENT_THRESHOLD_MA);
     }
     app_dvc_publish_sleep(&protective, s_low_power_mode, valid);
-#else
-    u8 ui_busy = 0u;
-    u8 sample_block;
-    if (app_sh_explicit_sleep_poll()) return;
-    sample_block = (u8)(!valid || bms_afe_register_debug_held() || (*sample_due));
-#if (UI_KEYBOARD_ENABLE)
-    ui_busy = (scan_pin_need || key_not_released) ? 1u : 0u;
-#elif (UI_BUTTON_ENABLE)
-    ui_busy = button_not_released ? 1u : 0u;
-#endif
-#if (BLE_OTA_SERVER_ENABLE)
-    if (ota_is_working && !ui_busy) bls_pm_setManualLatency(0);
-#endif
-    /* 开关ON、充放电都可在任务间Suspend；串口静默由UART所有者确认。 */
-    s_low_power_mode = !ui_busy && !sample_block && modbus_uart_suspend_ready() &&
-        app_flash_lock_restore_enabled() && !ota_is_working;
-#if defined(BMS_PRODUCT_NORMAL_SUSPEND_ENABLE) && !BMS_PRODUCT_NORMAL_SUSPEND_ENABLE
-    s_low_power_mode = false;
-#endif
-    bls_pm_setSuspendMask(s_low_power_mode ? SUSPEND_ADV | SUSPEND_CONN : SUSPEND_DISABLE);
-    /* 最终快照使用本轮Suspend决定，不沿用计时入口发布的保守值。 */
-    if (deepsleep_en)
-        bms_sleep_status_publish(BMS_SLEEP_REASON_COMMAND, 0u,
-            (u32)(bms_time_ms() - s_command_ms), 500u, 0u, s_low_power_mode);
-    else if (protective.reason != BMS_SLEEP_REASON_NONE)
-        bms_sleep_status_publish(protective.reason, 0u, protective.elapsed_ms,
-            protective.delay_ms, 0u, s_low_power_mode);
-    else
-        bms_sleep_status_publish(BMS_SLEEP_REASON_NONE, 0u, 0u, 0u, 0u, s_low_power_mode);
-#endif
 }
 
 /* 保护性深睡保持动作优先；保留 ACC/关机保持与正常 DVC 外围诊断时点。 */
@@ -563,7 +388,6 @@ uint8_t app_power_prepare_loop(void)
         app_protective_sleep_hold();
         return 1u;
     }
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     if (s_acc_sleep_committed) {
         app_acc_sleep_hold();
         return 1u;
@@ -572,7 +396,6 @@ uint8_t app_power_prepare_loop(void)
     bms_parameters_diag_poll();
     bms_storage_platform_diag_poll();
     bms_afe_diag_poll();
-#endif
 #endif
     return 0u;
 }
