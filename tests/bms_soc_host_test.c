@@ -79,12 +79,8 @@ static void display_survives_current_gaps(void)
     init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, 0u);
     (void)bms_soc_step(&soc, &m);
     for (i = 0u; i < 24u; ++i) {
-        m.now_ms += 201u;
-        (void)bms_soc_step(&soc, &m);
-        /* 新 CC2 到达时，上一笔已超过 400 ms。 */
-        m.now_ms += 201u;
-        m.current_time_ms = m.now_ms;
-        (void)bms_soc_step(&soc, &m);
+        trace(&soc, &m, 1u, 201u);
+        trace(&soc, &m, 1u, 401u);
     }
     assert(soc.state.shown == 60u && soc.display_ms == 4824u);
 
@@ -95,6 +91,40 @@ static void display_survives_current_gaps(void)
     assert(soc.state.shown == 60u);
     trace(&soc, &m, 1u, 201u);
     assert(soc.state.shown == 59u && soc.state.charge_as10 == 1295754u);
+}
+
+static void integrate_dvc_cc2_poll_cadence(void)
+{
+    const bms_soc_config_t config = {{3550u, 2600u}, 40u, BMS_SOC_CHEMISTRY_LFP, 16u};
+    const bms_soc_checkpoint_t checkpoint = {
+        .charge_as10 = 72000u, .capacity_0p1ah = 40u, .shown = 50u
+    };
+    const int32_t currents_ma[] = {-3000, 3000};
+    unsigned direction;
+
+    for (direction = 0u; direction < 2u; ++direction) {
+        bms_soc_t soc;
+        bms_soc_sample_t m = sample(0u, currents_ma[direction], 3310u, 3320u);
+        uint32_t next_cc2_ms = 256u;
+        unsigned i;
+
+        bms_soc_init(&soc, &config, &checkpoint, 0u);
+        (void)bms_soc_step(&soc, &m);
+        for (i = 0u; i < 600u; ++i) {
+            m.now_ms += 201u;
+            m.voltage_fresh = m.now_ms >= next_cc2_ms;
+            if (m.voltage_fresh) {
+                m.current_time_ms = m.now_ms;
+                next_cc2_ms += 256u;
+            }
+            (void)bms_soc_step(&soc, &m);
+        }
+
+        /* 129 个双轮 CC2 间隔各截去 2 ms，总计保留 120342 ms。 */
+        assert(soc.state.charge_as10 == (direction == 0u ? 75610u : 68390u));
+        assert(soc.state.discharge_as10 == (direction == 0u ? 0u : 3610u));
+        assert(soc.carry_ma_ms == (direction == 0u ? -26000 : 26000));
+    }
 }
 
 static void full_and_resume(void)
@@ -287,6 +317,7 @@ int main(void)
 {
     integration();
     display_survives_current_gaps();
+    integrate_dvc_cc2_poll_cadence();
     full_and_resume();
     cutoff();
     empty_and_weak();

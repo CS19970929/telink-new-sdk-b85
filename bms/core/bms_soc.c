@@ -420,8 +420,11 @@ uint8_t bms_soc_step(bms_soc_t *soc, const bms_soc_sample_t *m)
         return 0u;
     }
     if (soc->previous_valid && !elapsed) return 0u;
-    if (soc->previous_valid && elapsed <= BMS_SAMPLE_MAX_POLL_GAP_MS &&
-        m->now_ms - soc->previous_current_ms <= BMS_CURRENT_MAX_AGE_MS) {
+    if (soc->previous_valid && elapsed <= BMS_SAMPLE_MAX_POLL_GAP_MS) {
+        /* 上一轮已确认电流有效。CC2 相位跨过有效期时只截掉区间尾部。 */
+        uint32_t previous_age = soc->previous_ms - soc->previous_current_ms;
+        uint32_t valid_ms = BMS_CURRENT_MAX_AGE_MS - previous_age;
+        if (elapsed > valid_ms) elapsed = valid_ms;
         integrate(soc, cap, elapsed);
     } else {
         clear_observation(soc);
