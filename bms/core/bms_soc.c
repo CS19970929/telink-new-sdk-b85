@@ -30,6 +30,10 @@
 #define SOC_DISCHARGE 1
 #define SOC_CUTOFF_CHARGE 1u
 #define SOC_CUTOFF_DISCHARGE 2u
+#define SOC_LFP_FULL_MIN_MV 3400u
+#define SOC_LFP_EMPTY_MIN_MV 2000u
+#define SOC_BASIS_EMPTY_BASE_MV 2700u
+#define SOC_BASIS_LOW_EMPTY_FLAG (1u << 27)
 
 typedef struct {
     uint16_t mv;
@@ -63,8 +67,8 @@ uint8_t bms_soc_limits_valid(uint8_t chemistry, const bms_soc_limits_t *limits)
 {
     if ((uint32_t)limits->empty_mv + 300u > limits->full_mv) return 0u;
     if (chemistry == BMS_SOC_CHEMISTRY_LFP)
-        return limits->full_mv >= 3400u && limits->full_mv <= 3600u &&
-            limits->empty_mv >= 2700u && limits->empty_mv <= 3050u;
+        return limits->full_mv >= SOC_LFP_FULL_MIN_MV && limits->full_mv <= 3750u &&
+            limits->empty_mv >= SOC_LFP_EMPTY_MIN_MV && limits->empty_mv <= 3150u;
     return chemistry == BMS_SOC_CHEMISTRY_NMC &&
         limits->full_mv >= 4050u && limits->full_mv <= 4200u &&
         limits->empty_mv >= 3000u && limits->empty_mv <= 3300u;
@@ -72,9 +76,16 @@ uint8_t bms_soc_limits_valid(uint8_t chemistry, const bms_soc_limits_t *limits)
 
 static uint32_t endpoint_basis(const bms_soc_config_t *config)
 {
-    /* 配置已校验。高低端点各占 10 位，另外包含固定装配串数和化学体系。 */
-    return ((uint32_t)config->limits.full_mv - 3400u) |
-        (((uint32_t)config->limits.empty_mv - 2700u) << 10) |
+    const uint32_t empty_mv = config->limits.empty_mv;
+    uint32_t empty_basis;
+
+    /* 空电字段仍占 10 位。用空闲位区分低压扩展，保留已有 State 的编码。 */
+    if (empty_mv < SOC_BASIS_EMPTY_BASE_MV)
+        empty_basis = ((empty_mv - SOC_LFP_EMPTY_MIN_MV) << 10) | SOC_BASIS_LOW_EMPTY_FLAG;
+    else
+        empty_basis = (empty_mv - SOC_BASIS_EMPTY_BASE_MV) << 10;
+
+    return ((uint32_t)config->limits.full_mv - SOC_LFP_FULL_MIN_MV) | empty_basis |
         ((uint32_t)config->cell_count << 20) | ((uint32_t)config->chemistry << 25);
 }
 

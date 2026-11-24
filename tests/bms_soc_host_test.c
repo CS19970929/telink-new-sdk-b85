@@ -4,9 +4,10 @@
 
 static void init(bms_soc_t *soc, uint8_t chemistry, uint8_t shown, uint32_t now)
 {
-    bms_soc_config_t config = {{0, 0}, 600u, chemistry, 16u};
+    bms_soc_config_t config = {{3500u, 2850u}, 600u, chemistry, 16u};
     bms_soc_checkpoint_t cp = {0};
-    bms_soc_defaults(chemistry, &config.limits);
+    if (chemistry == BMS_SOC_CHEMISTRY_NMC)
+        config.limits = (bms_soc_limits_t){4180u, 3100u};
     cp.capacity_0p1ah = config.capacity_0p1ah;
     cp.charge_as10 = (uint32_t)shown * 21600u;
     cp.shown = shown;
@@ -85,6 +86,8 @@ static void full_and_resume(void)
     m.current_ma = 0;
     trace(&soc, &m, 10u, 200u);
     cp = soc.state;
+    assert(cp.endpoint_basis == (100u | (150u << 10) | (16u << 20) |
+        ((uint32_t)BMS_SOC_CHEMISTRY_LFP << 25)));
     config = soc.config;
     bms_soc_init(&reboot, &config, &cp, m.now_ms);
     trace(&reboot, &m, 1u, 200u);
@@ -192,6 +195,29 @@ static void rest_and_configuration(void)
     assert(!bms_soc_limits_valid(config.chemistry, &config.limits));
 }
 
+static void lower_lfp_endpoint_checkpoint(void)
+{
+    bms_soc_t soc, reboot;
+    bms_soc_config_t config = {{3750u, 2000u}, 600u, BMS_SOC_CHEMISTRY_LFP, 16u};
+    bms_soc_limits_t defaults;
+    bms_soc_sample_t m = sample(0u, 45000, 2000u, 2100u);
+
+    bms_soc_defaults(config.chemistry, &defaults);
+    assert(bms_soc_limits_valid(config.chemistry, &defaults));
+    assert(bms_soc_limits_valid(config.chemistry, &config.limits));
+    bms_soc_init(&soc, &config, 0, 0u);
+    trace(&soc, &m, 27u, 200u);
+    assert(soc.state.endpoint == BMS_SOC_EMPTY);
+    assert(soc.state.endpoint_basis == (350u | (16u << 20) |
+        ((uint32_t)BMS_SOC_CHEMISTRY_LFP << 25) | (1u << 27)));
+
+    bms_soc_init(&reboot, &config, &soc.state, m.now_ms);
+    assert(reboot.state.endpoint == BMS_SOC_EMPTY);
+    config.limits.empty_mv = 2700u;
+    bms_soc_init(&reboot, &config, &soc.state, m.now_ms);
+    assert(reboot.state.endpoint == BMS_SOC_NO_ENDPOINT);
+}
+
 static void capacity_and_unconfirmed_bounds(void)
 {
     bms_soc_t soc;
@@ -214,6 +240,7 @@ int main(void)
     cutoff();
     empty_and_weak();
     rest_and_configuration();
+    lower_lfp_endpoint_checkpoint();
     capacity_and_unconfirmed_bounds();
     return 0;
 }
