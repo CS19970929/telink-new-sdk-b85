@@ -39,8 +39,11 @@ public partial class MainWindow
 
     private FrameworkElement CreateC073ProtectionView()
     {
+        _c073Sh309View.EnableEditing();
         _c073Sh309View.AddAction("读取 Flash 和 EEPROM", () =>
             RunC073OperationAsync(ReadC073ProtectionAsync, false, protection: true));
+        _c073Sh309View.AddAction("保存并应用到 309", () =>
+            RunC073OperationAsync(SaveC073ProtectionAsync, true, protection: true));
         return _c073Sh309View;
     }
 
@@ -58,6 +61,7 @@ public partial class MainWindow
         }
 #endif
         _parameterBusy=_diagBusy=true; _pollTimer.Stop();
+        if (protection) _c073Sh309View.SetBusy(true);
         using var timeout=CancellationTokenSource.CreateLinkedTokenSource(_connectionLifetime.Token, automatic);
         timeout.CancelAfter(TimeSpan.FromSeconds(45));
         try {
@@ -67,14 +71,24 @@ public partial class MainWindow
             if (ReferenceEquals(client,_bms)) _parameterStatus.Text=writing ? "C073 参数已保存并读回。" : "已从 C073 读取参数。";
         }
         catch (Exception) when (automatic.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (!timeout.IsCancellationRequested && ReferenceEquals(client, _bms))
+        {
+            _parameterStatus.Text = "已取消保存。";
+            if (protection) _c073Sh309View.Status.Text = _parameterStatus.Text;
+        }
         catch (Exception ex) when (ReferenceEquals(client,_bms)) {
             _c073ReadClient=null;
             _parameterStatus.Text="C073 参数操作未确认："+ex.Message;
-            if (protection) _c073Sh309View.Status.Text = _parameterStatus.Text;
+            if (protection)
+            {
+                _c073Sh309View.Clear();
+                _c073Sh309View.Status.Text = _parameterStatus.Text;
+            }
         }
         catch (Exception) when (!ReferenceEquals(client,_bms)) { }
         finally {
             if (ReferenceEquals(client,_bms)) DeviceSerialStatusText.Text=_parameterStatus.Text;
+            if (protection) _c073Sh309View.SetBusy(false);
             _parameterBusy=_diagBusy=false; StartAutomaticRefresh();
         }
     }
@@ -101,6 +115,19 @@ public partial class MainWindow
         ct.ThrowIfCancellationRequested();
         if (!ReferenceEquals(client, _bms)) throw new IOException("连接已改变。");
         _c073Sh309View.Load(profile);
+    }
+
+    private async Task SaveC073ProtectionAsync(BmsClient client, CancellationToken ct)
+    {
+        ushort[] observed = _c073Sh309View.RequireChip().Saved;
+        ushort[] candidate = _c073Sh309View.ReadDraft();
+        if (MessageBox.Show(this, "应用硬件保护参数时，C073 可能暂时关闭充、放电 MOS。确认保存并应用？",
+                "C073 硬件保护", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+            throw new OperationCanceledException();
+        ct.ThrowIfCancellationRequested();
+        if (!ReferenceEquals(client, _bms)) throw new IOException("连接已改变。");
+        await C073Protection.ApplyAsync(client, observed, candidate, ct);
+        await ReadC073ProtectionAsync(client, ct);
     }
 
     private async Task SaveC073GroupAsync(BmsClient client, ushort address, CancellationToken token)

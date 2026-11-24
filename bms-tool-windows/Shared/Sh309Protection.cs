@@ -46,6 +46,12 @@ public static class Sh309Protection
                     result = Sh309Readback.Different;
                 else if (!reportedForChip && chip.ProfileMatches)
                     result = Sh309Readback.Matches;
+                else if (!reportedForChip && service.ServiceFailed && chip.LastError == 4)
+                {
+                    // C087 checks every chip and reports only the first failure in the service result.
+                    result = Sh309Readback.Different;
+                    detail = $"配置不匹配，寄存器 0x{chip.LastRegister:X2}";
+                }
                 if (reportedForChip)
                     detail = $"{C077Parameters.ErrorText(service.ServiceError)}，寄存器 0x{service.ServicePosition & 255:X2}";
                 else if (chip.LastError != 0 && result == Sh309Readback.Unknown)
@@ -77,6 +83,20 @@ public static class Sh309Protection
         if (field.Signed)
             return $"{Format(product, field, field.Minimum)}..{Format(product, field, field.Maximum)}，整 ℃ 档位，按本片 TR 校验";
         return field.Limits;
+    }
+
+    public static ushort Encode(string product, C077HardwareField field, string text)
+    {
+        const NumberStyles style = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+            NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
+        if (!decimal.TryParse(text, style, CultureInfo.InvariantCulture, out decimal value) &&
+            !decimal.TryParse(text, style, CultureInfo.CurrentCulture, out value))
+            throw new ArgumentException($"{FieldName(product, field)}的数值格式无效。");
+        if (product == "C073" && C073Protection.IsCurrentField(field.Index)) value /= 3;
+        if (field.Signed) value *= 10;
+        if (value != decimal.Truncate(value) || value < field.Minimum || value > field.Maximum)
+            throw new ArgumentException($"{FieldName(product, field)}不在允许的精度或范围内。");
+        return field.Signed ? unchecked((ushort)(short)value) : (ushort)value;
     }
 
     public static string Format(string product, C077HardwareField field, int value)

@@ -55,6 +55,11 @@ static class Test
         wire.NegotiatedMtu = 76;
         await client.SaveC077HardwareAsync(0,a,hardware.Saved[0]);await client.SaveC077HardwareAsync(1,b,hardware.Saved[1]);
         var pending=await client.ReadC077HardwareAsync(true);
+        var bothPending = (await Sh309Protection.ReadAsync(client)).Chips;
+        Check(bothPending.All(c => c.Readback == Sh309Readback.Different) &&
+            bothPending[0].Saved[1] == 4240 && bothPending[0].Actual?[1] == 4260 &&
+            bothPending[1].Saved[1] == 4320 && bothPending[1].Actual?[1] == 4300,
+            "distinct pending targets and actual bytes remain available for both chips");
         Check(!pending.EepromReadbackConfirmed && pending.Actual.Chips[0].Eeprom[3]==0x54&&pending.Actual.Chips[1].Eeprom[3]==0x5C,
             "saving Flash leaves both EEPROMs pending");
         commands = wire.ServiceWrites;

@@ -17,6 +17,11 @@ if (failed.Saved[1] != 4250 || failed.Actual is not null || failed.Readback != S
     peer.Groups != 0 || peer.Programs != 0)
     throw new Exception("unconfirmed EEPROM must not hide Flash or display the cache as actual");
 peer.RejectVerify = false;
+if (Sh309Protection.Encode("C073", C077Hardware.Fields[12], "90") != 30 ||
+    Sh309Protection.Encode("C077", C077Hardware.Fields[25], "-5.0") != unchecked((ushort)-50))
+    throw new Exception("shared draft must preserve current conversion and signed temperature");
+try { Sh309Protection.Encode("C073", C077Hardware.Fields[12], "89"); throw new Exception("rounded current accepted"); }
+catch (ArgumentException) { }
 var before=await C073Protection.ReadAsync(client,ct);
 if (!before.Matches || before.Tr!=64 || before.Actual[1]!=4250 || before.Actual[12]!=30 || before.Actual[14]!=40)
     throw new Exception("actual profile decode");

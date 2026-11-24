@@ -326,8 +326,17 @@ static class UnifiedMonitorTest
             return (string)row.GetType().GetProperty(property)!.GetValue(row)!;
         }
         Check(chipSelector.Items.Count == 2 && OvervoltageColumn("Saved") == "4260", "C077 AFE1 独立档案");
+        var draftRow = parameterTable.Items.Cast<object>()
+            .Single(item => (string)item.GetType().GetProperty("Name")!.GetValue(item)! == "过压动作");
+        var draftProperty = draftRow.GetType().GetProperty("Draft")!;
+        draftProperty.SetValue(draftRow, "4240");
         chipSelector.SelectedIndex = 1;
-        Check(OvervoltageColumn("Saved") == "4300" && OvervoltageColumn("Actual") == "—", "C077 AFE2 独立档案及未知实际值");
+        Check(chipSelector.SelectedIndex == 0 && OvervoltageColumn("Saved") == "4260",
+            "未保存的 AFE1 草稿不能转到 AFE2");
+        draftProperty.SetValue(draftRow, "4260");
+        chipSelector.SelectedIndex = 1;
+        Check(OvervoltageColumn("Saved") == "4300" && OvervoltageColumn("Actual") == "—" && parameterTable.IsReadOnly,
+            "C077 AFE2 独立档案及未知实际值，读回未确认时禁止编辑");
         viewType.GetMethod("Load")!.Invoke(hardwareProtection, [
             new Sh309ProtectionSnapshot("C073", [new(0, saved1, null, null, Sh309Readback.Unknown, "读取故障")])
         ]);

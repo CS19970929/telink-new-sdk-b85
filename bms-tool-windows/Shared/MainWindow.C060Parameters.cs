@@ -78,8 +78,8 @@ public partial class MainWindow
             await RunC060ParameterAsync(async(c,t)=>{_c077Status.Text=(await c.RunC077ServiceAsync(false,t)).Summary;},"重新检查电流采样",requireCapture:false);
         });
 #if BMS_FACTORY_APP
-        AfeButton("查看 SH367309 硬件保护",()=>RunC060ParameterAsync((c,t)=>{
-            var editor=new C077AfeEditorWindow(c){Owner=this};editor.ShowDialog();return Task.CompletedTask;
+        AfeButton("SH367309 硬件保护（Flash / EEPROM）",()=>RunC060ParameterAsync((c,t)=>{
+            var editor=new C077AfeEditorWindow(c,_connectionLifetime.Token){Owner=this};editor.ShowDialog();return Task.CompletedTask;
         },"双309硬保护编辑",requireCapture:false,refreshAfter:false));
         AfeButton("维修：核对并写入双309档案",async()=>{
             if(MessageBox.Show(this,"将当前已保存参数对应的硬件保护档案写入两颗309，只写差异字节。EEPROM编程寿命≤100次；两颗不能原子提交，中断后保持关闭并需明确重试。请先断开负载/充电器并确认输出关闭。是否执行？","309 EEEPROM维修",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;

@@ -267,23 +267,30 @@ public sealed partial class MainActivity
 
     private Task ReadC073ProtectionAsync() => WithClientAsync("读取 SH367309 硬件保护", async (client, ct) =>
     {
-        var profile = await C073Protection.ReadAsync(client, ct);
+        RunOnUiThread(() =>
+        {
+            if (!ReferenceEquals(client, _client)) return;
+            _c073ProtectionRows!.RemoveAllViews();
+            _c073ProtectionStatus!.Text = "暂无本次芯片读回。";
+        });
+        var snapshot = await Sh309Protection.ReadAsync(client, ct);
         ct.ThrowIfCancellationRequested();
+        var chip = snapshot.Chips.Single();
         RunOnUiThread(() =>
         {
             if (!ReferenceEquals(client, _client) || !client.IsC073) return;
             _c073ProtectionRows!.RemoveAllViews();
+            int[]? actual = chip.Actual;
             foreach (var field in C077Hardware.Fields)
             {
-                int index = field.Index;
-                string unit = C073Protection.IsCurrentField(index) ? "A" : field.Unit;
-                int saved = C073Protection.DisplayValue(index, field.Value(profile.Saved[index]));
-                int actual = C073Protection.DisplayValue(index, profile.Actual[index]);
-                _c073ProtectionRows.AddView(Note($"{C073Protection.FieldName(field)} · Flash {saved} {unit} · 芯片 {actual} {unit}"));
+                string unit = Sh309Protection.Unit(snapshot.Product, field);
+                string saved = Sh309Protection.Format(snapshot.Product, field, field.Value(chip.Saved[field.Index]));
+                string observed = actual is null ? "—" : Sh309Protection.Format(snapshot.Product, field, actual[field.Index]);
+                _c073ProtectionRows.AddView(Note($"{Sh309Protection.FieldName(snapshot.Product, field)} · Flash {saved} {unit} · 芯片 {observed} {unit}"));
             }
-            _c073ProtectionStatus!.Text = profile.Matches ? "Flash 与芯片配置字节一致。" : "Flash 与芯片配置有差异。";
+            _c073ProtectionStatus!.Text = Sh309Protection.ReadbackText(chip);
         });
-        SetStatus("SH367309 硬件保护读取完成");
+        SetStatus(chip.Readback == Sh309Readback.Unknown ? "Flash 已读取，芯片读回未确认。" : "SH367309 硬件保护读取完成");
     }, TimeSpan.FromSeconds(45));
 
     private Task ReadAfeAsync() => WithClientAsync("读取 AFE 硬件保护", async (client, ct) =>
