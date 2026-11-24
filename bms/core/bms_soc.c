@@ -118,7 +118,6 @@ static void clear_observation(bms_soc_t *soc)
     soc->resting = 0u;
     soc->has_voltage = 0u;
     soc->drive = 0;
-    soc->display_ms = 0u;
     soc->weak_check = 0u;
     soc->pending_cutoff = 0u;
 }
@@ -137,6 +136,7 @@ void bms_soc_reconfigure(bms_soc_t *soc, const bms_soc_config_t *config)
     }
     if (soc->state.endpoint_basis != endpoint_basis(config)) clear_endpoint(soc);
     soc->config = *config;
+    soc->display_ms = 0u;
     clear_observation(soc);
 }
 
@@ -408,6 +408,7 @@ uint8_t bms_soc_step(bms_soc_t *soc, const bms_soc_sample_t *m)
         integrate(soc, cap, elapsed);
     } else {
         clear_observation(soc);
+        /* 断开的采样间隔不计时，保留显示已累计的有效时间。 */
         elapsed = 0u;
         cutoff_edge = 0u;
     }

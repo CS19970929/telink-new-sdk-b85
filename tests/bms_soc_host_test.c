@@ -70,6 +70,33 @@ static void integration(void)
     assert(!bms_soc_step(&soc, &m) && !soc.previous_valid);
 }
 
+static void display_survives_current_gaps(void)
+{
+    bms_soc_t soc;
+    bms_soc_sample_t m = sample(0u, 4900, 3090u, 3120u);
+    unsigned i;
+
+    init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, 0u);
+    (void)bms_soc_step(&soc, &m);
+    for (i = 0u; i < 24u; ++i) {
+        m.now_ms += 201u;
+        (void)bms_soc_step(&soc, &m);
+        /* 新 CC2 到达时，上一笔已超过 400 ms。 */
+        m.now_ms += 201u;
+        m.current_time_ms = m.now_ms;
+        (void)bms_soc_step(&soc, &m);
+    }
+    assert(soc.state.shown == 60u && soc.display_ms == 4824u);
+
+    m.current_valid = 0u;
+    trace(&soc, &m, 1u, 201u);
+    m.current_valid = 1u;
+    trace(&soc, &m, 1u, 201u);
+    assert(soc.state.shown == 60u);
+    trace(&soc, &m, 1u, 201u);
+    assert(soc.state.shown == 59u && soc.state.charge_as10 == 1295754u);
+}
+
 static void full_and_resume(void)
 {
     bms_soc_t soc, reboot;
@@ -236,6 +263,7 @@ static void capacity_and_unconfirmed_bounds(void)
 int main(void)
 {
     integration();
+    display_survives_current_gaps();
     full_and_resume();
     cutoff();
     empty_and_weak();
