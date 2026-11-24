@@ -145,6 +145,7 @@ public sealed partial class MainActivity : Activity
         if(requestCode==QrScanRequest){_ = ConnectQrResultAsync(data);return;}
         if(requestCode==BatteryLogFolderRequest){SelectBatteryLogFolder(data);return;}
         if(data?.Data is null)return;
+        if(requestCode==BatteryLogShareRequest){_ = ShareSelectedBatteryLogAsync(data.Data);return;}
         if(requestCode==C060ImportRequest){_ = ImportC060ParametersGuardedAsync(data.Data);return;}
         if(requestCode==FirmwarePickerRequest)_ = ImportFirmwareAsync(data.Data);
     }

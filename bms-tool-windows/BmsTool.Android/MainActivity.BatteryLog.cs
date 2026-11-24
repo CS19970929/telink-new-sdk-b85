@@ -12,12 +12,15 @@ namespace BmsTool.Android;
 public sealed partial class MainActivity
 {
     private const int BatteryLogFolderRequest = 1006;
+    private const int BatteryLogShareRequest = 1007;
+    private const string BatteryLogCsvMime = "text/csv";
     private static readonly int[] BatteryLogIntervals = [1, 2, 5, 10, 30, 60];
 
     private Uri? _batteryLogFolder;
+    private string? _batteryLogShareUri;
     private TextView? _batteryLogFolderView, _batteryLogStatus;
     private Spinner? _batteryLogInterval;
-    private Button? _batteryLogChoose, _batteryLogStart, _batteryLogStop;
+    private Button? _batteryLogChoose, _batteryLogStart, _batteryLogStop, _batteryLogShare;
     private CancellationTokenSource? _batteryLogCts;
     private Task? _batteryLogTask;
     private string? _batteryLogStopReason;
@@ -45,6 +48,8 @@ public sealed partial class MainActivity
         page.AddView(controls);
         _batteryLogStatus = DataBlock("未开始");
         page.AddView(_batteryLogStatus);
+        _batteryLogShare = ActionButton("选择并分享 CSV", ShareBatteryLogAsync, false);
+        page.AddView(_batteryLogShare);
         RefreshBatteryLogControls();
     }
 
@@ -72,6 +77,59 @@ public sealed partial class MainActivity
         RefreshBatteryLogControls();
     }
 
+    private Task ShareBatteryLogAsync()
+    {
+        if (_batteryLogCts is not null || _uiBusy) return Task.CompletedTask;
+        if (_batteryLogShareUri is string uri && Uri.Parse(uri) is Uri document)
+        {
+            using (document) OpenBatteryLogShareSheet(document);
+        }
+        else
+        {
+            using var picker = new Intent(Intent.ActionOpenDocument);
+            picker.AddCategory(Intent.CategoryOpenable);
+            // Providers disagree on the MIME type for CSV. Check the selected file name.
+            picker.SetType("*/*");
+            picker.AddFlags(ActivityFlags.GrantReadUriPermission);
+            StartActivityForResult(picker, BatteryLogShareRequest);
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task ShareSelectedBatteryLogAsync(Uri document)
+    {
+        if (_batteryLogCts is not null || _uiBusy) return;
+        try
+        {
+            string? name = await Task.Run(() => ReadDisplayName(document));
+            if (IsDestroyed || _batteryLogCts is not null || _uiBusy) return;
+            if (name?.EndsWith(".csv", StringComparison.OrdinalIgnoreCase) != true)
+            {
+                SetStatus("请选择 CSV 日志文件", true);
+                return;
+            }
+            OpenBatteryLogShareSheet(document);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("分享 CSV 失败：" + ex.Message, true);
+            AppendLog("BATTERY_LOG_SHARE_FAIL " + ex.Message);
+        }
+    }
+
+    private void OpenBatteryLogShareSheet(Uri document)
+    {
+        if (document.Scheme != "content") throw new IOException("请选择系统文件选择器中的 CSV");
+        using var send = new Intent(Intent.ActionSend);
+        send.SetType(BatteryLogCsvMime);
+        send.PutExtra(Intent.ExtraStream, (global::Android.OS.IParcelable)document);
+        using var clip = ClipData.NewUri(ContentResolver!, "电池数据 CSV", document);
+        send.ClipData = clip;
+        send.AddFlags(ActivityFlags.GrantReadUriPermission);
+        using var chooser = Intent.CreateChooser(send, "分享电池数据 CSV");
+        StartActivity(chooser);
+    }
+
     private void RefreshBatteryLogControls()
     {
         if (_batteryLogStart is null) return;
@@ -80,7 +138,9 @@ public sealed partial class MainActivity
         _batteryLogStart.Enabled = !running && !_uiBusy && _mobileCalibrationSession is null &&
             _client is not null && _batteryLogFolder is not null;
         _batteryLogStop!.Enabled = running && _batteryLogCts?.IsCancellationRequested == false;
-        foreach (var button in new[] { _batteryLogChoose, _batteryLogStart, _batteryLogStop })
+        _batteryLogShare!.Enabled = !running && !_uiBusy;
+        _batteryLogShare.Text = _batteryLogShareUri is null ? "选择并分享 CSV" : "分享本次 CSV";
+        foreach (var button in new[] { _batteryLogChoose, _batteryLogStart, _batteryLogStop, _batteryLogShare })
             button!.Alpha = button.Enabled ? 1f : 0.4f;
     }
 
@@ -102,6 +162,7 @@ public sealed partial class MainActivity
         string name = $"BMS_{mac.Replace(":", "")}_{DateTime.Now:yyyyMMdd_HHmmss_fff}.csv";
         var operation = new CancellationTokenSource();
         _batteryLogCts = operation;
+        _batteryLogShareUri = null;
         _batteryLogStopReason = null;
         _batteryLogStatus!.Text = $"正在创建 {name}";
         if (Window?.DecorView is View decor) decor.KeepScreenOn = true;
@@ -134,17 +195,19 @@ public sealed partial class MainActivity
         CancellationToken ct = operation.Token;
         long samples = 0, gaps = 0;
         string? error = null;
+        string? documentUri = null;
         try
         {
             ct.ThrowIfCancellationRequested();
             using var parent = DocumentsContract.BuildDocumentUriUsingTree(folder, DocumentsContract.GetTreeDocumentId(folder));
-            using var document = DocumentsContract.CreateDocument(ContentResolver!, parent!, "text/csv", name)
+            using var document = DocumentsContract.CreateDocument(ContentResolver!, parent!, BatteryLogCsvMime, name)
                 ?? throw new IOException("无法在所选文件夹创建 CSV");
             Stream stream = ContentResolver!.OpenOutputStream(document)
                 ?? throw new IOException("无法打开所选文件夹中的 CSV");
             await using var writer = new StreamWriter(stream, new UTF8Encoding(true));
             await writer.WriteLineAsync(BatteryLogCsv.Header);
             await writer.FlushAsync();
+            documentUri = document.ToString();
 
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(seconds));
             do
@@ -196,6 +259,8 @@ public sealed partial class MainActivity
                 if (!ReferenceEquals(operation, _batteryLogCts)) return;
                 _batteryLogCts = null;
                 _batteryLogTask = null;
+                // Processing reaches here only after the writer has closed the document.
+                _batteryLogShareUri = error is null && samples + gaps > 0 ? documentUri : null;
                 operation.Dispose();
                 if (IsDestroyed) return;
                 if (Window?.DecorView is View decor) decor.KeepScreenOn = false;
