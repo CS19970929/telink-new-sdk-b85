@@ -15,6 +15,7 @@
 - [D008 板级参考](docs/D008_PRODUCT_REFERENCE.md)、[24S 原理图](references/hardware/d008/HS-D008-24S100A-V1.pdf)、[AFE 原厂手册](docs/AFE_REFERENCE_GUIDE.md)
 - [架构与数据所有权](docs/ARCHITECTURE.md)、[SOC 与两个客户参数](docs/SOC.md)、[Flash 存储](docs/STORAGE.md)、[OTA 参数更新](docs/OTA_PARAMETERS.md)、[构建和测试](docs/BUILD_AND_TEST.md)
 - [保护参数](docs/D008_PROTECTION_CONFIGURATION.md)、[电流校准](docs/CURRENT_CALIBRATION.md)、[低功耗](docs/LOW_POWER_POLICY.md)、[串口升级](docs/SERIAL_OTA.md)
+- [宏配置与 AFE 参数盘点](docs/D008_MACRO_CONFIGURATION.md)、[逐宏索引](docs/D008_MACRO_INDEX.csv)
 - [历史四产品资料导航](docs/README.md)、[原硬件验收记录](docs/HARDWARE_VALIDATION.md)
 
 历史资料按当时提交使用。当前编译输入、默认参数和通过的验证以本分支源码和对应收据为准。

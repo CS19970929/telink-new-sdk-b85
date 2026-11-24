@@ -1,0 +1,965 @@
+﻿源文件,行,宏,源码定义,用途,保留建议,配置窗口
+bms/afe/dvc1124/dvc1124.c,20,DVC_MEAS_BYTES,(DVC1124_REG_CELL24_L + 1u),DVC1124 后端采样、换算及配置的字节数，DVC MEAS BYTES,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.c,21,DVC_I2C_RAW_MAX,(2u * (DVC1124_MAX_REGISTER + 1u)),DVC1124 后端采样、换算及配置的上限，DVC I2C RAW MAX,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.c,22,DVC_READY_RETRY_COUNT,20u,DVC1124 后端采样、换算及配置的数量或上限，DVC READY RETRY COUNT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.c,23,DVC_TEMP_TABLE_LEN,56u,DVC1124 后端采样、换算及配置的内部常量或预处理选项，DVC TEMP TABLE LEN,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.c,27,DVC_NTC_MIN_RES_OHM,100u,DVC1124 后端采样、换算及配置的内部常量或预处理选项，DVC NTC MIN RES OHM,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.c,28,DVC_NTC_MAX_RES_OHM,500000u,DVC1124 后端采样、换算及配置的内部常量或预处理选项，DVC NTC MAX RES OHM,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.c,69,DVC_NTC_VALID_SAMPLES,3u,DVC1124 后端采样、换算及配置的内部常量或预处理选项，DVC NTC VALID SAMPLES,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.c,72,DVC_BALANCE_REFRESH_INTERVAL_MS,45000u,DVC1124 后端采样、换算及配置的毫秒时间，DVC BALANCE REFRESH INTERVAL MS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.h,7,DVC1124_H_,,头文件重复包含保护,构建结构定义,—
+bms/afe/dvc1124/dvc1124.h,67,DVC1124_FIXED_WRITE_ADDR,0x40u,dvc1124的内部常量或预处理选项，DVC1124 FIXED WRITE ADDR,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.h,68,DVC1124_HARDWIRE_BASE_WRITE_ADDR,0xC0u,dvc1124的内部常量或预处理选项，DVC1124 HARDWIRE BASE WRITE ADDR,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.h,69,DVC1124_MAX_REGISTER,DVC1124_REG_MAX,dvc1124的内部常量或预处理选项，DVC1124 MAX REGISTER,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.h,70,DVC1124_MIN_CELLS,4u,dvc1124的内部常量或预处理选项，DVC1124 MIN CELLS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.h,71,DVC1124_MAX_CELLS,24u,dvc1124的内部常量或预处理选项，DVC1124 MAX CELLS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.h,72,DVC1124_MAX_GP,6u,dvc1124的内部常量或预处理选项，DVC1124 MAX GP,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124.h,78,DVC1124_DEFAULT_MODEL,DVC1124_MODEL_22,选择 DVC1124-2 型号编码,保留，板级或诊断固定,—
+bms/afe/dvc1124/dvc1124.h,81,DVC1124_DEFAULT_ADDR_MODE,DVC1124_ADDR_FIXED,选择固定 I²C 地址模式,保留，板级或诊断固定,—
+bms/afe/dvc1124/dvc1124.h,84,DVC1124_DEFAULT_HARDWIRE_CODE,0u,硬连地址模式的地址位输入，当前固定模式不使用,保留，板级或诊断固定,—
+bms/afe/dvc1124/dvc1124.h,87,DVC1124_DEFAULT_EXPLICIT_WRITE_ADDR,DVC1124_FIXED_WRITE_ADDR,显式地址模式的 8 位写地址输入，当前固定地址由驱动确定,保留，板级或诊断固定,—
+bms/afe/dvc1124/dvc1124.h,90,DVC1124_DEFAULT_CELL_COUNT,24u,把装配串数传给采样和屏蔽配置,保留，板级或诊断固定,—
+bms/afe/dvc1124/dvc1124.h,93,DVC1124_DEFAULT_SHUNT_UOHM,200u,等效分流电阻，影响电流采样与过流/短路换算,保留，实际装配,保护参数窗装配页
+bms/afe/dvc1124/dvc1124.h,96,DVC1124_DEFAULT_BATTERY_NTC_GP,4u,电池温度第一路 GP 通道,保留，板级或诊断固定,—
+bms/afe/dvc1124/dvc1124.h,99,DVC1124_DEFAULT_MOS_NTC_GP,1u,功率 MOS 温度 GP 通道,保留，板级或诊断固定,—
+bms/afe/dvc1124/dvc1124_bms.c,26,DVC_LOAD_RELEASE_CONFIRM_MS,BMS_D008_LOAD_RELEASE_CONFIRM_MS,DVC1124 保护及测量接入的毫秒时间，DVC LOAD RELEASE CONFIRM MS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_bms.c,27,DVC_OCC_ALARMS,(DVC1124_ALARM_OCC1_MASK | DVC1124_ALARM_OCC2_MASK),DVC1124 保护及测量接入的内部常量或预处理选项，DVC OCC ALARMS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_bms.c,28,DVC_DSG_ALARMS,(DVC1124_ALARM_OCD1_MASK | DVC1124_ALARM_OCD2_MASK | DVC1124_ALARM_SCD_MASK),DVC1124 保护及测量接入的内部常量或预处理选项，DVC DSG ALARMS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_bms.c,464,VOLTAGE_CHECK_RECOVERY_MS,2000u,DVC1124 保护及测量接入的毫秒时间，VOLTAGE CHECK RECOVERY MS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_bms.c,465,VOLTAGE_CHECK_RETRY_MS,5000u,DVC1124 保护及测量接入的毫秒时间，VOLTAGE CHECK RETRY MS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_bms.c,466,VOLTAGE_CHECK_OBSERVE_MIN_MS,600u,DVC1124 保护及测量接入的毫秒时间，VOLTAGE CHECK OBSERVE MIN MS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_bms.c,467,VOLTAGE_CHECK_OBSERVE_MAX_MS,900u,DVC1124 保护及测量接入的毫秒时间，VOLTAGE CHECK OBSERVE MAX MS,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_boot.c,19,DVC1124_I2C_WAKE_PULSE_US,1000u,DVC1124 板级启动的微秒时间，DVC1124 I2C WAKE PULSE US,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_boot.c,20,DVC1124_I2C_WAKE_MIN_US,50u,DVC1124 板级启动的微秒时间，DVC1124 I2C WAKE MIN US,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_boot.c,21,DVC1124_AFE_ENABLE_SETTLE_US,20000u,DVC1124 板级启动的微秒时间，DVC1124 AFE ENABLE SETTLE US,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_config_service.h,7,DVC1124_CONFIG_SERVICE_H_,,头文件重复包含保护,构建结构定义,—
+bms/afe/dvc1124/dvc1124_config_service.h,114,DVC1124_CONFIG_SCHEMA_VERSION,0x0001u,协议/持久记录的识别、版本或校验定义，DVC1124 CONFIG SCHEMA VERSION,保留，格式合同,—
+bms/afe/dvc1124/dvc1124_config_service.h,117,DVC1124_COMM_REG_BASE,0x2800u,寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_config_service.h,118,DVC1124_COMM_REG_COUNT,0x0060u,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,6,DVC1124_REG_H_,,头文件重复包含保护,构建结构定义,—
+bms/afe/dvc1124/dvc1124_reg.h,17,DVC1124_REG_MAX,0x90u,寄存器或协议字段的地址/长度，MAX,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,20,DVC1124_REG_ALARM,0x00u,寄存器或协议字段的地址/长度，ALARM,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,21,DVC1124_REG_STATUS,0x01u,寄存器或协议字段的地址/长度，STATUS,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,22,DVC1124_REG_CC1_H,0x02u,寄存器或协议字段的地址/长度，CC1 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,23,DVC1124_REG_CC1_L,0x03u,寄存器或协议字段的地址/长度，CC1 L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,24,DVC1124_REG_CC2_H,0x04u,寄存器或协议字段的地址/长度，CC2 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,25,DVC1124_REG_CC2_M,0x05u,寄存器或协议字段的地址/长度，CC2 M,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,26,DVC1124_REG_CC2_L_FLAGS,0x06u,寄存器或协议字段的地址/长度，CC2 L FLAGS,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,27,DVC1124_REG_VTOP_H,0x07u,寄存器或协议字段的地址/长度，VTOP H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,28,DVC1124_REG_VTOP_L,0x08u,寄存器或协议字段的地址/长度，VTOP L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,29,DVC1124_REG_VPACK_H,0x09u,寄存器或协议字段的地址/长度，VPACK H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,30,DVC1124_REG_VPACK_L,0x0Au,寄存器或协议字段的地址/长度，VPACK L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,31,DVC1124_REG_VLOAD_H,0x0Bu,寄存器或协议字段的地址/长度，VLOAD H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,32,DVC1124_REG_VLOAD_L,0x0Cu,寄存器或协议字段的地址/长度，VLOAD L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,33,DVC1124_REG_VCT_H,0x0Du,寄存器或协议字段的地址/长度，VCT H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,34,DVC1124_REG_VCT_L,0x0Eu,寄存器或协议字段的地址/长度，VCT L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,35,DVC1124_REG_V1P8_H,0x0Fu,寄存器或协议字段的地址/长度，V1P8 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,36,DVC1124_REG_V1P8_L,0x10u,寄存器或协议字段的地址/长度，V1P8 L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,37,DVC1124_REG_GP1_H,0x11u,寄存器或协议字段的地址/长度，GP1 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,38,DVC1124_REG_GP1_L,0x12u,寄存器或协议字段的地址/长度，GP1 L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,39,DVC1124_REG_GP2_H,0x13u,寄存器或协议字段的地址/长度，GP2 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,40,DVC1124_REG_GP2_L,0x14u,寄存器或协议字段的地址/长度，GP2 L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,41,DVC1124_REG_GP3_H,0x15u,寄存器或协议字段的地址/长度，GP3 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,42,DVC1124_REG_GP3_L,0x16u,寄存器或协议字段的地址/长度，GP3 L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,43,DVC1124_REG_GP4_H,0x17u,寄存器或协议字段的地址/长度，GP4 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,44,DVC1124_REG_GP4_L,0x18u,寄存器或协议字段的地址/长度，GP4 L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,45,DVC1124_REG_GP5_H,0x19u,寄存器或协议字段的地址/长度，GP5 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,46,DVC1124_REG_GP5_L,0x1Au,寄存器或协议字段的地址/长度，GP5 L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,47,DVC1124_REG_GP6_H,0x1Bu,寄存器或协议字段的地址/长度，GP6 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,48,DVC1124_REG_GP6_L,0x1Cu,寄存器或协议字段的地址/长度，GP6 L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,49,DVC1124_REG_CELL1_H,0x1Du,寄存器或协议字段的地址/长度，CELL1 H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,50,DVC1124_REG_CELL24_L,0x4Cu,寄存器或协议字段的地址/长度，CELL24 L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,51,DVC1124_REG_VVOS_H,0x4Du,寄存器或协议字段的地址/长度，VVOS H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,52,DVC1124_REG_VVOS_L,0x4Eu,寄存器或协议字段的地址/长度，VVOS L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,53,DVC1124_REG_CVOS_H,0x4Fu,寄存器或协议字段的地址/长度，CVOS H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,54,DVC1124_REG_CVOS_L,0x50u,寄存器或协议字段的地址/长度，CVOS L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,56,DVC1124_REG_CELL_H(cell_1_to_24),((uint8_t)(DVC1124_REG_CELL1_H + (((uint8_t)(cell_1_to_24) - 1u) * 2u))),寄存器或协议字段的地址/长度，CELL H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,58,DVC1124_REG_CELL_L(cell_1_to_24),((uint8_t)(DVC1124_REG_CELL_H(cell_1_to_24) + 1u)),寄存器或协议字段的地址/长度，CELL L,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,62,DVC1124_REG_FET_CTRL,0x51u,寄存器或协议字段的地址/长度，FET CTRL,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,63,DVC1124_REG_DSG_PULLDOWN,0x52u,寄存器或协议字段的地址/长度，DSG PULLDOWN,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,64,DVC1124_REG_DSG_MASK,0x53u,寄存器或协议字段的地址/长度，DSG MASK,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,65,DVC1124_REG_CHG_MASK,0x54u,寄存器或协议字段的地址/长度，CHG MASK,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,66,DVC1124_REG_CADC_CTRL,0x55u,寄存器或协议字段的地址/长度，CADC CTRL,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,67,DVC1124_REG_CC1_TIMING,0x56u,寄存器或协议字段的地址/长度，CC1 TIMING,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,68,DVC1124_REG_RESERVED_57,0x57u,寄存器或协议字段的地址/长度，RESERVED 57,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,69,DVC1124_REG_RESERVED_58,0x58u,寄存器或协议字段的地址/长度，RESERVED 58,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,70,DVC1124_REG_OCD1_THR,0x59u,寄存器或协议字段的地址/长度，OCD1 THR,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,71,DVC1124_REG_OCC1_THR,0x5Au,寄存器或协议字段的地址/长度，OCC1 THR,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,72,DVC1124_REG_OCD1_DLY,0x5Bu,寄存器或协议字段的地址/长度，OCD1 DLY,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,73,DVC1124_REG_OCC1_DLY,0x5Cu,寄存器或协议字段的地址/长度，OCC1 DLY,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,74,DVC1124_REG_RESERVED_5D,0x5Du,寄存器或协议字段的地址/长度，RESERVED 5D,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,75,DVC1124_REG_OCD2,0x5Eu,寄存器或协议字段的地址/长度，OCD2,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,76,DVC1124_REG_OCC2,0x5Fu,寄存器或协议字段的地址/长度，OCC2,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,77,DVC1124_REG_OCD2_DLY,0x60u,寄存器或协议字段的地址/长度，OCD2 DLY,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,78,DVC1124_REG_OCC2_DLY,0x61u,寄存器或协议字段的地址/长度，OCC2 DLY,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,79,DVC1124_REG_SCD,0x62u,寄存器或协议字段的地址/长度，SCD,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,80,DVC1124_REG_SCD_DLY,0x63u,寄存器或协议字段的地址/长度，SCD DLY,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,81,DVC1124_REG_RESERVED_64,0x64u,寄存器或协议字段的地址/长度，RESERVED 64,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,82,DVC1124_REG_CURRENT_WAKE,0x65u,寄存器或协议字段的地址/长度，CURRENT WAKE,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,83,DVC1124_REG_BODY_DIODE,0x66u,寄存器或协议字段的地址/长度，BODY DIODE,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,84,DVC1124_REG_BAL_24_17,0x67u,寄存器或协议字段的地址/长度，BAL 24 17,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,85,DVC1124_REG_BAL_16_9,0x68u,寄存器或协议字段的地址/长度，BAL 16 9,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,86,DVC1124_REG_BAL_8_1,0x69u,寄存器或协议字段的地址/长度，BAL 8 1,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,87,DVC1124_REG_CELL_MASK_24_17,0x6Au,寄存器或协议字段的地址/长度，CELL MASK 24 17,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,88,DVC1124_REG_CELL_MASK_16_9,0x6Bu,寄存器或协议字段的地址/长度，CELL MASK 16 9,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,89,DVC1124_REG_CELL_MASK_8_5_MISC,0x6Cu,寄存器或协议字段的地址/长度，CELL MASK 8 5 MISC,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,90,DVC1124_REG_CP_CTRL,0x6Du,寄存器或协议字段的地址/长度，CP CTRL,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,91,DVC1124_REG_VADC_CTRL,0x6Eu,寄存器或协议字段的地址/长度，VADC CTRL,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,92,DVC1124_REG_RESERVED_6F,0x6Fu,寄存器或协议字段的地址/长度，RESERVED 6F,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,93,DVC1124_REG_COV_H,0x70u,寄存器或协议字段的地址/长度，COV H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,94,DVC1124_REG_COV_L_DLY,0x71u,寄存器或协议字段的地址/长度，COV L DLY,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,95,DVC1124_REG_CUV_H,0x72u,寄存器或协议字段的地址/长度，CUV H,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,96,DVC1124_REG_CUV_L_DLY,0x73u,寄存器或协议字段的地址/长度，CUV L DLY,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,97,DVC1124_REG_GP123_MODE,0x74u,寄存器或协议字段的地址/长度，GP123 MODE,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,98,DVC1124_REG_GP456_MODE,0x75u,寄存器或协议字段的地址/长度，GP456 MODE,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,99,DVC1124_REG_CORE_OT,0x76u,寄存器或协议字段的地址/长度，CORE OT,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,100,DVC1124_REG_I2C_WDT,0x77u,寄存器或协议字段的地址/长度，I2C WDT,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,101,DVC1124_REG_TIMED_WAKE,0x78u,寄存器或协议字段的地址/长度，TIMED WAKE,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,102,DVC1124_REG_INT_MASK,0x79u,寄存器或协议字段的地址/长度，INT MASK,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,103,DVC1124_REG_RESERVED_7A,0x7Au,寄存器或协议字段的地址/长度，RESERVED 7A,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,104,DVC1124_REG_RESERVED_7B,0x7Bu,寄存器或协议字段的地址/长度，RESERVED 7B,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,105,DVC1124_REG_RESERVED_7C,0x7Cu,寄存器或协议字段的地址/长度，RESERVED 7C,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,106,DVC1124_REG_RESERVED_7D,0x7Du,寄存器或协议字段的地址/长度，RESERVED 7D,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,107,DVC1124_REG_FRT,0x7Eu,寄存器或协议字段的地址/长度，FRT,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,108,DVC1124_REG_CHIP_VERSION,0x8Fu,寄存器或协议字段的地址/长度，CHIP VERSION,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,109,DVC1124_REG_RESERVED_90,0x90u,寄存器或协议字段的地址/长度，RESERVED 90,保留，寄存器/协议合同,—
+bms/afe/dvc1124/dvc1124_reg.h,112,DVC1124_ALARM_IWTF_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 ALARM IWTF MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,113,DVC1124_ALARM_COV_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 ALARM COV MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,114,DVC1124_ALARM_CUV_MASK,0x20u,位字段的提取、屏蔽或移位，DVC1124 ALARM CUV MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,115,DVC1124_ALARM_OCD1_MASK,0x10u,位字段的提取、屏蔽或移位，DVC1124 ALARM OCD1 MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,116,DVC1124_ALARM_OCC1_MASK,0x08u,位字段的提取、屏蔽或移位，DVC1124 ALARM OCC1 MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,117,DVC1124_ALARM_OCD2_MASK,0x04u,位字段的提取、屏蔽或移位，DVC1124 ALARM OCD2 MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,118,DVC1124_ALARM_OCC2_MASK,0x02u,位字段的提取、屏蔽或移位，DVC1124 ALARM OCC2 MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,119,DVC1124_ALARM_SCD_MASK,0x01u,位字段的提取、屏蔽或移位，DVC1124 ALARM SCD MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,120,DVC1124_ALARM_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 ALARM RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,123,DVC1124_STATUS_PD_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 STATUS PD MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,124,DVC1124_STATUS_VADF_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 STATUS VADF MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,125,DVC1124_STATUS_CC1F_MASK,0x20u,位字段的提取、屏蔽或移位，DVC1124 STATUS CC1F MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,126,DVC1124_STATUS_CC2F_MASK,0x10u,位字段的提取、屏蔽或移位，DVC1124 STATUS CC2F MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,127,DVC1124_STATUS_CST_MASK,0x0Fu,位字段的提取、屏蔽或移位，DVC1124 STATUS CST MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,128,DVC1124_STATUS_CST_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 STATUS CST SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,129,DVC1124_STATUS_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 STATUS RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,150,DVC1124_CC2_PDSGF_MASK,0x08u,位字段的提取、屏蔽或移位，DVC1124 CC2 PDSGF MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,151,DVC1124_CC2_PCHGF_MASK,0x04u,位字段的提取、屏蔽或移位，DVC1124 CC2 PCHGF MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,152,DVC1124_CC2_DSGF_MASK,0x02u,位字段的提取、屏蔽或移位，DVC1124 CC2 DSGF MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,153,DVC1124_CC2_CHGF_MASK,0x01u,位字段的提取、屏蔽或移位，DVC1124 CC2 CHGF MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,156,DVC1124_FET_LDPU_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 FET LDPU MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,157,DVC1124_FET_PDSGC_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 FET PDSGC MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,158,DVC1124_FET_PCHGC_MASK,0x20u,位字段的提取、屏蔽或移位，DVC1124 FET PCHGC MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,159,DVC1124_FET_DSGM_MASK,0x10u,位字段的提取、屏蔽或移位，DVC1124 FET DSGM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,160,DVC1124_FET_DSGC_MASK,0x0Cu,位字段的提取、屏蔽或移位，DVC1124 FET DSGC MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,161,DVC1124_FET_DSGC_SHIFT,2u,位字段的提取、屏蔽或移位，DVC1124 FET DSGC SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,162,DVC1124_FET_CHGC_MASK,0x03u,位字段的提取、屏蔽或移位，DVC1124 FET CHGC MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,163,DVC1124_FET_CHGC_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 FET CHGC SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,164,DVC1124_FET_CTRL_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 FET CTRL RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,175,DVC1124_PDWM_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 PDWM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,176,DVC1124_DPC_MASK,0x1Fu,位字段的提取、屏蔽或移位，DVC1124 DPC MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,177,DVC1124_DPC_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 DPC SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,178,DVC1124_DSG_PULLDOWN_RESET,0x90u,dvc1124_reg的内部常量或预处理选项，DVC1124 DSG PULLDOWN RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,181,DVC1124_DSGMASK_PDDM_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 DSGMASK PDDM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,182,DVC1124_DSGMASK_PCWM_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 DSGMASK PCWM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,183,DVC1124_DSGMASK_PCCM_MASK,0x20u,位字段的提取、屏蔽或移位，DVC1124 DSGMASK PCCM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,184,DVC1124_DSGMASK_PCDM_MASK,0x10u,位字段的提取、屏蔽或移位，DVC1124 DSGMASK PCDM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,185,DVC1124_DSGMASK_DWM_MASK,0x08u,位字段的提取、屏蔽或移位，DVC1124 DSGMASK DWM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,186,DVC1124_DSGMASK_DDM_MASK,0x04u,位字段的提取、屏蔽或移位，DVC1124 DSGMASK DDM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,187,DVC1124_DSGMASK_DPDM_MASK,0x02u,位字段的提取、屏蔽或移位，DVC1124 DSGMASK DPDM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,188,DVC1124_DSGMASK_DBDM_MASK,0x01u,位字段的提取、屏蔽或移位，DVC1124 DSGMASK DBDM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,189,DVC1124_DSG_MASK_RESET,0x59u,位字段的提取、屏蔽或移位，DVC1124 DSG MASK RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,192,DVC1124_CHGMASK_CWM_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 CHGMASK CWM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,193,DVC1124_CHGMASK_CO1M_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 CHGMASK CO1M MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,194,DVC1124_CHGMASK_CO2M_MASK,0x20u,位字段的提取、屏蔽或移位，DVC1124 CHGMASK CO2M MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,195,DVC1124_CHGMASK_CSM_MASK,0x10u,位字段的提取、屏蔽或移位，DVC1124 CHGMASK CSM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,196,DVC1124_CHGMASK_CDM_MASK,0x08u,位字段的提取、屏蔽或移位，DVC1124 CHGMASK CDM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,197,DVC1124_CHGMASK_CCM_MASK,0x04u,位字段的提取、屏蔽或移位，DVC1124 CHGMASK CCM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,198,DVC1124_CHGMASK_CPCM_MASK,0x02u,位字段的提取、屏蔽或移位，DVC1124 CHGMASK CPCM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,199,DVC1124_CHGMASK_CBDM_MASK,0x01u,位字段的提取、屏蔽或移位，DVC1124 CHGMASK CBDM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,200,DVC1124_CHG_MASK_RESET,0xF9u,位字段的提取、屏蔽或移位，DVC1124 CHG MASK RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,203,DVC1124_CADC_HSFM_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 CADC HSFM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,204,DVC1124_CADC_CAEW_MASK,0x08u,位字段的提取、屏蔽或移位，DVC1124 CADC CAEW MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,205,DVC1124_CADC_CAES_MASK,0x04u,位字段的提取、屏蔽或移位，DVC1124 CADC CAES MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,206,DVC1124_CADC_CAMZ_MASK,0x01u,位字段的提取、屏蔽或移位，DVC1124 CADC CAMZ MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,207,DVC1124_CADC_CTRL_RESET,0x2Cu,dvc1124_reg的内部常量或预处理选项，DVC1124 CADC CTRL RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,210,DVC1124_CC1_WORK_TIME_MASK,0x0Cu,位字段的提取、屏蔽或移位，DVC1124 CC1 WORK TIME MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,211,DVC1124_CC1_WORK_TIME_SHIFT,2u,位字段的提取、屏蔽或移位，DVC1124 CC1 WORK TIME SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,212,DVC1124_CC1_SLEEP_WAKE_TIME_MASK,0x03u,位字段的提取、屏蔽或移位，DVC1124 CC1 SLEEP WAKE TIME MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,213,DVC1124_CC1_SLEEP_WAKE_TIME_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 CC1 SLEEP WAKE TIME SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,214,DVC1124_CC1_TIMING_RESET,0xFFu,dvc1124_reg的内部常量或预处理选项，DVC1124 CC1 TIMING RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,233,DVC1124_OCD1_THR_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 OCD1 THR RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,234,DVC1124_OCC1_THR_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 OCC1 THR RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,236,DVC1124_OCD1_DLY_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 OCD1 DLY RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,237,DVC1124_OCC1_DLY_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 OCC1 DLY RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,240,DVC1124_OC2_ENABLE_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 OC2 ENABLE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,241,DVC1124_OC2_THRESHOLD_MASK,0x3Fu,位字段的提取、屏蔽或移位，DVC1124 OC2 THRESHOLD MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,242,DVC1124_OC2_THRESHOLD_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 OC2 THRESHOLD SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,243,DVC1124_OCD2_RESET,0x40u,dvc1124_reg的内部常量或预处理选项，DVC1124 OCD2 RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,244,DVC1124_OCC2_RESET,0xC0u,dvc1124_reg的内部常量或预处理选项，DVC1124 OCC2 RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,246,DVC1124_OCD2_DLY_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 OCD2 DLY RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,247,DVC1124_OCC2_DLY_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 OCC2 DLY RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,250,DVC1124_SCD_ENABLE_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 SCD ENABLE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,251,DVC1124_SCD_THRESHOLD_MASK,0x3Fu,位字段的提取、屏蔽或移位，DVC1124 SCD THRESHOLD MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,252,DVC1124_SCD_THRESHOLD_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 SCD THRESHOLD SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,253,DVC1124_SCD_RESET,0x40u,dvc1124_reg的内部常量或预处理选项，DVC1124 SCD RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,255,DVC1124_SCD_DLY_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 SCD DLY RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,258,DVC1124_CURRENT_WAKE_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 CURRENT WAKE RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,260,DVC1124_BODY_DIODE_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 BODY DIODE RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,263,DVC1124_BALANCE_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 BALANCE RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,266,DVC1124_CELLMASK_CM8_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 CELLMASK CM8 MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,267,DVC1124_CELLMASK_CM7_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 CELLMASK CM7 MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,268,DVC1124_CELLMASK_CM6_MASK,0x20u,位字段的提取、屏蔽或移位，DVC1124 CELLMASK CM6 MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,269,DVC1124_CELLMASK_CM5_MASK,0x10u,位字段的提取、屏蔽或移位，DVC1124 CELLMASK CM5 MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,270,DVC1124_CELLMASK_PKM_MASK,0x08u,位字段的提取、屏蔽或移位，DVC1124 CELLMASK PKM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,271,DVC1124_CELLMASK_LDM_MASK,0x04u,位字段的提取、屏蔽或移位，DVC1124 CELLMASK LDM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,272,DVC1124_CELLMASK_CTM_MASK,0x02u,位字段的提取、屏蔽或移位，DVC1124 CELLMASK CTM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,273,DVC1124_CELLMASK_V1P8M_MASK,0x01u,位字段的提取、屏蔽或移位，DVC1124 CELLMASK V1P8M MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,274,DVC1124_CELL_MASK_RESET,0x00u,位字段的提取、屏蔽或移位，DVC1124 CELL MASK RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,277,DVC1124_CPVS_MASK,0x38u,位字段的提取、屏蔽或移位，DVC1124 CPVS MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,278,DVC1124_CPVS_SHIFT,3u,位字段的提取、屏蔽或移位，DVC1124 CPVS SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,279,DVC1124_COW_MASK,0x04u,位字段的提取、屏蔽或移位，DVC1124 COW MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,280,DVC1124_CMM_MASK,0x02u,位字段的提取、屏蔽或移位，DVC1124 CMM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,281,DVC1124_CVS_MASK,0x01u,位字段的提取、屏蔽或移位，DVC1124 CVS MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,282,DVC1124_CP_CTRL_RESET,0x28u,dvc1124_reg的内部常量或预处理选项，DVC1124 CP CTRL RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,297,DVC1124_VADC_ENABLE_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 VADC ENABLE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,298,DVC1124_VADC_SYNC_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 VADC SYNC MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,299,DVC1124_VADC_PERIOD_MASK,0x30u,位字段的提取、屏蔽或移位，DVC1124 VADC PERIOD MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,300,DVC1124_VADC_PERIOD_SHIFT,4u,位字段的提取、屏蔽或移位，DVC1124 VADC PERIOD SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,301,DVC1124_VADC_TIME_MASK,0x03u,位字段的提取、屏蔽或移位，DVC1124 VADC TIME MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,302,DVC1124_VADC_TIME_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 VADC TIME SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,303,DVC1124_VADC_CTRL_RESET,0xCDu,dvc1124_reg的内部常量或预处理选项，DVC1124 VADC CTRL RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,322,DVC1124_COV_RESET_H,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 COV RESET H,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,323,DVC1124_COV_RESET_L,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 COV RESET L,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,324,DVC1124_CUV_RESET_H,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 CUV RESET H,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,325,DVC1124_CUV_RESET_L,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 CUV RESET L,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,326,DVC1124_VPROT_THRESHOLD_LOW_MASK,0xF0u,位字段的提取、屏蔽或移位，DVC1124 VPROT THRESHOLD LOW MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,327,DVC1124_VPROT_DELAY_MASK,0x0Fu,位字段的提取、屏蔽或移位，DVC1124 VPROT DELAY MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,330,DVC1124_GP1_MODE_MASK,0xC0u,位字段的提取、屏蔽或移位，DVC1124 GP1 MODE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,331,DVC1124_GP1_MODE_SHIFT,6u,位字段的提取、屏蔽或移位，DVC1124 GP1 MODE SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,332,DVC1124_GP2_MODE_MASK,0x38u,位字段的提取、屏蔽或移位，DVC1124 GP2 MODE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,333,DVC1124_GP2_MODE_SHIFT,3u,位字段的提取、屏蔽或移位，DVC1124 GP2 MODE SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,334,DVC1124_GP3_MODE_MASK,0x07u,位字段的提取、屏蔽或移位，DVC1124 GP3 MODE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,335,DVC1124_GP3_MODE_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 GP3 MODE SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,336,DVC1124_GP123_MODE_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 GP123 MODE RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,339,DVC1124_GP4_MODE_MASK,0xC0u,位字段的提取、屏蔽或移位，DVC1124 GP4 MODE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,340,DVC1124_GP4_MODE_SHIFT,6u,位字段的提取、屏蔽或移位，DVC1124 GP4 MODE SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,341,DVC1124_GP5_MODE_MASK,0x38u,位字段的提取、屏蔽或移位，DVC1124 GP5 MODE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,342,DVC1124_GP5_MODE_SHIFT,3u,位字段的提取、屏蔽或移位，DVC1124 GP5 MODE SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,343,DVC1124_GP6_MODE_MASK,0x07u,位字段的提取、屏蔽或移位，DVC1124 GP6 MODE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,344,DVC1124_GP6_MODE_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 GP6 MODE SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,345,DVC1124_GP456_MODE_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 GP456 MODE RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,368,"DVC1124_GP123_ENCODE(gp1, gp2, gp3)",((uint8_t)((((uint8_t)(gp1) << DVC1124_GP1_MODE_SHIFT) & DVC1124_GP1_MODE_MASK) | (((uint8_t)(gp2) << DVC1124_GP2_MODE_SHIFT) & DVC1124_GP2_MODE_MASK) | (((uint8_t)(gp3) << DVC1124_GP3_MODE_SHIFT) & DVC1124_GP3_MODE_MASK))),dvc1124_reg的内部常量或预处理选项，DVC1124 GP123 ENCODE,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,373,"DVC1124_GP456_ENCODE(gp4, gp5, gp6)",((uint8_t)((((uint8_t)(gp4) << DVC1124_GP4_MODE_SHIFT) & DVC1124_GP4_MODE_MASK) | (((uint8_t)(gp5) << DVC1124_GP5_MODE_SHIFT) & DVC1124_GP5_MODE_MASK) | (((uint8_t)(gp6) << DVC1124_GP6_MODE_SHIFT) & DVC1124_GP6_MODE_MASK))),dvc1124_reg的内部常量或预处理选项，DVC1124 GP456 ENCODE,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,379,DVC1124_CORE_OT_FLAG_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 CORE OT FLAG MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,380,DVC1124_CORE_OT_THRESHOLD_MASK,0x7Fu,位字段的提取、屏蔽或移位，DVC1124 CORE OT THRESHOLD MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,381,DVC1124_CORE_OT_THRESHOLD_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 CORE OT THRESHOLD SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,382,DVC1124_CORE_OT_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 CORE OT RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,385,DVC1124_V3P3_SLEEP_ENABLE_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 V3P3 SLEEP ENABLE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,386,DVC1124_V3P3_WORK_ENABLE_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 V3P3 WORK ENABLE MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,387,DVC1124_V3P3_TIMEOUT_RESTART_MASK,0x20u,位字段的提取、屏蔽或移位，DVC1124 V3P3 TIMEOUT RESTART MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,388,DVC1124_I2C_WDT_STATUS_MASK,0x10u,位字段的提取、屏蔽或移位，DVC1124 I2C WDT STATUS MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,389,DVC1124_I2C_WDT_TIME_MASK,0x07u,位字段的提取、屏蔽或移位，DVC1124 I2C WDT TIME MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,390,DVC1124_I2C_WDT_TIME_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 I2C WDT TIME SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,391,DVC1124_I2C_WDT_RESET,0xC0u,dvc1124_reg的内部常量或预处理选项，DVC1124 I2C WDT RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,403,DVC1124_TIMED_WAKE_STATUS_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 TIMED WAKE STATUS MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,404,DVC1124_TIMED_WAKE_TIME_MASK,0x0Fu,位字段的提取、屏蔽或移位，DVC1124 TIMED WAKE TIME MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,405,DVC1124_TIMED_WAKE_TIME_SHIFT,0u,位字段的提取、屏蔽或移位，DVC1124 TIMED WAKE TIME SHIFT,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,406,DVC1124_TIMED_WAKE_RESET,0x00u,dvc1124_reg的内部常量或预处理选项，DVC1124 TIMED WAKE RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,429,DVC1124_INTMASK_IWM_MASK,0x80u,位字段的提取、屏蔽或移位，DVC1124 INTMASK IWM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,430,DVC1124_INTMASK_IVOM_MASK,0x40u,位字段的提取、屏蔽或移位，DVC1124 INTMASK IVOM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,431,DVC1124_INTMASK_ICCM_MASK,0x20u,位字段的提取、屏蔽或移位，DVC1124 INTMASK ICCM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,432,DVC1124_INTMASK_ICOM_MASK,0x10u,位字段的提取、屏蔽或移位，DVC1124 INTMASK ICOM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,433,DVC1124_INTMASK_ICUM_MASK,0x08u,位字段的提取、屏蔽或移位，DVC1124 INTMASK ICUM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,434,DVC1124_INTMASK_IOC1M_MASK,0x04u,位字段的提取、屏蔽或移位，DVC1124 INTMASK IOC1M MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,435,DVC1124_INTMASK_IOC2M_MASK,0x02u,位字段的提取、屏蔽或移位，DVC1124 INTMASK IOC2M MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,436,DVC1124_INTMASK_ISCDM_MASK,0x01u,位字段的提取、屏蔽或移位，DVC1124 INTMASK ISCDM MASK,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,437,DVC1124_INT_MASK_RESET,0x00u,位字段的提取、屏蔽或移位，DVC1124 INT MASK RESET,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,439,"DVC1124_FIELD_PREP(mask, shift, value)",((uint8_t)((((uint8_t)(value)) << (shift)) & (uint8_t)(mask))),dvc1124_reg的内部常量或预处理选项，DVC1124 FIELD PREP,保留，随实现维护,—
+bms/afe/dvc1124/dvc1124_reg.h,441,"DVC1124_FIELD_GET(mask, shift, value)",((uint8_t)((((uint8_t)(value)) & (uint8_t)(mask)) >> (shift))),dvc1124_reg的内部常量或预处理选项，DVC1124 FIELD GET,保留，随实现维护,—
+bms/app/app.c,82,APP_FLASH_PROGRAM_WINDOW_US,6000u,app的微秒时间，APP FLASH PROGRAM WINDOW US,保留，随实现维护,—
+bms/app/app.c,83,APP_FLASH_ERASE_WINDOW_US,60000u,app的微秒时间，APP FLASH ERASE WINDOW US,保留，随实现维护,—
+bms/app/app.h,14,APP_H_,,头文件重复包含保护,构建结构定义,—
+bms/app/app.h,21,APP_SAMPLE_PERIOD_US,BMS_SAMPLE_PERIOD_US,app的微秒时间，APP SAMPLE PERIOD US,保留，随实现维护,—
+bms/app/app.h,23,MY_DIRECT_ADV_TIME,2000000,app的内部常量或预处理选项，MY DIRECT ADV TIME,保留，随实现维护,—
+bms/app/app.h,25,MY_APP_ADV_CHANNEL,BLT_ENABLE_ADV_ALL,app的内部常量或预处理选项，MY APP ADV CHANNEL,保留，随实现维护,—
+bms/app/app.h,26,MY_ADV_INTERVAL_MIN,ADV_INTERVAL_800MS,app的下限，MY ADV INTERVAL MIN,保留，随实现维护,—
+bms/app/app.h,27,MY_ADV_INTERVAL_MAX,ADV_INTERVAL_800MS,app的上限，MY ADV INTERVAL MAX,保留，随实现维护,—
+bms/app/app.h,33,MY_RF_POWER_INDEX,RF_POWER_P3dBm,app的内部常量或预处理选项，MY RF POWER INDEX,保留，随实现维护,—
+bms/app/app.h,35,BLE_DEVICE_ADDRESS_TYPE,BLE_DEVICE_ADDRESS_PUBLIC,app的内部常量或预处理选项，BLE DEVICE ADDRESS TYPE,保留，随实现维护,—
+bms/app/app_power.c,62,APP_COMMAND_REPLY_MS,500u,app_power的毫秒时间，APP COMMAND REPLY MS,保留，随实现维护,—
+bms/app/app_power.h,3,APP_POWER_H_,,头文件重复包含保护,构建结构定义,—
+bms/app/bms_features.c,15,BMS_BALANCE_TRUST_CONFIRM_SAMPLES,((BMS_BALANCE_TRUST_CONFIRM_MS + BMS_FEATURE_SERVICE_PERIOD_MS - 1u) / BMS_FEATURE_SERVICE_PERIOD_MS),bms_features的内部常量或预处理选项，BMS BALANCE TRUST CONFIRM SAMPLES,保留，随实现维护,—
+bms/app/bms_features.h,7,BMS_FEATURES_H_,,头文件重复包含保护,构建结构定义,—
+bms/app/bms_features.h,27,BMS_FEATURE_SERVICE_PERIOD_MS,BMS_SAMPLE_PERIOD_MS,bms_features的毫秒时间，BMS FEATURE SERVICE PERIOD MS,保留，随实现维护,—
+bms/app/bms_features.h,30,BMS_HEATER_REQUIRE_CHARGE_SOURCE_PRESENT,0u,加热是否额外要求可靠充电源存在,保留，随实现维护,—
+bms/app/bms_features.h,35,BMS_HEATER_START_TEMP_X10,400u /* 仅低于 0 ℃ 时开始。 */,加热启动温度,保留，工程参数,通过产品默认定义
+bms/app/bms_features.h,38,BMS_HEATER_STOP_TEMP_X10,450u  /* 达到 +5 ℃ 时停止，形成明确回差。 */,加热停止温度,保留，工程参数,通过产品默认定义
+bms/app/bms_features.h,43,BMS_BALANCE_ENABLE_DEFAULT,1u,首次 Config 的均衡许可,保留，工程参数,通过产品默认定义
+bms/app/bms_features.h,46,BMS_BALANCE_START_VOLTAGE_MV_DEFAULT,3400u,发布给 Config 的均衡起始电压默认值,保留，随实现维护,—
+bms/app/bms_features.h,49,BMS_BALANCE_START_DELTA_MV_DEFAULT,50u,发布给 Config 的均衡开始压差默认值,保留，随实现维护,—
+bms/app/bms_features.h,52,BMS_BALANCE_STOP_DELTA_MV_DEFAULT,30u,发布给 Config 的均衡停止压差默认值,保留，随实现维护,—
+bms/app/bms_features.h,70,BMS_BALANCE_TRUST_CONFIRM_MS,1000u,均衡线路和采样资格的确认时间,保留，随实现维护,—
+bms/app/bms_features.h,73,BMS_BALANCE_CELL_PLAUSIBLE_MIN_MV,1000u,均衡使用电压的可接受下限,保留，随实现维护,—
+bms/app/bms_features.h,76,BMS_BALANCE_CELL_PLAUSIBLE_MAX_MV,5000u,均衡使用电压的可接受上限,保留，随实现维护,—
+bms/app/bms_features.h,79,BMS_BALANCE_CELL_MAX_STEP_MV,250u,均衡用于排查异常测量的相邻电压步变,保留，随实现维护,—
+bms/app/bms_features.h,82,BMS_BALANCE_SUSPECT_DELTA_MV,1000u,均衡资格允许的最大可疑压差,保留，随实现维护,—
+bms/app/bms_soc_app.c,11,SOC_REPORT_UNITS_PER_0P01AH,360u,SOC 应用接入与上报的内部常量或预处理选项，SOC REPORT UNITS PER 0P01AH,保留，随实现维护,—
+bms/app/bms_soc_app.c,12,SOC_BATTERY_TEMP_MIN_X10,450u,SOC 应用接入与上报的内部常量或预处理选项，SOC BATTERY TEMP MIN X10,保留，随实现维护,—
+bms/app/bms_soc_app.c,13,SOC_BATTERY_TEMP_MAX_X10,850u,SOC 应用接入与上报的内部常量或预处理选项，SOC BATTERY TEMP MAX X10,保留，随实现维护,—
+bms/core/bms_afe.h,7,BMS_AFE_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_afe.h,72,BMS_AFE_FEATURE_MAX_CELLS,24u,bms_afe的内部常量或预处理选项，BMS AFE FEATURE MAX CELLS,保留，随实现维护,—
+bms/core/bms_afe_driver.h,3,BMS_AFE_DRIVER_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_afe_driver.h,21,BMS_AFE_DIRECTION_ALLOW_CHARGE_MASK,0x01u,位字段的提取、屏蔽或移位，BMS AFE DIRECTION ALLOW CHARGE MASK,保留，随实现维护,—
+bms/core/bms_afe_driver.h,22,BMS_AFE_DIRECTION_ALLOW_DISCHARGE_MASK,0x02u,位字段的提取、屏蔽或移位，BMS AFE DIRECTION ALLOW DISCHARGE MASK,保留，随实现维护,—
+bms/core/bms_afe_guard.c,15,BMS_AFE_INVALID_FAILURES_BEFORE_SILENCE,2u,AFE 故障隔离与恢复的内部常量或预处理选项，BMS AFE INVALID FAILURES BEFORE SILENCE,保留，随实现维护,—
+bms/core/bms_afe_guard.c,16,BMS_AFE_COMM_CONFIRM_MS,1000u,AFE 故障隔离与恢复的毫秒时间，BMS AFE COMM CONFIRM MS,保留，随实现维护,—
+bms/core/bms_afe_guard.c,17,BMS_AFE_RECOVERY_RETRY_MS,200u,AFE 故障隔离与恢复的毫秒时间，BMS AFE RECOVERY RETRY MS,保留，随实现维护,—
+bms/core/bms_afe_guard.c,18,BMS_AFE_RECOVERY_WINDOW_MS,4000u,AFE 故障隔离与恢复的毫秒时间，BMS AFE RECOVERY WINDOW MS,保留，随实现维护,—
+bms/core/bms_afe_guard.c,19,BMS_AFE_RECOVERY_MAX_ATTEMPTS,3u,AFE 故障隔离与恢复的内部常量或预处理选项，BMS AFE RECOVERY MAX ATTEMPTS,保留，随实现维护,—
+bms/core/bms_afe_guard.c,20,BMS_AFE_WATCHDOG_SILENCE_MS,5000u,AFE 故障隔离与恢复的毫秒时间，BMS AFE WATCHDOG SILENCE MS,保留，随实现维护,—
+bms/core/bms_afe_hw_access.c,15,ACCESS_FRAME_BYTES,79u,AFE 工程写入会话的字节数，ACCESS FRAME BYTES,保留，随实现维护,—
+bms/core/bms_afe_hw_access.c,16,ACCESS_CHUNK_BYTES,11u,AFE 工程写入会话的字节数，ACCESS CHUNK BYTES,保留，随实现维护,—
+bms/core/bms_afe_hw_access.h,7,BMS_AFE_HW_ACCESS_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_afe_hw_access.h,11,BMS_AFE_HW_ACCESS_MODBUS_FUNC,0x42u,bms_afe_hw_access的内部常量或预处理选项，BMS AFE HW ACCESS MODBUS FUNC,保留，随实现维护,—
+bms/core/bms_afe_hw_access.h,12,BMS_AFE_HW_ACCESS_UNLOCK_MAGIC,0x41464548UL /* 标识字符串：AFEH。 */,协议/持久记录的识别、版本或校验定义，BMS AFE HW ACCESS UNLOCK MAGIC,保留，格式合同,—
+bms/core/bms_afe_hw_access.h,13,BMS_AFE_HW_ACCESS_PROTOCOL_VERSION,2u,bms_afe_hw_access的内部常量或预处理选项，BMS AFE HW ACCESS PROTOCOL VERSION,保留，随实现维护,—
+bms/core/bms_afe_hw_access.h,14,BMS_AFE_HW_ACCESS_TIMEOUT_SECONDS,60u,bms_afe_hw_access的秒数，BMS AFE HW ACCESS TIMEOUT SECONDS,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,7,BMS_AFE_HW_MODBUS_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_afe_hw_modbus.h,13,BMS_AFE_HW_REQUESTED_REG_BASE,0x2500u,寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/core/bms_afe_hw_modbus.h,16,BMS_AFE_HW_META_CAPABILITIES,0x2523u,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW META CAPABILITIES,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,17,BMS_AFE_HW_META_VALID,0x2524u,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW META VALID,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,18,BMS_AFE_HW_META_SHUNT_UOHM,0x2525u,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW META SHUNT UOHM,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,19,BMS_AFE_HW_META_CELL_COUNT,0x2526u,bms_afe_hw_modbus的数量或上限，BMS AFE HW META CELL COUNT,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,20,BMS_AFE_HW_META_WDT_SECONDS,0x2527u,bms_afe_hw_modbus的秒数，BMS AFE HW META WDT SECONDS,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,21,BMS_AFE_HW_META_ACCESS_ACTIVE,0x2528u,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW META ACCESS ACTIVE,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,22,BMS_AFE_HW_META_APPLY_STATE,0x2529u,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW META APPLY STATE,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,23,BMS_AFE_HW_META_LAST_ERROR,0x252Au,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW META LAST ERROR,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,24,BMS_AFE_HW_META_INTERFACE_VERSION,0x252Bu,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW META INTERFACE VERSION,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,26,BMS_AFE_HW_META_SHUNT_ELEMENT_UOHM,0x252Cu,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW META SHUNT ELEMENT UOHM,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,27,BMS_AFE_HW_META_SHUNT_PARALLEL_COUNT,0x252Du,bms_afe_hw_modbus的数量或上限，BMS AFE HW META SHUNT PARALLEL COUNT,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,28,BMS_AFE_HW_META_FEATURES,0x252Eu,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW META FEATURES,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,29,BMS_AFE_HW_FEATURE_TEMP_EFFECTIVE,0x0001u,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW FEATURE TEMP EFFECTIVE,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,30,BMS_AFE_HW_DIAGNOSTIC_BASE,0x252Fu,bms_afe_hw_modbus的起始地址或索引，BMS AFE HW DIAGNOSTIC BASE,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,31,BMS_AFE_HW_DIAGNOSTIC_COUNT,11u,bms_afe_hw_modbus的数量或上限，BMS AFE HW DIAGNOSTIC COUNT,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,32,BMS_AFE_HW_FEATURE_DIAGNOSTIC,0x0002u,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW FEATURE DIAGNOSTIC,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,33,BMS_AFE_HW_FEATURE_STATUS_BASE,0x253Au,bms_afe_hw_modbus的起始地址或索引，BMS AFE HW FEATURE STATUS BASE,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,34,BMS_AFE_HW_FEATURE_STATUS_COUNT,6u,bms_afe_hw_modbus的数量或上限，BMS AFE HW FEATURE STATUS COUNT,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,35,BMS_AFE_HW_FEATURE_RUNTIME_STATUS,0x0004u,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW FEATURE RUNTIME STATUS,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,36,BMS_AFE_HW_INTERFACE_VERSION,0x0002u,bms_afe_hw_modbus的内部常量或预处理选项，BMS AFE HW INTERFACE VERSION,保留，随实现维护,—
+bms/core/bms_afe_hw_modbus.h,37,BMS_AFE_HW_REQUESTED_REG_COUNT,64u,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/core/bms_afe_hw_modbus.h,40,BMS_AFE_HW_EFFECTIVE_REG_BASE,0x2540u,寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/core/bms_afe_hw_modbus.h,41,BMS_AFE_HW_EFFECTIVE_REG_COUNT,BMS_AFE_HW_PROFILE_WORD_COUNT,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/core/bms_afe_hw_profile.h,7,BMS_AFE_HW_PROFILE_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_afe_hw_profile.h,12,BMS_AFE_HW_PROFILE_SCHEMA_VERSION,1u,协议/持久记录的识别、版本或校验定义，BMS AFE HW PROFILE SCHEMA VERSION,保留，格式合同,—
+bms/core/bms_afe_hw_profile.h,13,BMS_AFE_HW_MODEL_DVC1124,0x1124u,bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW MODEL DVC1124,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,15,BMS_AFE_HW_EN_COV,(1u << 0),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN COV,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,16,BMS_AFE_HW_EN_CUV,(1u << 1),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN CUV,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,17,BMS_AFE_HW_EN_OCD1,(1u << 2),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN OCD1,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,18,BMS_AFE_HW_EN_OCD2,(1u << 3),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN OCD2,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,19,BMS_AFE_HW_EN_OCC1,(1u << 4),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN OCC1,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,20,BMS_AFE_HW_EN_OCC2,(1u << 5),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN OCC2,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,21,BMS_AFE_HW_EN_SC,(1u << 6),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN SC,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,22,BMS_AFE_HW_EN_TEMP,(1u << 7),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN TEMP,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,25,BMS_AFE_HW_EN_TS1,(1u << 8),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN TS1,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,26,BMS_AFE_HW_EN_TS2,(1u << 9),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN TS2,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,27,BMS_AFE_HW_EN_TS3,(1u << 10),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN TS3,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,28,BMS_AFE_HW_EN_TS4,(1u << 11),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW EN TS4,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,29,BMS_AFE_HW_TEMP_CHANNEL_SELECT,(1u << 12),bms_afe_hw_profile的内部常量或预处理选项，BMS AFE HW TEMP CHANNEL SELECT,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,30,BMS_AFE_HW_TEMP_CHANNEL_MASK,0x0F00u,位字段的提取、屏蔽或移位，BMS AFE HW TEMP CHANNEL MASK,保留，随实现维护,—
+bms/core/bms_afe_hw_profile.h,79,BMS_AFE_HW_PROFILE_WORD_COUNT,((u16)(sizeof(bms_afe_hw_profile_t) / sizeof(u16))),bms_afe_hw_profile的数量或上限，BMS AFE HW PROFILE WORD COUNT,保留，随实现维护,—
+bms/core/bms_board.h,7,BMS_BOARD_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_build_identity.h,2,BMS_BUILD_IDENTITY_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_build_identity.h,5,BMS_BUILD_ID,0u,构建身份及可追溯标志的内部常量或预处理选项，BMS BUILD ID,保留，随实现维护,—
+bms/core/bms_config_store.c,20,BMS_CONFIG_RECORD_MAGIC,0x44384331u /* D8C1 */,协议/持久记录的识别、版本或校验定义，BMS CONFIG RECORD MAGIC,保留，格式合同,—
+bms/core/bms_config_store.c,21,BMS_CONFIG_SCHEMA_VERSION,1u,协议/持久记录的识别、版本或校验定义，BMS CONFIG SCHEMA VERSION,保留，格式合同,—
+bms/core/bms_config_store.c,22,BMS_CONFIG_ASSEMBLY_TAG,(BMS_PRODUCT_ID | ((u32)BMS_PRODUCT_CHEMISTRY << 16) | ((u32)BMS_PRODUCT_CELL_COUNT << 24)),协议/持久记录的识别、版本或校验定义，BMS CONFIG ASSEMBLY TAG,保留，格式合同,—
+bms/core/bms_config_store.c,23,BMS_CONFIG_SOC_WORDS,2u,Config 持久记录与校验的内部常量或预处理选项，BMS CONFIG SOC WORDS,保留，随实现维护,—
+bms/core/bms_config_store.c,25,BMS_CONFIG_FACTORY_PENDING_TAG,0xFA57u,协议/持久记录的识别、版本或校验定义，BMS CONFIG FACTORY PENDING TAG,保留，格式合同,—
+bms/core/bms_config_store.c,26,BMS_CONFIG_PROTECT_WORDS,65u,Config 持久记录与校验的内部常量或预处理选项，BMS CONFIG PROTECT WORDS,保留，随实现维护,—
+bms/core/bms_config_store.c,27,BMS_CONFIG_SYSTEM_WORDS,3u,Config 持久记录与校验的内部常量或预处理选项，BMS CONFIG SYSTEM WORDS,保留，随实现维护,—
+bms/core/bms_config_store.c,28,BMS_CONFIG_AFE_WORDS,35u,Config 持久记录与校验的内部常量或预处理选项，BMS CONFIG AFE WORDS,保留，随实现维护,—
+bms/core/bms_config_store.c,29,BMS_CONFIG_BTNAME_BYTES,24u,Config 持久记录与校验的字节数，BMS CONFIG BTNAME BYTES,保留，随实现维护,—
+bms/core/bms_config_store.c,30,BMS_CONFIG_USER_BYTES,54u,Config 持久记录与校验的字节数，BMS CONFIG USER BYTES,保留，随实现维护,—
+bms/core/bms_config_store.c,31,BMS_CONFIG_USER_BUSINESS_WORDS,7u,Config 持久记录与校验的内部常量或预处理选项，BMS CONFIG USER BUSINESS WORDS,保留，随实现维护,—
+bms/core/bms_config_store.c,33,BMS_CONFIG_PROTECT_BYTES,(BMS_CONFIG_PROTECT_WORDS * 2u),Config 持久记录与校验的字节数，BMS CONFIG PROTECT BYTES,保留，随实现维护,—
+bms/core/bms_config_store.c,34,BMS_CONFIG_SYSTEM_BYTES,(BMS_CONFIG_SYSTEM_WORDS * 4u),Config 持久记录与校验的字节数，BMS CONFIG SYSTEM BYTES,保留，随实现维护,—
+bms/core/bms_config_store.c,35,BMS_CONFIG_AFE_BYTES,(BMS_CONFIG_AFE_WORDS * 2u),Config 持久记录与校验的字节数，BMS CONFIG AFE BYTES,保留，随实现维护,—
+bms/core/bms_config_store.c,36,BMS_CONFIG_PAYLOAD_BYTES,(4u + BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_BTNAME_BYTES + BMS_CONFIG_USER_BYTES + BMS_OTA_UPDATE_ID_WORDS * 2u + BMS_CONFIG_SOC_WORDS * 2u + 8u),Config 持久记录与校验的字节数，BMS CONFIG PAYLOAD BYTES,保留，随实现维护,—
+bms/core/bms_error.h,7,BMS_ERROR_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_event_log.c,11,EVENT_FORMAT,0xD801u,事件日志记录与协议的内部常量或预处理选项，EVENT FORMAT,保留，随实现维护,—
+bms/core/bms_event_log.c,12,EVENT_COMMIT,0x45564F4Bu,协议/持久记录的识别、版本或校验定义，EVENT COMMIT,保留，格式合同,—
+bms/core/bms_event_log.c,13,EVENT_RECORD_BYTES,16u,事件日志记录与协议的字节数，EVENT RECORD BYTES,保留，随实现维护,—
+bms/core/bms_event_log.c,14,EVENT_BODY_BYTES,12u,事件日志记录与协议的字节数，EVENT BODY BYTES,保留，随实现维护,—
+bms/core/bms_event_log.c,15,EVENT_SCAN_BYTES,256u,事件日志记录与协议的字节数，EVENT SCAN BYTES,保留，随实现维护,—
+bms/core/bms_event_log.c,16,EVENT_SECTOR_COUNT,2u,事件日志记录与协议的数量或上限，EVENT SECTOR COUNT,保留，随实现维护,—
+bms/core/bms_event_log.c,17,EVENT_MAX_HOURS,168u,事件日志记录与协议的内部常量或预处理选项，EVENT MAX HOURS,保留，随实现维护,—
+bms/core/bms_event_log.c,18,EVENT_INTERVAL_LIMIT_MS,((EVENT_MAX_HOURS * 3600u + 1u) * 1000u),事件日志记录与协议的毫秒时间，EVENT INTERVAL LIMIT MS,保留，随实现维护,—
+bms/core/bms_event_log.h,14,BMS_EVENT_LOG_ENTRY_COUNT,100u,bms_event_log的数量或上限，BMS EVENT LOG ENTRY COUNT,保留，随实现维护,—
+bms/core/bms_event_log.h,15,BMS_EVENT_LOG_REG_BASE,0xC008u,寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/core/bms_event_log.h,16,BMS_EVENT_LOG_REG_COUNT,BMS_EVENT_LOG_ENTRY_COUNT,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,11,BMS_PARAMETER_INTERFACE_MAGIC,0xD008u,协议/持久记录的识别、版本或校验定义，BMS PARAMETER INTERFACE MAGIC,保留，格式合同,—
+bms/core/bms_parameter_access.h,14,BMS_PARAM_REG_SOC,0x1005u,寄存器或协议字段的地址/长度，SOC,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,15,BMS_PARAM_REG_CAPACITY,0x2318u,寄存器或协议字段的地址/长度，CAPACITY,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,16,BMS_PARAM_REG_CYCLE,0x2319u,寄存器或协议字段的地址/长度，CYCLE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,17,BMS_PARAM_REG_MAGIC,0x2E00u,寄存器或协议字段的地址/长度，MAGIC,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,18,BMS_PARAM_REG_VERSION,0x2E01u,寄存器或协议字段的地址/长度，VERSION,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,19,BMS_PARAM_REG_CAPABILITIES,0x2E02u,寄存器或协议字段的地址/长度，CAPABILITIES,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,20,BMS_PARAM_REG_LAST_RESULT,0x2E03u,寄存器或协议字段的地址/长度，LAST RESULT,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,21,BMS_PARAM_REG_SEQUENCE,0x2E04u,寄存器或协议字段的地址/长度，SEQUENCE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,22,BMS_PARAM_REG_CONFIG_FORMAT,0x2E05u,寄存器或协议字段的地址/长度，CONFIG FORMAT,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,23,BMS_PARAM_REG_SN_GENERATION,0x2E06u,寄存器或协议字段的地址/长度，SN GENERATION,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,24,BMS_PARAM_REG_RESET_POLICY,0x2E07u,寄存器或协议字段的地址/长度，RESET POLICY,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,25,BMS_PARAM_REG_DEFAULT_CAPACITY,0x2E08u,寄存器或协议字段的地址/长度，DEFAULT CAPACITY,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,26,BMS_PARAM_REG_HEATER_SUPPORTED,0x2E09u,寄存器或协议字段的地址/长度，HEATER SUPPORTED,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,27,BMS_PARAM_REG_DEFAULT_HEATER_START,0x2E0Au,寄存器或协议字段的地址/长度，DEFAULT HEATER START,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,28,BMS_PARAM_REG_DEFAULT_HEATER_STOP,0x2E0Bu,寄存器或协议字段的地址/长度，DEFAULT HEATER STOP,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,29,BMS_PARAM_REG_DEFAULT_BALANCE_ENABLE,0x2E0Cu,寄存器或协议字段的地址/长度，DEFAULT BALANCE ENABLE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,30,BMS_PARAM_REG_DEFAULT_BALANCE_START,0x2E0Du,寄存器或协议字段的地址/长度，DEFAULT BALANCE START,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,31,BMS_PARAM_REG_DEFAULT_BALANCE_DELTA_START,0x2E0Eu,寄存器或协议字段的地址/长度，DEFAULT BALANCE DELTA START,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,32,BMS_PARAM_REG_DEFAULT_BALANCE_DELTA_STOP,0x2E0Fu,寄存器或协议字段的地址/长度，DEFAULT BALANCE DELTA STOP,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,33,BMS_PARAM_REG_RESET_COMMAND,0x2E10u,寄存器或协议字段的地址/长度，RESET COMMAND,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,34,BMS_PARAM_REG_HEATER_ENABLE,0x2E20u,寄存器或协议字段的地址/长度，HEATER ENABLE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,35,BMS_PARAM_REG_HEATER_START,0x2E21u,寄存器或协议字段的地址/长度，HEATER START,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,36,BMS_PARAM_REG_HEATER_STOP,0x2E22u,寄存器或协议字段的地址/长度，HEATER STOP,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,37,BMS_PARAM_REG_CURRENT_OFFSET_LO,0x2E24u,寄存器或协议字段的地址/长度，CURRENT OFFSET LO,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,38,BMS_PARAM_REG_CURRENT_OFFSET_HI,0x2E25u,寄存器或协议字段的地址/长度，CURRENT OFFSET HI,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,39,BMS_PARAM_REG_CURRENT_GAIN_LO,0x2E26u,寄存器或协议字段的地址/长度，CURRENT GAIN LO,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,40,BMS_PARAM_REG_CURRENT_GAIN_HI,0x2E27u,寄存器或协议字段的地址/长度，CURRENT GAIN HI,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,41,BMS_PARAM_REG_RAW_CURRENT_LO,0x2E28u,寄存器或协议字段的地址/长度，RAW CURRENT LO,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,42,BMS_PARAM_REG_RAW_CURRENT_HI,0x2E29u,寄存器或协议字段的地址/长度，RAW CURRENT HI,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,43,BMS_PARAM_REG_CURRENT_LO,0x2E2Au,寄存器或协议字段的地址/长度，CURRENT LO,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,44,BMS_PARAM_REG_CURRENT_HI,0x2E2Bu,寄存器或协议字段的地址/长度，CURRENT HI,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,45,BMS_PARAM_REG_SAMPLE_VALID,0x2E2Cu,寄存器或协议字段的地址/长度，SAMPLE VALID,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,46,BMS_PARAM_REG_SAMPLE_TICK_LO,0x2E2Du,寄存器或协议字段的地址/长度，SAMPLE TICK LO,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,47,BMS_PARAM_REG_SAMPLE_TICK_HI,0x2E2Eu,寄存器或协议字段的地址/长度，SAMPLE TICK HI,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,48,BMS_PARAM_REG_SN_BASE,0x2E30u,寄存器或协议字段的地址/长度，SN BASE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,49,BMS_PARAM_REG_SN_LAST,0x2E3Fu,寄存器或协议字段的地址/长度，SN LAST,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,50,BMS_PARAM_REG_SN_COMMAND,0x2E40u,寄存器或协议字段的地址/长度，SN COMMAND,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,51,BMS_PARAM_REG_SN_STAGE_BASE,0x2E50u,寄存器或协议字段的地址/长度，SN STAGE BASE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,52,BMS_PARAM_REG_SN_STAGE_LAST,0x2E5Fu,寄存器或协议字段的地址/长度，SN STAGE LAST,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,53,BMS_PARAM_REG_SN_STAGE_END,0x2E60u,寄存器或协议字段的地址/长度，SN STAGE END,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,54,BMS_PARAM_REG_BALANCE_ENABLE,0x2E70u,寄存器或协议字段的地址/长度，BALANCE ENABLE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,55,BMS_PARAM_REG_BALANCE_START,0x2E71u,寄存器或协议字段的地址/长度，BALANCE START,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,56,BMS_PARAM_REG_BALANCE_DELTA_START,0x2E72u,寄存器或协议字段的地址/长度，BALANCE DELTA START,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,57,BMS_PARAM_REG_BALANCE_DELTA_STOP,0x2E73u,寄存器或协议字段的地址/长度，BALANCE DELTA STOP,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,58,BMS_PARAM_REG_UPDATE_REVISION_BASE,0x2E80u,寄存器或协议字段的地址/长度，UPDATE REVISION BASE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,59,BMS_PARAM_REG_SLEEP_BASE,0x2E90u,寄存器或协议字段的地址/长度，SLEEP BASE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,60,BMS_PARAM_REG_SLEEP_LAST,0x2E94u,寄存器或协议字段的地址/长度，SLEEP LAST,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,61,BMS_PARAM_REG_SLEEP_DEFAULT_BASE,0x2E98u,寄存器或协议字段的地址/长度，SLEEP DEFAULT BASE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,62,BMS_PARAM_REG_SLEEP_DEFAULT_LAST,0x2E9Cu,寄存器或协议字段的地址/长度，SLEEP DEFAULT LAST,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,66,BMS_PARAM_CAP_CURRENT_CALIBRATION_LINEAR,0x0400u,参数协议字段、范围或能力定义，BMS PARAM CAP CURRENT CALIBRATION LINEAR,保留，外部合同,—
+bms/core/bms_parameter_access.h,67,BMS_PARAM_CAP_SOC_LIMITS,0x1000u,参数协议字段、范围或能力定义，BMS PARAM CAP SOC LIMITS,保留，外部合同,—
+bms/core/bms_parameter_access.h,68,BMS_PARAM_REG_SOC100_MV,0x2E18u,寄存器或协议字段的地址/长度，SOC100 MV,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,69,BMS_PARAM_REG_SOC0_MV,0x2E19u,寄存器或协议字段的地址/长度，SOC0 MV,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,70,BMS_PARAM_REG_CHEMISTRY,0x2EA2u,寄存器或协议字段的地址/长度，CHEMISTRY,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,72,PROD_SN_REG_BASE,0xc002,寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,73,PROD_SN_REG_COUNT,16,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,75,PROD_HW_VER_REG_BASE,(PROD_SN_REG_BASE + 16),寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,76,PROD_HW_VER_REG_COUNT,16,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,78,PROD_SW_VER_REG_BASE,(PROD_HW_VER_REG_BASE + 16),寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,79,PROD_SW_VER_REG_COUNT,16,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/core/bms_parameter_access.h,81,PRODUCT_ID_LENGTH_MAX,32,bms_parameter_access的上限，PRODUCT ID LENGTH MAX,保留，随实现维护,—
+bms/core/bms_parameters.h,3,BMS_PARAMETERS_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_protection_params.h,6,BMS_PROTECTION_PARAMS_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_serial_ota.c,8,OTA_SILENCE_MS,15000u,bms_serial_ota的毫秒时间，OTA SILENCE MS,保留，随实现维护,—
+bms/core/bms_serial_ota.c,9,OTA_TOTAL_MS,600000u,bms_serial_ota的毫秒时间，OTA TOTAL MS,保留，随实现维护,—
+bms/core/bms_serial_ota.c,10,OTA_REBOOT_MS,1000u,bms_serial_ota的毫秒时间，OTA REBOOT MS,保留，随实现维护,—
+bms/core/bms_serial_ota.c,11,OTA_SECTOR_BYTES,4096u,bms_serial_ota的字节数，OTA SECTOR BYTES,保留，随实现维护,—
+bms/core/bms_serial_ota.h,5,BMS_SERIAL_OTA_FUNCTION,0x46u,bms_serial_ota的内部常量或预处理选项，BMS SERIAL OTA FUNCTION,保留，随实现维护,—
+bms/core/bms_serial_ota.h,6,BMS_SERIAL_OTA_SLOT_BYTES,(124u * 1024u),bms_serial_ota的字节数，BMS SERIAL OTA SLOT BYTES,保留，随实现维护,—
+bms/core/bms_serial_ota.h,7,BMS_SERIAL_OTA_BLOCK_BYTES,128u,bms_serial_ota的字节数，BMS SERIAL OTA BLOCK BYTES,保留，随实现维护,—
+bms/core/bms_serial_ota.h,8,BMS_SERIAL_OTA_REPLY_BYTES,30u,bms_serial_ota的字节数，BMS SERIAL OTA REPLY BYTES,保留，随实现维护,—
+bms/core/bms_sleep_config.c,7,SLEEP_LOW_ACTIVE,0x01u,bms_sleep_config的内部常量或预处理选项，SLEEP LOW ACTIVE,保留，随实现维护,—
+bms/core/bms_sleep_config.c,8,SLEEP_NORMAL_ACTIVE,0x02u,bms_sleep_config的内部常量或预处理选项，SLEEP NORMAL ACTIVE,保留，随实现维护,—
+bms/core/bms_sleep_config.c,9,SLEEP_MS_PER_MINUTE,60000u,bms_sleep_config的内部常量或预处理选项，SLEEP MS PER MINUTE,保留，随实现维护,—
+bms/core/bms_sleep_config.h,5,BMS_SLEEP_CONFIG_WORDS,5u,休眠持久配置及外部寄存器字数,保留，随实现维护,—
+bms/core/bms_sleep_config.h,6,BMS_SLEEP_AFE_FIXED_MINUTES,30u /* 固件固定策略，不允许在线修改。 */,AFE 正式故障的独立关机时间,保留，随实现维护,—
+bms/core/bms_sleep_config.h,20,BMS_SLEEP_OVERDISCHARGE_CHARGE_MA,1000,抑制自动关机的可靠充电阈值，实际判定为严格大于此值,保留，随实现维护,—
+bms/core/bms_sleep_config.h,21,BMS_SLEEP_OVERDISCHARGE_SECONDS,180u,未恢复过放的自动关机时间,保留，随实现维护,—
+bms/core/bms_sleep_status.h,6,BMS_SLEEP_STATUS_BASE,0x3300u,bms_sleep_status的起始地址或索引，BMS SLEEP STATUS BASE,保留，随实现维护,—
+bms/core/bms_sleep_status.h,7,BMS_SLEEP_STATUS_WORDS,20u,bms_sleep_status的内部常量或预处理选项，BMS SLEEP STATUS WORDS,保留，随实现维护,—
+bms/core/bms_sleep_status.h,8,BMS_SLEEP_STATUS_END,(BMS_SLEEP_STATUS_BASE + BMS_SLEEP_STATUS_WORDS),bms_sleep_status的内部常量或预处理选项，BMS SLEEP STATUS END,保留，随实现维护,—
+bms/core/bms_sleep_status.h,10,BMS_SLEEP_STATUS_CAPABILITY,0x0040u,bms_sleep_status的内部常量或预处理选项，BMS SLEEP STATUS CAPABILITY,保留，随实现维护,—
+bms/core/bms_soc.c,6,SOC_CURRENT_MAX_MA,2000000,SOC 接受的电流绝对值上限,保留，随实现维护,—
+bms/core/bms_soc.c,7,SOC_VOLTAGE_AGE_MS,600u,SOC 电压证据有效期,保留，随实现维护,—
+bms/core/bms_soc.c,8,SOC_FULL_MS,30000u,正常满端持续确认时间,保留，随实现维护,—
+bms/core/bms_soc.c,9,SOC_EMPTY_MS,5000u,正常空端持续确认时间,保留，随实现维护,—
+bms/core/bms_soc.c,10,SOC_CUTOFF_RECENT_MS,1500u,截断前充放电方向有效时间,保留，随实现维护,—
+bms/core/bms_soc.c,11,SOC_FULL_CUTOFF_MS,2000u,允许截断后判满的前置近满时间,保留，随实现维护,—
+bms/core/bms_soc.c,12,SOC_EMPTY_CUTOFF_MS,1000u,允许截断后判空的前置近空时间,保留，随实现维护,—
+bms/core/bms_soc.c,13,SOC_LINE_CHECK_MS,3200u,弱串线路检查等待时间上限,保留，随实现维护,—
+bms/core/bms_soc.c,14,SOC_FULL_DELTA_MV,100u,满端最大压差,保留，随实现维护,—
+bms/core/bms_soc.c,15,SOC_EMPTY_DELTA_MV,300u,正常空端最大压差,保留，随实现维护,—
+bms/core/bms_soc.c,16,SOC_WEAK_DELTA_MV,650u,可进入弱串候选的最大压差,保留，随实现维护,—
+bms/core/bms_soc.c,17,SOC_WEAK_NEAR,3u,弱串近空状态编码,保留，随实现维护,—
+bms/core/bms_soc.c,18,SOC_REST_DELTA_MV,150u,静置 OCV 校正最大压差,保留，随实现维护,—
+bms/core/bms_soc.c,19,SOC_REST_INITIAL_MS,(60u * 60u * 1000u),首次静置稳定时间的基础部分,保留，随实现维护,—
+bms/core/bms_soc.c,20,SOC_REST_CORRECT_MS,(30u * 60u * 1000u),首次确认附加时间和后续 OCV 修正间隔,保留，随实现维护,—
+bms/core/bms_soc.c,21,SOC_REST_STABLE_MV,5u,静置阶段最小、最大、均压的允许变化,保留，随实现维护,—
+bms/core/bms_soc.c,22,SOC_INITIAL_WAIT_MS,2000u,首次 OCV 估值等待窗口,保留，随实现维护,—
+bms/core/bms_soc.c,23,SOC_INITIAL_PERCENT,60u,无 State 或 LFP 平台的初始候选 SOC,适合工程窗口,建议加入工程窗口
+bms/core/bms_soc.c,24,SOC_DISPLAY_MS,5000u,常规显示每步需累计的有效间隔,保留，随实现维护,—
+bms/core/bms_soc.c,25,SOC_APPROACH_DISPLAY_MS,2000u,可信接近满空端点的显示间隔,保留，随实现维护,—
+bms/core/bms_soc.c,26,SOC_ENDPOINT_DISPLAY_MS,1000u,确认端点后的显示间隔,保留，随实现维护,—
+bms/core/bms_soc.c,27,SOC_APPROACH_PERCENT,4,末段先行显示的最大百分点,保留，随实现维护,—
+bms/core/bms_soc.c,28,SOC_MA_MS_PER_UNIT,100000,安时积分内部单位与 mA·ms 的换算,保留，随实现维护,—
+bms/core/bms_soc.c,29,SOC_CHARGE,(-1),充电方向编码,保留，随实现维护,—
+bms/core/bms_soc.c,30,SOC_DISCHARGE,1,放电方向编码,保留，随实现维护,—
+bms/core/bms_soc.c,31,SOC_CUTOFF_CHARGE,1u,充电截断位,保留，随实现维护,—
+bms/core/bms_soc.c,32,SOC_CUTOFF_DISCHARGE,2u,放电截断位,保留，随实现维护,—
+bms/core/bms_soc.c,33,SOC_LFP_FULL_MIN_MV,3400u,LFP 满电端点下限及 State 满端编码基准,保留，随实现维护,—
+bms/core/bms_soc.c,34,SOC_LFP_EMPTY_MIN_MV,2000u,LFP 空电端点下限及低端扩展编码基准,保留，随实现维护,—
+bms/core/bms_soc.c,35,SOC_BASIS_EMPTY_BASE_MV,2700u,State 旧的空电编码基准,保留，随实现维护,—
+bms/core/bms_soc.c,36,SOC_BASIS_LOW_EMPTY_FLAG,(1u << 27),State 低于旧空电基准的扩展位,保留，随实现维护,—
+bms/core/bms_soc.h,2,BMS_SOC_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_soc_defs.h,3,BMS_SOC_CHEMISTRY_LFP,1u,bms_soc_defs的内部常量或预处理选项，BMS SOC CHEMISTRY LFP,保留，随实现维护,—
+bms/core/bms_soc_defs.h,4,BMS_SOC_CHEMISTRY_NMC,2u,bms_soc_defs的内部常量或预处理选项，BMS SOC CHEMISTRY NMC,保留，随实现维护,—
+bms/core/bms_soc_defs.h,7,BMS_SOC_CAPACITY_MAX_0P1AH,6553u,bms_soc_defs的内部常量或预处理选项，BMS SOC CAPACITY MAX 0P1AH,保留，随实现维护,—
+bms/core/bms_soc_defs.h,8,BMS_SOC_UNITS_PER_0P1AH,3600u,bms_soc_defs的内部常量或预处理选项，BMS SOC UNITS PER 0P1AH,保留，随实现维护,—
+bms/core/bms_state.h,7,BMS_STATE_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_state.h,130,BMS_FAULT_HISTORY_DEPTH,10u,bms_state的内部常量或预处理选项，BMS FAULT HISTORY DEPTH,保留，随实现维护,—
+bms/core/bms_state_store.c,11,STATE_MAGIC,0x44385331u,协议/持久记录的识别、版本或校验定义，STATE MAGIC,保留，格式合同,—
+bms/core/bms_state_store.c,12,STATE_SCHEMA,1u,协议/持久记录的识别、版本或校验定义，STATE SCHEMA,保留，格式合同,—
+bms/core/bms_state_store.c,13,STATE_CHECKPOINT_BYTES,20u,State 检查点存储的字节数，STATE CHECKPOINT BYTES,保留，随实现维护,—
+bms/core/bms_state_store.c,14,STATE_PAYLOAD_BYTES,(STATE_CHECKPOINT_BYTES + BMS_OTA_UPDATE_ID_WORDS * 2u),State 检查点存储的字节数，STATE PAYLOAD BYTES,保留，随实现维护,—
+bms/core/bms_state_store.c,15,STATE_INTERVAL_MS,(5u * 60u * 1000u),State 检查点存储的毫秒时间，STATE INTERVAL MS,保留，随实现维护,—
+bms/core/bms_storage_platform.h,2,BMS_STORAGE_PLATFORM_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_storage_platform.h,6,BMS_STORAGE_RETRY_INTERVAL_MS,5000u,bms_storage_platform的毫秒时间，BMS STORAGE RETRY INTERVAL MS,保留，随实现维护,—
+bms/core/bms_sw_protection.c,18,BMS_SW_PROTECTION_SAMPLE_MS,BMS_SAMPLE_PERIOD_MS,软件保护执行与滤波的毫秒时间，BMS SW PROTECTION SAMPLE MS,保留，随实现维护,—
+bms/core/bms_sw_protection.c,19,BMS_SW_PROTECTION_LEVEL_COUNT,3u,软件保护执行与滤波的数量或上限，BMS SW PROTECTION LEVEL COUNT,保留，随实现维护,—
+bms/core/bms_sw_protection.c,511,"BMS_SW_RISE(field, offset)",do { if (now->bits.field && !prev->bits.field) bms_fault_history_record((bms_fault_code_t)(base + (offset))); } while (0),软件保护执行与滤波的内部常量或预处理选项，BMS SW RISE,保留，随实现维护,—
+bms/core/bms_sw_protection.h,7,BMS_SW_PROTECTION_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_time.h,6,BMS_TIME_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_timing.h,2,BMS_TIMING_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_timing.h,5,BMS_SAMPLE_PERIOD_MS,200u,采样和保护任务的标称节拍,保留，随实现维护,—
+bms/core/bms_timing.h,6,BMS_SAMPLE_PERIOD_US,(BMS_SAMPLE_PERIOD_MS * 1000u),采样节拍换算成微秒供平台调度,保留，随实现维护,—
+bms/core/bms_timing.h,9,BMS_SAMPLE_MAX_POLL_GAP_MS,400u,采样连续性允许的最大间隙,保留，随实现维护,—
+bms/core/bms_timing.h,12,BMS_CURRENT_UNRELIABLE_MAX_MA,200u,共用静置电流带与有效电流方向门槛,保留，随实现维护,—
+bms/core/bms_timing.h,13,BMS_CURRENT_MAX_AGE_MS,400u,判定一个 CC2 样本仍新鲜的时间上限,保留，随实现维护,—
+bms/core/bms_types.h,5,BMS_TYPES_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/bms_update_policy.h,25,BMS_UPDATE_CONFIG_GROUP_COUNT,BMS_UPDATE_SOC_STATE,bms_update_policy的数量或上限，BMS UPDATE CONFIG GROUP COUNT,保留，随实现维护,—
+bms/core/bms_update_policy.h,72,BMS_OTA_UPDATE_ID_WORDS,6u,参数包一次性标识的分字或与默认值绑定的摘要,保留，由配置保存工具生成,自动
+bms/core/bms_update_policy.h,73,BMS_OTA_UPDATE_CONFIG_MASK,0x000Fu,位字段的提取、屏蔽或移位，BMS OTA UPDATE CONFIG MASK,保留，随实现维护,—
+bms/core/bms_update_policy.h,75,BMS_OTA_FACTORY_RESET_MASK,0x0200u,位字段的提取、屏蔽或移位，BMS OTA FACTORY RESET MASK,保留，随实现维护,—
+bms/core/bms_update_policy.h,76,BMS_OTA_UPDATE_SUPPORTED_MASK,(0x004Fu | BMS_OTA_FACTORY_RESET_MASK),位字段的提取、屏蔽或移位，BMS OTA UPDATE SUPPORTED MASK,保留，随实现维护,—
+bms/core/bms_update_policy.h,77,BMS_OTA_UPDATE_MASK,((BMS_OTA_UPDATE_SW << 0) | (BMS_OTA_UPDATE_AFE << 1) | (BMS_OTA_UPDATE_BUSINESS << 2) | (BMS_OTA_UPDATE_SOC << 3) | (BMS_OTA_UPDATE_SOC_STATE << 6) | (BMS_OTA_UPDATE_FACTORY_RESET << 9)),位字段的提取、屏蔽或移位，BMS OTA UPDATE MASK,保留，随实现维护,—
+bms/core/btname_modbus.h,7,_BTNAME_MODBUS_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/btname_modbus.h,11,BTNAME_REG_COUNT,12,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/core/btname_modbus.h,14,BTNAME_PREFIX,"""BT_""",btname_modbus的内部常量或预处理选项，BTNAME PREFIX,保留，随实现维护,—
+bms/core/btname_modbus.h,18,BTNAME_TOTAL_MAX_LEN,25u,btname_modbus的内部常量或预处理选项，BTNAME TOTAL MAX LEN,保留，随实现维护,—
+bms/core/btname_modbus.h,22,BTNAME_REG_BASE,0x0100u,寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/core/btname_modbus.h,25,BTNAME_REG_WORDS,16u,寄存器或协议字段的地址/长度，WORDS,保留，寄存器/协议合同,—
+bms/core/btname_modbus.h,29,BTNAME_SUFFIX_STRICT,1u,btname_modbus的内部常量或预处理选项，BTNAME SUFFIX STRICT,保留，随实现维护,—
+bms/core/btname_modbus.h,32,BTNAME_PREFIX_LEN,3u,btname_modbus的内部常量或预处理选项，BTNAME PREFIX LEN,保留，随实现维护,—
+bms/core/btname_modbus.h,38,BTNAME_SUFFIX_MAX_LEN,(BTNAME_TOTAL_MAX_LEN - BTNAME_PREFIX_LEN),btname_modbus的内部常量或预处理选项，BTNAME SUFFIX MAX LEN,保留，随实现维护,—
+bms/core/modbus_rtu.c,28,MB_ADDR,0x01,Modbus 帧处理的内部常量或预处理选项，MB ADDR,保留，随实现维护,—
+bms/core/modbus_rtu.c,30,MB_EX_ILLEGAL_FUNCTION,0x01u,Modbus 帧处理的内部常量或预处理选项，MB EX ILLEGAL FUNCTION,保留，随实现维护,—
+bms/core/modbus_rtu.c,31,MB_EX_ILLEGAL_ADDRESS,0x02u,Modbus 帧处理的内部常量或预处理选项，MB EX ILLEGAL ADDRESS,保留，随实现维护,—
+bms/core/modbus_rtu.c,32,MB_EX_ILLEGAL_VALUE,0x03u,Modbus 帧处理的内部常量或预处理选项，MB EX ILLEGAL VALUE,保留，随实现维护,—
+bms/core/modbus_rtu.c,33,MB_EX_DEVICE_FAILURE,0x04u,Modbus 帧处理的内部常量或预处理选项，MB EX DEVICE FAILURE,保留，随实现维护,—
+bms/core/modbus_rtu.c,35,BMS_REALTIME_REG_BASE,0xD120u,寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,36,BMS_REALTIME_REG_COUNT,11u,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,37,BMS_REALTIME_REG_MAGIC,0x4253u,寄存器或协议字段的地址/长度，MAGIC,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,38,BMS_REALTIME_REG_VERSION,0x0001u,寄存器或协议字段的地址/长度，VERSION,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,40,BMS_MOS_CONTROL_BASE,0x2F10u,Modbus 帧处理的起始地址或索引，BMS MOS CONTROL BASE,保留，随实现维护,—
+bms/core/modbus_rtu.c,41,BMS_MOS_CONTROL_COUNT,8u,Modbus 帧处理的数量或上限，BMS MOS CONTROL COUNT,保留，随实现维护,—
+bms/core/modbus_rtu.c,42,BMS_MOS_CONTROL_MAGIC,0x4D43u,协议/持久记录的识别、版本或校验定义，BMS MOS CONTROL MAGIC,保留，格式合同,—
+bms/core/modbus_rtu.c,43,BMS_AFE_ACTUAL_REG_BASE,0x2180u,寄存器或协议字段的地址/长度，BASE,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,44,BMS_AFE_ACTUAL_REG_COUNT,11u,寄存器或协议字段的地址/长度，COUNT,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,46,BMS_REALTIME_REG_MAGIC_ADDR,(BMS_REALTIME_REG_BASE + 0u),寄存器或协议字段的地址/长度，MAGIC ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,47,BMS_REALTIME_REG_VERSION_ADDR,(BMS_REALTIME_REG_BASE + 1u),寄存器或协议字段的地址/长度，VERSION ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,48,BMS_REALTIME_REG_VOLTAGE_ADDR,(BMS_REALTIME_REG_BASE + 2u),寄存器或协议字段的地址/长度，VOLTAGE ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,49,BMS_REALTIME_REG_CURRENT_ADDR,(BMS_REALTIME_REG_BASE + 3u),寄存器或协议字段的地址/长度，CURRENT ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,50,BMS_REALTIME_REG_SOC_ADDR,(BMS_REALTIME_REG_BASE + 4u),寄存器或协议字段的地址/长度，SOC ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,51,BMS_REALTIME_REG_TEMP_MAX_ADDR,(BMS_REALTIME_REG_BASE + 5u),寄存器或协议字段的地址/长度，TEMP MAX ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,52,BMS_REALTIME_REG_TEMP_MIN_ADDR,(BMS_REALTIME_REG_BASE + 6u),寄存器或协议字段的地址/长度，TEMP MIN ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,53,BMS_REALTIME_REG_TEMP_MOS_ADDR,(BMS_REALTIME_REG_BASE + 7u),寄存器或协议字段的地址/长度，TEMP MOS ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,54,BMS_REALTIME_REG_VCELL_MAX_ADDR,(BMS_REALTIME_REG_BASE + 8u),寄存器或协议字段的地址/长度，VCELL MAX ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,55,BMS_REALTIME_REG_VCELL_MIN_ADDR,(BMS_REALTIME_REG_BASE + 9u),寄存器或协议字段的地址/长度，VCELL MIN ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.c,56,BMS_REALTIME_REG_VCELL_DELTA_ADDR,(BMS_REALTIME_REG_BASE + 10u),寄存器或协议字段的地址/长度，VCELL DELTA ADDR,保留，寄存器/协议合同,—
+bms/core/modbus_rtu.h,10,MODBUS_RTU_FRAME_CAPACITY,268u,modbus_rtu的内部常量或预处理选项，MODBUS RTU FRAME CAPACITY,保留，随实现维护,—
+bms/core/storage_port.h,7,STORAGE_PORT_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/storage_record.c,10,OFF_MAGIC,0u,协议/持久记录的识别、版本或校验定义，OFF MAGIC,保留，格式合同,—
+bms/core/storage_record.c,11,OFF_FORMAT,4u,Flash 顺序日志及提交的内部常量或预处理选项，OFF FORMAT,保留，随实现维护,—
+bms/core/storage_record.c,12,OFF_SCHEMA,6u,协议/持久记录的识别、版本或校验定义，OFF SCHEMA,保留，格式合同,—
+bms/core/storage_record.c,13,OFF_LENGTH,8u,Flash 顺序日志及提交的内部常量或预处理选项，OFF LENGTH,保留，随实现维护,—
+bms/core/storage_record.c,14,OFF_SEQUENCE,12u,Flash 顺序日志及提交的内部常量或预处理选项，OFF SEQUENCE,保留，随实现维护,—
+bms/core/storage_record.c,15,OFF_CRC,16u,协议/持久记录的识别、版本或校验定义，OFF CRC,保留，格式合同,—
+bms/core/storage_record.c,16,OFF_COMMIT0,24u,协议/持久记录的识别、版本或校验定义，OFF COMMIT0,保留，格式合同,—
+bms/core/storage_record.c,17,OFF_COMMIT1,28u,协议/持久记录的识别、版本或校验定义，OFF COMMIT1,保留，格式合同,—
+bms/core/storage_record.c,18,OFF_PAYLOAD,STORAGE_RECORD_HEADER_SIZE,Flash 顺序日志及提交的内部常量或预处理选项，OFF PAYLOAD,保留，随实现维护,—
+bms/core/storage_record.c,19,INVALID_ADDR,0xFFFFFFFFu,Flash 顺序日志及提交的内部常量或预处理选项，INVALID ADDR,保留，随实现维护,—
+bms/core/storage_record.c,20,IO_CHUNK,32u,Flash 顺序日志及提交的内部常量或预处理选项，IO CHUNK,保留，随实现维护,—
+bms/core/storage_record.h,7,STORAGE_RECORD_H_,,头文件重复包含保护,构建结构定义,—
+bms/core/storage_record.h,16,STORAGE_RECORD_FORMAT_VERSION,1u,storage_record的内部常量或预处理选项，STORAGE RECORD FORMAT VERSION,保留，随实现维护,—
+bms/core/storage_record.h,17,STORAGE_RECORD_COMMIT0,0x434D4954u /* 提交标识：CMIT。 */,协议/持久记录的识别、版本或校验定义，STORAGE RECORD COMMIT0,保留，格式合同,—
+bms/core/storage_record.h,18,STORAGE_RECORD_COMMIT1,0xA55AA55Au,协议/持久记录的识别、版本或校验定义，STORAGE RECORD COMMIT1,保留，格式合同,—
+bms/core/storage_record.h,19,STORAGE_RECORD_HEADER_SIZE,32u,storage_record的大小，STORAGE RECORD HEADER SIZE,保留，随实现维护,—
+bms/core/storage_record.h,20,STORAGE_RECORD_MAX_PROGRAM_SIZE,8u,storage_record的大小，STORAGE RECORD MAX PROGRAM SIZE,保留，随实现维护,—
+bms/core/storage_record.h,21,STORAGE_RECORD_MAX_WRITE_FAILURES,3u,storage_record的内部常量或预处理选项，STORAGE RECORD MAX WRITE FAILURES,保留，随实现维护,—
+bms/platform/telink/app_att.c,177,TELINK_NOTIFY_PAYLOAD,20,BLE GATT 服务的内部常量或预处理选项，TELINK NOTIFY PAYLOAD,保留，随实现维护,—
+bms/platform/telink/app_att.h,30,APP_ATT_H_,,头文件重复包含保护,构建结构定义,—
+bms/platform/telink/app_ble.c,80,APP_CONN_LATENCY_NORMAL,99,BLE 连接、广播及服务的内部常量或预处理选项，APP CONN LATENCY NORMAL,保留，随实现维护,—
+bms/platform/telink/app_ble.c,81,APP_CONN_LATENCY_OTA,0,BLE 连接、广播及服务的内部常量或预处理选项，APP CONN LATENCY OTA,保留，随实现维护,—
+bms/platform/telink/app_ble.c,89,RX_FIFO_SIZE,64,BLE 连接、广播及服务的大小，RX FIFO SIZE,保留，随实现维护,—
+bms/platform/telink/app_ble.c,91,RX_FIFO_NUM,8,BLE 连接、广播及服务的内部常量或预处理选项，RX FIFO NUM,保留，随实现维护,—
+bms/platform/telink/app_ble.c,94,TX_FIFO_SIZE,40,BLE 连接、广播及服务的大小，TX FIFO SIZE,保留，随实现维护,—
+bms/platform/telink/app_ble.c,96,TX_FIFO_NUM,16,BLE 连接、广播及服务的内部常量或预处理选项，TX FIFO NUM,保留，随实现维护,—
+bms/platform/telink/app_config.h,37,BMS_PRODUCTION_BUILD,0,开发/生产构建模式，控制产品门禁,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/platform/telink/app_config.h,45,BLE_APP_PM_ENABLE,1,SDK 普通低功耗模块开关,保留，随实现维护,—
+bms/platform/telink/app_config.h,46,PM_DEEPSLEEP_RETENTION_ENABLE,0,SDK 深睡保留模式开关,保留，随实现维护,—
+bms/platform/telink/app_config.h,48,TEST_CONN_CURRENT_ENABLE,0 	// 测量连接电流时关闭 UI，,开发日志、SDK 示例界面或测试开关，TEST CONN CURRENT ENABLE,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,51,BLE_APP_SECURITY_ENABLE,0	// ACL 从设备 SMP，,SDK SMP 模块开关,保留，随实现维护,—
+bms/platform/telink/app_config.h,53,BLE_OTA_SERVER_ENABLE,1,SDK OTA 服务开关,保留，随实现维护,—
+bms/platform/telink/app_config.h,61,APP_FLASH_PROTECTION_ENABLE,1,SDK Flash 保护配置,保留，随实现维护,—
+bms/platform/telink/app_config.h,64,APP_BATT_CHECK_ENABLE,0,SDK 示例低电检测开关,保留，随实现维护,—
+bms/platform/telink/app_config.h,68,DEBUG_GPIO_ENABLE,0,开发日志、SDK 示例界面或测试开关，DEBUG GPIO ENABLE,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,71,UART_PRINT_DEBUG_ENABLE,0,Telink 平台编译选项的功能使能，UART PRINT DEBUG ENABLE,保留，随实现维护,—
+bms/platform/telink/app_config.h,74,APP_LOG_EN,0,开发日志、SDK 示例界面或测试开关，APP LOG EN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,77,APP_SMP_LOG_EN,0,开发日志、SDK 示例界面或测试开关，APP SMP LOG EN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,80,APP_KEY_LOG_EN,0,开发日志、SDK 示例界面或测试开关，APP KEY LOG EN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,83,APP_CONTR_EVENT_LOG_EN,0,开发日志、SDK 示例界面或测试开关，APP CONTR EVENT LOG EN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,86,APP_HOST_EVENT_LOG_EN,0,开发日志、SDK 示例界面或测试开关，APP HOST EVENT LOG EN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,89,APP_OTA_LOG_EN,0,开发日志、SDK 示例界面或测试开关，APP OTA LOG EN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,92,APP_FLASH_INIT_LOG_EN,0,开发日志、SDK 示例界面或测试开关，APP FLASH INIT LOG EN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,95,APP_FLASH_PROT_LOG_EN,0,开发日志、SDK 示例界面或测试开关，APP FLASH PROT LOG EN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,98,APP_BATT_CHECK_LOG_EN,0,开发日志、SDK 示例界面或测试开关，APP BATT CHECK LOG EN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,102,APP_OTA_PROCESS_TIMEOUT_S,180,SDK OTA 会话超时,保留，随实现维护,—
+bms/platform/telink/app_config.h,103,APP_OTA_DATA_PACKET_TIMEOUT_S,15,SDK OTA 数据包超时,保留，随实现维护,—
+bms/platform/telink/app_config.h,108,BOARD_SELECT,BOARD_825X_EVK_C1T139A30,Telink 平台编译选项的内部常量或预处理选项，BOARD SELECT,保留，随实现维护,—
+bms/platform/telink/app_config.h,111,BOARD_SELECT,BOARD_827X_EVK_C1T197A30,Telink 平台编译选项的内部常量或预处理选项，BOARD SELECT,保留，随实现维护,—
+bms/platform/telink/app_config.h,114,BOARD_SELECT,BOARD_TC321X_EVK_C1T357A20,Telink 平台编译选项的内部常量或预处理选项，BOARD SELECT,保留，随实现维护,—
+bms/platform/telink/app_config.h,120,UI_KEYBOARD_ENABLE,0,开发日志、SDK 示例界面或测试开关，UI KEYBOARD ENABLE,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,121,UI_LED_ENABLE,0,开发日志、SDK 示例界面或测试开关，UI LED ENABLE,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,122,UI_BUTTON_ENABLE,0,开发日志、SDK 示例界面或测试开关，UI BUTTON ENABLE,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,125,CR_VOL_UP,0xf0,Telink 平台编译选项的内部常量或预处理选项，CR VOL UP,保留，随实现维护,—
+bms/platform/telink/app_config.h,126,CR_VOL_DN,0xf1,Telink 平台编译选项的内部常量或预处理选项，CR VOL DN,保留，随实现维护,—
+bms/platform/telink/app_config.h,129,KB_MAP_NORMAL,"{	{CR_VOL_DN,		VK_1}, {CR_VOL_UP,		VK_2}, }",Telink 平台编译选项的内部常量或预处理选项，KB MAP NORMAL,保留，随实现维护,—
+bms/platform/telink/app_config.h,132,KB_MAP_NUM,KB_MAP_NORMAL,Telink 平台编译选项的内部常量或预处理选项，KB MAP NUM,保留，随实现维护,—
+bms/platform/telink/app_config.h,133,KB_MAP_FN,KB_MAP_NORMAL,Telink 平台编译选项的内部常量或预处理选项，KB MAP FN,保留，随实现维护,—
+bms/platform/telink/app_config.h,138,USED_DEEP_ANA_REG,PM_ANA_REG_WD_CLR_BUF1,Telink 平台编译选项的内部常量或预处理选项，USED DEEP ANA REG,保留，随实现维护,—
+bms/platform/telink/app_config.h,140,USED_DEEP_ANA_REG,DEEP_ANA_REG0 // u8，可在深睡期间保留 8 位信,Telink 平台编译选项。u8，可在深睡期间保留 8 位信,保留，随实现维护,—
+bms/platform/telink/app_config.h,143,LOW_BATT_FLG,BIT(0) // 为 1 表示低电量。,Telink 平台编译选项。为 1 表示低电量。,保留，随实现维护,—
+bms/platform/telink/app_config.h,144,CONN_DEEP_FLG,BIT(4) // 为 1 表示连接态深睡，,Telink 平台编译选项。为 1 表示连接态深睡，,保留，随实现维护,—
+bms/platform/telink/app_config.h,150,CLOCK_SYS_CLOCK_HZ,16000000,MCU 系统时钟频率,保留，随实现维护,—
+bms/platform/telink/app_config.h,154,MODULE_WATCHDOG_ENABLE,1,MCU 看门狗使能,保留，随实现维护,—
+bms/platform/telink/app_config.h,155,WATCHDOG_INIT_TIMEOUT,2000  //ms,MCU 看门狗初始超时,保留，随实现维护,—
+bms/platform/telink/app_config.h,160,DEBUG_INFO_TX_PIN,GPIO_PC2,开发日志、SDK 示例界面或测试开关，DEBUG INFO TX PIN,台架用途，按产线策略保留,—
+bms/platform/telink/app_config.h,161,PULL_WAKEUP_SRC_PC2,PM_PIN_PULLUP_10K,Telink 平台编译选项的内部常量或预处理选项，PULL WAKEUP SRC PC2,保留，随实现维护,—
+bms/platform/telink/app_config.h,162,PC2_OUTPUT_ENABLE,1,Telink 平台编译选项的功能使能，PC2 OUTPUT ENABLE,保留，随实现维护,—
+bms/platform/telink/app_config.h,163,PC2_DATA_OUT,1,Telink 平台编译选项的内部常量或预处理选项，PC2 DATA OUT,保留，随实现维护,—
+bms/platform/telink/ble_ota.h,7,BLE_OTA_H_,,头文件重复包含保护,构建结构定义,—
+bms/platform/telink/bus_mux.c,15,PIN_OWC_RX,BMS_BOARD_OWC_RX_PIN,通信总线引脚接管与释放的内部常量或预处理选项，PIN OWC RX,保留，随实现维护,—
+bms/platform/telink/bus_mux.c,16,PIN_OWC_TX,BMS_BOARD_OWC_TX_PIN,通信总线引脚接管与释放的内部常量或预处理选项，PIN OWC TX,保留，随实现维护,—
+bms/platform/telink/bus_mux.c,19,RX_HIGH_STABLE_US,(50u * 1000u),通信总线引脚接管与释放的微秒时间，RX HIGH STABLE US,保留，随实现维护,—
+bms/platform/telink/bus_mux.c,20,UART_DETECT_WINDOW_US,2500u,通信总线引脚接管与释放的微秒时间，UART DETECT WINDOW US,保留，随实现维护,—
+bms/platform/telink/bus_mux.c,21,UART_FALL_MIN_COUNT,3u,通信总线引脚接管与释放的数量或上限，UART FALL MIN COUNT,保留，随实现维护,—
+bms/platform/telink/bus_mux.c,22,UART_IDLE_BACK_US,(10000u * 1000u),通信总线引脚接管与释放的微秒时间，UART IDLE BACK US,保留，随实现维护,—
+bms/platform/telink/bus_mux.c,23,COMM_WAKE_HOLD_US,(1000u * 1000u),通信总线引脚接管与释放的微秒时间，COMM WAKE HOLD US,保留，随实现维护,—
+bms/platform/telink/flash_store_cfg.h,9,FLASH_SECTOR_SIZE,4096u,Flash 地址、容量、扇区或读写边界，FLASH SECTOR SIZE,保留，Flash/Boot 布局合同,—
+bms/platform/telink/flash_store_cfg.h,10,FLASH_PAGE_SIZE,256u,Flash 地址、容量、扇区或读写边界，FLASH PAGE SIZE,保留，Flash/Boot 布局合同,—
+bms/platform/telink/flash_store_cfg.h,11,D008_FLASH_CONFIG_BASE,0x40000u,Flash 地址、容量、扇区或读写边界，D008 FLASH CONFIG BASE,保留，Flash/Boot 布局合同,—
+bms/platform/telink/flash_store_cfg.h,12,D008_FLASH_STATE_BASE,0x44000u,Flash 地址、容量、扇区或读写边界，D008 FLASH STATE BASE,保留，Flash/Boot 布局合同,—
+bms/platform/telink/flash_store_cfg.h,13,D008_FLASH_EVENT_BASE,0x4C000u,Flash 地址、容量、扇区或读写边界，D008 FLASH EVENT BASE,保留，Flash/Boot 布局合同,—
+bms/platform/telink/flash_store_cfg.h,14,D008_FLASH_DOMAIN_SIZE,(2u * FLASH_SECTOR_SIZE),Flash 地址、容量、扇区或读写边界，D008 FLASH DOMAIN SIZE,保留，Flash/Boot 布局合同,—
+bms/platform/telink/flash_store_safe.h,19,FLASH_STORE_VERIFY_CHUNK,64u,Flash 地址、容量、扇区或读写边界，FLASH STORE VERIFY CHUNK,保留，Flash/Boot 布局合同,—
+bms/platform/telink/modbus_uart.c,29,MODBUS_UART_CLOCK_DIVIDER,9u,UART Modbus 驱动的内部常量或预处理选项，MODBUS UART CLOCK DIVIDER,保留，随实现维护,—
+bms/platform/telink/modbus_uart.c,30,MODBUS_UART_BWPC,13u,UART Modbus 驱动的内部常量或预处理选项，MODBUS UART BWPC,保留，随实现维护,—
+bms/platform/telink/modbus_uart.c,31,MODBUS_UART_RECOVERY_US,(1000u * 1000u),UART Modbus 驱动的微秒时间，MODBUS UART RECOVERY US,保留，随实现维护,—
+bms/platform/telink/sif_send.c,17,SIF_TIMER_INTERVAL_US,500u,一线通字段与发波形的微秒时间，SIF TIMER INTERVAL US,保留，随实现维护,—
+bms/platform/telink/sif_send.c,74,SIF_SYNC,(2u * (62u + 2u)),一线通字段与发波形的内部常量或预处理选项，SIF SYNC,保留，随实现维护,—
+bms/platform/telink/sif_send.c,75,SIF_SYNC_LOW_TICKS,(2u * 62u),一线通字段与发波形的内部常量或预处理选项，SIF SYNC LOW TICKS,保留，随实现维护,—
+bms/platform/telink/sif_send.c,76,SIF_STOP_LOW_TICKS,(2u * 25u),一线通字段与发波形的内部常量或预处理选项，SIF STOP LOW TICKS,保留，随实现维护,—
+bms/platform/telink/sif_send.c,77,SIF_STOP_TICKS,(2u * (25u + 2u)),一线通字段与发波形的内部常量或预处理选项，SIF STOP TICKS,保留，随实现维护,—
+bms/platform/telink/sif_send.c,78,SIF_SEND_COUNT,12u,一线通字段与发波形的数量或上限，SIF SEND COUNT,保留，随实现维护,—
+bms/platform/telink/sif_send.c,79,SIF_LISHEN_BYTES,6u,一线通字段与发波形的字节数，SIF LISHEN BYTES,保留，随实现维护,—
+bms/platform/telink/sif_send.c,81,SIF_INVALID_U8,0xffu,一线通字段与发波形的内部常量或预处理选项，SIF INVALID U8,保留，随实现维护,—
+bms/platform/telink/sif_send.c,82,SIF_INVALID_U16,0xffffu,一线通字段与发波形的内部常量或预处理选项，SIF INVALID U16,保留，随实现维护,—
+bms/platform/telink/sif_send.c,84,SIF_PROTOCOL_VERSION,0x13u,一线通字段与发波形的内部常量或预处理选项，SIF PROTOCOL VERSION,保留，随实现维护,—
+bms/platform/telink/sif_send.c,85,SIF_CELL_PERIOD_TICKS,(60000000u * SYSTEM_TIMER_TICK_1US),一线通字段与发波形的内部常量或预处理选项，SIF CELL PERIOD TICKS,保留，随实现维护,—
+bms/platform/telink/sif_send.c,86,SIF_STARTUP_CODE_PACKETS,3u,一线通字段与发波形的内部常量或预处理选项，SIF STARTUP CODE PACKETS,保留，随实现维护,—
+bms/platform/telink/sif_send.c,88,SIF_SYNC,(2u * (10u + 1u)),一线通字段与发波形的内部常量或预处理选项，SIF SYNC,保留，随实现维护,—
+bms/platform/telink/sif_send.c,89,SIF_SYNC_LOW_TICKS,(2u * 10u),一线通字段与发波形的内部常量或预处理选项，SIF SYNC LOW TICKS,保留，随实现维护,—
+bms/platform/telink/sif_send.c,90,SIF_STOP,(2u * 5u),一线通字段与发波形的内部常量或预处理选项，SIF STOP,保留，随实现维护,—
+bms/platform/telink/sif_send.c,91,SIF_SEND_COUNT,4u,一线通字段与发波形的数量或上限，SIF SEND COUNT,保留，随实现维护,—
+bms/platform/telink/sif_send.c,104,SIF_PUBLIC_BYTES,20u,一线通字段与发波形的字节数，SIF PUBLIC BYTES,保留，随实现维护,—
+bms/platform/telink/sif_send.c,105,SIF_REALTIME_BYTES,33u,一线通字段与发波形的字节数，SIF REALTIME BYTES,保留，随实现维护,—
+bms/platform/telink/sif_send.c,106,SIF_CELL_BYTES,(4u + 2u * BMS_PRODUCT_CELL_COUNT),一线通字段与发波形的字节数，SIF CELL BYTES,保留，随实现维护,—
+bms/platform/telink/sif_send.h,7,__SIF_SEND_H__,,一线通接口的内部常量或预处理选项，  SIF SEND H  ,保留，随实现维护,—
+bms/platform/telink/sif_send.h,15,BMS_SIF_PROTOCOL_A133,1u,一线通接口的内部常量或预处理选项，BMS SIF PROTOCOL A133,保留，随实现维护,—
+bms/platform/telink/sif_send.h,16,BMS_SIF_PROTOCOL_LISHEN_V111,2u,一线通接口的内部常量或预处理选项，BMS SIF PROTOCOL LISHEN V111,保留，随实现维护,—
+bms/platform/telink/sif_send.h,18,BMS_PRODUCT_SIF_PROTOCOL,BMS_SIF_PROTOCOL_LISHEN_V111,一线通接口的内部常量或预处理选项，BMS PRODUCT SIF PROTOCOL,保留，随实现维护,—
+bms/platform/telink/sif_send.h,28,BMS_PRODUCT_SIF_LISHEN_EXTENDED,1u,一线通接口的内部常量或预处理选项，BMS PRODUCT SIF LISHEN EXTENDED,保留，随实现维护,—
+bms/products/bms_battery_defaults.h,14,BMS_BALANCE_START_VOLTAGE_MV_DEFAULT,3400u,发布给 Config 的均衡起始电压默认值,保留，随实现维护,—
+bms/products/bms_battery_defaults.h,18,BMS_BALANCE_START_VOLTAGE_MV_DEFAULT,4100u,发布给 Config 的均衡起始电压默认值,保留，随实现维护,—
+bms/products/bms_battery_defaults.h,27,BMS_BALANCE_ENABLE_DEFAULT,1u,首次 Config 的均衡许可,保留，工程参数,通过产品默认定义
+bms/products/bms_battery_defaults.h,30,BMS_BALANCE_START_DELTA_MV_DEFAULT,50u,发布给 Config 的均衡开始压差默认值,保留，随实现维护,—
+bms/products/bms_battery_defaults.h,33,BMS_BALANCE_STOP_DELTA_MV_DEFAULT,30u,发布给 Config 的均衡停止压差默认值,保留，随实现维护,—
+bms/products/bms_parameter_policy.h,15,BMS_UPDATE_SW_REVISION,1u /* 软件保护 */,bms_parameter_policy。软件保护,保留，随实现维护,—
+bms/products/bms_parameter_policy.h,16,BMS_UPDATE_AFE_REVISION,3u /* D008 历史只读值，不代表当前保护设定。 */,bms_parameter_policy。D008 历史只读值，不代表当前保护设定。,保留，随实现维护,—
+bms/products/bms_parameter_policy.h,17,BMS_UPDATE_BUSINESS_REVISION,1u /* 容量、加热和均衡 */,bms_parameter_policy。容量、加热和均衡,保留，随实现维护,—
+bms/products/bms_parameter_policy.h,18,BMS_UPDATE_SOC_REVISION,1u /* SOC 算法配置与化学体系 */,bms_parameter_policy。SOC 算法配置与化学体系,保留，随实现维护,—
+bms/products/bms_parameter_policy.h,19,BMS_UPDATE_CALIBRATION_REVISION,1u /* 电流校准 */,bms_parameter_policy。电流校准,保留，随实现维护,—
+bms/products/bms_parameter_policy.h,20,BMS_UPDATE_IDENTITY_REVISION,1u /* 序列号与蓝牙名称 */,bms_parameter_policy。序列号与蓝牙名称,保留，随实现维护,—
+bms/products/bms_parameter_policy.h,21,BMS_UPDATE_SOC_STATE_REVISION,1u /* SOC 和循环状态 */,bms_parameter_policy。SOC 和循环状态,保留，随实现维护,—
+bms/products/bms_parameter_policy.h,22,BMS_UPDATE_EVENTS_REVISION,1u /* 事件记录 */,bms_parameter_policy。事件记录,保留，随实现维护,—
+bms/products/d008/afe_register_config.h,3,BMS_SOURCE_CUSTOMER_NAME,"""a080""",构建清单的客户或方案名称,保留，工程参数,保护参数窗装配页
+bms/products/d008/afe_register_config.h,4,BMS_SOURCE_CUSTOMER_REVISION,"""v1""",构建清单的方案版本,保留，工程参数,保护参数窗装配页
+bms/products/d008/bms_product.h,7,BMS_PRODUCT_RELEASE_APPROVED,0,生产制品签核开关,保留，随实现维护,—
+bms/products/d008/bms_product.h,8,BMS_PRODUCT_ID,8u,工程内产品标识,保留，随实现维护,—
+bms/products/d008/bms_product.h,9,BMS_FEATURE_HEATER_SUPPORTED,1u,板型加热能力声明,保留，随实现维护,—
+bms/products/d008/bms_product.h,10,BMS_FEATURE_BALANCE_SUPPORTED,1u,板型均衡能力声明,保留，随实现维护,—
+bms/products/d008/bms_product.h,13,BMS_PRODUCT_CHEMISTRY,D008_PRODUCT_CHEMISTRY,当前装配电芯体系,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/products/d008/bms_product.h,27,BMS_BALANCE_MAX_CELLS,8u,同时均衡的最多通道数,保留，工程参数,保护参数窗
+bms/products/d008/bms_product.h,30,BMS_BALANCE_TEMP_STOP_X10,1000u,均衡禁止的温度门槛,保留，工程参数,保护参数窗
+bms/products/d008/bms_product.h,33,BMS_BALANCE_TEMP_RESUME_X10,900u,均衡温度回差恢复门槛,保留，工程参数,保护参数窗
+bms/products/d008/bms_product.h,38,BMS_D008_SCD_POLICY_APPROVED,1,D008 短路策略签核开关,保留，随实现维护,—
+bms/products/d008/bms_product.h,43,BMS_PRODUCT_SIF_ENABLE,1,一线通功能开关,保留，随实现维护,—
+bms/products/d008/bms_product.h,44,BMS_PRODUCT_UART_ENABLE,1,UART Modbus 功能开关,保留，随实现维护,—
+bms/products/d008/bms_product.h,47,BMS_PRODUCT_SWITCH_SLEEP_ENABLE,0,ACC 深睡功能开关,保留，随实现维护,—
+bms/products/d008/bms_product.h,54,BMS_PRODUCT_WIRE_ID,12u,既有外部协议产品 ID,保留，随实现维护,—
+bms/products/d008/bms_product.h,56,BMS_PRODUCT_SW_VERSION,"""V1.8""",对外软件版本字符串,保留，随实现维护,—
+bms/products/d008/bms_product.h,59,BMS_PRODUCT_CELL_COUNT,(DVC1124_DEFAULT_CELL_COUNT),由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/bms_product.h,60,BMS_PRODUCT_HW_VERSION,"""D008""",对外硬件版本字符串,保留，随实现维护,—
+bms/products/d008/bms_product.h,62,BMS_PRODUCT_DEFAULT_SERIAL,"""D008-20261019""",缺少烧录序列号时的源码回退值,保留，随实现维护,—
+bms/products/d008/bms_product.h,64,BMS_PRODUCT_BLE_NAME,"""BT_FD190126F03200046_007""",默认广播设备名称,保留，随实现维护,—
+bms/products/d008/bms_product.h,65,BMS_PRODUCT_BLE_NAME_LENGTH,(sizeof(BMS_PRODUCT_BLE_NAME)-1),按定义求得的字段长度，BMS PRODUCT BLE NAME LENGTH,保留，随实现维护,—
+bms/products/d008/bms_product.h,67,BMS_PRODUCT_FACTORY_BLE_NAME,"""BT_FD260228F03200046_666""",工厂模式广播设备名称,保留，随实现维护,—
+bms/products/d008/bms_product.h,68,BMS_PRODUCT_FACTORY_BLE_NAME_LENGTH,(sizeof(BMS_PRODUCT_FACTORY_BLE_NAME)-1),按定义求得的字段长度，BMS PRODUCT FACTORY BLE NAME LENGTH,保留，随实现维护,—
+bms/products/d008/bms_product.h,72,BMS_BOARD_HEATER_FUSE_PIN,(GPIO_PD4),D008 板级 GPIO 路由，HEATER FUSE,保留，随 PCB,—
+bms/products/d008/bms_product.h,73,BMS_BOARD_AFE_ENABLE_PIN,(GPIO_PD7),D008 板级 GPIO 路由，AFE ENABLE,保留，随 PCB,—
+bms/products/d008/bms_product.h,74,BMS_BOARD_ACC_PIN,(GPIO_PA0),D008 板级 GPIO 路由，ACC,保留，随 PCB,—
+bms/products/d008/bms_product.h,75,BMS_BOARD_HEATER_ENABLE_PIN,(GPIO_PA1),D008 板级 GPIO 路由，HEATER ENABLE,保留，随 PCB,—
+bms/products/d008/bms_product.h,76,BMS_BOARD_LOAD_DETECT_PIN,(GPIO_PB1),D008 板级 GPIO 路由，LOAD DETECT,保留，随 PCB,—
+bms/products/d008/bms_product.h,78,BMS_BOARD_LOAD_REMOVED_LEVEL,1u,GPIO 表示负载已移除的有效电平,保留，随实现维护,—
+bms/products/d008/bms_product.h,79,BMS_D008_LOAD_RELEASE_CONFIRM_MS,200u,负载移除证据确认时间,保留，随实现维护,—
+bms/products/d008/bms_product.h,80,BMS_BOARD_OWC_TX_PIN,(GPIO_PC2),D008 板级 GPIO 路由，OWC TX,保留，随 PCB,—
+bms/products/d008/bms_product.h,81,BMS_BOARD_OWC_RX_PIN,(GPIO_PC3),D008 板级 GPIO 路由，OWC RX,保留，随 PCB,—
+bms/products/d008/bms_product.h,82,BMS_BOARD_MCU_LDO_PIN,(GPIO_PC4),D008 板级 GPIO 路由，MCU LDO,保留，随 PCB,—
+bms/products/d008/bms_product.h,83,SOC25_PIN,(GPIO_PB4),旧分档指示灯 GPIO，现蓝灯由 LED_BLUE_PIN 驱动,可清理，当前无消费点,—
+bms/products/d008/bms_product.h,84,SOC50_PIN,(GPIO_PB5),旧分档指示灯 GPIO，现蓝灯由 LED_BLUE_PIN 驱动,可清理，当前无消费点,—
+bms/products/d008/bms_product.h,85,SOC75_PIN,(GPIO_PB7),旧分档指示灯 GPIO，现蓝灯由 LED_BLUE_PIN 驱动,可清理，当前无消费点,—
+bms/products/d008/bms_product.h,86,SOC100_PIN,(GPIO_PD3),旧分档指示灯 GPIO，现蓝灯由 LED_BLUE_PIN 驱动,可清理，当前无消费点,—
+bms/products/d008/bms_product.h,87,LED_BLUE_PIN,(GPIO_PB4),D008 板载蓝灯 GPIO,保留，随实现维护,—
+bms/products/d008/d008_product_profile.h,3,D008_PRODUCT_PROFILE_H_,,装配 H_ 的固定构建选择值,保留，构建与产品配置合同,由装配推导
+bms/products/d008/d008_product_profile.h,18,D008_PRODUCT_PROFILE_24S_LFP,1u,装配 24S_LFP 的固定构建选择值,保留，构建与产品配置合同,由装配推导
+bms/products/d008/d008_product_profile.h,19,D008_PRODUCT_PROFILE_20S_NMC,2u,装配 20S_NMC 的固定构建选择值,保留，构建与产品配置合同,由装配推导
+bms/products/d008/d008_product_profile.h,20,D008_PRODUCT_PROFILE_16S_LFP,3u,装配 16S_LFP 的固定构建选择值,保留，构建与产品配置合同,由装配推导
+bms/products/d008/d008_product_profile.h,21,D008_PRODUCT_PROFILE_CUSTOM,4u,装配 CUSTOM 的固定构建选择值,保留，构建与产品配置合同,由装配推导
+bms/products/d008/d008_product_profile.h,22,D008_PRODUCT_PROFILE_23S_LFP,5u,装配 23S_LFP 的固定构建选择值,保留，构建与产品配置合同,由装配推导
+bms/products/d008/d008_product_profile.h,25,D008_CUSTOM_CELL_COUNT,16u,自定义装配有效串数,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/products/d008/d008_product_profile.h,26,D008_CUSTOM_CHEMISTRY,BMS_SOC_CHEMISTRY_LFP,自定义装配电芯化学体系,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/products/d008/d008_product_profile.h,32,D008_PRODUCT_PROFILE,D008_PRODUCT_PROFILE_16S_LFP,选择固定或自定义装配,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/products/d008/d008_product_profile.h,36,D008_PRODUCT_CELL_COUNT,16u,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,37,D008_PRODUCT_CHEMISTRY,BMS_SOC_CHEMISTRY_LFP,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,38,D008_PRODUCT_PROFILE_NAME,"""D008-16S-LFP""",当前装配的构建与交付名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,40,D008_PRODUCT_CELL_COUNT,20u,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,41,D008_PRODUCT_CHEMISTRY,BMS_SOC_CHEMISTRY_NMC,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,42,D008_PRODUCT_PROFILE_NAME,"""D008-20S-NMC""",当前装配的构建与交付名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,44,D008_PRODUCT_CELL_COUNT,24u,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,45,D008_PRODUCT_CHEMISTRY,BMS_SOC_CHEMISTRY_LFP,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,46,D008_PRODUCT_PROFILE_NAME,"""D008-24S-LFP""",当前装配的构建与交付名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,48,D008_PRODUCT_CELL_COUNT,23u,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,49,D008_PRODUCT_CHEMISTRY,BMS_SOC_CHEMISTRY_LFP,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,50,D008_PRODUCT_PROFILE_NAME,"""D008-23S-LFP""",当前装配的构建与交付名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,54,BMS_BUILD_CELL_COUNT,D008_CUSTOM_CELL_COUNT,自定义构建串数校验输入,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/products/d008/d008_product_profile.h,57,BMS_PRODUCT_CHEMISTRY,D008_CUSTOM_CHEMISTRY,当前装配电芯体系,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/products/d008/d008_product_profile.h,59,D008_PRODUCT_CELL_COUNT,BMS_BUILD_CELL_COUNT,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,60,D008_PRODUCT_CHEMISTRY,BMS_PRODUCT_CHEMISTRY,由装配 profile 解析的串数、化学体系或名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_product_profile.h,61,D008_PRODUCT_PROFILE_NAME,"""D008-CUSTOM""",当前装配的构建与交付名称,保留，装配派生定义,由装配推导
+bms/products/d008/d008_protection_config.h,13,BMS_OTA_UPDATE_SW,0u,应用软件保护默认,保留，OTA 策略,Ctrl+Shift+B 主窗
+bms/products/d008/d008_protection_config.h,14,BMS_OTA_UPDATE_AFE,0u,应用 AFE 硬件保护默认,保留，OTA 策略,Ctrl+Shift+B 主窗
+bms/products/d008/d008_protection_config.h,15,BMS_OTA_UPDATE_BUSINESS,0u,应用容量与加热、均衡等业务默认,保留，OTA 策略,Ctrl+Shift+B 主窗
+bms/products/d008/d008_protection_config.h,16,BMS_OTA_UPDATE_SOC,0u,应用满空端点默认,保留，OTA 策略,Ctrl+Shift+B 主窗
+bms/products/d008/d008_protection_config.h,17,BMS_OTA_UPDATE_SOC_STATE,0u,初始化 SOC 检查点,保留，OTA 策略,Ctrl+Shift+B 主窗
+bms/products/d008/d008_protection_config.h,18,BMS_OTA_UPDATE_FACTORY_RESET,0u /* 普通镜像保参，出厂包显式选择 */,执行一次性的业务区出厂初始化,保留，OTA 策略,Ctrl+Shift+B 主窗
+bms/products/d008/d008_protection_config.h,20,BMS_OTA_UPDATE_ID_0,0x0000u,参数包一次性标识的分字或与默认值绑定的摘要,保留，由配置保存工具生成,自动
+bms/products/d008/d008_protection_config.h,21,BMS_OTA_UPDATE_ID_1,0x0000u,参数包一次性标识的分字或与默认值绑定的摘要,保留，由配置保存工具生成,自动
+bms/products/d008/d008_protection_config.h,22,BMS_OTA_UPDATE_ID_2,0x0000u,参数包一次性标识的分字或与默认值绑定的摘要,保留，由配置保存工具生成,自动
+bms/products/d008/d008_protection_config.h,23,BMS_OTA_UPDATE_ID_3,0x0000u,参数包一次性标识的分字或与默认值绑定的摘要,保留，由配置保存工具生成,自动
+bms/products/d008/d008_protection_config.h,24,BMS_OTA_UPDATE_ID_4,0x0000u,参数包一次性标识的分字或与默认值绑定的摘要,保留，由配置保存工具生成,自动
+bms/products/d008/d008_protection_config.h,25,BMS_OTA_UPDATE_ID_5,0x0000u,参数包一次性标识的分字或与默认值绑定的摘要,保留，由配置保存工具生成,自动
+bms/products/d008/d008_protection_config.h,27,BMS_OTA_UPDATE_CONTENT_SHA256,"""0000000000000000000000000000000000000000000000000000000000000000""",参数包一次性标识的分字或与默认值绑定的摘要,保留，由配置保存工具生成,自动
+bms/products/d008/d008_protection_config.h,42,DVC1124_SW_PROTECT_ENABLE,1u,软件电压和电流保护总开关,保留，台架隔离，生产要求开启,—
+bms/products/d008/d008_protection_config.h,46,DVC1124_SW_TEMP_PROTECT_ENABLE,1u,软件温度保护总开关,保留，台架隔离，生产要求开启,—
+bms/products/d008/d008_protection_config.h,49,DVC1124_HW_PROTECT_ENABLE,1u,AFE 自主保护总开关,保留，台架隔离，生产要求开启,—
+bms/products/d008/d008_protection_config.h,64,D008_SW_CELL_OVP_FIRST_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4200u),单体过压一级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,65,D008_SW_CELL_OVP_FIRST_MV,D008_SW_CELL_OVP_FIRST_MV_FOR(BMS_PRODUCT_CHEMISTRY),单体过压一级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,66,D008_SW_CELL_OVP_SECOND_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3600u : 4200u),单体过压二级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,67,D008_SW_CELL_OVP_SECOND_MV,D008_SW_CELL_OVP_SECOND_MV_FOR(BMS_PRODUCT_CHEMISTRY),单体过压二级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,68,D008_SW_CELL_OVP_THIRD_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3650u : 4200u),单体过压三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,69,D008_SW_CELL_OVP_THIRD_MV,D008_SW_CELL_OVP_THIRD_MV_FOR(BMS_PRODUCT_CHEMISTRY),单体过压三级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,70,D008_SW_CELL_OVP_RECOVER_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3550u : 4100u),单体过压恢复阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,71,D008_SW_CELL_OVP_RECOVER_MV,D008_SW_CELL_OVP_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY),单体过压恢复阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,72,D008_SW_CELL_OVP_FILTER_10MS,100u,单体过压动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,75,D008_SW_CELL_UVP_FIRST_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3200u),单体欠压一级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,76,D008_SW_CELL_UVP_FIRST_MV,D008_SW_CELL_UVP_FIRST_MV_FOR(BMS_PRODUCT_CHEMISTRY),单体欠压一级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,77,D008_SW_CELL_UVP_SECOND_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 2900u : 3100u),单体欠压二级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,78,D008_SW_CELL_UVP_SECOND_MV,D008_SW_CELL_UVP_SECOND_MV_FOR(BMS_PRODUCT_CHEMISTRY),单体欠压二级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,79,D008_SW_CELL_UVP_THIRD_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 2500u : 3000u),单体欠压三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,80,D008_SW_CELL_UVP_THIRD_MV,D008_SW_CELL_UVP_THIRD_MV_FOR(BMS_PRODUCT_CHEMISTRY),单体欠压三级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,81,D008_SW_CELL_UVP_RECOVER_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 2900u : 3100u),单体欠压恢复阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,82,D008_SW_CELL_UVP_RECOVER_MV,D008_SW_CELL_UVP_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY),单体欠压恢复阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,83,D008_SW_CELL_UVP_FILTER_10MS,100u,单体欠压动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,86,D008_SW_PACK_OVP_FIRST_CELL_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4200u),整包过压一级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,87,D008_SW_PACK_OVP_FIRST_CELL_MV,D008_SW_PACK_OVP_FIRST_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY),整包过压一级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,88,D008_SW_PACK_OVP_SECOND_CELL_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3600u : 4200u),整包过压二级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,89,D008_SW_PACK_OVP_SECOND_CELL_MV,D008_SW_PACK_OVP_SECOND_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY),整包过压二级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,90,D008_SW_PACK_OVP_THIRD_CELL_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3650u : 4200u),整包过压三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,91,D008_SW_PACK_OVP_THIRD_CELL_MV,D008_SW_PACK_OVP_THIRD_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY),整包过压三级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,92,D008_SW_PACK_OVP_RECOVER_CELL_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4100u),整包过压恢复阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,93,D008_SW_PACK_OVP_RECOVER_CELL_MV,D008_SW_PACK_OVP_RECOVER_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY),整包过压恢复阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,94,D008_SW_PACK_OVP_FILTER_10MS,100u,整包过压动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,97,D008_SW_PACK_UVP_FIRST_CELL_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3000u),整包欠压一级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,98,D008_SW_PACK_UVP_FIRST_CELL_MV,D008_SW_PACK_UVP_FIRST_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY),整包欠压一级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,99,D008_SW_PACK_UVP_SECOND_CELL_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3000u),整包欠压二级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,100,D008_SW_PACK_UVP_SECOND_CELL_MV,D008_SW_PACK_UVP_SECOND_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY),整包欠压二级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,101,D008_SW_PACK_UVP_THIRD_CELL_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 2500u : 3000u),整包欠压三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,102,D008_SW_PACK_UVP_THIRD_CELL_MV,D008_SW_PACK_UVP_THIRD_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY),整包欠压三级动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,103,D008_SW_PACK_UVP_RECOVER_CELL_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3000u : 3100u),整包欠压恢复阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,104,D008_SW_PACK_UVP_RECOVER_CELL_MV,D008_SW_PACK_UVP_RECOVER_CELL_MV_FOR(BMS_PRODUCT_CHEMISTRY),整包欠压恢复阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,105,D008_SW_PACK_UVP_FILTER_10MS,100u,整包欠压动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,108,D008_SW_CHARGE_OCP_FIRST_A10,(300),充电过流一级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,109,D008_SW_CHARGE_OCP_SECOND_A10,350u,充电过流二级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,110,D008_SW_CHARGE_OCP_THIRD_A10,400u,充电过流三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,111,D008_SW_CHARGE_OCP_RECOVER_A10,(10),充电过流恢复阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,112,D008_SW_CHARGE_OCP_FILTER_10MS,10u,充电过流动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,115,D008_SW_DISCHARGE_OCP_FIRST_A10,1000u,放电过流一级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,116,D008_SW_DISCHARGE_OCP_SECOND_A10,1100u,放电过流二级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,117,D008_SW_DISCHARGE_OCP_THIRD_A10,1200u,放电过流三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,118,D008_SW_DISCHARGE_OCP_RECOVER_A10,(10),放电过流恢复阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,119,D008_SW_DISCHARGE_OCP_FILTER_10MS,50u,放电过流动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,122,D008_SW_CHARGE_OTP_FIRST_X10,((40 + 40) * 10),充电高温一级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,123,D008_SW_CHARGE_OTP_SECOND_X10,((50 + 40) * 10),充电高温二级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,124,D008_SW_CHARGE_OTP_THIRD_X10,950u,充电高温三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,125,D008_SW_CHARGE_OTP_RECOVER_X10,((40 + 40) * 10),充电高温恢复阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,126,D008_SW_CHARGE_OTP_FILTER_10MS,100u,充电高温动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,129,D008_SW_CHARGE_UTP_FIRST_X10,((5 + 40) * 10),充电低温一级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,130,D008_SW_CHARGE_UTP_SECOND_X10,((3 + 40) * 10),充电低温二级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,131,D008_SW_CHARGE_UTP_THIRD_X10,((0 + 40) * 10),充电低温三级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,132,D008_SW_CHARGE_UTP_RECOVER_X10,((3 + 40) * 10),充电低温恢复阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,133,D008_SW_CHARGE_UTP_FILTER_10MS,100u,充电低温动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,136,D008_SW_DISCHARGE_OTP_FIRST_X10,((50 + 40) * 10),放电高温一级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,137,D008_SW_DISCHARGE_OTP_SECOND_X10,((60 + 40) * 10),放电高温二级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,138,D008_SW_DISCHARGE_OTP_THIRD_X10,1050u,放电高温三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,139,D008_SW_DISCHARGE_OTP_RECOVER_X10,((50 + 40) * 10),放电高温恢复阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,140,D008_SW_DISCHARGE_OTP_FILTER_10MS,100u,放电高温动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,143,D008_SW_DISCHARGE_UTP_FIRST_X10,((-10 + 40) * 10),放电低温一级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,144,D008_SW_DISCHARGE_UTP_SECOND_X10,((-15 + 40) * 10),放电低温二级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,145,D008_SW_DISCHARGE_UTP_THIRD_X10,((-20 + 40) * 10),放电低温三级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,146,D008_SW_DISCHARGE_UTP_RECOVER_X10,((-10 + 40) * 10),放电低温恢复阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,147,D008_SW_DISCHARGE_UTP_FILTER_10MS,100u,放电低温动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,150,D008_SW_MOS_OTP_FIRST_X10,((75 + 40) * 10),功率 MOS 高温一级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,151,D008_SW_MOS_OTP_SECOND_X10,((85 + 40) * 10),功率 MOS 高温二级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,152,D008_SW_MOS_OTP_THIRD_X10,((95 + 40) * 10),功率 MOS 高温三级动作阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,153,D008_SW_MOS_OTP_RECOVER_X10,((80 + 40) * 10),功率 MOS 高温恢复阈值,保留，常用保护默认,直接编辑源码
+bms/products/d008/d008_protection_config.h,154,D008_SW_MOS_OTP_FILTER_10MS,100u,功率 MOS 高温动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,157,D008_SW_CELL_DELTA_FIRST_MV,600u,单体压差一级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,158,D008_SW_CELL_DELTA_SECOND_MV,800u,单体压差二级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,159,D008_SW_CELL_DELTA_THIRD_MV,1000u,单体压差三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,160,D008_SW_CELL_DELTA_RECOVER_MV,800u,单体压差恢复阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,161,D008_SW_CELL_DELTA_FILTER_10MS,100u,单体压差动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,164,D008_SW_SOC_LOW_FIRST_PERCENT,20u,低 SOC一级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,165,D008_SW_SOC_LOW_SECOND_PERCENT,10u,低 SOC二级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,166,D008_SW_SOC_LOW_THIRD_PERCENT,5u,低 SOC三级动作阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,167,D008_SW_SOC_LOW_RECOVER_PERCENT,11u,低 SOC恢复阈值,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,168,D008_SW_SOC_LOW_FILTER_10MS,100u,低 SOC动作滤波时间,保留，常用保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,175,D008_AFE_ENABLE_COV,1u,AFE 单体过压使能,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,176,D008_AFE_ENABLE_CUV,1u,AFE 单体欠压使能,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,177,D008_AFE_ENABLE_OCD1,1u,AFE 一级放电过流使能,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,178,D008_AFE_ENABLE_OCD2,1u,AFE 二级放电过流使能,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,179,D008_AFE_ENABLE_OCC1,1u,AFE 一级充电过流使能,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,180,D008_AFE_ENABLE_OCC2,1u,AFE 二级充电过流使能,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,181,D008_AFE_ENABLE_SC,1u,AFE 放电短路使能,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,184,D008_AFE_COV_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3750u : 4200u),AFE 单体过压动作阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,185,D008_AFE_COV_MV,D008_AFE_COV_MV_FOR(BMS_PRODUCT_CHEMISTRY),AFE 单体过压动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,186,D008_AFE_COV_RECOVER_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3500u : 4100u),AFE 单体过压恢复阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,187,D008_AFE_COV_RECOVER_MV,D008_AFE_COV_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY),AFE 单体过压恢复阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,188,D008_AFE_CUV_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 2500u : 3000u),AFE 单体欠压动作阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,189,D008_AFE_CUV_MV,D008_AFE_CUV_MV_FOR(BMS_PRODUCT_CHEMISTRY),AFE 单体欠压动作阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,190,D008_AFE_CUV_RECOVER_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 2800u : 3100u),AFE 单体欠压恢复阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,191,D008_AFE_CUV_RECOVER_MV,D008_AFE_CUV_RECOVER_MV_FOR(BMS_PRODUCT_CHEMISTRY),AFE 单体欠压恢复阈值，按当前化学体系取值的别名,保留，随实现维护,通过 *_FOR(c)
+bms/products/d008/d008_protection_config.h,192,D008_AFE_COV_DELAY_MS,1000u,AFE 单体过压动作延时,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,193,D008_AFE_COV_RECOVER_MS,1000u,AFE 单体过压恢复时间,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,194,D008_AFE_CUV_DELAY_MS,1000u,AFE 单体欠压动作延时,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,195,D008_AFE_CUV_RECOVER_MS,1000u,AFE 单体欠压恢复时间,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,201,D008_AFE_OCD1_A10,1500u,AFE 一级放电过流动作阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,202,D008_AFE_OCD1_DELAY_MS,100u,AFE 一级放电过流动作延时,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,203,D008_AFE_OCD2_A10,3000u,AFE 二级放电过流动作阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,204,D008_AFE_OCD2_DELAY_MS,100u,AFE 二级放电过流动作延时,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,205,D008_AFE_OCD_RECOVER_A10,100u,AFE 两级放电过流共同恢复恢复阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,208,D008_AFE_OCC1_A10,600u,AFE 一级充电过流动作阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,209,D008_AFE_OCC1_DELAY_MS,100u,AFE 一级充电过流动作延时,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,210,D008_AFE_OCC2_A10,800u,AFE 二级充电过流动作阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,211,D008_AFE_OCC2_DELAY_MS,100u,AFE 二级充电过流动作延时,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,212,D008_AFE_OCC_RECOVER_A10,100u,AFE 两级充电过流共同恢复恢复阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,219,D008_AFE_SC_THRESHOLD_MV,150u,AFE 放电短路动作阈值,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,220,D008_AFE_SC_DELAY_US,256u,AFE 放电短路动作延时,保留，硬件保护默认,保护参数窗
+bms/products/d008/d008_protection_config.h,225,BMS_SOC_OCV_LFP_POINTS,"{2800u,0u}, {3000u,2u}, {3100u,5u}, {3200u,10u}, {3250u,15u}, {3280u,25u}, {3300u,35u}, {3315u,45u}, {3330u,55u}, {3340u,65u}, {3350u,75u}, {3370u,85u}, {3400u,95u}, {3450u,98u}, {3500u,100u}",旧 OCV 配置表，现算法使用独立曲线,可清理，当前无消费点,—
+bms/products/d008/d008_protection_config.h,230,BMS_SOC_OCV_NMC_POINTS,"{3000u,0u}, {3300u,5u}, {3450u,10u}, {3550u,20u}, {3650u,30u}, {3700u,40u}, {3750u,50u}, {3800u,60u}, {3850u,70u}, {3900u,80u}, {4000u,90u}, {4100u,96u}, {4180u,100u}",旧 OCV 配置表，现算法使用独立曲线,可清理，当前无消费点,—
+bms/products/d008/d008_protection_config.h,236,BMS_BATTERY_BALANCE_START_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3400u : 4100u),按化学体系选择均衡起始单体电压,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,237,BMS_BATTERY_BALANCE_START_DELTA_MV,50u,均衡开始压差,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,238,BMS_BATTERY_BALANCE_STOP_DELTA_MV,30u,均衡停止压差,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,243,BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH,200u,初建 Config 的额定容量，单位 0.1 Ah,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/products/d008/d008_protection_config.h,245,BMS_HEATER_ENABLE_DEFAULT,1u,首次 Config 的加热许可,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,247,BMS_HEATER_START_TEMP_X10,400u,加热启动温度,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,250,BMS_HEATER_STOP_TEMP_X10,450u,加热停止温度,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,253,BMS_BALANCE_ENABLE_DEFAULT,1u,首次 Config 的均衡许可,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,256,BMS_BALANCE_START_VOLTAGE_MV_DEFAULT,BMS_BATTERY_BALANCE_START_MV_FOR(BMS_PRODUCT_CHEMISTRY),发布给 Config 的均衡起始电压默认值,保留，随实现维护,—
+bms/products/d008/d008_protection_config.h,259,BMS_BALANCE_START_DELTA_MV_DEFAULT,BMS_BATTERY_BALANCE_START_DELTA_MV,发布给 Config 的均衡开始压差默认值,保留，随实现维护,—
+bms/products/d008/d008_protection_config.h,262,BMS_BALANCE_STOP_DELTA_MV_DEFAULT,BMS_BATTERY_BALANCE_STOP_DELTA_MV,发布给 Config 的均衡停止压差默认值,保留，随实现维护,—
+bms/products/d008/d008_protection_config.h,265,BMS_SLEEP_NORMAL_CELL_MV,3000u,低压长计时的最低单体电压门槛,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,266,BMS_SLEEP_NORMAL_SECONDS,86400u,低于上档阈值的连续静置时间,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,267,BMS_SLEEP_LOW_CELL_MV,2800u,低压短计时的最低单体电压门槛,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,268,BMS_SLEEP_LOW_SECONDS,3600u,低于下档阈值的连续静置时间,保留，工程参数,保护参数窗
+bms/products/d008/dvc1124_product_defaults.h,16,DVC1124_DEFAULT_MODEL,DVC1124_MODEL_22,选择 DVC1124-2 型号编码,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,17,DVC1124_DEFAULT_ADDR_MODE,DVC1124_ADDR_FIXED,选择固定 I²C 地址模式,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,18,DVC1124_DEFAULT_HARDWIRE_CODE,0u,硬连地址模式的地址位输入，当前固定模式不使用,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,19,DVC1124_DEFAULT_EXPLICIT_WRITE_ADDR,0x40u,显式地址模式的 8 位写地址输入，当前固定地址由驱动确定,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,22,DVC1124_DEFAULT_CELL_COUNT,D008_PRODUCT_CELL_COUNT,把装配串数传给采样和屏蔽配置,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,25,DVC1124_DEFAULT_SHUNT_UOHM,250u,等效分流电阻，影响电流采样与过流/短路换算,保留，实际装配,保护参数窗装配页
+bms/products/d008/dvc1124_product_defaults.h,28,BMS_PRODUCTION_BUILD,0u,开发/生产构建模式，控制产品门禁,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/products/d008/dvc1124_product_defaults.h,38,DVC1124_DEFAULT_HEATER_NTC_GP,1u,加热支路温度 GP 通道,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,39,DVC1124_DEFAULT_BATTERY_NTC_GP,2u,电池温度第一路 GP 通道,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,40,DVC1124_DEFAULT_BATTERY_NTC2_GP,3u,电池温度第二路 GP 通道,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,41,DVC1124_DEFAULT_MOS_NTC_GP,4u,功率 MOS 温度 GP 通道,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,48,DVC1124_HEATER_OFF_FAULT_TEMP_X10,1350u,加热软件关断后异常高温判定阈值,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,49,DVC1124_HEATER_OFF_FAULT_CONFIRM_MS,10000u,加热关断异常温度的连续确认时间,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,52,DVC1124_GP1_DEFAULT_MODE,DVC1124_GP14_NTC,配置 GP1 的模拟输入或低侧驱动模式,保留，实际板级路由,—
+bms/products/d008/dvc1124_product_defaults.h,53,DVC1124_GP2_DEFAULT_MODE,DVC1124_GP236_NTC,配置 GP2 的模拟输入或低侧驱动模式,保留，实际板级路由,—
+bms/products/d008/dvc1124_product_defaults.h,54,DVC1124_GP3_DEFAULT_MODE,DVC1124_GP236_NTC,配置 GP3 的模拟输入或低侧驱动模式,保留，实际板级路由,—
+bms/products/d008/dvc1124_product_defaults.h,55,DVC1124_GP4_DEFAULT_MODE,DVC1124_GP14_NTC,配置 GP4 的模拟输入或低侧驱动模式,保留，实际板级路由,—
+bms/products/d008/dvc1124_product_defaults.h,56,DVC1124_GP5_DEFAULT_MODE,DVC1124_GP5_LOW_CHG,配置 GP5 的模拟输入或低侧驱动模式,保留，实际板级路由,—
+bms/products/d008/dvc1124_product_defaults.h,57,DVC1124_GP6_DEFAULT_MODE,DVC1124_GP6_LOW_DSG,配置 GP6 的模拟输入或低侧驱动模式,保留，实际板级路由,—
+bms/products/d008/dvc1124_product_defaults.h,59,DVC1124_GP123_MODE_VALUE,"DVC1124_GP123_ENCODE(DVC1124_GP1_DEFAULT_MODE, DVC1124_GP2_DEFAULT_MODE, DVC1124_GP3_DEFAULT_MODE)",组合 GP1–GP3 模式寄存器数据,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,63,DVC1124_GP456_MODE_VALUE,"DVC1124_GP456_ENCODE(DVC1124_GP4_DEFAULT_MODE, DVC1124_GP5_DEFAULT_MODE, DVC1124_GP6_DEFAULT_MODE)",组合 GP4–GP6 模式寄存器数据,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,69,DVC1124_DEFAULT_HIGH_SIDE_FET_MASK,1u,屏蔽未使用的高侧 FET 驱动,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,70,DVC1124_DEFAULT_CADC_WORK_ENABLE,1u,工作模式开启电流 ADC,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,73,DVC1124_DEFAULT_CURRENT_WAKE_ENGINE_ENABLE,0u,配置睡眠电流唤醒引擎,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,74,DVC1124_DEFAULT_CC1_WORK_TIME,DVC1124_CC1_WORK_4MS,CC1 工作测量档位,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,75,DVC1124_DEFAULT_CC1_SLEEP_WAKE_TIME,DVC1124_CC1_SLEEP_WAKE_32MS,CC1 睡眠唤醒测量档位,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,78,DVC1124_CHARGE_PUMP_VOLTAGE_CODE,DVC1124_CPVS_10V,电荷泵驱动电压编码,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,80,DVC1124_DEFAULT_CELL_MEASUREMENT_MASK,0u,CMM 电芯测量屏蔽控制位,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,81,DVC1124_DEFAULT_CELL_VOLTAGE_SIGNED,0u,单体电压有符号编码选择,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,83,DVC1124_DEFAULT_VADC_ENABLE,1u,电压 ADC 使能,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,84,DVC1124_DEFAULT_VADC_SYNC_WITH_CC2,1u,选择电压测量与 CC2 同步,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,85,DVC1124_DEFAULT_VADC_PERIOD,DVC1124_VADC_EVERY_1_CC2,两次 VADC 之间的 CC2 周期数,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,86,DVC1124_DEFAULT_VADC_TIME,DVC1124_VADC_TIME_1P54MS,VADC 单次测量时间档位,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,88,DVC1124_DEFAULT_V3P3_SLEEP_ENABLE,1u,AFE 睡眠时 3.3V 输出使能,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,89,DVC1124_DEFAULT_V3P3_WORK_ENABLE,1u,AFE 工作时 3.3V 输出使能,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,90,DVC1124_DEFAULT_V3P3_TIMEOUT_RESTART,0u,I²C 超时是否关闭并重启 3.3V,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,91,DVC1124_DEFAULT_TIMED_WAKE,DVC1124_TIMED_WAKE_OFF,AFE 定时唤醒设置,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,94,DVC1124_DEFAULT_INTERRUPT_MASK,0xFFu,AFE 中断源屏蔽字,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,97,DVC1124_DEFAULT_DSG_PULLDOWN_STRENGTH,16u,DSG 驱动下拉能力编码,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,104,DVC1124_DEFAULT_DSG_MASK_POLICY,((uint8_t)(DVC1124_DSG_MASK_RESET & (uint8_t)~DVC1124_DSGMASK_DBDM_MASK)),放电侧自主保护来源屏蔽基线,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,106,DVC1124_DEFAULT_CHG_MASK_POLICY,((uint8_t)(DVC1124_CHG_MASK_RESET & (uint8_t)~DVC1124_CHGMASK_CBDM_MASK)),充电侧自主保护来源屏蔽基线,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,110,DVC1124_DEFAULT_CORE_OT_CODE,0u,AFE 内核过温动作编码,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,113,DVC1124_CURRENT_WAKE_THRESHOLD_UV,0u,睡眠电流唤醒分流压差阈值,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,119,DVC1124_BODY_DIODE_THRESHOLD_UV,80u,充放电 MOS 体二极管续流保护分流压差阈值,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,125,DVC1124_I2C_WATCHDOG_SECONDS,4u,AFE I²C 看门狗时间档位,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,126,DVC1124_I2C_TIMEOUT_CLOSE_CHG,1u,AFE I²C 超时允许关充电路,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,127,DVC1124_I2C_TIMEOUT_CLOSE_DSG,1u,AFE I²C 超时允许关放电路,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,130,DVC1124_I2C_CMD_TIMEOUT_US,5000u,MCU 单次 I²C 命令等待上限,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,131,DVC1124_I2C_RETRY_COUNT,3u,常规 I²C 事务重试总次数上限,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,134,DVC1124_RESET_SETTLE_MS,300u,AFE 复位后稳定等待,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,141,DVC1124_BOOT_ZERO_ENABLE,1u,启动时 CAMZ 与零点合理性核验开关,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,143,DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS,270u,启动零点核验的 CC2 检查间隔,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,144,DVC1124_BOOT_ZERO_MAX_ABS_MA,1500u,启动零点检查允许的单笔绝对电流,保留，板级或诊断固定,—
+bms/products/d008/dvc1124_product_defaults.h,145,DVC1124_BOOT_ZERO_MAX_SPREAD_MA,200u,启动零点检查两笔电流的最大差值,保留，板级或诊断固定,—
