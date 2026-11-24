@@ -648,7 +648,9 @@ public partial class MainWindow : Window
             BatterySnapshot snapshot = await bms.SetSocAndVerifyAsync(soc);
             EnsureCurrentConnection(bms, generation);
             ApplyBatterySnapshot(snapshot);
-            BmsParamResultText.Text = $"SOC 已写入并校验：{soc}%";
+            BmsParamResultText.Text = bms.UsesC060Protocol
+                ? $"当前 SOC 已回读：{soc}%（持久化未确认）"
+                : $"SOC 已写入并校验：{soc}%";
             AppendLog($"SOC_SET_VERIFY_OK value={soc}", "PARAM");
             ShowParameterSaved(BmsParamResultText.Text);
         }

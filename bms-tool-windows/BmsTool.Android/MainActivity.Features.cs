@@ -386,7 +386,9 @@ public sealed partial class MainActivity
             BatterySnapshot snapshot = await client.SetSocAndVerifyAsync(value, ct);
             _lastSnapshot = snapshot;
             RunOnUiThread(() => _socInput!.Text = snapshot.SocPercent.ToString(CultureInfo.InvariantCulture));
-            SetStatus($"SOC 已写入并回读确认：{snapshot.SocPercent}%");
+            SetStatus(client.UsesC060Protocol
+                ? $"当前 SOC 已回读：{snapshot.SocPercent}%（持久化未确认）"
+                : $"SOC 已写入并回读确认：{snapshot.SocPercent}%");
         }, TimeSpan.FromSeconds(30));
     }
     private Task SaveCycleAsync()
