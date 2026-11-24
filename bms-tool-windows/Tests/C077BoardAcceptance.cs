@@ -118,7 +118,13 @@ static class BoardAcceptance
             C060Parameters.TryValue(capture,f,out ushort old);ushort value=f.Signed?unchecked((ushort)(short)-7):(ushort)(old==1536?1535:old+1);
             await Case($"calibration 0x{f.Address:X4} GUI format, wire sign and restore",async()=>{try{await client.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{f.Address,value}},(_,_)=>{},false,ct);var actual=await client.ReadRegistersAsync(f.WriteAddress,2,ct);Check(actual[f.Address-f.WriteAddress]==value,"calibration readback");}finally{await client.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{f.Address,old}},(_,_)=>{},false,ct);}});
         }
-        await Case("system cell count 13->12->13 with outputs inhibited",async()=>{try{await client.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,12}},(_,_)=>{},false,ct);Check((await client.ReadRegistersAsync(0x231C,4,ct))[0]==12,"12S save");}finally{await client.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,13}},(_,_)=>{},false,ct);await client.ReadC077HardwareAsync(true,ct);}});
+        await Case("configured series is read-only",async()=>{
+            ushort series = (await client.ReadRegistersAsync(0x231C,4,ct))[0];
+            ushort other = series == 13 ? (ushort)16 : (ushort)13;
+            int before = Writes;
+            await Reject(()=>client.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,other}},(_,_)=>{},false,ct));
+            Check(Writes==before,"no series write sent");
+        });
         foreach(var f in C060Parameters.FieldsFor(true).Where(f=>!f.Editable))await Case($"readonly parameter 0x{f.Address:X4} rejected",()=>Reject(()=>client.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{f.Address,1}},(_,_)=>{},true,ct)));
         await Case("SOC endpoints invalid combination rejected",()=>Reject(()=>client.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231B,5000}},(_,_)=>{},false,ct)));
         await Case("cell count range rejected",()=>Reject(()=>client.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,4}},(_,_)=>{},false,ct)));

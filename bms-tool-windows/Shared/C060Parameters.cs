@@ -57,7 +57,7 @@ public static class C060Parameters
         .Select(f=>f.Address switch {
             0x2312=>f with {Compatibility=false,Group="休眠",Name="低压休眠电压",Hint="低于该单体电压时禁止周期RTC，并按低压等待时间进入深睡。"},
             0x2313=>f with {Compatibility=false,Group="休眠",Name="低压休眠等待",Hint="低压且无有效充电电流时的等待时间；0表示立即执行。"},
-            0x231C when c077=>f with {Minimum=5,Maximum=16,Editable=true,Hint="须与实际串数一致；先关闭输出和均衡，再保存并核对两片AFE配置。"},
+            0x231C when c077=>f with {Minimum=5,Maximum=16,Editable=false,Hint="由 C077 生产固件配置，设备读回值仅供查看。"},
             0x230A or 0x230B when c077=>f with {Editable=false,Hint="硬件保护使用双309专用编辑器，Flash保存与AFE EEPROM应用分别确认。"},
             0x231D or 0x231E when c077=>f with {Editable=false,Hint="每片独立4颗2mΩ并联，固定0.5mΩ。"},
             _=>f
@@ -138,6 +138,23 @@ public static class C060Parameters
         if(package.Blocks.TryGetValue("Protection",out var protection)){if(protection.Length!=65)throw new InvalidDataException("保护块长度错误。");if(expectedProduct=="C077")C077Parameters.ValidateProtection(protection);else ProtectionBatch.ValidateC060(protection);}
         return package;
     }
+    public static C060ParameterCapture Import(string path, C060ParameterCapture current)
+    {
+        var package = Import(path, current.Product);
+        if (current.Product != "C077") return package;
+
+        var seriesField = FieldsFor(true).Single(f => f.Address == 0x231C);
+        bool hasFileSeries = TryValue(package, seriesField, out ushort fileSeries);
+        if (!hasFileSeries && !package.Blocks.ContainsKey("Protection")) return package;
+        if (!TryValue(current, seriesField, out ushort deviceSeries) || deviceSeries is < 5 or > 16)
+            throw new InvalidDataException("设备串数尚未确认，无法导入 C077 参数。");
+        if (!hasFileSeries)
+            throw new InvalidDataException("该 C077 参数文件缺少串数，无法确认总压保护适用范围。");
+        if (fileSeries != deviceSeries)
+            throw new InvalidDataException($"参数文件为 {fileSeries} 串，当前设备为 {deviceSeries} 串，无法导入。");
+        return package;
+    }
+
     // Same units and rounding as ShortCur_Normalize; boundary vectors live in
     // the firmware tests/c060_short_current_vectors.csv (both runners read it).
     public static ushort[] NormalizeCurrentGroup(ushort[] words, ushort resistance, ushort parallel)
@@ -194,6 +211,9 @@ public sealed partial class BmsClient
             if(words is null)capture.Errors.Add($"{block.Key} 未提供或读取未确认");else capture.Blocks[block.Key]=words;
         }
         if(IsC077) {
+            var status = await TryReadOptionalRegistersAsync(0x2A28, 1, ct);
+            if (status is [var flags] && (flags >> 8) == C077Parameters.ProductionSeriesMismatch)
+                capture.Errors.Add(C077Parameters.ProductionSeriesMismatchMessage);
             var afe=await TryReadOptionalRegistersAsync(C077Parameters.DiagnosticBase,64,ct);
             if(afe is null)capture.Errors.Add("C077双309诊断未确认");
             else {C077AfeSnapshot.Parse(afe);capture.Blocks["C077Afe"]=afe;}
@@ -222,8 +242,8 @@ public sealed partial class BmsClient
                 if(group.Key==0x2318&&candidate[3]>=candidate[2])throw new ArgumentException("SOC 0%端点必须低于100%端点。");
                 if(group.Key==0x231C) {
                     if(IsC077) {
-                        if(candidate[0]<5||candidate[0]>16||candidate[1]!=2||candidate[2]!=4)throw new ArgumentException("C077串数须为5～16，固定4颗2mΩ并联。");
-                        if(candidate[0]!=current[0])await RequireC077OutputsOffAsync(ct);
+                        if(candidate[0]!=current[0]||candidate[1]!=2||candidate[2]!=4)
+                            throw new ArgumentException("C077 串数和分流配置由生产固件确定。");
                     } else if(candidate[0]!=ProductCellCount||candidate[1]==0||candidate[2]==0||2000u*candidate[2]/candidate[1]>65535)
                         throw new ArgumentException($"{ParameterProduct}固定{ProductCellCount}串，采样电阻/并联数须非零且不能产生溢出。");
                 }

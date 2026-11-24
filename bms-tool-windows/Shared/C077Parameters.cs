@@ -42,6 +42,9 @@ public sealed record C077AfeSnapshot(ushort ServiceState,ushort ServiceError,ush
 }
 public static class C077Parameters
 {
+    internal const ushort ProductionSeriesMismatch = 4;
+    internal const string ProductionSeriesMismatchMessage = "C077 保存的串数与生产固件不一致，设备禁止输出。请核对生产固件配置。";
+
     public const ushort DiagnosticBase=0x2A40,ServiceRegister=0x2A7F,ProgramProfile=0xC077,RetryZero=0x5A07;
     public static readonly ushort[] OvercurrentMillivolts={20,30,40,50,60,70,80,90,100,110,120,130,140,160,180,200};
     public static readonly ushort[] ShortMillivolts={50,80,110,140,170,200,230,260,290,320,350,400,500,600,800,1000};
@@ -249,6 +252,8 @@ public sealed partial class BmsClient
         var h=await ReadRegistersAsync(C077Hardware.Header,7,ct);
         if(h[0]!=0xC077||h[1]!=1||h[2]!=32||h[3]!=2||h[6] is not (6 or 7))throw new NotSupportedException("固件未提供双309 Flash硬保护编辑协议schema1，未发送写命令。");
         var flags=await ReadRegistersAsync(0x2A28,1,ct);
+        if (flags is [var status] && (status >> 8) == C077Parameters.ProductionSeriesMismatch)
+            throw new IOException(C077Parameters.ProductionSeriesMismatchMessage);
         if(flags.Length!=1||(flags[0]&1)==0)throw new IOException("MCU Flash参数尚未就绪；当前RAM默认值不能作为已保存Flash配置，请先检查存储诊断。");
     }
     public async Task<C077HardwareSnapshot> ReadC077HardwareAsync(bool verifyEeprom=false,CancellationToken ct=default)

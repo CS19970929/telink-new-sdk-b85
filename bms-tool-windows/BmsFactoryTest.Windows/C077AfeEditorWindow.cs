@@ -26,7 +26,7 @@ public sealed class C077AfeEditorWindow:Window
         WindowStartupLocation=WindowStartupLocation.CenterOwner;Background=SystemColors.WindowBrush;Foreground=SystemColors.WindowTextBrush;
         var panel=new DockPanel{Background=SystemColors.WindowBrush};Content=panel;
         var top=new StackPanel();DockPanel.SetDock(top,Dock.Top);panel.Children.Add(top);
-        top.Children.Add(new TextBlock{Margin=new Thickness(8),TextWrapping=TextWrapping.Wrap,Text="先读取，按片编辑并保存到MCU Flash；保存不会写309。确认关闭输出/均衡后，再明确下发所选片或双片。软件保护参数在主窗口单独编辑。串数以系统参数5～16串为准、CTL双路禁止、MCU均衡及AFE1单CADC；深睡不进入SHIP仓运。"});
+        top.Children.Add(new TextBlock{Margin=new Thickness(8),TextWrapping=TextWrapping.Wrap,Text="先读取，按片编辑并保存到MCU Flash；保存不会写309。确认关闭输出/均衡后，再明确下发所选片或双片。软件保护参数在主窗口单独编辑。串数由生产固件确定、CTL双路禁止、MCU均衡及AFE1单CADC；深睡不进入SHIP仓运。"});
         var bar=new WrapPanel();top.Children.Add(bar);bar.Children.Add(chip);
         Add("读取Flash + 核对两片EEPROM",async()=>await Reload());
         Add("关闭输出 / 均衡",CloseOutputs);

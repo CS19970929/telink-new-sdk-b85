@@ -7,7 +7,7 @@ static class Test
     static async Task Reject(Func<Task> action,string why){bool rejected=false;try{await action();}catch(Exception e)when(e is ArgumentException or InvalidDataException or NotSupportedException or IOException or InvalidOperationException){rejected=true;}Check(rejected,why);}
     public static async Task Main()
     {
-        var peer=new Peer{C077=true,Advertised=true};peer.Other[28]=16;peer.Other[10]=1280;peer.Other[11]=3400;
+        var peer=new Peer{C077=true,Advertised=true,ParameterStatus=1};peer.Other[28]=16;peer.Other[10]=1280;peer.Other[11]=3400;
         peer.Protection=new ushort[]{4000,4100,4250,4150,100,3000,2800,2700,2800,100,6400,6400,6800,6560,100,4800,4800,4400,4480,100,120,120,120,10,100,600,750,750,600,100,850,850,950,850,100,450,450,400,450,100,1000,1000,1100,1000,100,300,250,200,250,100,1200,1250,1350,1200,100,1000,1000,1000,900,100,20,15,10,11,100};
         await using var c=new BmsClient(peer);await c.ReadIdentityAsync();
         Check(c.IsC077&&!c.IsC060&&c.UsesC060Protocol&&c.ParameterProduct=="C077","explicit C077 identity stays distinct");
@@ -69,17 +69,22 @@ static class Test
             int writes=peer.Writes;await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{address,99}},(_,_)=>{}),"fixed profile edit rejected");Check(peer.Writes==writes,"no invalid write");
         }
         var seriesField=C060Parameters.FieldsFor(true).Single(f=>f.Address==0x231C);
-        Check(seriesField.Editable&&seriesField.Minimum==5&&seriesField.Maximum==16,"C077 existing series parameter supports5..16");
+        Check(!seriesField.Editable&&seriesField.Minimum==5&&seriesField.Maximum==16,"production series is read-only");
         int seriesWrites=peer.Writes;
-        foreach(ushort bad in new ushort[]{4,17,65535})await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,bad}},(_,_)=>{}),"out-of-range series preflight");
-        peer.OutputRequest=2;
-        await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,13}},(_,_)=>{}),"active outputs block series change");
-        Check(peer.Writes==seriesWrites,"invalid/live series changes write zero");
-        peer.OutputRequest=0;
-        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,13}},(_,_)=>{});
-        Check(peer.Other[28]==13&&peer.Other[29]==2&&peer.Other[30]==4,"13-series group commits and reads back with fixed shunt");
+        foreach(ushort bad in new ushort[]{4,13,17,65535})
+            await Reject(()=>c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,bad}},(_,_)=>{}),
+                "all series edits rejected before transport");
+        Check(peer.Writes==seriesWrites,"client sends no series writes including to older firmware");
+        peer.Other[28]=13;
         var thirteen=await c.ReadBatteryAsync();Check(thirteen.ValidCellCount==13&&thirteen.CellMillivolts[13]==61001,"13 real cells and missing slots survive client decoding");
-        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,16}},(_,_)=>{});
+        var thirteenParameters = await c.ReadC060ParametersAsync();
+        Check(C060Parameters.TryValue(thirteenParameters, seriesField, out ushort installed) && installed == 13,
+            "configured series is shown from the connected device");
+        peer.Other[28]=16;
+        peer.ParameterStatus=0x0400;
+        Check((await c.ReadC060ParametersAsync()).Errors.Any(e => e.Contains("生产固件")),
+            "production series mismatch is displayed from the storage diagnostic");
+        peer.ParameterStatus=null;
         Check(C060Parameters.FieldsFor(true).Count==15,"15 actively consumed basic parameters");
         Check(C060Parameters.FieldsFor(true).All(f=>f.Address>=0x2300),"retired K/B are absent");
         Check(!capture.Blocks.ContainsKey("Calibration"),"no retired calibration reads");
@@ -160,8 +165,12 @@ static class Test
         peer.SecondaryUnavailable=false;
         peer.Bad309Schema=true;await Reject(()=>c.ReadC077AfeAsync(),"unknown diagnostic schema rejected");peer.Bad309Schema=false;
         string path=Path.Combine(Path.GetTempPath(),"CodexTemp","bms-tool-windows","c077-params-"+Guid.NewGuid().ToString("N")+".json");Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        C060Parameters.Export(path,capture);Check(C060Parameters.Import(path,"C077").Product=="C077","C077 parameter roundtrip");
+        C060Parameters.Export(path,capture);Check(C060Parameters.Import(path,capture).Product=="C077","same-series C077 parameter roundtrip");
+        await Reject(()=>Task.Run(()=>C060Parameters.Import(path,thirteenParameters)),"C077 rejects cross-series protection import");
         await Reject(()=>Task.Run(()=>C060Parameters.Import(path)),"C077 cannot import as C060");
+        capture.Blocks.Remove("231C");
+        C060Parameters.Export(path,capture);
+        await Reject(()=>Task.Run(()=>C060Parameters.Import(path,thirteenParameters)),"C077 rejects protection without a declared source series");
         var old=new Peer{Advertised=true};await using var c060=new BmsClient(old);await c060.ReadIdentityAsync();int oldWrites=old.Writes;
         await Reject(()=>c060.RunC077ServiceAsync(true),"C060 cannot receive a309 maintenance command");Check(old.Writes==oldWrites,"C060 unaffected");
         Check(!peer.Reads.Any(r=>r.Item1 is 0x2500 or 0x2540),"309 never uses 3510/3520 hardware model");

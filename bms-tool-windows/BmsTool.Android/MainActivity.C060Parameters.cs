@@ -61,7 +61,7 @@ public sealed partial class MainActivity
                 _protectionModel=rows;_protectionCaptureClient=client;RenderProtectionRows(rows);
             }
         });
-        SetStatus(capture.Errors.Count==0?"保护与常规参数读取完成":"部分参数未读取；连接保持可用",capture.Errors.Count!=0);
+        SetStatus(capture.Errors.Count==0?"保护与常规参数读取完成":"参数读取有提示；连接保持可用",capture.Errors.Count!=0);
     }
     private void RenderC060Parameters()
     {
@@ -153,7 +153,7 @@ public sealed partial class MainActivity
                 byte[] buffer=new byte[8192];int total=0,n;
                 while((n=await input.ReadAsync(buffer))>0){total+=n;if(total>1024*1024)throw new InvalidDataException("参数文件超过1MiB");await output.WriteAsync(buffer.AsMemory(0,n));}
             }
-            var imported=C060Parameters.Import(path,_c060Capture.Product);
+            var imported=C060Parameters.Import(path,_c060Capture);
             if(_connectedMac!=_c060ImportMac||!ReferenceEquals(_client,_c060ImportClient)||!ReferenceEquals(_client,_c060CaptureClient))throw new IOException("连接已变化，未载入候选。");
             foreach(var field in C060ParameterFields.Where(f=>f.Editable&&!f.FactoryOnly&&!f.Compatibility))
                 if(_c060Inputs.TryGetValue(field.Address,out var edit)&&C060Parameters.TryValue(imported,field,out ushort raw))edit.Text=field.Format(raw);

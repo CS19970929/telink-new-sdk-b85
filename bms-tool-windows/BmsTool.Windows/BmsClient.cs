@@ -518,7 +518,7 @@ public sealed partial class BmsClient : IAsyncDisposable
         }
         if (IsC073) { DeviceModel="C073 · 同口 / SH367309"; _realtimeAvailable=false; }
         else if (UsesC060Protocol) {
-            DeviceModel=IsC077 ? "C077 · 16串分口 / SH367309 ×2" : "C060 · 20串分口 / BQ76930";
+            DeviceModel=IsC077 ? "C077 · 分口 / SH367309 ×2" : "C060 · 20串分口 / BQ76930";
             _realtimeAvailable=false;
         }
         else if (hardware.StartsWith("HS-D015", StringComparison.Ordinal)) {

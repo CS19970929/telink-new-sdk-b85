@@ -165,7 +165,7 @@ public partial class MainWindow
     {
         bool c060=_bms?.UsesC060Protocol==true,c077=_bms?.IsC077==true;
         _c077Tools.Visibility=_c077Status.Visibility=c077&&C060FactoryEdition?Visibility.Visible:Visibility.Collapsed;
-        _c060Intro.Text=c077 ? "C077 · 16串分口 / 双SH367309。AFE1采电流，AFE2仅采电压与温度。硬保护在内部版独立编辑：先保存Flash，再明确下发EEPROM；软件过流不再自动改变硬保护。" :
+        _c060Intro.Text=c077 ? "C077 · 分口 / 双SH367309。串数由生产固件确定，本页只读。AFE1采电流，AFE2仅采电压与温度。硬保护在内部版独立编辑：先保存Flash，再明确下发EEPROM；软件过流不再自动改变硬保护。" :
             "参数按组保存，保存后自动读回。软件保护在“保护参数”页。";
         _c060Compatibility.Visibility=Visibility.Collapsed;
         _c060Software.IsReadOnly=true;
@@ -237,7 +237,7 @@ public partial class MainWindow
                 _c060Hardware.Text=BmsClient.DecodeIdentityText(identity[16..32]);_c060Software.Text=BmsClient.DecodeIdentityText(identity[32..48]);
             }
             _c060Status.Text=(action is null?"C060参数读取完成":operation+"已完成，已重新读取设备参数")+
-                (capture.Errors.Count==0?"":"；部分块未提供："+string.Join("；",capture.Errors));
+                (capture.Errors.Count==0?"":"；读取诊断："+string.Join("；",capture.Errors));
             DeviceSerialStatusText.Text=_parameterStatus.Text=_c060Status.Text;
             if(action is not null&&requireCapture)ShowParameterSaved(_c060Status.Text);
         } catch(Exception) when (automatic.IsCancellationRequested) {
@@ -284,7 +284,7 @@ public partial class MainWindow
         try {
             if(_c060Capture is null||!ReferenceEquals(_c060CaptureClient,_bms))throw new InvalidOperationException("请先读取当前设备参数。");
             var dialog=new OpenFileDialog{Filter="C060/C077参数 (*.json)|*.json"};if(dialog.ShowDialog(this)!=true)return;
-            var package=C060Parameters.Import(dialog.FileName,_bms?.ParameterProduct??"C060");var pending=new List<(C060ParameterRow Row,ushort Value)>();
+            var package=C060Parameters.Import(dialog.FileName,_c060Capture);var pending=new List<(C060ParameterRow Row,ushort Value)>();
             foreach(var row in _c060Rows) {
                 if(!CanEditC060Field(row.Field)||row.Field.FactoryOnly&&_c060ImportCalibration.IsChecked!=true)continue;
                 if(C060Parameters.TryValue(package,row.Field,out ushort value)&&row.DeviceRaw is ushort current&&value!=current){row.Field.Parse(row.Field.Format(value));pending.Add((row,value));}
@@ -302,7 +302,7 @@ public partial class MainWindow
     }
     private async Task RunC060ResetAsync()
     {
-        if(MessageBox.Show(this,"恢复全部32字业务参数，包含均衡、CBC、SOC表、容量/循环/端点、串数/采样参数和旧Sleep；会改变相关学习状态。请先导出备份。是否继续？","恢复C060业务参数默认",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
+        if(MessageBox.Show(this,"恢复全部32字业务参数，包含均衡、CBC、SOC表、容量/循环/端点、板级默认参数和旧Sleep；会改变相关学习状态。请先导出备份。是否继续？","恢复C060业务参数默认",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
         await RunC060ParameterAsync((c,t)=>c.WriteSingleRegisterAsync(0x1003,1,t),"恢复业务参数默认");
     }
 }

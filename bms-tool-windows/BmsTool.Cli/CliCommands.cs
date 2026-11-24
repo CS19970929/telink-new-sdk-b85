@@ -879,6 +879,8 @@ Safety:
             product=capture.Product,blocks=capture.Blocks,errors=capture.Errors,incomplete=capture.Incomplete,output=outputPath});
         if(!reporter.Json) {
             Console.WriteLine($"{capture.Product} parameters: {status}; blocks={capture.Blocks.Count}; errors={capture.Errors.Count}");
+            if (capture.Product == "C077" && capture.Blocks.TryGetValue("231C", out var system) && system.Length == 4)
+                Console.WriteLine($"Configured series: {system[0]} (read-only)");
             foreach(string error in capture.Errors)Console.WriteLine("WARN: "+error);
             if(outputPath is not null)Console.WriteLine("Parameter JSON: "+outputPath);
         }

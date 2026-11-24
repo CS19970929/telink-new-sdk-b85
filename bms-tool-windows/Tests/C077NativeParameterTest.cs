@@ -8,7 +8,7 @@ static class Test
         await using var c=new BmsClient(wire);
         await c.ReadIdentityAsync();Check(c.IsC077,"native C077 identity");
         var before=await c.ReadC060ParametersAsync();
-        ushort[] expected={4000,4100,4250,4150,100,3000,2800,2700,2800,100,6400,6400,6800,6560,100,4800,4800,4400,4480,100,120,120,120,10,100,600,750,750,600,100,850,850,950,850,100,450,450,400,450,100,1000,1000,1100,1000,100,300,250,200,250,100,1200,1250,1350,1200,100,1000,1000,1000,900,100,20,15,10,11,100};
+        ushort[] expected={4000,4100,4250,4100,100,3200,3200,2700,3000,100,6400,6400,6800,6560,100,4800,4800,4400,4800,100,100,100,120,10,100,600,600,750,600,100,850,850,950,850,100,450,450,400,450,100,1000,1000,1100,1000,100,300,250,200,250,100,1200,1200,1200,1150,100,1000,1000,1000,900,100,20,15,10,11,100};
         Check(before.Blocks["Protection"].SequenceEqual(expected),"all 65 legacy defaults from production C Flash initialization");
         int verified=0;
         var changes=Enumerable.Range(0,13).ToDictionary(i=>(ushort)(0x2104+i*5),i=>(ushort)(101+i));
@@ -19,11 +19,14 @@ static class Test
         var hard=await c.ReadC077HardwareAsync();var a=(ushort[])hard.Saved[0].Clone();var b=(ushort[])hard.Saved[1].Clone();
         a[1]=4240;b[1]=4320;a[17]=256;b[19]=20;
         await c.SaveC077HardwareAsync(0,a,hard.Saved[0]);await c.SaveC077HardwareAsync(1,b,hard.Saved[1]);
-        await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,13}},(_,_)=>{});
+        try {
+            await c.WriteC060ParameterChangesAsync(new Dictionary<ushort,ushort>{{0x231C,13}},(_,_)=>{});
+            throw new InvalidOperationException("production series edit accepted");
+        } catch (ArgumentException) { }
         await wire.Configure("@reload");
         var after=await c.ReadC060ParametersAsync();
         Check(after.Blocks["Protection"].SequenceEqual(expected),"every parameter persists after production reload");
-        Check(after.Blocks["231C"].SequenceEqual(new ushort[]{13,2,4,10}),"13 series saves and reloads through actual C parameter/Flash engine");
+        Check(after.Blocks["231C"].SequenceEqual(new ushort[]{16,2,4,10}),"configured series survives production Flash reload");
         Check(after.Blocks["2318"][0]==245&&after.Blocks["2308"][2]==1280&&after.Blocks["2308"][3]==3400,"capacity and legacy compatibility fields preserved");
         Check(!after.Blocks.ContainsKey("Calibration") && after.Schema==2,"retired K/B absent and new package schema");
         var native=await c.ReadRegistersAsync(0x2E00,3);Check(native.SequenceEqual(new ushort[]{0xC077,1,1}),"actual C native calibration capability");
