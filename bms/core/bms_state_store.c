@@ -119,7 +119,7 @@ static int save_record(const state_record_t *next)
 int bms_state_store_init(void)
 {
     uint8_t payload[STATE_PAYLOAD_BYTES];
-    state_record_t next = {0};
+    state_record_t next = {{0}, {0}};
 
     if (s_ready) return 1;
     if (!open_store()) return 0;
@@ -198,7 +198,7 @@ int bms_state_store_poll_snapshot(const bms_soc_checkpoint_t *cp, uint8_t allow_
 int bms_state_store_factory_reset(void)
 {
     uint8_t payload[STATE_PAYLOAD_BYTES];
-    state_record_t next = {0};
+    state_record_t next = {{0}, {0}};
 
     if (!bms_ota_factory_reset_requested() || !open_store()) return 0;
     if (storage_record_load(&s_store, payload) && decode(&next, payload) &&

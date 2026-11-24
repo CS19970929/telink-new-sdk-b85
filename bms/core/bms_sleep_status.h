@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "bms_sleep_config.h"
 
-/* 四产品常驻只读接口；沿用原休眠窗口和低 word 在前的 u32 格式。 */
+/* 量产常驻只读接口；沿用原休眠窗口和低 word 在前的 u32 格式。 */
 #define BMS_SLEEP_STATUS_BASE 0x3300u
 #define BMS_SLEEP_STATUS_WORDS 20u
 #define BMS_SLEEP_STATUS_END (BMS_SLEEP_STATUS_BASE + BMS_SLEEP_STATUS_WORDS)

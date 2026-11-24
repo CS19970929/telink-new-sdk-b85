@@ -118,7 +118,6 @@ void bms_soc_app_sample(const bms_afe_aux_measurements_t *m)
     bms_soc_sample_t sample = {0};
     bms_afe_feature_snapshot_t features;
     const bms_fault_bits_t *fault = &g_bms_report.fault_third.bits;
-    uint8_t qualified = 0u;
 
     sample.now_ms = bms_time_ms();
     sample.charge_cutoff = fault->cell_ovp || fault->pack_ovp;
@@ -144,14 +143,13 @@ void bms_soc_app_sample(const bms_afe_aux_measurements_t *m)
                 if (mv < 2000u || mv > 4500u) break;
                 sum += mv;
             }
-            qualified = i == BMS_PRODUCT_CELL_COUNT;
+            sample.voltage_valid = i == BMS_PRODUCT_CELL_COUNT;
             sample.min_mv = g_bms_report.cell_min_mv;
             sample.max_mv = g_bms_report.cell_max_mv;
             sample.mean_mv = (uint16_t)(sum / BMS_PRODUCT_CELL_COUNT);
             sample.temperature_x10 = (uint16_t)((features.battery_temp_min_x10 +
                                                   features.battery_temp_max_x10) / 2u);
-            sample.voltage_valid = qualified;
-            sample.resting_allowed = qualified && !fault->cell_delta_high &&
+            sample.resting_allowed = sample.voltage_valid && !fault->cell_delta_high &&
                 !sample.charge_cutoff && !sample.discharge_cutoff &&
                 !g_bms_system_status.bits.heater_status &&
                 !g_bms_report.balance_bits_low && !g_bms_report.balance_bits_high &&

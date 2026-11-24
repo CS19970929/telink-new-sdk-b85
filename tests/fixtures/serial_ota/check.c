@@ -4,6 +4,12 @@
 #include <stdio.h>
 #include "bms_serial_ota.h"
 typedef uint8_t u8;
+typedef uint16_t u16;
+typedef struct { u16 l2capLen; u8 value[20]; } rf_packet_att_write_t;
+typedef struct { u16 command; } ota_start_t;
+typedef struct { u16 command; u8 data[18]; } ota_startExt_t;
+#define CMD_OTA_START 0xFF01u
+#define CMD_OTA_START_EXT 0xFF03u
 #define BMS_BUILD_ID 0x12345678u
 #define MULTI_BOOT_ADDR_0x20000 0x20000u
 #define FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_BEGIN 1
@@ -13,6 +19,8 @@ static uint32_t ota_program_offset, ota_program_bootAddr=0x20000u, ota_firmware_
 static struct { int init_err; } blc_flashProt;
 static uint32_t ticks, active, reboot_count, erases, writes;
 static uint32_t ble_writes;
+static unsigned checkpoints;
+static void app_storage_before_ota(void) { assert(!ota_is_working); ++checkpoints; }
 static int otaWrite(void *packet){(void)packet;++ble_writes;return 42;}
 static int unlocked, deny_layout, fail_erase, bytes_left=-1, tx_busy;
 static uint32_t bms_time_ms(void){return ticks;}
@@ -85,6 +93,10 @@ int main(void){
     assert(bms_serial_ota_on_frame(req,2,rsp,&rsp_size)==1&&rsp_size==0);
     reset_board(0);ota_program_bootAddr=0x40000;assert(!bms_serial_ota_flash_open(&before));
     reset_board(0);ota_is_working=1;assert(!bms_serial_ota_flash_open(&before)&&!unlocked&&erases==0);
-    reset_board(0);before=ble_writes;assert(app_ble_ota_write(0)==42&&ble_writes==before+1);
+    reset_board(0);before=ble_writes;
+    rf_packet_att_write_t start_packet={5u,{1u,0xFFu}};
+    unsigned previous_checkpoints=checkpoints;
+    assert(app_ble_ota_write(&start_packet)==42&&ble_writes==before+1);
+    assert(checkpoints==previous_checkpoints+1u);
     puts("PASS serial OTA fault scenarios");return 0;
 }

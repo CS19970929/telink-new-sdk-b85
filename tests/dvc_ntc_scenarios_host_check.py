@@ -17,6 +17,7 @@ check_end = backend.index('} s_voltage_check;') + len('} s_voltage_check;')
 check_start = backend.rfind('static struct {', 0, check_end)
 production += backend[check_start:check_end] + '\n'
 for signature in ('uint8_t DVC1124_GetSnapshot(',
+                  'uint8_t DVC1124_CurrentQualified(',
                   'static uint16_t dvc_ntc_temp_report(',
                   'static uint8_t dvc_ntc_resistance(',
                   'static void dvc_publish_current_measurement(',
@@ -45,7 +46,7 @@ assert 'memset(s_ntc_valid_samples, 0, sizeof(s_ntc_valid_samples))' in reset
 code = read('tests/fixtures/dvc_ntc_scenarios.c').replace('/* PRODUCTION STATE */', state)
 code = code.replace('/* PRODUCTION */', production)
 out = run_c(code, sources=('bms/core/bms_state.c', 'bms/core/bms_sw_protection.c'),
-            flags=['-DBMS_SERVICE_DIAG_ENABLE=1'], name='dvc-ntc-scenarios')
+            name='dvc-ntc-scenarios')
 evidence({'domain': 'ntc_safety', 'product': 'd008', 'trace': out.strip(),
           'boundary': '真实采集/温度换算/有效性/仲裁函数体与完整公共保护、State；'
                       'RAM 寄存器替身不证明 ADC 精度、线路漏电或物理 Gate'})

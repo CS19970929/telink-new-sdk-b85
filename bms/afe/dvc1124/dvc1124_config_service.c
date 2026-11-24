@@ -30,9 +30,9 @@ static u16 dvc_cfg_timed_wake_seconds(dvc1124_timed_wake_t code)
 /* 把核心过温编码换算为温度报告值。 */
 static u16 dvc_cfg_core_ot_x10_from_code(u8 code)
 {
-    s32 value;
+    int32_t value;
     if (code == 0u) return 0u;
-    value = ((s32)(1466u + (u16)code * 2u) * 24467) / 10000 - 2710;
+    value = ((int32_t)(1466u + (u16)code * 2u) * 24467) / 10000 - 2710;
     if (value < 0) value = 0;
     if (value > 0xFFFF) value = 0xFFFF;
     return (u16)value;

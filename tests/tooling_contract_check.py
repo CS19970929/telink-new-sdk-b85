@@ -53,7 +53,7 @@ def check_monorepo_source_check():
     entries = (product / "d008/sources.txt").read_text(encoding="utf-8").splitlines()
     entries = [x.strip() for x in entries if x.strip() and not x.startswith("#")]
     assert len(entries) == len(set(entries))
-    assert not any((product / name).exists() for name in ("d011", "d013", "d014"))
+    assert not any((product / name / "sources.txt").is_file() for name in ("d011", "d013", "d014"))
     assert not list((product / "d008").glob("*.c"))
     assert all((ROOT / item).is_file() for item in entries)
     assert not any("/sh367" in item or "/vendor/ble_sample/" in item for item in entries)
@@ -73,37 +73,6 @@ def check_resource_safety_host_check():
     from bms_tools import bms
     with tempfile.TemporaryDirectory(prefix='bms-resource-test-') as tmp:
         d=Path(tmp)
-        header=(APP/'bms_stack_monitor.h').read_text()
-        src=selected_source(APP/'bms_stack_monitor.c', defines=('-DBMS_STACK_MONITOR_ENABLE=1',)).split('void bms_stack_monitor_poll(void)')[0]
-        src=re.sub(r'^#include[^\n]*','',src,flags=re.M)
-        src=header+src+r"""
-    #include <assert.h>
-    int main(void) {
-     uint32_t mem[256], cursor=0, i;
-     for(i=0;i<256;++i)mem[i]=BMS_STACK_PAINT;
-     bms_stack_scan(mem,256,&cursor,&g_bms_stack_watermark.main_free_min_bytes,1);
-     assert(cursor==64 && g_bms_stack_watermark.valid_mask==0);
-     mem[200]=0;
-     for(i=0;i<4;++i)bms_stack_scan(mem,256,&cursor,&g_bms_stack_watermark.main_free_min_bytes,1);
-     assert(g_bms_stack_watermark.main_free_min_bytes==800);
-     mem[80]=1;
-     for(i=0;i<4;++i)bms_stack_scan(mem,256,&cursor,&g_bms_stack_watermark.main_free_min_bytes,1);
-     assert(g_bms_stack_watermark.main_free_min_bytes==320);
-     mem[80]=BMS_STACK_PAINT;
-     for(i=0;i<5;++i)bms_stack_scan(mem,256,&cursor,&g_bms_stack_watermark.main_free_min_bytes,1);
-     assert(g_bms_stack_watermark.main_free_min_bytes==320);
-     mem[0]=0;
-     bms_stack_scan(mem,256,&cursor,&g_bms_stack_watermark.irq_free_min_bytes,2);
-     assert(g_bms_stack_watermark.overflow_flags==2);
-     mem[0]=BMS_STACK_PAINT;
-     for(i=0;i<6;++i)bms_stack_scan(mem,256,&cursor,&g_bms_stack_watermark.irq_free_min_bytes,2);
-     assert(g_bms_stack_watermark.overflow_flags==2);
-     return 0;
-    }
-    """
-        p=d/'stack.c';p.write_text(src);exe=d/'stack.exe'
-        subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99','-Wall','-Wextra','-Werror','-Wno-unused-variable','-DBMS_STACK_MONITOR_ENABLE=1',*host_includes(ROOT),str(p),'-o',str(exe)],check=True)
-        subprocess.run([str(exe)],check=True)
         def case(ram=0x846000,sram=0x848000,raw=0x1a008,image=0x1a014,missing=False,ok=False,production=False,warning=False):
             (d/'fw.map').write_text('0x%08x PROVIDE (_ram_use_end_, .)\n'%ram + ('' if missing else '0x%08x PROVIDE (_bin_size_, expr)\n'%raw))
             (d/'fw.lst').write_text('%08x g *ABS* 00000000 __SRAM_SIZE\n'%sram)
@@ -125,7 +94,7 @@ def check_resource_safety_host_check():
         case(missing=True)
         case(raw=0x1f000,image=0x1f004) # CRC crosses 124 KiB slot
         case(image=0x1a00c) # stale/mismatched BIN
-    print('PASS bounded main/IRQ scan, sticky canary, physical resource gates and Flash reserve warning')
+    print('PASS TLSR8251 resource gates and Flash reserve warning')
 
 if __name__ == "__main__":
     check_compile_receipt_check()

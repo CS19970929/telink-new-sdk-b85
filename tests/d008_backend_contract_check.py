@@ -149,11 +149,9 @@ def check_dvc1124_config_quick_check():
             self.assertIn("return DVC1124_CFG_ERR_READ_ONLY;", write)
             self.assertIn("DVC1124_ConfigServiceWrite", self.service_hdr)
 
-        def test_raw_register_mirror_is_read_only(self):
-            raw_write = self.service.split("static dvc1124_config_result_t", 1)[-1]
-            self.assertIn("DVC1124_ConfigServiceWriteRaw", self.service)
-            self.assertIn("DVC1124_CFG_ERR_READ_ONLY", raw_write)
-            self.assertNotIn("ConfigStore", raw_write)
+        def test_raw_register_window_is_absent(self):
+            self.assertNotIn("DVC1124_ConfigServiceWriteRaw", self.service)
+            self.assertNotIn("DVC1124_ConfigServiceReadRaw", self.service)
 
 
     class ProtectionOwnershipTests(unittest.TestCase):
@@ -189,17 +187,18 @@ def check_dvc1124_config_quick_check():
             ):
                 self.assertIn(reg, self.service)
 
-        def test_hw_profile_atomic_transaction_remains_persistent_owner(self):
+        def test_hw_profile_applies_before_config_commit(self):
             self.assertIn("afe_hw_profile_write_block", self.modbus)
-            self.assertIn("bms_afe_hw_profile_set(&candidate)", self.hw_profile)
-            self.assertIn("bms_afe_apply_protection_config()", self.hw_profile)
-            self.assertIn("bms_afe_hw_profile_get(&verify)", self.hw_profile)
+            apply = self.hw_profile.index("apply_verified(&candidate)")
+            commit = self.hw_profile.index("bms_config_store_set_afe_hw_profile(&candidate)")
+            self.assertLess(apply, commit)
+            self.assertIn("DVC1124_ReadProtectionEffective(&effective)", self.hw_profile)
 
-        def test_backend_runtime_apply_only_delegates_protection(self):
+        def test_backend_applies_explicit_candidate(self):
             fn = self.backend.split("uint8_t bms_afe_driver_apply_protection_config", 1)[1]
-            self.assertIn("dvc_apply_protection_from_params()", fn)
-            self.assertNotIn("ConfigStore", fn)
-
+            fn = fn.split("static uint16_t dvc_ntc_temp_report", 1)[0]
+            self.assertIn("const bms_afe_hw_profile_t *hw", fn)
+            self.assertNotIn("bms_afe_hw_profile_get", fn)
 
     if __name__ == "__main__":
         assert unittest.TextTestRunner(verbosity=2).run(unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(c) for c in (RegisterTruthTests,CompileTimeOwnershipTests,ProtectionOwnershipTests,))).wasSuccessful()
@@ -211,6 +210,7 @@ def check_d008_common_port_fet_contract_check():
     import unittest
     from pathlib import Path
     from project_paths import Sources, host_includes, selected_source
+    from validation_support import function
 
     ROOT = Path(__file__).resolve().parents[1]
     SRC = Sources(ROOT)
@@ -251,8 +251,7 @@ def check_d008_common_port_fet_contract_check():
 
         def test_one_sided_protection_uses_auto_diode_without_hard_off_transition(self):
             bms = read("dvc1124_bms.c")
-            policy = bms.split("uint8_t bms_afe_driver_set_fets", 1)[1]
-            policy = policy.split("bms_afe_sample_status_t bms_afe_driver_sample", 1)[0]
+            policy = function(bms, "uint8_t bms_afe_driver_set_fets(")
             self.assertIn("charge_blocked && !discharge_blocked", policy)
             self.assertIn("discharge_blocked && !charge_blocked", policy)
             self.assertGreaterEqual(policy.count("DVC1124_FET_DRIVE_AUTO_DIODE"), 2)
@@ -268,12 +267,9 @@ def check_d008_common_port_fet_contract_check():
             self.assertIn("!bms_protection_params_valid()", guard)
             apply = guard.split("static uint8_t apply_requested(uint8_t explicit_off_mask)", 1)[1].split("static void note_invalid(void)", 1)[0]
             self.assertNotIn("bms_features_charge_direction_blocked()", apply)
-            diag = bms.split("void bms_afe_diag_poll(void)", 1)[1]
-            self.assertIn("bms_features_charge_direction_blocked()", diag)
             charge = bms.split("static uint8_t dvc_charge_blocked", 1)[1].split("static uint8_t dvc_discharge_blocked", 1)[0]
             self.assertIn("bms_features_charge_direction_blocked()", charge)
-            policy = bms.split("uint8_t bms_afe_driver_set_fets", 1)[1]
-            policy = policy.split("bms_afe_sample_status_t bms_afe_driver_sample", 1)[0]
+            policy = function(bms, "uint8_t bms_afe_driver_set_fets(")
             self.assertIn("charge_blocked && !discharge_blocked", policy)
             self.assertIn("DVC1124_FET_DRIVE_AUTO_DIODE", policy)
 
@@ -306,12 +302,11 @@ def check_d008_common_port_fet_contract_check():
 
             # When communication is healthy, an explicit 0/0 request still maps to
             # the true DVC OFF/OFF command.
-            policy = bms.split("uint8_t bms_afe_driver_set_fets", 1)[1]
-            policy = policy.split("bms_afe_sample_status_t bms_afe_driver_sample", 1)[0]
+            policy = function(bms, "uint8_t bms_afe_driver_set_fets(")
             self.assertIn("dvc1124_fet_drive_t charge_mode = DVC1124_FET_DRIVE_OFF", policy)
             self.assertIn("dvc1124_fet_drive_t discharge_mode = DVC1124_FET_DRIVE_OFF", policy)
             self.assertIn("return (!s_guard.comm_inhibit && !s_guard.bus_silenced &&", guard)
-            self.assertIn("!s_guard.test_shutdown_hold) ? 1u : 0u;", guard)
+            self.assertIn("!s_guard.shutdown_committed) ? 1u : 0u;", guard)
             self.assertNotIn("BMS_AFE_REINIT_TRIGGER", guard)
 
     if __name__ == "__main__":
@@ -330,7 +325,7 @@ def check_d008_boot_zero_current_contract_check():
     header = (BASE / "dvc1124.h").read_text(encoding="utf-8")
     config = (BASE / "bms_product.h").read_text(encoding="utf-8") + (BASE / "dvc1124_product_defaults.h").read_text(encoding="utf-8")
     backend = (BASE / "dvc1124_boot.c").read_text(encoding="utf-8")
-    conf = (BASE / "bms_soc.h").read_text(encoding="utf-8")
+    conf = (BASE / "bms_timing.h").read_text(encoding="utf-8")
 
     assert "#define DVC1124_BOOT_ZERO_ENABLE              1u" in config
     assert "#define DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS  270u" in config

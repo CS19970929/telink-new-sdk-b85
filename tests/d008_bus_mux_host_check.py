@@ -88,7 +88,7 @@ int main(void){
  now+=999999u*16u;bus_mux_task();assert(uart_enabled);
  bus_mux_on_uart_rx_byte();now+=999999u*16u;bus_mux_task();assert(uart_enabled);
  // 静默到期也不能截断 TX、待处理帧或 RX 低电平。
- now+=2u*16u;uart_busy=1;rx_high=1;bus_mux_task();assert(uart_enabled);
+ now+=9000002u*16u;uart_busy=1;rx_high=1;bus_mux_task();assert(uart_enabled);
  uart_busy=0;rx_pending=1;bus_mux_task();assert(uart_enabled);
  rx_pending=0;rx_high=0;bus_mux_task();assert(uart_enabled);
  rx_high=1;bus_mux_task();assert(!uart_enabled&&!tx_output&&edge_enabled);
@@ -98,7 +98,7 @@ int main(void){
  // 从活动的一线通接管；确认后锁存，主循环晚到也不丢失请求。
  fall(3000u);uart_burst();now+=20000u*16u;bus_mux_task();
  assert(uart_enabled&&bus_mux_get_state()==BUS_STATE_UART_MODBUS);
- now+=1000001u*16u;rx_high=1;bus_mux_task();assert(!uart_enabled);connect_owc();
+ now+=10000001u*16u;rx_high=1;bus_mux_task();assert(!uart_enabled);connect_owc();
  // 真正断开后返回监听；孤立噪声过期，仍可重新接一线通。
  bus_mux_return_to_owc_idle();assert(!tx_output&&edge_enabled&&!timer_active);
  fall(10u);now+=2501u*16u;bus_mux_task();
@@ -109,7 +109,7 @@ int main(void){
  fall(1250u);fall(1250u);bus_mux_task();assert(uart_enabled);
  // tick 回绕不改变检测/静默回退；嵌套调用保留关闭的中断状态。
  irq_enabled=0u;now=UINT32_MAX-100u;bus_mux_on_uart_rx_byte();
- now+=1000001u*16u;bus_mux_task();assert(!uart_enabled&&!irq_enabled);
+ now+=10000001u*16u;bus_mux_task();assert(!uart_enabled&&!irq_enabled);
  now=UINT32_MAX-100u;uart_burst();bus_mux_task();assert(uart_enabled&&!irq_enabled);
  return 0;
 }

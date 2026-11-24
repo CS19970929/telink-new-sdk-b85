@@ -4,7 +4,7 @@ import re
 from project_paths import selected_source
 from validation_support import read, profile_prefix, without_includes, function, run_c, evidence
 
-product = os.environ.get('BMS_PRODUCT', 'd014')
+product = os.environ.get('BMS_PRODUCT', 'd008')
 code = profile_prefix(product)
 # 此 fixture 专测公共状态机全部分支；产品不支持能力的量产裁剪由产品/源码契约单独检查。
 code += '\n#undef BMS_FEATURE_HEATER_SUPPORTED\n#define BMS_FEATURE_HEATER_SUPPORTED 1u\n'

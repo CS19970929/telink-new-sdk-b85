@@ -95,7 +95,7 @@ class ProductionBuildTests(unittest.TestCase):
 
     def test_child_arguments_keep_product_mode_and_profile(self):
         with mock.patch.multiple(bms, PRODUCTION=True, D008_PROFILE="20s-nmc"):
-            self.assertEqual(bms._selection_args("d008"), ["--product", "d008", "--production", "--d008-profile", "20s-nmc"])
+            self.assertEqual(bms._selection_args(), ["--product", "d008", "--production", "--d008-profile", "20s-nmc"])
 
 
 class ClientAssetPathTests(unittest.TestCase):
@@ -235,14 +235,11 @@ class OutputPathTests(unittest.TestCase):
         self.assertTrue(bms.BIN.is_relative_to(REPO_ROOT / "firmware"))
         self.assertEqual(bms.MANIFEST.parent, bms.BIN.parent)
 
-    def test_six_production_outputs_do_not_overwrite_each_other(self):
+    def test_five_production_outputs_do_not_overwrite_each_other(self):
         outputs = set()
-        cases = [("d008", profile) for profile in ("16s-lfp", "20s-nmc", "24s-lfp")]
-        cases += [(product, None) for product in ("d011", "d013", "d014")]
-        for product, profile in cases:
-            argv = ["bms.py", "--product", product, "--production"]
-            if profile:
-                argv += ["--d008-profile", profile]
+        product = 'd008'
+        for profile in ('16s-lfp', '20s-nmc', '23s-lfp', '24s-lfp', 'custom'):
+            argv = ["bms.py", "--product", product, "--production", "--d008-profile", profile]
             module = importlib.util.module_from_spec(SPEC)
             # 本用例只验证输出路径隔离，不应受当前源码 OTA 内容摘要约束。
             with mock.patch.object(sys, "argv", argv), \
@@ -254,7 +251,7 @@ class OutputPathTests(unittest.TestCase):
                                  module.build_options.read_source(REPO_ROOT, product, profile)))
             self.assertEqual(module.BIN.parent.name, product)
             outputs.add(module.BIN)
-        self.assertEqual(len(outputs), 6)
+        self.assertEqual(len(outputs), 5)
 
     def test_only_checked_image_is_published_and_old_manifest_is_invalidated(self):
         payload = bytes(range(32))
@@ -306,7 +303,7 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
             "bms/app/app.h",
             f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h",
         }
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(bms, "_junc", side_effect=Path):
             path, excluded = static._write_cppcheck_scope_exclusions(dependencies, Path(directory))
             self.assertEqual(excluded, [f"{bms.SDK_SUBDIR}/drivers/B85/gpio.h"])
             self.assertIn("gpio.h", path.read_text())
@@ -385,12 +382,12 @@ class StaticAnalysisPrimitiveTests(unittest.TestCase):
 
 class BuildOptionsTests(unittest.TestCase):
     def test_source_configuration_is_recorded_without_environment_parameter_flags(self):
-        with mock.patch.multiple(bms, PRODUCT='d014', PRODUCTION=False), \
+        with mock.patch.multiple(bms, PRODUCT='d008', PRODUCTION=False), \
              mock.patch.object(bms, '_firmware_git_build_id', return_value='0x12345678u'), \
              mock.patch.object(bms, '_firmware_git_dirty', return_value=0), \
              mock.patch.dict(bms.os.environ, {'EXTRA_DEFINES': ''}):
             configuration = bms._build_configuration()
-            self.assertEqual(configuration['build_options'], bms.build_options.read_source(REPO_ROOT, 'd014'))
+            self.assertEqual(configuration['build_options'], bms.build_options.read_source(REPO_ROOT, 'd008'))
             flags = bms._effective_extra_defines()
             for macro in bms.build_options.MACROS.values():
                 self.assertNotIn('-D' + macro + '=', flags)
@@ -409,24 +406,24 @@ class BuildOptionsTests(unittest.TestCase):
                         {'capacity_0p1ah': 6554}, {'soc_state_revision': -1},
                         {'parameters_revision': 65536}, {'chemistry': 'auto'}, [], {'unknown': 1}):
             with self.subTest(options=options), self.assertRaises(ValueError):
-                bms.build_options.normalize(options, 'd014', None)
+                bms.build_options.normalize(options, 'd008', None)
         with self.assertRaises(ValueError):
             bms.build_options.normalize({'chemistry': 'lfp'}, 'd008', '20s-nmc')
         for product, cells, chemistry in (('d008', 3, 'lfp'), ('d008', 25, 'lfp'),
-                                           ('d008', 24, 'nmc'), ('d011', 11, 'lfp'), ('d014', 3, 'nmc')):
+                                           ('d008', 24, 'nmc'), ('d011', 11, 'lfp'), ('d008', 3, 'nmc')):
             with self.subTest(product=product, cells=cells), self.assertRaises(ValueError):
                 bms.build_options.normalize({'cell_count': cells, 'chemistry': chemistry}, product,
                                             'custom' if product == 'd008' else None)
 
-        selected = bms.build_options.normalize({'afe_model': 'sh3673520', 'cell_count': 20, 'chemistry': 'nmc'}, 'd014', None)
-        self.assertEqual(selected['afe_model'], 'sh3673520')
-        self.assertEqual(bms.build_options.variant('development', 'd014', None, selected), 'development-sh3673520-20s-nmc')
-        for product, model, cells in (('d014', 'sh3673510', 20), ('d014', 'sh3673520', 21), ('d008', 'sh3673520', 10)):
+        selected = bms.build_options.normalize({'afe_model': 'dvc1124', 'cell_count': 20, 'chemistry': 'nmc'}, 'd008', '20s-nmc')
+        self.assertEqual(selected['afe_model'], 'dvc1124')
+        self.assertEqual(bms.build_options.variant('development', 'd008', '20s-nmc', selected), 'development-dvc1124-20s-nmc')
+        for product, model, cells in (('d008', 'sh3673510', 20), ('d008', 'sh3673520', 21), ('d008', 'sh3673520', 10)):
             with self.subTest(model=model, cells=cells), self.assertRaises(ValueError):
                 bms.build_options.normalize({'afe_model': model, 'cell_count': cells, 'chemistry': 'lfp'}, product,
                                             'custom' if product == 'd008' else None)
         for product, profile, chemistry in (('d008', '20s-nmc', 'nmc'),
-                                            ('d008', '16s-lfp', 'lfp'), ('d014', None, 'nmc')):
+                                            ('d008', '16s-lfp', 'lfp'), ('d008', '23s-lfp', 'lfp')):
             self.assertEqual(bms.build_options.normalize({'chemistry': chemistry, 'capacity_0p1ah': 6553,
                 'update_groups': ['business'], 'update_id': '0000' + '1234' * 5}, product, profile)['capacity_0p1ah'], 6553)
 
@@ -434,9 +431,9 @@ class BuildOptionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_configuration(root)
-            bms.build_options.save_source(root, 'd014', {'update_groups': []})
-            self.assertNotIn('update_id', bms.build_options.read_source(root, 'd014'))
-        self.assertNotIn('update_id', bms.build_options.normalize({'update_groups': []}, 'd014', None))
+            bms.build_options.save_source(root, 'd008', {'update_groups': []})
+            self.assertNotIn('update_id', bms.build_options.read_source(root, 'd008'))
+        self.assertNotIn('update_id', bms.build_options.normalize({'update_groups': []}, 'd008', None))
         for options in ({'update_groups': ['sw']}, {'update_id': '0000' + '1234' * 5},
                         {'update_groups': ['events'], 'update_id': '0000' + '1234' * 5},
                         {'update_groups': ['sw', 'sw'], 'update_id': '0000' + '1234' * 5},
@@ -444,11 +441,11 @@ class BuildOptionsTests(unittest.TestCase):
                         {'update_groups': ['sw'], 'update_id': '1111' + '1234' * 5},
                         {'update_groups': ['factory_reset', 'sw'], 'update_id': '0000' + '1234' * 5}):
             with self.subTest(options=options), self.assertRaises(ValueError):
-                bms.build_options.normalize(options, 'd014', None)
+                bms.build_options.normalize(options, 'd008', None)
         token = bms.build_options.new_update_id()
         self.assertEqual(len(token), 24)
-        self.assertEqual(bms.build_options.normalize({'update_groups': ['sw'], 'update_id': token}, 'd014', None)['update_id'], token)
-        reset = bms.build_options.normalize({'update_groups': ['factory_reset'], 'update_id': token}, 'd014', None)
+        self.assertEqual(bms.build_options.normalize({'update_groups': ['sw'], 'update_id': token}, 'd008', None)['update_id'], token)
+        reset = bms.build_options.normalize({'update_groups': ['factory_reset'], 'update_id': token}, 'd008', None)
         self.assertEqual(reset['update_groups'], ['factory_reset'])
 
 
@@ -460,7 +457,7 @@ def copy_configuration(root):
         target = root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO_ROOT / relative, target)
-    for name in ('build_options.py', 'select_firmware_build.ps1', 'android_ota.py'):
+    for name in ('build_options.py', 'android_ota.py'):
         target = root / 'bms_tools' / name
         target.parent.mkdir(exist_ok=True)
         shutil.copy2(REPO_ROOT / 'bms_tools' / name, target)
@@ -523,20 +520,19 @@ class SourceConfigurationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_configuration(root)
-            bms.build_options.save_source(root, 'd014', {'update_groups': []})
-            path = root/'bms/products/d014/d014_protection_config.h'
+            bms.build_options.save_source(root, 'd008', {'update_groups': []})
+            path = root/'bms/products/d008/d008_protection_config.h'
             text = bms.build_options._replace(path.read_text(encoding='utf-8'), 'BMS_OTA_UPDATE_SW', '1u')
             path.write_text(text, encoding='utf-8')
-            self.assertEqual(bms.build_options.read_source(root, 'd014', for_edit=True)['update_groups'], ['sw'])
+            self.assertEqual(bms.build_options.read_source(root, 'd008', for_edit=True)['update_groups'], ['sw'])
             with self.assertRaises(ValueError):
-                bms.build_options.verify_source(root, 'd014')
-            saved = bms.build_options.save_source(root, 'd014', {})
-            self.assertEqual(bms.build_options.verify_source(root, 'd014'), saved['configuration'])
+                bms.build_options.verify_source(root, 'd008')
+            saved = bms.build_options.save_source(root, 'd008', {})
+            self.assertEqual(bms.build_options.verify_source(root, 'd008'), saved['configuration'])
             self.assertIn('update_id', saved['configuration'])
 
-    def test_four_product_save_is_readable_and_only_changes_the_selected_source(self):
-        cases = [('d008', 'dvc1124', 23), ('d011', 'sh3673520', 20),
-                 ('d013', 'sh3673510', 4), ('d014', 'sh3673520', 19)]
+    def test_d008_save_is_readable_and_only_changes_the_selected_source(self):
+        cases = [('d008', 'dvc1124', 23)]
         for product, model, cells in cases:
             with self.subTest(product=product), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
@@ -563,11 +559,11 @@ class SourceConfigurationTests(unittest.TestCase):
             root = Path(tmp)
             copy_configuration(root)
             options = {'update_groups': ['business'], 'capacity_0p1ah': 200}
-            first = bms.build_options.save_source(root, 'd014', options)
-            second = bms.build_options.save_source(root, 'd014', options)
+            first = bms.build_options.save_source(root, 'd008', options)
+            second = bms.build_options.save_source(root, 'd008', options)
             self.assertEqual(first['configuration'], second['configuration'])
             self.assertEqual(second['changed_files'], [])
-            third = bms.build_options.save_source(root, 'd014', options, new_package=True)
+            third = bms.build_options.save_source(root, 'd008', options, new_package=True)
             self.assertNotEqual(first['configuration']['update_id'], third['configuration']['update_id'])
             self.assertEqual(first['parameter_inputs_sha256'], third['parameter_inputs_sha256'])
 
@@ -575,16 +571,16 @@ class SourceConfigurationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_configuration(root)
-            old = bms.build_options.save_source(root, 'd014', {'update_groups': ['business']}, new_package=True)
+            old = bms.build_options.save_source(root, 'd008', {'update_groups': ['business']}, new_package=True)
             commit_configuration(root)
-            path = root / 'bms/products/d014/d014_protection_config.h'
+            path = root / 'bms/products/d008/d008_protection_config.h'
             capacity = old['configuration']['capacity_0p1ah']
             text = bms.build_options._replace(path.read_text(encoding='utf-8'),
                     'BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH', str(201 if capacity == 200 else 200) + 'u')
             path.write_text(text, encoding='utf-8')
             with self.assertRaises(ValueError):
-                bms.build_options.verify_source(root, 'd014')
-            new = bms.build_options.save_source(root, 'd014', {})
+                bms.build_options.verify_source(root, 'd008')
+            new = bms.build_options.save_source(root, 'd008', {})
             self.assertNotEqual(old['configuration']['update_id'], new['configuration']['update_id'])
             text = path.read_text(encoding='utf-8')
             for index in range(6):
@@ -593,7 +589,7 @@ class SourceConfigurationTests(unittest.TestCase):
                     f'0x{identifier[index*4:index*4+4]}u')
             path.write_text(text, encoding='utf-8')
             with self.assertRaisesRegex(ValueError, 'Git'):
-                bms.build_options.verify_source(root, 'd014')
+                bms.build_options.verify_source(root, 'd008')
 
     def test_invalid_save_leaves_all_source_bytes_unchanged_and_preserve_clears_policy(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -616,21 +612,21 @@ class SourceConfigurationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_configuration(root)
-            paths = list((root/'bms/products/d014').glob('*.h'))
+            paths = list((root/'bms/products/d008').glob('*.h'))
             before = {p: p.read_bytes() for p in paths}
             original_write = Path.write_bytes
             failed = False
             def write(path, data):
                 nonlocal failed
-                if path.name == 'bms_product.h' and not failed:
+                if path.name == 'd008_product_profile.h' and not failed:
                     failed = True
                     raise OSError('injected write failure')
                 return original_write(path, data)
             with mock.patch.object(Path, 'write_bytes', write), self.assertRaises(OSError):
-                bms.build_options.save_source(root, 'd014', {'capacity_0p1ah': 200, 'cell_count': 9})
+                bms.build_options.save_source(root, 'd008', {'capacity_0p1ah': 200, 'cell_count': 9})
             self.assertEqual({p: p.read_bytes() for p in paths}, before)
 
-    def test_all_update_group_combinations_and_all_185_assemblies_round_trip_source(self):
+    def test_all_update_group_combinations_and_custom_assemblies_round_trip_source(self):
         import os
         import shlex
         import shutil
@@ -642,23 +638,23 @@ class SourceConfigurationTests(unittest.TestCase):
             groups = list(bms.build_options.UPDATE_GROUPS)
             for mask in range(32):
                 selected = [g for i, g in enumerate(groups) if mask & (1 << i)]
-                result = bms.build_options.save_source(root, 'd014', {'update_groups': selected})
+                result = bms.build_options.save_source(root, 'd008', {'update_groups': selected})
                 self.assertEqual(result['configuration'].get('update_groups', []), selected)
-                self.assertEqual(bms.build_options.verify_source(root, 'd014'), result['configuration'])
+                self.assertEqual(bms.build_options.verify_source(root, 'd008'), result['configuration'])
                 expected_mask = sum(bms.build_options.UPDATE_GROUPS[group] for group in selected)
                 identifier = result['configuration'].get('update_id', '0'*24)
-                code = '#include "bms_update_policy.h"\n'
+                code = '#include "bms_product.h"\n#include "bms_update_policy.h"\n'
                 code += f'#if BMS_OTA_UPDATE_MASK != {expected_mask}\n#error source_update_mask_mismatch\n#endif\n'
                 for index in range(6):
                     code += f'#if BMS_OTA_UPDATE_ID_{index} != 0x{identifier[index*4:index*4+4]}\n#error source_update_id_mismatch\n#endif\n'
                 actual = subprocess.run([*shlex.split(compiler), '-E', '-P', '-x', 'c',
-                    '-I', str(root/'bms/products/d014'), '-I', str(root/'bms/products'),
+                    '-I', str(root/'bms/products/d008'), '-I', str(root/'bms/products'),
                     '-I', str(root/'bms/core'), '-I', str(REPO_ROOT/'bms/core'), '-'],
                     input=code, capture_output=True, text=True, timeout=15)
                 self.assertEqual(actual.returncode, 0, actual.stderr)
-            reset = bms.build_options.save_source(root, 'd014', {'update_groups': ['factory_reset']})
+            reset = bms.build_options.save_source(root, 'd008', {'update_groups': ['factory_reset']})
             self.assertEqual(reset['configuration']['update_groups'], ['factory_reset'])
-            self.assertEqual(bms.build_options.verify_source(root, 'd014'), reset['configuration'])
+            self.assertEqual(bms.build_options.verify_source(root, 'd008'), reset['configuration'])
             self.assertEqual(bms.build_options.UPDATE_GROUPS['factory_reset'], 512)
             count = 0
             for product in bms.build_options.PRODUCTS:
@@ -682,12 +678,12 @@ class SourceConfigurationTests(unittest.TestCase):
                                 input=code, capture_output=True, text=True, timeout=15)
                             self.assertEqual(actual.returncode, 0, actual.stderr)
                             count += 1
-            self.assertEqual(count, 185)
+            self.assertEqual(count, 41)
 
 
 @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
 class AndroidOtaWorkflowTests(unittest.TestCase):
-    def create_files(self, root, product='d014', mode='production'):
+    def create_files(self, root, product='d008', mode='production'):
         copy_configuration(root)
         profile = bms.build_options.source_profile(root) if product == 'd008' else None
         options = bms.build_options.read_source(root, product, profile)
@@ -711,7 +707,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
         return mock.patch.object(android_ota, 'subprocess',
             mock.Mock(run=mock.Mock(side_effect=responses, return_value=mock.Mock(returncode=0))))
 
-    def test_four_products_two_modes_build_verify_and_send_without_parameter_overrides(self):
+    def test_d008_two_modes_build_verify_and_send_without_parameter_overrides(self):
         for product in bms.build_options.PRODUCTS:
             for mode in ('development', 'production'):
                 with self.subTest(product=product, mode=mode), tempfile.TemporaryDirectory() as tmp:
@@ -734,7 +730,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                 responses = [mock.Mock(returncode=0) for _ in range(failed_stage)]
                 responses += [mock.Mock(returncode=7, stdout='failure', stderr='failure')]
                 with self.runner(responses) as process, mock.patch('builtins.print'):
-                    self.assertEqual(android_ota.run_workflow('d014', sender, root=root), 7)
+                    self.assertEqual(android_ota.run_workflow('d008', sender, root=root), 7)
                 self.assertEqual(process.run.call_count, failed_stage+1)
 
     def test_wrong_identity_configuration_path_hash_or_size_never_sends(self):
@@ -743,7 +739,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                 root = Path(tmp)
                 firmware, manifest, data, sender = self.create_files(root)
                 if fault == 'product': data['product'] = 'd011'
-                elif fault == 'profile': data['configuration']['d008_profile'] = '16s-lfp'
+                elif fault == 'profile': data['configuration']['d008_profile'] = '20s-nmc'
                 elif fault == 'mode': data['configuration']['build_mode'] = 'development'
                 elif fault == 'options': data['configuration']['build_options']['capacity_0p1ah'] = 500
                 elif fault == 'config_hash': data['configuration']['parameter_inputs_sha256'] = '0'*64
@@ -752,7 +748,7 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
                 else: data['size_bytes'] += 1
                 manifest.write_text(json.dumps(data), encoding='utf-8')
                 with self.runner() as process, mock.patch('builtins.print'), self.assertRaises(ValueError):
-                    android_ota.run_workflow('d014', sender, root=root)
+                    android_ota.run_workflow('d008', sender, root=root)
                 self.assertEqual(process.run.call_count, 3)
 
     def test_dirty_source_builds_and_only_environment_or_argument_overrides_stop(self):
@@ -761,15 +757,15 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
             _, _, _, sender = self.create_files(root)
             for extra in ({'options': {'capacity_0p1ah': 200}}, {'options': {}}):
                 with self.runner() as process, self.assertRaises(ValueError):
-                    android_ota.run_workflow('d014', sender, root=root, **extra)
+                    android_ota.run_workflow('d008', sender, root=root, **extra)
                 process.run.assert_not_called()
             with mock.patch.dict(android_ota.os.environ, {'BMS_BUILD_OPTIONS': '{}'}), self.runner() as process:
                 with self.assertRaises(ValueError):
-                    android_ota.run_workflow('d014', sender, root=root)
+                    android_ota.run_workflow('d008', sender, root=root)
                 process.run.assert_not_called()
             (root/'unrelated.txt').write_text('dirty')
             with self.runner() as process, mock.patch('builtins.print'):
-                self.assertEqual(android_ota.run_workflow('d014', sender, root=root), 0)
+                self.assertEqual(android_ota.run_workflow('d008', sender, root=root), 0)
             self.assertEqual(process.run.call_count, 4)
 
     def test_send_only_revalidates_and_build_only_does_not_require_sender(self):
@@ -777,13 +773,13 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
             root = Path(tmp)
             _, _, _, sender = self.create_files(root)
             with self.runner() as process, mock.patch('builtins.print'):
-                self.assertEqual(android_ota.run_workflow('d014', sender, root=root, send_only=True), 0)
+                self.assertEqual(android_ota.run_workflow('d008', sender, root=root, send_only=True), 0)
             self.assertEqual(process.run.call_count, 2)
             self.assertEqual(process.run.call_args_list[0].args[0][-1], 'verify')
             sender.unlink()
             commit_configuration(root)
             with self.runner() as process, mock.patch('builtins.print'):
-                self.assertEqual(android_ota.run_workflow('d014', sender, root=root, build_only=True), 0)
+                self.assertEqual(android_ota.run_workflow('d008', sender, root=root, build_only=True), 0)
             self.assertEqual(process.run.call_count, 3)
 
     def test_failed_send_only_verify_and_invalid_combinations_do_not_send(self):
@@ -791,12 +787,12 @@ class AndroidOtaWorkflowTests(unittest.TestCase):
             root = Path(tmp)
             _, _, _, sender = self.create_files(root)
             with self.runner([mock.Mock(returncode=8)]) as process, mock.patch('builtins.print'):
-                self.assertEqual(android_ota.run_workflow('d014', sender, root=root, send_only=True), 8)
+                self.assertEqual(android_ota.run_workflow('d008', sender, root=root, send_only=True), 8)
             self.assertEqual(process.run.call_count, 1)
             with self.assertRaises(ValueError):
-                android_ota.run_workflow('d014', sender, root=root, send_only=True, build_only=True)
+                android_ota.run_workflow('d008', sender, root=root, send_only=True, build_only=True)
             with self.assertRaises(ValueError):
-                android_ota.run_workflow('d014', sender, root=root, mode='invalid')
+                android_ota.run_workflow('d008', sender, root=root, mode='invalid')
 
 
 if __name__ == "__main__":

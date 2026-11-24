@@ -3,7 +3,7 @@ from __future__ import annotations
 
 def check_modbus_address_host_check():
     print("CHECK modbus_address_host_check", flush=True)
-    """完整生产 Modbus 模块、CRC/diag/logger；寄存器所有者用可控替身。"""
+    """完整生产 Modbus 模块与 CRC，寄存器所有者用可控替身。"""
     import os
     from validation_support import ROOT, read, run_c, evidence
 
@@ -13,8 +13,8 @@ def check_modbus_address_host_check():
                     ('bms_crc', 'bms_state', 'bms_sleep_status', 'bms_sw_protection')],
                    name='modbus-read')
     evidence({'domain': 'protocol', 'observations': output.strip(),
-              'boundary': '完整 modbus_rtu.c、真实 CRC/State/diag/logger；配置/事件/AFE 所有者替身，不含 UART/BLE/物理硬件'})
-    print('PASS production Modbus read frames, bounds, per-request effective profile and SH mapping: ' + product)
+              'boundary': '完整 modbus_rtu.c、真实 CRC、State 与睡眠状态；配置/事件/AFE 所有者替身，不含 UART/BLE/物理硬件'})
+    print('PASS production Modbus read frames, bounds and per-request effective profile: ' + product)
 
 def check_modbus_fuzz_host_check():
     print("CHECK modbus_fuzz_host_check", flush=True)
@@ -45,7 +45,7 @@ def check_modbus_fuzz_host_check():
     constants += f'\n#define BMS_AFE_HW_PROFILE_WORD_COUNT {words}u\n'
     code = read('tests/fixtures/modbus_fuzz.c').replace('/* CONSTANTS */',constants).replace('/* PARSER */',parts)
     output = run_c(code, ['bms/core/bms_crc.c','bms/core/bms_sleep_status.c'],
-                   ['-Wno-unused-parameter', '-DBMS_STALL_DIAG_ENABLE=0'], 'modbus-fuzz')
+                   ['-Wno-unused-parameter'], 'modbus-fuzz')
     evidence({'domain': 'protocol', 'seed': 20261005, 'random_frames': 100000,
               'observations': output.strip(),
               'boundary': '真实 modbus_on_frame/CRC；寄存器存取为带计数替身；不含 UART IRQ、BLE 分片或 PHY'})

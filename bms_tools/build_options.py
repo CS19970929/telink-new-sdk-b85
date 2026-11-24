@@ -80,9 +80,10 @@ def normalize(options: dict, product: str, profile: str | None) -> dict:
 
 
 def variant(mode: str, product: str, profile: str | None, options: dict) -> str:
+    assembly = "-custom" if profile == "custom" else ""
     if "cell_count" in options:
         model = "-" + options["afe_model"] if "afe_model" in options else ""
-        return f"{mode}{model}-{options['cell_count']}s-{options['chemistry']}"
+        return f"{mode}{model}{assembly}-{options['cell_count']}s-{options['chemistry']}"
     return mode + "-" + (profile or "16s-lfp")
 
 

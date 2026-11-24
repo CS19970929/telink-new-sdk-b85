@@ -43,7 +43,9 @@ def selected_source(path, product=None, defines=()):
     result=subprocess.run([*compiler,"-E","-dD","-fdirectives-only",
         "-D__PROJECT_8258_BLE_SAMPLE__=1","-DCHIP_TYPE=CHIP_TYPE_825x",*defines,*host_includes(root,product),
         "-I",str(root/"tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/common"),str(path)],
-        capture_output=True,check=True)
+        capture_output=True)
+    if result.returncode:
+        raise RuntimeError(result.stderr.decode("utf-8", errors="replace"))
     active=False;out=[];target=path.resolve().as_posix().casefold()
     for line in result.stdout.decode("utf8",errors="replace").splitlines(True):
         marker=re.match(r'^# \d+ "(.*?)"',line)

@@ -1,354 +1,133 @@
-"""Run the actual UART port with a controlled DMA/IRQ model; no board timing claim."""
-from pathlib import Path
-import os, re, shlex, subprocess, tempfile
-from project_paths import selected_source
+"""在 DMA 和 IRQ 替身上验证 D008 UART 与一线通的共享管脚。"""
+from validation_support import read, without_includes, run_c
 
-ROOT = Path(__file__).resolve().parents[1]
-PREFIX = r'''
-static unsigned char ota_busy;
-static unsigned char bms_serial_ota_busy(void){return ota_busy;}
-static void bms_serial_ota_poll(void){}
-static int bms_serial_ota_on_frame(const unsigned char*p,unsigned n,unsigned char*r,unsigned*l){(void)p;(void)n;(void)r;(void)l;return 0;}
+prefix = r'''
+#include <assert.h>
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
-typedef uint8_t u8; typedef uint32_t u32;
-typedef int GPIO_PinTypeDef;
+
+typedef uint8_t u8;
+typedef uint32_t u32;
 #define _attribute_data_retention_
-#define BMS_LOG(...) do {} while(0)
+#define MODBUS_RTU_FRAME_CAPACITY 268u
+#define CLOCK_SYS_CLOCK_HZ 16000000u
+#define BMS_BOARD_OWC_TX_PIN 1
+#define BMS_BOARD_OWC_RX_PIN 2
 #define FLD_DMA_CHN_UART_RX 1
 #define FLD_DMA_CHN_UART_TX 2
 #define FLD_IRQ_DMA_EN 1
-#define FLD_IRQ_GPIO_RISC0_EN 8
-#define FLD_IRQ_GPIO_RISC1_EN 16
-#define Level_Low 0
-#define Level_High 1
-#define POL_FALLING 1
-#define POL_RISING 0
-#define WAKEUP_STATUS_PAD 8
-#define WAKEUP_STATUS_TIMER 2
-static u32 reg_irq_src, now_32k;
-static int rx_high=1, rx_edge_enabled, rx_pad_enabled, parsed;
-static int wk_high, wk_edge_enabled, wk_pad_enabled, comm_supply, power_ons;
-static unsigned input_pins, output_pins;
-static u8 irq_enabled=1;
-static u32 pm_get_32k_tick(void){return now_32k;}
-uint32_t bms_time_ms(void){static uint32_t last,ms,fraction;uint32_t raw=now_32k;uint32_t delta=raw-last;last=raw;fraction+=delta%32u;ms+=delta/32u+fraction/32u;fraction%=32u;return ms;}
-uint32_t bms_time_now_32k(void){return now_32k;}
-
-static int gpio_read(int pin){return pin==4?wk_high:rx_high;}
-static void gpio_en_interrupt_risc0(int pin,int en){(void)pin;rx_edge_enabled=en;}
-static void gpio_set_interrupt_risc0(int pin,int polarity){assert(polarity==POL_FALLING);gpio_en_interrupt_risc0(pin,1);reg_irq_src=0;}
-static void gpio_en_interrupt_risc1(int pin,int en){assert(pin==4);wk_edge_enabled=en;}
-static void gpio_set_interrupt_risc1(int pin,int polarity){assert(polarity==POL_RISING);gpio_en_interrupt_risc1(pin,1);reg_irq_src&=~FLD_IRQ_GPIO_RISC1_EN;}
-static void cpu_set_gpio_wakeup(int pin,int level,int en){if(pin==4){assert(level==Level_High);wk_pad_enabled=en;}else{assert(level==Level_Low);rx_pad_enabled=en;}}
-static void clear_gpio_irq(void){reg_irq_src&=~FLD_IRQ_GPIO_RISC0_EN;}
-static void clear_wake_irq(void){reg_irq_src&=~FLD_IRQ_GPIO_RISC1_EN;}
-#define AS_GPIO 1
-#define PM_PIN_UP_DOWN_FLOAT 0
 #define PARITY_NONE 0
 #define STOP_BIT_ONE 1
-#define MODBUS_RTU_FRAME_CAPACITY 268
-static u32 now; static int busy,de,channels,irqsrc,resets,sends,float_pins;
-static u32 clock_time(void){return now;}
-static int clock_time_exceed(u32 t,u32 us){return (u32)(now-t)>us*16u;}
-static void gpio_write(int p,int v){if(p==5){if(v&&!comm_supply)++power_ons;comm_supply=v;}else if(p==3)de=v;}
-static void gpio_set_func(int p,int v){(void)p;(void)v;}
-static void gpio_set_input_en(int p,int v){if(v)input_pins|=1u<<p;else input_pins&=~(1u<<p);}
-static void gpio_set_output_en(int p,int v){if(v)output_pins|=1u<<p;else output_pins&=~(1u<<p);}
-static void gpio_setup_up_down_resistor(int p,int v){assert(v==PM_PIN_UP_DOWN_FLOAT);float_pins|=1<<p;}
-static void uart_gpio_set(int a,int b){input_pins|=(1u<<a)|(1u<<b);}
-static int uart_tx_is_busy(void){return busy;}
-static void uart_reset(void){busy=0;++resets;}
-static void uart_ndma_clear_tx_index(void){}
-static void uart_ndma_clear_rx_index(void){}
-static void uart_init(int a,int b,int c,int d){assert(a==TEST_UART_DIVIDER&&b==TEST_UART_BWPC&&c==0&&d==1);}
-static void uart_dma_enable(int a,int b){(void)a;(void)b;}
-static void uart_irq_enable(int a,int b){assert(!a&&!b);}
-static void uart_recbuff_init(u8*p,unsigned n){assert(p&&n==272);channels|=1;}
-static void uart_send_dma(u8*p){assert(p);++sends;busy=1;}
-static void irq_set_mask(int m){(void)m;}
-static void irq_enable(void){irq_enabled=1;}
-static u8 irq_disable(void){u8 previous=irq_enabled;irq_enabled=0;return previous;}
-static void irq_restore(u8 s){irq_enabled=s;}
-static int dma_chn_irq_status_get(void){return irqsrc;}
-static void dma_chn_irq_status_clr(int m){irqsrc&=~m;}
-static void dma_chn_irq_enable(int m,int e){(void)m;(void)e;}
-static void dma_chn_enable(int m,int e){if(e)channels|=m;else channels&=~m;}
-static int uart_is_parity_error(void){return 0;}
-static void uart_clear_parity_error(void){}
-static void bus_mux_on_uart_rx_byte(void){}
 #define BUS_STATE_UART_MODBUS 2
-static int bus_mode=BUS_STATE_UART_MODBUS;
-static int bus_mux_get_state(void){return bus_mode;}
-static int modbus_on_frame(const u8*p,u32 n,u8*r,u32*l){(void)p;(void)n;(void)r;++parsed;*l=0;return 0;}
-u8 modbus_uart_send(const u8*,u32);
+
+static u32 now;
+static int bus_mode = BUS_STATE_UART_MODBUS, rx_high = 1;
+static int busy, channels, irqsrc, sends, parsed, received;
+static u8 irq_enabled = 1;
+static u8 ota_busy;
+
+static u32 clock_time(void) { return now; }
+static int clock_time_exceed(u32 t, u32 us) { return (u32)(now-t) > us*16u; }
+static int gpio_read(int pin) { assert(pin == BMS_BOARD_OWC_RX_PIN); return rx_high; }
+static void uart_gpio_set(int tx, int rx) { assert(tx == 1 && rx == 2); }
+static int uart_tx_is_busy(void) { return busy; }
+static void uart_reset(void) { busy = 0; }
+static void uart_ndma_clear_tx_index(void) {}
+static void uart_ndma_clear_rx_index(void) {}
+static void uart_init(int div, int bwpc, int parity, int stop)
+{
+    assert(div == 9 && bwpc == 13 && parity == 0 && stop == 1);
+}
+static void uart_dma_enable(int rx, int tx) { assert(rx == tx); }
+static void uart_irq_enable(int rx, int tx) { assert(!rx && !tx); }
+static void uart_recbuff_init(u8 *p, unsigned bytes) { assert(p && bytes == 272u); channels |= 1; }
+static void uart_send_dma(u8 *p) { assert(p); ++sends; busy = 1; }
+static void irq_set_mask(int m) { assert(m == FLD_IRQ_DMA_EN); }
+static u8 irq_disable(void) { u8 previous = irq_enabled; irq_enabled = 0; return previous; }
+static void irq_restore(u8 state) { irq_enabled = state; }
+static int dma_chn_irq_status_get(void) { return irqsrc; }
+static void dma_chn_irq_status_clr(int mask) { irqsrc &= ~mask; }
+static void dma_chn_irq_enable(int mask, int en) { (void)mask; (void)en; }
+static void dma_chn_enable(int mask, int en) { if (en) channels |= mask; else channels &= ~mask; }
+static int uart_is_parity_error(void) { return 0; }
+static void uart_clear_parity_error(void) {}
+static void bus_mux_on_uart_rx_byte(void) { ++received; }
+static int bus_mux_get_state(void) { return bus_mode; }
+static u8 bms_serial_ota_busy(void) { return ota_busy; }
+static void bms_serial_ota_poll(void) {}
+static int bms_serial_ota_on_frame(const u8 *p, u32 n, u8 *r, u32 *l)
+{ (void)p; (void)n; (void)r; (void)l; return 0; }
+static int modbus_on_frame(const u8 *p, u32 n, u8 *r, u32 *l)
+{ (void)p; (void)n; (void)r; ++parsed; *l = 0; return 0; }
 '''
-TAIL = r'''
-static void receive(u8 value,u32 length){
- if(channels&1){memset(s_rx_pkt.data,value,sizeof(s_rx_pkt.data));s_rx_pkt.dma_len=length;irqsrc|=1;modbus_uart_irq_proc();}
+
+scenarios = r'''
+static void receive(u8 value, u32 length)
+{
+    if (!(channels & 1)) return;
+    memset(s_rx_pkt.data, value, sizeof(s_rx_pkt.data));
+    s_rx_pkt.dma_len = length;
+    irqsrc |= 1;
+    modbus_uart_irq_proc();
 }
-static void initialize_active_uart(void){
- modbus_uart_init();
-#if TEST_POWER_GATING
- wk_high=1;modbus_uart_service_wakeup();wk_high=0;
- now+=20001u*16u;modbus_uart_service_wakeup();
- now+=5001u*16u;modbus_uart_service_wakeup();
- assert(!modbus_uart_service_wakeup()&&comm_supply&&(channels&1));
-#endif
-}
-#if TEST_SH_UART
-static void rx_edge(void){
- if(rx_edge_enabled){reg_irq_src|=FLD_IRQ_GPIO_RISC0_EN;modbus_uart_irq_proc();}
-}
-#if !TEST_POWER_GATING
-static void check_suspend(void){
- busy=irqsrc=0;now=now_32k=0;rx_high=1;modbus_uart_init();
- assert(!modbus_uart_suspend_ready());
- now_32k=32000u-1u;main_loop_modbus();assert(!modbus_uart_suspend_ready());
- ++now_32k;main_loop_modbus();assert(modbus_uart_suspend_ready());
- /* SDK许可后未实际入睡，不能把suspending遗留给之后的每一帧。 */
- modbus_uart_suspend_enter();assert(rx_pad_enabled&&s_uart_suspending);
- assert(!modbus_uart_service_wakeup());assert(!rx_pad_enabled&&!s_uart_suspending);
- int abort_parsed=parsed;receive(0x20,8);main_loop_modbus();assert(parsed==abort_parsed+1);
- now_32k+=32000u;main_loop_modbus();assert(modbus_uart_suspend_ready());
- // 定时唤醒恢复UART，但不重新开始1秒静默。
- modbus_uart_suspend_enter();assert(rx_pad_enabled);
- modbus_uart_suspend_exit(WAKEUP_STATUS_TIMER);assert(!modbus_uart_suspend_ready());
- int previous_resets=resets,previous_parsed=parsed;
- assert(!modbus_uart_service_wakeup()&&resets==previous_resets+1);
- assert(!s_uart_resume_pending&&parsed==previous_parsed&&modbus_uart_suspend_ready());
- /* 模拟恢复后在AFE/存储任务期间收到重发，晚到的协议消费不得再次清RX。 */
- receive(0x21,8);main_loop_modbus();assert(parsed==previous_parsed+1);
- // PAD唤醒帧只能唤醒，完整有效帧也不允许进入协议层。
- modbus_uart_suspend_enter();modbus_uart_suspend_exit(WAKEUP_STATUS_PAD);
- int count=parsed;receive(0x11,8);main_loop_modbus();assert(parsed==count&&!modbus_uart_suspend_ready());
- now+=4000u*16u;rx_edge();main_loop_modbus();assert(s_uart_wake_discard);
- now+=5001u*16u;assert(modbus_uart_service_wakeup());assert(!s_uart_wake_discard);
- receive(0x22,8);main_loop_modbus();assert(parsed==count+1);
- // 坏帧也属于通信，刷新1秒；RX持续低不能许可Suspend。
- now_32k+=32000u;receive(0x33,0);main_loop_modbus();assert(!modbus_uart_suspend_ready());
- now_32k+=32000u;rx_high=0;main_loop_modbus();assert(!modbus_uart_suspend_ready());
- rx_high=1;now_32k+=32000u;main_loop_modbus();assert(modbus_uart_suspend_ready());
- // 临睡前边沿与尚未处理的DMA都必须阻止Suspend。
- rx_edge();assert(!modbus_uart_suspend_ready());main_loop_modbus();
- now_32k+=32000u;main_loop_modbus();assert(modbus_uart_suspend_ready());
- irqsrc|=1;assert(!modbus_uart_suspend_ready());irqsrc=0;
- // 跨32K回绕、发送尚未结束和结束后的1秒。
- now_32k=UINT32_MAX-100u;busy=1;main_loop_modbus();busy=0;
- now_32k+=32000u-32u;main_loop_modbus();assert(!modbus_uart_suspend_ready());
- now_32k+=32u;main_loop_modbus();assert(modbus_uart_suspend_ready());
- // Timer和RX同时到来，也丢弃被恢复动作截断的首帧。
- modbus_uart_suspend_enter();rx_edge();modbus_uart_suspend_exit(WAKEUP_STATUS_TIMER);
- main_loop_modbus();assert(s_uart_wake_discard&&!modbus_uart_suspend_ready());
-}
-#endif
-static void check_forced_deep_sleep(void){
- float_pins=0;channels=0;initialize_active_uart();
- modbus_uart_prepare_deep_sleep();
- assert(!channels&&!rx_edge_enabled&&!rx_pad_enabled);
- assert((float_pins&((1<<BMS_BOARD_SCI1_TX_PIN)|(1<<BMS_BOARD_SCI1_RX_PIN)|
-                     (1<<BMS_BOARD_CMNT_WK_PIN)))==
-        ((1<<BMS_BOARD_SCI1_TX_PIN)|(1<<BMS_BOARD_SCI1_RX_PIN)|
-         (1<<BMS_BOARD_CMNT_WK_PIN)));
-#if BMS_PRODUCT_RS485_ENABLE
- assert(!de&&!s_rs485_tx_active);
-#endif
-#if TEST_POWER_GATING
- assert(!comm_supply&&!wk_pad_enabled&&!wk_edge_enabled);
- assert(!(input_pins&((1u<<1)|(1u<<2)|(1u<<4))));
- assert(s_comm_power_state==MODBUS_COMM_POWER_STOPPED);
- int starts=power_ons;wk_high=1;reg_irq_src|=FLD_IRQ_GPIO_RISC1_EN;
- modbus_uart_irq_proc();assert(modbus_uart_service_wakeup());
- assert(power_ons==starts&&!comm_supply&&!wk_edge_enabled&&!wk_pad_enabled);wk_high=0;
-#endif
-}
-#endif
-#if TEST_POWER_GATING
-static void advance_us(u32 us){now+=us*16u;now_32k+=us*32u/1000u;}
-static void wake_pulse(void){
- wk_high=1;if(wk_edge_enabled){reg_irq_src|=FLD_IRQ_GPIO_RISC1_EN;modbus_uart_irq_proc();}wk_high=0;
-}
-static void finish_power_start(void){
- advance_us(20001u);assert(modbus_uart_service_wakeup());
- assert(comm_supply&&(channels&1)&&s_uart_wake_discard);
- advance_us(5001u);assert(modbus_uart_service_wakeup());
- assert(!modbus_uart_service_wakeup()&&!s_uart_wake_discard);
-}
-static void check_power_gating(void){
- busy=irqsrc=0;reg_irq_src=0;rx_high=1;wk_high=0;now=now_32k=0;
- modbus_uart_init();int starts=power_ons,initial_resets=resets;
- assert(!comm_supply&&!channels&&wk_pad_enabled&&wk_edge_enabled&&!rx_pad_enabled);
- assert((input_pins&(1u<<4))&&!(input_pins&((1u<<1)|(1u<<2))));
- assert(!(output_pins&((1u<<1)|(1u<<2)))&&!de&&modbus_uart_suspend_ready());
- /* 多次200ms采样/纯BLE返回不启动电源、不重复重置UART或开启DMA。 */
- for(int i=0;i<5;++i){
-  modbus_uart_suspend_enter();modbus_uart_suspend_exit(WAKEUP_STATUS_TIMER);
-  advance_us(200000u);main_loop_modbus();
-  assert(!comm_supply&&!channels&&modbus_uart_suspend_ready());
- }
- /* 临睡末尾拒睡：SDK的PAD返回不能冒充有线唤醒。 */
- modbus_uart_suspend_enter();assert(s_uart_suspending);
- modbus_uart_suspend_cancel();modbus_uart_suspend_exit(WAKEUP_STATUS_PAD);
- assert(!s_uart_suspending&&!s_comm_wake_pending);
- assert(modbus_uart_service_wakeup()&&!comm_supply&&modbus_uart_suspend_ready());
- assert(power_ons==starts&&resets==initial_resets);
- assert(modbus_uart_service_wakeup()&&power_ons==starts);
- /* 运行态短PD3脉冲回低后，IRQ交付的事件仍立即启动供电。 */
- wake_pulse();assert(!modbus_uart_suspend_ready()&&!comm_supply);
- assert(modbus_uart_service_wakeup()&&comm_supply&&power_ons==starts+1&&!channels);
- u32 power_tick=s_comm_power_start_tick;wake_pulse();advance_us(19000u);
- assert(modbus_uart_service_wakeup()&&!channels&&s_comm_power_start_tick==power_tick);
- advance_us(1001u);assert(modbus_uart_service_wakeup()&&s_uart_wake_discard);
- int count=parsed;receive(0x11,8);main_loop_modbus();assert(parsed==count);
- advance_us(5001u);assert(modbus_uart_service_wakeup()&&!s_uart_wake_discard);
- receive(0x22,8);main_loop_modbus();assert(parsed==count+1);
- /* 连续轮询跨越多秒，不能重复开关电源；接收部分帧/持续低也不能断电。 */
- for(int i=0;i<3;++i){advance_us(2000000u);main_loop_modbus();assert(comm_supply);receive(0x33,8);main_loop_modbus();assert(comm_supply&&power_ons==starts+1);}
- u8 tx_frame[8]={0};assert(modbus_uart_send(tx_frame,8));advance_us(1100000u);
- assert(!modbus_uart_service_wakeup()&&comm_supply&&modbus_uart_tx_active());
- main_loop_modbus();assert(comm_supply&&!modbus_uart_tx_active()&&!de); /* 超时清理后才可重新计静默。 */
- wk_high=1;advance_us(1100000u);assert(!modbus_uart_service_wakeup()&&comm_supply);wk_high=0;
- advance_us(1100000u);rx_high=0;assert(!modbus_uart_service_wakeup()&&comm_supply);
- rx_high=1;advance_us(1100000u);receive(0x44,8);
- assert(!modbus_uart_service_wakeup()&&comm_supply&&s_rx_ready);main_loop_modbus();
- advance_us(1100000u);reg_irq_src|=FLD_IRQ_GPIO_RISC1_EN;
- assert(!modbus_uart_service_wakeup()&&comm_supply); /* 尚未分派IRQ的接入也刷新会话。 */
- /* OTA 擦除/校验期间可能超过普通静默期限，必须保持通信域供电。 */
- ota_busy=1;
- for(int i=0;i<3;++i){advance_us(1100000u);main_loop_modbus();assert(comm_supply&&(channels&1));}
- ota_busy=0;
- advance_us(9999000u);main_loop_modbus();assert(comm_supply);
- advance_us(2000u);main_loop_modbus();
- assert(!comm_supply&&!channels&&modbus_uart_suspend_ready());
- assert(!(input_pins&((1u<<1)|(1u<<2)))&&(input_pins&(1u<<4)));
- /* 省电期间周期RX维护、无效DMA标志及直接发送均不得恢复未供电接收器。 */
- advance_us(2000000u);main_loop_modbus();irqsrc=1;modbus_uart_irq_proc();
- u8 data[8]={0};assert(!modbus_uart_send(data,8)&&!channels&&!comm_supply);
- /* PAD回调时短脉冲已结束且没有GPIO状态，也必须保守启动；不等待200ms。 */
- now=UINT32_MAX-100u;modbus_uart_suspend_enter();modbus_uart_suspend_exit(WAKEUP_STATUS_PAD);
- assert(modbus_uart_service_wakeup()&&comm_supply&&power_ons==starts+2);
- finish_power_start(); /* 上电/帧尾期限覆盖system tick回绕。 */
- s_rx_pkt.data[0]=0x77;s_rx_pkt.dma_len=3u;main_loop_modbus();
- assert(s_rx_pkt.data[0]==0x77&&s_rx_pkt.dma_len==3u); /* 旧维护期限不得清掉重发中的部分帧。 */
- receive(0x55,8);main_loop_modbus();
- /* 临睡资格检查后的高电平、SDK取消入睡和短脉冲均保持待处理事件。 */
- advance_us(10001000u);main_loop_modbus();assert(modbus_uart_suspend_ready());
- modbus_uart_suspend_enter();assert(modbus_uart_service_wakeup()&&!comm_supply);
- wk_high=1;assert(!modbus_uart_suspend_ready());wk_high=0;
- wake_pulse();assert(modbus_uart_service_wakeup()&&comm_supply);finish_power_start();
- /* 取消不清真实的独立PD3事件，后续请求仍可上电。 */
- advance_us(10001000u);main_loop_modbus();assert(modbus_uart_suspend_ready());
- modbus_uart_suspend_enter();wake_pulse();modbus_uart_suspend_cancel();
- assert(s_comm_wake_pending&&modbus_uart_service_wakeup()&&comm_supply);
- finish_power_start();
-}
-#endif
-int main(void){
- u8*p,*saved;u32 n;u8 data[268];memset(data,0x55,sizeof(data));
-#if !TEST_SH_UART
- // 一线通期间不得重开 DMA、解析旧帧或启动 UART 发送。
- modbus_uart_init();receive(0x11,8);int count=parsed;
- busy=0;bus_mode=0;modbus_uart_disable();
- assert(!channels&&!s_rx_ready);
- now=2000000u*16u;main_loop_modbus();assert(!channels&&parsed==count);
- assert(!modbus_uart_poll(&p,&n)&&!modbus_uart_send(data,8));
- irqsrc=1;modbus_uart_irq_proc();assert(!s_rx_ready&&!irqsrc);
- bus_mode=BUS_STATE_UART_MODBUS;modbus_uart_init();
- int wake_parsed=parsed;receive(0x55,8);
- assert((channels&1)&&!s_rx_ready&&!s_uart_wake_rx_pending&&parsed==wake_parsed);
- assert(modbus_uart_bus_idle());busy=1;assert(!modbus_uart_bus_idle());busy=0;
- rx_high=0;assert(!modbus_uart_bus_idle());rx_high=1;
- irqsrc=1;assert(!modbus_uart_bus_idle());irqsrc=0;
- receive(0x11,8);assert(!modbus_uart_bus_idle());
-#endif
- initialize_active_uart();
-#if !TEST_SH_UART
- receive(0x55,8);assert((channels&1)&&!s_rx_ready); /* 首包在IRQ丢弃，接收不等主循环。 */
-#endif
- receive(0x11,8);assert(!(channels&1));
- assert(modbus_uart_poll(&p,&n)&&n==8);saved=p;
- receive(0x22,8);assert(saved[0]==0x11); // frozen consumer buffer
- modbus_uart_rx_reset();receive(0x33,268);assert(modbus_uart_poll(&p,&n)&&n==268&&p[267]==0x33);
- modbus_uart_rx_reset();receive(0x44,269);assert(!modbus_uart_poll(&p,&n)&&(channels&1));
- receive(0x44,0);assert(!modbus_uart_poll(&p,&n)&&(channels&1));
- assert(!modbus_uart_send(0,8)&&!modbus_uart_send(data,0)&&!modbus_uart_send(data,269));
- assert(sends==0);assert(modbus_uart_send(data,268));
- memset(data,0x66,sizeof(data));assert(!modbus_uart_send(data,8));
- assert(sends==1&&s_tx_pkt.dma_len==268&&s_tx_pkt.data[0]==0x55);
-#if BMS_PRODUCT_RS485_ENABLE
- assert(de);irqsrc|=2;modbus_uart_irq_proc();assert(de);
- busy=0;now+=1000u*16u;main_loop_modbus();assert(de); // minimum full-frame hold
-#if TEST_UART_BAUD_RATE != 115200
- now+=50000u*16u;main_loop_modbus();assert(de&&g_bms_rs485_tx_diag.tx_timeout_count==0);
- now+=(TEST_RS485_FRAME_END_US-51000u)*16u;
-#else
- now+=(TEST_RS485_FRAME_END_US-1000u)*16u;
-#endif
- main_loop_modbus();assert(!de&&!modbus_uart_tx_active());
- assert(g_bms_rs485_tx_diag.tx_complete_count==1);
- now=UINT32_MAX-100;assert(modbus_uart_send(data,8));int previous=resets;
- now+=(TEST_RS485_TIMEOUT_US+1u)*16u;main_loop_modbus(); // lost DMA IRQ and forever-busy UART
- assert(!de&&!modbus_uart_tx_active()&&!busy&&resets==previous+1);
- assert(g_bms_rs485_tx_diag.tx_timeout_count==1&&g_bms_rs485_tx_diag.tx_complete_count==1);
- assert(channels&1);assert(modbus_uart_send(data,8));
-#endif
- #if TEST_SH_UART
- #if TEST_POWER_GATING
- check_power_gating();
- #else
- check_suspend();
- #endif
- check_forced_deep_sleep();
- #endif
- return 0;
+
+int main(void)
+{
+    u8 *ptr, *saved;
+    u32 len;
+    u8 data[268];
+    memset(data, 0x55, sizeof(data));
+
+    modbus_uart_init();
+    receive(0x11, 8);
+    assert((channels & 1) && !s_rx_ready && !s_uart_wake_rx_pending && !parsed);
+    assert(received == 1 && !irqsrc && irq_enabled);
+    assert(modbus_uart_bus_idle());
+    ota_busy = 1; assert(!modbus_uart_bus_idle()); ota_busy = 0;
+    busy = 1; assert(!modbus_uart_bus_idle()); busy = 0;
+    rx_high = 0; assert(!modbus_uart_bus_idle()); rx_high = 1;
+    irqsrc = 1; assert(!modbus_uart_bus_idle()); irqsrc = 0;
+    receive(0x11, 8);
+    assert(!modbus_uart_bus_idle() && !(channels & 1) && !parsed);
+    assert(modbus_uart_poll(&ptr, &len) && len == 8);
+    saved = ptr;
+    receive(0x22, 8);
+    assert(saved[0] == 0x11);
+    modbus_uart_rx_reset();
+    receive(0x33, 268);
+    assert(modbus_uart_poll(&ptr, &len) && len == 268 && ptr[267] == 0x33);
+    modbus_uart_rx_reset();
+    receive(0x44, 269);
+    assert(!modbus_uart_poll(&ptr, &len) && (channels & 1));
+    receive(0x44, 0);
+    assert(!modbus_uart_poll(&ptr, &len) && (channels & 1));
+
+    assert(!modbus_uart_send(0, 8) && !modbus_uart_send(data, 0) && !modbus_uart_send(data, 269));
+    assert(!sends && modbus_uart_send(data, 268));
+    memset(data, 0x66, sizeof(data));
+    assert(!modbus_uart_send(data, 8));
+    assert(sends == 1 && s_tx_pkt.dma_len == 268 && s_tx_pkt.data[0] == 0x55);
+    irqsrc = 2; modbus_uart_irq_proc();
+    assert(!irqsrc && modbus_uart_tx_active());
+    busy = 0;
+
+    s_rx_pkt.dma_len = 3; s_rx_pkt.data[0] = 0x77;
+    now += 1000001u*16u; main_loop_modbus();
+    assert(s_rx_pkt.dma_len == 3 && s_rx_pkt.data[0] == 0x77);
+    receive(0x55, 8); main_loop_modbus(); assert(parsed == 1 && (channels & 1));
+
+    receive(0x11, 8);
+    bus_mode = 0;
+    modbus_uart_disable();
+    assert(!channels && !s_rx_ready);
+    now += 2000000u*16u; main_loop_modbus();
+    assert(!channels && parsed == 1);
+    assert(!modbus_uart_poll(&ptr, &len) && !modbus_uart_send(data, 8));
+    irqsrc = 1; modbus_uart_irq_proc(); assert(!s_rx_ready && !irqsrc);
+    return 0;
 }
 '''
 
-products = (os.environ['BMS_PRODUCT'],) if 'BMS_PRODUCT' in os.environ else ('d008',)
-for product, production in ((p, mode) for p in products for mode in ((0, 1) if p == 'd014' else (0,))):
-    source = selected_source(ROOT / 'bms/platform/telink/modbus_uart.c', product,
-                             defines=('-DBMS_PRODUCTION_BUILD=%d' % production,
-                                      '-DBMS_BUILD_ID=0x12345678u',
-                                      '-DD008_PRODUCT_PROFILE=3'))
-    source = re.sub(r'^#include[^\n]*', '', source, flags=re.M)
-    # 外设模型模拟GPIO中断W1C；不改生产状态机/判断。
-    source = source.replace('reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;', 'clear_gpio_irq();')
-    source = source.replace('reg_irq_src = FLD_IRQ_GPIO_RISC1_EN;', 'clear_wake_irq();')
-    header = (ROOT / 'bms/platform/telink/modbus_uart.h').read_text(encoding='utf8')
-    defines = ('#define BMS_PRODUCT_RS485_ENABLE %d\n#define BMS_RS485_TX_DIAG_ENABLE 0\n'
-               '#define BMS_DEBUG_LOG_ENABLE 0\n#define CLOCK_SYS_CLOCK_HZ 16000000u\n'
-               '#define BMS_BOARD_OWC_TX_PIN 1\n#define BMS_BOARD_OWC_RX_PIN 2\n'
-               '#define BMS_BOARD_RS485_EN_PIN 3\n'
-               '#define BMS_BOARD_SCI1_TX_PIN 1\n#define BMS_BOARD_SCI1_RX_PIN 2\n'
-               '#define BMS_BOARD_CMNT_EN_PIN 5\n'
-               '#define BMS_BOARD_CMNT_WK_PIN 4\n') % (product in ('d011', 'd014'))
-    with tempfile.TemporaryDirectory(prefix='uart-ownership-') as folder:
-        c = Path(folder) / 'check.c'; exe = Path(folder) / 'check.exe'
-        product_header = (ROOT / 'bms/products' / product / 'bms_product.h').read_text(encoding='utf8')
-        baud_pattern = r'^#define\s+BMS_PRODUCT_UART_BAUD_RATE\s+(\d+)u?\s*$'
-        baud_match = re.search(baud_pattern, product_header, re.M)
-        if baud_match is None:
-            baud_match = re.search(baud_pattern,
-                (ROOT / 'bms/platform/telink/modbus_uart.c').read_text(encoding='utf8'), re.M)
-        baud_rate = int(baud_match[1])
-        # SDK 16 MHz 配置表与独立的最长帧时间验收点。
-        divider, bwpc, timeout_us, frame_end_us = {
-            9600: (118, 13, 350000, 281000),
-            19200: (118, 6, 200000, 141000),
-            115200: (9, 13, 50000, 25000),
-        }[baud_rate]
-        defines += '#define TEST_SH_UART %d\n' % (product != 'd008')
-        power_gating = product == 'd014'
-        defines += '#define TEST_POWER_GATING %d\n#define BMS_PRODUCT_RS485_POWER_GATING_ENABLE %d\n' % (power_gating, power_gating)
-        defines += '#define BMS_PRODUCT_RS485_POWER_SETTLE_MS 20u\n'
-        defines += '#define BMS_PRODUCT_RS485_POWER_HOLD_MS 10000u\n'
-        expected = ('#define TEST_UART_BAUD_RATE %du\n#define TEST_UART_DIVIDER %du\n'
-                    '#define TEST_UART_BWPC %du\n#define TEST_RS485_TIMEOUT_US %du\n'
-                    '#define TEST_RS485_FRAME_END_US %du\n') % (
-                        baud_rate, divider, bwpc, timeout_us, frame_end_us)
-        c.write_text(expected + PREFIX + defines + source + TAIL, encoding='utf8')
-        subprocess.run(shlex.split(os.environ.get('CC','cc')) + ['-std=c99','-Wall','-Wextra','-Werror',
-                        '-Wno-unused-function',str(c),'-o',str(exe)],check=True)
-        subprocess.run([str(exe)],check=True)
-    print('PASS '+product+(' production' if production else ' development')+' UART RX ownership, bounds, busy rejection and bounded RS485 abort')
+run_c(prefix + without_includes(read('bms/platform/telink/modbus_uart.c')) + scenarios,
+      name='d008-uart-ownership')
+print('PASS D008 UART DMA ownership, frame bounds, first-frame discard and TX buffer ownership')

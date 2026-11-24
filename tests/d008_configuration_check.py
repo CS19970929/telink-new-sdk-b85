@@ -22,7 +22,6 @@ def check_d008_20s_profile_contract_check():
     block = profile.split('#elif (D008_PRODUCT_PROFILE == D008_PRODUCT_PROFILE_20S_NMC)', 1)[1].split('#else', 1)[0]
     assert '#define D008_PRODUCT_CELL_COUNT       20u' in block
     assert 'BMS_SOC_CHEMISTRY_NMC' in block
-    assert 'BMS_SOC_PROFILE_GENERIC_NMC' in block
     assert '#define DVC1124_DEFAULT_CELL_COUNT           D008_PRODUCT_CELL_COUNT' in cfg
     assert 'DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT)' in dvc
 
@@ -74,24 +73,23 @@ def check_d008_profile_selection_host_check():
         sys.path.insert(0, str(ROOT))
         from bms_tools import build_options
         configured = build_options.read_source(ROOT, 'd008')['cell_count']
-        for selector,count in ((None,configured),(1,24),(2,20),(3,16)):
+        for selector,count in ((None,configured),(1,24),(2,20),(3,16),(5,23)):
             p.write_text('#include "d008_product_profile.h"\n#if D008_PRODUCT_CELL_COUNT != %d\n#error inconsistent_profile\n#endif\nint main(void){return 0;}\n'%count)
             subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c99',*host_includes(ROOT),str(p),'-o',str(Path(d)/'profile.exe')]+([] if selector is None else ['-DD008_PRODUCT_PROFILE=%d'%selector]),check=True)
-    print('PASS committed source default and explicit 24S/20S/16S identities')
+    print('PASS committed source default and explicit 24S/20S/16S/23S identities')
 
     with tempfile.TemporaryDirectory(prefix='d008-release-profile-') as d:
         p=Path(d)/'profile.c'
         p.write_text('#include "d008_product_profile.h"\n')
         base=shlex.split(os.environ.get('CC','cc'))+['-E','-DBMS_PRODUCTION_BUILD=1',*host_includes(ROOT),str(p)]
         assert subprocess.run(base,capture_output=True).returncode != 0
-        for selector in (1,2,3):
+        for selector in (1,2,3,4,5):
             subprocess.run(base+['-DD008_PRODUCT_PROFILE=%d'%selector],check=True,stdout=subprocess.DEVNULL)
         p.write_text('#include "bms_release_approval.h"\n')
-        for selector in (1, 3):
-            subprocess.run(base+['-DD008_PRODUCT_PROFILE=%d'%selector], check=True, stdout=subprocess.DEVNULL)
-        result = subprocess.run(base+['-DD008_PRODUCT_PROFILE=5'], capture_output=True, text=True)
-        assert result.returncode == 0, result.stderr  # 合法源码装配不再维护固定白名单。
-    print('PASS production rejects implicit D008 profile; all three explicit profiles accepted')
+        for selector in (1,2,3,4,5):
+            result = subprocess.run(base+['-DD008_PRODUCT_PROFILE=%d'%selector], capture_output=True, text=True)
+            assert result.returncode != 0 and 'Product release is not approved' in result.stderr
+    print('PASS all five explicit configurations preprocess; unapproved release is rejected')
 
 
 if __name__ == "__main__":

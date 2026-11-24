@@ -3,7 +3,6 @@
 #include <assert.h>
 #define GPIO_PB1 1u /* host 输入编号；GPIO 电平由下面的夹具提供。 */
 #include "dvc1124.h"
-#include "bms_diag.h"
 #include "bms_error.h"
 void bms_error_raise(bms_error_id_t error) { assert(error == BMS_ERROR_AFE1); }
 static struct { struct { struct { uint8_t charge_ocp, discharge_ocp; } bits; } fault_third; } g_bms_report;
@@ -23,7 +22,6 @@ uint8_t DVC1124_ClearAlarmFlags(uint8_t mask) { ++writes; last_clear=mask; retur
 uint8_t DVC1124_ReadRegisters(uint8_t reg, uint8_t *value, uint8_t count) {
     (void)reg; (void)count; *value=read_alarm; return read_ok;
 }
-void bms_diag_trace(uint16_t event, uint32_t a, uint32_t b) { (void)event; (void)a; (void)b; }
 static uint8_t dvc_charge_blocked(void) { return g_bms_report.fault_third.bits.charge_ocp; }
 static uint8_t dvc_discharge_blocked(void) { return g_bms_report.fault_third.bits.discharge_ocp; }
 static uint8_t dvc_set_fet_modes_if_changed(dvc1124_fet_drive_t c,dvc1124_fet_drive_t d) { chg_mode=c; dsg_mode=d; return 1; }

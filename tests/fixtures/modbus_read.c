@@ -53,7 +53,11 @@ uint16_t bms_features_status_word(uint16_t offset) { return (uint16_t)(0x3500u+o
 u16 bms_afe_hw_profile_diagnostic_word(u16 offset) { return (u16)(0x3400u+offset); }
 u8 bms_afe_hw_access_is_active(void) { return 1u; }
 u16 bms_event_log_read_reg(u16 r) { ++event_reads; return (u16)(0x4000u+r); }
-const char *btname_get(void) { return "BT_TEST"; }
+const char *btname_get(void)
+{
+    static const char name[BTNAME_TOTAL_MAX_LEN + 1u] = "BT_TEST";
+    return name;
+}
 int bms_parameter_readable(u16 r) { return (r>=0x2E00u && r<=0x2E0Fu) || (parameter_mixed && r==1u); }
 int bms_parameter_read_block(u16 r,u16 n,u8 *d) {
     ++parameter_reads;
@@ -240,7 +244,6 @@ static void check_requested_profile(void)
 int main(void)
 {
     u16 words[125]={0};
-    bms_diag_init(); bms_debug_log_init();
     check_realtime_window();
     check_product_identity();
     check_requested_profile();
@@ -255,8 +258,8 @@ int main(void)
     expect_read(1u,0u,3u,words,0u);
     parameter_reads=0u;expect_read(1u,0u,4u,words,2u);assert(parameter_reads==1u);
     parameter_mixed=0u;memset(g_bms_report.mac_public,0,6u);
-    /* 撤销的清事件命令及新增只读诊断窗口均拒绝单写/块写/广播写。 */
-    const u16 readonly_targets[]={0x1007u,BMS_STALL_PREP_BASE,BMS_STALL_PREP_END-1u};
+    /* 撤销的清事件命令和睡眠状态窗口均拒绝单写、块写及广播写。 */
+    const u16 readonly_targets[]={0x1007u,BMS_SLEEP_STATUS_BASE,BMS_SLEEP_STATUS_END-1u};
     for(unsigned target=0;target<sizeof(readonly_targets)/sizeof(readonly_targets[0]);++target) {
     for (unsigned block=0; block<2; ++block) {
         for (unsigned broadcast=0; broadcast<2; ++broadcast) {

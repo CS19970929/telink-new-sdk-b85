@@ -6,10 +6,10 @@
 #include "bms_afe.h"
 #include "bms_afe_driver.h"
 #include "bms_features.h"
-#include "bms_diag.h"
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"
+#include "bms_timing.h"
 #include "bms_protection_params.h"
 
 #define DVC_MEAS_BYTES (DVC1124_REG_CELL24_L + 1u)
@@ -23,7 +23,6 @@ bms_protection_params_t g_bms_protection_params;
 uint8_t bms_protection_params_valid(void) { return 1u; }
 uint8_t bms_features_charge_direction_blocked(void) { return 0u; }
 void bms_afe_publish_fet_status(uint8_t flags,uint8_t valid) { (void)flags; (void)valid; }
-void bms_diag_command(uint8_t command,uint8_t valid) { (void)command; (void)valid; }
 void DVC1124_UpdataAfeConfig(void) {}
 uint8_t DVC1124_GetWriteAddress(void) { return 0x40u; }
 void DVC1124_GetConfig(dvc1124_config_t *c) { *c=s_cfg; }

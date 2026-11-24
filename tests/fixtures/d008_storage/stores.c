@@ -16,8 +16,11 @@ static uint32_t clock_ms;
 static int budget = -1;
 static unsigned writes, erases, reloads;
 static int read_failed, fail_after_event_commit, fail_after_config_commit, locked;
+static uint32_t fail_erase_at = UINT32_MAX;
 static uint16_t last_charge;
 static unsigned apply_calls, finish_calls, inhibit_calls, apply_failures;
+
+void bms_product_info_refresh(void) {}
 
 uint32_t bms_time_ms(void) { return clock_ms; }
 uint8_t bms_afe_hw_access_is_active(void) { return 1u; }
@@ -80,6 +83,7 @@ static int flash_erase(void *ctx, uint32_t addr, uint32_t len)
 {
     (void)ctx;
     assert(addr % SECTOR == 0u && len == SECTOR && addr + len <= TOTAL);
+    if (addr == fail_erase_at) return 0;
     ++erases;
     memset(memory + addr, 0xFF, len);
     return 1;
@@ -113,6 +117,7 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
 #undef put32
 #include "bms_event_log.c"
 #include "bms_config_store.c"
+#include "bms_parameters.c"
 
 static void reboot(void)
 {
@@ -124,6 +129,7 @@ static void reboot(void)
     memset(&g_bms_report, 0, sizeof(g_bms_report));
     budget = -1;
     read_failed = locked = fail_after_event_commit = fail_after_config_commit = 0;
+    fail_erase_at = UINT32_MAX;
     clock_ms += 6000u;
 }
 
@@ -355,11 +361,40 @@ static void factory(void)
     prior_writes = writes;
     assert(bms_config_store_purge_factory_history() && bms_state_store_factory_reset());
     assert(erases == prior_erases && writes == prior_writes);
-    assert(bms_event_log_factory_reset() && bms_config_store_finish_factory_reset());
+    fail_erase_at = 2u * DOMAIN;
+    bms_parameters_init();
+    assert(!bms_protection_params_valid() && bms_config_store_factory_reset_pending());
+    assert(bms_error_get(BMS_ERROR_EEPROM_STORE));
+    assert(erases == prior_erases && writes == prior_writes);
     reboot();
-    assert(bms_config_store_validate_startup() && !bms_config_store_factory_reset_pending());
+    bms_parameters_init();
+    assert(bms_protection_params_valid() && !bms_config_store_factory_reset_pending());
     assert(bms_state_store_init() && !bms_state_store_get().capacity_0p1ah);
     assert(bms_event_log_init() && !bms_event_log_read_reg(0u));
+    prior_erases = erases;
+    prior_writes = writes;
+    reboot();
+    bms_parameters_init();
+    assert(bms_protection_params_valid() && erases == prior_erases && writes == prior_writes);
+}
+
+static void boot_qualification(void)
+{
+    fresh();
+    bms_error_clear(BMS_ERROR_EEPROM_STORE);
+    bms_parameters_init();
+    assert(bms_protection_params_valid() && !bms_error_get(BMS_ERROR_EEPROM_STORE));
+    memory[DOMAIN + 11u] = 0x23u;
+    reboot();
+    bms_parameters_init();
+    assert(bms_protection_params_valid() && bms_error_get(BMS_ERROR_EEPROM_STORE));
+    assert(!bms_state_store_get().capacity_0p1ah);
+
+    fresh();
+    memory[11] = 0x23u;
+    bms_parameters_init();
+    assert(!bms_protection_params_valid() && bms_error_get(BMS_ERROR_EEPROM_STORE));
+    assert(!writes && !erases);
 }
 
 int main(void)
@@ -370,6 +405,7 @@ int main(void)
         state();
         events();
         afe_transaction();
+        boot_qualification();
     }
     puts("PASS D008 Config/State power cuts, write acknowledgement and last 100 events");
     return 0;

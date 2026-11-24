@@ -174,17 +174,17 @@ def main():
     parser.add_argument('--output',type=Path)
     parser.add_argument('--baseline',type=Path,help='上一轮 report.json；只比较，不自动接受变化')
     parser.add_argument('--timeout',type=float,default=300)
-    parser.add_argument('--with-targets',action='store_true',help='另外执行四产品 ELF/resource；不生成 BIN')
+    parser.add_argument('--with-targets',action='store_true',help='另外检查 D008 五种量产装配的 ELF/MAP，不生成 BIN')
     args=parser.parse_args()
     if args.timeout<=0:parser.error('timeout 必须为正')
     selected=tuple(args.product or PRODUCTS)
     commands=commands_for(selected,args.only)
     if args.with_targets:
-        for p in selected:
+        for profile in ('16s-lfp', '20s-nmc', '23s-lfp', '24s-lfp', 'custom'):
             for action in ('link','resources'):
-                command=[sys.executable,'bms_tools/bms.py','--product',p,action]
+                command=[sys.executable,'bms_tools/bms.py','--production','--d008-profile',profile,action]
                 if action=='link':command+=['--jobs','4']
-                commands.append(('target_'+action,p,'tooling','目标 ELF/MAP',command))
+                commands.append((f'target_{action}_{profile}','d008','tooling','目标 ELF/MAP',command))
     stamp=datetime.now().strftime('%Y%m%d-%H%M%S-%f')
     default=Path.home()/'Documents/CodexOutputs/bms-monorepo/validation'/stamp
     output=(args.output or Path(os.environ.get('BMS_TEST_OUTPUT',default))).resolve()

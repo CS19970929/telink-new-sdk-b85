@@ -6,7 +6,7 @@
 #ifndef DVC1124_CONFIG_SERVICE_H_
 #define DVC1124_CONFIG_SERVICE_H_
 
-#include "tl_common.h"
+#include "bms_types.h"
 #include "bms_afe_hw_profile.h"
 
 #ifdef __cplusplus

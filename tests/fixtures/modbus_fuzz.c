@@ -20,10 +20,6 @@ static void check(unsigned actual,unsigned expected)
     ++calls;if(actual!=expected){fprintf(stderr,"协议失败 scenario=%s iteration=%u expected=%u actual=%u writes=%u\n",scenario,iteration,expected,actual,writes);exit(1);}
 }
 static int bms_afe_hw_access_modbus_on_frame(const u8*r,u32 n,u8*s,u32*l){*l=0;return 0;}
-static int bms_debug_log_overlaps(u16 r,u16 n){return 0;}
-static int bms_diag_overlaps(u16 r,u16 n){return 0;}
-static int bms_debug_log_read(u16 r,u16 n,u8*d){return 0;}
-static int bms_diag_read(u16 r,u16 n,u8*d){return 0;}
 static u16 bms_event_log_read_reg(u16 r){return (u16)(r^0x55aa);}
 static int bms_parameter_readable(u16 r){(void)r;return 0;}
 static int bms_parameter_read_block(u16 r,u16 n,u8*d){(void)r;(void)n;(void)d;abort();}

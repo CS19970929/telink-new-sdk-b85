@@ -2,6 +2,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "bms_afe.h"
+#include "bms_types.h"
+
+#undef LED_BLUE_PIN
 
 #define _attribute_no_inline_
 #define APP_SAMPLE_PERIOD_US 200000u

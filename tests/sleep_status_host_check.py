@@ -6,7 +6,7 @@ run_c(r'''
 #include <stdint.h>
 #include "bms_sleep_status.h"
 static uint32_t now;
-uint32_t bms_time_ms(void) { return now; }
+uint32_t bms_time_now_32k(void) { return now; }
 static uint16_t word(const uint8_t *data, unsigned index)
 { return (uint16_t)(((uint16_t)data[index * 2u] << 8) | data[index * 2u + 1u]); }
 static uint32_t value(const uint8_t *data, unsigned index)
