@@ -6,6 +6,7 @@
 #include "bms_afe_driver.h"
 #include "bms_state.h"
 #include "bms_parameter_access.h"
+#include "bms_product.h"
 
 #define SECTOR 4096u
 #define DOMAIN (2u * SECTOR)
@@ -114,9 +115,10 @@ int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *r
 #define s_ready state_ready
 #define s_write_failed state_write_failed
 #ifdef D008_TEST_FACTORY
+#undef BMS_OTA_UPDATE_FACTORY_RESET
+#define BMS_OTA_UPDATE_FACTORY_RESET 1u
 #undef BMS_OTA_UPDATE_ID_1
 #define BMS_OTA_UPDATE_ID_1 0x1234u
-#define BMS_OTA_UPDATE_MASK 0x0200u
 #endif
 #include "bms_state_store.c"
 #undef s_write_failed

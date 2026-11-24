@@ -635,15 +635,16 @@ class SourceConfigurationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_configuration(root)
-            groups = list(bms.build_options.UPDATE_GROUPS)
-            for mask in range(32):
-                selected = [g for i, g in enumerate(groups) if mask & (1 << i)]
+            groups = [g for g in bms.build_options.UPDATE_GROUPS if g != 'factory_reset']
+            combinations = [[g for i, g in enumerate(groups) if mask & (1 << i)]
+                            for mask in range(1 << len(groups))]
+            for selected in [*combinations, ['factory_reset']]:
                 result = bms.build_options.save_source(root, 'd008', {'update_groups': selected})
                 self.assertEqual(result['configuration'].get('update_groups', []), selected)
                 self.assertEqual(bms.build_options.verify_source(root, 'd008'), result['configuration'])
                 expected_mask = sum(bms.build_options.UPDATE_GROUPS[group] for group in selected)
                 identifier = result['configuration'].get('update_id', '0'*24)
-                code = '#include "bms_product.h"\n#include "bms_update_policy.h"\n'
+                code = '#include "bms_update_policy.h"\n'
                 code += f'#if BMS_OTA_UPDATE_MASK != {expected_mask}\n#error source_update_mask_mismatch\n#endif\n'
                 for index in range(6):
                     code += f'#if BMS_OTA_UPDATE_ID_{index} != 0x{identifier[index*4:index*4+4]}\n#error source_update_id_mismatch\n#endif\n'
@@ -652,9 +653,6 @@ class SourceConfigurationTests(unittest.TestCase):
                     '-I', str(root/'bms/core'), '-I', str(REPO_ROOT/'bms/core'), '-'],
                     input=code, capture_output=True, text=True, timeout=15)
                 self.assertEqual(actual.returncode, 0, actual.stderr)
-            reset = bms.build_options.save_source(root, 'd008', {'update_groups': ['factory_reset']})
-            self.assertEqual(reset['configuration']['update_groups'], ['factory_reset'])
-            self.assertEqual(bms.build_options.verify_source(root, 'd008'), reset['configuration'])
             self.assertEqual(bms.build_options.UPDATE_GROUPS['factory_reset'], 512)
             count = 0
             for product in bms.build_options.PRODUCTS:

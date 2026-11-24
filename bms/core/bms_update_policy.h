@@ -5,6 +5,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "bms_product.h"
 #include "bms_parameter_policy.h"
 
 /* 旧编号仅保留只读协议兼容；OTA 参数选择使用下面的一次性标记。 */
@@ -73,30 +74,12 @@ static inline uint16_t bms_update_revision(bms_update_group_t group)
 /* 出厂恢复是与普通参数更新互斥的整包操作，不纳入旧 revision 枚举。 */
 #define BMS_OTA_FACTORY_RESET_MASK 0x0200u
 #define BMS_OTA_UPDATE_SUPPORTED_MASK (0x004Fu | BMS_OTA_FACTORY_RESET_MASK)
-#ifndef BMS_OTA_UPDATE_FACTORY_RESET
-#define BMS_OTA_UPDATE_FACTORY_RESET 0u
-#endif
-#ifndef BMS_OTA_UPDATE_MASK
-#ifdef BMS_OTA_UPDATE_SW
 #define BMS_OTA_UPDATE_MASK ((BMS_OTA_UPDATE_SW << 0) | (BMS_OTA_UPDATE_AFE << 1) | \
     (BMS_OTA_UPDATE_BUSINESS << 2) | (BMS_OTA_UPDATE_SOC << 3) | (BMS_OTA_UPDATE_SOC_STATE << 6) | \
     (BMS_OTA_UPDATE_FACTORY_RESET << 9))
-#else
-/* 独立语义存储夹具可提供产品身份和策略，不强制引入完整板级配置。 */
-#define BMS_OTA_UPDATE_MASK 0u
-#endif
-#endif
 #if BMS_OTA_UPDATE_SW > 1u || BMS_OTA_UPDATE_AFE > 1u || BMS_OTA_UPDATE_BUSINESS > 1u || \
     BMS_OTA_UPDATE_SOC > 1u || BMS_OTA_UPDATE_SOC_STATE > 1u || BMS_OTA_UPDATE_FACTORY_RESET > 1u
 #error "OTA source switches must be 0 or 1"
-#endif
-#ifndef BMS_OTA_UPDATE_ID_0
-#define BMS_OTA_UPDATE_ID_0 0u
-#define BMS_OTA_UPDATE_ID_1 0u
-#define BMS_OTA_UPDATE_ID_2 0u
-#define BMS_OTA_UPDATE_ID_3 0u
-#define BMS_OTA_UPDATE_ID_4 0u
-#define BMS_OTA_UPDATE_ID_5 0u
 #endif
 #if (BMS_OTA_UPDATE_MASK & ~BMS_OTA_UPDATE_SUPPORTED_MASK) != 0u
 #error "Unsupported OTA parameter group"
