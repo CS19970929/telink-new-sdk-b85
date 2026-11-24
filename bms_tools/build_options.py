@@ -265,7 +265,7 @@ def _replace(text: str, name: str, value: str, pattern: str = r"\S+") -> str:
     return changed
 
 
-def save_source(root: Path, product: str, changes: dict, *, new_package=False) -> dict:
+def save_source(root: Path, product: str, changes: dict, *, new_package=False, source_defaults=None) -> dict:
     """只编辑明确的产品宏；失败回滚本次写入，绝不暂存或提交其他文件。"""
     old = read_source(root, product, for_edit=True)
     requested = dict(old)
@@ -281,9 +281,19 @@ def save_source(root: Path, product: str, changes: dict, *, new_package=False) -
         options["update_groups"] = groups
         options.setdefault("update_id", "000000000000000000000001")
     relative = f"bms/products/{product}/{product}_protection_config.h"
+    original_defaults = {}
+    edited = {}
+    allowed_defaults = {relative, "bms/products/d008/bms_product.h",
+                        "bms/products/d008/dvc1124_product_defaults.h",
+                        "bms/products/d008/afe_register_config.h"}
+    for path, (original, candidate) in (source_defaults or {}).items():
+        if path not in allowed_defaults or (root / path).read_bytes() != original:
+            raise ValueError("源码已变化或超出参数编辑范围，请重新载入：" + path)
+        original_defaults[path] = original
+        edited[path] = candidate
     parameters = _text(root / relative)
-    edited = {relative: _replace(parameters, "BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH",
-                                str(options["capacity_0p1ah"]) + "u", r"\d+[uU]?")}
+    edited[relative] = _replace(edited.get(relative, parameters), "BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH",
+                                str(options["capacity_0p1ah"]) + "u", r"\d+[uU]?")
     assembly_path = "bms/products/d008/d008_product_profile.h"
     assembly = _text(root / assembly_path)
     profile = next((name for name, pair in PROFILES.items()
@@ -307,6 +317,8 @@ def save_source(root: Path, product: str, changes: dict, *, new_package=False) -
         text = _replace(text, f"BMS_OTA_UPDATE_ID_{index}", f"0x{identifier[index*4:index*4+4]}u")
     edited[relative] = _replace(text, "BMS_OTA_UPDATE_CONTENT_SHA256", '"' + digest + '"', r'"[0-9a-f]{64}"')
     originals = {path: (root / path).read_bytes() for path in edited}
+    if any(originals[path] != raw for path, raw in original_defaults.items()):
+        raise ValueError("参数源码在保存期间被修改，请重新载入。")
     candidates = {path: (b"\xef\xbb\xbf" if originals[path].startswith(b"\xef\xbb\xbf") else b"") +
                   text.encode("utf-8") for path, text in edited.items()}
     changed = [path for path in edited if candidates[path] != originals[path]]

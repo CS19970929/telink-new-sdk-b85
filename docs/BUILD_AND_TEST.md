@@ -9,16 +9,18 @@ python bms_tools/bms.py --production --d008-profile 16s-lfp link --jobs 4
 python bms_tools/bms.py --production --d008-profile 16s-lfp resources
 ```
 
-生产候选装配为 `16s-lfp`、`20s-nmc`、`23s-lfp`、`24s-lfp`、`custom`。自定义装配先用 `build_options.py save` 保存类型和串数。默认构建任务只链接 ELF/MAP/LST；分别对每个装配执行资源门禁。已签核的发布才使用专用镜像入口。
+生产候选装配为 `16s-lfp`、`20s-nmc`、`23s-lfp`、`24s-lfp`、`custom`。自定义装配先保存类型和串数。直接链接任务只生成 ELF/MAP/LST；各生产装配分别执行资源门禁。生产 BIN 由产品签核门控制。
 
 `custom` 的构建及发布目录带 `-custom-`，即使串数和化学体系与固定装配相同，也有独立的构建收据和输出目录。
 
 ## VS Code 配置窗口
 
-`Ctrl+Shift+B` 打开 `D008 源码配置`。填写串数、化学体系和额定容量，窗口按源码装配表选择对应 profile。固件更新可选择普通保参、指定更新组或独立的恢复出厂。窗口使用当前 Python 自带的 Tk。
+`Ctrl+Shift+B` 打开 **BMS 源码配置与编译 · D008**。窗口恢复开发/生产模式、清理重编和按源码编译。串数、化学体系、额定容量和 OTA 策略以已保存的源码为准。旧板换串数或电芯类型使用出厂包。
 
 - **保存到源码** 写回 D008 装配和参数头。参数更新包由工具生成一次性 ID。
-- **保存并链接 ELF** 保存后按当前装配执行生产链接。正式 BIN 使用独立的签核入口。
+- **仅链接 ELF** 按当前模式和装配生成 ELF/MAP/LST。勾选清理时，先清当前装配的构建输出。
+- **按源码编译** 生成并验证 BIN。勾选 **生成后发送安卓并请求 OTA** 时，验证通过后调用现有 Android Sender。发送开关默认关闭。
+- **保护参数 / AFE 位配置** 打开 [D008 源码参数和寄存器窗口](AFE_CONFIGURATION_EDITOR.md)。保存后回到主窗口自动读取新参数和更新标识。
 
 `D008 生产链接（无镜像）` 仍可通过 VS Code 的运行任务菜单直接选择。终端也可用 `python -B bms_tools/configure_d008.py` 打开配置窗口。
 

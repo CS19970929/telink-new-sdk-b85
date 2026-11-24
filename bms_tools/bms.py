@@ -800,6 +800,8 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 
 def cmd_link(args: argparse.Namespace) -> int:
+    if getattr(args, "clean", False):
+        _invoke_make(["clean"], jobs=1)
     _invoke_make(["link"], jobs=args.jobs)
     return 0
 
@@ -1602,6 +1604,7 @@ def build_parser() -> argparse.ArgumentParser:
     pci.set_defaults(func=cmd_ci)
     pl = sub.add_parser("link", help="compile and link ELF/MAP only; does not generate BIN")
     pl.add_argument("-j", "--jobs", type=int, default=4)
+    pl.add_argument("--clean", action="store_true", help="clean the selected build outputs before linking")
     pl.set_defaults(func=cmd_link)
     return p
 

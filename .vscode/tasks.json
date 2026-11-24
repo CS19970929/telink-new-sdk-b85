@@ -46,6 +46,16 @@
       "problemMatcher": []
     },
     {
+      "label": "BMS: 修改源码参数与 AFE 寄存器配置",
+      "type": "process",
+      "command": "python",
+      "args": ["-X", "utf8", "-B", "bms_tools/configure_parameters.py"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "D008 生产链接（无镜像）",
       "type": "process",
       "command": "python",
