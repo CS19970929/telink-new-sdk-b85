@@ -1,4 +1,3 @@
-using System.Text;
 using Android.App;
 using Android.Content;
 using Android.Provider;
@@ -13,17 +12,13 @@ public sealed partial class MainActivity
 {
     private const int BatteryLogFolderRequest = 1006;
     private const int BatteryLogShareRequest = 1007;
-    private const string BatteryLogCsvMime = "text/csv";
+    private const int BatteryLogNotificationRequest = 1008;
     private static readonly int[] BatteryLogIntervals = [1, 2, 5, 10, 30, 60];
 
     private Uri? _batteryLogFolder;
-    private string? _batteryLogShareUri;
     private TextView? _batteryLogFolderView, _batteryLogStatus;
     private Spinner? _batteryLogInterval;
     private Button? _batteryLogChoose, _batteryLogStart, _batteryLogStop, _batteryLogShare;
-    private CancellationTokenSource? _batteryLogCts;
-    private Task? _batteryLogTask;
-    private string? _batteryLogStopReason;
 
     private void BuildBatteryLogControls(LinearLayout page)
     {
@@ -50,12 +45,13 @@ public sealed partial class MainActivity
         page.AddView(_batteryLogStatus);
         _batteryLogShare = ActionButton("选择并分享 CSV", ShareBatteryLogAsync, false);
         page.AddView(_batteryLogShare);
+        page.AddView(ActionButton("手机省电设置", OpenBatteryRecordingPowerSettings, false));
         RefreshBatteryLogControls();
     }
 
     private Task PickBatteryLogFolderAsync()
     {
-        if (_batteryLogCts is not null) return Task.CompletedTask;
+        if (BatteryRecordingService.Status.Active) return Task.CompletedTask;
         using var picker = new Intent(Intent.ActionOpenDocumentTree);
         picker.AddFlags(ActivityFlags.GrantReadUriPermission | ActivityFlags.GrantWriteUriPermission);
         StartActivityForResult(picker, BatteryLogFolderRequest);
@@ -64,7 +60,7 @@ public sealed partial class MainActivity
 
     private void SelectBatteryLogFolder(Intent? selection)
     {
-        if (_batteryLogCts is not null || selection?.Data is not Uri folder) return;
+        if (BatteryRecordingService.Status.Active || selection?.Data is not Uri folder) return;
         if (!selection.Flags.HasFlag(ActivityFlags.GrantWriteUriPermission))
         {
             _batteryLogStatus!.Text = "该文件夹未授权写入，请另选文件夹";
@@ -79,8 +75,8 @@ public sealed partial class MainActivity
 
     private Task ShareBatteryLogAsync()
     {
-        if (_batteryLogCts is not null || _uiBusy) return Task.CompletedTask;
-        if (_batteryLogShareUri is string uri && Uri.Parse(uri) is Uri document)
+        if (BatteryRecordingService.Status.Active || _uiBusy) return Task.CompletedTask;
+        if (BatteryRecordingService.Status.DocumentUri is string uri && Uri.Parse(uri) is Uri document)
         {
             using (document) OpenBatteryLogShareSheet(document);
         }
@@ -98,11 +94,11 @@ public sealed partial class MainActivity
 
     private async Task ShareSelectedBatteryLogAsync(Uri document)
     {
-        if (_batteryLogCts is not null || _uiBusy) return;
+        if (BatteryRecordingService.Status.Active || _uiBusy) return;
         try
         {
             string? name = await Task.Run(() => ReadDisplayName(document));
-            if (IsDestroyed || _batteryLogCts is not null || _uiBusy) return;
+            if (IsDestroyed || BatteryRecordingService.Status.Active || _uiBusy) return;
             if (name?.EndsWith(".csv", StringComparison.OrdinalIgnoreCase) != true)
             {
                 SetStatus("请选择 CSV 日志文件", true);
@@ -121,7 +117,7 @@ public sealed partial class MainActivity
     {
         if (document.Scheme != "content") throw new IOException("请选择系统文件选择器中的 CSV");
         using var send = new Intent(Intent.ActionSend);
-        send.SetType(BatteryLogCsvMime);
+        send.SetType(BatteryRecordingService.CsvMime);
         send.PutExtra(Intent.ExtraStream, (global::Android.OS.IParcelable)document);
         using var clip = ClipData.NewUri(ContentResolver!, "电池数据 CSV", document);
         send.ClipData = clip;
@@ -133,141 +129,103 @@ public sealed partial class MainActivity
     private void RefreshBatteryLogControls()
     {
         if (_batteryLogStart is null) return;
-        bool running = _batteryLogCts is not null;
+        var recording = BatteryRecordingService.Status;
+        bool running = recording.Active;
         _batteryLogChoose!.Enabled = _batteryLogInterval!.Enabled = !running && !_uiBusy;
         _batteryLogStart.Enabled = !running && !_uiBusy && _mobileCalibrationSession is null &&
             _client is not null && _batteryLogFolder is not null;
-        _batteryLogStop!.Enabled = running && _batteryLogCts?.IsCancellationRequested == false;
+        _batteryLogStop!.Enabled = running && !recording.Stopping;
         _batteryLogShare!.Enabled = !running && !_uiBusy;
-        _batteryLogShare.Text = _batteryLogShareUri is null ? "选择并分享 CSV" : "分享本次 CSV";
+        _batteryLogShare.Text = recording.DocumentUri is null ? "选择并分享 CSV" : "分享本次 CSV";
         foreach (var button in new[] { _batteryLogChoose, _batteryLogStart, _batteryLogStop, _batteryLogShare })
             button!.Alpha = button.Enabled ? 1f : 0.4f;
     }
 
     private Task StartBatteryLogAsync()
     {
-        if (_batteryLogCts is not null || _uiBusy || _mobileCalibrationSession is not null) return Task.CompletedTask;
-        if (_client is not BmsClient client || _connectedMac is not string mac || _transport?.IsConnected != true)
+        if (BatteryRecordingService.Status.Active || _uiBusy || _mobileCalibrationSession is not null)
+            return Task.CompletedTask;
+        if (_client is not BmsClient client || _connectedMac is not string mac ||
+            _transport is not AndroidBmsBleTransport { IsConnected: true } transport)
         {
             _batteryLogStatus!.Text = "请先连接电池";
             return Task.CompletedTask;
         }
-        if (_batteryLogFolder is not Uri folder)
+        if (_batteryLogFolder?.ToString() is not string folder)
         {
             _batteryLogStatus!.Text = "请先选择存储文件夹";
             return Task.CompletedTask;
         }
 
         int seconds = BatteryLogIntervals[Math.Max(0, _batteryLogInterval!.SelectedItemPosition)];
-        string name = $"BMS_{mac.Replace(":", "")}_{DateTime.Now:yyyyMMdd_HHmmss_fff}.csv";
-        var operation = new CancellationTokenSource();
-        _batteryLogCts = operation;
-        _batteryLogShareUri = null;
-        _batteryLogStopReason = null;
-        _batteryLogStatus!.Text = $"正在创建 {name}";
-        if (Window?.DecorView is View decor) decor.KeepScreenOn = true;
-        RefreshBatteryLogControls();
-        _batteryLogTask = Task.Run(() => WriteBatteryLogAsync(client, mac, folder, name, seconds, operation));
+        BatteryRecordingService.Start(this,
+            new(client, transport, _operationGate, mac, folder, seconds, BatteryLogCalibrationCheck()));
+        if (OperatingSystem.IsAndroidVersionAtLeast(33) &&
+            CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications) != global::Android.Content.PM.Permission.Granted &&
+            !PreferencesForBatteryNotification())
+        {
+            RequestPermissions(new[] { global::Android.Manifest.Permission.PostNotifications }, BatteryLogNotificationRequest);
+        }
         return Task.CompletedTask;
     }
 
-    private async Task StopBatteryLogAsync()
+    private bool PreferencesForBatteryNotification()
     {
-        CancelBatteryLog("已停止");
+        using var settings = GetSharedPreferences("battery-recording", FileCreationMode.Private);
+        if (settings?.GetBoolean("notification-requested", false) == true) return true;
+        using var edit = settings?.Edit();
+        edit?.PutBoolean("notification-requested", true)?.Apply();
+        return false;
+    }
+
+    private Task StopBatteryLogAsync()
+    {
+        BatteryRecordingService.Stop("已停止");
+        return Task.CompletedTask;
+    }
+
+    private Task OpenBatteryRecordingPowerSettings()
+    {
+        using var settings = new Intent(Settings.ActionIgnoreBatteryOptimizationSettings);
+        StartActivity(settings);
+        return Task.CompletedTask;
+    }
+
+    private Func<bool> BatteryLogCalibrationCheck()
+    {
+        // The service must not keep a destroyed Activity or its UI alive.
+        var activity = new WeakReference<MainActivity>(this);
+        return () => activity.TryGetTarget(out var owner) && owner._mobileCalibrationSession is not null;
+    }
+
+    private void ResumeBatteryLogConnection()
+    {
+        if (BatteryRecordingService.AttachActivity(BatteryLogCalibrationCheck()) is not BatteryRecordingSession session)
+            return;
+        _operationGate = session.OperationGate;
+        _client = session.Client;
+        _transport = session.Transport;
+        _client.Log += AppendLog;
+        _transport.ConnectionProgress += AppendLog;
+        _selectedMac = _connectedMac = session.Mac;
+        _batteryLogFolder = Uri.Parse(session.FolderUri);
+        if (_batteryLogFolder is Uri folder)
+            _batteryLogFolderView!.Text = DocumentsContract.GetTreeDocumentId(folder) ?? session.FolderUri;
+        _batteryLogInterval!.SetSelection(Array.IndexOf(BatteryLogIntervals, session.IntervalSeconds));
+        _connectionView!.Text = _transport.IsConnected ? "已连接 · 后台记录中" : "后台记录中 · 正在重连";
+        RefreshActionAvailability();
+    }
+
+    protected override void OnStart()
+    {
+        base.OnStart();
+        BatteryRecordingService.StatusChanged += UpdateBatteryLogStatus;
+        UpdateBatteryLogStatus();
+    }
+
+    private void UpdateBatteryLogStatus()
+    {
+        if (_batteryLogStatus is not null) _batteryLogStatus.Text = BatteryRecordingService.Status.Text;
         RefreshBatteryLogControls();
-        if (_batteryLogTask is Task task)
-        {
-            _batteryLogStatus!.Text = "正在完成最后的写入…";
-            await task;
-        }
-    }
-
-    private void CancelBatteryLog(string reason)
-    {
-        if (_batteryLogCts is not { IsCancellationRequested: false } operation) return;
-        _batteryLogStopReason = reason;
-        operation.Cancel();
-    }
-
-    private async Task WriteBatteryLogAsync(BmsClient client, string mac, Uri folder, string name, int seconds,
-        CancellationTokenSource operation)
-    {
-        CancellationToken ct = operation.Token;
-        long samples = 0, gaps = 0;
-        string? error = null;
-        string? documentUri = null;
-        try
-        {
-            ct.ThrowIfCancellationRequested();
-            using var parent = DocumentsContract.BuildDocumentUriUsingTree(folder, DocumentsContract.GetTreeDocumentId(folder));
-            using var document = DocumentsContract.CreateDocument(ContentResolver!, parent!, BatteryLogCsvMime, name)
-                ?? throw new IOException("无法在所选文件夹创建 CSV");
-            Stream stream = ContentResolver!.OpenOutputStream(document)
-                ?? throw new IOException("无法打开所选文件夹中的 CSV");
-            await using var writer = new StreamWriter(stream, new UTF8Encoding(true));
-            await writer.WriteLineAsync(BatteryLogCsv.Header);
-            await writer.FlushAsync();
-            documentUri = document.ToString();
-
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(seconds));
-            do
-            {
-                BatterySnapshot? sample = null;
-                string status = "ok";
-                await _operationGate.WaitAsync(ct);
-                try
-                {
-                    if (!ReferenceEquals(client, _client) || _transport?.IsConnected != true)
-                        throw new IOException("电池连接已断开");
-                    if (_mobileCalibrationSession is not null)
-                        status = "calibration";
-                    else
-                    {
-                        try { sample = await client.ReadBatteryAsync(ct); }
-                        catch (Exception ex) when ((ex is IOException or TimeoutException or InvalidDataException) &&
-                            !ct.IsCancellationRequested && _transport?.IsConnected == true)
-                        {
-                            status = "read_error";
-                            AppendLog("BATTERY_LOG_READ_FAIL " + ex.Message);
-                        }
-                    }
-                }
-                finally { _operationGate.Release(); }
-
-                await writer.WriteLineAsync(BatteryLogCsv.Row(DateTimeOffset.Now, mac, status, sample));
-                await writer.FlushAsync();
-                if (sample is null) gaps++; else samples++;
-                string progress = $"记录中 · {samples} 条 · 缺口 {gaps} · 每 {seconds} 秒\n{name}";
-                RunOnUiThread(() =>
-                {
-                    if (!IsDestroyed && ReferenceEquals(operation, _batteryLogCts) && !operation.IsCancellationRequested)
-                        _batteryLogStatus!.Text = progress;
-                });
-            }
-            while (await timer.WaitForNextTickAsync(ct));
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            AppendLog("BATTERY_LOG_STOP " + ex.Message);
-        }
-        finally
-        {
-            RunOnUiThread(() =>
-            {
-                if (!ReferenceEquals(operation, _batteryLogCts)) return;
-                _batteryLogCts = null;
-                _batteryLogTask = null;
-                // Processing reaches here only after the writer has closed the document.
-                _batteryLogShareUri = error is null && samples + gaps > 0 ? documentUri : null;
-                operation.Dispose();
-                if (IsDestroyed) return;
-                if (Window?.DecorView is View decor) decor.KeepScreenOn = false;
-                string reason = error is null ? _batteryLogStopReason ?? "已停止" : "记录中断 · " + error;
-                _batteryLogStatus!.Text = $"{reason} · {samples} 条 · 缺口 {gaps}\n{name}";
-                RefreshBatteryLogControls();
-            });
-        }
     }
 }

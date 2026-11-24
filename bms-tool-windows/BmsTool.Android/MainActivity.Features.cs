@@ -107,6 +107,8 @@ public sealed partial class MainActivity
 
     private async Task DisposeConnectionAsync()
     {
+        if (_client is BmsClient recordingOwner)
+            BatteryRecordingService.Stop("实时连接结束，记录已停止", recordingOwner);
         _operationCts?.Cancel();
         await _operationGate.WaitAsync();
         try
@@ -120,7 +122,8 @@ public sealed partial class MainActivity
 
     private async Task DisposeConnectionCoreAsync(string? upgradeMac = null)
     {
-        CancelBatteryLog("实时连接结束，记录已停止");
+        if (_client is BmsClient recordingOwner)
+            BatteryRecordingService.Stop("实时连接结束，记录已停止", recordingOwner);
         _mobileCalibrationStep?.Cancel();await EndMobileCalibrationCoreAsync(false);
         _mobileCalibrationRecord=null;
         BmsClient? client = _client;

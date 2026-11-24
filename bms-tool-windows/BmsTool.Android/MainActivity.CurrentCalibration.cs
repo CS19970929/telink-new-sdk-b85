@@ -142,6 +142,7 @@ public sealed partial class MainActivity
     }
     protected override void OnStop()
     {
+        BatteryRecordingService.StatusChanged -= UpdateBatteryLogStatus;
         _mobileCalibrationStep?.Cancel();if(_mobileCalibrationSession is not null)_=StopMobileCalibrationAsync();base.OnStop();
     }
 }

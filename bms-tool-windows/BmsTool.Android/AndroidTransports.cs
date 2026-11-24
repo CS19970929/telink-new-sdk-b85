@@ -18,7 +18,7 @@ public sealed class AndroidBmsBleTransport : IBmsTransport, IBmsMtuTransport
 
     public AndroidBmsBleTransport(Context context, string mac)
     {
-        _channel = new AndroidGattChannel(context, mac, ServiceUuid, RequestUuid, ResponseUuid);
+        _channel = new AndroidGattChannel(context.ApplicationContext ?? context, mac, ServiceUuid, RequestUuid, ResponseUuid);
         _channel.NotificationReceived += data => DataReceived?.Invoke(data);
         _channel.Log += message => ConnectionProgress?.Invoke(message);
     }

@@ -28,7 +28,7 @@ public sealed partial class MainActivity : Activity
     private const int BluetoothPermissionRequest = 1001;
     private const int FirmwarePickerRequest = 1002;
 
-    private readonly SemaphoreSlim _operationGate = new(1, 1);
+    private SemaphoreSlim _operationGate = new(1, 1);
     private readonly object _logFileGate = new();
     private AndroidBmsBleTransport? _transport;
     private BmsClient? _client;
@@ -46,6 +46,7 @@ public sealed partial class MainActivity : Activity
         string logDirectory = GetExternalFilesDir(null)?.AbsolutePath ?? FilesDir!.AbsolutePath;
         _logFilePath = Path.Combine(logDirectory, $"bms-tool-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log");
         BuildUi();
+        ResumeBatteryLogConnection();
         ApplyIntentValues();
         _ = RefreshFirmwareInboxAsync();
         _ = HandleIncomingFirmwareIntentAsync(Intent);
@@ -295,9 +296,15 @@ public sealed partial class MainActivity : Activity
     protected override void OnDestroy()
     {
         _refreshCts?.Cancel();
-        CancelBatteryLog("应用关闭");
         _operationCts?.Cancel();
-        _ = DisposeConnectionAsync();
+        if (BatteryRecordingService.DetachActivity(_client))
+        {
+            if (_client is not null) _client.Log -= AppendLog;
+            if (_transport is not null) _transport.ConnectionProgress -= AppendLog;
+            _client = null;
+            _transport = null;
+        }
+        else _ = DisposeConnectionAsync();
         _refreshCts?.Dispose();
         _operationCts?.Dispose();
         base.OnDestroy();
