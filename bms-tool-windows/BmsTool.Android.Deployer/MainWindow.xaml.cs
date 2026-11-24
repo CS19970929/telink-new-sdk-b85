@@ -3,6 +3,7 @@ using Microsoft.Win32;
 using System.IO;
 using System.Security.Cryptography;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace BmsTool.Android.Deployer;
 
@@ -10,10 +11,17 @@ public partial class MainWindow : Window
 {
     private AndroidFirmwareSender? _sender;
     private CancellationTokenSource? _sendCts;
+    private bool _busy;
 
     public MainWindow()
     {
         InitializeComponent();
+        string[] resources = typeof(MainWindow).Assembly.GetManifestResourceNames();
+        if (resources.Contains("BmsTool.Customer.apk") && resources.Contains("BmsTool.Internal.apk"))
+        {
+            InstallPanel.Visibility = Visibility.Visible;
+            Title = "BMS Tool 安卓安装与固件发送";
+        }
         Loaded += async (_, _) => await InitializeAsync();
     }
 
@@ -37,7 +45,7 @@ public partial class MainWindow : Window
 
     private async Task RefreshDevicesAsync()
     {
-        if (_sender is null) return;
+        if (_sender is null || _busy) return;
         try
         {
             SetBusy(true);
@@ -108,6 +116,7 @@ public partial class MainWindow : Window
 
     private async void SendFirmware_Click(object sender, RoutedEventArgs e)
     {
+        if (_busy) return;
         if (_sender is null) { SetStatus("ADB 尚未就绪。", true); return; }
         if (DeviceCombo.SelectedItem is not AndroidDeviceInfo device)
         {
@@ -143,8 +152,54 @@ public partial class MainWindow : Window
         finally { SetBusy(false); }
     }
 
+    private async void InstallApk_Click(object sender, RoutedEventArgs e)
+    {
+        if (_busy) return;
+        if (_sender is null) { SetStatus("请先配置 ADB，然后重新打开工具。", true); return; }
+        if (DeviceCombo.SelectedItem is not AndroidDeviceInfo device)
+        {
+            SetStatus("请选择已授权的 Android 手机。", true);
+            return;
+        }
+        if (sender is not Button { Tag: string edition } || edition is not ("Customer" or "Internal")) return;
+        string label = edition == "Customer" ? "客户版" : "测试版";
+        if (MessageBox.Show(this, $"将向 {device.DisplayName} 安装 BMS Tool {label}，是否继续？",
+            "确认安装", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+        string apk = Path.Combine(Path.GetTempPath(), $"BmsTool-{edition}-{Guid.NewGuid():N}.apk");
+        try
+        {
+            SetBusy(true);
+            SetStatus($"正在安装 {label}…");
+            using Stream package = typeof(MainWindow).Assembly.GetManifestResourceStream($"BmsTool.{edition}.apk")
+                ?? throw new IOException("EXE 未包含所选安装包。");
+            await using (var file = new FileStream(apk, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+                await package.CopyToAsync(file);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            await _sender.InstallApkAsync(device.Id, apk, timeout.Token);
+            SetStatus($"{label}已安装 · {device.DisplayName}");
+            AppendLog($"INSTALL_OK edition={edition} device={device.Id}");
+        }
+        catch (Exception ex)
+        {
+            SetStatus("安装失败：" + ex.Message, true);
+            AppendLog("INSTALL_FAIL " + ex.Message);
+        }
+        finally
+        {
+            try { File.Delete(apk); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                AppendLog("清理临时 APK 失败：" + ex.Message);
+            }
+            SetBusy(false);
+        }
+    }
+
     private void SetBusy(bool busy)
     {
+        _busy = busy;
+        InstallPanel.IsEnabled = !busy;
         SendButton.IsEnabled = !busy;
         DeviceCombo.IsEnabled = !busy;
     }

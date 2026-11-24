@@ -3,6 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -10,8 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\BmsTool.Windows\ModbusRtu.cs" Link="ModbusRtu.cs" />
-    <Compile Include="..\BmsTool.Windows\TelinkOtaProtocol.cs" Link="TelinkOtaProtocol.cs" />
-    <Compile Include="..\Shared\TelinkOtaCore.cs" Link="TelinkOtaCore.cs" />
+    <ProjectReference Include="..\BmsTool.Core\BmsTool.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(CustomerApk)' != '' and '$(InternalApk)' != ''">
+    <EmbeddedResource Include="$(CustomerApk)" LogicalName="BmsTool.Customer.apk" />
+    <EmbeddedResource Include="$(InternalApk)" LogicalName="BmsTool.Internal.apk" />
   </ItemGroup>
 </Project>

@@ -30,12 +30,10 @@ public sealed partial class MainActivity : Activity
 
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly object _logFileGate = new();
-    private readonly List<MonitorRecord> _monitorRecords = new();
     private AndroidBmsBleTransport? _transport;
     private BmsClient? _client;
     private CancellationTokenSource? _operationCts;
     private CancellationTokenSource? _refreshCts;
-    private CancellationTokenSource? _monitorCts;
     private string? _logFilePath;
     private string? _connectedMac;
     private string? _selectedMac;
@@ -145,6 +143,7 @@ public sealed partial class MainActivity : Activity
         base.OnActivityResult(requestCode, resultCode, data);
         if(resultCode!=Result.Ok)return;
         if(requestCode==QrScanRequest){_ = ConnectQrResultAsync(data);return;}
+        if(requestCode==BatteryLogFolderRequest){SelectBatteryLogFolder(data);return;}
         if(data?.Data is null)return;
         if(requestCode==C060ImportRequest){_ = ImportC060ParametersGuardedAsync(data.Data);return;}
         if(requestCode==FirmwarePickerRequest)_ = ImportFirmwareAsync(data.Data);
@@ -295,14 +294,11 @@ public sealed partial class MainActivity : Activity
     protected override void OnDestroy()
     {
         _refreshCts?.Cancel();
-        _monitorCts?.Cancel();
+        CancelBatteryLog("应用关闭");
         _operationCts?.Cancel();
         _ = DisposeConnectionAsync();
         _refreshCts?.Dispose();
-        _monitorCts?.Dispose();
         _operationCts?.Dispose();
         base.OnDestroy();
     }
-
-    private sealed record MonitorRecord(DateTimeOffset Time, BatterySnapshot Snapshot);
 }

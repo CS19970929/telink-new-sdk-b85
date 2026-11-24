@@ -30,7 +30,6 @@ public sealed partial class MainActivity
     private TextView? _healthView;
     private TextView? _diagnosticView;
     private TextView? _testView;
-    private TextView? _monitorStatus;
     private TextView? _firmwareInboxStatus;
     private LinearLayout? _scanResults;
     private LinearLayout? _protectionRows;
@@ -155,17 +154,7 @@ public sealed partial class MainActivity
         deviceTools.AddView(ActionButton("设备连接与设置  ›", () => { ShowPage(DevicePage); return Task.CompletedTask; }, false));
         AddFold(page, "设备操作", deviceTools);
 
-        var monitor = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        monitor.AddView(Note("每 5 秒追加一条实时快照到 CSV；界面只保留最近 500 条。离开本页不会停止。"));
-        var monitorButtons = Row();
-        monitorButtons.AddView(ActionButton("开始", StartMonitorAsync));
-        monitorButtons.AddView(ActionButton("停止", StopMonitorAsync));
-        monitorButtons.AddView(ActionButton("导出 CSV", ExportMonitorAsync, false));
-        monitor.AddView(monitorButtons);
-        _monitorStatus = DataBlock("未开始");
-        monitor.AddView(_monitorStatus);
-        AddFold(page, "长期监控", monitor);
-
+        page.AddView(ActionButton("电池数据记录  ›", () => { ShowPage(LogsPage); return Task.CompletedTask; }, false));
 
         var debug = new LinearLayout(this) { Orientation = Orientation.Vertical };
         debug.AddView(Note("原始写寄存器是工程功能，每次写入都要求二次确认并读回；不要用它绕过保护参数和 AFE 参数事务。"));

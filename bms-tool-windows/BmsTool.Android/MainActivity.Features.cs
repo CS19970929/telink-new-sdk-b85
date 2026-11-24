@@ -21,8 +21,6 @@ public sealed partial class MainActivity
     private MosControlState? _mosControlState;
     private bool _mosControlCapabilityChecked;
     private bool _serviceMode;
-    private string? _monitorFilePath;
-    private int _monitorSampleCount;
 
     private async Task ScanAsync()
     {
@@ -110,7 +108,6 @@ public sealed partial class MainActivity
     private async Task DisposeConnectionAsync()
     {
         _operationCts?.Cancel();
-        _monitorCts?.Cancel();
         await _operationGate.WaitAsync();
         try
         {
@@ -123,6 +120,7 @@ public sealed partial class MainActivity
 
     private async Task DisposeConnectionCoreAsync(string? upgradeMac = null)
     {
+        CancelBatteryLog("实时连接结束，记录已停止");
         _mobileCalibrationStep?.Cancel();await EndMobileCalibrationCoreAsync(false);
         _mobileCalibrationRecord=null;
         BmsClient? client = _client;
@@ -821,81 +819,6 @@ public sealed partial class MainActivity
         _connectedMac = mac;
         await RefreshOverviewCoreAsync(client, ct);
         RunOnUiThread(() => _connectionView!.Text = "已连接");
-    }
-
-    private Task StartMonitorAsync()
-    {
-        if (_client is null) { SetStatus("请先连接 BMS", true); return Task.CompletedTask; }
-        _monitorCts?.Cancel();
-        _monitorCts?.Dispose();
-        _monitorCts = null;
-        _monitorRecords.Clear();
-        _monitorSampleCount = 0;
-        _monitorFilePath = OutputPath($"BMS_monitor_{DateTimeOffset.Now:yyyyMMdd_HHmmss}.csv");
-        try
-        {
-            File.WriteAllText(_monitorFilePath,
-                "time,pack_v,current_a,soc,soh,min_cell_mv,max_cell_mv,delta_mv,min_temp_c,max_temp_c,mos_temp_c,cycle,l1,l2,l3\r\n",
-                new UTF8Encoding(true));
-        }
-        catch (Exception ex)
-        {
-            _monitorFilePath = null;
-            _monitorStatus!.Text = "监控未开始";
-            SetStatus("创建监控文件失败：" + ex.Message, true);
-            return Task.CompletedTask;
-        }
-        _monitorCts = new CancellationTokenSource();
-        _ = MonitorLoopAsync(_monitorCts.Token);
-        _monitorStatus!.Text = "监控中 · 0 条 · 已持续写入 CSV";
-        SetStatus("长期监控已开始");
-        return Task.CompletedTask;
-    }
-
-    private Task StopMonitorAsync()
-    {
-        _monitorCts?.Cancel();
-        _monitorStatus!.Text = $"已停止 · {_monitorSampleCount} 条 · {_monitorFilePath}";
-        return Task.CompletedTask;
-    }
-
-    private async Task MonitorLoopAsync(CancellationToken ct)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
-        try
-        {
-            while (await timer.WaitForNextTickAsync(ct))
-            {
-                BmsClient? client = _client;
-                if (_mobileCalibrationSession is not null || client is null || !await _operationGate.WaitAsync(0, ct)) continue;
-                try
-                {
-                    BatterySnapshot snapshot = await client.ReadBatteryAsync(ct);
-                    var record = new MonitorRecord(DateTimeOffset.Now, snapshot);
-                    _monitorRecords.Add(record);
-                    while (_monitorRecords.Count > 500) _monitorRecords.RemoveAt(0);
-                    File.AppendAllText(_monitorFilePath!, MonitorCsvLine(record), Encoding.UTF8);
-                    _monitorSampleCount++;
-                    RunOnUiThread(() => _monitorStatus!.Text = $"监控中 · {_monitorSampleCount} 条 · {DateTime.Now:HH:mm:ss} · 已写盘");
-                }
-                finally { _operationGate.Release(); }
-            }
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) { RunOnUiThread(() => _monitorStatus!.Text = "监控中断：" + ex.Message); }
-    }
-
-    private Task ExportMonitorAsync()
-    {
-        if (_monitorSampleCount == 0 || string.IsNullOrWhiteSpace(_monitorFilePath)) { SetStatus("没有长期监控记录", true); return Task.CompletedTask; }
-        SetStatus("监控 CSV 已持续保存：" + _monitorFilePath);
-        return Task.CompletedTask;
-    }
-
-    private static string MonitorCsvLine(MonitorRecord record)
-    {
-        BatterySnapshot s = record.Snapshot;
-        return string.Join(",", record.Time.ToString("O"), s.PackVoltageV.ToString(CultureInfo.InvariantCulture), s.CurrentA.ToString(CultureInfo.InvariantCulture), s.SocPercent, s.SohPercent, s.MinCellMv, s.MaxCellMv, s.CellDeltaMv, s.MinTempC.ToString(CultureInfo.InvariantCulture), s.MaxTempC.ToString(CultureInfo.InvariantCulture), s.MosTempC.ToString(CultureInfo.InvariantCulture), s.CycleCount, s.ProtectionLevel1Raw, s.ProtectionLevel2Raw, s.ProtectionLevel3Raw) + "\r\n";
     }
 
     private async Task ToggleMosAllowedAsync(bool chargeChannel)

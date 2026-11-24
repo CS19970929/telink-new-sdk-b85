@@ -258,6 +258,7 @@ public sealed partial class MainActivity
     private View BuildMobileLogPage()
     {
         var page = Page();
+        BuildBatteryLogControls(page);
         page.AddView(SectionTitle("设备事件"));
         page.AddView(ActionButton("读取设备事件", ReadEventsAsync));
         _eventView = DataBlock("尚未读取设备事件");
@@ -388,6 +389,7 @@ public sealed partial class MainActivity
             button.Enabled = ((!_uiBusy && _mobileCalibrationSession is null) || busyAllowed) && (!_connectionRequiredButtons.Contains(button) || _client is not null);
             button.Alpha = button.Enabled ? 1f : 0.4f;
         }
+        RefreshBatteryLogControls();
         if (_disconnectButton is not null) _disconnectButton.Enabled = _client is not null || _uiBusy;
         if (_chargeMosButton is not null)
         {

@@ -23,7 +23,11 @@ public sealed class AndroidFirmwareSender(string adbPath)
 
     public static string FindAdb()
     {
-        var candidates = new List<string>();
+        var candidates = new List<string>
+        {
+            Path.Combine(AppContext.BaseDirectory, "platform-tools", "adb.exe"),
+            Path.Combine(AppContext.BaseDirectory, "adb.exe")
+        };
         foreach (string variable in new[] { "ANDROID_SDK_ROOT", "ANDROID_HOME" })
         {
             string? root = Environment.GetEnvironmentVariable(variable);
@@ -99,6 +103,15 @@ public sealed class AndroidFirmwareSender(string adbPath)
                 model.Success ? model.Groups["model"].Value.Replace('_', ' ') : string.Empty));
         }
         return devices;
+    }
+
+    public async Task InstallApkAsync(string deviceId, string apkPath, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        var result = await RunAsync(deviceId, new[] { "install", "-r", apkPath }, ct);
+        EnsureSuccess(result, "安装 BMS Tool");
+        if (!result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.TrimEntries).Contains("Success"))
+            throw new IOException("ADB 未确认 APK 已安装：" + (result.Output + " " + result.Error).Trim());
     }
 
     public async Task<DeploymentResult> SendAsync(string deviceId, string firmwarePath, bool autoOtaIfConnected,
