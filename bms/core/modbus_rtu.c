@@ -380,7 +380,8 @@ static u8 write_reg(u16 reg, u16 val)
     if (dvc_comm_is_semantic(reg))
         return dvc_comm_write(reg, val);
 
-    if (reg==BMS_PARAM_REG_CAPACITY || (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u)) {
+    if (reg==BMS_PARAM_REG_SOC || reg==BMS_PARAM_REG_CAPACITY ||
+        (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u)) {
         u8 bytes[2]={(u8)(val>>8),(u8)val};
         return bms_parameter_write(reg,1u,bytes);
     }
@@ -511,6 +512,7 @@ static int modbus_write_single(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_len
     if (req_len != 8u) return 0;
     reg = u16be(&req[2]);
     val = u16be(&req[4]);
+    if (addr == 0u && reg == BMS_PARAM_REG_SOC) return 0;
     if (addr == 0u && reg >= BMS_MOS_CONTROL_BASE && reg < BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT)
         return 0; /* 多设备广播不得切换 MOS。 */
     if (bms_sleep_status_overlaps(reg, 1u))
@@ -572,8 +574,8 @@ static int modbus_write_multiple(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_l
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
 
         /* 预检全部范围；单帧只能修改一个状态所有者，执行副作用前拒绝跨界/未知写入。 */
-        if (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) {
-            if (addr == 0u && reg == BMS_PARAM_REG_SOC100_MV) return 0;
+        if (reg==BMS_PARAM_REG_SOC || (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u)) {
+            if (addr == 0u && (reg == BMS_PARAM_REG_SOC || reg == BMS_PARAM_REG_SOC100_MV)) return 0;
             exception=bms_parameter_write(reg,qty,pdata);
         } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
             exception=btname_modbus_on_write_holding(reg,qty,(const uint16_t *)pdata) ? 0u : MB_EX_DEVICE_FAILURE;

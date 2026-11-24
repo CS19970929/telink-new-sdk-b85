@@ -8,7 +8,8 @@
 bms_protection_params_t g_bms_protection_params;
 uint8_t deepsleep_en;
 static unsigned requested_reads, effective_reads, event_reads, frames;
-static unsigned parameter_reads;
+static unsigned parameter_reads, manual_soc_writes;
+static u16 manual_soc;
 static u8 parameter_mixed;
 static bms_user_params_t identity_user;
 static int identity_user_ok=1;
@@ -70,7 +71,13 @@ int bms_config_store_get_system(bms_config_system_params_t *p) { (void)p; abort(
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p) { (void)p; abort(); }
 u8 bms_protection_params_commit(const bms_protection_params_t *p) { (void)p; abort(); }
 u8 bms_protection_params_valid(void) { abort(); }
-u8 bms_parameter_write(u16 r,u16 n,const u8 *p) { (void)r; (void)n; (void)p; abort(); }
+u8 bms_parameter_write(u16 r,u16 n,const u8 *p)
+{
+    assert(r == BMS_PARAM_REG_SOC && n == 1u);
+    ++manual_soc_writes;
+    manual_soc = (u16)((u16)p[0] << 8) | p[1];
+    return 0u;
+}
 int btname_modbus_on_write_holding(u16 r,u16 n,const u16 *p)
 { (void)r; (void)n; (void)p; abort(); }
 bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *p,u16 n)
@@ -144,6 +151,30 @@ static void expect_write_single(u8 addr,u16 reg,u16 value,u8 exception)
     if(exception){assert(length==5u&&rsp[1]==0x86u&&rsp[2]==exception);}
     else{assert(length==8u&&!memcmp(req,rsp,6u));}
     assert(wire_crc(rsp,length)==0u);
+}
+
+static void check_manual_soc_write(void)
+{
+    u8 req[11] = {1u, 0x10u, 0x10u, 0x05u, 0u, 1u, 2u, 0u, 88u};
+    u8 rsp[16];
+    u32 length;
+    u16 crc;
+
+    expect_write_single(1u, BMS_PARAM_REG_SOC, 67u, 0u);
+    expect_write_single(0u, BMS_PARAM_REG_SOC, 80u, 0u);
+    assert(manual_soc_writes == 1u && manual_soc == 67u);
+
+    crc = wire_crc(req, 9u);
+    req[9] = (u8)crc; req[10] = (u8)(crc >> 8);
+    assert(modbus_on_frame(req, sizeof(req), rsp, &length));
+    assert(length == 8u && !memcmp(req, rsp, 6u) && wire_crc(rsp, length) == 0u);
+    assert(manual_soc_writes == 2u && manual_soc == 88u);
+
+    req[0] = 0u;
+    crc = wire_crc(req, 9u);
+    req[9] = (u8)crc; req[10] = (u8)(crc >> 8);
+    assert(!modbus_on_frame(req, sizeof(req), rsp, &length) && length == 0u);
+    assert(manual_soc_writes == 2u);
 }
 
 static void check_realtime_window(void)
@@ -247,6 +278,7 @@ int main(void)
     check_realtime_window();
     check_product_identity();
     check_requested_profile();
+    check_manual_soc_write();
     for(unsigned i=0;i<16u;++i)words[i]=(u16)((0x2e00u+i)^0x55aau);
     parameter_reads=0u;expect_read(1u,0x2e00u,16u,words,0u);assert(parameter_reads==1u);
     /* 非法尾地址仍整帧拒绝；分派现在先读合法前缀，不再有独立的支持表预检。 */

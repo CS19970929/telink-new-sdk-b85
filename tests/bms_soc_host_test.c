@@ -245,6 +245,29 @@ static void lower_lfp_endpoint_checkpoint(void)
     assert(reboot.state.endpoint == BMS_SOC_NO_ENDPOINT);
 }
 
+static void manual_soc_checkpoint(void)
+{
+    bms_soc_t soc, reboot;
+    const uint8_t values[] = {0u, 55u, 99u, 100u};
+    unsigned i;
+
+    init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, 0u);
+    soc.state.cycles = 7u;
+    soc.state.discharge_as10 = 36000u;
+    for (i = 0u; i < sizeof(values); ++i) {
+        bms_soc_checkpoint_t checkpoint = bms_soc_manual_checkpoint(&soc, values[i]);
+        assert(bms_soc_checkpoint_valid(&checkpoint));
+        assert(soc.state.shown == 60u && soc.state.charge_as10 == 1296000u);
+        assert(checkpoint.cycles == 7u && checkpoint.discharge_as10 == 36000u);
+        bms_soc_init(&reboot, &soc.config, &checkpoint, 0u);
+        assert(reboot.state.shown == values[i] && bms_soc_percent(&reboot) == values[i]);
+        assert(reboot.state.endpoint == (values[i] == 100u ? BMS_SOC_FULL : BMS_SOC_NO_ENDPOINT));
+    }
+    bms_soc_sample_t discharge = sample(200u, 4900, 3290u, 3310u);
+    (void)bms_soc_step(&reboot, &discharge);
+    assert(reboot.state.endpoint == BMS_SOC_NO_ENDPOINT);
+}
+
 static void capacity_and_unconfirmed_bounds(void)
 {
     bms_soc_t soc;
@@ -269,6 +292,7 @@ int main(void)
     empty_and_weak();
     rest_and_configuration();
     lower_lfp_endpoint_checkpoint();
+    manual_soc_checkpoint();
     capacity_and_unconfirmed_bounds();
     return 0;
 }

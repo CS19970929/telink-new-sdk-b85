@@ -98,6 +98,23 @@ uint8_t bms_soc_checkpoint_valid(const bms_soc_checkpoint_t *cp)
         ((cp->endpoint != BMS_SOC_NO_ENDPOINT) == (cp->endpoint_basis != 0u));
 }
 
+/* 创建人工校正候选，保留循环次数和本循环的放电累计。 */
+bms_soc_checkpoint_t bms_soc_manual_checkpoint(const bms_soc_t *soc, uint8_t percent)
+{
+    bms_soc_checkpoint_t checkpoint = soc->state;
+
+    checkpoint.charge_as10 = capacity_as10(checkpoint.capacity_0p1ah) * percent / 100u;
+    checkpoint.shown = percent;
+    checkpoint.estimated = 1u;
+    checkpoint.endpoint = BMS_SOC_NO_ENDPOINT;
+    checkpoint.endpoint_basis = 0u;
+    if (percent == 100u) {
+        checkpoint.endpoint = BMS_SOC_FULL;
+        checkpoint.endpoint_basis = endpoint_basis(&soc->config);
+    }
+    return checkpoint;
+}
+
 static uint32_t resize_charge(uint32_t charge, uint16_t from, uint16_t to)
 {
     /* 先除额定容量再乘，余数乘积至多 6552*6553。 */

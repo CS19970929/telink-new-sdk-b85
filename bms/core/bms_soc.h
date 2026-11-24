@@ -82,6 +82,7 @@ typedef struct {
 void bms_soc_defaults(uint8_t chemistry, bms_soc_limits_t *limits);
 uint8_t bms_soc_limits_valid(uint8_t chemistry, const bms_soc_limits_t *limits);
 uint8_t bms_soc_checkpoint_valid(const bms_soc_checkpoint_t *checkpoint);
+bms_soc_checkpoint_t bms_soc_manual_checkpoint(const bms_soc_t *soc, uint8_t percent);
 void bms_soc_init(bms_soc_t *soc, const bms_soc_config_t *config,
                   const bms_soc_checkpoint_t *checkpoint, uint32_t now_ms);
 void bms_soc_reconfigure(bms_soc_t *soc, const bms_soc_config_t *config);

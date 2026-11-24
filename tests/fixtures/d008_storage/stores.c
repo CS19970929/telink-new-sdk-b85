@@ -41,7 +41,14 @@ uint8_t bms_afe_driver_apply_protection_config(const bms_afe_hw_profile_t *profi
 uint8_t DVC1124_ReadProtectionEffective(bms_afe_hw_profile_t *profile)
 { profile->cov_mv = last_charge; return 1u; }
 void bms_soc_app_reload(void) { ++reloads; }
-uint8_t bms_soc_app_percent(void) { return 61u; }
+static uint8_t manual_percent = 61u;
+uint8_t bms_soc_app_percent(void) { return manual_percent; }
+uint8_t bms_soc_app_set_percent(uint8_t percent)
+{
+    if (locked) return 0u;
+    manual_percent = percent;
+    return 1u;
+}
 uint8_t bms_afe_get_aux_measurements(bms_afe_aux_measurements_t *sample)
 { memset(sample, 0, sizeof(*sample)); return 1u; }
 uint8_t bms_board_heater_supported(void) { return 1u; }
@@ -156,6 +163,7 @@ static void config(void)
     bms_config_system_params_t system;
     const u8 valid[] = {0x0D, 0xBB, 0x0B, 0x22}; /* 3515 / 2850 mV */
     const u8 invalid[] = {0x0F, 0xA0, 0x0B, 0x22}; /* 超出 LFP 窗口。 */
+    const u8 manual[] = {0u, 73u, 0u, 0u};
     u8 response[4];
     unsigned initial, i;
 
@@ -168,10 +176,15 @@ static void config(void)
     assert(bms_parameter_write(BMS_PARAM_REG_SOC100_MV, 1u, valid) == 3u);
     assert(bms_parameter_write(BMS_PARAM_REG_SOC0_MV, 1u, valid) == 2u);
     assert(bms_parameter_write(BMS_PARAM_REG_SOC100_MV, 2u, invalid) == 3u);
-    assert(bms_parameter_write(BMS_PARAM_REG_SOC, 1u, valid) == 2u);
+    assert(bms_parameter_write(BMS_PARAM_REG_SOC, 1u, valid) == 3u);
+    assert(bms_parameter_write(BMS_PARAM_REG_SOC, 2u, manual) == 3u);
     locked = 1;
+    assert(bms_parameter_write(BMS_PARAM_REG_SOC, 1u, manual) == 4u);
+    assert(bms_parameter_read_block(BMS_PARAM_REG_SOC, 1u, response) && response[1] == 61u);
     assert(bms_parameter_write(BMS_PARAM_REG_SOC100_MV, 2u, valid) == 4u && !reloads);
     locked = 0;
+    assert(bms_parameter_write(BMS_PARAM_REG_SOC, 1u, manual) == 0u);
+    assert(bms_parameter_read_block(BMS_PARAM_REG_SOC, 1u, response) && response[1] == 73u);
     assert(bms_parameter_write(BMS_PARAM_REG_SOC100_MV, 2u, valid) == 0u && reloads == 1u);
     initial = writes;
     assert(bms_parameter_write(BMS_PARAM_REG_SOC100_MV, 2u, valid) == 0u && writes == initial);

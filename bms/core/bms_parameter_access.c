@@ -195,6 +195,10 @@ u8 bms_parameter_write(u16 r, u16 qty, const u8 *data)
     u16 value, i;
     if (!data || !qty) return finish(3u);
     value = word(data);
+    if (r == BMS_PARAM_REG_SOC) {
+        if (qty != 1u || value > 100u) return finish(3u);
+        return finish(bms_soc_app_set_percent((u8)value) ? 0u : 4u);
+    }
     if (r == BMS_PARAM_REG_SOC100_MV) {
         bms_soc_limits_t limits;
         bms_soc_limits_t current;

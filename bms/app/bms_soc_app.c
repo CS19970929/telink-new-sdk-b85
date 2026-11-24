@@ -101,6 +101,18 @@ void bms_soc_app_reload(void)
     publish_report();
 }
 
+uint8_t bms_soc_app_set_percent(uint8_t percent)
+{
+    const bms_soc_config_t config = s_soc.config;
+    const bms_soc_checkpoint_t checkpoint = bms_soc_manual_checkpoint(&s_soc, percent);
+
+    if (!bms_state_store_save_snapshot(&checkpoint, 1u)) return 0u;
+    bms_soc_init(&s_soc, &config, &checkpoint, bms_time_ms());
+    memset(s_low_count, 0, sizeof(s_low_count));
+    publish_report();
+    return 1u;
+}
+
 bms_soc_checkpoint_t bms_soc_app_checkpoint(void)
 {
     bms_soc_checkpoint_t cp = s_soc.state;
