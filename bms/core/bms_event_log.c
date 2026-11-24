@@ -1,279 +1,350 @@
-/*
- * 文件功能：持久历史事件和 Flash checkpoint；与详细运行调试日志独立，
- * OTA 保留已保存的历史事件，不再依据旧编号清空。
- * bms/core/bms_event_log.c；实际编译归属见各产品 sources.txt。
- */
+/* D008 Event 使用两个扇区追加已提交的 16 字节记录。 */
 #include "bms_event_log.h"
-#include "bms_update_policy.h"
-
+#include "bms_crc.h"
 #include "bms_error.h"
+#include "bms_state.h"
 #include "bms_storage_platform.h"
-#include "storage_record.h"
 #include "bms_time.h"
-#include "bms_product.h"
+#include "bms_update_policy.h"
 #include <string.h>
 
-#define BMS_EVENT_SAVE_INTERVAL_MS (60u * 1000u)
-
-#define BMS_EVENT_RECORD_MAGIC          0x45563400u + BMS_PRODUCT_ID /*
- * 事件标识为 EV4 加产品编号。
- */
-#define BMS_EVENT_SCHEMA_VERSION        4u
-#define BMS_EVENT_PAYLOAD_BYTES (2u + BMS_EVENT_LOG_ENTRY_COUNT * 2u)
+#define EVENT_FORMAT 0xD801u
+#define EVENT_COMMIT 0x45564F4Bu
+#define EVENT_RECORD_BYTES 16u
+#define EVENT_BODY_BYTES 12u
+#define EVENT_SCAN_BYTES 256u
+#define EVENT_SECTOR_COUNT 2u
+#define EVENT_MAX_HOURS 168u
+#define EVENT_INTERVAL_LIMIT_MS ((EVENT_MAX_HOURS * 3600u + 1u) * 1000u)
 
 typedef struct {
-    u8 records[BMS_EVENT_LOG_ENTRY_COUNT][2];
-    u32 last_attempt_ms;
-    u8 last_failed;
-    u8 dirty;
-    u16 write_pos;
-    u32 interval_ms;
-    u8 ready;
-    u8 event_latched[EVENT_NUM];
-    u32 clock_tick_ms;
-    u8 merge_ready;
-} bms_event_log_ctx_t;
+    uint32_t last_seq;
+    uint16_t last_word;
+    uint16_t used;
+    uint16_t valid;
+    uint8_t native;
+} event_sector_t;
 
-static bms_event_log_ctx_t g_bms_event_log;
-/* SDK 的 -fpack-struct 会压紧 ctx；TC32 整字读取 store->port，不能内嵌到未对齐偏移。 */
-static storage_record_store_t g_bms_event_store __attribute__((aligned(4)));
+static const storage_port_t *s_port;
+static storage_region_t s_region;
+static event_sector_t s_sector[EVENT_SECTOR_COUNT];
+static uint16_t s_ring[BMS_EVENT_LOG_ENTRY_COUNT];
+static uint32_t s_clock_ms, s_interval_ms, s_write_ms;
+static uint16_t s_latched;
+static uint8_t s_next, s_count, s_pending, s_active;
+static uint8_t s_ready, s_write_failed, s_stopped, s_merge, s_sleep_noted;
 
-/* 清除本次运行的历史事件去重标志。 */
-static void bms_event_log_clear_runtime_flags(void)
+static void put32(uint8_t *p, uint32_t value)
 {
-    memset(g_bms_event_log.event_latched, 0, sizeof(g_bms_event_log.event_latched));
-    g_bms_event_log.clock_tick_ms = bms_time_ms();
-    g_bms_event_log.merge_ready = 0u;
-    g_bms_event_log.interval_ms = 0u;
+    unsigned i;
+    for (i = 0u; i < 4u; ++i) p[i] = (uint8_t)(value >> (8u * i));
 }
 
-/* 毫秒区间直接饱和累计，生成协议时间码时才取完整秒。
- * 每次调用间隔须短于毫秒计数的一次回绕；不需要另一份余数状态。 */
-static void bms_event_log_advance_time(void)
+static uint32_t get32(const uint8_t *p)
 {
-    u32 now = bms_time_ms();
-    u32 delta = now - g_bms_event_log.clock_tick_ms;
-    const u32 limit_ms = (168u * 3600u + 1u) * 1000u;
-    g_bms_event_log.clock_tick_ms = now;
-    if (delta >= limit_ms - g_bms_event_log.interval_ms)
-        g_bms_event_log.interval_ms = limit_ms;
-    else
-        g_bms_event_log.interval_ms += delta;
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+        ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
-/* 仅复位 RAM 历史事件状态，不擦除持久记录。 */
-static void bms_event_log_reset_ram_only(void)
+static uint16_t ring_index(unsigned age)
 {
-    memset(g_bms_event_log.records, 0, sizeof(g_bms_event_log.records));
-    g_bms_event_log.write_pos = 0u;
-    bms_event_log_clear_runtime_flags();
+    return (uint16_t)((s_next + BMS_EVENT_LOG_ENTRY_COUNT - 1u - age) % BMS_EVENT_LOG_ENTRY_COUNT);
 }
 
-/* 按固定存储格式编码历史事件快照。 */
-static void bms_event_log_encode(u8 payload[BMS_EVENT_PAYLOAD_BYTES])
+static uint32_t slot_addr(unsigned sector, unsigned slot)
 {
-    payload[0] = (u8)(g_bms_event_log.write_pos & 0xFFu);
-    payload[1] = (u8)(g_bms_event_log.write_pos >> 8);
-    memcpy(&payload[2], g_bms_event_log.records, sizeof(g_bms_event_log.records));
+    return s_region.base + sector * s_port->erase_size + slot * EVENT_RECORD_BYTES;
 }
 
-/* 验证并解码历史事件持久记录。 */
-static int bms_event_log_decode(const u8 payload[BMS_EVENT_PAYLOAD_BYTES])
+static unsigned slots_per_sector(void)
 {
-    u16 i;
-    u16 write_pos = (u16)((u16)payload[0] | ((u16)payload[1] << 8));
-    /* 旧事件编号不再触发清空；OTA 窗口始终保留历史事件。 */
-    if (write_pos >= BMS_EVENT_LOG_ENTRY_COUNT) return 0;
-    for (i = 0u; i < BMS_EVENT_LOG_ENTRY_COUNT; ++i) {
-        u8 event = payload[2u + 2u * i];
-        u8 time = payload[3u + 2u * i];
-        if (event >= EVENT_NUM || (event == 0u && time != 0u) ||
-            (event != 0u && ((time == 0u && event != BMS_START_UP) ||
-             (time > 168u && time != 170u && time != 171u)))) return 0;
-    }
-    g_bms_event_log.write_pos = write_pos;
-    memcpy(g_bms_event_log.records, &payload[2], sizeof(g_bms_event_log.records));
+    return s_port->erase_size / EVENT_RECORD_BYTES;
+}
+
+static int blank(const uint8_t *p, unsigned size)
+{
+    unsigned i;
+    for (i = 0; i < size; ++i)
+        if (p[i] != 0xFFu) return 0;
     return 1;
 }
 
-/* 将待写历史事件合并为 checkpoint，失败按 毫秒时间退避；此路径不用于运行调试日志。 */
-static int bms_event_log_write_snapshot(void)
+static int native_header(const uint8_t *p)
 {
-    u8 payload[BMS_EVENT_PAYLOAD_BYTES];
-    u32 now = bms_time_ms();
-    if (!g_bms_event_log.ready) return 0;
-    if (g_bms_event_log.last_failed &&
-        (u32)(now - g_bms_event_log.last_attempt_ms) < BMS_STORAGE_RETRY_INTERVAL_MS) return 0;
-    g_bms_event_log.last_attempt_ms = now;
-    bms_event_log_encode(payload);
-    if (!storage_record_save(&g_bms_event_store, payload)) {
-        g_bms_event_log.last_failed = 1u;
-        bms_error_raise(BMS_ERROR_EEPROM_STORE);
-        return 0;
-    }
-    g_bms_event_log.last_failed = 0u;
-    g_bms_event_log.dirty = 0u;
-    return 1;
+    return p[6] == (uint8_t)EVENT_FORMAT && p[7] == (uint8_t)(EVENT_FORMAT >> 8);
 }
 
-/* 把采样间隔编码为历史事件时间字段。 */
-static u8 bms_event_log_map_interval(u32 seconds)
+static uint16_t decoded_word(const uint8_t *p)
 {
-    if (seconds <= 60u) return 171u;
-    if (seconds <= (3600u * 168u)) return (u8)((seconds + 3599u) / 3600u);
-    return 170u;
+    uint8_t id = p[4], time = p[5];
+    if (id == 0u || id >= EVENT_NUM ||
+        (!time && id != BMS_START_UP) || (time > EVENT_MAX_HOURS && time != 170u && time != 171u) ||
+        !native_header(p) || get32(p + EVENT_BODY_BYTES) != EVENT_COMMIT ||
+        get32(p + 8u) != ~bms_crc32_update(UINT32_MAX, p, 8u)) return 0u;
+    return (uint16_t)(((uint16_t)id << 8) | time);
 }
 
-/*
- * RAM 待保存环形缓冲在保存失败后保留事件；协议仍为 event ID 和时间码。
- */
-static void bms_event_log_append(bms_event_log_id_t event)
+static int scan_sectors(void)
 {
-    u16 pos, previous;
-    /* 三个调用入口均已完成 init；这里只更新 RAM，不存在存储失败返回。 */
-    pos = g_bms_event_log.write_pos;
-    previous = pos ? (u16)(pos - 1u) : (BMS_EVENT_LOG_ENTRY_COUNT - 1u);
-    if (g_bms_event_log.merge_ready && event != BMS_START_UP && event != BMS_SLEEP &&
-        g_bms_event_log.records[previous][0] == (u8)event &&
-        g_bms_event_log.interval_ms / 1000u <= 60u) {
-        /* 保留原完整秒<=60的合并边界；合并不重置区间或丢弃毫秒余量。 */
-        return;
-    }
-    g_bms_event_log.records[pos][0] = (u8)event;
-    g_bms_event_log.records[pos][1] = event == BMS_START_UP ? 0u :
-        bms_event_log_map_interval(g_bms_event_log.interval_ms / 1000u);
-    /* 直接访问 packed 字段，不能把未对齐成员地址作为普通 u32 * 传递。 */
-    g_bms_event_log.interval_ms = 0u;
-    g_bms_event_log.merge_ready = (event != BMS_START_UP && event != BMS_SLEEP) ? 1u : 0u;
-    g_bms_event_log.write_pos = (u16)((pos + 1u) % BMS_EVENT_LOG_ENTRY_COUNT);
-    g_bms_event_log.dirty = 1u;
-}
+    uint8_t page[EVENT_SCAN_BYTES];
+    unsigned sector, offset, i;
 
-/* 检测故障上升沿并追加历史事件。 */
-static void bms_event_log_track_edge(u8 active, bms_event_log_id_t event)
-{
-    if ((u32)event >= EVENT_NUM) return;
-    if (active) {
-        if (!g_bms_event_log.event_latched[event]) {
-            bms_event_log_append(event);
-            g_bms_event_log.event_latched[event] = 1u;
+    memset(s_sector, 0, sizeof(s_sector));
+    s_active = 0u;
+    for (sector = 0u; sector < EVENT_SECTOR_COUNT; ++sector) {
+        event_sector_t *info = &s_sector[sector];
+        for (offset = 0u; offset < s_port->erase_size; offset += EVENT_SCAN_BYTES) {
+            if (!s_port->read(s_port->ctx, slot_addr(sector, 0) + offset, page, sizeof(page)))
+                return 0;
+            for (i = 0u; i < sizeof(page); i += EVENT_RECORD_BYTES) {
+                const uint8_t *p = page + i;
+                uint16_t word;
+                if (blank(p, EVENT_RECORD_BYTES)) continue;
+                info->used = (uint16_t)((offset + i) / EVENT_RECORD_BYTES + 1u);
+                if (native_header(p)) info->native = 1u;
+                word = decoded_word(p);
+                if (word) {
+                    ++info->valid;
+                    info->last_seq = get32(p);
+                    info->last_word = word;
+                }
+            }
         }
-    } else {
-        g_bms_event_log.event_latched[event] = 0u;
+        if (info->valid && (!s_sector[s_active].valid ||
+            (int32_t)(info->last_seq - s_sector[s_active].last_seq) > 0))
+            s_active = (uint8_t)sector;
     }
+    return 1;
 }
 
-/* 加载历史记录并初始化事件跟踪状态。 */
+static int recover_recent(void)
+{
+    unsigned pass, sector, used, first_slot, offset;
+    uint8_t page[EVENT_SCAN_BYTES];
+
+    s_count = 0u;
+    for (pass = 0u; pass < EVENT_SECTOR_COUNT; ++pass) {
+        sector = s_active ^ pass;
+        used = s_sector[sector].used;
+        if (!s_sector[sector].valid) continue;
+        while (used && s_count < BMS_EVENT_LOG_ENTRY_COUNT) {
+            unsigned slots = EVENT_SCAN_BYTES / EVENT_RECORD_BYTES;
+            first_slot = (used - 1u) / slots * slots;
+            if (!s_port->read(s_port->ctx, slot_addr(sector, first_slot), page, sizeof(page)))
+                return 0;
+            for (offset = used - first_slot; offset && s_count < BMS_EVENT_LOG_ENTRY_COUNT; --offset) {
+                uint16_t word = decoded_word(page + (offset - 1u) * EVENT_RECORD_BYTES);
+                if (word) s_ring[ring_index(s_count++)] = word;
+            }
+            used = first_slot;
+        }
+    }
+    return 1;
+}
+
+static int open_region(void)
+{
+    s_port = bms_storage_platform_port();
+    return s_port && bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &s_region) &&
+        s_port->erase_size >= EVENT_SCAN_BYTES && !(s_port->erase_size % EVENT_SCAN_BYTES) &&
+        s_port->program_size == 4u && s_region.size == s_port->erase_size * EVENT_SECTOR_COUNT &&
+        slots_per_sector() >= BMS_EVENT_LOG_ENTRY_COUNT;
+}
+
 int bms_event_log_init(void)
 {
-    const storage_port_t *port;
-    storage_region_t region;
-    u8 payload[BMS_EVENT_PAYLOAD_BYTES];
-    int loaded;
-    if (g_bms_event_log.ready) return 1;
-    if (g_bms_event_log.last_failed &&
-        (u32)(bms_time_ms() - g_bms_event_log.last_attempt_ms) < BMS_STORAGE_RETRY_INTERVAL_MS) {  return 0; }
-    port = bms_storage_platform_port();
-    if (port == 0) {  return 0; }
-    if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region)) { return 0; }
-    if (!g_bms_event_store.ready && !storage_record_open(&g_bms_event_store, port, region, BMS_EVENT_RECORD_MAGIC,
-                             BMS_EVENT_SCHEMA_VERSION, BMS_EVENT_PAYLOAD_BYTES)) {
-         return 0;
+    if (s_ready) return 1;
+    if (!open_region() || !scan_sectors()) return 0;
+    if (!s_sector[s_active].valid) {
+        /* 原格式或无法辨识的首条断电记录，保留现场供显式出厂处理。 */
+        if ((s_sector[0].used && !s_sector[0].native) ||
+            (s_sector[1].used && !s_sector[1].native)) return 0;
+        if (!s_sector[0].used && s_sector[1].used) s_active = 1u;
     }
-    loaded = storage_record_load(&g_bms_event_store, payload) && bms_event_log_decode(payload);
-    if (g_bms_event_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
-         return 0;
-    }
-    if (!loaded) { bms_event_log_reset_ram_only();  }
-    g_bms_event_log.ready = 1u;
-    if (!loaded) {
-        if (!bms_event_log_write_snapshot()) { g_bms_event_log.ready = 0u;  return 0; }
-    }
-    g_bms_event_log.last_attempt_ms = bms_time_ms();
-    bms_event_log_clear_runtime_flags();
+    s_next = 0u;
+    s_pending = 0u;
+    if (!recover_recent()) return 0;
+    s_clock_ms = bms_time_ms();
+    s_interval_ms = 0u;
+    s_latched = 0u;
+    s_write_failed = s_stopped = s_merge = s_sleep_noted = 0u;
+    s_ready = 1u;
     return 1;
 }
 
-/* 记录本次启动及启动原因。 */
+static void advance_time(void)
+{
+    uint32_t now = bms_time_ms();
+    uint32_t step = now - s_clock_ms;
+    uint32_t space = EVENT_INTERVAL_LIMIT_MS - s_interval_ms;
+    s_interval_ms += step < space ? step : space;
+    s_clock_ms = now;
+}
+
+static void append(bms_event_log_id_t id)
+{
+    uint32_t sec = s_interval_ms / 1000u;
+    uint16_t word = (uint16_t)id << 8;
+    uint8_t ordinary = id != BMS_START_UP && id != BMS_SLEEP;
+
+    if (s_merge && ordinary && sec <= 60u && (s_ring[ring_index(0u)] >> 8) == (uint16_t)id)
+        return;
+    if (id != BMS_START_UP) {
+        if (sec <= 60u) word |= 171u;
+        else if (sec <= EVENT_MAX_HOURS * 3600u) word |= (uint16_t)((sec + 3599u) / 3600u);
+        else word |= 170u;
+    }
+    if (s_pending < BMS_EVENT_LOG_ENTRY_COUNT) ++s_pending;
+    else bms_error_raise(BMS_ERROR_EEPROM_STORE); /* 环已满时丢最早的未提交项。 */
+    if (s_count < BMS_EVENT_LOG_ENTRY_COUNT) ++s_count;
+    s_ring[s_next] = word;
+    s_next = (uint8_t)((s_next + 1u) % BMS_EVENT_LOG_ENTRY_COUNT);
+    s_interval_ms = 0u;
+    s_merge = ordinary;
+}
+
 void bms_event_log_note_startup(void)
 {
-    if (!bms_event_log_init()) return;
-    bms_event_log_advance_time();
-    bms_event_log_append(BMS_START_UP);
-}
-
-/* 记录进入休眠的原因与当前状态。 */
-int bms_event_log_note_sleep(void)
-{
-    if (!bms_event_log_init()) return 0;
-    bms_event_log_advance_time();
-    /* 保存失败的同一次尝试不重复追加；已提交的保护性休眠不再取消。 */
-    if (!g_bms_event_log.event_latched[BMS_SLEEP]) {
-        bms_event_log_append(BMS_SLEEP);
-        g_bms_event_log.event_latched[BMS_SLEEP] = 1u;
+    if (s_ready) {
+        advance_time();
+        append(BMS_START_UP);
     }
-    if (!g_bms_event_log.dirty) return 1;
-    return bms_event_log_write_snapshot();
 }
 
-/* 按秒检测事件变化并按策略保存检查点。 */
-void bms_event_log_poll_1s(const bms_event_log_sample_t *sample)
+void bms_event_log_observe(void)
 {
-    if (sample == 0) return;
-    if (!bms_event_log_init()) return;
-    bms_event_log_advance_time();
-    bms_event_log_track_edge(sample->vcell_ovp, VCELL_OVP);
-    bms_event_log_track_edge(sample->vbus_ovp, VBUS_OVP);
-    bms_event_log_track_edge(sample->chg_ocp, CHG_OCP);
-    bms_event_log_track_edge(sample->vcell_uvp, VCELL_UVP);
-    bms_event_log_track_edge(sample->vbus_uvp, VBUS_UVP);
-    bms_event_log_track_edge(sample->dsg_ocp, DSG_OCP);
-    bms_event_log_track_edge(sample->chg_utp, CHG_UTP);
-    bms_event_log_track_edge(sample->dsg_utp, DSG_UTP);
-    bms_event_log_track_edge(sample->chg_otp, CHG_OTP);
-    bms_event_log_track_edge(sample->dsg_otp, DSG_OTP);
-    bms_event_log_track_edge(sample->vdelta_op, VDELTA_OP);
-    bms_event_log_track_edge(sample->afe1_err, AFE1_ERR);
-    bms_event_log_track_edge(sample->cbc_err, CBC_ERR);
-    if (g_bms_event_log.dirty &&
-        (u32)(bms_time_ms() - g_bms_event_log.last_attempt_ms) >=
-        (g_bms_event_log.last_failed ? BMS_STORAGE_RETRY_INTERVAL_MS : BMS_EVENT_SAVE_INTERVAL_MS))
-        (void)bms_event_log_write_snapshot();
+    static const struct { uint16_t mask; bms_event_log_id_t id; } ids[] = {
+        {0x0001u, VCELL_OVP}, {0x0004u, VBUS_OVP}, {0x0010u, CHG_OCP},
+        {0x0002u, VCELL_UVP}, {0x0008u, VBUS_UVP}, {0x0020u, DSG_OCP},
+        {0x0100u, CHG_UTP}, {0x0200u, DSG_UTP}, {0x0040u, CHG_OTP}, {0x0080u, DSG_OTP},
+        {0x0400u, VDELTA_OP}, {0x4000u, AFE1_ERR}, {0x8000u, CBC_ERR}
+    };
+    uint16_t active = g_bms_report.fault_third.all & 0x07FFu;
+    uint16_t rising;
+    unsigned i;
+
+    if (!s_ready) return;
+    if (bms_error_get(BMS_ERROR_AFE1)) active |= 0x4000u;
+    if (bms_error_get(BMS_ERROR_CBC_DSG)) active |= 0x8000u;
+    rising = (uint16_t)(active & ~s_latched);
+    s_latched = active;
+    advance_time();
+    for (i = 0u; i < sizeof(ids) / sizeof(ids[0]); ++i)
+        if (rising & ids[i].mask) append(ids[i].id);
 }
 
-/* 读取历史事件窗口中的一个协议寄存器。 */
-u16 bms_event_log_read_reg(u16 reg)
+static void write_failed(uint32_t now)
 {
-    u16 idx;
-    if (reg >= BMS_EVENT_LOG_REG_COUNT) return 0u;
-    if (!g_bms_event_log.ready) return 0u;
-    idx = (u16)(g_bms_event_log.write_pos + BMS_EVENT_LOG_ENTRY_COUNT - 1u - reg);
-    if (idx >= BMS_EVENT_LOG_ENTRY_COUNT) idx = (u16)(idx - BMS_EVENT_LOG_ENTRY_COUNT);
-    return (u16)(((u16)g_bms_event_log.records[idx][0] << 8) |
-                 g_bms_event_log.records[idx][1]);
+    s_write_ms = now;
+    s_write_failed = 1u;
+    bms_error_raise(BMS_ERROR_EEPROM_STORE);
 }
 
-/* 出厂恢复：完整清理 Event 分区后提交空快照，不保留恢复前历史候选。 */
-int bms_event_log_factory_reset(void)
+int bms_event_log_service(uint8_t allow_erase)
 {
-    const storage_port_t *port;
-    storage_region_t region;
-    u8 payload[BMS_EVENT_PAYLOAD_BYTES];
-    if (!bms_ota_factory_reset_requested()) return 0;
-    if (!g_bms_event_store.ready) {
-        port = bms_storage_platform_port();
-        if (!port || !bms_storage_platform_region(BMS_STORAGE_DOMAIN_EVENT, &region) ||
-            !storage_record_open(&g_bms_event_store, port, region, BMS_EVENT_RECORD_MAGIC,
-                                 BMS_EVENT_SCHEMA_VERSION, BMS_EVENT_PAYLOAD_BYTES)) return 0;
+    uint8_t record[EVENT_RECORD_BYTES], verify[EVENT_RECORD_BYTES];
+    unsigned target = s_active;
+    event_sector_t *info = &s_sector[target];
+    uint32_t seq, addr, now;
+    uint16_t word;
+    uint8_t erase = 0u;
+    int read_ok, committed = 0;
+
+    if (!s_ready || s_stopped) return 0;
+    if (!s_pending) return 1;
+    now = bms_time_ms();
+    if (s_write_failed && now - s_write_ms < BMS_STORAGE_RETRY_INTERVAL_MS) return 0;
+    seq = s_sector[s_active].valid ? s_sector[s_active].last_seq + 1u : 1u;
+    if (info->used >= slots_per_sector()) {
+        target ^= 1u;
+        info = &s_sector[target];
+        if (info->valid && s_sector[s_active].valid < BMS_EVENT_LOG_ENTRY_COUNT) {
+            /* 有效记录数量决定能否擦除旧区，写中断的槽位不计入。 */
+            s_stopped = 1u;
+            write_failed(now);
+            return 0;
+        }
+        erase = info->valid || info->used >= slots_per_sector();
+        if (erase && !allow_erase) return 0;
     }
-    (void)storage_record_load(&g_bms_event_store, payload);
-    if (g_bms_event_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) return 0;
-    if (!storage_record_erase_all(&g_bms_event_store)) {
-        bms_error_raise(BMS_ERROR_EEPROM_STORE);
+    if (s_port->begin && !s_port->begin(s_port->ctx)) return 0;
+    if (erase) {
+        if (!s_port->erase(s_port->ctx, slot_addr(target, 0u), s_port->erase_size)) {
+            if (s_port->end) s_port->end(s_port->ctx);
+            write_failed(now);
+            return 0;
+        }
+        memset(info, 0, sizeof(*info));
+    }
+    addr = slot_addr(target, info->used++);
+    word = s_ring[ring_index(s_pending - 1u)];
+    put32(record, seq);
+    record[4] = (uint8_t)(word >> 8);
+    record[5] = (uint8_t)word;
+    record[6] = (uint8_t)EVENT_FORMAT;
+    record[7] = (uint8_t)(EVENT_FORMAT >> 8);
+    put32(record + 8u, ~bms_crc32_update(UINT32_MAX, record, 8u));
+    put32(record + EVENT_BODY_BYTES, EVENT_COMMIT);
+
+    read_ok = 1;
+    if (s_port->program(s_port->ctx, addr, record, EVENT_BODY_BYTES) &&
+        s_port->read(s_port->ctx, addr, verify, EVENT_BODY_BYTES) &&
+        !memcmp(record, verify, EVENT_BODY_BYTES)) {
+        (void)s_port->program(s_port->ctx, addr + EVENT_BODY_BYTES,
+                             record + EVENT_BODY_BYTES, EVENT_RECORD_BYTES - EVENT_BODY_BYTES);
+        read_ok = s_port->read(s_port->ctx, addr, verify, sizeof(verify));
+        committed = read_ok && !memcmp(record, verify, sizeof(verify));
+    }
+    if (s_port->end) s_port->end(s_port->ctx);
+    if (!read_ok) {
+        /* 提交状态不明时只扫描一次，确认前不能重复使用同一个序号。 */
+        if (!scan_sectors()) s_stopped = 1u;
+        else committed = s_sector[s_active].valid && s_sector[s_active].last_seq == seq &&
+            s_sector[s_active].last_word == word;
+    } else if (committed) {
+        ++info->valid;
+        info->last_seq = seq;
+        info->last_word = word;
+        s_active = (uint8_t)target;
+    }
+    if (!committed) {
+        write_failed(now);
         return 0;
     }
-    bms_event_log_reset_ram_only();
-    g_bms_event_log.ready = 1u;
-    g_bms_event_log.dirty = 1u;
-    return bms_event_log_write_snapshot();
+    --s_pending;
+    s_write_failed = 0u;
+    return 1;
+}
+
+int bms_event_log_note_sleep(void)
+{
+    if (!s_ready) return 0;
+    if (!s_sleep_noted) {
+        advance_time();
+        append(BMS_SLEEP);
+        s_sleep_noted = 1u;
+    }
+    return bms_event_log_service(0u);
+}
+
+u16 bms_event_log_read_reg(u16 reg)
+{
+    return s_ready && reg < s_count ? s_ring[ring_index(reg)] : 0u;
+}
+
+int bms_event_log_factory_reset(void)
+{
+    unsigned sector;
+
+    s_ready = 0u;
+    if (!bms_ota_factory_reset_requested() || !open_region() || !scan_sectors()) return 0;
+    for (sector = 0u; sector < EVENT_SECTOR_COUNT; ++sector) {
+        int ok;
+        if (!s_sector[sector].used) continue;
+        if (s_port->begin && !s_port->begin(s_port->ctx)) return 0;
+        ok = s_port->erase(s_port->ctx, slot_addr(sector, 0u), s_port->erase_size);
+        if (s_port->end) s_port->end(s_port->ctx);
+        if (!ok) return 0;
+    }
+    return 1; /* 全域已空，Config 的进行中标记仍保留到最终提交。 */
 }

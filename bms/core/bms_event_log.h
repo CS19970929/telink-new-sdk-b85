@@ -40,22 +40,18 @@ typedef enum {
     EVENT_NUM
 } bms_event_log_id_t;
 
-typedef struct {
-    u8 vcell_ovp, vbus_ovp, chg_ocp, vcell_uvp, vbus_uvp, dsg_ocp;
-    u8 chg_utp, dsg_utp, chg_otp, dsg_otp, vdelta_op;
-    u8 afe1_err, cbc_err;
-} bms_event_log_sample_t;
-
 /* 加载历史记录并初始化事件跟踪状态。 */
 int bms_event_log_init(void);
 /* 恢复出厂包清空全部可见事件历史。 */
 int bms_event_log_factory_reset(void);
 /* 记录本次启动；原协议不含启动原因。 */
 void bms_event_log_note_startup(void);
-/* 追加休眠尝试并保存检查点；失败保留待保存记录。 */
+/* 记录有序休眠，并尝试提交最早的待写事件。 */
 int bms_event_log_note_sleep(void);
-/* 按秒检测事件变化并按策略保存检查点。 */
-void bms_event_log_poll_1s(const bms_event_log_sample_t *sample);
+/* 保护仲裁后采集边沿，不做 Flash 事务。 */
+void bms_event_log_observe(void);
+/* 在主循环空窗内最多提交一条记录。 */
+int bms_event_log_service(uint8_t allow_erase);
 /* 读取历史事件窗口中的一个协议寄存器。 */
 u16 bms_event_log_read_reg(u16 reg);
 

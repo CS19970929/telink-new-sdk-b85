@@ -108,7 +108,7 @@ static void app_prepare_deep_sleep(void)
     /* 不在 OTA/Flash 会话内追加写入；其余情况各保存一次，失败不重试、不拒睡。 */
     if (!ota_is_working && app_flash_lock_restore_enabled()) {
         bms_soc_checkpoint_t state = bms_soc_app_checkpoint();
-        (void)bms_state_store_save_snapshot(&state);
+        (void)bms_state_store_save_snapshot(&state, 0u);
         (void)bms_event_log_note_sleep();
     }
     if (device_in_connection_state)

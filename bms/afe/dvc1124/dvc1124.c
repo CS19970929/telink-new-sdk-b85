@@ -705,12 +705,12 @@ static uint8_t dvc_disable_threshold_protection(void)
 #endif
 
 /* 将独立硬件保护配置量化并写入 DVC。 */
-static uint8_t dvc_apply_protection_from_params(void)
+uint8_t bms_afe_driver_apply_protection_config(const bms_afe_hw_profile_t *hw)
 {
 #if !DVC1124_HW_PROTECT_ENABLE
+    (void)hw;
     return dvc_disable_threshold_protection();
 #else
-    bms_afe_hw_profile_t hw;
     dvc1124_config_t cfg;
     uint16_t cov_mv;
     uint16_t cuv_mv;
@@ -722,12 +722,11 @@ static uint8_t dvc_apply_protection_from_params(void)
     uint16_t code12;
     uint8_t ok = 1u;
 
-    if (!bms_afe_hw_profile_get(&hw)) return 0u;
     DVC1124_GetConfig(&cfg);
     if (cfg.shunt_uohm == 0u) return 0u;
 
-    cov_mv = (hw.enable_mask & BMS_AFE_HW_EN_COV) ? hw.cov_mv : 0u;
-    cuv_mv = (hw.enable_mask & BMS_AFE_HW_EN_CUV) ? hw.cuv_mv : 0u;
+    cov_mv = (hw->enable_mask & BMS_AFE_HW_EN_COV) ? hw->cov_mv : 0u;
+    cuv_mv = (hw->enable_mask & BMS_AFE_HW_EN_CUV) ? hw->cuv_mv : 0u;
 
     if (cov_mv == 0u) {
         code12 = 0u;
@@ -735,7 +734,7 @@ static uint8_t dvc_apply_protection_from_params(void)
         if ((cov_mv < 501u) || (cov_mv > 4595u)) return 0u;
         code12 = (uint16_t)(cov_mv - 500u);
     }
-    code = dvc_voltage_delay_code(hw.cov_delay_ms);
+    code = dvc_voltage_delay_code(hw->cov_delay_ms);
     buf[0] = (uint8_t)(code12 >> 4);
     buf[1] = (uint8_t)(((code12 & 0x0Fu) << 4) | code);
     ok &= dvc_write_verified_block(DVC1124_REG_COV_H, buf, 2u);
@@ -746,26 +745,26 @@ static uint8_t dvc_apply_protection_from_params(void)
         if (cuv_mv > 4095u) return 0u;
         code12 = cuv_mv;
     }
-    code = dvc_voltage_delay_code(hw.cuv_delay_ms);
+    code = dvc_voltage_delay_code(hw->cuv_delay_ms);
     buf[0] = (uint8_t)(code12 >> 4);
     buf[1] = (uint8_t)(((code12 & 0x0Fu) << 4) | code);
     ok &= dvc_write_verified_block(DVC1124_REG_CUV_H, buf, 2u);
 
-    request = (hw.enable_mask & BMS_AFE_HW_EN_OCD1) ? hw.ocd1_a10 : 0u;
+    request = (hw->enable_mask & BMS_AFE_HW_EN_OCD1) ? hw->ocd1_a10 : 0u;
     code = dvc_current_to_oc1_code(request);
     ok &= dvc_write_verified(DVC1124_REG_OCD1_THR, code);
 
-    request = (hw.enable_mask & BMS_AFE_HW_EN_OCC1) ? hw.occ1_a10 : 0u;
+    request = (hw->enable_mask & BMS_AFE_HW_EN_OCC1) ? hw->occ1_a10 : 0u;
     code = dvc_current_to_oc1_code(request);
     ok &= dvc_write_verified(DVC1124_REG_OCC1_THR, code);
 
-    code = dvc_linear_delay_code(hw.ocd1_delay_ms, 8u);
+    code = dvc_linear_delay_code(hw->ocd1_delay_ms, 8u);
     ok &= dvc_write_verified(DVC1124_REG_OCD1_DLY, code);
 
-    code = dvc_linear_delay_code(hw.occ1_delay_ms, 8u);
+    code = dvc_linear_delay_code(hw->occ1_delay_ms, 8u);
     ok &= dvc_write_verified(DVC1124_REG_OCC1_DLY, code);
 
-    request = (hw.enable_mask & BMS_AFE_HW_EN_OCD2) ? hw.ocd2_a10 : 0u;
+    request = (hw->enable_mask & BMS_AFE_HW_EN_OCD2) ? hw->ocd2_a10 : 0u;
     if (request == 0u) {
         ok &= dvc_update_reg(DVC1124_REG_OCD2,
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK), 0u);
@@ -776,7 +775,7 @@ static uint8_t dvc_apply_protection_from_params(void)
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | code));
     }
 
-    request = (hw.enable_mask & BMS_AFE_HW_EN_OCC2) ? hw.occ2_a10 : 0u;
+    request = (hw->enable_mask & BMS_AFE_HW_EN_OCC2) ? hw->occ2_a10 : 0u;
     if (request == 0u) {
         ok &= dvc_update_reg(DVC1124_REG_OCC2,
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | DVC1124_OC2_THRESHOLD_MASK), 0u);
@@ -787,30 +786,22 @@ static uint8_t dvc_apply_protection_from_params(void)
                              (uint8_t)(DVC1124_OC2_ENABLE_MASK | code));
     }
 
-    code = dvc_linear_delay_code(hw.ocd2_delay_ms, 4u);
+    code = dvc_linear_delay_code(hw->ocd2_delay_ms, 4u);
     ok &= dvc_write_verified(DVC1124_REG_OCD2_DLY, code);
 
-    code = dvc_linear_delay_code(hw.occ2_delay_ms, 4u);
+    code = dvc_linear_delay_code(hw->occ2_delay_ms, 4u);
     ok &= dvc_write_verified(DVC1124_REG_OCC2_DLY, code);
 
     sc_mv = 0u;
-    if (hw.enable_mask & BMS_AFE_HW_EN_SC) {
-        sc_sense_uv = ((uint32_t)hw.sc_a10 * cfg.shunt_uohm) / 10u;
+    if (hw->enable_mask & BMS_AFE_HW_EN_SC) {
+        sc_sense_uv = ((uint32_t)hw->sc_a10 * cfg.shunt_uohm) / 10u;
         /* 向下量化为 10 mV 编码，使实际硬件动作阈值不高于请求的物理电流阈值。 */
         sc_mv = (uint16_t)((sc_sense_uv / 10000u) * 10u);
         if (sc_mv < 10u || sc_mv > 630u) return 0u;
     }
-    ok &= DVC1124_SetShortCircuitProtection(sc_mv, hw.sc_delay_us);
+    ok &= DVC1124_SetShortCircuitProtection(sc_mv, hw->sc_delay_us);
     return ok;
 #endif
-}
-
-/* 应用并验证 DVC 硬件保护参数。 */
-uint8_t bms_afe_driver_apply_protection_config(void)
-{
-    uint8_t ok = dvc_apply_protection_from_params();
-
-    return ok;
 }
 
 /* 将 NTC 电阻换算为协议温度编码。 */
@@ -1183,29 +1174,14 @@ static uint8_t DVC1124_AFE_IsReady(void)
 /* 按当前参数更新 DVC AFE 配置。 */
 void DVC1124_UpdataAfeConfig(void)
 {
-    uint8_t ok;
+    bms_afe_hw_profile_t profile;
 
-    /* AFE 通道使用以 D008 实际装配配置为准。 */
-    if (!DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT))
-    {
-
-        return;
-    }
-    if (DVC1124_AFE_IsReady() != 0u) {  return; }
-
-    ok = dvc_apply_basic_config();
-    if (ok) ok = dvc_apply_protection_from_params();
-    if (ok) ok = DVC1124_ApplyProjectOperatingConfig();
-    if (ok)
-    {
-        s_need_config = 0u;
-
-    }
-    else
-    {
-        s_need_config = 1u;
-
-    }
+    s_need_config = 1u;
+    if (!DVC1124_SetCellCount((uint8_t)DVC1124_DEFAULT_CELL_COUNT) ||
+        DVC1124_AFE_IsReady() != 0u || !bms_afe_hw_profile_get(&profile) ||
+        !dvc_apply_basic_config() || !bms_afe_driver_apply_protection_config(&profile) ||
+        !DVC1124_ApplyProjectOperatingConfig()) return;
+    s_need_config = 0u;
 }
 
 /* 把电流测量转换并发布到公共报告。 */

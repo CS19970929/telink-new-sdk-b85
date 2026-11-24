@@ -25,8 +25,9 @@ void bms_afe_apply_outputs(void);
 /* 强制休眠接管寄存器冻结且保持输出关闭；DVC 请求 Shutdown，SH 请求 Sleep。
  * 总线静默等门禁拒绝或命令失败返回 0，调用方仍执行 MCU 深睡/断电。 */
 uint8_t bms_afe_sleep(void);
-/* 安全门禁允许时应用独立硬件保护配置。 */
-uint8_t bms_afe_apply_protection_config(void);
+/* 在线应用前关断并保持；提交或验证回滚后等待下一完整样本。 */
+uint8_t bms_afe_begin_protection_update(void);
+void bms_afe_finish_protection_update(void);
 /* 配置提交/回滚未验证时保持输出禁止，直到完整配置重新验证。 */
 void bms_afe_invalidate_configuration(void);
 /* 保存充放电意图并按 guard 资格应用到后端。 */

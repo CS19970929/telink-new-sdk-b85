@@ -98,9 +98,6 @@ u8 bms_afe_hw_profile_get(bms_afe_hw_profile_t *profile);
 u8 bms_afe_hw_profile_get_effective(bms_afe_hw_profile_t *profile);
 /* 按产品输入构造独立 AFE 硬件保护默认值。 */
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *profile);
-void bms_afe_hw_profile_build_chemistry_default(u8 chemistry, bms_afe_hw_profile_t *profile);
-/* 整套 Config 已提交后的 AFE 应用；失败保持 inhibit，不只回滚其中一个参数组。 */
-u8 bms_afe_hw_profile_apply_committed(void);
 
 typedef enum
 {
@@ -118,6 +115,7 @@ typedef enum
     BMS_AFE_HW_ERROR_STORE = 3u,
     BMS_AFE_HW_ERROR_APPLY_VERIFY = 4u,
     BMS_AFE_HW_ERROR_ROLLBACK = 5u,
+    BMS_AFE_HW_ERROR_STORE_UNKNOWN = 6u,
 } bms_afe_hw_error_t;
 
 /* 与帧/传输无关的完整 35-word 大端载荷；解析或访问存储/AFE 前先检查现有写会话。 */

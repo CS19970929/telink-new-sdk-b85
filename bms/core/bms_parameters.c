@@ -9,7 +9,7 @@
 #include "bms_config_store.h"
 #include "bms_event_log.h"
 #include "bms_state_store.h"
-#include "bms_storage_platform.h"
+#include "bms_afe.h"
 
 bms_protection_params_t g_bms_protection_params;
 static uint8_t s_protection_params_valid;
@@ -52,6 +52,7 @@ uint8_t bms_protection_params_commit(const bms_protection_params_t *candidate)
         return 0u;
     }
     if (!bms_config_store_set_protect(candidate)) {
+        if (bms_config_store_commit_unknown()) bms_afe_invalidate_configuration();
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 0u;
     }
@@ -73,12 +74,12 @@ static void parameters_validate_storage_startup(void)
     config_valid = bms_config_store_validate_startup() ? 1u : 0u;
     if (config_valid && bms_config_store_factory_reset_pending()) {
         /* 搬迁并保留 Config 进行中标记，再清理全部业务历史；不能先擦掉续做依据。 */
-        config_valid = bms_config_store_purge_factory_history() &&
-                       bms_storage_platform_erase_factory_legacy();
+        config_valid = bms_config_store_purge_factory_history();
         state_valid = config_valid && bms_state_store_factory_reset() ? 1u : 0u;
         event_valid = state_valid && bms_event_log_factory_reset() ? 1u : 0u;
         if (!state_valid || !event_valid || !bms_config_store_finish_factory_reset())
             config_valid = 0u;
+        else event_valid = bms_event_log_init() ? 1u : 0u;
     } else {
         state_valid = bms_state_store_init() ? 1u : 0u;
         event_valid = bms_event_log_init() ? 1u : 0u;

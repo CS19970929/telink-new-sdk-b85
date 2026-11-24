@@ -4,6 +4,8 @@
  * bms/core/storage_record.c；实际编译归属见各产品 sources.txt。
  */
 #include "storage_record.h"
+#include "bms_crc.h"
+#include <string.h>
 
 #define OFF_MAGIC       0u
 #define OFF_FORMAT      4u
@@ -44,20 +46,6 @@ static uint32_t get32(const uint8_t *p)
 {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
-}
-
-/* 将一个字节累积到存储记录 CRC32。 */
-static uint32_t crc_update(uint32_t crc, const uint8_t *data, uint32_t len)
-{
-    uint32_t i;
-    uint8_t bit;
-    for (i = 0u; i < len; ++i) {
-        crc ^= data[i];
-        for (bit = 0u; bit < 8u; ++bit) {
-            crc = (crc & 1u) ? ((crc >> 1) ^ 0xEDB88320u) : (crc >> 1);
-        }
-    }
-    return crc;
 }
 
 /* 把长度向上对齐到指定存储粒度。 */
@@ -149,8 +137,8 @@ static uint32_t payload_crc(const storage_record_store_t *s,
     put16(meta + 4u, s->schema_version);
     put16(meta + 6u, s->payload_size);
     put32(meta + 8u, sequence);
-    crc = crc_update(crc, meta, sizeof(meta));
-    return ~crc_update(crc, payload, s->payload_size);
+    crc = bms_crc32_update(crc, meta, sizeof(meta));
+    return ~bms_crc32_update(crc, payload, s->payload_size);
 }
 
 /* 分段读取 Flash 载荷并计算 CRC。 */
@@ -167,12 +155,12 @@ static int flash_payload_crc(const storage_record_store_t *s, uint32_t addr,
     put16(meta + 4u, s->schema_version);
     put16(meta + 6u, s->payload_size);
     put32(meta + 8u, sequence);
-    crc = crc_update(crc, meta, sizeof(meta));
+    crc = bms_crc32_update(crc, meta, sizeof(meta));
     addr += OFF_PAYLOAD;
     while (remain != 0u) {
         n = (remain > IO_CHUNK) ? IO_CHUNK : remain;
         if (!s->port->read(s->port->ctx, addr, buf, n)) return 0;
-        crc = crc_update(crc, buf, n);
+        crc = bms_crc32_update(crc, buf, n);
         addr += n;
         remain -= n;
     }
@@ -206,7 +194,7 @@ static int sequence_newer(uint32_t a, uint32_t b)
 /* 校验分区和端口配置并建立记录访问状态。 */
 int storage_record_open(storage_record_store_t *s, const storage_port_t *port,
                         storage_region_t region, uint32_t magic,
-                        uint16_t schema, uint16_t payload_size)
+                        uint16_t schema, uint16_t payload_size, uint16_t slot_size)
 {
     uint32_t slot;
     if (s == 0 || port == 0 || port->read == 0 || port->program == 0 ||
@@ -217,6 +205,11 @@ int storage_record_open(storage_record_store_t *s, const storage_port_t *port,
         region.base % port->erase_size != 0u || region.size % port->erase_size != 0u)
         return 0;
     slot = align_up(STORAGE_RECORD_HEADER_SIZE + payload_size, port->program_size);
+    if (slot_size) {
+        if (slot_size < slot || slot_size % port->program_size ||
+            port->erase_size % slot_size) return 0;
+        slot = slot_size;
+    }
     if (slot > port->erase_size || STORAGE_RECORD_HEADER_SIZE % port->program_size != 0u ||
         OFF_COMMIT0 % port->program_size != 0u || 8u % port->program_size != 0u)
         return 0;
@@ -235,6 +228,7 @@ int storage_record_open(storage_record_store_t *s, const storage_port_t *port,
     s->write_needs_erase = 0u;
     s->write_failures = 0u;
     s->load_status = STORAGE_RECORD_LOAD_EMPTY;
+    s->save_status = STORAGE_RECORD_SAVE_FAILED;
     s->ready = s->slots_per_sector ? 1u : 0u;
     return s->ready;
 }
@@ -244,7 +238,7 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
 {
     uint8_t h[STORAGE_RECORD_HEADER_SIZE];
     uint16_t sec, slot;
-    uint32_t addr, seq, best_seq = 0u, best_addr = INVALID_ADDR;
+    uint32_t addr, seq, best_seq = 0u, best_crc = 0u, best_addr = INVALID_ADDR;
     uint8_t found = 0u;
     int valid;
     uint32_t i;
@@ -260,6 +254,7 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
             if (valid && (!found || sequence_newer(seq, best_seq))) {
                 found = 1u;
                 best_seq = seq;
+                best_crc = get32(h + OFF_CRC);
                 best_addr = addr;
             }
             if (!valid) {
@@ -283,7 +278,8 @@ int storage_record_load(storage_record_store_t *s, uint8_t *payload)
         s->has_latest = 0u;
         return 0;
     }
-    if (!s->port->read(s->port->ctx, best_addr + OFF_PAYLOAD, payload, s->payload_size)) goto io_error;
+    if (!s->port->read(s->port->ctx, best_addr + OFF_PAYLOAD, payload, s->payload_size) ||
+        payload_crc(s, best_seq, payload) != best_crc) goto io_error;
     s->latest_addr = best_addr;
     s->next_sequence = best_seq + 1u;
     if (s->next_sequence == 0u) s->next_sequence = 1u;
@@ -306,42 +302,52 @@ static int prepare_target(storage_record_store_t *s, uint32_t *addr, uint8_t *er
         return 1;
     }
     if (!s->has_latest) {
-        *addr = slot_addr(s, 0u, 0u);
-        *erase = 1u;
-        return 1;
-    }
-    sec = sector_index(s, s->latest_addr);
-    slot = (uint16_t)(slot_index(s, s->latest_addr) + 1u);
-    while (slot < s->slots_per_sector) {
-        *addr = slot_addr(s, sec, slot);
-        blank = is_erased(s, *addr, s->slot_size);
-        if (blank < 0) return 0;
-        if (blank) {
-            *erase = 0u;
-            return 1;
+        next = 0u;
+    } else {
+        sec = sector_index(s, s->latest_addr);
+        slot = (uint16_t)(slot_index(s, s->latest_addr) + 1u);
+        while (slot < s->slots_per_sector) {
+            *addr = slot_addr(s, sec, slot);
+            blank = is_erased(s, *addr, s->slot_size);
+            if (blank < 0) return 0;
+            if (blank) {
+                *erase = 0u;
+                return 1;
+            }
+            ++slot;
         }
-        ++slot;
+        next = (uint16_t)((sec + 1u) % s->sector_count);
     }
-    next = (uint16_t)(sec + 1u);
-    if (next >= s->sector_count) next = 0u;
-    if (next == sec) return 0;
     *addr = slot_addr(s, next, 0u);
-    *erase = 1u;
+    blank = is_erased(s, *addr, s->port->erase_size);
+    if (blank < 0) return 0;
+    *erase = !blank;
     return 1;
+}
+
+int storage_record_can_append(storage_record_store_t *s)
+{
+    uint32_t addr;
+    uint8_t erase;
+    return s->ready && s->save_status != STORAGE_RECORD_SAVE_UNKNOWN &&
+        s->write_failures < STORAGE_RECORD_MAX_WRITE_FAILURES &&
+        prepare_target(s, &addr, &erase) && !erase;
 }
 
 /* 先准备目标空间再写入并验证新记录；保持旧有效记录可恢复，不假定掉电写入原子。 */
 int storage_record_save(storage_record_store_t *s, const uint8_t *payload)
 {
-    uint8_t header[STORAGE_RECORD_HEADER_SIZE];
+    uint8_t header[STORAGE_RECORD_HEADER_SIZE], observed[STORAGE_RECORD_HEADER_SIZE];
     uint8_t commit[8];
-    uint32_t addr, sequence, crc, base;
+    uint32_t addr, sequence, crc, base, check;
     uint8_t erase;
     uint32_t i;
     int ok = 0;
 
     if (s == 0 || !s->ready || payload == 0 ||
-        s->write_failures >= STORAGE_RECORD_MAX_WRITE_FAILURES ||
+        s->save_status == STORAGE_RECORD_SAVE_UNKNOWN) return 0;
+    s->save_status = STORAGE_RECORD_SAVE_FAILED;
+    if (s->write_failures >= STORAGE_RECORD_MAX_WRITE_FAILURES ||
         !prepare_target(s, &addr, &erase)) return 0;
     s->write_addr = addr;
     s->write_needs_erase = erase;
@@ -365,16 +371,32 @@ int storage_record_save(storage_record_store_t *s, const uint8_t *payload)
     }
     if (!program_bytes(s, addr, header, OFF_COMMIT0)) goto done;
     if (!program_bytes(s, addr + OFF_PAYLOAD, payload, s->payload_size)) goto done;
-    if (!program_bytes(s, addr + OFF_COMMIT0, commit, sizeof(commit))) goto done;
+    if (!s->port->read(s->port->ctx, addr, observed, OFF_COMMIT0) ||
+        memcmp(header, observed, OFF_COMMIT0) ||
+        !flash_payload_crc(s, addr, sequence, &check) || check != crc) goto done;
+
+    /* 编程返回值可能来自读回失败。以完整记录判定是否真的提交。 */
+    (void)program_bytes(s, addr + OFF_COMMIT0, commit, sizeof(commit));
+    if (!s->port->read(s->port->ctx, addr, observed, sizeof(observed))) {
+        s->save_status = STORAGE_RECORD_SAVE_UNKNOWN;
+        goto done;
+    }
+    if (memcmp(observed + OFF_COMMIT0, commit, sizeof(commit))) goto done;
+    if (!flash_payload_crc(s, addr, sequence, &check) ||
+        memcmp(header, observed, OFF_COMMIT0) || check != crc) {
+        s->save_status = STORAGE_RECORD_SAVE_UNKNOWN;
+        goto done;
+    }
     s->latest_addr = addr;
     s->has_latest = 1u;
     s->next_sequence = sequence + 1u;
     if (s->next_sequence == 0u) s->next_sequence = 1u;
     s->write_addr = INVALID_ADDR;
     s->write_failures = 0u;
+    s->save_status = STORAGE_RECORD_SAVE_OK;
     ok = 1;
 done:
-    if (!ok) {
+    if (!ok && s->save_status != STORAGE_RECORD_SAVE_UNKNOWN) {
         ++s->write_failures;
         /* 成功擦除后不因编程失败再擦同一扇区；丢弃受影响槽位。 */
         if (!s->write_needs_erase) {
@@ -416,7 +438,7 @@ static int erase_record_sector(storage_record_store_t *s, uint16_t sector)
 int storage_record_erase_all(storage_record_store_t *s)
 {
     uint16_t sector;
-    if (s == 0 || !s->ready) return 0;
+    if (s == 0 || !s->ready || s->save_status == STORAGE_RECORD_SAVE_UNKNOWN) return 0;
     for (sector = 0u; sector < s->sector_count; ++sector)
         if (!erase_record_sector(s, sector)) return 0;
     s->latest_addr = INVALID_ADDR;
@@ -438,6 +460,9 @@ int storage_record_purge_history(storage_record_store_t *s, const uint8_t *paylo
     for (sector = 0u; sector < s->sector_count; ++sector) {
         if (sector != retained && !erase_record_sector(s, sector)) return 0;
     }
+    if (s->latest_addr == sector_base(s, retained) &&
+        is_erased(s, s->latest_addr + s->slot_size,
+                  s->port->erase_size - s->slot_size) == 1) return 1;
     destination = retained == 0u ? 1u : 0u;
     s->write_addr = sector_base(s, destination);
     s->write_needs_erase = 0u;

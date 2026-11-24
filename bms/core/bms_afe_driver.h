@@ -2,6 +2,7 @@
 #ifndef BMS_AFE_DRIVER_H_
 #define BMS_AFE_DRIVER_H_
 #include "bms_afe.h"
+#include "bms_afe_hw_profile.h"
 
 void bms_afe_driver_init(void);
 /* 恢复前关闭并回读功率控制（含自主反向通路）及均衡；不是物理 Gate 测量。 */
@@ -11,7 +12,7 @@ uint8_t bms_afe_driver_register_config_ready(void);
 bms_afe_sample_status_t bms_afe_driver_sample(void);
 /* 最后一次命令成功仅确认 AFE 事务，不代表实测 MOS/Gate 状态。 */
 uint8_t bms_afe_driver_sleep(void);
-uint8_t bms_afe_driver_apply_protection_config(void);
+uint8_t bms_afe_driver_apply_protection_config(const bms_afe_hw_profile_t *profile);
 uint8_t bms_afe_driver_set_fets(uint8_t charge_on, uint8_t discharge_on);
 /* 无可信测量时只允许关闭指定方向及已确认保护方向，不重放另一侧开启命令。 */
 uint8_t bms_afe_driver_disable_fets(uint8_t charge_off, uint8_t discharge_off);

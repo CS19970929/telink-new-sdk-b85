@@ -346,6 +346,7 @@ static int bms_config_cache_equal(const bms_config_cache_t *a,
 static int bms_config_save_cache(const bms_config_cache_t *cfg)
 {
     u8 payload[BMS_CONFIG_PAYLOAD_BYTES];
+    if (bms_config_store_commit_unknown()) return 0;
     if (g_bms_config_store.has_latest && !g_bms_config_needs_save &&
         bms_config_cache_equal(cfg, &g_bms_config)) return 1;
     bms_config_encode(cfg, payload);
@@ -362,7 +363,7 @@ static int bms_config_save_cache(const bms_config_cache_t *cfg)
 /* 确保配置存储已初始化并可访问。 */
 static int bms_config_ensure_ready(void)
 {
-    return g_bms_config_ready ? 1 : bms_config_store_init();
+    return !bms_config_store_commit_unknown() && (g_bms_config_ready || bms_config_store_init());
 }
 
 /* 不解码任何旧版数据。进行中标记与本次出厂包 ID 一同持久化。 */
@@ -414,7 +415,7 @@ int bms_config_store_init(void)
     if (port == 0) {  return 0; }
     if (!bms_storage_platform_region(BMS_STORAGE_DOMAIN_CONFIG, &region)) { return 0; }
     if (!g_bms_config_store.ready && !storage_record_open(&g_bms_config_store, port, region, BMS_CONFIG_RECORD_MAGIC,
-                             BMS_CONFIG_SCHEMA_VERSION, BMS_CONFIG_PAYLOAD_BYTES)) {
+                             BMS_CONFIG_SCHEMA_VERSION, BMS_CONFIG_PAYLOAD_BYTES, 512u)) {
          return 0;
     }
     g_bms_config_needs_save = 0u;
@@ -458,6 +459,11 @@ int bms_config_store_init(void)
     g_bms_config_user_valid = bms_config_user_valid(&g_bms_config.user) ? 1u : 0u;
     g_bms_config_ready = 1u;
     return 1;
+}
+
+int bms_config_store_commit_unknown(void)
+{
+    return g_bms_config_store.save_status == STORAGE_RECORD_SAVE_UNKNOWN;
 }
 
 /* 取得缓存的软件保护配置。 */

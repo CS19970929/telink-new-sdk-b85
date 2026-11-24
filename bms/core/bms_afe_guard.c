@@ -123,6 +123,8 @@ static uint8_t service_failsafe_wait(void)
     uint32_t wait_ms;
     if (!s_guard.bus_silenced) return 0u; /* 调用方已单独拦截主动 shutdown。 */
 
+    if (s_guard.config_inhibit) return 1u;
+
     /* 硬件看门狗计时期间绝不进行 AFE I2C 访问。 */
     elapsed_ms = (uint32_t)(bms_time_ms() - s_guard.failsafe_start_tick_ms);
     wait_ms = s_guard.recovery_retry ? BMS_AFE_RECOVERY_RETRY_MS : BMS_AFE_WATCHDOG_SILENCE_MS;
@@ -248,8 +250,6 @@ void bms_afe_init(void)
     s_guard.config_inhibit = config_inhibit;
     bms_afe_driver_reset_voltage_check();
     bms_afe_driver_init();
-    /* 同进程重初始化不能仅靠 RAM 清零解除未验证配置；完整应用成功才解除。 */
-    if (config_inhibit && bms_afe_driver_apply_protection_config()) s_guard.config_inhibit = 0u;
     if (!bms_afe_driver_set_fets(0u, 0u)) note_invalid();
     bms_sw_protection_init();
     bms_features_init();
@@ -332,26 +332,32 @@ uint8_t bms_afe_sleep(void)
     return 1u;
 }
 
-/* 安全门禁允许时应用独立硬件保护配置。 */
-uint8_t bms_afe_apply_protection_config(void)
+/* AFE 参数事务期间保持双路硬关闭和均衡关闭。 */
+uint8_t bms_afe_begin_protection_update(void)
 {
-    uint8_t ok;
-
-    if (s_guard.bus_silenced || s_guard.shutdown_committed ||
-        (s_guard.comm_inhibit && !s_guard.config_inhibit)) return 0u;
+    if (!output_ready() || !bms_protection_params_valid()) return 0u;
     s_guard.config_inhibit = 1u;
-    ok = bms_afe_driver_apply_protection_config();
-    if (ok) s_guard.config_inhibit = 0u;
-    else note_invalid();
-    return ok;
+    bms_features_stop();
+    if (!bms_afe_driver_prepare_recovery() || !bms_afe_driver_stop_voltage_check()) {
+        enter_failsafe_wait();
+        return 0u;
+    }
+    return 1u;
 }
 
-/* 配置事务所有者撤销授权；通信恢复不能证明部分写入的寄存器已经一致。 */
+void bms_afe_finish_protection_update(void)
+{
+    /* 后续完整采样后再根据实际保护和原 MOS 请求恢复输出。 */
+    s_guard.config_inhibit = 0u;
+    s_guard.comm_inhibit = 1u;
+    s_guard.cycle_failed = 1u;
+}
+
 void bms_afe_invalidate_configuration(void)
 {
     s_guard.config_inhibit = 1u;
-    inhibit_local();
     best_effort_shutdown();
+    enter_failsafe_wait();
 }
 
 /* 保存充放电意图并按 guard 资格应用到后端。 */

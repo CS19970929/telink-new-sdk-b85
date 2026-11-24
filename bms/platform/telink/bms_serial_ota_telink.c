@@ -23,6 +23,7 @@ int bms_serial_ota_flash_open(uint32_t *base)
     candidate = ota_program_offset;
     flash_read_page((candidate ? 0u : 0x20000u) + 8u, 1u, &old_mark);
     if (old_mark != 0x4Bu) return 0;
+    app_storage_before_ota();
     ota_is_working = 1u;
     app_flash_protection_operation(FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_BEGIN,
                                  candidate, candidate + BMS_SERIAL_OTA_SLOT_BYTES);

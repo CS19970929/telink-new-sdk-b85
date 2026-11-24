@@ -96,7 +96,7 @@ static int open_store(void)
     storage_region_t region;
 
     return port && bms_storage_platform_region(BMS_STORAGE_DOMAIN_STATE, &region) &&
-        storage_record_open(&s_store, port, region, STATE_MAGIC, STATE_SCHEMA, STATE_PAYLOAD_BYTES);
+        storage_record_open(&s_store, port, region, STATE_MAGIC, STATE_SCHEMA, STATE_PAYLOAD_BYTES, 64u);
 }
 
 static int save_record(const state_record_t *next)
@@ -130,6 +130,7 @@ int bms_state_store_init(void)
     }
     if (bms_ota_update_selected(BMS_UPDATE_SOC_STATE) &&
         !bms_ota_update_id_matches(next.update_id)) {
+        s_saved = next; /* 更新失败仍可报告此前已验证的检查点。 */
         memset(&next.soc, 0, sizeof(next.soc));
         bms_ota_update_copy_id(next.update_id);
         if (!save_record(&next)) return 0;
@@ -153,12 +154,14 @@ static int same_checkpoint(const bms_soc_checkpoint_t *a, const bms_soc_checkpoi
         a->estimated == b->estimated;
 }
 
-int bms_state_store_save_snapshot(const bms_soc_checkpoint_t *checkpoint)
+int bms_state_store_save_snapshot(const bms_soc_checkpoint_t *checkpoint, uint8_t allow_erase)
 {
     state_record_t next;
 
-    if (!s_ready || !bms_soc_checkpoint_valid(checkpoint)) return 0;
+    if (!s_ready || s_store.save_status == STORAGE_RECORD_SAVE_UNKNOWN ||
+        !bms_soc_checkpoint_valid(checkpoint)) return 0;
     if (same_checkpoint(checkpoint, &s_saved.soc)) return 1;
+    if (!allow_erase && !storage_record_can_append(&s_store)) return 0;
     next = s_saved;
     next.soc = *checkpoint;
     return save_record(&next);
@@ -169,25 +172,27 @@ static uint32_t distance_u32(uint32_t a, uint32_t b)
     return a >= b ? a - b : b - a;
 }
 
-void bms_state_store_poll_snapshot(const bms_soc_checkpoint_t *cp)
+int bms_state_store_poll_snapshot(const bms_soc_checkpoint_t *cp, uint8_t allow_erase)
 {
     const bms_soc_checkpoint_t *previous = &s_saved.soc;
     uint32_t threshold = (uint32_t)cp->capacity_0p1ah * BMS_SOC_UNITS_PER_0P1AH / 50u;
     uint8_t end = cp->endpoint;
     uint8_t target = end == BMS_SOC_FULL ? 100u : 0u;
 
-    if (!s_ready || cp->capacity_0p1ah == 0u) return;
+    uint32_t since_write = bms_time_ms() - s_last_write_ms;
+    if (!s_ready || cp->capacity_0p1ah == 0u ||
+        (s_write_failed && since_write < BMS_STORAGE_RETRY_INTERVAL_MS)) return 0;
     if (end != BMS_SOC_NO_ENDPOINT &&
         (end != previous->endpoint || cp->endpoint_basis != previous->endpoint_basis ||
          (cp->shown == target && previous->shown != target))) {
-        (void)bms_state_store_save_snapshot(cp);
-        return;
+        return bms_state_store_save_snapshot(cp, allow_erase);
     }
-    if (bms_time_ms() - s_last_write_ms < STATE_INTERVAL_MS) return;
+    if (since_write < STATE_INTERVAL_MS) return 0;
     if (!previous->capacity_0p1ah || cp->capacity_0p1ah != previous->capacity_0p1ah ||
         cp->cycles != previous->cycles || distance_u32(cp->charge_as10, previous->charge_as10) >= threshold ||
         distance_u32(cp->discharge_as10, previous->discharge_as10) >= threshold)
-        (void)bms_state_store_save_snapshot(cp);
+        return bms_state_store_save_snapshot(cp, allow_erase);
+    return 0;
 }
 
 int bms_state_store_factory_reset(void)

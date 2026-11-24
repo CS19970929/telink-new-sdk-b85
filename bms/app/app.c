@@ -78,38 +78,56 @@ static void app_schedule_sample_wakeup(void)
         s_sample_tick + APP_SAMPLE_PERIOD_US * SYSTEM_TIMER_TICK_1US, 1u);
 }
 
-/* 按秒推进历史事件与运行计时任务。 */
-static void app_storage_1s_task(void)
+/* 编程和擦除窗口分别估算；实装 Flash 最长时序仍需板上核定。 */
+#define APP_FLASH_PROGRAM_WINDOW_US 6000u
+#define APP_FLASH_ERASE_WINDOW_US 60000u
+
+static uint32_t app_flash_window_us(void)
 {
-	bms_event_log_sample_t sample;
+    const uint32_t ticks_per_us = CLOCK_SYS_CLOCK_HZ / 1000000u;
+    uint32_t now = clock_time();
+    uint32_t age = (now - s_sample_tick) / ticks_per_us;
+    uint32_t window;
 
-    _attribute_data_retention_ static u32 event_log_ms = 0;
-
-    if ((u32)(bms_time_ms() - event_log_ms) <= 1000u) return;
-    event_log_ms = bms_time_ms();
-
-	memset(&sample, 0, sizeof(sample));
-
-	sample.vcell_ovp = g_bms_report.fault_third.bits.cell_ovp ? 1u : 0u;
-	sample.vbus_ovp = g_bms_report.fault_third.bits.pack_ovp ? 1u : 0u;
-	sample.chg_ocp = g_bms_report.fault_third.bits.charge_ocp ? 1u : 0u;
-	sample.vcell_uvp = g_bms_report.fault_third.bits.cell_uvp ? 1u : 0u;
-	sample.vbus_uvp = g_bms_report.fault_third.bits.pack_uvp ? 1u : 0u;
-	sample.dsg_ocp = g_bms_report.fault_third.bits.discharge_ocp ? 1u : 0u;
-	sample.chg_utp = g_bms_report.fault_third.bits.charge_utp ? 1u : 0u;
-	sample.dsg_utp = g_bms_report.fault_third.bits.discharge_utp ? 1u : 0u;
-	sample.chg_otp = g_bms_report.fault_third.bits.charge_otp ? 1u : 0u;
-	sample.dsg_otp = g_bms_report.fault_third.bits.discharge_otp ? 1u : 0u;
-	sample.vdelta_op = g_bms_report.fault_third.bits.cell_delta_high ? 1u : 0u;
-
-	sample.afe1_err = bms_error_get(BMS_ERROR_AFE1) ? 1u : 0u;
-	sample.cbc_err = bms_error_get(BMS_ERROR_CBC_DSG) ? 1u : 0u;
-
-	bms_event_log_poll_1s(&sample);
-	{
-        bms_soc_checkpoint_t state = bms_soc_app_checkpoint();
-        bms_state_store_poll_snapshot(&state);
+    if (ota_is_working || !app_flash_lock_restore_enabled() || s_sample_due ||
+        modbus_uart_tx_active() || age >= APP_SAMPLE_PERIOD_US) return 0u;
+    window = APP_SAMPLE_PERIOD_US - age;
+    if (device_in_connection_state) {
+        int32_t ticks = (int32_t)(bls_pm_getNexteventWakeupTick() - now);
+        if (ticks <= 0) return 0u;
+        if ((uint32_t)ticks / ticks_per_us < window) window = (uint32_t)ticks / ticks_per_us;
     }
+    return window;
+}
+
+static void app_storage_task(void)
+{
+    static uint32_t last_state_poll_ms;
+    uint32_t window = app_flash_window_us();
+    uint32_t now;
+    uint8_t allow_erase;
+
+    if (window < APP_FLASH_PROGRAM_WINDOW_US) return;
+    allow_erase = window >= APP_FLASH_ERASE_WINDOW_US && bus_mux_get_state() != BUS_STATE_UART_MODBUS;
+    now = bms_time_ms();
+    if (now - last_state_poll_ms >= 1000u) {
+        bms_soc_checkpoint_t state = bms_soc_app_checkpoint();
+        last_state_poll_ms = now;
+        if (bms_state_store_poll_snapshot(&state, allow_erase)) return;
+    }
+    (void)bms_event_log_service(allow_erase);
+}
+
+void app_storage_before_ota(void)
+{
+    bms_soc_checkpoint_t state;
+
+    /* 升级入口只使用现成空槽，不在协议处理路径擦扇区。 */
+    if (app_flash_window_us() < APP_FLASH_PROGRAM_WINDOW_US) return;
+    state = bms_soc_app_checkpoint();
+    (void)bms_state_store_save_snapshot(&state, 0u);
+    if (app_flash_window_us() >= APP_FLASH_PROGRAM_WINDOW_US)
+        (void)bms_event_log_service(0u);
 }
 
 /* 按选定产品初始化 AFE 接口、供电和板级 GPIO。 */
@@ -156,7 +174,6 @@ _attribute_no_inline_ void main_loop(void)
     bus_mux_task();
 
     app_sample_task();
-    app_storage_1s_task();
 
 	/* 处理采样/存储期间到来的接管边沿，避免再多等一轮SDK。 */
 	bus_mux_task();
@@ -164,6 +181,7 @@ _attribute_no_inline_ void main_loop(void)
 #if BMS_PRODUCT_UART_ENABLE
 	main_loop_modbus();
 #endif
+    app_storage_task();
 	app_power_process(&s_sample_due);
 }
 
@@ -186,6 +204,7 @@ static void app_sample_task(void)
     }
     valid = bms_afe_get_aux_measurements(&m);
     bms_soc_app_sample(valid ? &m : NULL);
+    bms_event_log_observe();
 
 
     /* 采样期限独立于 BLE 广播间隔；超期只标记下一轮，不补跑历史样本。 */

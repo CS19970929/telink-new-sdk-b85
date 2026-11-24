@@ -27,6 +27,12 @@ typedef enum {
     STORAGE_RECORD_LOAD_IO_ERROR     /* 读失败：不允许用默认值覆盖。 */
 } storage_record_load_status_t;
 
+typedef enum {
+    STORAGE_RECORD_SAVE_FAILED = 0,
+    STORAGE_RECORD_SAVE_OK,
+    STORAGE_RECORD_SAVE_UNKNOWN
+} storage_record_save_status_t;
+
 typedef struct {
     const storage_port_t *port;
     storage_region_t region;
@@ -44,6 +50,7 @@ typedef struct {
     uint8_t write_needs_erase;
     uint8_t write_failures;
     storage_record_load_status_t load_status;
+    storage_record_save_status_t save_status;
 } storage_record_store_t;
 
 /* 校验分区和端口配置并建立记录访问状态。 */
@@ -52,12 +59,14 @@ int storage_record_open(storage_record_store_t *store,
                         storage_region_t region,
                         uint32_t magic,
                         uint16_t schema_version,
-                        uint16_t payload_size);
+                        uint16_t payload_size, uint16_t slot_size);
 
 /* 返回 1 表示加载成功；失败原因见 load_status，IO_ERROR 不允许覆盖为默认值。 */
 int storage_record_load(storage_record_store_t *store, uint8_t *payload_out);
 /* 写入并验证新记录后发布提交标记，保留旧有效记录。 */
 int storage_record_save(storage_record_store_t *store, const uint8_t *payload);
+/* 用于 OTA 取得独占前的短窗口。空槽可用时不需要擦除。 */
+int storage_record_can_append(storage_record_store_t *store);
 
 /* 显式初始化：逐扇区擦除并验证整个区域，成功后从首槽重新建立记录。
  * 调用方必须已在其它区域持久化进行中标记；普通保存不得调用。 */

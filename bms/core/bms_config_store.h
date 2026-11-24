@@ -50,6 +50,8 @@ typedef struct {
 int bms_config_store_init(void);
 /* 输出授权前验证各配置域、更新编号与存储提交状态。 */
 int bms_config_store_validate_startup(void);
+/* 提交标记写出后读取失败，须等待重启核对。 */
+int bms_config_store_commit_unknown(void);
 /* 出厂包 Config 预提交后，等待 State/Event 重置并完成最终提交。 */
 int bms_config_store_factory_reset_pending(void);
 /* 进行中标记已持久化后，搬迁标记并清除 Config 中的全部恢复前记录。 */
