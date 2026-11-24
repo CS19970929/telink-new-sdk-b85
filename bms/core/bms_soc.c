@@ -59,8 +59,8 @@ static uint16_t distance_u16(uint16_t a, uint16_t b)
 
 void bms_soc_defaults(uint8_t chemistry, bms_soc_limits_t *limits)
 {
-    limits->full_mv = chemistry == BMS_SOC_CHEMISTRY_NMC ? 4180u : 3500u;
-    limits->empty_mv = chemistry == BMS_SOC_CHEMISTRY_NMC ? 3100u : 2850u;
+    limits->full_mv = chemistry == BMS_SOC_CHEMISTRY_NMC ? 4180u : 3550u;
+    limits->empty_mv = chemistry == BMS_SOC_CHEMISTRY_NMC ? 3100u : 2600;
 }
 
 uint8_t bms_soc_limits_valid(uint8_t chemistry, const bms_soc_limits_t *limits)
