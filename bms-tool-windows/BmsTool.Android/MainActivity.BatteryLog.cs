@@ -40,8 +40,8 @@ public sealed partial class MainActivity
         var controls = Row();
         _batteryLogStart = ActionButton("开始记录", StartBatteryLogAsync, false);
         _batteryLogStop = ActionButton("停止记录", StopBatteryLogAsync, false);
-        controls.AddView(_batteryLogStart);
-        controls.AddView(_batteryLogStop);
+        AddEqual(controls, _batteryLogStart);
+        AddEqual(controls, _batteryLogStop);
         page.AddView(controls);
         _batteryLogStatus = DataBlock("未开始");
         page.AddView(_batteryLogStatus);
@@ -65,7 +65,7 @@ public sealed partial class MainActivity
             _batteryLogStatus!.Text = "该文件夹未授权写入，请另选文件夹";
             return;
         }
-        string folderId = DocumentsContract.GetTreeDocumentId(folder) ?? folder.ToString();
+        string folderId = DocumentsContract.GetTreeDocumentId(folder) ?? folder.ToString() ?? "已选文件夹";
         _batteryLogFolder = folder;
         _batteryLogFolderView!.Text = folderId;
         _batteryLogStatus!.Text = "文件夹已选择";

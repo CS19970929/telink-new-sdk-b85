@@ -5,8 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BmsAppEdition Condition="'$(BmsAppEdition)' == ''">Internal</BmsAppEdition>
-    <ApplicationVersion>22</ApplicationVersion>
-    <ApplicationDisplayVersion>0.9.7</ApplicationDisplayVersion>
+    <ApplicationVersion>23</ApplicationVersion>
+    <ApplicationDisplayVersion>0.9.8</ApplicationDisplayVersion>
     <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
     <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
