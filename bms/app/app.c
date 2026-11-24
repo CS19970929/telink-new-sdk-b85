@@ -56,7 +56,7 @@
 #include "bus_mux.h"
 
 /* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
-static void app_sample_task(void);
+static uint8_t app_sample_task(void);
 /* 采样唤醒回调消费 SDK 期限并交付标志，AFE/SOC 留在主循环。 */
 static void app_sample_wakeup(int type);
 static u32 s_sample_tick;
@@ -160,6 +160,7 @@ static void board_init(void)
 /* BLE → 通信接收恢复 → 到期采样 → 状态检查点 → 协议通信 → 低功耗。 */
 _attribute_no_inline_ void main_loop(void)
 {
+    uint8_t sampled;
     if (app_power_prepare_loop()) return;
     /* 到期业务必须先撤下 SDK 旧期限；不能等 SDK 返回后才处理过期定时器。 */
     if (app_sample_is_due()) {
@@ -173,7 +174,7 @@ _attribute_no_inline_ void main_loop(void)
 	blt_sdk_main_loop();
     bus_mux_task();
 
-    app_sample_task();
+    sampled = app_sample_task();
 
 	/* 处理采样/存储期间到来的接管边沿，避免再多等一轮SDK。 */
 	bus_mux_task();
@@ -182,18 +183,18 @@ _attribute_no_inline_ void main_loop(void)
 	main_loop_modbus();
 #endif
     app_storage_task();
-	app_power_process(&s_sample_due);
+	app_power_process(&s_sample_due, sampled);
 }
 
 
 /* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
-static void app_sample_task(void)
+static uint8_t app_sample_task(void)
 {
     bms_afe_aux_measurements_t m;
     bms_afe_sample_status_t result;
     u8 valid;
 
-    if (!app_sample_is_due()) return;
+    if (!app_sample_is_due()) return 0u;
 
     s_sample_due = 0u;
     s_sample_tick = clock_time();
@@ -211,6 +212,7 @@ static void app_sample_task(void)
     if (clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US)) s_sample_due = 1u;
     app_schedule_sample_wakeup();
     gpio_toggle(LED_BLUE_PIN);
+    return 1u;
 }
 
 /* 四产品共用 BLE 回调；后端差异留在采样和电源流程。 */

@@ -50,8 +50,6 @@
 #error "BMS_PRODUCT_SWITCH_SLEEP_ENABLE must be 0 or 1"
 #endif
 
-#define APP_PM_MS_PER_SEC 1000u
-
 typedef struct
 {
 	u32 epoch_ms;
@@ -61,7 +59,7 @@ static bool s_low_power_mode;
 uint8_t deepsleep_en;
 
 /* 命令应答只作有界等待，不能成为强制休眠的永久门禁。 */
-#define APP_COMMAND_REPLY_MS (APP_PM_MS_PER_SEC / 2u)
+#define APP_COMMAND_REPLY_MS 500u
 static u8 s_command_seen;
 static u32 s_command_ms;
 /* 策略时间由 Core 推进；提交标志只由应用一次性硬件收尾拥有。 */
@@ -73,20 +71,14 @@ static app_protective_sleep_t s_protective_sleep;
 static u8 s_acc_sleep_committed;
 
 
-/* 从低功耗时间差中消费完整秒数并保留余量。 */
-static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
+/* 每轮采样结算一次，避免主循环重复判断同一份 CC2 快照。 */
+static u32 app_pm_take_elapsed_ms(app_pm_elapsed_ctx_t *ctx)
 {
     u32 now = bms_time_ms();
-    u32 seconds;
-    if (!ctx->ready) {
-        ctx->epoch_ms = now;
-        ctx->ready = 1u;
-        return 0u;
-    }
-    seconds = (u32)(now - ctx->epoch_ms) / APP_PM_MS_PER_SEC;
-    /* 起点只跨过完整秒，余下毫秒留在差值中；乘积不会超过原始差值。 */
-    ctx->epoch_ms += seconds * APP_PM_MS_PER_SEC;
-    return seconds;
+    u32 elapsed = ctx->ready ? now - ctx->epoch_ms : 0u;
+    ctx->epoch_ms = now;
+    ctx->ready = 1u;
+    return elapsed;
 }
 
 
@@ -142,7 +134,7 @@ static u8 app_command_sleep_poll(void)
 }
 
 /* 两档低压、AFE 异常和过放分别计时；无新鲜数据不能证明已恢复。 */
-static u8 app_protective_sleep_poll(u32 elapsed_sec,
+static u8 app_protective_sleep_poll(u32 elapsed_ms,
                                     const bms_afe_aux_measurements_t *m, u8 valid,
                                     app_sleep_status_t *status)
 {
@@ -153,6 +145,7 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec,
     }
     bms_config_get_sleep(&config);
     input.valid = valid;
+    input.current_valid = valid && m->current_qualified;
     input.afe_fault = bms_error_get(BMS_ERROR_AFE1);
     input.current_ma = valid ? m->current_ma : 0;
     input.cell_min_mv = g_bms_report.cell_min_mv;
@@ -161,7 +154,7 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec,
     input.pack_uvp_recover_10mv = g_bms_protection_params.pack_uvp_recover_10mv;
     input.overdischarge_fault = g_bms_report.fault_third.bits.cell_uvp ||
                                g_bms_report.fault_third.bits.pack_uvp;
-    bms_sleep_policy_step(&s_protective_sleep, &config, &input, elapsed_sec, status);
+    bms_sleep_policy_step(&s_protective_sleep, &config, &input, elapsed_ms, status);
     if (status->reason != BMS_SLEEP_REASON_NONE)
         bms_sleep_status_publish(status->reason, 0u, status->elapsed_ms,
                         status->delay_ms, 0u, 0u);
@@ -251,15 +244,13 @@ void task_sleep_enter(u8 e, u8 *p, int n)
 }
 
 /* 共用一次测量、保护性休眠计时和原因选择，再处理板级入口与Suspend门禁。 */
-void app_power_process(const volatile uint8_t *sample_due)
+void app_power_process(const volatile uint8_t *sample_due, uint8_t sampled)
 {
     static app_pm_elapsed_ctx_t elapsed_ctx;
+    static app_sleep_status_t protective;
     bms_afe_aux_measurements_t m;
-    app_sleep_status_t protective;
-    u32 elapsed_sec = app_pm_take_elapsed_seconds(&elapsed_ctx);
     u8 valid = bms_afe_get_aux_measurements(&m);
-    /* 冻结暂停采样，不暂停强制休眠；无效快照不能撤销已确认的低压/过放。 */
-    if (app_protective_sleep_poll(elapsed_sec, &m, valid, &protective)) return;
+    if (sampled && app_protective_sleep_poll(app_pm_take_elapsed_ms(&elapsed_ctx), &m, valid, &protective)) return;
     /* 等待有界命令应答时，仍保持主循环运行。 */
     if (deepsleep_en && app_command_sleep_poll()) return;
     if (app_acc_sleep_requested() && app_enter_acc_sleep()) return;

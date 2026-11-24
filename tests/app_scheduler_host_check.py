@@ -5,7 +5,7 @@ app = read("bms/app/app.c")
 power = read("bms/app/app_power.c")
 parts = "\n".join(function(app, sig) for sig in (
     "static void app_schedule_sample_wakeup(", "uint8_t app_sample_is_due(",
-    "static void app_sample_task(", "_attribute_no_inline_ void main_loop("))
+    "static uint8_t app_sample_task(", "_attribute_no_inline_ void main_loop("))
 parts = function(power, "uint8_t app_power_prepare_loop(") + "\n" + parts
 run_c(read("tests/fixtures/d008_scheduler/scheduler.c").replace("/* PRODUCTION */", parts),
       name="d008-scheduler")

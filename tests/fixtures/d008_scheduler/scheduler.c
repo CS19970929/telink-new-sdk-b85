@@ -30,8 +30,8 @@ static void bus_mux_task(void) { note('X'); }
 static void sif_prepare_task(uint32_t tick) { assert(tick == s_sample_tick); note('I'); }
 static void main_loop_modbus(void) { note('U'); }
 static void app_storage_task(void) { note('F'); }
-static void app_power_process(const volatile uint8_t *pending)
-{ assert(pending == &s_sample_due); note('P'); }
+static void app_power_process(const volatile uint8_t *pending, uint8_t sampled)
+{ assert(pending == &s_sample_due && sampled == (strchr(trace, 'A') != 0)); note('P'); }
 static void gpio_toggle(unsigned pin) { assert(pin == LED_BLUE_PIN); note('L'); }
 void bms_features_service(void) { note('T'); }
 void bms_afe_apply_outputs(void) { note('M'); }

@@ -10,7 +10,7 @@ extern uint8_t deepsleep_en;
 /* 已提交保护性深睡/ACC/关机时只执行保持动作并返回 1；正常运行返回 0。 */
 uint8_t app_power_prepare_loop(void);
 /* app.c 必须传入非空采样标志指针；本次调用只读，不缓存指针或修改标志。 */
-void app_power_process(const volatile uint8_t *sample_due);
+void app_power_process(const volatile uint8_t *sample_due, uint8_t sampled);
 /* 保留原 SDK suspend-enter callback 的名字、签名与注册位置。 */
 void task_sleep_enter(uint8_t e, uint8_t *p, int n);
 /* 四产品临睡前复核采样期限和通信活动；已提交深睡始终放行。 */
