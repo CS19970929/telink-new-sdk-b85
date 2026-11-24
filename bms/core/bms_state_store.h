@@ -1,52 +1,9 @@
-/*
- * 文件功能：SOC/循环数据的状态记录；
- * 管理缓存、变化保存和恢复默认入口。
- * bms/core/bms_state_store.h；实际编译归属见各产品 sources.txt。
- */
 #pragma once
 
-/* Storage V1 的 State 域保存 SOC 和循环检查点。 */
+#include "bms_soc.h"
 
-#include <stdint.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifndef BMS_STATE_DEFAULT_SOC
-#define BMS_STATE_DEFAULT_SOC    60u
-#endif
-#ifndef BMS_STATE_DEFAULT_DSG
-#define BMS_STATE_DEFAULT_DSG    0u
-#endif
-#ifndef BMS_STATE_DEFAULT_CYCLE
-#define BMS_STATE_DEFAULT_CYCLE  0u
-#endif
-
-typedef struct {
-    uint32_t soc;
-    uint32_t dsg;
-    uint32_t cycle;
-    uint32_t full_confirmed;
-    uint32_t full_basis;
-} bms_state_store_data_t;
-
-/* 加载并验证持久状态，建立当前缓存。 */
-int  bms_state_store_init(void);
-/* 恢复出厂包清除旧 SOC/循环，失败不发布。 */
-int  bms_state_store_factory_reset(void);
-/* 取得 SOC 和循环状态默认值。 */
-bms_state_store_data_t bms_state_store_get_default_data(void);
-/* 取得缓存的 SOC 和循环状态。 */
-bms_state_store_data_t bms_state_store_get(void);
-/* 保存完整状态并按结果发布缓存。 */
-int  bms_state_store_save(uint32_t soc, uint32_t dsg, uint32_t cycle);
-/* 仅在状态变化且策略允许时提交检查点。 */
-void bms_state_store_poll(uint32_t soc, uint32_t dsg, uint32_t cycle);
-/* SOC、资格及其配置依据一起提交；旧三参数服务入口不授予满电资格。 */
-int bms_state_store_save_snapshot(const bms_state_store_data_t *data);
-void bms_state_store_poll_snapshot(const bms_state_store_data_t *data);
-
-#ifdef __cplusplus
-}
-#endif
+int bms_state_store_init(void);
+int bms_state_store_factory_reset(void);
+bms_soc_checkpoint_t bms_state_store_get(void);
+int bms_state_store_save_snapshot(const bms_soc_checkpoint_t *checkpoint);
+void bms_state_store_poll_snapshot(const bms_soc_checkpoint_t *checkpoint);

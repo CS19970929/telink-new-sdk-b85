@@ -13,8 +13,8 @@ tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/sync_word_
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/tlkapi_debug.c
 tc_ble_single_sdk-V3.4.2.8_Patch_0001/tc_ble_single_sdk/vendor/common/user_config.c
 bms/core/bms_soc.c
-bms/core/bms_soc_eta.c
 bms/app/app.c
+bms/app/bms_soc_app.c
 bms/app/app_power.c
 bms/platform/telink/app_ble.c
 bms/platform/telink/app_att.c
@@ -26,7 +26,6 @@ bms/platform/telink/bms_board.c
 bms/core/bms_config_store.c
 bms/core/bms_sleep_config.c
 bms/core/bms_sleep_status.c
-bms/core/bms_soc_profile.c
 bms/core/bms_event_log.c
 bms/app/bms_features.c
 bms/core/bms_parameter_access.c

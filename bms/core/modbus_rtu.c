@@ -18,7 +18,6 @@
 #include "bms_features.h"
 #include "dvc1124.h"
 #include "bms_parameters.h"
-#include "bms_soc.h"
 #include "bms_event_log.h"
 #include "app_power.h"
 #include "dvc1124_config_service.h"
@@ -381,9 +380,7 @@ static u8 write_reg(u16 reg, u16 val)
     if (dvc_comm_is_semantic(reg))
         return dvc_comm_write(reg, val);
 
-    if (reg==BMS_PARAM_REG_SOC || reg==BMS_PARAM_REG_CAPACITY || reg==BMS_PARAM_REG_CYCLE ||
-        (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) ||
-        (reg>=BMS_PARAM_REG_SOC_PROFILE_STAGE_BASE && reg<BMS_PARAM_REG_SOC_PROFILE_STAGE_END)) {
+    if (reg==BMS_PARAM_REG_CAPACITY || (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u)) {
         u8 bytes[2]={(u8)(val>>8),(u8)val};
         return bms_parameter_write(reg,1u,bytes);
     }
@@ -575,9 +572,8 @@ static int modbus_write_multiple(const u8 *req, u32 req_len, u8 *rsp, u32 *rsp_l
             return modbus_exception(addr, func, MB_EX_ILLEGAL_ADDRESS, rsp, rsp_len);
 
         /* 预检全部范围；单帧只能修改一个状态所有者，执行副作用前拒绝跨界/未知写入。 */
-        if ((reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) ||
-            (reg>=BMS_PARAM_REG_SOC_PROFILE_STAGE_BASE &&
-             (u32)reg+qty<=BMS_PARAM_REG_SOC_PROFILE_STAGE_END)) {
+        if (reg>=BMS_PARAM_REG_MAGIC && reg<0x2F00u) {
+            if (addr == 0u && reg == BMS_PARAM_REG_SOC100_MV) return 0;
             exception=bms_parameter_write(reg,qty,pdata);
         } else if (reg==BTNAME_REG_BASE && qty<=BTNAME_REG_WORDS) {
             exception=btname_modbus_on_write_holding(reg,qty,(const uint16_t *)pdata) ? 0u : MB_EX_DEVICE_FAILURE;
@@ -739,9 +735,7 @@ void bms_product_info_refresh(void)
 u8 bms_reset_software_parameters(void)
 {
     bms_protection_params_t defaults;
-    bms_config_system_params_t system;
-    if (!bms_config_store_get_system(&system)) return MB_EX_DEVICE_FAILURE;
-    bms_config_store_get_chemistry_protect((u8)system.battery_chemistry, &defaults);
+    bms_config_store_get_default_protect(&defaults);
     return commit_protection_update(&defaults);
 }
 /* 恢复独立 AFE 硬件保护默认参数并应用。 */
@@ -750,9 +744,7 @@ u8 bms_reset_afe_parameters(void)
     bms_afe_hw_profile_t defaults;
     u8 payload[70];
     u16 i, value;
-    bms_config_system_params_t system;
-    if (!bms_config_store_get_system(&system)) return MB_EX_DEVICE_FAILURE;
-    bms_afe_hw_profile_build_chemistry_default((u8)system.battery_chemistry, &defaults);
+    bms_afe_hw_profile_build_default(&defaults);
     for (i=0u;i<BMS_AFE_HW_PROFILE_WORD_COUNT;++i) {
         memcpy(&value, (const u8 *)&defaults+i*2u, sizeof(value));
         put_u16be(payload+i*2u,value);

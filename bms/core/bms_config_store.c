@@ -1,5 +1,5 @@
 /*
- * 文件功能：CFG4 持久配置的缓存、校验与编解码；按产品 tag 和镜像更新选择恢复/更新各
+ * 文件功能：D008 Config 持久配置的缓存、校验与编解码；按产品 tag 和镜像更新选择恢复/更新各
  * 参数组，OTA 选择与一次性标记随 BIN 发布。
  * bms/core/bms_config_store.c；实际编译归属见各产品 sources.txt。
  */
@@ -17,8 +17,10 @@
 #include "storage_record.h"
 #include <string.h>
 
-#define BMS_CONFIG_RECORD_MAGIC          0x43464734u /* 配置记录标识：CFG4。 */
-#define BMS_CONFIG_SCHEMA_VERSION        4u
+#define BMS_CONFIG_RECORD_MAGIC          0x44384331u /* D8C1 */
+#define BMS_CONFIG_SCHEMA_VERSION        1u
+#define BMS_CONFIG_ASSEMBLY_TAG (BMS_PRODUCT_ID | ((u32)BMS_PRODUCT_CHEMISTRY << 16) | ((u32)BMS_PRODUCT_CELL_COUNT << 24))
+#define BMS_CONFIG_SOC_WORDS             2u
 /* 普通包 ID 的第一 word 恒为零；出厂重置进行中时改为此标记。 */
 #define BMS_CONFIG_FACTORY_PENDING_TAG    0xFA57u
 #define BMS_CONFIG_PROTECT_WORDS         65u
@@ -31,7 +33,7 @@
 #define BMS_CONFIG_PROTECT_BYTES         (BMS_CONFIG_PROTECT_WORDS * 2u)
 #define BMS_CONFIG_SYSTEM_BYTES          (BMS_CONFIG_SYSTEM_WORDS * 4u)
 #define BMS_CONFIG_AFE_BYTES             (BMS_CONFIG_AFE_WORDS * 2u)
-#define BMS_CONFIG_PAYLOAD_BYTES (4u + BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_BTNAME_BYTES + BMS_CONFIG_USER_BYTES + BMS_OTA_UPDATE_ID_WORDS * 2u + BMS_SOC_PROFILE_WORDS * 2u + 8u)
+#define BMS_CONFIG_PAYLOAD_BYTES (4u + BMS_CONFIG_PROTECT_BYTES + BMS_CONFIG_SYSTEM_BYTES + BMS_CONFIG_AFE_BYTES + BMS_CONFIG_BTNAME_BYTES + BMS_CONFIG_USER_BYTES + BMS_OTA_UPDATE_ID_WORDS * 2u + BMS_CONFIG_SOC_WORDS * 2u + 8u)
 
 #if (BTNAME_SUFFIX_MAX_LEN >= BMS_CONFIG_BTNAME_BYTES)
 #error "BMS_CONFIG_BTNAME_BYTES must leave room for NUL"
@@ -39,7 +41,7 @@
 
 typedef char bms_config_protect_layout_must_be_65_words[(sizeof(bms_protection_params_t) == BMS_CONFIG_PROTECT_BYTES) ? 1 : -1];
 typedef char bms_config_afe_layout_must_be_35_words[(sizeof(bms_afe_hw_profile_t) == BMS_CONFIG_AFE_BYTES) ? 1 : -1];
-typedef char bms_config_soc_is_50_words[(sizeof(bms_soc_profile_config_t) == BMS_SOC_PROFILE_WORDS * 2u) ? 1 : -1];
+typedef char bms_config_soc_is_two_words[(sizeof(bms_soc_limits_t) == BMS_CONFIG_SOC_WORDS * 2u) ? 1 : -1];
 typedef char bms_config_sleep_is_5_words[(sizeof(bms_sleep_config_t) == 10u) ? 1 : -1];
 /* 只共享连续的七个 u16；校准字段仍逐字段编码。TC32 的 stddef.h 与 SDK size_t 冲突。 */
 typedef char bms_config_user_business_layout_must_be_7_words[(__builtin_offsetof(bms_user_params_t, balance_stop_delta_mv) + sizeof(u16) == BMS_CONFIG_USER_BUSINESS_WORDS * 2u) ? 1 : -1];
@@ -56,14 +58,13 @@ typedef struct {
     bms_protection_params_t protect;
     bms_config_system_data_t system;
     bms_afe_hw_profile_t afe_hw;
-    bms_soc_profile_config_t soc;
+    bms_soc_limits_t soc;
     bms_sleep_config_t sleep;
     bms_user_params_t user;
     char bt_name_suffix[BMS_CONFIG_BTNAME_BYTES];
 } bms_config_cache_t;
 
 static storage_record_store_t g_bms_config_store __attribute__((aligned(4)));
-static u16 g_bms_config_soc_generation;
 /* 已接受的参数缓存；保存失败不得把未落盘候选当作已提交配置发布。 */
 static bms_config_cache_t g_bms_config;
 static u8 g_bms_config_ready;
@@ -198,53 +199,6 @@ void bms_config_store_get_default_protect(bms_protection_params_t *protect)
 }
 
 
-/* 两种在线类型在乘串数/赋给 u16 前检查总压单位和范围。 */
-#define BMS_PACK_DEFAULT_FITS(mv) (((mv) % 10u) == 0u && ((mv) / 10u * BMS_PRODUCT_CELL_COUNT) <= 65535u)
-#if !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_OVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_FIRST_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_SECOND_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_THIRD_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_LFP)) || \
-    !BMS_PACK_DEFAULT_FITS(D008_SW_PACK_UVP_RECOVER_CELL_MV_FOR(BMS_SOC_CHEMISTRY_NMC))
-#error "Pack defaults must fit uint16 10mV units"
-#endif
-#undef BMS_PACK_DEFAULT_FITS
-
-/* 在线切换及分组恢复使用设备当前类型；编译/OTA 默认入口保持独立。 */
-void bms_config_store_get_chemistry_protect(u8 chemistry, bms_protection_params_t *protect)
-{
-    if (protect == 0) return;
-    *protect = s_default_protection;
-    if (chemistry != BMS_SOC_CHEMISTRY_LFP && chemistry != BMS_SOC_CHEMISTRY_NMC)
-        chemistry = BMS_PRODUCT_CHEMISTRY;
-    protect->cell_ovp_first_mv = D008_SW_CELL_OVP_FIRST_MV_FOR(chemistry);
-    protect->cell_ovp_second_mv = D008_SW_CELL_OVP_SECOND_MV_FOR(chemistry);
-    protect->cell_ovp_third_mv = D008_SW_CELL_OVP_THIRD_MV_FOR(chemistry);
-    protect->cell_ovp_recover_mv = D008_SW_CELL_OVP_RECOVER_MV_FOR(chemistry);
-    protect->cell_uvp_first_mv = D008_SW_CELL_UVP_FIRST_MV_FOR(chemistry);
-    protect->cell_uvp_second_mv = D008_SW_CELL_UVP_SECOND_MV_FOR(chemistry);
-    protect->cell_uvp_third_mv = D008_SW_CELL_UVP_THIRD_MV_FOR(chemistry);
-    protect->cell_uvp_recover_mv = D008_SW_CELL_UVP_RECOVER_MV_FOR(chemistry);
-    protect->pack_ovp_first_10mv = (D008_SW_PACK_OVP_FIRST_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
-    protect->pack_ovp_second_10mv = (D008_SW_PACK_OVP_SECOND_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
-    protect->pack_ovp_third_10mv = (D008_SW_PACK_OVP_THIRD_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
-    protect->pack_ovp_recover_10mv = (D008_SW_PACK_OVP_RECOVER_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
-    protect->pack_uvp_first_10mv = (D008_SW_PACK_UVP_FIRST_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
-    protect->pack_uvp_second_10mv = (D008_SW_PACK_UVP_SECOND_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
-    protect->pack_uvp_third_10mv = (D008_SW_PACK_UVP_THIRD_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
-    protect->pack_uvp_recover_10mv = (D008_SW_PACK_UVP_RECOVER_CELL_MV_FOR(chemistry) / 10u * BMS_PRODUCT_CELL_COUNT);
-}
-
 /* 取得产品系统业务默认配置。 */
 static void bms_config_store_get_default_system(bms_config_system_data_t *system)
 {
@@ -255,7 +209,7 @@ static void bms_config_store_get_default_system(bms_config_system_data_t *system
     system->capacity_factory = BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
 }
 
-/* 建立 CFG4 各参数组的默认缓存。 */
+/* 建立 D008 Config 各参数组的默认缓存。 */
 static void bms_config_defaults(bms_config_cache_t *cfg)
 {
     memset(cfg, 0, sizeof(*cfg));
@@ -263,20 +217,20 @@ static void bms_config_defaults(bms_config_cache_t *cfg)
         bms_ota_update_copy_id(cfg->ota_update_id);
     bms_config_store_get_default_protect(&cfg->protect);
     bms_config_store_get_default_system(&cfg->system);
-    bms_soc_profile_defaults(BMS_PRODUCT_CHEMISTRY, &cfg->soc);
+    bms_soc_defaults(BMS_PRODUCT_CHEMISTRY, &cfg->soc);
     bms_sleep_config_defaults(&cfg->sleep);
     bms_afe_hw_profile_build_default(&cfg->afe_hw);
     bms_config_user_defaults(&cfg->user);
 }
 
-/* 按 CFG4 固定字段顺序编码配置记录。 */
+/* 按 D008 Config 固定字段顺序编码配置记录。 */
 static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
 {
     u32 system_word;
     u16 off = 4u;
     u16 i;
 
-    bms_config_put_u32le(payload, BMS_PRODUCT_ID);
+    bms_config_put_u32le(payload, BMS_CONFIG_ASSEMBLY_TAG);
     bms_config_encode_words(&payload[off], &cfg->protect, BMS_CONFIG_PROTECT_WORDS);
     off += BMS_CONFIG_PROTECT_BYTES;
     for (i = 0u; i < BMS_CONFIG_SYSTEM_WORDS; ++i) {
@@ -295,8 +249,8 @@ static void bms_config_encode(const bms_config_cache_t *cfg, u8 *payload)
     off += sizeof(cfg->user.serial);
     bms_config_encode_words(&payload[off], cfg->ota_update_id, BMS_OTA_UPDATE_ID_WORDS);
     off += BMS_OTA_UPDATE_ID_WORDS * 2u;
-    bms_config_encode_words(&payload[off], &cfg->soc, BMS_SOC_PROFILE_WORDS);
-    off += BMS_SOC_PROFILE_WORDS * 2u;
+    bms_config_encode_words(&payload[off], &cfg->soc, BMS_CONFIG_SOC_WORDS);
+    off += BMS_CONFIG_SOC_WORDS * 2u;
     bms_config_encode_words(&payload[off], &cfg->sleep, 4u);
 }
 
@@ -327,8 +281,8 @@ static void bms_config_decode(bms_config_cache_t *cfg, const u8 *payload)
     off += sizeof(cfg->user.serial);
     bms_config_decode_words(cfg->ota_update_id, &payload[off], BMS_OTA_UPDATE_ID_WORDS);
     off += BMS_OTA_UPDATE_ID_WORDS * 2u;
-    bms_config_decode_words(&cfg->soc, &payload[off], BMS_SOC_PROFILE_WORDS);
-    off += BMS_SOC_PROFILE_WORDS * 2u;
+    bms_config_decode_words(&cfg->soc, &payload[off], BMS_CONFIG_SOC_WORDS);
+    off += BMS_CONFIG_SOC_WORDS * 2u;
     bms_config_decode_words(&cfg->sleep, &payload[off], 4u);
     cfg->sleep.afe_delay_minutes = BMS_SLEEP_AFE_FIXED_MINUTES;
 }
@@ -399,9 +353,6 @@ static int bms_config_save_cache(const bms_config_cache_t *cfg)
         bms_error_raise(BMS_ERROR_EEPROM_STORE);
         return 0;
     }
-    if (memcmp(&g_bms_config.soc, &cfg->soc, sizeof(cfg->soc)) != 0) {
-        if (++g_bms_config_soc_generation == 0u) ++g_bms_config_soc_generation;
-    }
     g_bms_config = *cfg;
     g_bms_config_user_valid = bms_config_user_valid(&g_bms_config.user) ? 1u : 0u;
     g_bms_config_needs_save = 0u;
@@ -451,7 +402,7 @@ int bms_config_store_purge_factory_history(void)
     return 1;
 }
 
-/* 加载、校验 CFG4 记录并建立参数缓存。 */
+/* 加载、校验 D008 Config 记录并建立参数缓存。 */
 int bms_config_store_init(void)
 {
     const storage_port_t *port;
@@ -471,7 +422,7 @@ int bms_config_store_init(void)
     if (g_bms_config_store.load_status == STORAGE_RECORD_LOAD_IO_ERROR) {
         return 0;
     }
-    if (loaded && bms_config_get_u32le(payload) == BMS_PRODUCT_ID) {
+    if (loaded && bms_config_get_u32le(payload) == BMS_CONFIG_ASSEMBLY_TAG) {
         bms_config_decode(&g_bms_config, payload);
         if (bms_ota_factory_reset_requested()) {
             if (!bms_ota_update_id_matches(g_bms_config.ota_update_id) &&
@@ -483,21 +434,6 @@ int bms_config_store_init(void)
             }
         } else {
             if (g_bms_config.ota_update_id[0] == BMS_CONFIG_FACTORY_PENDING_TAG) {
-                return 0;
-            }
-            if (g_bms_config.system.series_num != BMS_PRODUCT_CELL_COUNT ||
-                g_bms_config.system.bms_type != BMS_PRODUCT_WIRE_ID) {
-                if ((BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) != BMS_OTA_UPDATE_CONFIG_MASK) {
-                    return 0;
-                }
-                g_bms_config.system.series_num = BMS_PRODUCT_CELL_COUNT;
-                g_bms_config.system.bms_type = BMS_PRODUCT_WIRE_ID;
-                memset(g_bms_config.ota_update_id, 0, sizeof(g_bms_config.ota_update_id));
-            }
-            if (!bms_ota_update_id_matches(g_bms_config.ota_update_id) &&
-                (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) &&
-                g_bms_config.soc.chemistry != BMS_PRODUCT_CHEMISTRY &&
-                (BMS_OTA_UPDATE_MASK & BMS_OTA_UPDATE_CONFIG_MASK) != BMS_OTA_UPDATE_CONFIG_MASK) {
                 return 0;
             }
             g_bms_config_needs_save = bms_config_apply_update_policy(&g_bms_config);
@@ -515,12 +451,11 @@ int bms_config_store_init(void)
         }
         g_bms_config_needs_save = 1u;
     }
-    if (!bms_soc_profile_valid(&g_bms_config.soc) ||
+    if (!bms_soc_limits_valid(BMS_PRODUCT_CHEMISTRY, &g_bms_config.soc) ||
         !bms_sleep_config_valid(&g_bms_config.sleep)) {
          return 0;
     }
     g_bms_config_user_valid = bms_config_user_valid(&g_bms_config.user) ? 1u : 0u;
-    g_bms_config_soc_generation = 1u;
     g_bms_config_ready = 1u;
     return 1;
 }
@@ -550,8 +485,6 @@ int bms_config_store_get_system(bms_config_system_params_t *system)
     system->bms_type = g_bms_config.system.bms_type;
     system->series_num = g_bms_config.system.series_num;
     system->capacity_factory = g_bms_config.system.capacity_factory;
-    system->battery_chemistry = g_bms_config.soc.chemistry;
-    system->soc_profile_id = g_bms_config.soc.profile_id;
     return 1;
 }
 
@@ -562,9 +495,6 @@ int bms_config_store_set_system(const bms_config_system_params_t *system)
     if ((system == 0) || !bms_config_ensure_ready()) return 0;
     if (system->series_num != BMS_PRODUCT_CELL_COUNT || system->bms_type != BMS_PRODUCT_WIRE_ID) return 0;
     if (system->capacity_factory == 0u || system->capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) return 0;
-    /* 类型修改必须走整套保护/曲线原子切换，普通容量接口不能制造混合配置。 */
-    if (system->battery_chemistry != g_bms_config.soc.chemistry ||
-        system->soc_profile_id != g_bms_config.soc.profile_id) return 0;
     next = g_bms_config;
     next.system.capacity_factory = system->capacity_factory;
     return bms_config_save_cache(&next);
@@ -627,7 +557,7 @@ int bms_config_store_validate_startup(void)
         !bms_config_store_factory_reset_pending()) return 0;
     if (!bms_sw_protection_validate_params(&g_bms_config.protect)) return 0;
     if (!bms_afe_hw_profile_validate(&g_bms_config.afe_hw)) return 0;
-    if (!bms_soc_profile_valid(&g_bms_config.soc)) return 0;
+    if (!bms_soc_limits_valid(BMS_PRODUCT_CHEMISTRY, &g_bms_config.soc)) return 0;
     if (!bms_config_user_valid(&g_bms_config.user) ||
         !bms_sleep_config_valid(&g_bms_config.sleep)) return 0;
     if (g_bms_config.system.series_num != BMS_PRODUCT_CELL_COUNT ||
@@ -714,34 +644,8 @@ int bms_config_reset_business(void)
     next = g_bms_config;
     next.system.capacity_factory = BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH;
     bms_config_user_business_defaults(&next.user);
-    next.user.balance_start_mv = BMS_BATTERY_BALANCE_START_MV_FOR(
-        next.soc.chemistry);
     next.user.balance_start_delta_mv = BMS_BATTERY_BALANCE_START_DELTA_MV;
     next.user.balance_stop_delta_mv = BMS_BATTERY_BALANCE_STOP_DELTA_MV;
-    return bms_config_save_cache(&next);
-}
-
-/* 四组参数只提交一条 CFG4 记录；任何失败保持输出 inhibit，重启读取完整旧/新记录。
- * 不清 State/Event，不修改容量、串数、SN、校准、均衡许可或本包 OTA 执行标记。 */
-int bms_config_store_switch_chemistry(u8 chemistry)
-{
-    bms_config_cache_t next;
-    if ((chemistry != BMS_SOC_CHEMISTRY_LFP && chemistry != BMS_SOC_CHEMISTRY_NMC) ||
-        !bms_config_ensure_ready()) return 0;
-    /* DVC/板级 100 V 上限：24S 不能切换到 4.20 V NMC。 */
-    if (chemistry == BMS_SOC_CHEMISTRY_NMC && BMS_PRODUCT_CELL_COUNT > 23u) return 0;
-    next = g_bms_config;
-    bms_config_store_get_chemistry_protect(chemistry, &next.protect);
-    bms_afe_hw_profile_build_chemistry_default(chemistry, &next.afe_hw);
-    bms_soc_profile_defaults(chemistry, &next.soc);
-    bms_config_user_business_defaults(&next.user);
-    next.user.balance_start_mv = BMS_BATTERY_BALANCE_START_MV_FOR(chemistry);
-    next.user.balance_start_delta_mv = BMS_BATTERY_BALANCE_START_DELTA_MV;
-    next.user.balance_stop_delta_mv = BMS_BATTERY_BALANCE_STOP_DELTA_MV;
-    if (!bms_sw_protection_validate_params(&next.protect) ||
-        !bms_afe_hw_profile_validate(&next.afe_hw) || !bms_soc_profile_valid(&next.soc) ||
-        !bms_config_user_valid(&next.user)) return 0;
-    bms_afe_invalidate_configuration();
     return bms_config_save_cache(&next);
 }
 
@@ -781,38 +685,44 @@ int32_t bms_config_calibrate_current(int32_t raw_ma)
     return delta<0 ? -(int32_t)scaled : (int32_t)scaled;
 }
 
-/* Config 是低频参数的唯一持久所有者；getter 只读已加载缓存。 */
-const bms_soc_profile_config_t *bms_config_current_soc_profile(void)
+int bms_config_get_soc_limits(bms_soc_limits_t *limits)
 {
-    return g_bms_config_ready ? &g_bms_config.soc : 0;
+    if (!g_bms_config_ready) return 0;
+    *limits = g_bms_config.soc;
+    return 1;
 }
-void bms_config_get_soc_profile(bms_soc_profile_config_t *config)
+
+int bms_config_soc_limits_usable(const bms_soc_limits_t *limits)
 {
-    if (config) {
-        if (g_bms_config_ready) *config = g_bms_config.soc;
-        else memset(config, 0, sizeof(*config));
-    }
+    const bms_protection_params_t *sw = &g_bms_config.protect;
+    const bms_afe_hw_profile_t *hw = &g_bms_config.afe_hw;
+    uint32_t cells = BMS_PRODUCT_CELL_COUNT;
+
+    if (!bms_soc_limits_valid(BMS_PRODUCT_CHEMISTRY, limits)) return 0;
+    if (DVC1124_SW_PROTECT_ENABLE &&
+        (limits->full_mv > sw->cell_ovp_third_mv ||
+         (uint32_t)limits->full_mv * cells > (uint32_t)sw->pack_ovp_third_10mv * 10u ||
+         limits->empty_mv < sw->cell_uvp_third_mv ||
+         (uint32_t)limits->empty_mv * cells < (uint32_t)sw->pack_uvp_third_10mv * 10u))
+        return 0;
+    /* DVC COV/CUV 的请求电压可逐 mV 表示。 */
+    if (DVC1124_HW_PROTECT_ENABLE &&
+        (((hw->enable_mask & BMS_AFE_HW_EN_COV) && limits->full_mv > hw->cov_mv) ||
+         ((hw->enable_mask & BMS_AFE_HW_EN_CUV) && limits->empty_mv < hw->cuv_mv)))
+        return 0;
+    return 1;
 }
-int bms_config_set_soc_profile(const bms_soc_profile_config_t *config)
+
+int bms_config_set_soc_limits(const bms_soc_limits_t *limits)
 {
     bms_config_cache_t next;
-    if (!g_bms_config_ready || !bms_soc_profile_valid(config) ||
-        config->chemistry != g_bms_config.soc.chemistry ||
-        config->profile_id != g_bms_config.soc.profile_id) return 0;
-    next = g_bms_config; next.soc = *config;
+
+    if (!g_bms_config_ready || !bms_config_soc_limits_usable(limits)) return 0;
+    next = g_bms_config;
+    next.soc = *limits;
     return bms_config_save_cache(&next);
 }
-int bms_config_reset_soc_profile(uint8_t chemistry)
-{
-    bms_soc_profile_config_t config;
-    bms_soc_profile_defaults(chemistry, &config);
-    return bms_config_set_soc_profile(&config);
-}
-uint16_t bms_config_soc_profile_generation(void) { return g_bms_config_soc_generation; }
-uint8_t bms_config_soc_profile_is_persisted(void)
-{
-    return g_bms_config_ready && g_bms_config_store.has_latest && !g_bms_config_needs_save;
-}
+
 void bms_config_get_sleep(bms_sleep_config_t *config)
 {
     if (!config) return;

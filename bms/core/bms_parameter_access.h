@@ -62,34 +62,12 @@
 #define BMS_PARAM_REG_SLEEP_DEFAULT_LAST          0x2E9Cu
 
 
-/* 类型切换 v1：能力发现/当前类型只读，命令只接受完整 4 word。 */
-#define BMS_PARAM_CAP_CHEMISTRY_SWITCH             0x0100u
-#define BMS_PARAM_CAP_SOC_PROFILE                  0x0200u
-#define BMS_PARAM_CAP_SOC_POLICY_V3                0x0800u /* 新策略可用，地址/50-word 布局保持。 */
-/* 追加只读能力；旧地址、v2 帧及 CFG2 校准字段保持不变。 */
+/* 参数 v2 的能力与只读装配信息。SOC100/0 为 mV，必须整对提交。 */
 #define BMS_PARAM_CAP_CURRENT_CALIBRATION_LINEAR   0x0400u
-#define BMS_PARAM_REG_CHEMISTRY_BASE               0x2EA0u
-#define BMS_PARAM_REG_CHEMISTRY_LAST               0x2EA7u
-#define BMS_PARAM_REG_CHEMISTRY_COMMAND            0x2EA8u
-#define BMS_CHEMISTRY_SWITCH_MAGIC                 0x4348u
-#define BMS_CHEMISTRY_SWITCH_VERSION               1u
-#define BMS_SERVICE_DEFAULT_PASSWORD              "hs456"
-#define BMS_SERVICE_PASSWORD_BYTES                6u /* 五个字符及 NUL。 */
-typedef char bms_service_password_must_fit_frame[
-    sizeof(BMS_SERVICE_DEFAULT_PASSWORD) == BMS_SERVICE_PASSWORD_BYTES ? 1 : -1];
-
-/* SOC profile v1：完整活动值只读，分段 stage，带密码的一次性 commit/default。 */
-#define BMS_PARAM_REG_SOC_PROFILE_BASE             0x2EB0u
-#define BMS_PARAM_REG_SOC_PROFILE_LAST             0x2EE3u
-#define BMS_PARAM_REG_SOC_PROFILE_PERSISTED        0x2EE4u
-#define BMS_PARAM_REG_SOC_PROFILE_GENERATION       0x2EE5u
-#define BMS_PARAM_REG_SOC_PROFILE_STAGE_STATUS     0x2EE6u
-#define BMS_PARAM_REG_SOC_PROFILE_COMMAND          0x2EF8u
-#define BMS_PARAM_REG_SOC_PROFILE_STAGE_BASE       0x2F20u
-#define BMS_PARAM_REG_SOC_PROFILE_STAGE_LAST       0x2F51u
-#define BMS_PARAM_REG_SOC_PROFILE_STAGE_END        0x2F52u
-#define BMS_SOC_PROFILE_INTERFACE_MAGIC            0x534Fu /* SO */
-#define BMS_SOC_PROFILE_INTERFACE_VERSION          1u
+#define BMS_PARAM_CAP_SOC_LIMITS                   0x1000u
+#define BMS_PARAM_REG_SOC100_MV                    0x2E18u
+#define BMS_PARAM_REG_SOC0_MV                      0x2E19u
+#define BMS_PARAM_REG_CHEMISTRY                    0x2EA2u
 
 #define PROD_SN_REG_BASE                   0xc002
 #define PROD_SN_REG_COUNT                  16

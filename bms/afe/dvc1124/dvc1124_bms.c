@@ -10,7 +10,6 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "bms_product.h"
-#include "bms_soc.h"
 #include "bms_error.h"
 #include "bms_state.h"
 #include "bms_sw_protection.h"
@@ -646,6 +645,7 @@ uint8_t bms_afe_driver_get_aux_measurements(bms_afe_aux_measurements_t *measurem
     measurements->current_ma = snapshot.current_ma;
     measurements->current_qualified = DVC1124_CurrentQualified(&snapshot, bms_time_ms());
     measurements->voltage_fresh = snapshot.voltage_fresh;
+    measurements->current_time_ms = snapshot.current_time_ms;
     measurements->sample_time_ms = snapshot.sample_time_ms;
     measurements->sample_tick_32k = snapshot.sample_tick_32k;
     return 1u;

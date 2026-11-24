@@ -60,6 +60,7 @@ typedef struct {
     uint8_t voltage_fresh;
     uint8_t voltage_check_active;
     uint8_t voltage_calibration_valid; /* 本轮主动检查完成且未检出异常；普通通信成功不足以置位。 */
+    uint32_t current_time_ms;
     uint32_t sample_time_ms;
     uint32_t sample_tick_32k; /* 对外兼容观测，不参与业务超时。 */
 } bms_afe_aux_measurements_t;

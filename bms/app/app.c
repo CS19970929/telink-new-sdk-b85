@@ -41,9 +41,8 @@
 #include "bms_afe_hw_access.h"
 #include "bms_error.h"
 #include "bms_state.h"
-#include "bms_soc.h"
+#include "bms_soc_app.h"
 #include "bms_time.h"
-#include "bms_soc_profile.h"
 #include "bms_event_log.h"
 #include "bms_sleep_config.h"
 #include "bms_state_store.h"
@@ -58,8 +57,6 @@
 
 /* 采集并处理一次 AFE 样本，推进保护、SOC 和 MOS 仲裁。 */
 static void app_sample_task(void);
-/* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
-static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma, uint8_t calibration_valid, uint8_t check_active);
 /* 采样唤醒回调消费 SDK 期限并交付标志，AFE/SOC 留在主循环。 */
 static void app_sample_wakeup(int type);
 static u32 s_sample_tick;
@@ -73,9 +70,6 @@ uint8_t app_sample_is_due(void)
     return s_sample_due || clock_time_exceed(s_sample_tick, APP_SAMPLE_PERIOD_US);
 }
 
-#define SOC_SAMPLE_PACK_FAULT_MASK         0x000Cu
-#define SOC_SAMPLE_CURRENT_FAULT_MASK      0x0030u
-#define SOC_SAMPLE_TEMP_FAULT_MASK         0x2BC0u
 
 /* 四产品始终在下一次采样期限前唤醒，不从处理结束时再睡满一个周期。 */
 static void app_schedule_sample_wakeup(void)
@@ -113,7 +107,7 @@ static void app_storage_1s_task(void)
 
 	bms_event_log_poll_1s(&sample);
 	{
-        bms_state_store_data_t state = bms_soc_state_snapshot();
+        bms_soc_checkpoint_t state = bms_soc_app_checkpoint();
         bms_state_store_poll_snapshot(&state);
     }
 }
@@ -191,7 +185,7 @@ static void app_sample_task(void)
         bms_afe_apply_outputs();
     }
     valid = bms_afe_get_aux_measurements(&m);
-    app_update_soc_from_sample(valid, valid ? m.current_ma : 0, valid ? m.voltage_calibration_valid : 0u, valid ? m.voltage_check_active : 0u);
+    bms_soc_app_sample(valid ? &m : NULL);
 
 
     /* 采样期限独立于 BLE 广播间隔；超期只标记下一轮，不补跑历史样本。 */
@@ -214,53 +208,6 @@ static void app_sample_wakeup(int type)
 
 
 
-/* 把合格 AFE 样本及时间戳提交给 SOC 算法。 */
-static void app_update_soc_from_sample(uint8_t valid, int32_t current_ma, uint8_t calibration_valid, uint8_t check_active)
-{
-    bms_afe_feature_snapshot_t feature;
-    bms_soc_sample_t sample;
-    uint16_t third_faults = g_bms_report.fault_third.all;
-    memset(&sample, 0, sizeof(sample));
-
-    /* 积分使用应用时间；旧电流可用于新时间段，但不能冒充新的确认样本。 */
-    sample.timestamp_ms = bms_time_ms();
-    sample.timestamp_32k = pm_get_32k_tick();
-    sample.current_ma = current_ma;
-    sample.cell_min_mv = g_bms_report.cell_min_mv;
-    sample.cell_max_mv = g_bms_report.cell_max_mv;
-    sample.cell_delta_mv = g_bms_report.cell_delta_mv;
-    sample.pack_voltage_10mv = g_bms_report.pack_voltage_10mv;
-    sample.cell_count = BMS_PRODUCT_CELL_COUNT;
-    memcpy(sample.cell_mv, g_bms_report.cell_voltage_mv, sample.cell_count * sizeof(sample.cell_mv[0]));
-    sample.voltage_calibration_valid = calibration_valid;
-    sample.voltage_check_active = check_active;
-    sample.balance_active = (g_bms_report.balance_bits_low || g_bms_report.balance_bits_high) ? 1u : 0u;
-    sample.sample_valid = valid ? 1u : 0u;
-    sample.voltage_valid = (valid && sample.cell_min_mv != 0u &&
-                            sample.cell_max_mv >= sample.cell_min_mv) ? 1u : 0u;
-    if (valid && bms_afe_get_feature_snapshot(&feature) &&
-        feature.battery_temp_valid) {
-        sample.temperature_valid = 1u;
-        sample.temperature_min_x10 = feature.battery_temp_min_x10;
-        sample.temperature_max_x10 = feature.battery_temp_max_x10;
-    }
-    sample.afe_fault = bms_error_get(BMS_ERROR_AFE1);
-    sample.temperature_fault =
-        ((third_faults & SOC_SAMPLE_TEMP_FAULT_MASK) != 0u) ? 1u : 0u;
-    sample.current_fault =
-        ((third_faults & SOC_SAMPLE_CURRENT_FAULT_MASK) != 0u) ? 1u : 0u;
-    sample.pack_fault =
-        ((third_faults & SOC_SAMPLE_PACK_FAULT_MASK) != 0u) ? 1u : 0u;
-    sample.third_cell_ovp =
-        g_bms_report.fault_third.bits.cell_ovp;
-    sample.third_cell_uvp =
-        g_bms_report.fault_third.bits.cell_uvp;
-    sample.third_pack_uvp = g_bms_report.fault_third.bits.pack_uvp;
-    bms_soc_process_sample(&sample);
-    /* 板测伪电压只用于算法观察，不得触发真实 AFE 激励。 */
-        if (bms_soc_voltage_check_requested()) bms_afe_request_voltage_check();
-}
-
 /* 参数、AFE 与业务状态启动；由平台完成 BLE 初始化后调用一次。 */
 void app_init(void)
 {
@@ -274,8 +221,7 @@ void app_init(void)
 
 		/* 启动电压、电流和温度状态使用同一 AFE 快照。 */
 		bms_afe_sample();
-		bms_state_store_data_t d = bms_state_store_get();
-		soc_param_lib_init(&d);
+		bms_soc_app_init();
 	}
 
     sif_timer_init();

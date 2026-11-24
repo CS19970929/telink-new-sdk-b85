@@ -96,11 +96,3 @@ void bms_parameters_init(void)
     parameters_validate_storage_startup();
     parameters_load_protection();
 }
-
-/* 整套 Config 已持久提交后发布运行值，不清启动门禁，也不重置任何保护故障。 */
-uint8_t bms_parameters_reload_configuration(void)
-{
-    if (!s_storage_startup_valid) return 0u;
-    parameters_load_protection();
-    return s_protection_params_valid && bms_soc_reload_configuration();
-}

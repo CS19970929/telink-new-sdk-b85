@@ -35,7 +35,7 @@
 #include "bms_afe.h"
 #include "bms_error.h"
 #include "bms_state.h"
-#include "bms_soc.h"
+#include "bms_soc_app.h"
 #include "bms_event_log.h"
 #include "bms_state_store.h"
 #include "bms_storage_platform.h"
@@ -107,7 +107,7 @@ static void app_prepare_deep_sleep(void)
     (void)bms_afe_sleep();
     /* 不在 OTA/Flash 会话内追加写入；其余情况各保存一次，失败不重试、不拒睡。 */
     if (!ota_is_working && app_flash_lock_restore_enabled()) {
-        bms_state_store_data_t state = bms_soc_state_snapshot();
+        bms_soc_checkpoint_t state = bms_soc_app_checkpoint();
         (void)bms_state_store_save_snapshot(&state);
         (void)bms_event_log_note_sleep();
     }

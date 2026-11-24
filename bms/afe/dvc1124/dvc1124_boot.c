@@ -8,7 +8,6 @@
 #include "tl_common.h"
 #include "drivers.h"
 #include "bms_product.h"
-#include "bms_soc.h"
 #include <string.h>
 
 

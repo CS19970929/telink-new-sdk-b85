@@ -73,7 +73,6 @@ static uint8_t s_ntc_valid_samples[4]; /* NTC 恢复滤波，按完整有效读�
 
 static uint8_t s_boot_zero_attempted;
 static uint8_t s_boot_zero_ok;
-#define DVC_CURRENT_MAX_AGE_MS 400u
 
 /* 计算 AFE 通信数据的 CRC8 校验值。 */
 static uint8_t dvc_crc8(const uint8_t *data, uint16_t len)
@@ -1542,7 +1541,7 @@ uint8_t DVC1124_ApplyProjectOperatingConfig(void)
 uint8_t DVC1124_CurrentQualified(const dvc1124_snapshot_t *snapshot, uint32_t now_ms)
 {
     return snapshot->valid && snapshot->current_seen &&
-        (uint32_t)(now_ms - snapshot->current_time_ms) <= DVC_CURRENT_MAX_AGE_MS;
+        (uint32_t)(now_ms - snapshot->current_time_ms) <= BMS_CURRENT_MAX_AGE_MS;
 }
 
 /* 正常转换间隔内可使用缓存的方向；超过 400 ms 或 CRC 失败立即撤销资格。 */

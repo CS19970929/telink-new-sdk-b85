@@ -1,5 +1,5 @@
 /*
- * 文件功能：CFG4 持久配置的缓存、校验与编解码；按产品 tag 和独立更新编号恢复/更新各
+ * 文件功能：D008 持久配置的缓存、校验与编解码；按产品 tag 和独立更新编号恢复/更新各
  * 参数组。
  * bms/core/bms_config_store.h；实际编译归属见各产品 sources.txt。
  */
@@ -8,14 +8,12 @@
 #include "bms_parameters.h"
 #include "bms_afe_hw_profile.h"
 #include "bms_soc.h"
-#include "bms_soc_profile.h"
 #include "bms_sleep_config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* 内部 CFG4 schema 4；取消旧持久格式兼容，外部参数协议保持原契约。 */
 typedef struct {
     u16 heater_enable;
     u16 heater_start_x10; /* 温度编码：(degC + 40) * 10。 */
@@ -46,8 +44,6 @@ typedef struct {
     u32 bms_type;
     u32 series_num;
     u32 capacity_factory;
-    u32 battery_chemistry;
-    u32 soc_profile_id;
 } bms_config_system_params_t;
 
 /* Config 拥有用户、系统、软件保护和 AFE 请求数据。 */
@@ -78,17 +74,9 @@ int bms_config_store_set_bt_name_suffix(const char *suffix);
 /* 取得产品软件保护默认配置。 */
 void bms_config_store_get_default_protect(bms_protection_params_t *protect);
 
-/* 运行时整套类型默认；仅切换入口可整条提交，包含完整曲线与休眠参数。 */
-void bms_config_store_get_chemistry_protect(u8 chemistry, bms_protection_params_t *protect);
-int bms_config_store_switch_chemistry(u8 chemistry);
-
-/* 主循环只读RAM视图，地址稳定；提交替换内容，跨提交的运行资格须核对generation。 */
-const bms_soc_profile_config_t *bms_config_current_soc_profile(void);
-void bms_config_get_soc_profile(bms_soc_profile_config_t *config);
-int bms_config_set_soc_profile(const bms_soc_profile_config_t *config);
-int bms_config_reset_soc_profile(uint8_t chemistry);
-uint16_t bms_config_soc_profile_generation(void);
-uint8_t bms_config_soc_profile_is_persisted(void);
+int bms_config_get_soc_limits(bms_soc_limits_t *limits);
+int bms_config_soc_limits_usable(const bms_soc_limits_t *limits);
+int bms_config_set_soc_limits(const bms_soc_limits_t *limits);
 void bms_config_get_sleep(bms_sleep_config_t *config);
 int bms_config_set_sleep(const bms_sleep_config_t *config);
 

@@ -10,6 +10,7 @@
 
 /* 电流方向与计量共用的零电流区，单位 mA。 */
 #define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
+#define BMS_CURRENT_MAX_AGE_MS 400u
 #if BMS_SAMPLE_PERIOD_MS != 200u
 #error "Normal BMS scheduling requires the reviewed 200 ms period"
 #endif

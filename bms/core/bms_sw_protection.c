@@ -13,7 +13,7 @@
  * D008 / D011 / D013 / D014 共享软件保护策略：仅管理软件阈值、滤波与恢复状态，
  * 不访问 AFE/GPIO，不清除硬件锁存。一级/二级用于报告和告警，三级用于软件 MOS 阻断；
  * AFE 硬件保护保持独立后备，后端在软件计算后合并硬件标志到 Third。
- * SOC 低电量故障由 bms_soc.c 根据 SOC 样本统一处理。
+ * SOC 低电量故障由应用按 SOC 估值发布。
  */
 #define BMS_SW_PROTECTION_SAMPLE_MS       BMS_SAMPLE_PERIOD_MS
 #define BMS_SW_PROTECTION_LEVEL_COUNT     3u
