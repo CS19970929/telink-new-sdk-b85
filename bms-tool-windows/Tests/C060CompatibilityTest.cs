@@ -211,7 +211,12 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
     {
         ct.ThrowIfCancellationRequested();var q=value.ToArray();SentRequests.Add(q);int address=q[2]*256+q[3],n=q[4]*256+q[5];byte[] reply;
         if(q[1]==3) {
-            Reads.Add((address,n));if(SilentReads>0){SilentReads--;return Task.CompletedTask;}if(SilentRealtime&&address==0xD120)return Task.CompletedTask;ushort[]? w=Read(address,n);
+            Reads.Add((address,n));
+            if (address == 0x2C00 && n == 2 && DropMeasurementHeader) {
+                DropMeasurementHeader = false;
+                return Task.CompletedTask;
+            }
+            if(SilentReads>0){SilentReads--;return Task.CompletedTask;}if(SilentRealtime&&address==0xD120)return Task.CompletedTask;ushort[]? w=Read(address,n);
             reply=w is null?Frame(new byte[]{1,0x83,1}):Frame(new byte[]{1,3,(byte)(w.Length*2)}.Concat(w.SelectMany(x=>new[]{(byte)(x>>8),(byte)x})).ToArray());
         } else {
             Writes++;WriteLengths.Add(q.Length);if(SilentWrites>0){SilentWrites--;return Task.CompletedTask;}
@@ -243,6 +248,7 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
         return Task.CompletedTask;
     }
     public ushort[]? MeasurementSnapshot { get; set; }
+    public bool DropMeasurementHeader { get; set; }
     public ushort[]? BalanceStatus { get; set; }
     public ushort? LowPowerFaultWord { get; set; }
     public ushort[]? HardwareProtectionStatus { get; set; }
@@ -252,8 +258,8 @@ internal sealed class Peer : IBmsTransport, IBmsMtuTransport
     ushort[]? Read(int a,int n)
     {
         if (a==0x2AF0 && n==10 && (BalanceStatus is not null || LowPowerFaultWord.HasValue || HardwareProtectionStatus is not null))
-            return [0x424D,1,(ushort)(C077?0xC077:0xC060),(ushort)(C077?0x16:0x20),0,2,5,
-                (ushort)(C077?16:20),0,(ushort)((BalanceStatus is not null ? 0x10 : 0) | (LowPowerFaultWord.HasValue ? 0x20 : 0) | (HardwareProtectionStatus is not null ? 0x40 : 0))];
+            return [0x424D,1,(ushort)(C077?0xC077:0xC060),(ushort)(C077?0x16:0x20),(ushort)(C077?0x0309:0x7693),2,(ushort)(C077?5:20),
+                (ushort)(C077?16:20),(ushort)(C077?Other[28]:20),(ushort)((BalanceStatus is not null ? 0x10 : 0) | (LowPowerFaultWord.HasValue ? 0x20 : 0) | (HardwareProtectionStatus is not null ? 0x40 : 0))];
         if (a==0x2D00 && n==5 && BalanceStatus is { } balance) return balance;
         if (a==0xD04F && n==1 && LowPowerFaultWord is ushort fault) return [fault];
         if (a==0x2D10 && n==2 && HardwareProtectionStatus is { } protection) return protection;

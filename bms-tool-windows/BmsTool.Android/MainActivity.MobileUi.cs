@@ -453,7 +453,7 @@ public sealed partial class MainActivity
         _capacityValue!.Text = $"{snapshot.CapacityNowAh:F1} Ah";
         _temperatureValue!.Text = snapshot.BatteryTemperatureAvailable ? $"{snapshot.MaxTempC:F1} ℃" : "—";
         _stateView!.Text = $"充电 MOS：{(snapshot.ChargeMosOn ? "开启" : "关闭")}    放电 MOS：{(snapshot.DischargeMosOn ? "开启" : "关闭")}\n" +
-            $"均衡：{(snapshot.BalancingOn ? "运行中" : "未运行")}    保护：{snapshot.ProtectionSummary}" +
+            $"均衡：{snapshot.BalanceStateText}    保护：{snapshot.ProtectionSummary}" +
             (snapshot.HasProtection ? $"\n一级：{snapshot.ProtectionLevel1Text}\n二级：{snapshot.ProtectionLevel2Text}\n三级：{snapshot.ProtectionLevel3Text}" : "") +
             $"\n加热：{(snapshot.HeatingOn ? "运行中" : "未运行")}    制冷：{(snapshot.CoolingOn ? "运行中" : "未运行")}";
         if (snapshot.Measurements is { } measured)

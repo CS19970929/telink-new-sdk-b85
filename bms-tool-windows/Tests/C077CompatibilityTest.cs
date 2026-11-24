@@ -15,6 +15,7 @@ static class Test
         Check(!peer.Reads.Any(r=>r.Item1==0xD120),"no unsupported realtime probing");
         var newer=new Peer { C077=true, Advertised=true, MeasurementSnapshot = new ushort[C077Measurements.WordCount],
             BalanceStatus = [0x424C,1,1,0x8004,1], LowPowerFaultWord = 0x0100, HardwareProtectionStatus = [0,0x12] };
+        newer.Other[28]=16;
         var data=newer.MeasurementSnapshot!;
         data[0]=0xC077;data[1]=1;data[2]=0x0B;data[3]=0xFFFF;data[4]=0x021A;data[5]=1;
         data[6]=0xFFFF;data[7]=0xFFFB;data[8]=0x80;data[9]=0x10;data[10]=8;data[11]=1;
@@ -48,6 +49,18 @@ static class Test
                 incomplete.ValidCellCount==15 && !incomplete.IsCellVoltageValid(2) && !incomplete.IsCellBalancing(2),
                 "missing measurement is distinct from a missing physical cell");
             Check(incomplete.LowPowerFault == false && !incomplete.HasProtection, "C077 optional protection status is refreshed");
+        }
+        var wakingPeer = new Peer { C077 = true, Advertised = true, DropMeasurementHeader = true,
+            MeasurementSnapshot = (ushort[])data.Clone() };
+        wakingPeer.Other[28] = 16;
+        await using (var waking = new BmsClient(wakingPeer))
+        {
+            await waking.ReadIdentityAsync();
+            var fallback = await waking.ReadBatteryAsync();
+            Check(fallback.Measurements is null && !fallback.PackVoltageValid && !fallback.CurrentValid &&
+                fallback.ValidCellCount == 0, "missing capability quality does not validate legacy values");
+            Check((await waking.ReadBatteryAsync()).Measurements is not null,
+                "first snapshot probe timeout does not latch legacy mode");
         }
         var capture=await c.ReadC060ParametersAsync();Check(capture.Product=="C077"&&capture.Blocks.ContainsKey("231C")&&capture.Blocks.ContainsKey("C077Afe"),"shared parameter wire contract, separate product tag");
         Check(!peer.Reads.Any(r=>r.Item1 is 0x3000 or 0x3050),"C077 does not resurrect retired segmented current calibration");

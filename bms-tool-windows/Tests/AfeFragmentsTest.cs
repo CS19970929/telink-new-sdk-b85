@@ -31,11 +31,15 @@ static class Test {
   await using (var balanceClient = new BmsClient(balancePeer))
   {
       battery = await balanceClient.ReadBatteryAsync();
-      Check(battery.IsCellBalancing(0) && battery.IsCellBalancing(15) && battery.IsCellBalancing(16) &&
+      Check(balanceClient.DeviceCapabilities is { BoardId: 0x12340001, AfeModel: 0x0309, AfeCount: 1, ActiveSeriesCount: 16 },
+          "new board with known capability schema is decoded independently of product names");
+      Check(battery.BalanceStatusConfirmed == true && battery.IsCellBalancing(0) && battery.IsCellBalancing(15) && battery.IsCellBalancing(16) &&
           battery.IsCellBalancing(31) && !battery.IsCellBalancing(2) && !battery.IsCellBalancing(32),
           "advertised balance status maps cells 1/16/17/32 and suppresses missing cell 3");
       balancePeer.BalanceStatusWords[2] = 0;
-      Check((await balanceClient.ReadBatteryAsync()).BalanceCellMask == 0, "unconfirmed mask hides legacy bits");
+      battery = await balanceClient.ReadBatteryAsync();
+      Check(battery.BalanceCellMask == 0 && battery.BalanceStatusConfirmed == false && battery.BalanceStateText == "状态未知",
+          "unconfirmed mask hides legacy bits and remains unknown");
       balancePeer.BalanceStatusWords[1] = 2;
       balancePeer.BalanceStatusWords[2] = 1;
       Check((await balanceClient.ReadBatteryAsync()).BalanceCellMask == 0, "unknown status schema hides markers");
@@ -46,8 +50,36 @@ static class Test {
       balancePeer.RejectBalanceStatus = false;
       Check((await balanceClient.ReadBatteryAsync()).IsCellBalancing(31), "next poll recovers balance data");
       balancePeer.BalanceStatusWords[3] = balancePeer.BalanceStatusWords[4] = 0;
-      Check((await balanceClient.ReadBatteryAsync()).BalanceCellMask == 0 && balancePeer.BalanceCapabilityReads == 1,
+      battery = await balanceClient.ReadBatteryAsync();
+      Check(battery.BalanceCellMask == 0 && battery.BalanceStatusConfirmed == true &&
+          battery.BalanceStateText == "未进行" && balancePeer.BalanceCapabilityReads == 1,
           "confirmed stop clears markers and capability is read once");
+      balancePeer.RejectProtectionStatus = true;
+      battery = await balanceClient.ReadBatteryAsync();
+      Check(battery.HardwareProtectionStateUnknown && battery.ProtectionSummary == "状态未知",
+          "unavailable advertised hardware protection is not displayed as normal");
+      balancePeer.RejectProtectionStatus = false;
+      Check((await balanceClient.ReadBatteryAsync()).ProtectionSummary == "正常", "hardware protection read recovers");
+  }
+  var wakingPeer = new BmsBleTransport { BatteryRead = true, DropFirstCapability = true,
+      BalanceStatusWords = [0x424C, 1, 1, 1, 0] };
+  await using (var wakingClient = new BmsClient(wakingPeer))
+  {
+      battery = await wakingClient.ReadBatteryAsync();
+      Check(battery.BalanceStatusConfirmed == false && wakingClient.DeviceCapabilities is null &&
+          battery.ProtectionSummary == "状态未知",
+          "transient timeout leaves capability, balance and protection unknown");
+      battery = await wakingClient.ReadBatteryAsync();
+      Check(battery.BalanceStatusConfirmed == false && wakingPeer.BalanceCapabilityReads == 1,
+          "transient timeout does not stall each poll");
+      await Task.Delay(TimeSpan.FromSeconds(5));
+      battery = await wakingClient.ReadBatteryAsync();
+      Check(wakingClient.DeviceCapabilities is { BoardId: 0x12340001 } && battery.IsCellBalancing(0),
+          "polling re-discovers the capability on the same connection after a lost first request");
+      wakingPeer.CapabilitySchema = 2;
+      Check(await wakingClient.ReadDeviceCapabilitiesAsync() is null &&
+          (await wakingClient.ReadBatteryAsync()).BalanceStatusConfirmed == false,
+          "unknown schema never enables the feature or shows a confirmed stop");
   }
   // 2026-10-20 现场：持久请求正常，effective 整组 0xFFFF，不能显示读取成功。
   t.HardwareRead=true;t.EffectiveUnavailable=true;
@@ -159,7 +191,8 @@ namespace BmsTool.Windows {
   public string DiscoveryDescription=>"host";public bool Serial,BadAck,CancelAfterStage,BatteryRead,BalanceOff,HardwareRead,EffectiveUnavailable;public CancellationTokenSource? Stop;
   public ushort[]? HardwareRequested,HardwareEffective;
   public ushort[]? BalanceStatusWords;
-  public bool RejectBalanceStatus;
+  public bool RejectBalanceStatus, RejectProtectionStatus, DropFirstCapability;
+  public ushort CapabilitySchema = 1;
   public int BalanceCapabilityReads;
   private static void CheckBalanceCount(ushort actual, ushort expected)
   {
@@ -201,7 +234,13 @@ namespace BmsTool.Windows {
     else if(address==0x2AF0) {
      BalanceCapabilityReads++;
      CheckBalanceCount(count, 10);
-     values[0]=0x424D;values[1]=1;values[9]=(ushort)(BalanceStatusWords is null ? 0 : 16);
+     if (DropFirstCapability && BalanceCapabilityReads == 1) return Task.CompletedTask;
+     values=[0x424D, CapabilitySchema, 0x1234, 1, 0x0309, 1, 5, 16, 16,
+         (ushort)(BalanceStatusWords is null ? 0 : 0x50)];
+    }
+    else if(address==0x2D10 && RejectProtectionStatus) {
+     DataReceived?.Invoke(ModbusRtu.Frame([1, 0x83, 4]));
+     return Task.CompletedTask;
     }
     else if(address==0x2D00) {
      CheckBalanceCount(count, 5);

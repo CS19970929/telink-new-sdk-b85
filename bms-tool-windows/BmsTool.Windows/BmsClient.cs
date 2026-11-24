@@ -7,6 +7,23 @@ namespace BmsTool.Windows;
 
 public sealed record DeviceIdentity(string Mac, string Serial, string Hardware, string Software, string BluetoothName);
 
+public sealed record BmsDeviceCapabilities(uint BoardId, ushort AfeModel, ushort AfeCount,
+    ushort MinimumSeriesCount, ushort MaximumSeriesCount, ushort ActiveSeriesCount, ushort Features)
+{
+    public const ushort SchemaVersion = 1;
+
+    public bool HasFeature(ushort feature) => (Features & feature) == feature;
+
+    internal static BmsDeviceCapabilities? Parse(ushort[] words) =>
+        words is [0x424D, SchemaVersion, var boardHigh, var boardLow, var afe, var count,
+                  var minimum, var maximum, var active, var features] &&
+        (boardHigh != 0 || boardLow != 0) && count != 0 &&
+        minimum > 0 && maximum <= BmsRegisters.CellVoltageSlotCount &&
+        active >= minimum && active <= maximum
+            ? new(((uint)boardHigh << 16) | boardLow, afe, count, minimum, maximum, active, features)
+            : null;
+}
+
 public sealed record FactorySession(ushort Token, ushort TimeoutSeconds, byte ProtocolVersion, byte SeriesCount);
 
 public sealed record FactoryStatus(
@@ -44,15 +61,16 @@ public sealed class BatterySnapshot
     public DateTimeOffset RealtimeReadUtc { get; init; }
     public string CellDataWindow => Measurements is null ? "D000" : "2C00";
     public C077Measurements? Measurements { get; init; }
-    public bool PackVoltageValid => Measurements?.PackVoltageValid ?? true;
-    public bool CurrentValid => Measurements?.CurrentValid ?? true;
-    public bool BatteryTemperatureAvailable => Measurements?.BatteryTemperatureAvailable ?? true;
-    public bool MosTemperatureAvailable => Measurements?.MosTemperatureAvailable ?? true;
+    internal bool LegacyMeasurementQualityUnknown { get; init; }
+    public bool PackVoltageValid => Measurements?.PackVoltageValid ?? !LegacyMeasurementQualityUnknown;
+    public bool CurrentValid => Measurements?.CurrentValid ?? !LegacyMeasurementQualityUnknown;
+    public bool BatteryTemperatureAvailable => Measurements?.BatteryTemperatureAvailable ?? !LegacyMeasurementQualityUnknown;
+    public bool MosTemperatureAvailable => Measurements?.MosTemperatureAvailable ?? !LegacyMeasurementQualityUnknown;
     public string PackVoltageDisplay => PackVoltageValid ? $"{PackVoltageV:F2} V" : "—";
     public string CurrentDisplay => CurrentValid ? $"{CurrentA:+0.0;-0.0;0.0} A" : "—";
 
     public bool IsCellVoltageValid(int index) => (uint)index < (uint)CellMillivolts.Count &&
-        CellMillivolts[index] != BmsRegisters.MissingCellVoltageMv && (Measurements?.CellValid(index) ?? true);
+        CellMillivolts[index] != BmsRegisters.MissingCellVoltageMv && (Measurements?.CellValid(index) ?? !LegacyMeasurementQualityUnknown);
     public double PackVoltageV { get; init; }
     public double CurrentA { get; init; }
     public int SocPercent { get; init; }
@@ -81,12 +99,21 @@ public sealed class BatterySnapshot
     public ushort ProtectionLevel3Raw { get; init; }
     public ushort? SoftwareProtectionLevel3Raw { get; init; }
     public ushort HardwareProtectionRaw { get; init; }
+    public bool HardwareProtectionStateUnknown { get; init; }
     public bool? LowPowerFault { get; init; }
     public BmsFaultInjectionStatus? FaultInjection { get; init; }
     public bool FaultInjectionStateUnknown { get; init; }
     public IReadOnlyList<ushort> CellMillivolts { get; init; } = Array.Empty<ushort>();
     // bit 0 对应逻辑第 1 串，bit 31 对应第 32 串。
     public uint BalanceCellMask { get; init; }
+    // true/false：2D00 本次已确认/未知；null：兼容旧协议，只有传统状态。
+    public bool? BalanceStatusConfirmed { get; init; }
+    public string BalanceStateText => BalanceStatusConfirmed switch
+    {
+        true => BalanceCellMask == 0 ? "未进行" : "进行中",
+        false => "状态未知",
+        _ => !HasSystemStatus ? "状态未知" : BalancingOn ? "进行中" : "未进行"
+    };
     public bool IsCellBalancing(int zeroBasedCellIndex) =>
         (uint)zeroBasedCellIndex < BmsRegisters.CellVoltageSlotCount && IsCellVoltageValid(zeroBasedCellIndex) &&
         (BalanceCellMask & (1u << zeroBasedCellIndex)) != 0;
@@ -116,7 +143,8 @@ public sealed class BatterySnapshot
     public bool HasProtection => (ProtectionLevel1Raw | ProtectionLevel2Raw |
         SoftwareProtectionLevel3ForDisplay | HardwareProtectionRaw) != 0 ||
         LowPowerFault == true || FaultInjection is { HasInjectedFault: true } or { Hold: true };
-    public string ProtectionSummary => FaultInjectionStateUnknown ? "状态未知" : HasProtection ? "保护中" : "正常";
+    public string ProtectionSummary => FaultInjectionStateUnknown ? "状态未知" :
+        HasProtection ? "保护中" : HardwareProtectionStateUnknown ? "状态未知" : "正常";
     public string ProtectionLevel1Text => DecodeProtection(ProtectionLevel1Raw);
     public string ProtectionLevel2Text => DecodeProtection(ProtectionLevel2Raw);
     public string ProtectionLevel3Text
@@ -147,6 +175,7 @@ public sealed class BatterySnapshot
             if (FaultInjection is { McuFaults: not 0 })
                 text.Add(FaultInjection.McuText);
             if (FaultInjection?.Hold == true && text.Count == 0) text.Add("安全保持关断");
+            if (HardwareProtectionStateUnknown) text.Add("硬件保护详情未确认");
             if (FaultInjectionStateUnknown) text.Add("故障状态未确认（状态读取超时）");
             return text.Count == 0 ? "无" : string.Join("、", text);
         }
@@ -324,7 +353,11 @@ public sealed partial class BmsClient : IAsyncDisposable
     // Optional failures belong to this connection, never to a global product flag.
     private readonly HashSet<(ushort Address, ushort Count)> _unavailableReads = new();
     private bool? _realtimeAvailable, _c077MeasurementsAvailable;
-    private ushort? _templateCapabilities;
+    public BmsDeviceCapabilities? DeviceCapabilities { get; private set; }
+    private bool _templateCapabilityUnsupported;
+    private bool _templateCapabilitySchemaUnknown;
+    private long _lastTemplateCapabilityAttempt;
+    private static readonly TimeSpan CapabilityProbeInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan BalanceReadTimeout = TimeSpan.FromSeconds(1);
     private bool _legacyUnavailable, _identityConflict;
     public bool IsC060 { get; private set; }
@@ -527,7 +560,9 @@ public sealed partial class BmsClient : IAsyncDisposable
         if (_unavailableReads.Contains((address, count))) return null;
         try { return await ReadRegistersAsync(address, count, ct, TimeSpan.FromSeconds(2)); }
         catch (BmsModbusException ex) {
-            _unavailableReads.Add((address, count));
+            // 0x01 是模板地址拒绝或标准 Modbus 的非法功能。
+            // 模板的 0x02 是 CRC 错误，不能按标准地址拒绝缓存。
+            if (ex.Code == 1) _unavailableReads.Add((address, count));
             Log?.Invoke($"[CAPABILITY] 0x{address:X4}/{count} unavailable: {ex.Message}; connection retained");
             return null;
         } catch (TimeoutException ex) {
@@ -561,29 +596,34 @@ public sealed partial class BmsClient : IAsyncDisposable
     public async Task<BatterySnapshot> ReadBatteryAsync(CancellationToken ct = default)
     {
         DateTimeOffset readStartedUtc = DateTimeOffset.UtcNow;
+        bool legacyMeasurementQualityUnknown = false;
         if ((IsC077 || IsC073) && _c077MeasurementsAvailable != false)
         {
-            if (!_c077MeasurementsAvailable.HasValue)
+            if (!_c077MeasurementsAvailable.HasValue &&
+                !_unavailableReads.Contains((C077Measurements.Address, 2)))
             {
                 var header = await TryReadOptionalRegistersAsync(C077Measurements.Address, 2, ct).ConfigureAwait(false);
-                _c077MeasurementsAvailable = header is [var product, 1] && product == (IsC073 ? 0xC073 : 0xC077);
+                _c077MeasurementsAvailable = header is null ? null :
+                    header is [var product, 1] && product == (IsC073 ? 0xC073 : 0xC077);
             }
             if (_c077MeasurementsAvailable == true)
             {
                 var values = await ReadRegistersAsync(C077Measurements.Address, C077Measurements.WordCount, ct).ConfigureAwait(false);
                 var observed = DateTimeOffset.UtcNow;
                 var measured = C077Measurements.Parse(values, IsC073 ? (ushort)0xC073 : (ushort)0xC077);
-                uint balanceCells = await ReadBalanceCellMaskAsync(measured.Report[61], measured.Report[62], ct).ConfigureAwait(false);
+                var balanceCells = await ReadBalanceStateAsync(measured.Report[61], measured.Report[62], ct).ConfigureAwait(false);
                 bool? lowPowerFault = await ReadLowPowerFaultAsync(ct).ConfigureAwait(false);
                 var measuredProtection = await ReadHardwareProtectionAsync(ct).ConfigureAwait(false);
                 return DecodeC077Battery(measured, readStartedUtc, observed, balanceCells, lowPowerFault, measuredProtection);
             }
+            legacyMeasurementQualityUnknown = _c077MeasurementsAvailable is null &&
+                !_unavailableReads.Contains((C077Measurements.Address, 2));
         }
         if (_legacyUnavailable) throw new NotSupportedException("设备未提供通用实时数据窗口，连接与其它可用通信保持正常。");
         ushort[] legacy;
         try { legacy = await ReadRegistersAsync(BmsRegisters.Legacy, 63, ct).ConfigureAwait(false); }
         catch (BmsModbusException ex) {
-            _legacyUnavailable = true;
+            _legacyUnavailable = ex.Code == 1;
             throw new NotSupportedException("设备未提供通用实时数据窗口，连接与其它可用通信保持正常。", ex);
         }
         DateTimeOffset cellsReadUtc = DateTimeOffset.UtcNow;
@@ -630,10 +670,11 @@ public sealed partial class BmsClient : IAsyncDisposable
             // 单体数组、极值、串号及压差全部保留同一次 D000 应答。
         }
 
-        uint balanceCellMask = await ReadBalanceCellMaskAsync(legacy[61], legacy[62], ct).ConfigureAwait(false);
+        var balance = await ReadBalanceStateAsync(legacy[61], legacy[62], ct).ConfigureAwait(false);
         var protection = await ReadHardwareProtectionAsync(ct).ConfigureAwait(false);
         return new BatterySnapshot
         {
+            LegacyMeasurementQualityUnknown = legacyMeasurementQualityUnknown,
             ReadStartedUtc = readStartedUtc, CellsReadUtc = cellsReadUtc,
             StatusReadUtc = statusReadUtc, RealtimeReadUtc = realtimeReadUtc,
             PackVoltageV = voltage / 100.0,
@@ -663,7 +704,9 @@ public sealed partial class BmsClient : IAsyncDisposable
             ProtectionLevel3Raw = (ushort)(legacy[60] | c11DiagnosticFaults),
             SoftwareProtectionLevel3Raw = protection?[0],
             HardwareProtectionRaw = (ushort)((protection?[1] ?? 0) & (IsC073 ? 0x1ff : 0x1f)),
-            BalanceCellMask = balanceCellMask,
+            BalanceCellMask = balance.Mask,
+            BalanceStatusConfirmed = balance.Confirmed,
+            HardwareProtectionStateUnknown = HardwareProtectionUnconfirmed(protection),
             LowPowerFault = await ReadLowPowerFaultAsync(ct).ConfigureAwait(false),
             // The first 32 Legacy words are protocol slots, not the configured
             // series count.  61001 marks a slot that is not physically present.
@@ -671,44 +714,63 @@ public sealed partial class BmsClient : IAsyncDisposable
         };
     }
 
-    private async Task<uint> ReadBalanceCellMaskAsync(ushort legacyFirst, ushort legacySecond, CancellationToken ct)
+    public async Task<BmsDeviceCapabilities?> ReadDeviceCapabilitiesAsync(CancellationToken ct = default)
     {
-        if (!_templateCapabilities.HasValue)
+        _lastTemplateCapabilityAttempt = Stopwatch.GetTimestamp();
+        try
         {
-            try
-            {
-                var words = await ReadRegistersAsync(BmsRegisters.TemplateCapabilities, 10, ct, BalanceReadTimeout).ConfigureAwait(false);
-                _templateCapabilities = words[0] == 0x424D && words[1] == 1 ? words[9] : (ushort)0;
-            }
-            catch (Exception ex) when (!ct.IsCancellationRequested && ex is (IOException or TimeoutException))
-            {
-                _templateCapabilities = 0;
-            }
+            var words = await ReadRegistersAsync(BmsRegisters.TemplateCapabilities, 10, ct, BalanceReadTimeout).ConfigureAwait(false);
+            DeviceCapabilities = BmsDeviceCapabilities.Parse(words);
+            _templateCapabilitySchemaUnknown = DeviceCapabilities is null && words[0] == 0x424D;
+            _templateCapabilityUnsupported = DeviceCapabilities is null && !_templateCapabilitySchemaUnknown;
+            return DeviceCapabilities;
         }
+        catch (BmsModbusException ex) when (ex.Code == 1 && !ct.IsCancellationRequested)
+        {
+            _templateCapabilityUnsupported = DeviceCapabilities is null && !_templateCapabilitySchemaUnknown;
+            return null;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested && ex is (IOException or TimeoutException))
+        {
+            // 暂时读不到时保留上次描述；本次显式读取仍返回未知。
+            return null;
+        }
+    }
 
-        if ((_templateCapabilities.GetValueOrDefault() & BmsRegisters.TemplateBalanceStatusCapability) == 0)
+    private async Task<(uint Mask, bool? Confirmed)> ReadBalanceStateAsync(
+        ushort legacyFirst, ushort legacySecond, CancellationToken ct)
+    {
+        if (DeviceCapabilities is null && !_templateCapabilityUnsupported && !_templateCapabilitySchemaUnknown &&
+            (_lastTemplateCapabilityAttempt == 0 || Stopwatch.GetElapsedTime(_lastTemplateCapabilityAttempt) >= CapabilityProbeInterval))
+            await ReadDeviceCapabilitiesAsync(ct).ConfigureAwait(false);
+
+        if (DeviceCapabilities is null && !_templateCapabilityUnsupported)
+            return (0, false);
+
+        if (DeviceCapabilities?.HasFeature(BmsRegisters.TemplateBalanceStatusCapability) != true)
         {
             // 旧 C060 的两个字分别对应两片 AFE，每片占 10 个逻辑串位。
-            return IsC060 ? (legacyFirst & 0x03FFu) | ((legacySecond & 0x03FFu) << 10)
+            uint legacyMask = IsC060 ? (legacyFirst & 0x03FFu) | ((legacySecond & 0x03FFu) << 10)
                 : legacyFirst | ((legacySecond & 0x00FFu) << 16);
+            return (legacyMask, null);
         }
 
         try
         {
             var words = await ReadRegistersAsync(BmsRegisters.BalanceStatus, 5, ct, BalanceReadTimeout).ConfigureAwait(false);
-            return words is [0x424C, 1, var flags, var low, var high] && (flags & 1) != 0
-                ? (uint)low | ((uint)high << 16) : 0u;
+            if (words is [0x424C, 1, var flags, var low, var high] && (flags & 1) != 0)
+                return ((uint)low | ((uint)high << 16), true);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested && ex is (IOException or TimeoutException))
         {
-            // 已声明支持的设备若本次读取失败，清除标记并在下次刷新重新读取。
-            return 0u;
+            // 已声明的窗口临时不可用，下次轮询重新读取。
         }
+        return (0, false);
     }
 
     private async Task<bool?> ReadLowPowerFaultAsync(CancellationToken ct)
     {
-        if ((_templateCapabilities.GetValueOrDefault() & BmsRegisters.TemplateLowPowerFaultCapability) == 0)
+        if (DeviceCapabilities?.HasFeature(BmsRegisters.TemplateLowPowerFaultCapability) != true)
             return null;
 
         ushort[]? values = await TryReadOptionalRegistersAsync(BmsRegisters.LowPowerFaultStatus, 1, ct).ConfigureAwait(false);
@@ -716,13 +778,28 @@ public sealed partial class BmsClient : IAsyncDisposable
         return values is [var word] ? (word >> 8) != 0 : null;
     }
 
-    private Task<ushort[]?> ReadHardwareProtectionAsync(CancellationToken ct) =>
-        (_templateCapabilities.GetValueOrDefault() & BmsRegisters.TemplateHardwareProtectionCapability) != 0
-            ? TryReadOptionalRegistersAsync(BmsRegisters.TemplateProtectionStatus, 2, ct)
-            : Task.FromResult<ushort[]?>(null);
+    private bool HardwareProtectionExpected =>
+        DeviceCapabilities?.HasFeature(BmsRegisters.TemplateHardwareProtectionCapability) == true;
+
+    private bool HardwareProtectionUnconfirmed(ushort[]? protection) =>
+        protection is null && (HardwareProtectionExpected ||
+            DeviceCapabilities is null && !_templateCapabilityUnsupported);
+
+    private async Task<ushort[]?> ReadHardwareProtectionAsync(CancellationToken ct)
+    {
+        if (!HardwareProtectionExpected) return null;
+        try
+        {
+            return await ReadRegistersAsync(BmsRegisters.TemplateProtectionStatus, 2, ct, TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested && ex is (IOException or TimeoutException))
+        {
+            return null;
+        }
+    }
 
     private BatterySnapshot DecodeC077Battery(C077Measurements measured, DateTimeOffset startedUtc,
-        DateTimeOffset observed, uint balanceCellMask, bool? lowPowerFault, ushort[]? protection)
+        DateTimeOffset observed, (uint Mask, bool? Confirmed) balance, bool? lowPowerFault, ushort[]? protection)
     {
         var data = measured.Report;
         return new BatterySnapshot
@@ -738,7 +815,9 @@ public sealed partial class BmsClient : IAsyncDisposable
             ProtectionLevel1Raw = data[58], ProtectionLevel2Raw = data[59], ProtectionLevel3Raw = data[60],
             SoftwareProtectionLevel3Raw = protection?[0],
             HardwareProtectionRaw = (ushort)((protection?[1] ?? 0) & (IsC073 ? 0x1ff : 0x1f)),
-            BalanceCellMask = balanceCellMask,
+            BalanceCellMask = balance.Mask,
+            BalanceStatusConfirmed = balance.Confirmed,
+            HardwareProtectionStateUnknown = HardwareProtectionUnconfirmed(protection),
             LowPowerFault = lowPowerFault,
             CellMillivolts = data[..BmsRegisters.CellVoltageSlotCount].ToArray()
         };

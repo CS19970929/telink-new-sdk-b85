@@ -66,7 +66,8 @@ static class MonitorPollingTest
         hardwareTransport.RejectHardwareRead = true;
         hardwareTransport.LegacyThird = 0x20;
         var fallback = await hardwareClient.ReadBatteryAsync();
-        Check(fallback.HasProtection && fallback.ProtectionLevel3Text == "放电过流",
+        Check(fallback.HasProtection && fallback.HardwareProtectionStateUnknown &&
+            fallback.ProtectionLevel3Text == "放电过流、硬件保护详情未确认",
             "a failed C060 status read must fall back to the legacy protection word");
         Console.WriteLine("PASS polling: coherent readings, no UI-pump dependency, optional RTC and C060 hardware protection reporting");
     }
@@ -109,7 +110,8 @@ static class MonitorPollingTest
                 w[8]=3347; w[9]=3336; w[10]=11; // 较晚窗口已经恢复。
             }
             else if (address == 0x2AF0) {
-                if (AdvertisesLowPowerFault || AdvertisesHardwareProtection) { w[0] = 0x424D; w[1] = 1; }
+                if (AdvertisesLowPowerFault || AdvertisesHardwareProtection)
+                    w = [0x424D, 1, 0xC060, 0x0020, 0x7693, 2, 20, 20, 20, 0];
                 if (AdvertisesLowPowerFault) w[9] |= 0x0020;
                 if (AdvertisesHardwareProtection) w[9] |= 0x0040;
             }

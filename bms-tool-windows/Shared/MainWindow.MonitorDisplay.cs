@@ -37,6 +37,8 @@ public partial class MainWindow
 
     private static string DescribeBalanceState(bool isC073, BatterySnapshot snapshot)
     {
+        if (snapshot.BalanceStatusConfirmed.HasValue) return snapshot.BalanceStateText;
+        if (!snapshot.HasSystemStatus) return "状态未知";
         if (isC073 && snapshot.BalanceCellMask == 0) return "通道状态未提供";
         return snapshot.BalancingOn || isC073 ? "进行中" : "未进行";
     }
