@@ -12,6 +12,17 @@ static class Test
         await client.ReadIdentityAsync();Check(client.IsC077,"production C capability selects C077");
         var initial=await client.ReadC077AfeAsync();Check(initial.Schema==3&&initial.UsesPersistentCalibration,"new startup-check diagnostics");
         Check(!initial.Chips[1].ProfileMatches&&!initial.SampleValid,"actual C fixture begins with AFE2 mismatch");
+        var dual = (await Sh309Protection.ReadAsync(client)).Chips;
+        Check(dual.Count == 2 && dual[0].Saved[1] == 4260 && dual[1].Saved[1] == 4300 &&
+            dual[0].Readback == Sh309Readback.Matches && dual[1].Readback == Sh309Readback.Different &&
+            dual[1].Actual?[1] != 4300 && wire.ConfigurationWrites == 0,
+            "common dual-chip read keeps each Flash target and live difference");
+        wire.RejectVerify = true;
+        var failed = (await Sh309Protection.ReadAsync(client)).Chips;
+        Check(failed.All(c => c.Actual is null && c.Readback == Sh309Readback.Unknown) &&
+            failed[0].Saved[1] == 4260 && failed[1].Saved[1] == 4300 && wire.ConfigurationWrites == 0,
+            "failed EEPROM verification keeps both Flash targets and hides cached hardware values");
+        wire.RejectVerify = false;
         var programmed=await client.RunC077ServiceAsync(true);
         Check(programmed.ZeroReady&&programmed.SampleValid&&programmed.Chips.All(c=>c.Valid),"C driver differential programming, reset, zero and recovery complete");
         Check(programmed.Chips[1].ZeroStateText=="未启用","secondary never requests a CADC zero");
@@ -68,6 +79,7 @@ static class Test
 sealed class NativeTransport : IBmsTransport, IBmsMtuTransport
 {
     readonly Process process;public int ServiceWrites;
+    public bool RejectVerify { get; set; }
     public NativeTransport(string path,string mode="--host-service") {
         process=Process.Start(new ProcessStartInfo(path,mode) {UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true})??throw new IOException("native fixture start failed");
     }
@@ -86,6 +98,11 @@ sealed class NativeTransport : IBmsTransport, IBmsMtuTransport
     public async Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default) {
         byte[] bytes=data.ToArray();if(bytes.Length>=6&&bytes[1]==6&&bytes[2]==0x2A&&bytes[3]==0x7F)ServiceWrites++;
         if (bytes.Length >= 6 && bytes[1] == 16 && bytes[2] == 0x2B) ConfigurationWrites++;
+        if (RejectVerify && bytes.Length == 8 && bytes.AsSpan(1, 5).SequenceEqual(new byte[] { 6, 0x2A, 0x7F, 0xC0, 0x87 }))
+        {
+            DataReceived?.Invoke(ModbusRtu.Frame(new byte[] { 1, 0x86, 4 }));
+            return;
+        }
         await process.StandardInput.WriteLineAsync(Convert.ToHexString(bytes));await process.StandardInput.FlushAsync();
         string? reply=await process.StandardOutput.ReadLineAsync(ct);
         if(reply is null)throw new IOException("native fixture exited: "+await process.StandardError.ReadToEndAsync(ct));

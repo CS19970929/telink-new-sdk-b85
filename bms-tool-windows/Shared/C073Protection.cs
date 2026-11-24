@@ -46,23 +46,43 @@ public static class C073Protection
 
     public static async Task<C073ProtectionReadback> ReadAsync(BmsClient client,CancellationToken ct)
     {
-        await RequireProfileAsync(client,ct);
-        await WaitForIdleAsync(client,ct);
-        await client.WriteSingleRegisterAsync(Service,0xC087,ct); // 芯片只读复核
-        var diag=await WaitForIdleAsync(client,ct);
-        if (diag[3] is not (0 or 4)) throw new IOException($"309 芯片读取失败，错误码 {diag[3]}。");
-        var saved=await client.ReadRegistersAsync(C077Hardware.ConfigBase,32,ct);
-        var actual=await client.ReadRegistersAsync(0x2A60,13,ct);
-        var expected=await client.ReadRegistersAsync(C077Hardware.ExpectedBase,15,ct);
+        var chip = await InspectAsync(client, ct).ConfigureAwait(false);
+        if (chip.Actual is not { } actual || chip.Tr is not int tr)
+            throw new IOException(chip.Detail);
+        return new(chip.Saved, actual, tr, chip.Readback == Sh309Readback.Matches);
+    }
+
+    internal static async Task<Sh309ChipProtection> InspectAsync(BmsClient client, CancellationToken ct)
+    {
+        await RequireProfileAsync(client, ct).ConfigureAwait(false);
+        ushort[] diag, actual, expected;
+        try {
+            await WaitForIdleAsync(client, ct).ConfigureAwait(false);
+            await client.WriteSingleRegisterAsync(Service, 0xC087, ct).ConfigureAwait(false);
+            diag = await WaitForIdleAsync(client, ct).ConfigureAwait(false);
+            if (diag[3] is not (0 or 4)) throw new IOException($"309 芯片读取失败，错误码 {diag[3]}。");
+            actual = await client.ReadRegistersAsync(0x2A60, 13, ct).ConfigureAwait(false);
+            expected = await client.ReadRegistersAsync(C077Hardware.ExpectedBase, 15, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested && ex is IOException or TimeoutException) {
+            var savedOnFailure = await client.ReadRegistersAsync(C077Hardware.ConfigBase, 32, ct).ConfigureAwait(false);
+            return new(0, savedOnFailure, null, null, Sh309Readback.Unknown, ex.Message);
+        }
+        var saved = await client.ReadRegistersAsync(C077Hardware.ConfigBase, 32, ct).ConfigureAwait(false);
+        return DecodeInspection(saved, diag, actual, expected);
+    }
+
+    private static Sh309ChipProtection DecodeInspection(ushort[] saved, ushort[] diag, ushort[] actual, ushort[] expected)
+    {
         byte[] bytes=new byte[26];
         for (int i=0;i<actual.Length;++i) {
             bytes[2*i]=(byte)(actual[i]>>8);
             bytes[2*i+1]=(byte)actual[i];
         }
-        int tr=bytes[25]&127;
         bool matches=diag[3]==0 && diag[8]==1 && expected[13]==0 && expected[14]==0 &&
             actual.AsSpan(0,12).SequenceEqual(expected.AsSpan(0,12)) && bytes[24]==(byte)(expected[12]>>8);
-        return new(saved,C077Hardware.Decode(bytes,tr),tr,matches);
+        return new(0, saved, bytes, expected, matches ? Sh309Readback.Matches : Sh309Readback.Different,
+            matches ? string.Empty : "请核对寄存器差异");
     }
 
     public static async Task ApplyAsync(BmsClient client,ushort[] observed,ushort[] values,CancellationToken ct)

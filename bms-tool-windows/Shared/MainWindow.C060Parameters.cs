@@ -78,7 +78,7 @@ public partial class MainWindow
             await RunC060ParameterAsync(async(c,t)=>{_c077Status.Text=(await c.RunC077ServiceAsync(false,t)).Summary;},"重新检查电流采样",requireCapture:false);
         });
 #if BMS_FACTORY_APP
-        AfeButton("编辑双309硬件保护（Flash / EEPROM）",()=>RunC060ParameterAsync((c,t)=>{
+        AfeButton("查看 SH367309 硬件保护",()=>RunC060ParameterAsync((c,t)=>{
             var editor=new C077AfeEditorWindow(c){Owner=this};editor.ShowDialog();return Task.CompletedTask;
         },"双309硬保护编辑",requireCapture:false,refreshAfter:false));
         AfeButton("维修：核对并写入双309档案",async()=>{

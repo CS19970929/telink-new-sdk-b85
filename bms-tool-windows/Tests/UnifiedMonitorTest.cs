@@ -308,6 +308,33 @@ static class UnifiedMonitorTest
         var protectionTab=(TabItem)window.FindName("ProtectionTab");
         var classicProtection=(FrameworkElement)typeof(MainWindow).GetField("_softwareProtectionBrowser",Flags)!.GetValue(window)!;
         var hardwareProtection=(FrameworkElement)typeof(MainWindow).GetField("_c073ProtectionView",Flags)!.GetValue(window)!;
+        var viewType = hardwareProtection.GetType();
+        var chipSelector = (ComboBox)viewType.GetField("_chip", Flags)!.GetValue(hardwareProtection)!;
+        var parameterTable = (DataGrid)viewType.GetField("_parameters", Flags)!.GetValue(hardwareProtection)!;
+        var saved1 = new ushort[32]; saved1[1] = 4260;
+        var saved2 = new ushort[32]; saved2[1] = 4300;
+        viewType.GetMethod("Load")!.Invoke(hardwareProtection, [
+            new Sh309ProtectionSnapshot("C077", [
+                new(0, saved1, new byte[26], new ushort[16], Sh309Readback.Matches, ""),
+                new(1, saved2, null, null, Sh309Readback.Unknown, "读取故障")
+            ])
+        ]);
+        string OvervoltageColumn(string property)
+        {
+            var row = parameterTable.Items.Cast<object>()
+                .Single(item => (string)item.GetType().GetProperty("Name")!.GetValue(item)! == "过压动作");
+            return (string)row.GetType().GetProperty(property)!.GetValue(row)!;
+        }
+        Check(chipSelector.Items.Count == 2 && OvervoltageColumn("Saved") == "4260", "C077 AFE1 独立档案");
+        chipSelector.SelectedIndex = 1;
+        Check(OvervoltageColumn("Saved") == "4300" && OvervoltageColumn("Actual") == "—", "C077 AFE2 独立档案及未知实际值");
+        viewType.GetMethod("Load")!.Invoke(hardwareProtection, [
+            new Sh309ProtectionSnapshot("C073", [new(0, saved1, null, null, Sh309Readback.Unknown, "读取故障")])
+        ]);
+        Check(chipSelector.Items.Count == 1 && chipSelector.SelectedIndex == 0, "同一视图切换为 C073 单片");
+        viewType.GetMethod("Clear")!.Invoke(hardwareProtection, null);
+        Check(chipSelector.Items.Count == 0 && parameterTable.ItemsSource is null, "换设备时清空旧档案");
+
         updateProtection.Invoke(window,[true]);
         Check(protectionTab.Visibility==Visibility.Visible && protectionTab.Header.ToString()!.Contains("SH367309") &&
               hardwareProtection.Visibility==Visibility.Visible && classicProtection.Visibility==Visibility.Collapsed,

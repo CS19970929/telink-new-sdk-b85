@@ -12,12 +12,7 @@ public partial class MainWindow
     private BmsClient? _c073ReadClient;
     private ushort[]? _c073SocBefore, _c073SystemBefore;
 
-    private readonly Control[] _c073ProtectionInputs = new Control[32];
-    private readonly TextBlock[] _c073Actual = new TextBlock[32];
-    private readonly TextBlock _c073ChipStatus = new() { TextWrapping=TextWrapping.Wrap };
-    private BmsClient? _c073ProtectionClient;
-    private ushort[]? _c073ProtectionBefore;
-    private int _c073Tr;
+    private readonly Sh309ProtectionView _c073Sh309View = new();
 
     private void AddC073ParameterTab()
     {
@@ -44,46 +39,12 @@ public partial class MainWindow
 
     private FrameworkElement CreateC073ProtectionView()
     {
-        var fields = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
-        var read = new Button { Content="读取 Flash 和 309 实际值", HorizontalAlignment=HorizontalAlignment.Left };
-        read.Click += async (_,_) => await RunC073OperationAsync(ReadC073ProtectionAsync, false, protection: true);
-        fields.Children.Add(read);
-        fields.Children.Add(_c073ChipStatus);
-        foreach (var field in C077Hardware.Fields) {
-            int index=field.Index;
-            string name = C073Protection.FieldName(field);
-            string unit = C073Protection.IsCurrentField(index) ? "A" : field.Unit;
-            var row=new StackPanel { Orientation=Orientation.Horizontal, Margin=new Thickness(0,3,0,0) };
-            row.Children.Add(new TextBlock { Text=$"{name} / {unit}", Width=235, VerticalAlignment=VerticalAlignment.Center });
-            Control input=field.Choices is { } choices
-                ? new ComboBox { ItemsSource=choices.Select(v=>C073Protection.DisplayValue(index,v)).ToArray() }
-                : new TextBox();
-            input.Width=100;
-            input.ToolTip=index==0 ? string.Join("\n",C077Hardware.FeatureNames.Select((n,i)=>$"bit{i} {n}")) :
-                C073Protection.IsCurrentField(index) ? "按 6 个 2 mΩ 并联换算的名义动作电流" : field.Limits;
-            _c073ProtectionInputs[index]=input;
-            _c073Actual[index]=new TextBlock { Margin=new Thickness(14,0,0,0), VerticalAlignment=VerticalAlignment.Center };
-            row.Children.Add(input); row.Children.Add(_c073Actual[index]); fields.Children.Add(row);
-        }
-        var save=new Button { Content="保存并应用到 309", HorizontalAlignment=HorizontalAlignment.Left, Margin=new Thickness(0,8,0,0) };
-        save.Click += async (_,_) => await RunC073OperationAsync(SaveC073ProtectionAsync, true, protection: true);
-        fields.Children.Add(save);
-        _c073ChipStatus.Text = "请读取当前设备的 Flash 和 309 实际值。";
-        return new ScrollViewer { Content = fields, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        _c073Sh309View.AddAction("读取 Flash 和 EEPROM", () =>
+            RunC073OperationAsync(ReadC073ProtectionAsync, false, protection: true));
+        return _c073Sh309View;
     }
 
-    private void ClearC073ProtectionView()
-    {
-        _c073ProtectionBefore = null;
-        _c073ProtectionClient = null;
-        foreach (Control? input in _c073ProtectionInputs) {
-            if (input is ComboBox choices) choices.SelectedIndex = -1;
-            else if (input is TextBox box) box.Clear();
-        }
-        foreach (TextBlock? field in _c073Actual)
-            if (field is not null) field.Text = string.Empty;
-        _c073ChipStatus.Text = "请读取当前设备的 Flash 和 309 实际值。";
-    }
+    private void ClearC073ProtectionView() => _c073Sh309View.Clear();
 
     private async Task RunC073OperationAsync(Func<BmsClient,CancellationToken,Task> operation, bool writing, bool requiresUnlock=true, CancellationToken automatic=default, bool protection=false)
     {
@@ -92,7 +53,7 @@ public partial class MainWindow
 #if !BMS_FACTORY_APP
         if (writing && requiresUnlock && !_protectedFeaturesUnlocked) {
             _parameterStatus.Text="请先解锁高级功能，再保存参数。";
-            if (protection) _c073ChipStatus.Text = _parameterStatus.Text;
+            if (protection) _c073Sh309View.Status.Text = _parameterStatus.Text;
             return;
         }
 #endif
@@ -107,9 +68,9 @@ public partial class MainWindow
         }
         catch (Exception) when (automatic.IsCancellationRequested) { }
         catch (Exception ex) when (ReferenceEquals(client,_bms)) {
-            _c073ReadClient=_c073ProtectionClient=null;
+            _c073ReadClient=null;
             _parameterStatus.Text="C073 参数操作未确认："+ex.Message;
-            if (protection) _c073ChipStatus.Text = _parameterStatus.Text;
+            if (protection) _c073Sh309View.Status.Text = _parameterStatus.Text;
         }
         catch (Exception) when (!ReferenceEquals(client,_bms)) { }
         finally {
@@ -134,41 +95,12 @@ public partial class MainWindow
 
     private async Task ReadC073ProtectionAsync(BmsClient client,CancellationToken ct)
     {
-        var profile=await C073Protection.ReadAsync(client,ct);
+        _c073Sh309View.Clear();
+        _c073Sh309View.Status.Text = "正在读取…";
+        var profile = await Sh309Protection.ReadAsync(client, ct);
         ct.ThrowIfCancellationRequested();
-        if (!ReferenceEquals(client,_bms)) throw new IOException("连接已改变。");
-        for (int i=0;i<profile.Saved.Length;++i) {
-            var field=C077Hardware.Fields[i];
-            int value=C073Protection.DisplayValue(i,field.Value(profile.Saved[i]));
-            if (_c073ProtectionInputs[i] is ComboBox choices) choices.SelectedItem=value;
-            else ((TextBox)_c073ProtectionInputs[i]).Text=value.ToString();
-            _c073Actual[i].Text=$"芯片  {C073Protection.DisplayValue(i,profile.Actual[i])}";
-        }
-        _c073ChipStatus.Text=profile.Matches ? "Flash 与芯片 25 个配置字节一致。温度按 TR 解码为近似值。" :
-            "Flash 与芯片当前配置有差异。请核对两列后决定是否应用。";
-        _c073ProtectionBefore=profile.Saved;
-        _c073Tr=profile.Tr;
-        _c073ProtectionClient=client;
-    }
-
-    private async Task SaveC073ProtectionAsync(BmsClient client,CancellationToken ct)
-    {
-        if (!ReferenceEquals(_c073ProtectionClient,client) || _c073ProtectionBefore is not { } before)
-            throw new IOException("请先读取此设备的 309 保护参数。");
-        ushort[] candidate=new ushort[32];
-        foreach (var field in C077Hardware.Fields) {
-            int i=field.Index;
-            int value=_c073ProtectionInputs[i] is ComboBox combo
-                ? (int)(combo.SelectedItem ?? throw new ArgumentException("请选择允许的档位。"))
-                : int.Parse(((TextBox)_c073ProtectionInputs[i]).Text);
-            if (C073Protection.IsCurrentField(i)) value/=3;
-            candidate[i]=field.Signed ? unchecked((ushort)checked((short)value)) : checked((ushort)value);
-        }
-        C073Protection.Validate(candidate,_c073Tr);
-        if (MessageBox.Show(this,"应用硬件保护参数时，C073 可能暂时关闭充、放电 MOS。确认保存并应用？",
-            "C073 硬件保护",MessageBoxButton.YesNo)!=MessageBoxResult.Yes) throw new OperationCanceledException("用户取消保存。");
-        await C073Protection.ApplyAsync(client,before,candidate,ct);
-        await ReadC073ProtectionAsync(client,ct);
+        if (!ReferenceEquals(client, _bms)) throw new IOException("连接已改变。");
+        _c073Sh309View.Load(profile);
     }
 
     private async Task SaveC073GroupAsync(BmsClient client, ushort address, CancellationToken token)

@@ -7,6 +7,16 @@ await using var client = new BmsClient(peer);
 await client.ReadIdentityAsync();
 if (!client.IsC073) throw new Exception("C073 identity");
 var ct=CancellationToken.None;
+var single = (await Sh309Protection.ReadAsync(client, ct)).Chips.Single();
+if (single.Index != 0 || single.Saved[1] != 4250 || single.Actual?[1] != 4250 ||
+    single.Readback != Sh309Readback.Matches || Sh309Protection.Format("C073", C077Hardware.Fields[12], 30) != "90")
+    throw new Exception("common single-chip read or C073 current scale");
+peer.RejectVerify = true;
+var failed = (await Sh309Protection.ReadAsync(client, ct)).Chips.Single();
+if (failed.Saved[1] != 4250 || failed.Actual is not null || failed.Readback != Sh309Readback.Unknown ||
+    peer.Groups != 0 || peer.Programs != 0)
+    throw new Exception("unconfirmed EEPROM must not hide Flash or display the cache as actual");
+peer.RejectVerify = false;
 var before=await C073Protection.ReadAsync(client,ct);
 if (!before.Matches || before.Tr!=64 || before.Actual[1]!=4250 || before.Actual[12]!=30 || before.Actual[14]!=40)
     throw new Exception("actual profile decode");
@@ -47,7 +57,7 @@ Console.WriteLine("PASS C073 CAN: identity, 32-word Flash write, EEPROM readback
 sealed class CanPeer : IBmsTransport,IBmsMtuTransport
 {
     public ushort[] Profile=[17,4250,1000,4010,2760,1000,2900,4160,2000,1000,5000,8,30,1000,40,200,50,64,20,1000,200,64,32,700,650,unchecked((ushort)-50),0,700,650,unchecked((ushort)-50),0,2000];
-    public bool LoseAck, Ble, SingleChip=true, Compact;
+    public bool LoseAck, Ble, SingleChip=true, Compact, RejectVerify;
     public ushort ConfigFormat;
     public int LegacyProtectionReads;
     public int? NegotiatedMtu=>Ble ? 23 : 247;
@@ -89,6 +99,7 @@ sealed class CanPeer : IBmsTransport,IBmsMtuTransport
             int command=BinaryPrimitives.ReadUInt16LittleEndian(payload.AsSpan(4));
             if(command==0xC073){actualOv=Profile[1];++Programs;}
             else if(command!=0xC087)throw new Exception("service command");
+            else if(RejectVerify)throw new CommToolCommandException(4,"verification unavailable");
             return [];
         }
         if(opcode!=0x10)throw new Exception("opcode");
