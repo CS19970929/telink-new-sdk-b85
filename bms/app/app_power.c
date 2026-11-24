@@ -60,12 +60,10 @@ typedef struct
 static bool s_low_power_mode;
 uint8_t deepsleep_en;
 
-/* 四产品保护性休眠共用计时；到期后锁存，不再回到通信/采样业务。 */
 /* 命令应答只作有界等待，不能成为强制休眠的永久门禁。 */
 #define APP_COMMAND_REPLY_MS (APP_PM_MS_PER_SEC / 2u)
 static u8 s_command_seen;
 static u32 s_command_ms;
-/* 诊断字段保留，0表示普通Suspend不再按电流阻断；采样仍为200ms。 */
 /* 策略时间由 Core 推进；提交标志只由应用一次性硬件收尾拥有。 */
 typedef bms_sleep_status_t app_sleep_status_t;
 typedef bms_sleep_policy_t app_protective_sleep_t;
@@ -92,18 +90,11 @@ static u32 app_pm_take_elapsed_seconds(app_pm_elapsed_ctx_t *ctx)
 }
 
 
-/* D008 已请求断电，不再执行低功耗调用；SH 仅重试深睡，不重复写 Flash/AFE。 */
-static void app_protective_sleep_hold(void)
-{
-    return; /* PC4 已拉低，禁止继续采样、通信或重复保存。 */
-}
-
 /* 已锁存的深睡/关机只收尾一次；保存和外设失败不能恢复业务或无限重试。 */
 static void app_prepare_deep_sleep(void)
 {
     bms_afe_set_output_enabled(0u);
-    /* guard 选择 DVC Shutdown / SH Sleep 并保持总线静默资格；
-     * 无法通知 AFE 时也必须执行对应的 MCU 断电或深睡。 */
+    /* DVC Shutdown 后保持总线静默，MCU 继续完成自身关机。 */
     (void)bms_afe_sleep();
     /* 不在 OTA/Flash 会话内追加写入；其余情况各保存一次，失败不重试、不拒睡。 */
     if (!ota_is_working && app_flash_lock_restore_enabled()) {
@@ -129,10 +120,9 @@ static void app_enter_protective_sleep(void)
     bms_sleep_status_committed();
     /* 命令/保护性休眠均切断 MCU 供电；PC4 拉低后禁止再保存或访问 AFE。 */
     gpio_write(BMS_BOARD_MCU_LDO_PIN, 0u);
-    app_protective_sleep_hold();
 }
 
-/* 四产品命令均复用强制入口；一线通接入、OTA及失败不能撤销已锁存请求。 */
+/* 强制请求在应答窗口结束后关机。 */
 static u8 app_command_sleep_poll(void)
 {
     u32 now = bms_time_ms();
@@ -145,7 +135,7 @@ static u8 app_command_sleep_poll(void)
                     APP_COMMAND_REPLY_MS, 0u, 0u);
     /* 应答空闲即执行，最长等待500ms；使用无符号时间差处理tick回绕。 */
     if (elapsed < APP_COMMAND_REPLY_MS &&
-        (uart_tx_is_busy() || modbus_uart_tx_active() ||
+        (modbus_uart_tx_active() ||
          (device_in_connection_state && blc_ll_getTxFifoNumber() != 0u))) return 0u;
     app_enter_protective_sleep();
     return 1u;
@@ -159,7 +149,6 @@ static u8 app_protective_sleep_poll(u32 elapsed_sec,
     bms_sleep_config_t config;
     bms_sleep_input_t input;
     if (s_protective_sleep_committed) {
-        app_protective_sleep_hold();
         return 1u;
     }
     bms_config_get_sleep(&config);
@@ -271,35 +260,15 @@ void app_power_process(const volatile uint8_t *sample_due)
     u8 valid = bms_afe_get_aux_measurements(&m);
     /* 冻结暂停采样，不暂停强制休眠；无效快照不能撤销已确认的低压/过放。 */
     if (app_protective_sleep_poll(elapsed_sec, &m, valid, &protective)) return;
-    /*
-     * 0x1102=0x000A 是锁存关机请求，不是空闲 suspend 提示。
-     * 应答等待最多500ms，之后直接提交强制入口；保护性计时已在本入口之前推进。
-     */
-    if (deepsleep_en)
-    {
-
-        if (app_command_sleep_poll()) return;
-        s_low_power_mode = false;
-        bls_pm_setSuspendMask(SUSPEND_DISABLE);
-        if (ota_is_working) bls_pm_setManualLatency(0);
-        return;
-    }
-
-    if (app_acc_sleep_requested())
-    {
-
-        if (app_enter_acc_sleep()) return;
-        s_low_power_mode = false;
-        bls_pm_setSuspendMask(SUSPEND_DISABLE);
-        if (ota_is_working) bls_pm_setManualLatency(0);
-        return;
-    }
+    /* 等待有界命令应答时，仍保持主循环运行。 */
+    if (deepsleep_en && app_command_sleep_poll()) return;
+    if (app_acc_sleep_requested() && app_enter_acc_sleep()) return;
 
     /*
      * 充放电不要求持续运行；完成采样与必要事务后可睡到下一期限。
      * 无效数据仍保持运行恢复，不能把通信失败当作空闲。
      */
-    if (!valid || *sample_due || ota_is_working ||
+    if (!valid || deepsleep_en || *sample_due || app_sample_is_due() || ota_is_working ||
         !app_flash_lock_restore_enabled() || !bus_mux_suspend_ready())
     {
         s_low_power_mode = false;
@@ -318,7 +287,6 @@ void app_power_process(const volatile uint8_t *sample_due)
 uint8_t app_power_prepare_loop(void)
 {
     if (s_protective_sleep_committed) {
-        app_protective_sleep_hold();
         return 1u;
     }
     if (s_acc_sleep_committed) {

@@ -305,19 +305,17 @@ int main(void){
 }
 '''
 
-products = (os.environ['BMS_PRODUCT'],) if 'BMS_PRODUCT' in os.environ else ('d008', 'd011', 'd013', 'd014')
+products = (os.environ['BMS_PRODUCT'],) if 'BMS_PRODUCT' in os.environ else ('d008',)
 for product, production in ((p, mode) for p in products for mode in ((0, 1) if p == 'd014' else (0,))):
     source = selected_source(ROOT / 'bms/platform/telink/modbus_uart.c', product,
                              defines=('-DBMS_PRODUCTION_BUILD=%d' % production,
-                                      '-DBMS_DIAG_BUILD_ID=0x12345678u',
-                                      '-DBMS_SERVICE_DIAG_ENABLE=0', '-DBMS_DIAG_TRACE_ENABLE=0',
-                                      '-DBMS_STACK_MONITOR_ENABLE=0'))
+                                      '-DBMS_BUILD_ID=0x12345678u',
+                                      '-DD008_PRODUCT_PROFILE=3'))
     source = re.sub(r'^#include[^\n]*', '', source, flags=re.M)
     # 外设模型模拟GPIO中断W1C；不改生产状态机/判断。
     source = source.replace('reg_irq_src = FLD_IRQ_GPIO_RISC0_EN;', 'clear_gpio_irq();')
     source = source.replace('reg_irq_src = FLD_IRQ_GPIO_RISC1_EN;', 'clear_wake_irq();')
     header = (ROOT / 'bms/platform/telink/modbus_uart.h').read_text(encoding='utf8')
-    diag = re.search(r'typedef struct \{[\s\S]*?\} bms_rs485_tx_diag_t;', header)[0]
     defines = ('#define BMS_PRODUCT_RS485_ENABLE %d\n#define BMS_RS485_TX_DIAG_ENABLE 0\n'
                '#define BMS_DEBUG_LOG_ENABLE 0\n#define CLOCK_SYS_CLOCK_HZ 16000000u\n'
                '#define BMS_BOARD_OWC_TX_PIN 1\n#define BMS_BOARD_OWC_RX_PIN 2\n'
@@ -349,7 +347,7 @@ for product, production in ((p, mode) for p in products for mode in ((0, 1) if p
                     '#define TEST_UART_BWPC %du\n#define TEST_RS485_TIMEOUT_US %du\n'
                     '#define TEST_RS485_FRAME_END_US %du\n') % (
                         baud_rate, divider, bwpc, timeout_us, frame_end_us)
-        c.write_text(expected + PREFIX + defines + diag + source + TAIL, encoding='utf8')
+        c.write_text(expected + PREFIX + defines + source + TAIL, encoding='utf8')
         subprocess.run(shlex.split(os.environ.get('CC','cc')) + ['-std=c99','-Wall','-Wextra','-Werror',
                         '-Wno-unused-function',str(c),'-o',str(exe)],check=True)
         subprocess.run([str(exe)],check=True)

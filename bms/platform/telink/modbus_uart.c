@@ -36,11 +36,9 @@ static mb_dma_pkt_t s_rx_pkt;
 static mb_dma_pkt_t s_tx_pkt;
 /* 正常应答和周期接收维护的时间基准。 */
 static _attribute_data_retention_ u32 mb_last_ok_tick = 0u;
-static _attribute_data_retention_ u32 mb_bad_cnt = 0u;
 
 /* 总线检测在帧中途才取得UART所有权，首个DMA包只能用于唤醒。 */
 static volatile u8 s_uart_wake_rx_pending;
-
 
 
 /* 查询 UART 发送是否仍活动。 */
@@ -73,6 +71,7 @@ void modbus_uart_init(void)
     dma_chn_irq_enable(FLD_DMA_CHN_UART_RX | FLD_DMA_CHN_UART_TX, 1);
 
     s_rx_ready = 0u;
+    mb_last_ok_tick = clock_time();
     irq_restore(irq_state);
 }
 
@@ -170,7 +169,6 @@ u8 modbus_uart_send(const u8 *p, u32 len)
     memcpy(s_tx_pkt.data, p, len);
 
 
-
     /* 已验证的 new-new-master TX 路径：DMA 包为 [u32 长度 + 载荷]。 */
     uart_send_dma((u8 *)&s_tx_pkt);
     return 1u;
@@ -208,37 +206,18 @@ void main_loop_modbus(void)
         /* 沿用已验证实现：每帧后都重新启用 RX。 */
         modbus_uart_rx_reset();
 
-        if (ok && rsp_len)
-        {
-            if (modbus_uart_send(rsp_buf, rsp_len)) {
-                mb_last_ok_tick = clock_time();
-                mb_bad_cnt = 0u;
-            } else {
-                ++mb_bad_cnt;
-            }
-        }
-        else
-        {
-            ++mb_bad_cnt;
-        }
-    }
-
-    if (clock_time_exceed(mb_last_ok_tick, MODBUS_UART_RECOVERY_US) &&
-        !bms_serial_ota_busy() && !s_rx_ready && !s_rx_pkt.dma_len &&
-        !(dma_chn_irq_status_get() & FLD_DMA_CHN_UART_RX) &&
-        !modbus_uart_tx_active()
-        )
-    {
-        if (uart_is_parity_error()) uart_clear_parity_error();
-        modbus_uart_rx_reset();
+        if (ok && rsp_len) (void)modbus_uart_send(rsp_buf, rsp_len);
         mb_last_ok_tick = clock_time();
     }
 
-    if (mb_bad_cnt > 50u)
-    {
-        if (uart_is_parity_error()) uart_clear_parity_error();
-        modbus_uart_rx_reset();
-        mb_bad_cnt = 0u;
+    if (clock_time_exceed(mb_last_ok_tick, MODBUS_UART_RECOVERY_US)) {
+        u8 irq_state = irq_disable();
+        /* 与 DMA 交付共用临界区，避免接收完成与空闲维护同时重装。 */
+        if (modbus_uart_bus_idle() && !s_rx_pkt.dma_len) {
+            if (uart_is_parity_error()) uart_clear_parity_error();
+            modbus_uart_rx_reset();
+            mb_last_ok_tick = clock_time();
+        }
+        irq_restore(irq_state);
     }
-
 }

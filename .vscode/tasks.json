@@ -1,16 +1,31 @@
 {
   "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "d008Profile",
+      "type": "pickString",
+      "description": "D008 装配",
+      "options": [
+        "16s-lfp",
+        "20s-nmc",
+        "23s-lfp",
+        "24s-lfp",
+        "custom"
+      ],
+      "default": "16s-lfp"
+    }
+  ],
   "tasks": [
     {
-      "label": "BMS: 修改源码参数与 AFE 寄存器配置",
-      "detail": "查看原厂位定义、编辑软硬件保护与分流器，仅保存源码，不编译或 OTA",
+      "label": "D008 源码配置",
       "type": "process",
       "command": "python",
       "args": [
         "-X",
         "utf8",
         "-B",
-        "${workspaceFolder}/bms_tools/configure_parameters.py"
+        "bms_tools/build_options.py",
+        "show"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -18,117 +33,27 @@
       "problemMatcher": []
     },
     {
-      "label": "BMS: 选择配置编译并发送 OTA",
-      "detail": "D008 装配配置与 OTA 策略先保存到源码，可直接编译或发送；Git dirty 状态写入构建记录",
-      "type": "process",
-      "command": "powershell.exe",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/bms_tools/select_firmware_build.ps1"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PYTHONDONTWRITEBYTECODE": "1",
-          "PYTHONUTF8": "1"
-        }
-      },
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "focus": false,
-        "panel": "dedicated",
-        "clear": true
-      },
-      "runOptions": {
-        "instanceLimit": 1
-      }
-    },
-    {
-      "label": "BMS: compile",
+      "label": "D008 生产链接（无镜像）",
       "type": "process",
       "command": "python",
       "args": [
+        "-X",
+        "utf8",
+        "-B",
         "bms_tools/bms.py",
-        "--product",
-        "d008",
-        "compile",
-        "--jobs",
-        "4"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PYTHONDONTWRITEBYTECODE": "1",
-          "PYTHONUTF8": "1"
-        }
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "BMS: link",
-      "type": "process",
-      "command": "python",
-      "args": [
-        "bms_tools/bms.py",
-        "--product",
-        "d008",
+        "--production",
+        "--d008-profile",
+        "${input:d008Profile}",
         "link",
         "--jobs",
         "4"
       ],
       "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PYTHONDONTWRITEBYTECODE": "1",
-          "PYTHONUTF8": "1"
-        }
+        "cwd": "${workspaceFolder}"
       },
-      "problemMatcher": []
-    },
-    {
-      "label": "BMS: resources",
-      "type": "process",
-      "command": "python",
-      "args": [
-        "bms_tools/bms.py",
-        "--product",
-        "d008",
-        "resources"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PYTHONDONTWRITEBYTECODE": "1",
-          "PYTHONUTF8": "1"
-        }
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "BMS: static",
-      "type": "process",
-      "command": "python",
-      "args": [
-        "bms_tools/bms.py",
-        "--product",
-        "d008",
-        "static",
-        "--no-report"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PYTHONDONTWRITEBYTECODE": "1",
-          "PYTHONUTF8": "1"
-        }
+      "group": {
+        "kind": "build",
+        "isDefault": true
       },
       "problemMatcher": []
     }

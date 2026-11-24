@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "bms_serial_ota.h"
 typedef uint8_t u8;
-#define BMS_DIAG_BUILD_ID 0x12345678u
+#define BMS_BUILD_ID 0x12345678u
 #define MULTI_BOOT_ADDR_0x20000 0x20000u
 #define FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_BEGIN 1
 #define FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_END 2
@@ -50,7 +50,7 @@ static uint8_t command(uint8_t cmd,uint32_t session,const uint8_t*p,uint32_t n){
     assert(bms_serial_ota_on_frame(req,n+11,rsp,&rsp_size)==1&&rsp_size==30);
     assert(mb_crc16(rsp,28)==(uint16_t)(rsp[28]|((uint16_t)rsp[29]<<8)));return rsp[6];
 }
-static void begin(uint32_t size){uint8_t p[17];p[0]=BMS_PRODUCT_ID;write32(p+1,size);write32(p+5,BMS_DIAG_BUILD_ID);write32(p+9,128);write32(p+13,read32(image+size-4));assert(command(1,42,p,17)==0);assert(ota_is_working&&unlocked);}
+static void begin(uint32_t size){uint8_t p[17];p[0]=BMS_PRODUCT_ID;write32(p+1,size);write32(p+5,BMS_BUILD_ID);write32(p+9,128);write32(p+13,read32(image+size-4));assert(command(1,42,p,17)==0);assert(ota_is_working&&unlocked);}
 static void erase_all(void){uint32_t i;for(i=0;i<31;++i)bms_serial_ota_poll();assert(update.state==BMS_SERIAL_OTA_RECEIVING&&erases==31);}
 static uint8_t data(uint32_t offset,uint32_t count){uint8_t p[132];write32(p,offset);memcpy(p+4,image+offset,count);return command(2,42,p,count+4);}
 static void receive_all(uint32_t size){uint32_t offset;for(offset=0;offset<size;offset+=128){uint32_t n=size-offset;if(n>128)n=128;assert(data(offset,n)==0);}assert(flash[ota_program_offset+8]==255);}

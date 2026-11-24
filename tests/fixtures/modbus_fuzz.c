@@ -12,7 +12,6 @@ typedef uint8_t u8;typedef uint16_t u16;typedef uint32_t u32;
 #define BMS_AFE_BACKEND_SH3673510 2
 /* CONSTANTS */
 typedef struct { u16 words[BMS_AFE_HW_PROFILE_WORD_COUNT]; } bms_afe_hw_profile_t;
-#define BMS_LOG(...) ((void)0)
 bms_protection_params_t g_bms_protection_params;
 static unsigned writes, calls, iteration;
 static const char *scenario;

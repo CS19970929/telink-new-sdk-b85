@@ -70,7 +70,7 @@ static void reopen_and_expect(const uint8_t *expected)
 {
     storage_record_store_t store;
     uint8_t actual[PAYLOAD_SIZE];
-    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE));
+    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE, 0u));
     assert(storage_record_load(&store, actual));
     assert(memcmp(actual, expected, PAYLOAD_SIZE) == 0);
 }
@@ -84,7 +84,7 @@ static void test_interrupted_write(int fail_after)
     memset(s_flash, 0xFF, sizeof(s_flash));
     fill_payload(old_payload, 0x10u);
     fill_payload(new_payload, 0x80u);
-    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE));
+    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE, 0u));
     assert(storage_record_save(&store, old_payload));
 
     s_program_calls = 0;
@@ -103,7 +103,7 @@ static void test_sector_rotation_power_loss(void)
     uint16_t slots_per_sector;
 
     memset(s_flash, 0xFF, sizeof(s_flash));
-    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE));
+    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE, 0u));
     slots_per_sector = store.slots_per_sector;
     assert(slots_per_sector > 2u);
     for (i = 0u; i < slots_per_sector; ++i) {
@@ -119,7 +119,7 @@ static void test_sector_rotation_power_loss(void)
     s_fail_program_after = -1;
     reopen_and_expect(last_good);
 
-    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE));
+    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE, 0u));
     assert(storage_record_load(&store, last_good));
     assert(storage_record_save(&store, payload));
     reopen_and_expect(payload);
@@ -135,7 +135,7 @@ int main(void)
     memset(s_flash, 0xFF, sizeof(s_flash));
     fill_payload(p0, 1u);
     fill_payload(p1, 33u);
-    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE));
+    assert(storage_record_open(&store, &s_port, test_region(), TEST_MAGIC, 1u, PAYLOAD_SIZE, 0u));
     assert(!storage_record_load(&store, out));
     assert(storage_record_save(&store, p0));
     assert(storage_record_save(&store, p1));

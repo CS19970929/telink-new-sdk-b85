@@ -19,7 +19,7 @@ typedef struct {
     uint16_t update_id[BMS_OTA_UPDATE_ID_WORDS];
 } state_record_t;
 
-static storage_record_store_t s_store;
+static storage_record_store_t s_store __attribute__((aligned(4)));
 static state_record_t s_saved;
 static uint32_t s_last_write_ms;
 static uint8_t s_ready;

@@ -27,18 +27,6 @@ import json
 static = StaticAnalysis(bms)
 
 
-@unittest.skipUnless(sys.platform == "win32", "Windows 源码配置窗口")
-class SourceConfigurationWindowTests(unittest.TestCase):
-    def test_factory_reset_and_unsaved_parent_survive_real_control_events(self):
-        result = subprocess.run([
-            "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-            "-File", str(REPO_ROOT / "tests/fixtures/source_configuration_window.ps1"),
-            "-RepositoryRoot", str(REPO_ROOT),
-        ], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("PASS real WinForms events", result.stdout)
-
-
 class WorktreeJunctionTests(unittest.TestCase):
     def test_junction_is_stable_and_unique_per_worktree(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -84,48 +72,6 @@ class GitProvenanceTests(unittest.TestCase):
 
 
 class ProductionBuildTests(unittest.TestCase):
-    def test_stall_default_is_selected_once_for_product_and_mode(self):
-        for product in ('d008', 'd011', 'd013', 'd014'):
-            for production in (False, True):
-                with self.subTest(product=product, production=production), \
-                     mock.patch.multiple(bms, PRODUCT=product, PRODUCTION=production, D008_PROFILE='23s-lfp'), \
-                     mock.patch.object(bms, '_firmware_git_build_id', return_value='0x12345678u'), \
-                     mock.patch.object(bms, '_firmware_git_dirty', return_value=0), \
-                     mock.patch.object(bms, '_selected_build_options', return_value={}), \
-                     mock.patch.dict(bms.os.environ, {'EXTRA_DEFINES': ''}):
-                    flags = shlex.split(bms._effective_extra_defines())
-                    stall_flags = [flag for flag in flags if flag.startswith('-DBMS_STALL_DIAG_ENABLE=')]
-                    expected = 1 if product == 'd014' and not production else 0
-                    self.assertEqual(stall_flags, [f'-DBMS_STALL_DIAG_ENABLE={expected}'])
-
-    def test_explicit_stall_choice_is_not_duplicated_or_overwritten(self):
-        for product in ('d008', 'd014'):
-            for production in (False, True):
-                for override in ('-DBMS_STALL_DIAG_ENABLE=0', '-DBMS_STALL_DIAG_ENABLE=1',
-                                 '-D BMS_STALL_DIAG_ENABLE=0', '-UBMS_STALL_DIAG_ENABLE'):
-                    with self.subTest(product=product, production=production, override=override), \
-                         mock.patch.multiple(bms, PRODUCT=product, PRODUCTION=production, D008_PROFILE='23s-lfp'), \
-                         mock.patch.object(bms, '_firmware_git_build_id', return_value='0x12345678u'), \
-                         mock.patch.object(bms, '_firmware_git_dirty', return_value=0), \
-                         mock.patch.object(bms, '_selected_build_options', return_value={}), \
-                         mock.patch.dict(bms.os.environ, {'EXTRA_DEFINES': override}):
-                        flags = bms._effective_extra_defines()
-                        self.assertTrue(flags.startswith(override + ' '))
-                        self.assertEqual(flags.count('BMS_STALL_DIAG_ENABLE'), 1)
-
-    def test_production_stall_default_and_explicit_enable_guard(self):
-        command = [*shlex.split(os.environ.get('CC', 'cc')), '-E', '-P', '-x', 'c',
-                   '-I', str(REPO_ROOT / 'bms/core'), '-DBMS_PRODUCTION_BUILD=1']
-        source = '#include "bms_diag_config.h"\n#if BMS_STALL_DIAG_ENABLE\n#error "production default must be off"\n#endif\n'
-        for override, succeeds in (([], True), (['-DBMS_STALL_DIAG_ENABLE=0'], True),
-                                   (['-DBMS_STALL_DIAG_ENABLE=1'], False)):
-            with self.subTest(override=override):
-                result = subprocess.run([*command, *override, '-'], input=source,
-                                        capture_output=True, text=True)
-                self.assertEqual(result.returncode == 0, succeeds, result.stderr)
-                if not succeeds:
-                    self.assertIn('Production firmware must disable BMS_STALL_DIAG_ENABLE', result.stderr)
-
     def test_owned_flags_and_explicit_profile(self):
         with mock.patch.multiple(bms, PRODUCT="d008", PRODUCTION=True, D008_PROFILE="24s-lfp"), \
              mock.patch.object(bms, "_firmware_git_build_id", return_value="0x12345678u"), \
@@ -138,8 +84,8 @@ class ProductionBuildTests(unittest.TestCase):
             with mock.patch.object(bms, "D008_PROFILE", None), self.assertRaises(SystemExit):
                 bms._effective_extra_defines()
             with mock.patch.object(bms, "_firmware_git_dirty", return_value=1):
-                self.assertIn("-DBMS_DIAG_BUILD_DIRTY=1", bms._effective_extra_defines())
-            for override in ("-DBMS_PRODUCTION_BUILD=0", "-UBMS_DIAG_BUILD_DIRTY", "-DBMS_DIAG_BUILD_ID=1", "-DD008_PRODUCT_PROFILE=3", "-DBMS_D008_SCD_POLICY_APPROVED=1", "-DBMS_D013_HW_CONFIG_APPROVED=1", "-DBMS_PRODUCT_RELEASE_APPROVED=1"):
+                self.assertIn("-DBMS_BUILD_DIRTY=1", bms._effective_extra_defines())
+            for override in ("-DBMS_PRODUCTION_BUILD=0", "-UBMS_BUILD_DIRTY", "-DBMS_BUILD_ID=1", "-DD008_PRODUCT_PROFILE=3", "-DBMS_D008_SCD_POLICY_APPROVED=1", "-DBMS_PRODUCT_RELEASE_APPROVED=1"):
                 with mock.patch.dict(bms.os.environ, {"EXTRA_DEFINES": override}), self.assertRaises(SystemExit):
                     bms._effective_extra_defines()
 
@@ -158,33 +104,12 @@ class ClientAssetPathTests(unittest.TestCase):
 
 
 class WorkflowSecurityTests(unittest.TestCase):
-    def test_sanitizer_folded_command_remains_one_shell_command(self):
-        import shlex
-        from tests.validation_catalog import CHECKS
-        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-        job = workflow.split("  host-sanitizers:\n", 1)[1].split("  tc32-windows:\n", 1)[0]
-        block = job.split("run: >-\n", 1)[1].split("\n      - uses:", 1)[0]
-        lines = [line for line in block.splitlines() if line.strip()]
-        indent = len(lines[0]) - len(lines[0].lstrip())
-        self.assertTrue(all(len(line) - len(line.lstrip()) == indent for line in lines), "YAML additional indentation breaks the folded shell command")
-        args = shlex.split(" ".join(line.strip() for line in lines))
-        selected = [args[i + 1] for i, arg in enumerate(args) if arg == "--only"]
-        self.assertEqual(len(selected), len(set(selected)))
-        self.assertTrue(set(selected) <= set(CHECKS))
-
-    def test_external_fork_prs_cannot_reach_tc32_runner(self) -> None:
-        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-        tc32_job = workflow.split("  tc32-windows:\n", 1)[1].split("  tc32-production:\n", 1)[0]
-        self.assertIn("vars.TELINK_TC32_CI_ENABLED == '1'", tc32_job)
-        self.assertIn("github.event_name != 'pull_request'", tc32_job)
-        self.assertIn(
-            "github.event.pull_request.head.repo.full_name == github.repository",
-            tc32_job,
-        )
-        self.assertIn(
-            "runs-on: [self-hosted, Windows, X64, telink-tc32]",
-            tc32_job,
-        )
+    def test_ci_uses_no_image_link_and_all_assemblies(self):
+        job = WORKFLOW_PATH.read_text(encoding="utf-8").split("  tc32:\n", 1)[1]
+        self.assertNotIn("self-hosted", job)
+        self.assertIn("16s-lfp, 20s-nmc, 24s-lfp, 23s-lfp, custom", job)
+        self.assertIn('link --jobs 4', job)
+        self.assertNotIn('rebuild', job)
 
 
 class ToolchainEnvironmentTests(unittest.TestCase):
@@ -284,21 +209,6 @@ class CommandSurfaceTests(unittest.TestCase):
              "manifest", "verify", "baseline", "static", "flash-help", "ci", "sources", "test", "release"},
         )
 
-
-    def test_host_test_selection_runs_once_for_all_products(self):
-        for all_products in (False, True):
-            with self.subTest(all_products=all_products), mock.patch.object(bms._selection, "all_products", all_products), mock.patch.object(bms.subprocess, "call", return_value=0) as child:
-                self.assertEqual(bms.main(["test", "--output", "external-report"]), 0)
-                command = child.call_args.args[0]
-                self.assertEqual(child.call_count, 1)
-                self.assertEqual("--product" in command, not all_products)
-                self.assertEqual(command[-2:], ["--output", "external-report"])
-
-    def test_missing_action_reports_parser_error_before_dispatch(self):
-        with mock.patch.object(bms._selection, "all_products", True), mock.patch.object(bms, "_cli", []), mock.patch.object(bms.sys, "stderr"), mock.patch.object(bms.subprocess, "call") as child:
-            with self.assertRaises(SystemExit) as caught:bms.main()
-            self.assertEqual(caught.exception.code, 2)
-            child.assert_not_called()
 
     def test_release_runs_image_manifest_verify_in_order(self):
         calls = []
@@ -570,9 +480,9 @@ class SourceConfigurationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             copy_configuration(root)
-            path = root / 'bms/core/bms_soc_profile.c'
+            path = root / 'bms/core/bms_soc.c'
             if not path.exists():
-                path.write_bytes((REPO_ROOT / 'bms/core/bms_soc_profile.c').read_bytes())
+                path.write_bytes((REPO_ROOT / 'bms/core/bms_soc.c').read_bytes())
             old = bms.build_options.save_source(root, 'd008', {'update_groups': ['soc']})
             path.write_bytes(path.read_bytes() + b'\n/* OCV curve edit */\n')
             with self.assertRaisesRegex(ValueError, '不匹配'):
@@ -581,7 +491,7 @@ class SourceConfigurationTests(unittest.TestCase):
             self.assertNotEqual(old['configuration']['update_id'], new['configuration']['update_id'])
             self.assertNotEqual(old['parameter_inputs_sha256'], new['parameter_inputs_sha256'])
 
-    def test_assembly_changes_include_all_config_groups_and_preserve_factory_reset(self):
+    def test_assembly_changes_preserve_explicit_update_selection(self):
         for product in bms.build_options.PRODUCTS:
             for factory in (False, True):
                 with self.subTest(product=product, factory=factory), tempfile.TemporaryDirectory() as tmp:
@@ -591,7 +501,7 @@ class SourceConfigurationTests(unittest.TestCase):
                         'update_groups': ['factory_reset'] if factory else ['business']})['configuration']
                     chemistry = 'nmc' if old['chemistry'] == 'lfp' else 'lfp'
                     saved = bms.build_options.save_source(root, product, {'chemistry': chemistry})['configuration']
-                    expected = ['factory_reset'] if factory else ['sw', 'afe', 'business', 'soc']
+                    expected = ['factory_reset'] if factory else ['business']
                     self.assertEqual(saved['update_groups'], expected)
                     self.assertEqual(bms.build_options.verify_source(root, product), saved)
 
@@ -776,69 +686,6 @@ class SourceConfigurationTests(unittest.TestCase):
 
 
 @unittest.skipUnless(sys.platform == 'win32', 'Windows 选择菜单')
-class PickerDefaultsTests(unittest.TestCase):
-    def test_save_only_factory_reset_preserves_the_package_id_without_building(self):
-        for product in bms.build_options.PRODUCTS:
-            with self.subTest(product=product), tempfile.TemporaryDirectory() as tmp:
-                root = Path(tmp)
-                copy_configuration(root)
-                command = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-                    '-File', str(root/'bms_tools/select_firmware_build.ps1'),
-                    '-SaveOnly', '-Target', product, '-UpdateGroups', 'factory_reset']
-                identifier = None
-                for _ in range(2):
-                    result = subprocess.run(command, capture_output=True,
-                        encoding='utf-8', errors='replace', timeout=30)
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    saved = json.loads(result.stdout)['configuration']
-                    self.assertEqual(saved['update_groups'], ['factory_reset'])
-                    self.assertEqual(bms.build_options.verify_source(root, product), saved)
-                    if identifier is not None:
-                        self.assertEqual(saved['update_id'], identifier)
-                    identifier = saved['update_id']
-                self.assertFalse((root/'firmware').exists())
-                self.assertFalse(list(root.rglob('*.bin')))
-
-    def test_plan_reads_source_and_never_builds_or_changes_files(self):
-        for product in bms.build_options.PRODUCTS:
-            result = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-                '-File', str(REPO_ROOT/'bms_tools/select_firmware_build.ps1'),
-                '-PlanOnly', '-Target', product, '-Mode', 'development'],
-                capture_output=True, encoding='utf-8', errors='replace', timeout=20)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            plan = json.loads(result.stdout)
-            self.assertEqual(plan['SourceConfiguration'], bms.build_options.read_source(REPO_ROOT, product))
-            self.assertNotIn('--update-id', plan['Arguments'])
-            self.assertNotIn('--chemistry', plan['Arguments'])
-
-    def test_real_window_source_save_dirty_build_and_ignored_local_parameter_cache(self):
-        for scenario in ('defaults', 'saved'):
-            with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as tmp:
-                root = Path(tmp)/'source'
-                copy_configuration(root)
-                result = subprocess.run(['powershell.exe', '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass',
-                    '-File', str(REPO_ROOT/'tests/fixtures/build_menu_ui.ps1'), '-RepositoryRoot', str(root),
-                    '-SettingsRoot', str(Path(tmp)/'settings'), '-Scenario', scenario,
-                    '-PythonExecutable', sys.executable],
-                    capture_output=True, encoding='utf-8', errors='replace', timeout=60)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                if 'UI_SKIP:' in result.stdout:
-                    self.skipTest('真实 WinForms 窗口需要交互桌面会话')
-                self.assertNotIn('UI_FAIL:', result.stdout, result.stdout+result.stderr)
-                reports = [json.loads(line[10:]) for line in result.stdout.splitlines() if line.startswith('UI_RESULT:')]
-                self.assertEqual(len(reports), 1, result.stdout+result.stderr)
-                self.assertEqual(reports[0]['Configurations'], 185)
-                calls = [json.loads(line[5:]) for line in result.stdout.splitlines() if line.startswith('CALL:')]
-                self.assertEqual(len(calls), 0 if scenario == 'defaults' else 2)
-                if calls:
-                    self.assertEqual(calls[0][1:], ['--target', 'd014', '--mode', 'development', '--build-only', '--rebuild'])
-                    self.assertEqual(calls[1], calls[0][:-2]+['--send-only'])
-                    options = bms.build_options.verify_source(root, 'd014')
-                    self.assertEqual(options['capacity_0p1ah'], 400)
-                    self.assertEqual(options['cell_count'], 19)
-                    self.assertEqual(options['update_groups'], ['sw', 'afe', 'business', 'soc', 'soc_state'])
-
-
 class AndroidOtaWorkflowTests(unittest.TestCase):
     def create_files(self, root, product='d014', mode='production'):
         copy_configuration(root)

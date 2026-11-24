@@ -160,8 +160,8 @@ int bms_serial_ota_on_frame(const uint8_t *req, uint32_t len, uint8_t *rsp, uint
 
 void bms_serial_ota_poll(void)
 {
-    uint32_t now, count, i;
-    uint8_t buffer[BMS_SERIAL_OTA_BLOCK_BYTES], bit;
+    uint32_t now, count;
+    uint8_t buffer[BMS_SERIAL_OTA_BLOCK_BYTES];
     if (!update.opened) return;
     now = bms_serial_ota_time_ms();
     if (update.state == BMS_SERIAL_OTA_COMMITTED) {
@@ -183,14 +183,9 @@ void bms_serial_ota_poll(void)
         count = update.size - update.verify;
         if (count > sizeof(buffer)) count = sizeof(buffer);
         bms_serial_ota_flash_read(update.base + update.verify, buffer, count);
-        for (i = 0u; i < count; ++i) {
-            uint32_t offset = update.verify + i;
-            uint8_t value = buffer[i];
-            if (offset == 8u) value = 0x4Bu;
-            update.crc ^= value;
-            for (bit = 0u; bit < 8u; ++bit)
-                update.crc = (update.crc >> 1) ^ ((update.crc & 1u) ? 0xEDB88320u : 0u);
-        }
+        if (update.verify <= 8u && update.verify + count > 8u)
+            buffer[8u - update.verify] = 0x4Bu;
+        update.crc = bms_crc32_update(update.crc, buffer, count);
         update.verify += count;
         if (update.verify == update.size) {
             bms_serial_ota_flash_read(update.base + update.descriptor, buffer, 20u);

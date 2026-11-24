@@ -99,15 +99,11 @@ def profile_prefix(product):
     """真实产品头、默认参数与 builder/validator；不替换校验或默认值。"""
     result = '#include <stdint.h>\n#include <string.h>\n#include <stdio.h>\n#include <assert.h>\n'
     result += 'typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;\n'
-    result += '#include "bms_protection_params.h"\n#include "bms_afe_backend.h"\n'
+    result += '#include "bms_protection_params.h"\n'
     result += '#include "bms_product.h"\n'
-    if product == 'd008':
-        result += '#include "bms_product.h"\n'
-    else:
-        result += '#include "sh3673510_project_config.h"\n#include "sh3673510_quantize.h"\n'
+
     defaults = read('bms/core/bms_config_store.c')
     result += defaults[defaults.index('static const bms_protection_params_t s_default_protection'):defaults.index('\n}', defaults.index('void bms_config_store_get_default_protect')) + 2]
-    result += '\n' + function(defaults, 'void bms_config_store_get_chemistry_protect(')
     result += without_includes(read('bms/core/bms_afe_hw_profile.h'))
     source = read('bms/core/bms_afe_hw_profile.c')
     # 从真实公开函数开始抽取，D008/SH 各自的默认 builder 和条件编译原样保留。

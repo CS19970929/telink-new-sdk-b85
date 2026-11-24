@@ -8,7 +8,6 @@ import subprocess
 from unittest.mock import patch
 import run_host_regression as runner
 from validation_support import ScenarioFailure, run_c
-from d014_reset_boundary_probe import policy_gap
 
 
 class RunnerTests(unittest.TestCase):
@@ -20,20 +19,9 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual((caught.exception.returncode,caught.exception.stdout,caught.exception.stderr),
                          (7,'observed\n','assertion\n'))
 
-    def test_reset_probe_does_not_label_crashes_as_policy_gaps(self):
-        stdout='RESET_OBSERVATION direction=charge history=durable recorded=1 first_on_sample=8 current_a10=0\n'
-        stderr='RESET_POLICY_GAP direction=charge history=durable expected=OFF_UNTIL_PHYSICAL_RELEASE actual=ON\n'
-        error=ScenarioFailure('child failed',subprocess.CompletedProcess(['child'],1,stdout,stderr))
-        self.assertEqual(policy_gap(error,'charge','durable'),8)
-        for code,out,err in ((139,stdout,stderr),(1,'',stderr),(1,stdout,stderr+'AddressSanitizer error'),
-                             (1,stdout.replace('recorded=1','recorded=0'),stderr),(1,stdout,'assertion failed')):
-            with self.subTest(code=code,out=out,err=err):
-                invalid=ScenarioFailure('child failed',subprocess.CompletedProcess(['child'],code,out,err))
-                with self.assertRaises(ScenarioFailure):policy_gap(invalid,'charge','durable')
-
-    def test_catalog_is_complete_and_common_tests_have_four_products(self):
+    def test_catalog_is_complete_for_d008(self):
         commands=runner.commands_for(runner.PRODUCTS,None)
-        self.assertGreater(len(commands),100)
+        self.assertGreater(len(commands),20)
         for name in ('storage_host_check','protection_scenarios_host_check','soc_scenarios_host_check'):
             self.assertEqual({c[1] for c in commands if c[0]==name},set(runner.PRODUCTS))
 

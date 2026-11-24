@@ -13,31 +13,25 @@ def register(domain, products, evidence, names):
 register('afe', PRODUCTS, '真实 guard 与 D008 通信/配置时序', 'afe_health_host_check')
 register('afe', PRODUCTS, '原厂范围独立向量与真实校验函数体', 'afe_factory_regression_host_check')
 register('afe', PRODUCTS, '提取函数故障注入', 'afe_hw_transaction_host_check')
-register('afe', PRODUCTS, '真实寄存器调试 TU 与总线替身；CAS/保留位/RC/失败冻结', 'afe_register_debug_host_check')
 register('power', ('d008',), '提取函数场景', 'app_scheduler_host_check')
 register('protection', PRODUCTS, '源码 contract', 'core_contract_check')
 register('soc', PRODUCTS, '生产 K/B 与独立数学 oracle', 'current_calibration_host_check')
 register('afe', ('d008',), '源码 contract', 'd008_backend_contract_check')
 register('configuration', ('d008',), '产品编译分支/源码 contract', 'd008_configuration_check')
-register('soc', ('d008',), '生产 SOC/部分 PM 与环境替身', 'd008_power_soc_host_check')
 register('afe', ('d008',), '提取函数故障注入', 'd008_recovery_host_check')
-register('diagnostics', PRODUCTS, '生产代码与环境替身', 'diagnostics_host_check')
 register('afe', ('d008',), '提取函数故障注入', 'dvc1124_fixed_policy_host_check')
 register('afe', ('d008',), '实际DVC读取/采样函数体与原厂RC事件向量', 'dvc_adc_events_host_check')
 register('afe', ('d008',), '真实初始化/SCD配置函数与RAM I2C及关闭反馈/失败注入', 'dvc_startup_protection_host_check')
 register('afe', ('d008',), '真实温度采集/有效性/仲裁函数体与完整公共保护；RAM 寄存器非物理 Gate', 'dvc_ntc_scenarios_host_check')
-register('afe', ('d008',), '提取函数故障注入', 'dvc_register_scenarios_host_check')
 register('afe', ('d008',), '原厂编码与逐块故障注入', 'dvc_effective_profile_host_check')
-register('storage', PRODUCTS, '完整 profile/journal 与逐字节掉电', 'soc_profile_store_host_check')
 register('protocol', PRODUCTS, '生产参数读取与每请求快照计数', 'parameter_read_block_host_check')
 register('protection', PRODUCTS, '完整 feature 与真实板级能力', 'features_scenarios_host_check')
-register('storage', PRODUCTS, '生产 journal/语义存储与 RAM Flash', 'flash_quick_check')
-register('protocol', PRODUCTS, '完整 Modbus 模块与真实 CRC/State/diag/logger，寄存器所有者替身；真实 parser/CRC 与寄存器替身', 'modbus_host_check')
+register('protocol', PRODUCTS, '完整 Modbus 模块与真实 CRC/State，寄存器所有者替身；真实 parser/CRC 与寄存器替身', 'modbus_host_check')
 register('tooling', PRODUCTS, '完整可移植核心 TU', 'portable_core_host_check')
 register('configuration', PRODUCTS, '真实默认构造与校验', 'product_configuration_host_check')
 register('tooling', PRODUCTS, '实际编译预处理', 'production_policy_check')
 register('protection', PRODUCTS, '生产 TU 场景', 'protection_scenarios_host_check')
-register('protocol', PRODUCTS, '真实休眠状态模块及Modbus入口，开发/生产/诊断三种模式', 'sleep_status_host_check')
+register('protocol', PRODUCTS, '真实休眠状态模块及Modbus入口，量产寄存器与时序', 'sleep_status_host_check')
 register('protocol', ('d008',), '真实封包与固定 wire 向量', 'sif_packet_host_check')
 register('protocol', ('d008',), '真实 V1.1.1 编码/500us 波形状态机/无效帧/双缓冲/总线接管', 'sif_lishen_host_check')
 register('protocol', ('d008',), '真实总线复用与 GPIO/IRQ/UART 端口模型；不替代波形验证', 'd008_bus_mux_host_check')
@@ -54,10 +48,9 @@ SOURCES = {
     'protection': ['bms/core/bms_sw_protection.c', 'bms/app/bms_features.c'],
     'configuration': ['bms/core/bms_parameters.h', 'bms/core/bms_afe_hw_profile.c', 'bms/products'],
     'afe': ['bms/core/bms_afe_guard.c', 'bms/core/bms_afe_hw_profile.c', 'bms/afe'],
-    'soc': ['bms/core/bms_soc.c', 'bms/core/bms_soc_eta.c', 'bms/app/app.c'],
+    'soc': ['bms/core/bms_soc.c', 'bms/app/bms_soc_app.c', 'bms/app/app.c'],
     'storage': ['bms/core/storage_record.c', 'bms/core/bms_config_store.c', 'bms/core/bms_state_store.c', 'bms/core/bms_event_log.c'],
     'protocol': ['bms/core/modbus_rtu.c', 'bms/core/bms_sleep_status.c', 'bms/core/bms_parameter_access.c', 'bms/platform/telink/modbus_uart.c', 'bms/platform/telink/sif_send.c', 'bms/platform/telink/bus_mux.c'],
-    'diagnostics': ['bms/core/bms_diag.c', 'bms/core/bms_debug_log.c', 'bms/core/bms_stall_diag.h', 'bms/core/bms_sleep_status.c', 'bms/platform/telink/bms_stall_diag.c'],
     'power': ['bms/app/app.c', 'bms/app/app_power.c', 'bms/core/bms_afe_guard.c'],
     'tooling': ['bms_tools', 'tests'],
 }

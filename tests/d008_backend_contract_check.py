@@ -341,8 +341,8 @@ def check_d008_boot_zero_current_contract_check():
     assert "DVC1124_CC2_DSGF_MASK" in driver and "DVC1124_CC2_CHGF_MASK" in driver
     assert "current_ma = bms_config_calibrate_current(current_ma);" in driver
     assert "dvc_apply_boot_zero" not in driver
-    assert "s_boot_zero.learned_offset_ma = 0;" in driver
-    assert "memset(&s_boot_zero, 0, sizeof(s_boot_zero));" in driver
+    assert "s_boot_zero_ok = dvc_abs_i32(second_ma - first_ma)" in driver
+    assert "s_boot_zero_attempted = 0u;" in driver
     assert "#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u" in conf
 
     init_pos = backend.index("DVC1124_UpdataAfeConfig();")

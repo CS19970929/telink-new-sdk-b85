@@ -1,190 +1,20 @@
-# 架构、数据流与状态所有权
+# D008 架构与数据所有权
 
-四产品直接使用同一份 `bms/core` 和 `bms/app`。完整组织见 [BMS_MONOREPO](BMS_MONOREPO.md)，逐步阅读见 [CODE_READING_GUIDE](CODE_READING_GUIDE.md)。
-
-## 常驻休眠状态协议：2026-10-19
-
-`app_power.c` 保有计时和休眠动作，向 `bms_sleep_status.c` 发布已有决策；
-`modbus_rtu.c` 直接读取 `0x3300..0x3313`，不推进计时、不访问 AFE/Flash。
-快照不再属于 `bms_diag.c`，四产品开发/生产均常驻，服务诊断及日志保持原默认关闭。
-旧诊断头仅保留 `0x0040` 发现位以兼容现有 Windows 工具，不因此启用其他诊断快照。
-原协议编码与字序不变，详见 [实时休眠状态](SLEEP_STATUS.md)。
-
-## AFE1 与输出故障确认：2026-10-18
-
-当前策略见 [AFE 通信确认与活性删除](AFE_COMMUNICATION_POLICY.md)：删除 ADC 年龄、两秒停更、公共 `confirm_sample` 和三次新样本输出资格。正常约 200 ms 完整读取；无转换完成事件也可更新测量，不据此触发 AFE1。用户接受不独立检测通信正常但 ADC 停止更新的异常。
-
-| 所有者 | 事实与处理 |
+| 路径 | 源码所有者 |
 |---|---|
-| I2C/SPI 驱动 | 有界重试与 CRC；失败数据不发布，不决定公共 AFE1 |
-| DVC/SH backend | 完整测量、芯片配置/保护、校准及物理恢复；返回 OK、NOT_READY、READ_ERROR、ERROR |
-| guard | 统一确认持续 1000 ms 通信异常、AFE1、配置禁止、输出授权和 watchdog 静默；只有完整业务轮次成功才清除异常观察 |
-| 软件保护与 feature | 原阈值、传感器合法性及业务确认；真实电流保护恢复仍需要物理证据，不能凭关 MOS 后零电流恢复 |
+| 启动、200 ms 采样、业务顺序 | `bms/app/app.c` |
+| 普通 Suspend、保护性关机、ACC | `bms/app/app_power.c` |
+| CRC I2C、单体、CC2、NTC 与寄存器编码 | `bms/afe/dvc1124/` |
+| 双路 MOS 最终许可和通信恢复 | `bms/core/bms_afe_guard.c` |
+| 软件保护、加热、均衡 | `bms_sw_protection.c`、`bms_features.c` |
+| SOC 数值和业务接线 | `bms/core/bms_soc.c`、`bms/app/bms_soc_app.c` |
+| 参数、检查点及历史 | `bms_config_store.c`、`bms_state_store.c`、`bms_event_log.c` |
+| 协议、UART/BLE、SIF | `modbus_rtu.c` 和 `bms/platform/telink` |
 
-测量读失败只作废本轮测量/反馈，不撤销已运行功率 MOS 资格。完整测量之后的控制/均衡事务失败仍保留测量有效性，但禁止同轮新开。期间仍执行本次新用户关闭、产品撤销、全局禁止和已确认保护；旧远程 OFF 不能在方向未知时撤销此前反向放行。必要事务失败不能被同轮其它成功或缓存命中清零；guard 在输出结算后统一决定通信是否恢复，失败通知不递归进入功能关闭。
-
-配置不一致、明确芯片故障和真实保护继续禁止相应输出。关断未验证/配置未知时保留 D008 5 秒、SH 35 秒总线静默；已验证关闭自主通路和输出则允许短间隔恢复。静默后的恢复同样每轮最多三次、只在4秒窗口内安排短重试，耗尽后重新静默。完整配置、测量和必要控制成功才恢复，不再凑三次转换。物理 Gate/watchdog 动作仍需实板验收，具体见[恢复策略](AFE_COMMUNICATION_POLICY.md#2026-10-21-故障恢复与功能故障分离)。
-
-SOC 按实际应用时间积分，测量无效区间不补算；仅控制失败且测量仍有效时，不伪造零电流或丢弃完整测量。PM 与协议查询只消费后端测量有效性，不再计算 ADC 年龄；调度、SOC 长间断、物理恢复滤波仍保留各自时间。
-
-同日后续的保护恢复与等价精简见 [逐轮实现记录](PROTECTION_RECOVERY_SIMPLIFICATION_20261018.md)：
-SH watchdog 重初始化保留软件活动故障，仅复位滤波计数；电压/温度与电流硬件恢复分别消费
-本轮 VADC、CADC。guard 的有效性检查仍在原时点执行，但不复制不使用的测量。
-这些修改尚未运行测试、编译或实板验证；下述固定提交收据不覆盖这些修改。
-
-后续 [AFE 控制分轮重构](AFE_CONTROL_REFACTOR_20261018.md) 将输出授权收口到 guard，
-删除 DVC 未被正常开启路径消费的授权副本及后端空接口。远程许可开启失败先标记失败，再回滚许可，
-补偿只能关闭。DVC 清锁存/回读失败参加本轮结算，不因测量完整而吞掉控制失败。
-SH 底层 Init 只负责总线、Reset、Probe；SCONF5/CADC 运行配置由 control 完整写入和验证。
-SCONF3 模式未变化时只读一次，模式变化仍写后回读；不改变 LTCLR 自清操作。
-
-有均衡能力的产品在功能决策前读取一次实际均衡掩码，先发布再选串，并通过栈上参数传给随后的设置操作。
-不变请求复用本轮结果，写入仍回读；失败后的 OFF、初始化、休眠独立确认，不能复用写入前旧值。
-读取失败先停止加热/均衡资格，并保留本轮通信观察；无跨轮均衡缓存或验证降频。
-这些后续修改同样尚未执行测试、编译或实板验证。
-
-### 历史固定源码验收收据：2026-10-18（旧活性策略）
-
-以下收据仅对应旧活性策略，当前策略另见上述专题。生产源码固定为 `2b468d917951edc67075eaca902d2eb4dfa08770`，基线为 `a8a608ca`；实现提交依次为 `f49c6b5d`、`e9fca67a`、`2b468d91`。最后一项修复保证三秒未轮询但本轮已取得可信新转换时，不会清空已合格 NTC 而制造 TEMP_BREAK。协议、参数和存储布局未改。
-
-本轮执行 54 项相关 host 检查（按检查脚本×适用产品计），最终有效结果 54/54 通过。固定源码首次执行为 53 通过、1 项 D008 恢复夹具编译失败；原因是夹具尚未提供新增只关闭接口/快照替身。补齐接口并修正调用链截取后，该项独立重跑通过；两轮输入指纹仅两个测试文件变化，生产源码和 SDK 指纹完全一致。原失败日志保留，不把首次报告改写成全绿。未执行全仓完整回归、ASan/UBSan 或实板测试。
-
-覆盖 999/1000 ms、1800/2000 ms、tick 回绕、间歇失联保持命令、主动关闭与禁止新开、持续控制事务失败、RC 事件原时间、单 ADC 过期时另一分组的电压/电流保护、NTC 开短路、E2P、配置完整回滚/回滚失败、SC/OCD/OCC 物理恢复证据、三次新样本、watchdog 静默、SOC/低压/过放/AFE 休眠，以及原正常 AUTO_DIODE 单次写入约束。
-
-四产品 `sources --check`、`link --jobs 4`、`resources` 全部通过，四次链接均零错误/零警告。模式为默认 development、Core `-O2`，D008 目标仅当前 `16s-lfp`，SH 分别为 10S/10S/8S；未将 host 多配置向量写成其它 D008 profile 的目标链接结果。Build ID 均为 `0x2b468d91`，构建时 dirty=0。
-
-| 产品 | ELF 投影 Flash / B | Flash 余量 / B | SRAM 地址跨度 / B | 预留 3072 B 栈后的余量 / B |
-|---|---:|---:|---:|---:|
-| D008 16S LFP | 116468 | 10508 | 22336 | 7360 |
-| D011 | 114148 | 12828 | 21916 | 7780 |
-| D013 | 110900 | 16076 | 21832 | 7864 |
-| D014 | 113220 | 13756 | 21912 | 7784 |
-
-正式树外收据根目录：`C:/Users/Administrator/AppData/Local/CodexTemp/bms-afe-health-20261018/`。`verification-summary.json` 汇总并引用 `host-verified/report.json`、`host-recovery-rerun/report.json`、`targets-verified.log` 和四份 `resources.json`，保留 ELF/MAP 哈希与失败/复测来源。四份资源报告均 `image_generated=false`，构建目录无 `.bin`；未执行 build/rebuild/objcopy、烧录或 OTA。
-
-上述结果证明主机策略及目标编译/链接，不证明 Gate/Vgs 或负载电流。SPI/I2C 真实断线时软件 OFF 可能无法送达，硬件 watchdog 物理关断、保持期间芯片自主 MOS 行为、实际保护时延、栈高水位、加热/均衡关闭和低功耗恢复仍需实板验收。
-
-## 1. 模块与调用边界
-
-```text
-产品头文件 + sources.txt → 选择能力/默认值及唯一 AFE 后端
-Telink main/IRQ → app_ble SDK 初始化/回调 → app_init / app 调度
-app / Modbus / BLE → 公共参数、SOC、feature、诊断
-app / feature → bms_afe.h → bms_afe_guard → bms_afe_driver.h
-                                            ↓
-                              DVC1124 或 SH3673510 后端 → I2C/SPI
-Config / State / Event → storage_record → Telink Flash 平台
-```
-
-每个固件只链接一个后端，直接实现统一的 `bms_afe_driver_*` 接口；Guard 不再识别芯片型号。固定 watchdog/初始化顺序/休眠语义由后端只读 policy 给出，无运行时 factory/ops 表。业务调用公共 AFE API；guard、后端及受控诊断使用 driver 边界。GPIO、UART/BLE、Flash 仍按 Telink SDK 实现；公共业务时间由 `bms_time_ms()` 累计原始 tick 增量及余数；`bms_time_now_32k()` 只保留诊断、日志及协议时间字段。
-
-保护性休眠的低压/AFE/过放计时和选择集中在 `bms_sleep_config.c` 的
-`bms_sleep_policy_step()`：输入为已验证快照、配置和业务秒数，输出为原因与剩余期限，
-不访问外设或执行休眠。Application 唯一拥有已提交标志，并执行原 BLE/Flash/AFE 收尾及
-板级 GPIO、Sleep/Wakeup。名称的 BLE 广播应用位于既有 `app_ble.c`。
-PC CMake 使用实际 Core TU 验证这些接口，无 SDK include 路径。旧
-AFE 板级 GPIO/I2C 和 Telink 普通 Suspend
-仍是后续 MCU 移植需要适配的具体位置；不宣称整个源码树已经脱离 SDK。
-
-State/Event checkpoint 与失败退避均使用毫秒时间；持久载荷和 schema 4 不变，见 [三域存储](STORAGE.md)。
-
-SH 后端的 C+/LOAD 互斥、具体保护恢复证据和清 flag 失败处理见 [SH 恢复证据与采样资格](SH_RECOVERY_AND_FRESHNESS.md)。充电器查询与 feature 快照均只读已验证缓存，guard 继续拥有输出资格和 watchdog 静默。
-
-## 2. 谁能修改什么
-
-| 状态/数据 | 所有者与入口 | 失败/限制 |
-|---|---|---|
-| 软件保护参数 `g_bms_protection_params` | `bms_parameters.c` 的 bms_parameters_init / bms_protection_params_commit；通信先构造候选 | 无效参数不授权输出；普通 bms_protection_params_commit 不解除 Config 启动失败；State/Event 故障降级报错 |
-| 持久 Config 和 OTA 执行标记 | `bms_config_store.c` 的 get/set/default/update | 参数和标记一起提交，候选成功落盘后才替换 cache |
-| AFE requested/effective、apply-state | `bms_afe_hw_profile.c`，独立授权/提交接口 | apply/readback 失败回滚；回滚失败 CONFIG_INCONSISTENT |
-| 三等级软件故障 | `bms_sw_protection.c` 私有故障字唯一保存活动位，滤波数组只存计数；SOC Low 在 `bms_soc.c` | 仅在报告边界合并硬件故障，SW 阻断查询只读私有来源；保护同步读取主循环发布的测量 |
-| AFE 请求、通信抑制、样本资格 | `bms_afe_guard.c` | 持续通信失败确认、watchdog bus silence、配置禁止；完整有效测量及必要控制成功后恢复，不要求三次转换 |
-| AFE 实际 FET 回读及有效性 | backend 经 `bms_afe_publish_fet_status()` 发布，`bms_afe_guard.c` 保存 | 命令变化、通信失效、输出撤销后立即作废；标准协议不依赖开发诊断缓存，也不把寄存器状态宣称为实测 Gate |
-| 芯片 latch、物理恢复窗口、命令缓存 | DVC/SH backend | SC/OCD/OCC 依赖物理窗口/AFE 状态，零电流不等于已移除负载 |
-| heater/balance 策略 | `bms/app/bms_features.c` | 产品头用 `BMS_FEATURE_*_SUPPORTED` 编译期裁剪；保留产品的温度、可信采样及故障互锁 |
-| SOC estimate/display/OCV/循环 SOH | `bms_soc.c`，应用输入推进 | 首轮建立基准、重复应用时间不积分、无效/GAP 不补算；有效缓存可积分，新测量确认独立 |
-| SOC/放电累计/循环持久值 | `bms_state_store.c`；只持有最后已提交值，最新快照由 SOC 提供 | 周期 checkpoint、失败退避与有界物理重试；SOC_STATE 独立执行标记 |
-| 采样到期标志 / 休眠计时与提交状态 | `app.c` 持有采样标志；`app_power.c` 持有 PM 状态并只读该标志 | 回调只置位；已提交保护性深睡、ACC 休眠/关机先执行保持动作，不再进入业务调度 |
-| 毫秒业务时间 | `bms_time_ms()` 的 Telink 平台实现，由主循环上下文消费 | 启动建基准，普通 Suspend 继续累计；原始 tick 消费间隔短于一次回绕，禁止 ISR 调用 |
-| 事件及运行日志 | `bms_event_log.c` / `bms_debug_log.c` | Event在RAM直接累计饱和毫秒区间，输出时间码才取完整秒；Flash checkpoint与运行日志RAM缓存均有丢失窗口 |
-
-2026-10-11 的职责收口见 [全模块审查与简化](SIMPLIFICATION_20261011.md)：软件保护初始化由 guard
-拥有，feature 不再初始化保护模块；加热周期由 `heater_state` 保持。2026-10-12 按用户决定，
-均衡删除充电会话记忆，冷启动静置也可建立资格；当前真实放电仍停止均衡。
-充电源查询仅用于启动有需求且受支持的加热周期，不参与均衡。
-Config 独占完整 SOC profile 与四项休眠参数；化学体系/曲线/保护在一条 CFG4 中提交。
-State/Event 独立保存，周期检查共用一秒任务。详见 [三域存储](STORAGE.md)。
-PM 的原因/elapsed/delay 是本轮局部结果，跨轮只保存计时、最后确认条件和提交状态。
-
-## 3. 软件保护与 AFE 保护
-
-软件用 First/Second/Third/Recover/Filter；First/Second 报告，Third 中相应电压/电流/温度位阻断方向，三级压差同时阻断充放电。SOC Low 不直接列入 MOS 关断掩码。压差保护持续独立运行，软件恢复细节见 [SOFTWARE_PROTECTION](SOFTWARE_PROTECTION.md)。
-
-AFE 用独立 `bms_afe_hw_profile_t`，不含软件三级概念；后端按 Rsense/芯片能力校验、量化、应用和读回。运行时修改软件参数不重写 AFE，反之亦然。D008 的软件及 DVC 初始默认分别来自产品 `d008_protection_config.h` 的 `D008_SW_*` / `D008_AFE_*`，构造时也相互独立；SH 保护初始默认来自各产品 `dXXX_protection_config.h`，板级能力仍在产品头，详见 [D008 保护配置](D008_PROTECTION_CONFIGURATION.md)。
-
-AFE 事务：授权 → 校验完整候选 → 保存 → apply → requested/effective readback → verify；失败恢复前一 profile 并重新应用，回滚失败保持配置不一致。详见 [AFE_HARDWARE_PROTECTION_V2](AFE_HARDWARE_PROTECTION_V2.md)。
-
-## 4. 输出与物理反馈
-
-`main_loop()` 四产品共用任务顺序，GPIO 初始化和 D008 总线调度保留原时点；PM 状态机由 `bms/app/app_power.c` 持有。`app_init()` 一次性提交同口 CHG/DSG 请求；`bms_afe_sample()` 直接返回状态，应用在 OK 轮次调用 `bms_features_service()`，再经 `bms_afe_apply_outputs()` 仲裁输出，最后更新 SOC，应用不再每帧重复提交固定请求。最终输出还取决于参数/启动授权、guard 通信资格、feature、软件阻断、AFE 硬件锁存。`bms_afe_set_output_enabled(1)` 只表达允许申请，并非直接强制导通。
-
-DVC common-port 单侧保护可映射为 AUTO_DIODE，共同故障 hard OFF；SH 保留芯片自己的锁存清除与恢复状态机。SPI/I2C 断线时通过同一总线发 OFF 只是 best effort，最终关断仍需实测硬件 watchdog/Gate。guard 保存的 AFE status、诊断的 requested/command cache 都不可合并为“已测 MOS 导通”。
-
-参数/启动资格由 guard 直接检查；feature 的双向断线阻断已删除，加热仍可阻断充电方向。功能间影响的保留依据及策略候选见 [功能耦合审查](FUNCTION_COUPLING_REVIEW.md)。
-
-SOC 不再读取 feature 状态。加热/均衡活动不阻止 OCV 或静置空电锚定；实际电流、电压、温度、故障和时间资格仍独立检查。AFE 功能快照由 getter 返回值唯一表示有效性；成功时完整填写，失败时调用方不使用内容，见 [采样与 SOC 解耦](SAMPLING_SOC_DECOUPLING.md)。
-
-## 5. 产品和单位
-
-| 产品 | 输入 | 能力限制 |
-|---|---|---|
-| D008 | DVC1124；产品 `d008_product_profile.h` + `bms_product.h` | 三种 profile；SC 默认 200 A / 请求 256 µs，实板验收独立 |
-| D011 | SH；产品 `bms_product.h`；10S/250 µΩ | heater/balance；PB5 fuse 安全 LOW |
-| D013 | SH；默认 10S/100 µΩ，构建可覆盖串数 | heater/balance 禁用；TS4 必需 MOS 10K-3435（用户确认），原理图待核 |
-| D014 | SH；8S/667 µΩ | 无 heater，TS3 NC；TS4 必需 MOS NTC |
-
-公共电流 mA 正放负充，SH 在测量边界转换；温度 `(°C+40)*10`；名义容量 0.1 Ah、报告容量 0.01 Ah。无效串位 61001，不进入有效通道计算。字段定义与协议大小端以生产头文件和读写实现为准。
+Config 在候选通过校验与持久提交后发布。DVC 硬件保护独立于软件保护，提交顺序见 [Flash 存储](STORAGE.md)。有效 CC2 电流允许远程单路关断时临时反向放行。双路明确禁用和共同保护优先。保护锁存按物理证据恢复，普通通信失败在持续 1 秒后确认。
 
 ## 6. 通信与采样所有权
 
-SH 只有完整采样读取及全串范围校验成功才发布报告；feature getter 只读有效快照，不产生 SPI。公共新样本资格已删除；backend 保留自己的硬件锁存、恢复窗口和命令证据。
+BLE GATT 和 UART 使用相同的 Modbus 解析器。UART 115200 8N1，PC2/PC3 与一线通共享，接管时丢弃首次 DMA 残帧，空闲约 10 秒后回到 SIF。SIF 主循环组包，500 µs TIMER0 ISR 只发送已交付缓冲。支持锂神 V1.1.1 和 A1.3.3 两个编译协议路径。
 
-主动采样线诊断、诊断帧隔离和 SOC 暂停/恢复状态已删除，见 [删除说明](OPENWIRE_REMOVAL.md)。完整有效读取直接更新普通报告；ADC 活性和 guard 三次新样本资格已删除，通信静默及物理恢复继续维护。
-
-UART正常RX在IRQ暂停DMA后交付单个缓冲区，主循环解析完才重新装载。D008切换到UART后的首个包明确作为唤醒残帧丢弃，IRQ仅重装固定RX DMA，不把残帧交给协议，也不等待主循环后才接收重发。SH的UART/DMA恢复、D008接入接管均在SDK返回后先于AFE/存储任务服务；正常协议解析仍在采样/保护之后。此设计要求主站等待应答，不能保证接收任意背靠背请求。TX全帧接受或拒绝，不截断、不覆盖活动DMA。RS485正常完成仍要求DMA、UART完成和最小线时长，超时在主循环中中止、重置UART/DMA、释放DE，再恢复RX。当前恢复优先调整仅完成源码审查，未编译/测试/实板验收，见[通信恢复记录](MCU_SUSPEND_POWER_RESEARCH_20261020.md#8-通信恢复优先与能力边界2026-10-20)。
-
-D014正常构建的485电源状态由`modbus_uart.c`单独拥有：OFF监听PD3，STARTING用system tick等待20ms工程门限，READY沿原RX/协议路径维护会话，STOPPED禁止强制深睡后再开启。PD3高电平PAD/RISC1独立于掉电RX；只有通信事件进入STARTING，采样/BLE定时返回保持OFF。帧尾静默5ms解除隔离；2026-10-21起使用独立`BMS_PRODUCT_RS485_POWER_HOLD_MS=10000u`，有线活动续期，串口OTA忙态保持并在结束后重新计时，满足10秒空闲及收发完成后关断。PC2/PC3释放高阻，PA1保持接收低电平。D011/D013和D008不启用此能力，UART原1秒Suspend门限及独立接收维护门限不批量改为10秒。当前D014供电开启仍阻止Suspend，延长保持会延长MCU运行；供电与Suspend解耦留待独立验证。接收维护不复位待处理/部分帧、活动收发和升级。20ms不是已验证时延上限，详见[原图、状态与验收](MCU_SUSPEND_POWER_RESEARCH_20261020.md#9-d014独立pd3唤醒与485按需供电2026-10-20)。
-
-D008 SIF 由主循环显式编码到两个缓冲区，IRQ 只领取完成包和推进波形。正在发送的包不被更新；等候包可以随新样本刷新。
-
-D008 通过 `bms/platform/telink/sif_send.h` 内的编译宏 `BMS_PRODUCT_SIF_PROTOCOL` 在既有 A1.3.3（`BMS_SIF_PROTOCOL_A133=1u`，默认）和锂神 V1.1.1（`BMS_SIF_PROTOCOL_LISHEN_V111=2u`）之间**编译期二选一**。下面关于 0x01/0x3A/0x3B/0x3C 的格式、A1.3.3 专属无效值和报文轮换仅适用于模式 1；模式 2 不再发送这些包。其它产品 SIF 保持关闭，不改变 UART、Modbus、AFE、SOC 或 Flash 协议。
-
-模式 2 固定发送 6 字节 `[00, SOC%, 总压V, 电池温度有符号℃, 00, SUM8]`；SOC 不再乘 2，总压按报告 `V*100` 四舍五入成 1V/bit，温度取**有效电池探头最高温** `(℃+40)*10` 四舍五入并去偏移，以有符号 8 位补码发送。SUM8 为前五字节加和低 8 位。按文档图示 MSB 先发，时序为同步低62/高2ms、0低4/高2ms、1低2/高4ms、结束低25/高2ms；沿用 500µs TIMER0、GPIO 极性、1 秒帧间空闲、原总线复用与双缓冲。该文档没有规定无效值，因此 RAM 测量、**电池温度**无效或字段超出线值范围时不发布该帧，不发送假 0 或 0xFF。2026-11-16 在 GitHub Actions 使用真实 SIF 生产源代码通过 A1.3.3 与锂神 V1.1.1 host 回归，验证双缓冲、无效数据、UART 接管、报文校验与逐个 500µs tick 的名义波形；两种协议还分别通过官方 TC32 4.5.1 单文件交叉编译。将协议宏从 `bms_product.h` 移至 `sif_send.h` 后，恢复了原有 OTA 参数输入摘要，未重置参数更新包。GitHub Actions 已通过 A1.3.3 的 D008 16S/20S/24S 生产 ELF 链接，以及在独立 CI checkout 临时选择锂神 V1.1.1 后的 D008 16S 生产完整 ELF 链接和资源门禁；相关验证不生成 BIN。**尚未进行示波器/仪表实板波形及 5V 上拉电平验收**。新接收器要求 5V 上拉/空线低电平，须检查 D008 实际接口电平和隔离电路后再启用。
-
-2026-11-16 后续本项目扩展E1：BMS_PRODUCT_SIF_LISHEN_EXTENDED默认1，只在锂神模式生效；设0恢复上述标准两个00。扩展字节0为int8电流，1A/bit，正放负充，-127~127A，80表示无效/超量程；由0.1A按最近整数且半值远离0取整，不回绕或饱和截断。字节4为C0|sif_fault_code()，高两位标识扩展，低6位沿用本项目既有故障码和优先级；长度、SUM、时序不变。它是用户授权的私有扩展，不承诺第三方仪表兼容。上位机通过标识区分标准零与扩展0A/无故障；Comm Tool需App0.2.8。测量或温度无效仍不发布整帧。电流双向同时非零或超量程时仅电流编码无效，不隐藏上报故障。本轮未烧录、未验收真实仪表。
-
-以下报文字段及轮换规则仅适用于模式 1（A1.3.3）：线格式显式小端：公有 `0x01` 为20字节，实时 `0x3A` 为33字节，单体 `0x3B` 为 `4+2N` 字节，电池编码 `0x3C` 为 `4+字符数` 字节；私有 len 为总长减4，所有 SUM 为校验字节之前全部字节之和低8位，不能用 host 原生结构尺寸推断。2026-10-13 起修正原 `0x3B` 固定0xAA及公共 MOS 温度截断，不再保持这些历史错误。
-
-一线通公开字段按 A1.3.3 表 A.2/A.5/A.6/A.7。本项目线版本选用0x13（主版本1、次版本3；文档末位修订号不另占字节），不再沿用历史0x01。电流保留0.1A、正放电负充电，线值为 `5000+放电A*10-充电A*10`，超出±500A或双向同时非零为0xFFFF；温度报告 `(℃+40)*10` 除10，无效报告0或超过150℃发0xFF。SOC、循环数、单体极值及位置按协议范围编码。主循环每次组包先查询现有 `bms_afe_get_aux_measurements()` RAM 快照与门禁；采样无效时 SOC/电压/电流/温度/单体极值及位置发送协议无效值，单体整帧无效。不修改保护报告、MOS 请求或采样恢复资格。
-
-材料由编译化学体系映射（LFP=1、NMC=3），额定容量取 Config 的0.1Ah值。厂家代码、型号及独立额定电压没有可信配置来源，继续发0xFF/0xFFFF；不冒用星恒厂家码，也不用保护阈值代替额定电压。单体只发送编译有效串数，一线通边界将内部61001及其它超过60000mV的值转为0xFFFF；其它协议和内部空槽61001约定不变。
-
-接入顺序为三帧公有帧、一帧单体、三帧编码；之后单体按60s采样tick门限在下一发送机会发出，编码紧随单体一帧，其间持续发送实时帧。已有 OW 上拉检测触发接入；当前 D008 未提供独立 DETD 输入，不能宣称实现独立 DETD 接入识别。编码与单体共用周期，tick无符号相减处理回绕；重接入重置首次发送与编码待发计数。500µs位节拍、结束低电平5ms及双缓冲所有权保持。
-
-故障表使用现有 First/Second/Third 状态，保护优先于异常报警和预警，同级后匹配项覆盖先匹配项。Third 映射0x01/03..09，Second放电过流沿用0x02，Second充/放电高温为0x14/15，已有其它预警映射0x22..29；欠压/过压包含单体及总压。不新增保护阈值，不用MOS过温冒充0x0A/0x0B MOS损坏；当前没有这两个故障的独立检测来源。
-
-有效放电/充电状态分别为0/1，请求应答高三位为0（不请求应答）。文档没有静置状态，本项目以0xFF表示静置/未知，上位机显示 `--`；这是明确的未提供状态标记，不是文档定义的静置码，不能宣称此值已获外部设备认可。无法从当前测量区分回馈与充电，不伪造回馈。用户明确保留加密、充电策略和互认为未实现；回馈限流、请求充电电压/电流、充电状态及需解码的BMS状态/加密结果填FF，key=0显式标记未实现（不属于合法加密报文的1..255）。不得把这些字段解释为许可或认证通过，也不实现未知应答格式。
-
-`0x3C` 电池编码来自 `bms_config_get_user()` 读取的已提交 `Config.user.serial[32]`。SN 通过 `0x2E40=0` 开始暂存，`0x2E50..0x2E5F` 写入完整32字节，用 `0x2E40=generation` 提交；验证和持久化成功才发布缓存。发送不读暂存区、不新增Flash字段、不使用 `0xC002` 的共享编译默认SN。ASCII取首NUL之前字符，不发NUL，满32字节完整发送；空/全空格/非法SN或读取失败发 `len=1,payload=FF`。跨设备唯一性由配置来源保证，不做查重。
-
-2026-10-13 用户确认原一线通链路实板通信正常。本轮 A1.3.3 完善按此前约定只修改源码及回归断言、检查调用链/边界/Git差异；没有执行host、目标编译、EXE打包、生成BIN、烧录或新增实板验证。接收端快照已升为version=2，必须配套更新Comm Tool与上位机，原dist EXE和已运行固件不代表本轮源码。
-
-## 7. 修改边界
-
-固定板级配置放产品目录，芯片寄存器/量化/恢复留后端，Flash/UART/BLE/中断留平台；不复制公共 `.c`。软件采样与 PM 时序变化要核对 watchdog、通信事务和主循环阻塞。2026-10-20起四产品充放电可在200ms任务间普通Suspend；SH由UART所有者确认1秒静默并用RX PAD唤醒。D008仅在RX低的被动监听态布防高电平PAD，接入识别和一线通发送期间保持运行，UART空闲回退为1秒，TIMER0只在`OWC_TX`运行。四产品最终入睡再次检查采样期限和通信；源码已改，未编译/测试/实板验收，见[实现记录](MCU_SUSPEND_POWER_RESEARCH_20261020.md)。开关、命令及[低压/AFE异常保护性深睡](LOW_POWER_POLICY.md)提交后仍不受业务状态阻止。
-
-持久化使用 [STORAGE](STORAGE.md) 与 [OTA_PARAMETERS](OTA_PARAMETERS.md) 的 schema/镜像更新选择规则。根 CMake 只是可移植子集，SOC、参数、语义存储和 Modbus 仍有平台依赖，不声称已完成 STM32 移植。
-
-2026-10-14：D008 ACC也使用锁存后一次收尾的强制深睡，移除通信/存储/AFE成功门禁与5秒退避，保持PC4高与PA0唤醒。公共收尾为 `app_prepare_deep_sleep()`；普通Suspend资格独立。完整入口、优先级、PC4与AFE/MCU唤醒边界见 [休眠梳理](SLEEP_LOGIC_REVIEW.md)，本次未执行测试或编译。
-
-2026-10-17 的接口、无消费者字段、SOC 重复判断与保留状态裁决见 [第二阶段重构](REFACTOR_PHASE2_20261017.md)。
+有效配置串供极值、保护和计量使用。Modbus 未装单体为 61001，A1.3.3 对应槽编码 0xFFFF。公开温度为 `(°C+40)*10`，电流正放电、负充电。报文容量 0.01 Ah，额定容量参数 0.1 Ah。保护、历史、实时及 AFE 窗保留原业务合同，SOC 扩展见 [SOC 与两个客户参数](SOC.md)。

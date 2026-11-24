@@ -1,7 +1,14 @@
-# SOC 实板 Golden Trace 入口
+# D008 SOC 回放
 
-把已脱敏的实板 `CSV`、`JSON`、`JSONL` 记录放入本目录。`soc_simulator.py validate` 会自动发现并用生产 `bms_soc.c` 重放，报告中的场景名为 `golden_<文件名>`。
+`short-discharge.csv` 是合成的固定验收向量。它覆盖 CC2 时间回绕、测量连续区间和重启切断积分。实板向量应记录装配、固件、时间源、负载及基准仪表。
 
-至少应逐步补齐：正常充电、正常放电、Ebike 脉冲、长期静置、接近 UVP、温度变化、充电器插拔、再生充电、MCU reset、Flash restore、保护触发、均衡、加热和 AFE 无效样本。记录必须来自明确的设备/固件/电芯/温度/时间基准；没有可靠 ground truth 时保留 `firmware_soc_est` 用于 A/B 和结构不变量，不能把其自称为独立真值。
+从仓库根目录运行 `python tools/soc_simulator/soc_simulator.py tests/soc/traces/short-discharge.csv --start 82`。工具从当前生产 C 源码临时编译，并输出每行的内部电量和显示。写了 `expected_shown` 的行会检查预期。
 
-本次仓库没有可确认来源的实板 SOC 记录，因此这里不伪造 golden trace。采集格式和导入方式见 `docs/SOC_HOST_TOOL.md` 与 `docs/SOC_SIMULATION.md`。
+CSV 字段为时间 `timestamp_ms`、最近一次 CC2 时间 `cc2_ms`、带符号的 `current_ma`、单体极值及均值 `min_mv/max_mv/mean_mv`、`temperature_x10` 和 `flags`。电流正值放电。
+
+| `flags` 位 | 含义 |
+|---|---|
+| 0、1、2 | 电流有效、电压有效、新 VADF |
+| 3、4、5 | OV 截断、UV 截断、允许静置校正 |
+| 6、7 | COW 检查中、COW 检查成功 |
+| 8 | 按上一行检查点重启 |

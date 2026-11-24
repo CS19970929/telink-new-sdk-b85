@@ -74,7 +74,7 @@ def commands_for(selected, only):
         raise ValueError(f'测试登记不一致：未登记={sorted(found-set(CHECKS))} 文件缺失={sorted(set(CHECKS)-found)}')
     commands=[]
     if not only:
-        commands.append(('tooling_unit_tests','shared','tooling','工具单测（内部枚举产品配置与源码编辑保存）',[sys.executable,'-m','unittest','tests.test_bms_tools','tests.test_afe_configuration_editor','-q']))
+        commands.append(('tooling_unit_tests','shared','tooling','工具单测（D008 选择、构建和配置保存）',[sys.executable,'-m','unittest','tests.test_bms_tools','-q']))
         commands += [
             ('validation_runner_tests','shared','tooling','工具故障回归',[sys.executable,'-m','unittest','discover','-s','tests','-p','test_validation_runner.py','-q']),
             ('source_manifests','shared','tooling','D008 实际源码清单',[sys.executable,'bms_tools/bms.py','sources','--check'])]
@@ -102,7 +102,7 @@ def differences(before, after, prefix=''):
 
 
 def consistency_errors(results):
-    """相同输入保护场景必须逐产品得到相同输出；部分运行不伪造四产品结论。"""
+    """相同输入保护场景必须逐产品得到相同输出；生产保护场景必须提供结构化结果。"""
     rows=[r for r in results if r['check']=='protection_scenarios_host_check' and r['exit']==0]
     if not rows: return []
     if any(not r['observations'] for r in rows):return ['保护场景缺少结构化输出']

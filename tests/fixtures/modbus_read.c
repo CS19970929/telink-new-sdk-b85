@@ -4,9 +4,6 @@
 #include <stdlib.h>
 /* Compile the whole production module, with no function extraction. */
 #include "modbus_rtu.c"
-#if BMS_AFE_REGISTER_DEBUG_ENABLE
-uint8_t bms_afe_register_debug_held(void) { return 0u; }
-#endif
 
 bms_protection_params_t g_bms_protection_params;
 uint8_t deepsleep_en;
@@ -23,6 +20,7 @@ static uint32_t corpus = 2166136261u;
 static u8 remote_allowed_mask=3u,requested_charge=1u,requested_discharge=1u;
 static u8 fet_driver=3u,fet_driver_valid=1u;
 uint32_t bms_time_now_32k(void) { return 123u; }
+uint32_t bms_time_ms(void) { return 250u; }
 uint8_t bms_afe_get_remote_allowed_mask(void) { return remote_allowed_mask; }
 uint8_t bms_afe_set_channel_allowed(uint8_t channel,uint8_t allowed)
 {
@@ -33,7 +31,7 @@ uint8_t bms_afe_set_channel_allowed(uint8_t channel,uint8_t allowed)
 }
 void bms_afe_get_requested_fets(uint8_t*c,uint8_t*d){*c=requested_charge;*d=requested_discharge;}
 uint8_t bms_afe_get_fet_status(uint8_t *bits){*bits=fet_driver;return fet_driver_valid;}
-uint16_t bms_afe_get_guard_diagnostic_bits(void){return DIAG_GUARD_OUTPUT_ENABLED|DIAG_GUARD_SAMPLES_QUALIFIED;}
+uint16_t bms_afe_get_output_status(void){return BMS_AFE_STATUS_OUTPUT_ENABLED|BMS_AFE_STATUS_SAMPLES_QUALIFIED;}
 
 /* Register-owner spies: controlled reads; unexpected writes abort. */
 static u8 profile(bms_afe_hw_profile_t *p, unsigned *calls, int fail_at, u16 base)
@@ -65,8 +63,6 @@ int bms_parameter_read_block(u16 r,u16 n,u8 *d) {
 int bms_config_get_user(bms_user_params_t *u) { *u=identity_user; return identity_user_ok; }
 void bms_config_store_get_default_protect(bms_protection_params_t *p) { (void)p; abort(); }
 int bms_config_store_get_system(bms_config_system_params_t *p) { (void)p; abort(); }
-void bms_config_store_get_chemistry_protect(u8 chemistry, bms_protection_params_t *p) { (void)chemistry; (void)p; abort(); }
-void bms_afe_hw_profile_build_chemistry_default(u8 chemistry, bms_afe_hw_profile_t *p) { (void)chemistry; (void)p; abort(); }
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p) { (void)p; abort(); }
 u8 bms_protection_params_commit(const bms_protection_params_t *p) { (void)p; abort(); }
 u8 bms_protection_params_valid(void) { abort(); }
@@ -78,29 +74,10 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *p,u16 n)
 int bms_afe_hw_access_modbus_on_frame(const u8 *q,u32 n,u8 *r,u32 *l)
 { (void)q; (void)n; (void)r; (void)l; abort(); }
 
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-static u8 actual_valid;
-static unsigned actual_reads;
-static u16 actual_ov_mv=3650u;
-uint8_t sh3673510_control_get_protection_actual(sh3673510_protection_actual_t *a)
-{
-    ++actual_reads;
-    *a=(sh3673510_protection_actual_t){0};
-    a->ov_mv=actual_ov_mv; a->uv_mv=2700; a->ocd1_a10=111; a->ocd2_a10=222; a->occ_a10=333;
-    a->ov_delay_ms=100; a->uv_delay_ms=200; a->ocd1_delay_ms=300;
-    a->ocd2_delay_ms=400; a->occ_delay_ms=500;
-    return actual_valid;
-}
-#else
 dvc1124_config_result_t DVC1124_ConfigServiceRead(dvc1124_config_field_t f,u32 *v)
 { *v=(u32)f; return DVC1124_CFG_OK; }
-dvc1124_config_result_t DVC1124_ConfigServiceReadRaw(u8 r,u8 *v)
-{ *v=r; return DVC1124_CFG_OK; }
 dvc1124_config_result_t DVC1124_ConfigServiceWrite(dvc1124_config_field_t f,u32 v)
 { (void)f; (void)v; abort(); }
-dvc1124_config_result_t DVC1124_ConfigServiceWriteRaw(u8 r,u8 v)
-{ (void)r; (void)v; abort(); }
-#endif
 
 /* Read-window support is decided by the single dispatch function; no separate table. */
 static int addr_supported(u16 reg)
@@ -223,18 +200,9 @@ static void check_product_identity(void)
 static void check_requested_profile(void)
 {
     const u16 metadata[]={0x1234u,1u,
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
         DVC1124_DEFAULT_SHUNT_UOHM,BMS_PRODUCT_CELL_COUNT,DVC1124_I2C_WATCHDOG_SECONDS,
-#else
-        SH3673510_BOARD_SHUNT_UOHM,BMS_PRODUCT_CELL_COUNT,SH3673510_BOARD_WDT_EN?32u:0u,
-#endif
         1u,2u,3u,BMS_AFE_HW_INTERFACE_VERSION,
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
         DVC1124_DEFAULT_SHUNT_UOHM,1u,BMS_AFE_HW_FEATURE_DIAGNOSTIC|BMS_AFE_HW_FEATURE_RUNTIME_STATUS
-#else
-        SH3673510_BOARD_SHUNT_ELEMENT_UOHM,SH3673510_BOARD_SHUNT_PARALLEL_COUNT,
-        BMS_AFE_HW_FEATURE_TEMP_EFFECTIVE|BMS_AFE_HW_FEATURE_DIAGNOSTIC|BMS_AFE_HW_FEATURE_RUNTIME_STATUS
-#endif
     };
     u16 words[BMS_AFE_HW_REQUESTED_REG_COUNT];
     /* 包括数据、元数据及跨两者的全部子区间；RAM 校验失败整段数据未知。 */
@@ -317,7 +285,7 @@ int main(void)
     assert(!addr_supported(BMS_MOS_CONTROL_BASE+BMS_MOS_CONTROL_COUNT));
     fet_driver=3u;fet_driver_valid=1u;
     { const u16 mos[]={BMS_MOS_CONTROL_MAGIC,1u,1u,1u,3u,1u,
-        DIAG_GUARD_OUTPUT_ENABLED|DIAG_GUARD_SAMPLES_QUALIFIED,3u};
+        BMS_AFE_STATUS_OUTPUT_ENABLED|BMS_AFE_STATUS_SAMPLES_QUALIFIED,3u};
       expect_read(1u,BMS_MOS_CONTROL_BASE,8u,mos,0u); }
     expect_write_single(1u,BMS_MOS_CONTROL_BASE+2u,0u,0u);assert(remote_allowed_mask==2u);
     expect_write_single(1u,BMS_MOS_CONTROL_BASE+3u,0u,0u);assert(remote_allowed_mask==0u);
@@ -364,11 +332,7 @@ int main(void)
     expect_read(1,BMS_AFE_HW_EFFECTIVE_REG_BASE-1u,2u,words,2u);
     assert(effective_reads==0u);
     words[0]=0x1234; words[1]=1;
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_DVC1124
     words[2]=DVC1124_DEFAULT_SHUNT_UOHM; words[4]=DVC1124_I2C_WATCHDOG_SECONDS;
-#else
-    words[2]=SH3673510_BOARD_SHUNT_UOHM; words[4]=SH3673510_BOARD_WDT_EN ? 32u : 0u;
-#endif
     words[3]=BMS_PRODUCT_CELL_COUNT; words[5]=1; words[6]=2; words[7]=3; words[8]=BMS_AFE_HW_INTERFACE_VERSION;
     expect_read(1,BMS_AFE_HW_META_CAPABILITIES,9,words,0);
     for (unsigned broadcast=0; broadcast<2; ++broadcast) {
@@ -378,49 +342,16 @@ int main(void)
             event_reads=0;
             expect_read(addr,BMS_EVENT_LOG_REG_BASE,qty,words,0); assert(event_reads==qty);
         }
-        for (u16 qty=1; qty<=125; ++qty) {
-            u8 bytes[250];
-            assert(bms_diag_read(BMS_DIAG_BASE,qty,bytes));
-            for (u16 i=0; i<qty; ++i) words[i]=(u16)(((u16)bytes[i*2u]<<8)|bytes[i*2u+1u]);
-            expect_read(addr,BMS_DIAG_BASE,qty,words,0);
-            assert(bms_debug_log_read(BMS_DEBUG_LOG_BASE,qty,bytes));
-            for (u16 i=0; i<qty; ++i) words[i]=(u16)(((u16)bytes[i*2u]<<8)|bytes[i*2u+1u]);
-            expect_read(addr,BMS_DEBUG_LOG_BASE,qty,words,0);
-        }
         expect_read(addr,BMS_EVENT_LOG_REG_BASE,BMS_EVENT_LOG_REG_COUNT+1u,words,2);
-        expect_read(addr,BMS_DIAG_BASE-1u,2,words,2);
-        expect_read(addr,BMS_DIAG_END-1u,2,words,2);
-        memset(words,0,16u*sizeof(words[0]));words[0]=0x5350u;words[1]=1u;words[3]=16u;
-        expect_read(addr,BMS_STALL_PREP_BASE,16u,words,0u);
-        expect_read(addr,BMS_STALL_PREP_BASE-1u,2u,words,2u);
-        expect_read(addr,BMS_STALL_PREP_END-1u,2u,words,2u);
-        expect_read(addr,BMS_DEBUG_LOG_BASE-1u,2,words,2);
-        expect_read(addr,BMS_DEBUG_LOG_END-1u,2,words,2);
+        words[0]=0x4447u; words[1]=1u; words[2]=0x0040u;
+        expect_read(addr,0x2A00u,3u,words,0u);
+        expect_read(addr,0x2A00u,4u,words,2u);
+        expect_read(addr,0x2A03u,1u,words,2u);
+        expect_read(addr,0x2900u,1u,words,2u);
         expect_read(addr,0xffff,2,words,2); expect_read(addr,0x2140,2,words,2);
         expect_read(addr,0x2100,0,words,3); expect_read(addr,0x2100,126,words,3);
     }
-#if BMS_AFE_BACKEND == BMS_AFE_BACKEND_SH3673510
-    const u16 actual[]={1,3650,2700,111,222,333,100,200,300,400,500};
-    /* AFE actual 窗口在批量分支独占，边界由下面的整段读与越界用例覆盖。 */
-    for (unsigned valid=0u; valid<2u; ++valid) {
-        actual_valid=(u8)valid;
-        for (unsigned start=0u; start<11u; ++start)
-            for (unsigned qty=1u; qty<=11u-start; ++qty) {
-                for (unsigned i=0u; i<qty; ++i)
-                    words[i]=valid?actual[start+i]:(start+i?0xffffu:0u);
-                actual_reads=0u;
-                expect_read(1u,(u16)(0x2180u+start),(u16)qty,words,0u);
-                assert(actual_reads==1u);
-            }
-    }
-    actual_reads=0u;
-    expect_read(1u,0x217fu,2u,words,2u);expect_read(1u,0x218au,2u,words,2u);
-    assert(!actual_reads);
-    actual_ov_mv=3750u;words[0]=3750u;actual_reads=0u;
-    expect_read(1u,0x2181u,1u,words,0u);assert(actual_reads==1u);
-#else
     assert(!addr_supported(0x2180)); expect_read(1,0x2180,1,words,2);
-#endif
     printf("frames=%u corpus=%08lx identity/requested/effective/actual protocol checked\n",frames,(unsigned long)corpus);
     return 0;
 }

@@ -7,13 +7,10 @@ def check_modbus_address_host_check():
     import os
     from validation_support import ROOT, read, run_c, evidence
 
-    product = os.environ.get('BMS_PRODUCT', 'd014')
+    product = os.environ.get('BMS_PRODUCT', 'd008')
     output = run_c(read('tests/fixtures/modbus_read.c'),
                    ['bms/core/' + name + '.c' for name in
-                    ('bms_crc', 'bms_state', 'bms_diag', 'bms_debug_log', 'bms_sleep_status', 'bms_sw_protection')],
-                   ['-I', str(ROOT/'tests/fixtures/d014_safety_loop/include'),
-                    '-D__PROJECT_8258_BLE_SAMPLE__=1', '-DCHIP_TYPE=CHIP_TYPE_825x',
-                    '-DBMS_STALL_DIAG_ENABLE=0'],
+                    ('bms_crc', 'bms_state', 'bms_sleep_status', 'bms_sw_protection')],
                    name='modbus-read')
     evidence({'domain': 'protocol', 'observations': output.strip(),
               'boundary': '完整 modbus_rtu.c、真实 CRC/State/diag/logger；配置/事件/AFE 所有者替身，不含 UART/BLE/物理硬件'})

@@ -10,13 +10,11 @@ code=r'''
 #define GPIO_PB1 1u /* host 输入编号；不操作物理 GPIO。 */
 #include "dvc1124.h"
 #include "bms_features.h"
-#include "bms_diag.h"
 #define DVC_MEAS_BYTES 0x4d
 #define BMS_ERROR_TEMP_BREAK 0
 #define BMS_ERROR_BALANCE 1
 #define MODULE_WATCHDOG_ENABLE 0
 #define DVC1124_BOOT_ZERO_SAMPLE_INTERVAL_MS 270u
-#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u
 #ifndef BMS_D008_LOAD_RELEASE_CONFIRM_MS
 #define BMS_D008_LOAD_RELEASE_CONFIRM_MS 200u
 #define BMS_BOARD_LOAD_REMOVED_LEVEL 1u
@@ -47,7 +45,6 @@ static uint8_t dvc_ntc_resistance(uint16_t gp,uint16_t v,uint16_t rpu,uint32_t*r
 static uint16_t ntc_encoded_temp=650u;
 static uint16_t dvc_ntc_temp_report(uint32_t r){(void)r;return ntc_encoded_temp;}
 void bms_afe_publish_fet_status(uint8_t x,uint8_t y){(void)x;(void)y;}
-void bms_diag_trace(uint16_t e,uint32_t a,uint32_t b){(void)e;(void)a;(void)b;}
 uint8_t DVC1124_ClearAlarmFlags(uint8_t m){registers[0]&=(uint8_t)~m;return 1;}
 static uint32_t time_last_raw,time_ms,time_fraction;
 uint32_t bms_time_ms(void){uint32_t delta=now-time_last_raw;time_last_raw=now;time_fraction+=delta%32u;time_ms+=delta/32u+time_fraction/32u;time_fraction%=32u;return time_ms;}
@@ -80,6 +77,7 @@ code+=function(s,'static void dvc_publish_current_measurement(')
 code+=function(s,'static void dvc_publish_voltage_measurement(')
 code+=function(s,'static void dvc_publish_temperature_measurement(')
 code+=function(s,'bms_afe_sample_status_t DVC1124_App_AFEGet(')
+code+=function(s,'uint8_t DVC1124_CurrentQualified(')
 recovery=read('bms/afe/dvc1124/dvc1124_bms.c')
 code+='\n'+recovery[recovery.index('#define DVC_LOAD_RELEASE_CONFIRM_MS'):recovery.index('static uint16_t dvc_get_configured_temperature')]
 code+=function(recovery,'static uint8_t dvc_recover_current_faults(')
@@ -99,6 +97,11 @@ int main(void){
  assert(s_snapshot.valid && result==BMS_AFE_SAMPLE_OK && s_snapshot.sample_tick_32k==now);
  acquire(now+6400u,0x40);assert(s_snapshot.voltage_fresh && !s_snapshot.current_fresh);
  acquire(now+6400u,0x10);assert(!s_snapshot.voltage_fresh && s_snapshot.current_fresh);
+ assert(DVC1124_CurrentQualified(&s_snapshot, s_snapshot.current_time_ms + 400u));
+ assert(!DVC1124_CurrentQualified(&s_snapshot, s_snapshot.current_time_ms + 401u));
+ acquire(now+6400u,0);assert(DVC1124_CurrentQualified(&s_snapshot, bms_time_ms()));
+ acquire(now+6400u,0);assert(DVC1124_CurrentQualified(&s_snapshot, bms_time_ms()));
+ acquire(now+6400u,0);assert(!DVC1124_CurrentQualified(&s_snapshot, bms_time_ms()));
  /* RM p8 R6 bit1；R1 CST bit1不能冒充DSGF。 */
  reset();registers[6]=2;acquire(100,0x50);assert(s_snapshot.fet_status==2 && g_bms_system_status.bits.discharge_mos_status);
  registers[6]=0;acquire(200,0x52);assert(!s_snapshot.fet_status && !g_bms_system_status.bits.discharge_mos_status);

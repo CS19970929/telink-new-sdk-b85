@@ -127,17 +127,12 @@ IDE_BUILD_DIR = PROJ_DIR / "825x_ble_sample"
 # deliberately non-recursive to avoid silently compiling unrelated examples.
 SOURCE_GROUPS = (
     (Path("vendor/common"), False),
-    (Path("vendor/ble_sample"), True),
     (Path("drivers/B85"), False),
     (Path("drivers/B85/flash"), False),
     (Path("drivers/B85/driver_ext"), False),
     (Path("common"), False),
     (Path("boot/B85"), False),
-    (Path("application/usbstd"), False),
     (Path("application/print"), False),
-    (Path("application/keyboard"), False),
-    (Path("application/audio"), False),
-    (Path("application/app"), False),
 )
 
 # --------------------------------------------------------------------------
@@ -421,18 +416,15 @@ def _source_order_sha256(entries: list[str]) -> str:
 def _discover_managed_sources() -> list[str]:
     """Discover selected product sources; reject omitted shared compilation units."""
     entries = []
-    for group_rel, recursive in SOURCE_GROUPS:
-        if group_rel == Path("vendor/ble_sample"):
-            continue
+    for group_rel, _ in SOURCE_GROUPS:
         group = SDK_DIR / group_rel
         if group.exists():
             entries += [x.relative_to(REPO_ROOT).as_posix() for x in sorted(group.iterdir())
                         if x.is_file() and x.suffix in (".c", ".S")]
-    backend = "dvc1124"
-    for relative in ("bms/core", "bms/app", "bms/platform/telink", "bms/afe/"+backend,
+    for relative in ("bms/core", "bms/app", "bms/platform/telink", "bms/afe/dvc1124",
                      "bms/products/"+PRODUCT):
         entries += [x.relative_to(REPO_ROOT).as_posix() for x in sorted((REPO_ROOT/relative).rglob("*.c"))]
-    return [x for x in entries if PRODUCT == "d008" or Path(x).name not in ("bus_mux.c", "sif_send.c")]
+    return entries
 
 
 def _read_source_order(path: Path = SOURCE_ORDER_FILE) -> list[str]:

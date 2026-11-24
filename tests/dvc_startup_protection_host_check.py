@@ -10,8 +10,7 @@ code = r'''
 #include <stdio.h>
 #include <string.h>
 #include "dvc1124.h"
-#include "bms_afe_registers.h"
-#include "bms_diag.h"
+#include "bms_afe_hw_profile.h"
 static uint8_t regs[256], stuck_fet, hold_scd;
 static unsigned operations, fail_from, sc_disables;
 static void dvc_delay_ms(uint16_t ms) { (void)ms; }
@@ -55,10 +54,11 @@ static uint8_t operating_ok=1;
 uint8_t DVC1124_ApplyProjectOperatingConfig(void) { ++operating_applies; return operating_ok; }
 static uint8_t DVC1124_SetCellCount(uint8_t n) { (void)n; s_need_config=1; return 1; }
 static uint8_t DVC1124_AFE_IsReady(void) { return 0; }
-static uint8_t dvc_apply_protection_from_params(void) {
+uint8_t bms_afe_hw_profile_get(bms_afe_hw_profile_t *profile){(void)profile;return 1u;}
+uint8_t bms_afe_driver_apply_protection_config(const bms_afe_hw_profile_t *profile) {
+    (void)profile;
     ++profile_applies; return DVC1124_SetShortCircuitProtection(40,256);
 }
-void bms_diag_boot_word(uint16_t o, uint16_t v) { (void)o; (void)v; }
 '''
 code += '\n' + function(source, 'void DVC1124_UpdataAfeConfig(')
 code += r'''
