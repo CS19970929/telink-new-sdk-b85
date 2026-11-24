@@ -5,6 +5,8 @@
 #include "drivers.h"
 #include "stack/ble/ble.h"
 #include "app.h"
+#include "bms_product.h"
+#include "bms_update_policy.h"
 #include "flash_store_cfg.h"
 #include "flash_store_safe.h"
 
@@ -96,13 +98,51 @@ static int program(void *ctx, uint32_t addr, const uint8_t *buf, uint32_t len)
     return 1;
 }
 
+static int erase_sector_verified(uint32_t addr)
+{
+    flash_erase_sector(addr);
+    return remember_result(read_witness() && flash_store_verify_erased(addr, FLASH_SECTOR_SIZE));
+}
+
 static int erase(void *ctx, uint32_t addr, uint32_t len)
 {
     (void)ctx;
     if (len != FLASH_SECTOR_SIZE || addr % FLASH_SECTOR_SIZE ||
         !business_range(addr, len)) return 0;
-    flash_erase_sector(addr);
-    return remember_result(read_witness() && flash_store_verify_erased(addr, len));
+    return erase_sector_verified(addr);
+}
+
+int bms_storage_platform_erase_factory_legacy(void)
+{
+    /* 2e02f32e 的 512 KiB 业务区尾部。普通存储端口只接受新三域。 */
+    static const storage_region_t retired[] = {
+        {0x42000u, 0x02000u}, /* 旧 Config 尾部 */
+        {0x46000u, 0x06000u}, /* 旧 State 尾部 */
+        {0x4E000u, 0x12000u}, /* 旧 Event 尾部和 SleepConfig/SocProfile */
+    };
+    unsigned i;
+
+    if (!bms_ota_factory_reset_requested() || !bus_ready()) return 0;
+    for (i = 0u; i < sizeof(retired) / sizeof(retired[0]); ++i) {
+        uint32_t addr;
+        uint32_t limit = retired[i].base + retired[i].size;
+        for (addr = retired[i].base; addr < limit; addr += FLASH_SECTOR_SIZE) {
+            int ok;
+#if MODULE_WATCHDOG_ENABLE
+            wd_clear();
+#endif
+            /* 掉电后从范围起点复核，已擦空的扇区直接跳过。 */
+            if (flash_store_verify_erased(addr, FLASH_SECTOR_SIZE)) {
+                if (!read_witness()) return remember_result(0);
+                continue;
+            }
+            if (!begin(0)) return 0;
+            ok = erase_sector_verified(addr);
+            end(0);
+            if (!ok) return 0;
+        }
+    }
+    return 1;
 }
 
 const storage_port_t *bms_storage_platform_port(void)

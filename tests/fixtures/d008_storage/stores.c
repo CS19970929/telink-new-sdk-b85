@@ -17,6 +17,8 @@ static int budget = -1;
 static unsigned writes, erases, reloads;
 static int read_failed, fail_after_event_commit, fail_after_config_commit, locked;
 static uint32_t fail_erase_at = UINT32_MAX;
+static int fail_legacy_purge;
+static unsigned legacy_calls;
 static uint16_t last_charge;
 static unsigned apply_calls, finish_calls, inhibit_calls, apply_failures;
 
@@ -93,6 +95,12 @@ static const storage_port_t port = {0, SECTOR, 4u, 0xFFu, begin_flash, 0,
                                     flash_read, flash_program, flash_erase};
 
 const storage_port_t *bms_storage_platform_port(void) { return &port; }
+int bms_storage_platform_erase_factory_legacy(void)
+{
+    ++legacy_calls;
+    return !fail_legacy_purge;
+}
+
 int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *region)
 {
     region->base = (uint32_t)domain * DOMAIN;
@@ -128,7 +136,7 @@ static void reboot(void)
     memset(&s_store, 0, sizeof(s_store));
     memset(&g_bms_report, 0, sizeof(g_bms_report));
     budget = -1;
-    read_failed = locked = fail_after_event_commit = fail_after_config_commit = 0;
+    read_failed = locked = fail_after_event_commit = fail_after_config_commit = fail_legacy_purge = 0;
     fail_erase_at = UINT32_MAX;
     clock_ms += 6000u;
 }
@@ -365,17 +373,25 @@ static void factory(void)
     bms_parameters_init();
     assert(!bms_protection_params_valid() && bms_config_store_factory_reset_pending());
     assert(bms_error_get(BMS_ERROR_EEPROM_STORE));
-    assert(erases == prior_erases && writes == prior_writes);
+    assert(erases == prior_erases && writes == prior_writes && legacy_calls == 0u);
+
+    reboot();
+    fail_legacy_purge = 1;
+    bms_parameters_init();
+    assert(!bms_protection_params_valid() && bms_config_store_factory_reset_pending());
+    assert(legacy_calls == 1u && erases == prior_erases + 1u && writes == prior_writes);
+
     reboot();
     bms_parameters_init();
     assert(bms_protection_params_valid() && !bms_config_store_factory_reset_pending());
+    assert(legacy_calls == 2u);
     assert(bms_state_store_init() && !bms_state_store_get().capacity_0p1ah);
     assert(bms_event_log_init() && !bms_event_log_read_reg(0u));
     prior_erases = erases;
     prior_writes = writes;
     reboot();
     bms_parameters_init();
-    assert(bms_protection_params_valid() && erases == prior_erases && writes == prior_writes);
+    assert(bms_protection_params_valid() && erases == prior_erases && writes == prior_writes && legacy_calls == 2u);
 }
 
 static void boot_qualification(void)
@@ -394,7 +410,7 @@ static void boot_qualification(void)
     memory[11] = 0x23u;
     bms_parameters_init();
     assert(!bms_protection_params_valid() && bms_error_get(BMS_ERROR_EEPROM_STORE));
-    assert(!writes && !erases);
+    assert(!writes && !erases && !legacy_calls);
 }
 
 int main(void)

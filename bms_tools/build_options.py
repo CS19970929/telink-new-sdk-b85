@@ -110,7 +110,9 @@ DEFAULT_INPUTS = ("bms/products/bms_battery_defaults.h", "bms/core/bms_parameter
                   "bms/core/bms_soc_defs.h", "bms/core/bms_soc.c",
                   "bms/core/bms_soc.h", "bms/core/bms_state_store.c", "bms/core/bms_state.h",
                   "bms/app/bms_features.h", "bms/core/bms_update_policy.h",
-                  "bms/core/bms_build_identity.h")
+                  "bms/core/bms_build_identity.h",
+                  "bms/platform/telink/flash_store_cfg.h",
+                  "bms/platform/telink/bms_storage_platform_telink.c")
 
 
 def _text(path: Path) -> str:

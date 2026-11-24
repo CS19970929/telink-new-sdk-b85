@@ -8,6 +8,7 @@
 #include "bms_sw_protection.h"
 #include "bms_config_store.h"
 #include "bms_event_log.h"
+#include "bms_storage_platform.h"
 #include "bms_state_store.h"
 #include "bms_afe.h"
 
@@ -77,7 +78,8 @@ static void parameters_validate_storage_startup(void)
         config_valid = bms_config_store_purge_factory_history();
         state_valid = config_valid && bms_state_store_factory_reset() ? 1u : 0u;
         event_valid = state_valid && bms_event_log_factory_reset() ? 1u : 0u;
-        if (!state_valid || !event_valid || !bms_config_store_finish_factory_reset())
+        if (!event_valid || !bms_storage_platform_erase_factory_legacy() ||
+            !bms_config_store_finish_factory_reset())
             config_valid = 0u;
         else event_valid = bms_event_log_init() ? 1u : 0u;
     } else {

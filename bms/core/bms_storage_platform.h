@@ -14,5 +14,6 @@ typedef enum {
 
 const storage_port_t *bms_storage_platform_port(void);
 int bms_storage_platform_region(bms_storage_domain_t domain, storage_region_t *region);
+int bms_storage_platform_erase_factory_legacy(void);
 
 #endif
