@@ -38,15 +38,15 @@ public sealed class C077AfeEditorWindow:Window
         top.Children.Add(status);
         var tabs=new TabControl();panel.Children.Add(tabs);
         tabs.Items.Add(new TabItem{Header="物理参数及功能位",Content=grid});
-        tabs.Items.Add(new TabItem{Header="25字节期望 / AFE实际读回",Content=rawGrid});
+        tabs.Items.Add(new TabItem{Header="25字节期望 / 芯片诊断",Content=rawGrid});
         void Col(DataGrid target,string label,string binding,bool readOnly,int width) {
             var style=new Style(typeof(TextBlock));style.Setters.Add(new Setter(ToolTipProperty,new Binding(binding)));
             target.Columns.Add(new DataGridTextColumn{Header=label,Binding=new Binding(binding){UpdateSourceTrigger=UpdateSourceTrigger.PropertyChanged},IsReadOnly=readOnly,Width=width,ElementStyle=style});
         }
         var mismatchStyle=new Style(typeof(DataGridRow));var mismatch=new DataTrigger{Binding=new Binding("Different"),Value=true};
         mismatch.Setters.Add(new Setter(BackgroundProperty,System.Windows.Media.Brushes.MistyRose));mismatch.Setters.Add(new Setter(ForegroundProperty,System.Windows.Media.Brushes.DarkRed));mismatchStyle.Triggers.Add(mismatch);rawGrid.RowStyle=mismatchStyle;
-        Col(grid,"参数","Name",true,280);Col(grid,"Flash已保存","Saved",true,115);Col(grid,"待保存","Draft",false,115);Col(grid,"AFE实际读回","Actual",true,135);Col(grid,"单位","Unit",true,85);Col(grid,"允许值 / 说明","Hint",true,420);
-        Col(rawGrid,"地址","Address",true,100);Col(rawGrid,"寄存器","Name",true,220);Col(rawGrid,"Flash期望字节","Expected",true,150);Col(rawGrid,"AFE读回字节","Actual",true,150);Col(rawGrid,"结果","Result",true,160);
+        Col(grid,"参数","Name",true,280);Col(grid,"Flash已保存","Saved",true,115);Col(grid,"待保存","Draft",false,115);Col(grid,"芯片诊断值","Actual",true,135);Col(grid,"单位","Unit",true,85);Col(grid,"允许值 / 说明","Hint",true,420);
+        Col(rawGrid,"地址","Address",true,100);Col(rawGrid,"寄存器","Name",true,220);Col(rawGrid,"Flash期望字节","Expected",true,150);Col(rawGrid,"芯片诊断字节","Actual",true,150);Col(rawGrid,"结果","Result",true,160);
         grid.ItemsSource=rows;
         chip.SelectionChanged+=(_,_)=>{
             if(busy||resettingChip)return;
@@ -66,14 +66,16 @@ public sealed class C077AfeEditorWindow:Window
         try{await action();}
         catch(Exception ex){
             string failure=ex.Message;
-            try{snapshot=await client.ReadC077HardwareAsync(false);ShowChip();failure+="\n"+Details(snapshot);}catch(Exception readError){failure+="；诊断读取未完成："+readError.Message;}
+            try{snapshot=await client.ReadC077HardwareAsync(false);ShowChip();failure+="\n"+Details(snapshot);}catch(Exception readError){snapshot=null;ShowChip();failure+="；诊断读取未完成："+readError.Message;}
             status.Text="未完成 / 结果未确认："+failure+"。未自动重发。";MessageBox.Show(this,status.Text,"309维护",MessageBoxButton.OK,MessageBoxImage.Warning);}
         finally{busy=false;grid.IsReadOnly=false;chip.IsEnabled=true;}
     }
     private async Task Reload()
     {
         snapshot=await client.ReadC077HardwareAsync(true);ShowChip();
-        status.Text=Details(snapshot)+"\nFlash与EEPROM分别显示；温度读回是寄存器反算近似值，是否一致以25字节比较为准。";
+        status.Text=Details(snapshot)+(snapshot.EepromReadbackConfirmed
+            ? "\n本次 EEPROM 整片读回已确认，温度为寄存器反算近似值。"
+            : "\n本次 EEPROM 未确认匹配，芯片栏显示诊断缓存。");
     }
     private static string Details(C077HardwareSnapshot h)
     {
@@ -87,13 +89,15 @@ public sealed class C077AfeEditorWindow:Window
     }
     private void ShowChip()
     {
-        rows.Clear();if(snapshot is null)return;
+        rows.Clear();
+        rawGrid.ItemsSource=null;
+        if(snapshot is null)return;
         int n=Math.Max(0,chip.SelectedIndex);shownChip=n;var saved=snapshot.Saved[n];var actual=C077Hardware.Decode(snapshot.Actual.Chips[n].Eeprom,snapshot.Actual.Chips[n].Tr);
         for(int bit=0;bit<7;bit++)rows.Add(new(){Index=0,Bit=bit,Name=C077Hardware.FeatureNames[bit],Saved=((saved[0]>>bit)&1).ToString(),Draft=((saved[0]>>bit)&1).ToString(),Actual=((actual[0]>>bit)&1).ToString(),Unit="0/1",Hint="1=该位开启；DIS_PF 的1表示禁止保护。"});
         foreach(var f in C077Hardware.Fields.Skip(1))rows.Add(new(){Index=f.Index,Name=f.Name,Saved=Display(f,f.Value(saved[f.Index])),Draft=Display(f,f.Value(saved[f.Index])),Actual=(f.Signed?"≈":"")+Display(f,actual[f.Index]),Unit=f.Signed?"℃":f.Unit,Hint=f.Signed?"−40..100℃整℃档位；受本片TR编码范围约束":f.Limits});
         string[] names={"SCONF1","SCONF2","OVT/LDRT/OVH","OVL","UVT/OVRH","OVRL","UV","UVR","BALV","PREV","L0V","PFV","OCD1","OCD2","SC","OCC","CHS/MOST/OCRT/PFT","OTC","OTCR","UTC","UTCR","OTD","OTDR","UTD","UTDR"};
         var expected=snapshot.Expected[n];var chipState=snapshot.Actual.Chips[n];
-        rawGrid.ItemsSource=Enumerable.Range(0,25).Select(i=>{int e=i%2==0?expected[i/2]>>8:expected[i/2]&255;return new{Address=$"0x{i:X2}",Name=names[i],Expected=$"0x{e:X2}",Actual=$"0x{chipState.Eeprom[i]:X2}",Different=e!=chipState.Eeprom[i],Result=e==chipState.Eeprom[i]?(chipState.ProfileMatches?"一致":"字节相同，整片未确认"):"待下发 / 不一致"};}).ToArray();
+        rawGrid.ItemsSource=Enumerable.Range(0,25).Select(i=>{int e=i%2==0?expected[i/2]>>8:expected[i/2]&255;return new{Address=$"0x{i:X2}",Name=names[i],Expected=$"0x{e:X2}",Actual=$"0x{chipState.Eeprom[i]:X2}",Different=e!=chipState.Eeprom[i],Result=snapshot.EepromReadbackConfirmed?"本次一致":e==chipState.Eeprom[i]?"缓存相同，未确认":"缓存不同，未确认"};}).ToArray();
     }
     private static string Display(C077HardwareField f,int value)=>f.Signed?(value/10m).ToString("0.0",CultureInfo.InvariantCulture):value.ToString(CultureInfo.InvariantCulture);
     private ushort[] Draft()
@@ -122,7 +126,7 @@ public sealed class C077AfeEditorWindow:Window
         if(snapshot is null)throw new InvalidOperationException("请先读取设备。");
         if(!Draft().SequenceEqual(snapshot.Saved[chip.SelectedIndex]))throw new InvalidOperationException("当前片仍有未保存草稿，请先保存Flash或重新读取。");
         if(MessageBox.Show(this,$"确认下发{(targets==3?"双片":"AFE"+(chip.SelectedIndex+1))} EEPROM？按Flash保存值写差异，逐字节读回；中断后可能部分完成，保持输出关闭。","明确写入EEPROM",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes)return;
-        await client.ProgramC077HardwareAsync(targets);await Reload();status.Text="所选EEPROM事务已完成并读回确认。MOS/均衡许可保持关闭；另一片未下发配置仍会限制输出。\n"+status.Text;
+        await client.ProgramC077HardwareAsync(targets,observed:snapshot.Saved);await Reload();status.Text="所选EEPROM事务已完成并读回确认。MOS/均衡许可保持关闭；另一片未下发配置仍会限制输出。\n"+status.Text;
     }
     private async Task CloseOutputs()
     {

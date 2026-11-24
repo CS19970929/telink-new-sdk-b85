@@ -25,7 +25,10 @@ static class Test
         var resumed=await client.RunC077ServiceAsync(true);
         Check(resumed.ZeroReady&&resumed.SampleValid&&!resumed.ServiceFailed,"explicit retry recovers native C state");
         var hardware=await client.ReadC077HardwareAsync(true);
-        Check(hardware.Saved[0][1]==4260&&hardware.Saved[1][1]==4300,"independent physical default fields");
+        Check(hardware.EepromReadbackConfirmed && hardware.Saved[0][1]==4260&&hardware.Saved[1][1]==4300,
+            "explicit matching EEPROM readback and independent defaults");
+        Check(!(await client.ReadC077HardwareAsync(false)).EepromReadbackConfirmed,
+            "cached diagnostic never counts as a new EEPROM readback");
         var file=C077Hardware.File(hardware.Saved);
         Check(C077Hardware.Import(file)[0].SequenceEqual(hardware.Saved[0]),"named JSON physical roundtrip");
         string webJson=System.Text.Json.JsonSerializer.Serialize(file,new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
@@ -33,10 +36,21 @@ static class Test
         try {C077Hardware.ParseFile(webJson.Replace("\"product\":\"C077\"","\"product\":\"C060\""));throw new Exception("foreign hardware JSON accepted");}catch(System.IO.InvalidDataException){}
         Check(C077Hardware.Decode(hardware.Actual.Chips[0].Eeprom,hardware.Actual.Chips[0].Tr)[14]==500,"OCD2 distinct official 500mV table");
         var a=(ushort[])hardware.Saved[0].Clone();var b=(ushort[])hardware.Saved[1].Clone();a[1]=4240;b[1]=4320;
+        wire.NegotiatedMtu = 23;
+        int savedWrites = wire.ConfigurationWrites;
+        try { await client.SaveC077HardwareAsync(0,a,hardware.Saved[0]); throw new Exception("insufficient MTU accepted"); }
+        catch (IOException e) { Check(e.Message.Contains("MTU"), "insufficient MTU reported"); }
+        Check(wire.ConfigurationWrites == savedWrites, "insufficient MTU never sends a configuration write");
+        wire.NegotiatedMtu = 76;
         await client.SaveC077HardwareAsync(0,a,hardware.Saved[0]);await client.SaveC077HardwareAsync(1,b,hardware.Saved[1]);
         var pending=await client.ReadC077HardwareAsync(true);
-        Check(pending.Actual.Chips[0].Eeprom[3]==0x54&&pending.Actual.Chips[1].Eeprom[3]==0x5C,"saving Flash does not program EEPROM");
-        var primary=await client.ProgramC077HardwareAsync(1);
+        Check(!pending.EepromReadbackConfirmed && pending.Actual.Chips[0].Eeprom[3]==0x54&&pending.Actual.Chips[1].Eeprom[3]==0x5C,
+            "saving Flash leaves both EEPROMs pending");
+        commands = wire.ServiceWrites;
+        try { await client.ProgramC077HardwareAsync(3, observed:hardware.Saved); throw new Exception("stale Flash target accepted"); }
+        catch (IOException e) { Check(e.Message.Contains("Flash"), "stale Flash target reported"); }
+        Check(wire.ServiceWrites == commands, "stale draft never sends EEPROM service command");
+        var primary=await client.ProgramC077HardwareAsync(1, observed:pending.Saved);
         Check(primary.Chips[0].ProfileMatches&&!primary.Chips[1].ProfileMatches&&primary.Chips[0].ZeroState==2,"selected primary completes zero while secondary awaits explicit program");
         await client.ProgramC077HardwareAsync(2);
         var complete=await client.ReadC077HardwareAsync(true);
@@ -51,12 +65,14 @@ static class Test
         Console.WriteLine("PASS shared C# BmsClient / production C309 service: schema3 + hardware schema1, independent Flash/selected program/readback, actual profile/zero completion, disabled AFE2 CADC, interrupted EEPROM, no blind replay and explicit recovery");
     }
 }
-sealed class NativeTransport : IBmsTransport
+sealed class NativeTransport : IBmsTransport, IBmsMtuTransport
 {
     readonly Process process;public int ServiceWrites;
     public NativeTransport(string path,string mode="--host-service") {
         process=Process.Start(new ProcessStartInfo(path,mode) {UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true})??throw new IOException("native fixture start failed");
     }
+    public int? NegotiatedMtu { get; set; } = 247;
+    public int ConfigurationWrites { get; private set; }
     public bool IsConnected=>!process.HasExited;
     public bool RequiresSerialWakeup=>false;
     public string DiscoveryDescription=>"C077 production C service / modeled GPIO, EEPROM, clock and wire";
@@ -69,6 +85,7 @@ sealed class NativeTransport : IBmsTransport
     }
     public async Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default) {
         byte[] bytes=data.ToArray();if(bytes.Length>=6&&bytes[1]==6&&bytes[2]==0x2A&&bytes[3]==0x7F)ServiceWrites++;
+        if (bytes.Length >= 6 && bytes[1] == 16 && bytes[2] == 0x2B) ConfigurationWrites++;
         await process.StandardInput.WriteLineAsync(Convert.ToHexString(bytes));await process.StandardInput.FlushAsync();
         string? reply=await process.StandardOutput.ReadLineAsync(ct);
         if(reply is null)throw new IOException("native fixture exited: "+await process.StandardError.ReadToEndAsync(ct));

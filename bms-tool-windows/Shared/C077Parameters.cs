@@ -127,7 +127,10 @@ public sealed record C077HardwareField(int Index,string Key,string Name,string U
     public int Value(ushort word)=>Signed?unchecked((short)word):word;
     public string Limits=>Choices is null?$"{Minimum}..{Maximum}，步进{Step}":string.Join(" / ",Choices);
 }
-public sealed record C077HardwareSnapshot(ushort[][] Saved,ushort[][] Expected,C077AfeSnapshot Actual);
+public sealed record C077HardwareSnapshot(ushort[][] Saved,ushort[][] Expected,C077AfeSnapshot Actual)
+{
+    public bool EepromReadbackConfirmed { get; init; }
+}
 public sealed class C077HardwareFile
 {
     public string Product {get;set;}="";
@@ -254,7 +257,11 @@ public sealed partial class BmsClient
         if(verifyEeprom)await WriteSingleRegisterAsync(C077Parameters.ServiceRegister,0xC087,ct);
         var saved=await ReadRegistersAsync(C077Hardware.ConfigBase,64,ct);
         var expected=await ReadRegistersAsync(C077Hardware.ExpectedBase,32,ct);
-        return new(new[]{saved[..32],saved[32..]},new[]{expected[..16],expected[16..]},await ReadC077AfeAsync(ct));
+        var actual = await ReadC077AfeAsync(ct);
+        return new(new[]{saved[..32],saved[32..]},new[]{expected[..16],expected[16..]},actual)
+        {
+            EepromReadbackConfirmed = verifyEeprom && !actual.ServiceFailed && actual.Chips.All(c => c.ProfileMatches)
+        };
     }
     public async Task SaveC077HardwareAsync(int chip,ushort[] values,ushort[]? observed=null,CancellationToken ct=default)
     {
@@ -265,14 +272,29 @@ public sealed partial class BmsClient
         var before=await ReadRegistersAsync(address,32,ct);
         if(observed is not null&&!before.SequenceEqual(observed))throw new IOException("Flash配置已由其他入口修改，请重新读取后编辑。");
         if(before.SequenceEqual(values))return;
+        int minimumMtu = 12 + 2 * values.Length;
+        if (_transport is IBmsMtuTransport ble && (ble.NegotiatedMtu ?? 23) < minimumMtu)
+            throw new IOException($"C077 硬保护整组写入需要 BLE MTU ≥ {minimumMtu}，请使用直连串口。");
         await RequireC077OutputsOffAsync(ct);
         await WriteRegistersAsync(address,values,ct);
         if(!(await ReadRegistersAsync(address,32,ct)).SequenceEqual(values))throw new IOException("Flash保存后读回不一致；未下发AFE，未自动重试。");
     }
-    public async Task<C077AfeSnapshot> ProgramC077HardwareAsync(int targets,CancellationToken ct=default)
+    public Task<C077AfeSnapshot> ProgramC077HardwareAsync(int targets,CancellationToken ct=default) =>
+        ProgramC077HardwareAsync(targets, null, ct);
+
+    public async Task<C077AfeSnapshot> ProgramC077HardwareAsync(int targets,ushort[][]? observed,CancellationToken ct=default)
     {
         if(targets is <1 or >3)throw new ArgumentOutOfRangeException(nameof(targets));
         await RequireC077HardwareAsync(ct);await RequireC077OutputsOffAsync(ct);
+        if (observed is not null)
+        {
+            var saved = await ReadRegistersAsync(C077Hardware.ConfigBase, 64, ct);
+            for (int chip = 0; chip < 2; chip++)
+            {
+                if ((targets & (1 << chip)) != 0 && !saved.AsSpan(chip * 32, 32).SequenceEqual(observed[chip]))
+                    throw new IOException($"AFE{chip + 1} Flash 配置已变化，请重新读取后确认下发。");
+            }
+        }
         await WriteSingleRegisterAsync(C077Parameters.ServiceRegister,(ushort)(targets==1?0xC071:targets==2?0xC072:0xC077),ct);
         var timer=Stopwatch.StartNew();
         while(timer.Elapsed<TimeSpan.FromSeconds(20)) {
