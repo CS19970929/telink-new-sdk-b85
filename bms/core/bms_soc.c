@@ -421,10 +421,7 @@ uint8_t bms_soc_step(bms_soc_t *soc, const bms_soc_sample_t *m)
     }
     if (soc->previous_valid && !elapsed) return 0u;
     if (soc->previous_valid && elapsed <= BMS_SAMPLE_MAX_POLL_GAP_MS) {
-        /* 上一轮已确认电流有效。CC2 相位跨过有效期时只截掉区间尾部。 */
-        uint32_t previous_age = soc->previous_ms - soc->previous_current_ms;
-        uint32_t valid_ms = BMS_CURRENT_MAX_AGE_MS - previous_age;
-        if (elapsed > valid_ms) elapsed = valid_ms;
+        /* 连续有效应用轮次使用上一笔合格电流；不再因 CC2 与轮询错相截短区间。 */
         integrate(soc, cap, elapsed);
     } else {
         clear_observation(soc);
@@ -433,8 +430,10 @@ uint8_t bms_soc_step(bms_soc_t *soc, const bms_soc_sample_t *m)
         cutoff_edge = 0u;
     }
     soc->previous_ms = m->now_ms;
-    soc->previous_current_ms = m->current_time_ms;
-    soc->previous_ma = m->current_ma;
+    /* 与保护/上报共用零电流区，避免不可观测偏置持续累计。
+     * 原始测量仍由 AFE 保留；不将此死区用于硬件过流保护。 */
+    soc->previous_ma = (m->current_ma > (int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA ||
+        m->current_ma < -(int32_t)BMS_CURRENT_UNRELIABLE_MAX_MA) ? m->current_ma : 0;
     soc->previous_valid = 1u;
     soc->cutoff = cutoff;
     soc->pending_cutoff = (uint8_t)((soc->pending_cutoff | cutoff_edge) & cutoff);

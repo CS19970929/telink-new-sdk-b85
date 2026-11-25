@@ -46,17 +46,17 @@ static void integration(void)
 {
     bms_soc_t soc;
     uint32_t start = UINT32_MAX - 199u;
-    bms_soc_sample_t m = sample(start, 199, 3250u, 3270u);
+    bms_soc_sample_t m = sample(start, 201, 3250u, 3270u);
     init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, start);
     assert(!bms_soc_step(&soc, &m));
     trace(&soc, &m, 5u, 200u);
-    assert(soc.state.charge_as10 == 1295999u && soc.carry_ma_ms == 99000);
-    assert(soc.state.discharge_as10 == 1u);
+    assert(soc.state.charge_as10 == 1295998u && soc.carry_ma_ms == 1000);
+    assert(soc.state.discharge_as10 == 2u);
     (void)bms_soc_step(&soc, &m);
-    assert(soc.carry_ma_ms == 99000);
-    m.current_ma = -199;
+    assert(soc.carry_ma_ms == 1000);
+    m.current_ma = -201;
     trace(&soc, &m, 1u, 200u);
-    assert(soc.state.charge_as10 == 1295998u); /* 上一读数覆盖截至反向样本的区间。 */
+    assert(soc.state.charge_as10 == 1295998u && soc.carry_ma_ms == 41200); /* 上一读数覆盖截至反向样本的区间。 */
     trace(&soc, &m, 6u, 200u);
     assert(soc.state.charge_as10 == 1296000u && soc.carry_ma_ms == 0);
     m.current_valid = 0;
@@ -70,6 +70,19 @@ static void integration(void)
     assert(!bms_soc_step(&soc, &m) && !soc.previous_valid);
 }
 
+static void zero_band_does_not_drift(void)
+{
+    bms_soc_t soc;
+    bms_soc_sample_t m = sample(0u, 200, 3250u, 3270u);
+    init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, 0u);
+    (void)bms_soc_step(&soc, &m);
+    trace(&soc, &m, 1000u, 200u);
+    m.current_ma = -200;
+    trace(&soc, &m, 1000u, 200u);
+    assert(soc.state.charge_as10 == 1296000u);
+    assert(soc.state.discharge_as10 == 0u && soc.carry_ma_ms == 0);
+}
+
 static void display_survives_current_gaps(void)
 {
     bms_soc_t soc;
@@ -77,6 +90,8 @@ static void display_survives_current_gaps(void)
     unsigned i;
 
     init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, 0u);
+    /* 明确建立显示滞后：约 0.011% 的积分不足以自然形成 1% 差值。 */
+    soc.state.charge_as10 -= 21600u;
     (void)bms_soc_step(&soc, &m);
     for (i = 0u; i < 24u; ++i) {
         trace(&soc, &m, 1u, 201u);
@@ -90,7 +105,7 @@ static void display_survives_current_gaps(void)
     trace(&soc, &m, 1u, 201u);
     assert(soc.state.shown == 60u);
     trace(&soc, &m, 1u, 201u);
-    assert(soc.state.shown == 59u && soc.state.charge_as10 == 1295754u);
+    assert(soc.state.shown == 59u && soc.state.charge_as10 == 1274154u);
 }
 
 static void integrate_dvc_cc2_poll_cadence(void)
@@ -120,10 +135,10 @@ static void integrate_dvc_cc2_poll_cadence(void)
             (void)bms_soc_step(&soc, &m);
         }
 
-        /* 129 个双轮 CC2 间隔各截去 2 ms，总计保留 120342 ms。 */
-        assert(soc.state.charge_as10 == (direction == 0u ? 75610u : 68390u));
-        assert(soc.state.discharge_as10 == (direction == 0u ? 0u : 3610u));
-        assert(soc.carry_ma_ms == (direction == 0u ? -26000 : 26000));
+        /* 600 个连续有效轮次共 120600 ms；不因转换错相丢失 258 ms。 */
+        assert(soc.state.charge_as10 == (direction == 0u ? 75618u : 68382u));
+        assert(soc.state.discharge_as10 == (direction == 0u ? 0u : 3618u));
+        assert(soc.carry_ma_ms == 0);
     }
 }
 
@@ -316,6 +331,7 @@ static void capacity_and_unconfirmed_bounds(void)
 int main(void)
 {
     integration();
+    zero_band_does_not_drift();
     display_survives_current_gaps();
     integrate_dvc_cc2_poll_cadence();
     full_and_resume();

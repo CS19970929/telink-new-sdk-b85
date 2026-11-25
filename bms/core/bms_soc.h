@@ -58,7 +58,6 @@ typedef struct {
     int32_t carry_ma_ms;
     int32_t previous_ma;
     uint32_t previous_ms;
-    uint32_t previous_current_ms;
     uint32_t voltage_ms;
     uint32_t drive_ms;
     uint32_t near_start_ms;
