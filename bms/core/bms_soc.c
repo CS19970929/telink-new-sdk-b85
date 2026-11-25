@@ -299,8 +299,11 @@ static uint8_t endpoint_service(bms_soc_t *soc, const bms_soc_sample_t *m,
         else if (soc->weak_check == 2u) {
             soc->weak_check = 0u;
             if (m->line_check_passed && m->voltage_valid && m->voltage_fresh &&
-                m->min_mv <= empty + 200u && delta <= SOC_WEAK_DELTA_MV)
+                m->min_mv <= empty + 200u && delta <= SOC_WEAK_DELTA_MV) {
                 anchor(soc, cap, BMS_SOC_EMPTY);
+                /* 过放已经保护截断且线路检查通过，允许显示立即到零。 */
+                soc->state.shown = 0u;
+            }
         }
         return 0u;
     }
@@ -314,6 +317,12 @@ static uint8_t endpoint_service(bms_soc_t *soc, const bms_soc_sample_t *m,
     if (soc->drive == SOC_CHARGE && !m->discharge_cutoff &&
         m->max_mv + 20u >= full && m->min_mv + SOC_FULL_DELTA_MV >= full &&
         delta <= SOC_FULL_DELTA_MV) {
+        /* 已确认充电保护的边沿 + 整组新鲜满端电压，是独立的强证据。
+         * 不能要求快速越过 SOC100 的电池提前积满候选时间。 */
+        if ((cutoff_edge & SOC_CUTOFF_CHARGE) && m->max_mv >= full) {
+            anchor(soc, cap, BMS_SOC_FULL);
+            return 0u;
+        }
         if (soc->near == BMS_SOC_FULL && soc->near_elapsed_ms >= SOC_FULL_CUTOFF_MS &&
             ((cutoff_edge & SOC_CUTOFF_CHARGE) || !dir)) {
             anchor(soc, cap, BMS_SOC_FULL);
@@ -323,12 +332,21 @@ static uint8_t endpoint_service(bms_soc_t *soc, const bms_soc_sample_t *m,
             candidate = BMS_SOC_FULL;
     }
     if (soc->drive == SOC_DISCHARGE && !m->charge_cutoff) {
+        /* 保护已实际截断，且整组低压、压差正常；不依赖事前候选时长。
+         * 大压差弱串仍必须沿既有候选 + 线路验证路径，不能一串低就清零。 */
+        if ((cutoff_edge & SOC_CUTOFF_DISCHARGE) && m->min_mv <= empty &&
+            delta <= SOC_EMPTY_DELTA_MV) {
+            anchor(soc, cap, BMS_SOC_EMPTY);
+            soc->state.shown = 0u;
+            return 0u;
+        }
         if ((cutoff_edge & SOC_CUTOFF_DISCHARGE) &&
             (soc->near == BMS_SOC_EMPTY || soc->near == SOC_WEAK_NEAR) &&
             soc->near_elapsed_ms >= SOC_EMPTY_CUTOFF_MS &&
             m->min_mv <= empty + 120u && delta <= SOC_WEAK_DELTA_MV) {
             if (soc->near == BMS_SOC_EMPTY && delta <= SOC_EMPTY_DELTA_MV) {
                 anchor(soc, cap, BMS_SOC_EMPTY);
+                soc->state.shown = 0u;
                 return 0u;
             }
             soc->weak_check = 1u;

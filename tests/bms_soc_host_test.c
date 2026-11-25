@@ -235,8 +235,64 @@ static void empty_and_weak(void)
     trace(&soc, &m, 6u, 200u);
     m.line_check_active = 0;
     m.line_check_passed = 1;
+    m.now_ms += 200u;
+    m.current_time_ms = m.now_ms;
+    (void)bms_soc_step(&soc, &m);
+    assert(soc.state.endpoint == BMS_SOC_EMPTY && soc.state.shown == 0u);
+}
+
+static void fast_protection_cutoff(void)
+{
+    bms_soc_t soc;
+    bms_soc_sample_t m = sample(0u, -5000, 3400u, 3450u);
+    init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, 0u);
+    (void)bms_soc_step(&soc, &m);
+    trace(&soc, &m, 2u, 200u);
+    m.current_ma = 0;
+    m.min_mv = 3440u;
+    m.max_mv = 3520u;
+    m.charge_cutoff = 1u;
     trace(&soc, &m, 1u, 200u);
-    assert(soc.state.endpoint == BMS_SOC_EMPTY);
+    assert(soc.state.endpoint == BMS_SOC_FULL && soc.state.shown < 100u);
+
+    /* 一串过压，整组电量不足：不能直接锚定满端。 */
+    init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, 0u);
+    m = sample(0u, -5000, 3300u, 3350u);
+    (void)bms_soc_step(&soc, &m);
+    trace(&soc, &m, 2u, 200u);
+    m.current_ma = 0;
+    m.min_mv = 3300u;
+    m.max_mv = 3650u;
+    m.charge_cutoff = 1u;
+    trace(&soc, &m, 1u, 200u);
+    assert(soc.state.endpoint == BMS_SOC_NO_ENDPOINT);
+
+    /* 已确认欠压截断且整组压差正常，允许显示立即到零。 */
+    init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, 0u);
+    m = sample(0u, 10000, 3100u, 3150u);
+    (void)bms_soc_step(&soc, &m);
+    trace(&soc, &m, 2u, 200u);
+    m.current_ma = 0;
+    m.min_mv = 2800u;
+    m.max_mv = 3000u;
+    m.discharge_cutoff = 1u;
+    m.now_ms += 200u;
+    m.current_time_ms = m.now_ms;
+    assert(!bms_soc_step(&soc, &m));
+    assert(soc.state.endpoint == BMS_SOC_EMPTY && soc.state.shown == 0u &&
+           soc.state.charge_as10 == 0u);
+
+    /* 一串突降 + 大压差，不产生空端锚定或未经候选的弱串检查。 */
+    init(&soc, BMS_SOC_CHEMISTRY_LFP, 60u, 0u);
+    m = sample(0u, 10000, 3100u, 3150u);
+    (void)bms_soc_step(&soc, &m);
+    trace(&soc, &m, 2u, 200u);
+    m.current_ma = 0;
+    m.min_mv = 2500u;
+    m.max_mv = 3250u;
+    m.discharge_cutoff = 1u;
+    trace(&soc, &m, 1u, 200u);
+    assert(soc.state.endpoint == BMS_SOC_NO_ENDPOINT && soc.state.shown == 60u);
 }
 
 static void rest_and_configuration(void)
@@ -336,6 +392,7 @@ int main(void)
     integrate_dvc_cc2_poll_cadence();
     full_and_resume();
     cutoff();
+    fast_protection_cutoff();
     empty_and_weak();
     rest_and_configuration();
     lower_lfp_endpoint_checkpoint();
