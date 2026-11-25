@@ -43,6 +43,13 @@ jobs:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v4
+      - name: 安装 TC32 容器缺少的 Python
+        run: |
+          if ! command -v python3 >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y --no-install-recommends python3
+          fi
+          python3 --version
       - name: D008 生产链接与资源核对
         env:
           D008_PROFILE: ${{ matrix.profile }}
