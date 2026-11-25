@@ -329,6 +329,8 @@ bms_afe_hw_error_t bms_afe_hw_profile_commit_be(const u8 *pdata, u16 qty)
         if (!bms_afe_hw_profile_validate_write(&candidate)) {
             s_hw_diagnostic[2] = bms_afe_hw_profile_validation_word();
             error = BMS_AFE_HW_ERROR_VALIDATION;
+        } else if (!bms_config_afe_compatible(&candidate)) {
+            error = BMS_AFE_HW_ERROR_VALIDATION;
         } else if (!bms_afe_begin_protection_update()) {
             error = BMS_AFE_HW_ERROR_APPLY_VERIFY;
         } else {

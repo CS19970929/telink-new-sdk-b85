@@ -226,6 +226,45 @@ static void config(void)
     assert(!bms_config_store_validate_startup() && !writes && !erases);
 }
 
+static void voltage_config_consistency(void)
+{
+    bms_protection_params_t sw;
+    bms_afe_hw_profile_t hw;
+    bms_soc_limits_t limits;
+    unsigned initial, i;
+    uint8_t words[70];
+
+    fresh();
+    assert(bms_config_store_validate_startup());
+    assert(bms_config_store_get_protect(&sw));
+    assert(bms_config_store_get_afe_hw_profile(&hw));
+    assert(bms_config_get_soc_limits(&limits));
+    initial = writes;
+    sw.cell_uvp_third_mv = 2700u;
+    assert(bms_sw_protection_validate_params(&sw));
+    assert(!bms_config_protect_compatible(&sw) && !bms_config_store_set_protect(&sw));
+    hw.cuv_mv = 2700u;
+    assert(bms_afe_hw_profile_validate(&hw));
+    assert(!bms_config_afe_compatible(&hw) && !bms_config_store_set_afe_hw_profile(&hw));
+    for (i = 0u; i < BMS_AFE_HW_PROFILE_WORD_COUNT; ++i) {
+        uint16_t value;
+        memcpy(&value, (const u8 *)&hw + 2u*i, sizeof(value));
+        words[2u*i] = (u8)(value >> 8);
+        words[2u*i+1u] = (u8)value;
+    }
+    apply_calls = finish_calls = inhibit_calls = 0u;
+    assert(bms_afe_hw_profile_commit_be(words, 35u) == BMS_AFE_HW_ERROR_VALIDATION);
+    assert(!apply_calls && !finish_calls && !inhibit_calls && writes == initial);
+    limits.empty_mv = 2750u;
+    assert(bms_config_set_soc_limits(&limits));
+    assert(bms_config_store_set_protect(&sw));
+    assert(bms_afe_hw_profile_commit_be(words, 35u) == BMS_AFE_HW_ERROR_NONE);
+    assert(apply_calls == 1u && finish_calls == 1u);
+    reboot();
+    assert(bms_config_store_validate_startup());
+    assert(bms_config_get_soc_limits(&limits) && limits.empty_mv == 2750u);
+}
+
 static void state(void)
 {
     bms_soc_checkpoint_t cp = {1251685u, 82463u, 0u, 600u, 88u, 57u, 0u, 1u};
@@ -434,6 +473,7 @@ int main(void)
     if (bms_ota_factory_reset_requested()) factory();
     else {
         config();
+        voltage_config_consistency();
         state();
         events();
         afe_transaction();

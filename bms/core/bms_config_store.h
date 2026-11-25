@@ -77,7 +77,10 @@ int bms_config_store_set_bt_name_suffix(const char *suffix);
 void bms_config_store_get_default_protect(bms_protection_params_t *protect);
 
 int bms_config_get_soc_limits(bms_soc_limits_t *limits);
+/* 在保护或 SOC 写入前校验完整电压参数组合，不访问 Flash/AFE。 */
 int bms_config_soc_limits_usable(const bms_soc_limits_t *limits);
+int bms_config_protect_compatible(const bms_protection_params_t *protect);
+int bms_config_afe_compatible(const bms_afe_hw_profile_t *profile);
 int bms_config_set_soc_limits(const bms_soc_limits_t *limits);
 void bms_config_get_sleep(bms_sleep_config_t *config);
 int bms_config_set_sleep(const bms_sleep_config_t *config);

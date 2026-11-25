@@ -478,10 +478,13 @@ int bms_config_store_get_protect(bms_protection_params_t *protect)
 int bms_config_store_set_protect(const bms_protection_params_t *protect)
 {
     bms_config_cache_t next;
-    if (!bms_sw_protection_validate_params(protect) || !bms_config_ensure_ready()) return 0;
+    if (!bms_sw_protection_validate_params(protect) || !bms_config_ensure_ready() ||
+        !bms_config_protect_compatible(protect)) return 0;
     if (memcmp(&g_bms_config.protect, protect, sizeof(*protect)) == 0) return 1;
     next = g_bms_config; next.protect = *protect;
-    return bms_config_save_cache(&next);
+    if (!bms_config_save_cache(&next)) return 0;
+    bms_error_clear(BMS_ERROR_SOC_CAL);
+    return 1;
 }
 
 /* 取得缓存的系统业务配置。 */
@@ -518,10 +521,13 @@ int bms_config_store_get_afe_hw_profile(bms_afe_hw_profile_t *profile)
 int bms_config_store_set_afe_hw_profile(const bms_afe_hw_profile_t *profile)
 {
     bms_config_cache_t next;
-    if (!bms_afe_hw_profile_validate(profile) || !bms_config_ensure_ready()) return 0;
+    if (!bms_afe_hw_profile_validate(profile) || !bms_config_ensure_ready() ||
+        !bms_config_afe_compatible(profile)) return 0;
     if (memcmp(&g_bms_config.afe_hw, profile, sizeof(*profile)) == 0) return 1;
     next = g_bms_config; next.afe_hw = *profile;
-    return bms_config_save_cache(&next);
+    if (!bms_config_save_cache(&next)) return 0;
+    bms_error_clear(BMS_ERROR_SOC_CAL);
+    return 1;
 }
 
 /* 取得缓存的BLE 名称后缀。 */
@@ -570,6 +576,12 @@ int bms_config_store_validate_startup(void)
         g_bms_config.system.bms_type != BMS_PRODUCT_WIRE_ID ||
         g_bms_config.system.capacity_factory == 0u ||
         g_bms_config.system.capacity_factory > BMS_SOC_CAPACITY_MAX_0P1AH) return 0;
+    /* 新建/选更参数必须形成有效组合。旧板保留已验证的安全保护，
+     * SOC 端点冲突只报校准故障，不因可选计量参数额外锁死 MOS。 */
+    if (!bms_config_soc_limits_usable(&g_bms_config.soc)) {
+        bms_error_raise(BMS_ERROR_SOC_CAL);
+        if (g_bms_config_needs_save) return 0;
+    } else bms_error_clear(BMS_ERROR_SOC_CAL);
     if (g_bms_config_needs_save && !bms_config_save_cache(&g_bms_config)) return 0;
     return 1;
 }
@@ -698,25 +710,44 @@ int bms_config_get_soc_limits(bms_soc_limits_t *limits)
     return 1;
 }
 
-int bms_config_soc_limits_usable(const bms_soc_limits_t *limits)
+/* 三组电压参数共享同一个最终组合校验；零表示对应软件阈值禁用。 */
+static int voltage_limits_usable(const bms_soc_limits_t *limits,
+                                 const bms_protection_params_t *sw,
+                                 const bms_afe_hw_profile_t *hw)
 {
-    const bms_protection_params_t *sw = &g_bms_config.protect;
-    const bms_afe_hw_profile_t *hw = &g_bms_config.afe_hw;
-    uint32_t cells = BMS_PRODUCT_CELL_COUNT;
-
-    if (!bms_soc_limits_valid(BMS_PRODUCT_CHEMISTRY, limits)) return 0;
+    const uint32_t cells = BMS_PRODUCT_CELL_COUNT;
+    if (!limits || !bms_soc_limits_valid(BMS_PRODUCT_CHEMISTRY, limits)) return 0;
     if (DVC1124_SW_PROTECT_ENABLE &&
-        (limits->full_mv > sw->cell_ovp_third_mv ||
-         (uint32_t)limits->full_mv * cells > (uint32_t)sw->pack_ovp_third_10mv * 10u ||
-         limits->empty_mv < sw->cell_uvp_third_mv ||
-         (uint32_t)limits->empty_mv * cells < (uint32_t)sw->pack_uvp_third_10mv * 10u))
+        ((sw->cell_ovp_third_mv && limits->full_mv > sw->cell_ovp_third_mv) ||
+         (sw->pack_ovp_third_10mv &&
+          (uint32_t)limits->full_mv * cells > (uint32_t)sw->pack_ovp_third_10mv * 10u) ||
+         (sw->cell_uvp_third_mv && limits->empty_mv < sw->cell_uvp_third_mv) ||
+         (sw->pack_uvp_third_10mv &&
+          (uint32_t)limits->empty_mv * cells < (uint32_t)sw->pack_uvp_third_10mv * 10u)))
         return 0;
-    /* DVC COV/CUV 的请求电压可逐 mV 表示。 */
     if (DVC1124_HW_PROTECT_ENABLE &&
         (((hw->enable_mask & BMS_AFE_HW_EN_COV) && limits->full_mv > hw->cov_mv) ||
          ((hw->enable_mask & BMS_AFE_HW_EN_CUV) && limits->empty_mv < hw->cuv_mv)))
         return 0;
     return 1;
+}
+
+int bms_config_soc_limits_usable(const bms_soc_limits_t *limits)
+{
+    return g_bms_config_ready && voltage_limits_usable(limits, &g_bms_config.protect,
+                                                       &g_bms_config.afe_hw);
+}
+
+int bms_config_protect_compatible(const bms_protection_params_t *protect)
+{
+    return g_bms_config_ready && protect &&
+        voltage_limits_usable(&g_bms_config.soc, protect, &g_bms_config.afe_hw);
+}
+
+int bms_config_afe_compatible(const bms_afe_hw_profile_t *profile)
+{
+    return g_bms_config_ready && profile &&
+        voltage_limits_usable(&g_bms_config.soc, &g_bms_config.protect, profile);
 }
 
 int bms_config_set_soc_limits(const bms_soc_limits_t *limits)
@@ -726,7 +757,9 @@ int bms_config_set_soc_limits(const bms_soc_limits_t *limits)
     if (!g_bms_config_ready || !bms_config_soc_limits_usable(limits)) return 0;
     next = g_bms_config;
     next.soc = *limits;
-    return bms_config_save_cache(&next);
+    if (!bms_config_save_cache(&next)) return 0;
+    bms_error_clear(BMS_ERROR_SOC_CAL);
+    return 1;
 }
 
 void bms_config_get_sleep(bms_sleep_config_t *config)

@@ -392,7 +392,8 @@ static u8 write_reg(u16 reg, u16 val)
 /* 校验并提交软件保护参数，失败保留原状态。 */
 static u8 commit_protection_update(const bms_protection_params_t *candidate)
 {
-    if (!bms_sw_protection_validate_params(candidate)) return MB_EX_ILLEGAL_VALUE;
+    if (!bms_sw_protection_validate_params(candidate) ||
+        !bms_config_protect_compatible(candidate)) return MB_EX_ILLEGAL_VALUE;
     return bms_protection_params_commit(candidate) ? 0u : MB_EX_DEVICE_FAILURE;
 }
 

@@ -69,6 +69,7 @@ int bms_config_get_user(bms_user_params_t *u) { *u=identity_user; return identit
 void bms_config_store_get_default_protect(bms_protection_params_t *p) { (void)p; abort(); }
 int bms_config_store_get_system(bms_config_system_params_t *p) { (void)p; abort(); }
 void bms_afe_hw_profile_build_default(bms_afe_hw_profile_t *p) { (void)p; abort(); }
+int bms_config_protect_compatible(const bms_protection_params_t *p) { (void)p; abort(); }
 u8 bms_protection_params_commit(const bms_protection_params_t *p) { (void)p; abort(); }
 u8 bms_protection_params_valid(void) { abort(); }
 u8 bms_parameter_write(u16 r,u16 n,const u8 *p)
