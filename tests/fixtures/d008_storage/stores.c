@@ -300,8 +300,16 @@ static void state(void)
     }
     fresh();
     memory[DOMAIN + 210u] = 0xB3u;
-    assert(!bms_state_store_init() && !bms_state_store_get().capacity_0p1ah);
-    assert(!bms_state_store_save_snapshot(&cp, 1u) && !writes && !erases);
+    assert(bms_state_store_init() && !bms_state_store_get().capacity_0p1ah);
+    assert(bms_error_get(BMS_ERROR_EEPROM_STORE) && !writes && !erases);
+    assert(bms_state_store_save_snapshot(&cp, 1u));
+    reboot();
+    assert(bms_state_store_init() && bms_state_store_get().charge_as10 == cp.charge_as10);
+
+    fresh();
+    read_failed = 1;
+    assert(!bms_state_store_init() && !bms_state_store_save_snapshot(&cp, 1u));
+    assert(!writes && !erases);
 }
 
 static void afe_transaction(void)
@@ -405,6 +413,36 @@ static void events(void)
     assert(bms_event_log_read_reg(1u) == expected_event(1u));
 }
 
+static void optional_domain_recovery(void)
+{
+    unsigned i, attempts;
+    fresh();
+    memory[2u * DOMAIN + 17u] = 0x23u;
+    assert(bms_event_log_init() && bms_error_get(BMS_ERROR_EEPROM_STORE));
+    assert(!writes && !erases);
+    bms_event_log_note_startup();
+    assert(bms_event_log_service(1u));
+    reboot();
+    assert(bms_event_log_init() && bms_event_log_read_reg(0u) == (BMS_START_UP << 8));
+
+    fresh();
+    assert(bms_event_log_init());
+    bms_event_log_note_startup();
+    budget = 0;
+    for (i = 0u; i < EVENT_MAX_WRITE_FAILURES; ++i) {
+        clock_ms += BMS_STORAGE_RETRY_INTERVAL_MS;
+        assert(!bms_event_log_service(1u));
+    }
+    assert(s_stopped && writes == EVENT_MAX_WRITE_FAILURES);
+    attempts = writes;
+    clock_ms += BMS_STORAGE_RETRY_INTERVAL_MS;
+    assert(!bms_event_log_service(1u) && writes == attempts);
+
+    fresh();
+    read_failed = 1;
+    assert(!bms_event_log_init() && !writes && !erases);
+}
+
 static void factory(void)
 {
     bms_soc_checkpoint_t cp = {1251685u, 82463u, 0u, 600u, 88u, 57u, 0u, 1u};
@@ -476,6 +514,7 @@ int main(void)
         voltage_config_consistency();
         state();
         events();
+        optional_domain_recovery();
         afe_transaction();
         boot_qualification();
     }

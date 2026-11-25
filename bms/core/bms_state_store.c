@@ -124,8 +124,16 @@ int bms_state_store_init(void)
     if (s_ready) return 1;
     if (!open_store()) return 0;
     if (storage_record_load(&s_store, payload)) {
-        if (!decode(&next, payload)) return 0;
+        if (!decode(&next, payload)) {
+            /* 物理记录可读但业务检查点不合法：保留原槽，重新估算并正常追加。 */
+            memset(&next, 0, sizeof(next));
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        }
+    } else if (s_store.load_status == STORAGE_RECORD_LOAD_INVALID) {
+        /* State 不拥有保护参数。只恢复自身计量，不在启动时擦除其它域。 */
+        bms_error_raise(BMS_ERROR_EEPROM_STORE);
     } else if (s_store.load_status != STORAGE_RECORD_LOAD_EMPTY) {
+        /* I/O 不确定绝不能被当作损坏或空白后覆盖。 */
         return 0;
     }
     if (bms_ota_update_selected(BMS_UPDATE_SOC_STATE) &&
@@ -159,6 +167,7 @@ int bms_state_store_save_snapshot(const bms_soc_checkpoint_t *checkpoint, uint8_
     state_record_t next;
 
     if (!s_ready || s_store.save_status == STORAGE_RECORD_SAVE_UNKNOWN ||
+        s_store.write_failures >= STORAGE_RECORD_MAX_WRITE_FAILURES ||
         !bms_soc_checkpoint_valid(checkpoint)) return 0;
     if (same_checkpoint(checkpoint, &s_saved.soc)) return 1;
     if (!allow_erase && !storage_record_can_append(&s_store)) return 0;
@@ -181,6 +190,8 @@ int bms_state_store_poll_snapshot(const bms_soc_checkpoint_t *cp, uint8_t allow_
 
     uint32_t since_write = bms_time_ms() - s_last_write_ms;
     if (!s_ready || cp->capacity_0p1ah == 0u ||
+        s_store.save_status == STORAGE_RECORD_SAVE_UNKNOWN ||
+        s_store.write_failures >= STORAGE_RECORD_MAX_WRITE_FAILURES ||
         (s_write_failed && since_write < BMS_STORAGE_RETRY_INTERVAL_MS)) return 0;
     if (end != BMS_SOC_NO_ENDPOINT &&
         (end != previous->endpoint || cp->endpoint_basis != previous->endpoint_basis ||

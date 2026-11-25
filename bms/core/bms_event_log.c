@@ -14,6 +14,7 @@
 #define EVENT_BODY_BYTES 12u
 #define EVENT_SCAN_BYTES 256u
 #define EVENT_SECTOR_COUNT 2u
+#define EVENT_MAX_WRITE_FAILURES 3u
 #define EVENT_MAX_HOURS 168u
 #define EVENT_INTERVAL_LIMIT_MS ((EVENT_MAX_HOURS * 3600u + 1u) * 1000u)
 
@@ -22,7 +23,6 @@ typedef struct {
     uint16_t last_word;
     uint16_t used;
     uint16_t valid;
-    uint8_t native;
 } event_sector_t;
 
 static const storage_port_t *s_port;
@@ -101,7 +101,6 @@ static int scan_sectors(void)
                 uint16_t word;
                 if (blank(p, EVENT_RECORD_BYTES)) continue;
                 info->used = (uint16_t)((offset + i) / EVENT_RECORD_BYTES + 1u);
-                if (native_header(p)) info->native = 1u;
                 word = decoded_word(p);
                 if (word) {
                     ++info->valid;
@@ -156,10 +155,12 @@ int bms_event_log_init(void)
     if (s_ready) return 1;
     if (!open_region() || !scan_sectors()) return 0;
     if (!s_sector[s_active].valid) {
-        /* 原格式或无法辨识的首条断电记录，保留现场供显式出厂处理。 */
-        if ((s_sector[0].used && !s_sector[0].native) ||
-            (s_sector[1].used && !s_sector[1].native)) return 0;
-        if (!s_sector[0].used && s_sector[1].used) s_active = 1u;
+        /* 无有效历史但两区读取成功：报告损坏，从已用区域的后续空槽继续。
+         * 不在初始化时擦除，后续正常轮转只访问 Event 自身。 */
+        if (s_sector[0].used || s_sector[1].used)
+            bms_error_raise(BMS_ERROR_EEPROM_STORE);
+        if (s_sector[1].used < s_sector[0].used ||
+            (!s_sector[0].used && s_sector[1].used)) s_active = 1u;
     }
     s_next = 0u;
     s_pending = 0u;
@@ -236,7 +237,8 @@ void bms_event_log_observe(void)
 static void write_failed(uint32_t now)
 {
     s_write_ms = now;
-    s_write_failed = 1u;
+    if (s_write_failed < EVENT_MAX_WRITE_FAILURES) ++s_write_failed;
+    if (s_write_failed >= EVENT_MAX_WRITE_FAILURES) s_stopped = 1u;
     bms_error_raise(BMS_ERROR_EEPROM_STORE);
 }
 
