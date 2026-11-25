@@ -183,7 +183,7 @@ _attribute_no_inline_ void main_loop(void)
 	main_loop_modbus();
 #endif
     app_storage_task();
-	app_power_process(&s_sample_due, sampled);
+	app_power_process(sampled);
 }
 
 

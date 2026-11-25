@@ -12,7 +12,7 @@
 #define SUSPEND_DISABLE 0u
 #define LED_BLUE_PIN 1u
 static uint32_t now, s_sample_tick, deadline;
-static uint8_t wake, valid = 1u, s_acc_sleep_committed, s_protective_sleep_committed;
+static uint8_t wake, valid = 1u;
 static volatile uint8_t s_sample_due;
 static char trace[80];
 static unsigned used;
@@ -30,8 +30,8 @@ static void bus_mux_task(void) { note('X'); }
 static void sif_prepare_task(uint32_t tick) { assert(tick == s_sample_tick); note('I'); }
 static void main_loop_modbus(void) { note('U'); }
 static void app_storage_task(void) { note('F'); }
-static void app_power_process(const volatile uint8_t *pending, uint8_t sampled)
-{ assert(pending == &s_sample_due && sampled == (strchr(trace, 'A') != 0)); note('P'); }
+static void app_power_process(uint8_t sampled)
+{ assert(sampled == (strchr(trace, 'A') != 0)); note('P'); }
 static void gpio_toggle(unsigned pin) { assert(pin == LED_BLUE_PIN); note('L'); }
 void bms_features_service(void) { note('T'); }
 void bms_afe_apply_outputs(void) { note('M'); }
@@ -59,9 +59,9 @@ int main(void)
     valid = 0u;
     s_sample_due = 1u;
     main_loop(); expect("DBXASELXIUFP");
-    s_acc_sleep_committed = 1u;
+    s_power_state = APP_POWER_ACC_SLEEP;
     main_loop(); expect("H");
-    s_protective_sleep_committed = 1u;
+    s_power_state = APP_POWER_PROTECTIVE_SHUTDOWN;
     main_loop(); expect("");
     return 0;
 }

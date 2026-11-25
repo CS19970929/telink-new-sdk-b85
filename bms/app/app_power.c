@@ -50,12 +50,14 @@
 #error "BMS_PRODUCT_SWITCH_SLEEP_ENABLE must be 0 or 1"
 #endif
 
-typedef struct
-{
-	u32 epoch_ms;
-	u8 ready;
-} app_pm_elapsed_ctx_t;
-static bool s_low_power_mode;
+/* RUN/Suspend 许可/两种已提交休眠互斥。 */
+typedef enum {
+    APP_POWER_RUN = 0,
+    APP_POWER_SUSPEND_ALLOWED,
+    APP_POWER_PROTECTIVE_SHUTDOWN,
+    APP_POWER_ACC_SLEEP
+} app_power_state_t;
+static app_power_state_t s_power_state;
 uint8_t deepsleep_en;
 
 /* 命令应答只作有界等待，不能成为强制休眠的永久门禁。 */
@@ -63,23 +65,7 @@ uint8_t deepsleep_en;
 static u8 s_command_seen;
 static u32 s_command_ms;
 /* 策略时间由 Core 推进；提交标志只由应用一次性硬件收尾拥有。 */
-typedef bms_sleep_status_t app_sleep_status_t;
-typedef bms_sleep_policy_t app_protective_sleep_t;
-static u8 s_protective_sleep_committed;
-static app_protective_sleep_t s_protective_sleep;
-
-static u8 s_acc_sleep_committed;
-
-
-/* 每轮采样结算一次，避免主循环重复判断同一份 CC2 快照。 */
-static u32 app_pm_take_elapsed_ms(app_pm_elapsed_ctx_t *ctx)
-{
-    u32 now = bms_time_ms();
-    u32 elapsed = ctx->ready ? now - ctx->epoch_ms : 0u;
-    ctx->epoch_ms = now;
-    ctx->ready = 1u;
-    return elapsed;
-}
+static bms_sleep_policy_t s_protective_sleep;
 
 
 /* 已锁存的深睡/关机只收尾一次；保存和外设失败不能恢复业务或无限重试。 */
@@ -101,13 +87,12 @@ static void app_prepare_deep_sleep(void)
     bls_pm_setAppWakeupLowPower(0u, 0u);
     /* 新增通信PAD仅用于普通Suspend，不能唤醒已提交的ACC深睡。 */
     cpu_set_gpio_wakeup(BMS_BOARD_OWC_RX_PIN, Level_High, 0);
-    s_low_power_mode = true;
 }
 
 /* 命令及到期保护性休眠不受通信、OTA、保存或 AFE 命令成功与否阻断。 */
 static void app_enter_protective_sleep(void)
 {
-    s_protective_sleep_committed = 1u;
+    s_power_state = APP_POWER_PROTECTIVE_SHUTDOWN;
     app_prepare_deep_sleep();
     bms_sleep_status_committed();
     /* 命令/保护性休眠均切断 MCU 供电；PC4 拉低后禁止再保存或访问 AFE。 */
@@ -120,7 +105,7 @@ static u8 app_command_sleep_poll(void)
     u32 now = bms_time_ms();
     u32 elapsed;
     if (!deepsleep_en) return 0u;
-    if (s_protective_sleep_committed) return 1u;
+    if (s_power_state == APP_POWER_PROTECTIVE_SHUTDOWN) return 1u;
     if (!s_command_seen) { s_command_seen = 1u; s_command_ms = now; }
     elapsed = (u32)(now - s_command_ms);
     bms_sleep_status_publish(BMS_SLEEP_REASON_COMMAND, 0u, elapsed,
@@ -136,11 +121,11 @@ static u8 app_command_sleep_poll(void)
 /* 两档低压、AFE 异常和过放分别计时；无新鲜数据不能证明已恢复。 */
 static u8 app_protective_sleep_poll(u32 elapsed_ms,
                                     const bms_afe_aux_measurements_t *m, u8 valid,
-                                    app_sleep_status_t *status)
+                                    bms_sleep_status_t *status)
 {
     bms_sleep_config_t config;
     bms_sleep_input_t input;
-    if (s_protective_sleep_committed) {
+    if (s_power_state == APP_POWER_PROTECTIVE_SHUTDOWN) {
         return 1u;
     }
     bms_config_get_sleep(&config);
@@ -167,7 +152,7 @@ static u8 app_protective_sleep_poll(u32 elapsed_ms,
 
 
 /* 深睡/关机与普通 suspend 的门禁不同，不能复用 pm_block 推断倒计时。 */
-static void app_dvc_publish_sleep(const app_sleep_status_t *protective,
+static void app_dvc_publish_sleep(const bms_sleep_status_t *protective,
                                   u8 suspend_allowed, u8 sample_valid)
 {
     u32 block = 0u;
@@ -214,7 +199,7 @@ static int app_acc_sleep_requested(void)
 static int app_enter_acc_sleep(void)
 {
     if (!gpio_read(BMS_BOARD_ACC_PIN)) return 0;
-    s_acc_sleep_committed = 1u;
+    s_power_state = APP_POWER_ACC_SLEEP;
     bms_sleep_status_publish(BMS_SLEEP_REASON_ACC, 0u, 0u, 0u, 0u, 0u);
     app_prepare_deep_sleep();
     gpio_write(BMS_BOARD_MCU_LDO_PIN, 1u);
@@ -228,9 +213,9 @@ static int app_enter_acc_sleep(void)
 /* SDK 最后一道普通 Suspend 检查；直接深睡已提交时绝不被此回调否决。 */
 int app_power_before_suspend(void)
 {
-    if (s_protective_sleep_committed) return 1;
-    if (s_acc_sleep_committed) return 1;
-    if (!s_low_power_mode || app_sample_is_due() ||
+    if (s_power_state == APP_POWER_PROTECTIVE_SHUTDOWN ||
+        s_power_state == APP_POWER_ACC_SLEEP) return 1;
+    if (s_power_state != APP_POWER_SUSPEND_ALLOWED || app_sample_is_due() ||
         ota_is_working || !app_flash_lock_restore_enabled()) return 0;
     return bus_mux_prepare_suspend();
 }
@@ -244,13 +229,20 @@ void task_sleep_enter(u8 e, u8 *p, int n)
 }
 
 /* 共用一次测量、保护性休眠计时和原因选择，再处理板级入口与Suspend门禁。 */
-void app_power_process(const volatile uint8_t *sample_due, uint8_t sampled)
+void app_power_process(uint8_t sampled)
 {
-    static app_pm_elapsed_ctx_t elapsed_ctx;
-    static app_sleep_status_t protective;
+    static uint32_t last_sample_ms;
+    static uint8_t sample_seen;
+    static bms_sleep_status_t protective;
     bms_afe_aux_measurements_t m;
     u8 valid = bms_afe_get_aux_measurements(&m);
-    if (sampled && app_protective_sleep_poll(app_pm_take_elapsed_ms(&elapsed_ctx), &m, valid, &protective)) return;
+    if (sampled) {
+        uint32_t now = bms_time_ms();
+        uint32_t elapsed = sample_seen ? now - last_sample_ms : 0u;
+        last_sample_ms = now;
+        sample_seen = 1u;
+        if (app_protective_sleep_poll(elapsed, &m, valid, &protective)) return;
+    }
     /* 等待有界命令应答时，仍保持主循环运行。 */
     if (deepsleep_en && app_command_sleep_poll()) return;
     if (app_acc_sleep_requested() && app_enter_acc_sleep()) return;
@@ -259,28 +251,28 @@ void app_power_process(const volatile uint8_t *sample_due, uint8_t sampled)
      * 充放电不要求持续运行；完成采样与必要事务后可睡到下一期限。
      * 无效数据仍保持运行恢复，不能把通信失败当作空闲。
      */
-    if (!valid || deepsleep_en || *sample_due || app_sample_is_due() || ota_is_working ||
+    if (!valid || deepsleep_en || app_sample_is_due() || ota_is_working ||
         !app_flash_lock_restore_enabled() || !bus_mux_suspend_ready())
     {
-        s_low_power_mode = false;
+        s_power_state = APP_POWER_RUN;
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         if (ota_is_working) bls_pm_setManualLatency(0);
     }
     else
     {
-        s_low_power_mode = true;
+        s_power_state = APP_POWER_SUSPEND_ALLOWED;
         bls_pm_setSuspendMask(SUSPEND_ADV | SUSPEND_CONN);
     }
-    app_dvc_publish_sleep(&protective, s_low_power_mode, valid);
+    app_dvc_publish_sleep(&protective, s_power_state == APP_POWER_SUSPEND_ALLOWED, valid);
 }
 
 /* 保护性深睡保持动作优先；保留 ACC/关机保持与正常 DVC 外围诊断时点。 */
 uint8_t app_power_prepare_loop(void)
 {
-    if (s_protective_sleep_committed) {
+    if (s_power_state == APP_POWER_PROTECTIVE_SHUTDOWN) {
         return 1u;
     }
-    if (s_acc_sleep_committed) {
+    if (s_power_state == APP_POWER_ACC_SLEEP) {
         app_acc_sleep_hold();
         return 1u;
     }

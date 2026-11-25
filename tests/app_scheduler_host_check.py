@@ -6,6 +6,7 @@ power = read("bms/app/app_power.c")
 parts = "\n".join(function(app, sig) for sig in (
     "static void app_schedule_sample_wakeup(", "uint8_t app_sample_is_due(",
     "static uint8_t app_sample_task(", "_attribute_no_inline_ void main_loop("))
-parts = function(power, "uint8_t app_power_prepare_loop(") + "\n" + parts
+state = power[power.index("typedef enum {"):power.index("uint8_t deepsleep_en;")]
+parts = state + "\n" + function(power, "uint8_t app_power_prepare_loop(") + "\n" + parts
 run_c(read("tests/fixtures/d008_scheduler/scheduler.c").replace("/* PRODUCTION */", parts),
       name="d008-scheduler")

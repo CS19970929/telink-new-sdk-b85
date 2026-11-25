@@ -532,7 +532,6 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
     if(s_feature.heater_state!=BMS_HEATER_IDLE) reasons|=BMS_BALANCE_BLOCK_HEATER;
 #endif
     s_feature.balance_block_reasons=reasons;
-    uint8_t allowed;
 
     if (s->voltage_check_active) {
         s_feature.balance_trust_samples = 0u;
@@ -541,20 +540,8 @@ static void service_balance(const bms_afe_feature_snapshot_t *s,
         return;
     }
 
-    /* 冷启动静置可均衡；只检查当前放电，不保留充电经历。 */
-    allowed = (uint8_t)(s->cell_count > 0u && s->cell_count <= BMS_AFE_FEATURE_MAX_CELLS &&
-                        !s_feature.balance_off_pending &&
-                        config != 0 && config->balance_enable &&
-                        bms_board_balance_supported() &&
-                        balance_voltage_trusted() &&
-#if BMS_FEATURE_HEATER_SUPPORTED
-                        (s_feature.heater_state == BMS_HEATER_IDLE) &&
-#endif
-                        g_bms_report.discharge_current_a10 == 0u &&
-                        temperature_safe &&
-                        !hard_fault);
-
-    if (allowed) {
+    /* 冷启动静置可均衡。原因掩码就是唯一准入判定，避免诊断与动作两套条件漂移。 */
+    if (!reasons) {
         desired = select_balance_mask(s, config);
         if(desired==0u) s_feature.balance_block_reasons|=BMS_BALANCE_BLOCK_NO_CELL;
     }
