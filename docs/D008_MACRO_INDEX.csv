@@ -733,11 +733,7 @@ bms/products/d008/bms_product.h,79,BMS_D008_LOAD_RELEASE_CONFIRM_MS,200u,负载�
 bms/products/d008/bms_product.h,80,BMS_BOARD_OWC_TX_PIN,(GPIO_PC2),D008 板级 GPIO 路由，OWC TX,保留，随 PCB,—
 bms/products/d008/bms_product.h,81,BMS_BOARD_OWC_RX_PIN,(GPIO_PC3),D008 板级 GPIO 路由，OWC RX,保留，随 PCB,—
 bms/products/d008/bms_product.h,82,BMS_BOARD_MCU_LDO_PIN,(GPIO_PC4),D008 板级 GPIO 路由，MCU LDO,保留，随 PCB,—
-bms/products/d008/bms_product.h,83,SOC25_PIN,(GPIO_PB4),旧分档指示灯 GPIO，现蓝灯由 LED_BLUE_PIN 驱动,可清理，当前无消费点,—
-bms/products/d008/bms_product.h,84,SOC50_PIN,(GPIO_PB5),旧分档指示灯 GPIO，现蓝灯由 LED_BLUE_PIN 驱动,可清理，当前无消费点,—
-bms/products/d008/bms_product.h,85,SOC75_PIN,(GPIO_PB7),旧分档指示灯 GPIO，现蓝灯由 LED_BLUE_PIN 驱动,可清理，当前无消费点,—
-bms/products/d008/bms_product.h,86,SOC100_PIN,(GPIO_PD3),旧分档指示灯 GPIO，现蓝灯由 LED_BLUE_PIN 驱动,可清理，当前无消费点,—
-bms/products/d008/bms_product.h,87,LED_BLUE_PIN,(GPIO_PB4),D008 板载蓝灯 GPIO,保留，随实现维护,—
+bms/products/d008/bms_product.h,83,LED_BLUE_PIN,(GPIO_PB4),D008 板载蓝灯 GPIO,保留，随实现维护,—
 bms/products/d008/d008_product_profile.h,3,D008_PRODUCT_PROFILE_H_,,装配 H_ 的固定构建选择值,保留，构建与产品配置合同,由装配推导
 bms/products/d008/d008_product_profile.h,18,D008_PRODUCT_PROFILE_24S_LFP,1u,装配 24S_LFP 的固定构建选择值,保留，构建与产品配置合同,由装配推导
 bms/products/d008/d008_product_profile.h,19,D008_PRODUCT_PROFILE_20S_NMC,2u,装配 20S_NMC 的固定构建选择值,保留，构建与产品配置合同,由装配推导
@@ -892,23 +888,21 @@ bms/products/d008/d008_protection_config.h,211,D008_AFE_OCC2_DELAY_MS,100u,AFE �
 bms/products/d008/d008_protection_config.h,212,D008_AFE_OCC_RECOVER_A10,100u,AFE 两级充电过流共同恢复恢复阈值,保留，硬件保护默认,保护参数窗
 bms/products/d008/d008_protection_config.h,219,D008_AFE_SC_THRESHOLD_MV,150u,AFE 放电短路动作阈值,保留，硬件保护默认,保护参数窗
 bms/products/d008/d008_protection_config.h,220,D008_AFE_SC_DELAY_US,256u,AFE 放电短路动作延时,保留，硬件保护默认,保护参数窗
-bms/products/d008/d008_protection_config.h,225,BMS_SOC_OCV_LFP_POINTS,"{2800u,0u}, {3000u,2u}, {3100u,5u}, {3200u,10u}, {3250u,15u}, {3280u,25u}, {3300u,35u}, {3315u,45u}, {3330u,55u}, {3340u,65u}, {3350u,75u}, {3370u,85u}, {3400u,95u}, {3450u,98u}, {3500u,100u}",旧 OCV 配置表，现算法使用独立曲线,可清理，当前无消费点,—
-bms/products/d008/d008_protection_config.h,230,BMS_SOC_OCV_NMC_POINTS,"{3000u,0u}, {3300u,5u}, {3450u,10u}, {3550u,20u}, {3650u,30u}, {3700u,40u}, {3750u,50u}, {3800u,60u}, {3850u,70u}, {3900u,80u}, {4000u,90u}, {4100u,96u}, {4180u,100u}",旧 OCV 配置表，现算法使用独立曲线,可清理，当前无消费点,—
-bms/products/d008/d008_protection_config.h,236,BMS_BATTERY_BALANCE_START_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3400u : 4100u),按化学体系选择均衡起始单体电压,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,237,BMS_BATTERY_BALANCE_START_DELTA_MV,50u,均衡开始压差,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,238,BMS_BATTERY_BALANCE_STOP_DELTA_MV,30u,均衡停止压差,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,243,BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH,200u,初建 Config 的额定容量，单位 0.1 Ah,保留，产品装配或构建,Ctrl+Shift+B 主窗
-bms/products/d008/d008_protection_config.h,245,BMS_HEATER_ENABLE_DEFAULT,1u,首次 Config 的加热许可,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,247,BMS_HEATER_START_TEMP_X10,400u,加热启动温度,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,250,BMS_HEATER_STOP_TEMP_X10,450u,加热停止温度,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,253,BMS_BALANCE_ENABLE_DEFAULT,1u,首次 Config 的均衡许可,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,256,BMS_BALANCE_START_VOLTAGE_MV_DEFAULT,BMS_BATTERY_BALANCE_START_MV_FOR(BMS_PRODUCT_CHEMISTRY),发布给 Config 的均衡起始电压默认值,保留，随实现维护,—
-bms/products/d008/d008_protection_config.h,259,BMS_BALANCE_START_DELTA_MV_DEFAULT,BMS_BATTERY_BALANCE_START_DELTA_MV,发布给 Config 的均衡开始压差默认值,保留，随实现维护,—
-bms/products/d008/d008_protection_config.h,262,BMS_BALANCE_STOP_DELTA_MV_DEFAULT,BMS_BATTERY_BALANCE_STOP_DELTA_MV,发布给 Config 的均衡停止压差默认值,保留，随实现维护,—
-bms/products/d008/d008_protection_config.h,265,BMS_SLEEP_NORMAL_CELL_MV,3000u,低压长计时的最低单体电压门槛,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,266,BMS_SLEEP_NORMAL_SECONDS,86400u,低于上档阈值的连续静置时间,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,267,BMS_SLEEP_LOW_CELL_MV,2800u,低压短计时的最低单体电压门槛,保留，工程参数,保护参数窗
-bms/products/d008/d008_protection_config.h,268,BMS_SLEEP_LOW_SECONDS,3600u,低于下档阈值的连续静置时间,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,226,BMS_BATTERY_BALANCE_START_MV_FOR(c),((c) == BMS_SOC_CHEMISTRY_LFP ? 3400u : 4100u),按化学体系选择均衡起始单体电压,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,227,BMS_BATTERY_BALANCE_START_DELTA_MV,50u,均衡开始压差,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,228,BMS_BATTERY_BALANCE_STOP_DELTA_MV,30u,均衡停止压差,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,233,BMS_PRODUCT_DEFAULT_CAPACITY_0P1AH,200u,初建 Config 的额定容量，单位 0.1 Ah,保留，产品装配或构建,Ctrl+Shift+B 主窗
+bms/products/d008/d008_protection_config.h,235,BMS_HEATER_ENABLE_DEFAULT,1u,首次 Config 的加热许可,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,237,BMS_HEATER_START_TEMP_X10,400u,加热启动温度,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,240,BMS_HEATER_STOP_TEMP_X10,450u,加热停止温度,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,243,BMS_BALANCE_ENABLE_DEFAULT,1u,首次 Config 的均衡许可,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,246,BMS_BALANCE_START_VOLTAGE_MV_DEFAULT,BMS_BATTERY_BALANCE_START_MV_FOR(BMS_PRODUCT_CHEMISTRY),发布给 Config 的均衡起始电压默认值,保留，随实现维护,—
+bms/products/d008/d008_protection_config.h,249,BMS_BALANCE_START_DELTA_MV_DEFAULT,BMS_BATTERY_BALANCE_START_DELTA_MV,发布给 Config 的均衡开始压差默认值,保留，随实现维护,—
+bms/products/d008/d008_protection_config.h,252,BMS_BALANCE_STOP_DELTA_MV_DEFAULT,BMS_BATTERY_BALANCE_STOP_DELTA_MV,发布给 Config 的均衡停止压差默认值,保留，随实现维护,—
+bms/products/d008/d008_protection_config.h,255,BMS_SLEEP_NORMAL_CELL_MV,3000u,低压长计时的最低单体电压门槛,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,256,BMS_SLEEP_NORMAL_SECONDS,86400u,低于上档阈值的连续静置时间,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,257,BMS_SLEEP_LOW_CELL_MV,2800u,低压短计时的最低单体电压门槛,保留，工程参数,保护参数窗
+bms/products/d008/d008_protection_config.h,258,BMS_SLEEP_LOW_SECONDS,3600u,低于下档阈值的连续静置时间,保留，工程参数,保护参数窗
 bms/products/d008/dvc1124_product_defaults.h,16,DVC1124_DEFAULT_MODEL,DVC1124_MODEL_22,选择 DVC1124-2 型号编码,保留，板级或诊断固定,—
 bms/products/d008/dvc1124_product_defaults.h,17,DVC1124_DEFAULT_ADDR_MODE,DVC1124_ADDR_FIXED,选择固定 I²C 地址模式,保留，板级或诊断固定,—
 bms/products/d008/dvc1124_product_defaults.h,18,DVC1124_DEFAULT_HARDWIRE_CODE,0u,硬连地址模式的地址位输入，当前固定模式不使用,保留，板级或诊断固定,—

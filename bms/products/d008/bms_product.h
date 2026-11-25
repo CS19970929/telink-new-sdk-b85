@@ -80,10 +80,6 @@
 #define BMS_BOARD_OWC_TX_PIN          (GPIO_PC2)
 #define BMS_BOARD_OWC_RX_PIN          (GPIO_PC3)
 #define BMS_BOARD_MCU_LDO_PIN         (GPIO_PC4)
-#define SOC25_PIN              (GPIO_PB4)
-#define SOC50_PIN              (GPIO_PB5)
-#define SOC75_PIN              (GPIO_PB7)
-#define SOC100_PIN             (GPIO_PD3)
 #define LED_BLUE_PIN           (GPIO_PB4)
 
 #include "afe_register_config.h"
