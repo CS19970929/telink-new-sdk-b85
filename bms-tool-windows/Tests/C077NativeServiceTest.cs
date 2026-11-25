@@ -78,6 +78,21 @@ static class Test
         var complete=await client.ReadC077HardwareAsync(true);
         Check(complete.Actual.Chips.All(c=>c.ProfileMatches&&c.Valid)&&complete.Actual.SampleValid,"second independent program restores pack eligibility");
         Check(complete.Actual.Chips[0].Eeprom[3]==0x50&&complete.Actual.Chips[1].Eeprom[3]==0x60,"two distinct EEPROM values read back");
+        wire.NegotiatedMtu = 23;
+        await client.RestoreC077FactoryDefaultsAsync();
+        var restored = await client.ReadC077HardwareAsync(true);
+        Check(restored.EepromReadbackConfirmed && restored.Saved[0][1] == 4260 && restored.Saved[1][1] == 4300 &&
+            restored.Actual.Chips[0].Eeprom[3] == 0x54 && restored.Actual.Chips[1].Eeprom[3] == 0x5C,
+            "factory restore at MTU 23 saves and applies the distinct defaults");
+        await client.RestoreC077FactoryDefaultsAsync();
+        wire.HideFactoryCapability = true;
+        int writesBeforeRestore = wire.ConfigurationWrites;
+        int serviceBeforeRestore = wire.ServiceWrites;
+        try { await client.RestoreC077FactoryDefaultsAsync(); throw new Exception("legacy restore accepted"); }
+        catch (NotSupportedException) { }
+        Check(wire.ConfigurationWrites == writesBeforeRestore && wire.ServiceWrites == serviceBeforeRestore,
+            "legacy firmware gets no restore or apply write");
+        wire.HideFactoryCapability = false;
         int writes=wire.ServiceWrites;
         try {var bad=(ushort[])a.Clone();bad[13]=30;await client.SaveC077HardwareAsync(0,bad);throw new Exception("bad hardware delay accepted");}catch(ArgumentException){}
         Check(writes==wire.ServiceWrites,"invalid physical code does not program");
@@ -91,6 +106,7 @@ sealed class NativeTransport : IBmsTransport, IBmsMtuTransport
 {
     readonly Process process;public int ServiceWrites;
     public bool RejectVerify { get; set; }
+    public bool HideFactoryCapability { get; set; }
     public NativeTransport(string path,string mode="--host-service") {
         process=Process.Start(new ProcessStartInfo(path,mode) {UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true})??throw new IOException("native fixture start failed");
     }
@@ -118,6 +134,11 @@ sealed class NativeTransport : IBmsTransport, IBmsMtuTransport
         string? reply=await process.StandardOutput.ReadLineAsync(ct);
         if(reply is null)throw new IOException("native fixture exited: "+await process.StandardError.ReadToEndAsync(ct));
         byte[] frame=Convert.FromHexString(reply);
+        if (HideFactoryCapability && bytes.AsSpan(1, 5).SequenceEqual(new byte[] { 3, 0x2B, 0, 0, 7 }) && frame.Length == 19)
+        {
+            frame[13] &= 0xBF;
+            frame = ModbusRtu.Frame(frame[..^2]);
+        }
         for(int at=0;at<frame.Length;at+=7)DataReceived?.Invoke(frame.AsMemory(at,Math.Min(7,frame.Length-at)));
     }
     public async ValueTask DisposeAsync() {

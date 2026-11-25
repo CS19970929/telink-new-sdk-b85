@@ -29,6 +29,7 @@ public sealed class C077AfeEditorWindow : Window
         _view.AddAction("保存所选片到 Flash", () => RunAsync(SaveAsync));
         _view.AddAction("下发所选片 EEPROM", () => RunAsync(token => ProgramAsync(false, token)));
         _view.AddAction("下发双片 EEPROM", () => RunAsync(token => ProgramAsync(true, token)));
+        _view.AddAction("恢复双片 AFE 出厂参数", () => RunAsync(RestoreFactoryAsync));
         _view.AddAction("导出硬保护 JSON", () => RunAsync(ExportAsync));
         _view.AddAction("导入到所选片草稿", () => RunAsync(ImportAsync));
         Loaded += async (_, _) => await RunAsync(ReloadAsync);
@@ -109,6 +110,21 @@ public sealed class C077AfeEditorWindow : Window
             observed: snapshot.Chips.Select(c => c.Saved).ToArray(), ct: token);
         await ReloadAsync(token);
         _view.Status.Text = $"{target} EEPROM 下发事务已确认。可切换实例查看各片读回。";
+    }
+
+    private async Task RestoreFactoryAsync(CancellationToken token)
+    {
+        await _client.RequireC077FactoryDefaultsAsync(token);
+        if (MessageBox.Show(this,
+                "将 AFE1 和 AFE2 恢复为本板各自的出厂硬保护档案。将关闭输出和均衡，保存 Flash，随后下发并核对 EEPROM。当前硬保护自定义值和草稿会被替换，操作后输出与均衡保持关闭。请确认测试台架可以断开输出。",
+                "恢复双片 AFE 出厂参数", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes)
+            return;
+        token.ThrowIfCancellationRequested();
+        await CloseOutputsAsync(token);
+        _view.Status.Text = "正在恢复双片 AFE 出厂档案…";
+        await _client.RestoreC077FactoryDefaultsAsync(token);
+        await ReloadAsync(token);
+        _view.Status.Text = "双片出厂参数已保存，EEPROM 读回一致。输出和均衡保持关闭。";
     }
 
     private async Task CloseOutputsAsync(CancellationToken token)

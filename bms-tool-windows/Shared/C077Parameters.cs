@@ -144,6 +144,9 @@ public sealed class C077HardwareFile
 public static class C077Hardware
 {
     public const ushort Header=0x2B00,ConfigBase=0x2B10,ExpectedBase=0x2B80;
+    internal const ushort FactoryDefaultsRegister = 0x2B09;
+    internal const ushort FactoryDefaultsCommand = 0xC0DF;
+    internal const ushort FactoryDefaultsSupported = 0x4000, FactoryDefaultsSaved = 0x0400;
     public static readonly int[] VoltageDelay={100,200,300,400,600,800,1000,2000,3000,4000,6000,8000,10000,20000,30000,40000};
     public static readonly int[] Ocd1Delay={50,100,200,400,600,800,1000,2000,4000,6000,8000,10000,15000,20000,30000,40000};
     public static readonly int[] FastDelay={10,20,40,60,80,100,200,400,600,800,1000,2000,4000,8000,10000,20000};
@@ -302,6 +305,34 @@ public sealed partial class BmsClient
         await WriteRegistersAsync(address,values,ct);
         if(!(await ReadRegistersAsync(address,32,ct)).SequenceEqual(values))throw new IOException("Flash保存后读回不一致；未下发AFE，未自动重试。");
     }
+    public async Task RequireC077FactoryDefaultsAsync(CancellationToken ct = default)
+    {
+        if ((await RequireC077HardwareAsync(ct) & C077Hardware.FactoryDefaultsSupported) == 0)
+            throw new NotSupportedException("当前 C077 固件未提供双片 AFE 出厂恢复功能，请使用配套固件。");
+    }
+
+    public async Task RestoreC077FactoryDefaultsAsync(CancellationToken ct = default)
+    {
+        await RequireC077FactoryDefaultsAsync(ct);
+        await RequireC077OutputsOffAsync(ct);
+        await WriteRegistersAsync(C077Hardware.FactoryDefaultsRegister, [C077Hardware.FactoryDefaultsCommand], ct);
+        if ((await RequireC077HardwareAsync(ct) & C077Hardware.FactoryDefaultsSaved) == 0)
+            throw new IOException("双片 Flash 出厂档案尚未确认。");
+        try
+        {
+            await WriteSingleRegisterAsync(C077Parameters.ServiceRegister, C077Hardware.FactoryDefaultsCommand, ct);
+            await WaitForC077HardwareProgramAsync(3, ct);
+            var actual = await ReadC077HardwareAsync(verifyEeprom: true, ct);
+            if (!actual.EepromReadbackConfirmed ||
+                (await RequireC077HardwareAsync(ct) & C077Hardware.FactoryDefaultsSaved) == 0)
+                throw new IOException("双片 EEPROM 与 Flash 出厂档案尚未确认一致。");
+        }
+        catch (Exception ex) when (ex is IOException or TimeoutException)
+        {
+            throw new IOException("双片 Flash 出厂档案已保存，EEPROM 恢复尚未完整确认。 " + ex.Message, ex);
+        }
+    }
+
     public Task<C077AfeSnapshot> ProgramC077HardwareAsync(int targets,CancellationToken ct=default) =>
         ProgramC077HardwareAsync(targets, null, ct);
 
@@ -319,6 +350,11 @@ public sealed partial class BmsClient
             }
         }
         await WriteSingleRegisterAsync(C077Parameters.ServiceRegister,(ushort)(targets==1?0xC071:targets==2?0xC072:0xC077),ct);
+        return await WaitForC077HardwareProgramAsync(targets, ct);
+    }
+
+    private async Task<C077AfeSnapshot> WaitForC077HardwareProgramAsync(int targets, CancellationToken ct)
+    {
         var timer=Stopwatch.StartNew();
         while(timer.Elapsed<TimeSpan.FromSeconds(20)) {
             await Task.Delay(250,ct);var state=await ReadC077AfeAsync(ct);
