@@ -29,6 +29,9 @@ static uint32_t now;
 static uint8_t registers[256];
 static int corrupt_reg=-1,corrupt_count;
 static uint8_t auto_cc2_event;
+static uint8_t bus_allowed=1u;
+static unsigned raw_reads,raw_writes;
+uint8_t bms_afe_bus_access_allowed(void){return bus_allowed;}
 static struct {uint16_t charge_current_a10,discharge_current_a10,cell_voltage_mv[32],pack_voltage_10mv,cell_max_mv,cell_min_mv,cell_delta_mv,cell_max_index,cell_min_index,temperature_x10[5],temperature_max_x10,temperature_min_x10,balance_bits_low,balance_bits_high;
  struct {struct {uint8_t charge_ocp,discharge_ocp;}bits;}fault_third;}g_bms_report;
 static struct {struct {uint8_t charge_mos_status,discharge_mos_status;}bits;}g_bms_system_status;
@@ -50,7 +53,6 @@ static uint32_t time_last_raw,time_ms,time_fraction;
 uint32_t bms_time_ms(void){uint32_t delta=now-time_last_raw;time_last_raw=now;time_fraction+=delta%32u;time_ms+=delta/32u+time_fraction/32u;time_fraction%=32u;return time_ms;}
 uint32_t bms_time_now_32k(void){return now;}
 
-uint8_t DVC1124_WriteRegisters(uint8_t r,const uint8_t *p,uint8_t n){memcpy(registers+r,p,n);return 1;}
 static void dvc_bus_init(void){s_bus_initialized=1;}
 static void dvc_bus_recover(void){}
 static void dvc_delay_ms(uint32_t ms){now+=ms*32u;if(auto_cc2_event)registers[1]|=0x10u;}
@@ -58,7 +60,14 @@ static void dvc_delay_ms(uint32_t ms){now+=ms*32u;if(auto_cc2_event)registers[1]
 static uint8_t peer_crc(const uint8_t *p,unsigned n){
  uint8_t c=0;for(unsigned i=0;i<n;++i){c^=p[i];for(unsigned b=0;b<8;++b)c=(c&128)?(uint8_t)((c<<1)^7):(uint8_t)(c<<1);}return c;
 }
+static uint8_t dvc_i2c_write_raw(uint8_t addr,uint8_t reg,const uint8_t *data,uint16_t count){
+ ++raw_writes;
+ for(unsigned i=0;i<count/2;++i){uint8_t v=data[2*i];uint8_t first[]={addr,reg,v};
+  assert(data[2*i+1]==peer_crc(i?&v:first,i?1:3));registers[reg+i]=v;
+ }return 1;
+}
 static uint8_t dvc_i2c_read_raw(uint8_t addr,uint8_t reg,uint8_t *out,uint16_t count){
+ ++raw_reads;
  for(unsigned i=0;i<count/2;++i){uint8_t v=registers[reg+i];out[2*i]=v;
   uint8_t first[]={addr,reg,(uint8_t)(addr|1),v};out[2*i+1]=peer_crc(i?&v:first,i?1:4);
   if(reg+i==1)registers[1]&=(uint8_t)~0x50u; /* R1 VADF/CC2F RC */
@@ -72,6 +81,7 @@ code+=function(s,'static uint8_t dvc_crc8(')
 code+=function(s,'static uint8_t dvc_read_registers_limited(')
 code+=function(s,'uint8_t DVC1124_ReadRegisters(')
 code+=function(s,'uint8_t DVC1124_ReadRegisterOnce(')
+code+=function(s,'uint8_t DVC1124_WriteRegisters(')
 code+=function(s,'static uint8_t dvc_boot_zero_wait_fresh_cc2(')
 code+=function(s,'static void dvc_publish_current_measurement(')
 code+=function(s,'static void dvc_publish_voltage_measurement(')
@@ -88,8 +98,19 @@ static void acquire(uint32_t t,uint8_t event){now=t;registers[1]=event;result=DV
 static void reset(void){memset(&s_snapshot,0,sizeof(s_snapshot));memset(registers,0,sizeof(registers));
  now=time_last_raw=time_ms=time_fraction=0;memset(s_ntc_valid_samples,0,sizeof(s_ntc_valid_samples));corrupt_reg=-1;corrupt_count=0;}
 int main(void){
+ reset();
+ /* 静默时所有寄存器事务在触碰 I2C 外设之前返回失败；恢复后正常读写。 */
+ uint8_t debug_value=0xA5, write_value[2]={0x31u,0x42u};
+ bus_allowed=0;raw_reads=raw_writes=0;s_bus_initialized=0;
+ assert(!DVC1124_ReadRegisterOnce(2,&debug_value));
+ assert(!DVC1124_ReadRegisters(2,&debug_value,1));
+ assert(!DVC1124_WriteRegisters(2,write_value,2));
+ assert(!raw_reads && !raw_writes && !s_bus_initialized && debug_value==0xA5);
+ bus_allowed=1;
+ assert(DVC1124_WriteRegisters(2,write_value,2) && raw_writes==1);
+ assert(DVC1124_ReadRegisterOnce(2,&debug_value) && raw_reads==1 && debug_value==0x31);
  reset();registers[1]=0x50;corrupt_reg=1;corrupt_count=1;
- uint8_t debug_value=0xA5;
+ debug_value=0xA5;
  assert(!DVC1124_ReadRegisterOnce(1,&debug_value));
  assert(debug_value==0xA5 && corrupt_count==0 && (registers[1]&0x50u)==0);
  reset();acquire(100,0);assert(s_snapshot.valid && result==BMS_AFE_SAMPLE_OK);

@@ -917,7 +917,7 @@ static uint8_t dvc_read_registers_limited(uint8_t reg, uint8_t *data, uint8_t le
     uint8_t attempt;
     uint8_t i;
 
-    if ((data == NULL) || (len == 0u)) return 0u;
+    if (!bms_afe_bus_access_allowed() || (data == NULL) || (len == 0u)) return 0u;
     if (((uint16_t)reg + len - 1u) > DVC1124_MAX_REGISTER) return 0u;
     if (((uint16_t)len * 2u) > sizeof(s_i2c_raw)) return 0u;
 
@@ -978,7 +978,7 @@ uint8_t DVC1124_WriteRegisters(uint8_t reg, const uint8_t *data, uint8_t len)
     uint8_t attempt;
     uint8_t i;
 
-    if ((data == NULL) || (len == 0u)) return 0u;
+    if (!bms_afe_bus_access_allowed() || (data == NULL) || (len == 0u)) return 0u;
     if (((uint16_t)reg + len - 1u) > DVC1124_MAX_REGISTER) return 0u;
     if (((uint16_t)len * 2u) > sizeof(s_i2c_raw)) return 0u;
 

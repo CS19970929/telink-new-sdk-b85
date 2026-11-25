@@ -343,13 +343,37 @@ def check_d008_boot_zero_current_contract_check():
     assert "#define BMS_CURRENT_UNRELIABLE_MAX_MA 200u" in conf
 
     init_pos = backend.index("DVC1124_UpdataAfeConfig();")
-    zero_pos = backend.index("(void)DVC1124_BootCurrentZeroCalibrate();")
+    zero_pos = backend.index("if (!DVC1124_BootCurrentZeroCalibrate())")
     assert init_pos < zero_pos
 
     zero_fn = driver[driver.index("uint8_t DVC1124_BootCurrentZeroCalibrate(void)"):]
     assert "bms_config_set_user" not in zero_fn
     assert "storage_record_save" not in zero_fn
 
+    from validation_support import function, run_c
+    fixture = r'''
+#include <stdint.h>
+#include <assert.h>
+#include "bms_error.h"
+static unsigned stage, adc_error;
+static uint8_t calibration_ok;
+static void dvc_project_enable_afe_interface(void){assert(stage++==0);}
+static void dvc_project_i2c_wake_pulse(void){assert(stage++==1);}
+static void DVC1124_AFE_Reset(void){assert(stage++==2);}
+static void DVC1124_UpdataAfeConfig(void){assert(stage++==3);}
+static uint8_t DVC1124_BootCurrentZeroCalibrate(void){assert(stage++==4);return calibration_ok;}
+void bms_error_raise(bms_error_id_t id){assert(id==BMS_ERROR_ADC);adc_error=1;}
+void bms_error_clear(bms_error_id_t id){assert(id==BMS_ERROR_ADC);adc_error=0;}
+'''
+    fixture += function(backend, "void bms_afe_driver_init(")
+    fixture += r'''
+int main(void){
+ calibration_ok=0;stage=0;bms_afe_driver_init();assert(stage==5 && adc_error);
+ calibration_ok=1;stage=0;bms_afe_driver_init();assert(stage==5 && !adc_error);
+ return 0;
+}
+'''
+    run_c(fixture,name="d008_boot_zero_result")
     print("PASS D008 retains boot FET/CAMZ/fresh CC2 checks and one persisted software zero")
 
 if __name__ == "__main__":

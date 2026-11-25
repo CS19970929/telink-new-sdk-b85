@@ -4,6 +4,7 @@
  */
 #include "dvc1124.h"
 #include "bms_afe_driver.h"
+#include "bms_error.h"
 
 #include "tl_common.h"
 #include "drivers.h"
@@ -105,5 +106,6 @@ void bms_afe_driver_init(void)
      * 不学习第二套软件零点；客户 offset/gain 在保存、复位及重启后都按原公式应用。
      * 检查失败沿原路径回退，不能新增永久 MOS 锁定。
      */
-    (void)DVC1124_BootCurrentZeroCalibrate();
+    if (!DVC1124_BootCurrentZeroCalibrate()) bms_error_raise(BMS_ERROR_ADC);
+    else bms_error_clear(BMS_ERROR_ADC);
 }
