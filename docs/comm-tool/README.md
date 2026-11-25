@@ -18,6 +18,8 @@ Comm Tool APP 使用 115200 8N1 与 PC 通信，C073 使用 250 kbit/s、APP 地
 
 Windows 中选择「CAN」和 Comm Tool 的 COM 端口。设备监控走寄存器，可单独打开「飞道广播」查看六帧及其新鲜度。升级完成后上位机通过 D170 和 D17C 核对实际运行 APP。旧 D009 APP 和转接器自身的分区仍按各自原有流程选择。
 
+经典 CAN 维护窗口 `BMS_CommTool_Upgrade_UI` 的同一个升级入口也支持 C073 的页对齐 APP BIN 或格式 2 `.c073`。窗口按 APP 内嵌身份选择缓存地址，核对转接器版本和设备 `D170`，同一份 C073 APP 缓存可以直接用于下一块板。重启后通过 `D170/D17C` 核对身份、版本、长度、CRC32 和有效位。旧项目仍使用其 `0x08004800` BIN 和原有命令。原先只接受 `0x08004800` 的旧 EXE 和旧转接器不能升级 `0x08003000` 的 C073。
+
 ## 工程和布局
 
 工程：../../firmware/comm_tool_f103ret6/keil/COMM_TOOL_F103RET6.uvprojx。

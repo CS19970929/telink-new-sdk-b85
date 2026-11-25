@@ -91,6 +91,75 @@ BMS_DIRECT_IAP_RESET_WAIT = 1.0
 BMS_DIRECT_IAP_READY_RETRIES = 5
 BMS_DIRECT_IAP_READY_RETRY_DELAY = 0.5
 
+C073_APP_BASE = 0x08003000
+C073_PACKAGE_MAGIC = 0x32553044
+C073_LEGACY_BOARD = 0xC073000D
+C073_GUARDED_BOARD = 0xC073002C
+C073_ID_OFFSET = 0x104
+C073_PAGE_BYTES = 1024
+C073_CACHE_CHUNK_BYTES = 48
+
+
+@dataclass(frozen=True)
+class CanUpgradeImage:
+    data: bytes
+    address: int
+    board: int = 0
+    version: int = 0
+    capacity: int = 0
+
+    @property
+    def crc32(self) -> int:
+        return zlib.crc32(self.data)
+
+    def running_identity(self) -> list[int]:
+        return [0x5550, 1, self.board >> 16, self.board & 0xFFFF, 2, 2,
+                self.address >> 16, self.address & 0xFFFF, 0, self.capacity, 0, 0]
+
+
+def load_can_upgrade_image(path: Path) -> CanUpgradeImage:
+    file_data = path.read_bytes()
+    data = file_data
+    identity = None
+    if path.suffix.lower() == ".c073" or file_data[:4] == struct.pack("<I", C073_PACKAGE_MAGIC):
+        if len(file_data) < 32:
+            raise ValueError("C073 升级包缺少格式 2 包头")
+        magic, version, header, board, address, size, build, crc, header_crc = struct.unpack_from("<IHH6I", file_data)
+        data = file_data[32:]
+        if ((magic, version, header) != (C073_PACKAGE_MAGIC, 2, 32) or size != len(data)
+                or header_crc != zlib.crc32(file_data[:28]) or crc != zlib.crc32(data)
+                or board not in (C073_LEGACY_BOARD, C073_GUARDED_BOARD)):
+            raise ValueError("C073 升级包头、板号、长度或 CRC32 错误")
+        identity = board, address, build
+    if len(data) < 8:
+        raise ValueError("BIN 太小，缺少向量表")
+    stack, entry, stack_ok, thumb = vector_summary(data)
+    reset = entry & ~1
+    if len(data) >= C073_ID_OFFSET + 16:
+        board, address, version, actual = struct.unpack_from("<4I", data, C073_ID_OFFSET)
+        if identity is not None or board in (C073_LEGACY_BOARD, C073_GUARDED_BOARD):
+            if identity is not None and identity != (board, address, version):
+                raise ValueError("C073 包头与 APP 内嵌身份不一致")
+            family = version >> 16
+            capacity = 0
+            if board == C073_GUARDED_BOARD and family == 2:
+                capacity = 44 * C073_PAGE_BYTES
+            elif board == C073_LEGACY_BOARD:
+                capacity = {0: 46, 1: 46, 2: 44}.get(family, 0) * C073_PAGE_BYTES
+            if (address != C073_APP_BASE or len(data) > capacity or not thumb
+                    or not 0x200000D0 <= stack <= 0x20005000 or stack & 7
+                    or not C073_ID_OFFSET + 16 < actual <= len(data)
+                    or (actual + C073_PAGE_BYTES - 1) // C073_PAGE_BYTES * C073_PAGE_BYTES != len(data)
+                    or not address + C073_ID_OFFSET + 16 <= reset < address + actual):
+                raise ValueError("C073 APP 的分区、版本族、向量或页对齐无效")
+            return CanUpgradeImage(data, address, board, version, capacity)
+    if identity is not None:
+        raise ValueError("C073 APP 缺少内嵌身份")
+    if APP_BASE_ADDR + len(data) > APP_FLASH_LIMIT or not stack_ok or not thumb or not APP_BASE_ADDR <= reset < APP_BASE_ADDR + len(data):
+        raise ValueError(f"旧版 APP 的大小或向量无效，支持区间 0x{APP_BASE_ADDR:08X}–0x{APP_FLASH_LIMIT:08X}")
+    return CanUpgradeImage(data, APP_BASE_ADDR)
+
+
 BMS_OVERVIEW_ADDR = 0xD000
 BMS_OVERVIEW_WORDS = 63
 BMS_LIVE_WORDS = 88
@@ -2871,9 +2940,9 @@ class UpgradeUi(tk.Tk):
 
     def _choose_bin(self) -> None:
         path = filedialog.askopenfilename(
-            title="选择 BMS App bin",
+            title="选择 BMS APP 升级文件",
             initialdir=str(Path.home() / 'Documents'),
-            filetypes=[("BIN 固件", "*.bin"), ("所有文件", "*.*")],
+            filetypes=[("APP 升级文件", "*.bin *.c073"), ("所有文件", "*.*")],
         )
         if path:
             self.bin_var.set(path)
@@ -2905,7 +2974,7 @@ class UpgradeUi(tk.Tk):
             )
         else:
             prompt = (
-                "将先把当前选择的 bin 写入 comm tool 缓存，再通过 CAN 升级 BMS。\n\n"
+                "将核对所选固件并通过 Comm Tool 的 CAN 接口升级 BMS。\n\n"
                 f"文件: {path}\n\n"
                 "确认继续？"
             )
@@ -3228,6 +3297,7 @@ class UpgradeUi(tk.Tk):
         image = self._load_selected_image()
         with self._open_client() as client:
             self._require_comm_tool_client(client, "写入缓存")
+            self._check_can_upgrade_adapter(client, image)
             self._download_image(client, image)
             cache = self._read_cache_info(client)
         self._assert_cache_matches(image, cache)
@@ -3235,38 +3305,69 @@ class UpgradeUi(tk.Tk):
         self._emit("progress", 100)
 
     def _worker_upgrade_selected(self) -> None:
-        image = self._load_selected_image()
-        with self._open_client() as client:
-            if isinstance(client, DirectBmsModbusClient):
-                self._upgrade_bms_direct_serial(client, image)
-                self._emit("progress", 100)
-                return
-            self._require_comm_tool_client(client, "一键升级")
-            self._set_can_target(client, force=True)
-            info = self._read_info(client)
-            self._emit("info", info)
-            self._emit("target", info)
-            self._download_image(client, image, progress_base=0, progress_span=45)
-            cache = self._read_cache_info(client)
-            self._assert_cache_matches(image, cache)
-            self._emit("cache", cache)
-            self._upgrade_bms_from_verified_cache(client, progress_base=50, progress_span=45)
-        self._emit("progress", 100)
+        self._upgrade_selected_image(require_cached=False)
 
     def _worker_upgrade_cached_selected(self) -> None:
+        self._upgrade_selected_image(require_cached=True)
+
+    def _upgrade_selected_image(self, require_cached: bool) -> None:
         image = self._load_selected_image()
         with self._open_client() as client:
-            self._require_comm_tool_client(client, "使用缓存升级")
-            self._set_can_target(client)
-            info = self._read_info(client)
-            self._emit("info", info)
-            self._emit("target", info)
-            cache = self._read_cache_info(client)
-            self._assert_cache_matches(image, cache)
-            self._emit("cache", cache)
-            self._emit("log", "缓存与当前文件一致，跳过串口下载")
-            self._upgrade_bms_from_verified_cache(client, progress_base=5, progress_span=90)
+            if isinstance(client, DirectBmsModbusClient) and not require_cached:
+                if image.board:
+                    raise RuntimeError("C073 的串口或 BLE 升级请使用统一 BMS 上位机")
+                self._upgrade_bms_direct_serial(client, image.data)
+            else:
+                self._require_comm_tool_client(client, "CAN 升级")
+                self._set_can_target(client, force=True)
+                info = self._check_can_upgrade_adapter(client, image)
+                self._emit("info", info)
+                self._emit("target", info)
+                if image.board:
+                    self._confirm_c073_app(client, image, allow_boot_recovery=True)
+                if not require_cached and not image.board:
+                    self._download_image(client, image, progress_base=0, progress_span=45)
+                    cache = self._read_cache_info(client)
+                    self._assert_cache_matches(image, cache)
+                else:
+                    cache = self._read_cache_info(client)
+                    try:
+                        self._assert_cache_matches(image, cache)
+                    except ValueError:
+                        if require_cached:
+                            raise
+                        self._download_image(client, image, progress_base=0, progress_span=45)
+                        cache = self._read_cache_info(client)
+                        self._assert_cache_matches(image, cache)
+                    else:
+                        self._emit("log", "缓存与当前文件一致，跳过串口下载")
+                self._emit("cache", cache)
+                self._upgrade_bms_from_verified_cache(client, progress_base=50, progress_span=45, image=image)
         self._emit("progress", 100)
+
+    def _check_can_upgrade_adapter(self, client, image: CanUpgradeImage) -> dict:
+        info = self._read_info(client)
+        if image.board:
+            minimum = (0, 2, 11) if image.board == C073_GUARDED_BOARD else (
+                (0, 2, 10) if image.capacity == 44 * C073_PAGE_BYTES else (0, 2, 9))
+            version = tuple(int(part) for part in info["version"].split("."))
+            if version < minimum:
+                needed = ".".join(map(str, minimum))
+                raise RuntimeError(f"Comm Tool {info['version']} 不支持所选 C073 镜像，需要 {needed} 或更新版")
+        return info
+
+    def _confirm_c073_app(self, client, image: CanUpgradeImage, allow_boot_recovery: bool = False) -> None:
+        if (self.active_can_bitrate, self.active_node_id, self.active_app_can_addr) != (250000, 1, 0):
+            raise RuntimeError("C073 CAN 升级固定使用 250 kbit/s、Boot 节点 1、APP 地址 0")
+        try:
+            words = self._read_bms_words_with_retry(client, 0xD170, 12, "C073 升级身份")
+        except Exception as exc:
+            if allow_boot_recovery and image.capacity == 46 * C073_PAGE_BYTES:
+                self._emit("log", "未读到旧 46 KiB APP，继续由 Comm Tool 核对 Boot 身份")
+                return
+            raise RuntimeError("未读到 C073 APP 的升级身份。若板子已在 Boot，请用统一 BMS 上位机从串口或 BLE 恢复") from exc
+        if words != image.running_identity():
+            raise RuntimeError("当前设备的升级身份或布局与 C073 文件不匹配")
 
     def _worker_read_bms_status(self) -> None:
         with self._open_client() as client:
@@ -3649,6 +3750,7 @@ class UpgradeUi(tk.Tk):
         client: CommToolClient,
         progress_base: int = 0,
         progress_span: int = 95,
+        image: Optional[CanUpgradeImage] = None,
     ) -> None:
         self._require_comm_tool_client(client, "CAN-IAP升级")
         self._emit("log", "缓存校验通过，开始 CAN 升级 BMS")
@@ -3691,6 +3793,12 @@ class UpgradeUi(tk.Tk):
             self._emit("log", "升级已完成，但 BMS App 状态暂未响应；请稍后点击“读取BMS状态”复核。")
         else:
             self._emit("log", f"BMS App 状态: SOC={bms_status[0]} SOH={bms_status[1]}")
+        if image is not None and image.board:
+            self._confirm_c073_app(client, image)
+            words = self._read_bms_words_with_retry(client, 0xD17C, 8, "C073 运行镜像")
+            actual = tuple((words[i] << 16) | words[i + 1] for i in (0, 2, 4))
+            if actual != (image.version, len(image.data), image.crc32) or words[6:] != [1, 0]:
+                raise RuntimeError("C073 重启后的版本、长度或 CRC32 与所选 APP 不一致")
         self._emit("upgrade_stage", "升级进度: 完成")
 
     def _upgrade_bms_direct_serial(self, client: DirectBmsModbusClient, image: bytes) -> None:
@@ -3931,52 +4039,43 @@ class UpgradeUi(tk.Tk):
             self._emit("log", f"BMS App 状态确认超时，最后错误: {last_error}")
         return None
 
-    def _load_selected_image(self) -> bytes:
+    def _load_selected_image(self) -> CanUpgradeImage:
         path = self.active_bin
-        if not path.exists():
-            raise RuntimeError(f"找不到 bin 文件: {path}")
-        image = path.read_bytes()
-        if len(image) < 8:
-            raise RuntimeError("bin 文件太小，缺少向量表")
-        if APP_BASE_ADDR + len(image) > APP_FLASH_LIMIT:
-            raise RuntimeError(f"bin 超出 App 区: end=0x{APP_BASE_ADDR + len(image):08X}")
-        msp, reset, msp_ok, reset_thumb_ok = vector_summary(image)
-        reset_ok = reset_thumb_ok and (APP_BASE_ADDR <= reset < APP_BASE_ADDR + len(image))
-        if not msp_ok or not reset_ok:
-            raise RuntimeError(f"App 向量表非法: MSP=0x{msp:08X}, Reset=0x{reset:08X}")
+        image = load_can_upgrade_image(path)
         self._emit("image", self._image_info_text(path, image))
         return image
 
     def _download_image(
         self,
         client: CommToolClient,
-        image: bytes,
+        image: CanUpgradeImage,
         progress_base: int = 0,
         progress_span: int = 90,
     ) -> None:
         self._require_comm_tool_client(client, "写入缓存")
-        crc16 = crc16_modbus(image)
-        crc32 = zlib.crc32(image) & 0xFFFFFFFF
+        crc16 = crc16_modbus(image.data)
+        crc32 = image.crc32
         start_time = time.monotonic()
-        total = math.ceil(len(image) / DEFAULT_CHUNK_SIZE)
-        client.command(CMD_FW_BEGIN, struct.pack("<IIHI", APP_BASE_ADDR, len(image), crc16, crc32), timeout=5.0)
-        for index, offset in enumerate(range(0, len(image), DEFAULT_CHUNK_SIZE), start=1):
-            chunk = image[offset : offset + DEFAULT_CHUNK_SIZE]
+        chunk_bytes = C073_CACHE_CHUNK_BYTES if image.board else DEFAULT_CHUNK_SIZE
+        total = math.ceil(len(image.data) / chunk_bytes)
+        client.command(CMD_FW_BEGIN, struct.pack("<IIHI", image.address, len(image.data), crc16, crc32), timeout=5.0)
+        for index, offset in enumerate(range(0, len(image.data), chunk_bytes), start=1):
+            chunk = image.data[offset : offset + chunk_bytes]
             client.command(CMD_FW_DATA, struct.pack("<I", offset) + chunk, timeout=5.0)
             if index == total or index % 4 == 0:
                 self._emit("progress", min(99, progress_base + int(index * progress_span / total)))
                 self._emit("log", f"写入缓存: {index}/{total}")
-        client.command(CMD_FW_END, struct.pack("<IHI", len(image), crc16, crc32), timeout=5.0)
+        client.command(CMD_FW_END, struct.pack("<IHI", len(image.data), crc16, crc32), timeout=5.0)
         elapsed = max(0.001, time.monotonic() - start_time)
-        self._emit("log", f"写入缓存完成: {len(image)} bytes, {elapsed:.1f}s, {len(image) / 1024.0 / elapsed:.1f} KiB/s")
+        self._emit("log", f"写入缓存完成: {len(image.data)} bytes, {elapsed:.1f}s, {len(image.data) / 1024.0 / elapsed:.1f} KiB/s")
 
-    def _assert_cache_matches(self, image: bytes, cache: dict) -> None:
-        crc16 = crc16_modbus(image)
-        crc32 = zlib.crc32(image) & 0xFFFFFFFF
-        if cache["app_addr"] != APP_BASE_ADDR or cache["size"] != len(image):
-            raise RuntimeError("comm tool 缓存地址或大小与所选文件不一致")
+    def _assert_cache_matches(self, image: CanUpgradeImage, cache: dict) -> None:
+        crc16 = crc16_modbus(image.data)
+        crc32 = image.crc32
+        if cache["app_addr"] != image.address or cache["size"] != len(image.data):
+            raise ValueError("comm tool 缓存地址或大小与所选文件不一致")
         if cache["crc16"] != crc16 or cache["crc32"] != crc32 or cache["valid"] != 1:
-            raise RuntimeError("comm tool 缓存 CRC 与所选文件不一致")
+            raise ValueError("comm tool 缓存 CRC 与所选文件不一致")
 
     def _describe_selected_bin(self) -> None:
         if not self.bin_var.get().strip():
@@ -3987,19 +4086,19 @@ class UpgradeUi(tk.Tk):
             if not path.exists():
                 self.image_var.set("文件不存在")
                 return
-            image = path.read_bytes()
+            image = load_can_upgrade_image(path)
             self.image_var.set(self._image_info_text(path, image))
         except Exception as exc:
             self.image_var.set(f"校验失败: {exc}")
 
-    def _image_info_text(self, path: Path, image: bytes) -> str:
-        crc16 = crc16_modbus(image)
-        crc32 = zlib.crc32(image) & 0xFFFFFFFF
-        msp, reset, msp_ok, reset_thumb_ok = vector_summary(image)
-        reset_ok = reset_thumb_ok and (APP_BASE_ADDR <= reset < APP_BASE_ADDR + len(image))
+    def _image_info_text(self, path: Path, image: CanUpgradeImage) -> str:
+        crc16 = crc16_modbus(image.data)
+        crc32 = image.crc32
+        msp, reset, msp_ok, reset_thumb_ok = vector_summary(image.data)
+        reset_ok = reset_thumb_ok and (image.address <= reset < image.address + len(image.data))
         return (
             f"{path.name}\n"
-            f"{len(image)} bytes\n"
+            f"APP=0x{image.address:08X}, {len(image.data)} bytes\n"
             f"CRC16=0x{crc16:04X} CRC32=0x{crc32:08X}\n"
             f"MSP=0x{msp:08X} {'OK' if msp_ok else 'BAD'}\n"
             f"Reset=0x{reset:08X} {'OK' if reset_ok else 'BAD'}"
