@@ -170,9 +170,10 @@ static void config(void)
     fresh();
     assert(bms_config_store_validate_startup());
     assert(g_bms_config_store.slot_size == 512u && erases == 0u);
-    assert(bms_config_get_soc_limits(&pair) && pair.full_mv == 3500u && pair.empty_mv == 2850u);
+    assert(bms_config_get_soc_limits(&pair) && pair.full_mv == 3550u && pair.empty_mv == 2600u);
     assert(bms_parameter_read_block(BMS_PARAM_REG_SOC100_MV, 2u, response));
-    assert(response[0] == 0x0Du && response[1] == 0xACu);
+    assert(response[0] == 0x0Du && response[1] == 0xDEu &&
+           response[2] == 0x0Au && response[3] == 0x28u);
     assert(bms_parameter_write(BMS_PARAM_REG_SOC100_MV, 1u, valid) == 3u);
     assert(bms_parameter_write(BMS_PARAM_REG_SOC0_MV, 1u, valid) == 2u);
     assert(bms_parameter_write(BMS_PARAM_REG_SOC100_MV, 2u, invalid) == 3u);

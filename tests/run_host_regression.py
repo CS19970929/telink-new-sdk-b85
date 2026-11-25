@@ -215,6 +215,8 @@ def main():
                 'exit':code,'seconds':seconds,'command':command,'log':log,'observations':observations,
                 'source_hints':SOURCES[domain],'failure_tail':decoded[-6000:] if code else ''})
             print(('PASS ' if code==0 else 'FAIL ')+case_id+f' ({seconds}s)',flush=True)
+            if code != 0:
+                print(report['results'][-1]['failure_tail'], flush=True)
             (output/'results.json').write_text(json.dumps(report['results'],ensure_ascii=False,indent=2),encoding='utf-8')
     finally:
         end=fingerprint()
