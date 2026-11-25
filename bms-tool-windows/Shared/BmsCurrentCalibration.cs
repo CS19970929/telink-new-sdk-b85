@@ -165,7 +165,7 @@ public sealed partial class BmsClient
     private async Task<(ushort Product, bool Directional)> RequireLinearCurrentCalibrationAsync(CancellationToken ct)
     {
         var header = await ReadRegistersAsync(0x2E00, 3, ct);
-        if (header is [0xC077,2,1]) return (header[0], true);
+        if (header is [0xC060 or 0xC077,2,1]) return (header[0], true);
         if (header is [0xC060 or 0xC077,1,1]) return (header[0], false);
         if (header.Length != 3 || header[0] != D008Parameters.Magic ||
             !D008Parameters.SupportsProtocol(header[1]) || (header[2] & LinearCurrentCalibrationCapability) == 0)

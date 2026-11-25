@@ -26,7 +26,7 @@ public sealed partial class BmsClient
         int fragmentBytes=0;
         if (_transport is IBmsMtuTransport mtu && (mtu.NegotiatedMtu ?? 23) < request.Length + 3) {
             bool canFragment = IsC073 && start == 0x2B10 && values.Length == 32 ||
-                IsC077 && start == 0x2E34 && values.Length == 7;
+                (IsC060 || IsC077) && start == 0x2E34 && values.Length == 7;
             if (!canFragment)
                 throw new IOException("当前BLE载荷不足以发送此整组参数帧；请使用直连串口或更大MTU的透明通道，参数未发送。");
             // 这两种模板事务按 FC10 字节数及 CRC 认领整帧，只提交一次。
