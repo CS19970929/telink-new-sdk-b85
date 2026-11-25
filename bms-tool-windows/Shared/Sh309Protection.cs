@@ -42,18 +42,19 @@ public static class Sh309Protection
             string detail = failure ?? "本次芯片读回未确认";
             if (failure is null && service.ServiceState == 0)
             {
-                if (reportedForChip && service.ServiceError == 4)
+                if (data.EepromReadbackMask is byte mask)
+                {
+                    if ((mask & (1 << i)) != 0)
+                        result = chip.ProfileMatches ? Sh309Readback.Matches : Sh309Readback.Different;
+                }
+                else if (reportedForChip && service.ServiceError == 4)
                     result = Sh309Readback.Different;
                 else if (!reportedForChip && chip.ProfileMatches)
                     result = Sh309Readback.Matches;
-                else if (!reportedForChip && service.ServiceFailed && chip.LastError == 4)
-                {
-                    // C087 checks every chip and reports only the first failure in the service result.
-                    result = Sh309Readback.Different;
-                    detail = $"配置不匹配，寄存器 0x{chip.LastRegister:X2}";
-                }
                 if (reportedForChip)
                     detail = $"{C077Parameters.ErrorText(service.ServiceError)}，寄存器 0x{service.ServicePosition & 255:X2}";
+                else if (result == Sh309Readback.Different)
+                    detail = "实际档案有差异";
                 else if (chip.LastError != 0 && result == Sh309Readback.Unknown)
                     detail = $"{C077Parameters.ErrorText(chip.LastError)}，寄存器 0x{chip.LastRegister:X2}（最近诊断）";
             }

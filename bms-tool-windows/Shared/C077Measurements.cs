@@ -108,6 +108,8 @@ public sealed class C077Measurements
                 var faults = Enumerable.Range(0, FaultNames.Length)
                     .Where(bit => (chipFaults[chip] & (1 << bit)) != 0).Select(bit => FaultNames[bit]).ToArray();
                 if (faults.Length != 0) messages.Add($"AFE{chip + 1} {string.Join("、", faults)}");
+                if (chip == 0 && _words[0] == 0xC077 && (chipFaults[chip] & (1 << 13)) != 0)
+                    messages.Add("AFE1 启动检查通过，自动零点未应用");
             }
             if (MismatchMask != 0)
             {

@@ -17,6 +17,12 @@ static class Test
             dual[0].Readback == Sh309Readback.Matches && dual[1].Readback == Sh309Readback.Different &&
             dual[1].Actual?[1] != 4300 && wire.ConfigurationWrites == 0,
             "common dual-chip read keeps each Flash target and live difference");
+        await wire.Configure("@blockafe2");
+        var partial = (await Sh309Protection.ReadAsync(client)).Chips;
+        Check(partial[0].Readback == Sh309Readback.Matches && partial[0].Actual?[1] == 4260 &&
+            partial[1].Readback == Sh309Readback.Unknown && partial[1].Actual is null && partial[1].Saved[1] == 4300,
+            "AFE2 transport failure invalidates its cached mismatch while AFE1 stays confirmed");
+        await wire.Configure("@clearbus");
         wire.RejectVerify = true;
         var failed = (await Sh309Protection.ReadAsync(client)).Chips;
         Check(failed.All(c => c.Actual is null && c.Readback == Sh309Readback.Unknown) &&

@@ -133,6 +133,7 @@ public sealed record C077HardwareField(int Index,string Key,string Name,string U
 public sealed record C077HardwareSnapshot(ushort[][] Saved,ushort[][] Expected,C077AfeSnapshot Actual)
 {
     public bool EepromReadbackConfirmed { get; init; }
+    public byte? EepromReadbackMask { get; init; }
 }
 public sealed class C077HardwareFile
 {
@@ -246,7 +247,7 @@ public static class C077Hardware
 }
 public sealed partial class BmsClient
 {
-    private async Task RequireC077HardwareAsync(CancellationToken ct)
+    private async Task<ushort> RequireC077HardwareAsync(CancellationToken ct)
     {
         if(!IsC077)throw new NotSupportedException("设备必须明确识别为C077。");
         var h=await ReadRegistersAsync(C077Hardware.Header,7,ct);
@@ -255,17 +256,34 @@ public sealed partial class BmsClient
         if (flags is [var status] && (status >> 8) == C077Parameters.ProductionSeriesMismatch)
             throw new IOException(C077Parameters.ProductionSeriesMismatchMessage);
         if(flags.Length!=1||(flags[0]&1)==0)throw new IOException("MCU Flash参数尚未就绪；当前RAM默认值不能作为已保存Flash配置，请先检查存储诊断。");
+        return h[5];
     }
     public async Task<C077HardwareSnapshot> ReadC077HardwareAsync(bool verifyEeprom=false,CancellationToken ct=default)
     {
-        await RequireC077HardwareAsync(ct);
-        if(verifyEeprom)await WriteSingleRegisterAsync(C077Parameters.ServiceRegister,0xC087,ct);
-        var saved=await ReadRegistersAsync(C077Hardware.ConfigBase,64,ct);
-        var expected=await ReadRegistersAsync(C077Hardware.ExpectedBase,32,ct);
+        ushort flags = await RequireC077HardwareAsync(ct);
+        bool supportsReadbackEvidence = (flags & 0x8000) != 0;
+        if (verifyEeprom) await WriteSingleRegisterAsync(C077Parameters.ServiceRegister, 0xC087, ct);
+        ushort[]? before = supportsReadbackEvidence && verifyEeprom
+            ? await ReadRegistersAsync(C077Hardware.Header + 5, 4, ct) : null;
+        var saved = await ReadRegistersAsync(C077Hardware.ConfigBase, 64, ct);
+        var expected = await ReadRegistersAsync(C077Hardware.ExpectedBase, 32, ct);
         var actual = await ReadC077AfeAsync(ct);
-        return new(new[]{saved[..32],saved[32..]},new[]{expected[..16],expected[16..]},actual)
+        byte? confirmed = supportsReadbackEvidence ? (byte)0 : null;
+        if (before is not null && actual.ServiceState == 0)
         {
-            EepromReadbackConfirmed = verifyEeprom && !actual.ServiceFailed && actual.Chips.All(c => c.ProfileMatches)
+            var after = await ReadRegistersAsync(C077Hardware.Header + 5, 4, ct);
+            for (int chip = 0; chip < 2; chip++)
+            {
+                int validity = 0x0100 << chip;
+                if ((before[0] & after[0] & validity) != 0 && before[2 + chip] == after[2 + chip])
+                    confirmed = (byte)(confirmed.GetValueOrDefault() | (1 << chip));
+            }
+        }
+        return new(new[] { saved[..32], saved[32..] }, new[] { expected[..16], expected[16..] }, actual)
+        {
+            EepromReadbackMask = confirmed,
+            EepromReadbackConfirmed = verifyEeprom && (confirmed == 3 || (confirmed is null && !actual.ServiceFailed)) &&
+                actual.Chips.All(c => c.ProfileMatches)
         };
     }
     public async Task SaveC077HardwareAsync(int chip,ushort[] values,ushort[]? observed=null,CancellationToken ct=default)
