@@ -18,20 +18,21 @@ internal static class CurrentCalibrationTest
     {
         CheckProtocolAsync().GetAwaiter().GetResult();
         CheckWindow();
-        Console.WriteLine("CURRENT_CALIBRATION_PASS: four product identities, original gain preserved including legacy range, exact grouped write/readback, refusal paths, both UI save modes; no hardware access");
+        Console.WriteLine("CURRENT_CALIBRATION_PASS: five product identities, original gain preserved including legacy range, exact grouped write/readback, refusal paths, both UI save modes; no hardware access");
     }
 
     private static async Task CheckProtocolAsync()
     {
         var policy = new CurrentCalibrationPolicy(SampleCount: 4, TimeoutSeconds: 1);
-        string[] products = { "D008", "D011", "D013", "D014" };
-        uint[] gains = { 100000, 1234567, 3000000, 10000000 };
+        string[] products = { "D008", "D011", "D013", "D014", "HS-D015" };
+        uint[] gains = { 100000, 1234567, 3000000, 10000000, 1100000 };
         for (int i = 0; i < products.Length; i++)
         {
             var transport = new CalibrationTransport(products[i], gains[i]);
             await using var client = new BmsClient(transport);
             var session = await client.BeginCurrentCalibrationAsync(CancellationToken.None);
             Check(session.Identity.Hardware == products[i], "Product identity");
+            Check(client.IsD015 == (products[i] == "HS-D015"), "D015 recognition uses D130");
             session.ZeroOnly = true;
             session.Zero = await client.CollectCurrentCalibrationAsync(session, true, policy, null, CancellationToken.None);
             var candidate = policy.CalculateZeroOnly(session.Zero, session.Original);
@@ -198,6 +199,7 @@ internal sealed class CalibrationTransport : IBmsTransport
             int count = BinaryPrimitives.ReadUInt16BigEndian(request.AsSpan(4, 2));
             ushort[] words = new ushort[count];
             if (address == 0x2e00) words = new ushort[] { 0xd008, 2, Capability ? (ushort)0x0400 : (ushort)0 };
+            else if (address == 0xd130 && Product == "HS-D015") words = new ushort[] { 0xd015, 0x0320 };
             else if (address == 0x2e24)
                 words = (MismatchReadback && Writes != 0 ? Parameters with { GainPpm = Parameters.GainPpm + 1 } : Parameters).Words;
             else if (address == 0x2e28)
@@ -231,7 +233,8 @@ internal sealed class CalibrationTransport : IBmsTransport
             if (command == 1)
             {
                 _token = ++_generation;
-                body = new byte[] { 1, 0x42, 1, 0, (byte)(_token >> 8), (byte)_token, 0, 60, 2, 0x35, 0x10 };
+                byte modelLow = Product == "HS-D015" ? (byte)0x20 : (byte)0x10;
+                body = new byte[] { 1, 0x42, 1, 0, (byte)(_token >> 8), (byte)_token, 0, 60, 2, 0x35, modelLow };
             }
             else if (_token == 0 || BinaryPrimitives.ReadUInt16BigEndian(request.AsSpan(3, 2)) != _token)
                 body = new byte[] { 1, 0x42, command, 2 };
