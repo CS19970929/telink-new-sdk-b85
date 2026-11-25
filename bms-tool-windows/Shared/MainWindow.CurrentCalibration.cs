@@ -21,6 +21,8 @@ public partial class MainWindow
     private readonly Button _currentCalibrationSave = new() { Content = "③ 保存校准" };
     private readonly Button _currentCalibrationCancel = new() { Content = "取消" };
     private readonly Button _currentCalibrationRestore = new() { Content = "恢复本次校准前参数" };
+    private readonly Button _currentCalibrationRead = new() { Content = "读取当前参数" };
+    private readonly Button _currentCalibrationDefaults = new() { Content = "恢复固件默认值" };
     private CurrentCalibrationSession? _currentCalibrationSession, _currentCalibrationRecord;
     private CancellationTokenSource? _currentCalibrationCts;
     private BmsClient? _currentCalibrationOwner;
@@ -43,7 +45,7 @@ public partial class MainWindow
         input.Children.Add(_currentCalibrationReference); root.Children.Add(input);
         var buttons = new WrapPanel();
         foreach (var button in new[] { _currentCalibrationZero, _currentCalibrationZeroSave, _currentCalibrationLoad, _currentCalibrationSave,
-            _currentCalibrationCancel, _currentCalibrationRestore })
+            _currentCalibrationCancel, _currentCalibrationRead, _currentCalibrationDefaults, _currentCalibrationRestore })
         { button.Margin = new Thickness(4); button.Padding = new Thickness(8,4,8,4); buttons.Children.Add(button); }
         root.Children.Add(buttons);
         var export = new Button { Content = "导出校准记录", HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(4) };
@@ -53,6 +55,8 @@ public partial class MainWindow
         _currentCalibrationLoad.Click += async (_,_) => await CaptureLoadedCurrentAsync();
         _currentCalibrationSave.Click += async (_,_) => await CommitCurrentCalibrationAsync();
         _currentCalibrationRestore.Click += async (_,_) => await RestoreCurrentCalibrationAsync();
+        _currentCalibrationRead.Click += async (_,_) => await ReadCurrentCalibrationSettingsAsync();
+        _currentCalibrationDefaults.Click += async (_,_) => await RestoreCurrentCalibrationDefaultsAsync();
         _currentCalibrationCancel.Click += async (_,_) => await CancelCurrentCalibrationAsync("用户取消校准");
         void Changed()
         {
@@ -141,9 +145,9 @@ public partial class MainWindow
         UpdateCurrentCalibrationControls();
         if (!_currentCalibrationBusy) await FinishCurrentCalibrationAsync();
     }
-    private async Task<bool> AcquireCurrentCalibrationAsync()
+    private async Task<bool> AcquireCurrentCalibrationAsync(bool readOnly = false)
     {
-        if (!CurrentCalibrationAllowed()) return false;
+        if (!readOnly && !CurrentCalibrationAllowed()) return false;
         var client = _bms;
         if (client is null || _currentCalibrationWindowClosed || _currentCalibrationFinishing || _currentCalibrationOwner is not null ||
             _parameterBusy || _diagBusy || _eventLogReadInProgress || _bmsTransport?.IsConnected == false ||
@@ -201,11 +205,11 @@ public partial class MainWindow
             session.ReferenceMa = reference;
             session.Loaded = await session.Client.CollectCurrentCalibrationAsync(session, false, CurrentCalibrationPolicy.Default,
                 (done,total) => _currentCalibrationStatus.Text = $"采集电流点 {done}/{total}…", ct);
-            session.Candidate = CurrentCalibrationPolicy.Default.Calculate(session.Zero, session.Loaded, reference);
+            session.Candidate = CurrentCalibrationPolicy.Default.Calculate(session.Zero, session.Loaded, reference, session.Original);
             double before = session.Original.Apply(session.Loaded.MeanMa) / 1000;
             _currentCalibrationStatus.Text = $"候选已生成，尚未保存。外部参考 {Math.Abs(reference)/1000d:F3} A；按旧参数约 {Math.Abs(before):F3} A；按候选约 {Math.Abs(session.Candidate.Apply(session.Loaded.MeanMa))/1000:F3} A。点击保存。";
 #if BMS_FACTORY_APP
-            _currentCalibrationStatus.Text += $"\n原始零点 {session.Zero.MeanMa:F3} mA；加载 {session.Loaded.MeanMa:F3} mA，范围 {session.Loaded.MinMa}～{session.Loaded.MaxMa}；offset={session.Candidate.OffsetMa} mA，gain={session.Candidate.GainPpm} ppm。";
+            _currentCalibrationStatus.Text += $"\n原始零点 {session.Zero.MeanMa:F3} mA；加载 {session.Loaded.MeanMa:F3} mA，范围 {session.Loaded.MinMa}～{session.Loaded.MaxMa}。{session.Candidate.Display}。";
 #endif
         });
     }
@@ -233,6 +237,46 @@ public partial class MainWindow
             ShowParameterSaved(_currentCalibrationStatus.Text);
         });
     }
+    private async Task ReadCurrentCalibrationSettingsAsync()
+    {
+        if (!await AcquireCurrentCalibrationAsync(readOnly: true)) return;
+        await RunCurrentCalibrationStepAsync(async ct => {
+            var client = _currentCalibrationOwner ?? throw new IOException("连接已改变。");
+            var values = await client.ReadCurrentCalibrationAsync(ct);
+            _currentCalibrationStatus.Text = "当前校准参数 " + values.Display + "。";
+            await FinishCurrentCalibrationAsync();
+        });
+    }
+
+    private async Task RestoreCurrentCalibrationDefaultsAsync()
+    {
+        if (!await AcquireCurrentCalibrationAsync()) return;
+        await RunCurrentCalibrationStepAsync(async ct => {
+            var client = _currentCalibrationOwner ?? throw new IOException("连接已改变。");
+            var identity = await client.ReadIdentityAsync(ct);
+            var defaults = await client.ReadCurrentCalibrationDefaultsAsync(ct);
+            var current = await client.ReadCurrentCalibrationAsync(ct);
+            string prompt = $"设备 SN：{identity.Serial}\n当前：{current.Display}\n默认：{defaults.Display}\n\n确认清除当前单板校准系数并写入固件默认值？";
+            if (MessageBox.Show(this, prompt, "恢复固件校准默认值", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+                != MessageBoxResult.Yes)
+            {
+                await FinishCurrentCalibrationAsync();
+                return;
+            }
+            var session = await client.BeginCurrentCalibrationAsync(ct);
+            _currentCalibrationSession = session;
+            if (session.Identity != identity || session.Original != current || !ReferenceEquals(client, _bms))
+                throw new IOException("设备或参数已改变，请重新读取后确认。");
+            _currentCalibrationRecord = session;
+            session.Candidate = defaults;
+            await client.SaveCurrentCalibrationAsync(session, defaults, ct);
+            session.Outcome = "已恢复固件默认值，读回并核对样本。";
+            _currentCalibrationStatus.Text = "已恢复固件默认值 " + defaults.Display + "。";
+            await FinishCurrentCalibrationAsync();
+            ShowParameterSaved(_currentCalibrationStatus.Text);
+        });
+    }
+
     private async Task RestoreCurrentCalibrationAsync()
     {
         var previous = _currentCalibrationRecord;
@@ -318,6 +362,7 @@ public partial class MainWindow
         bool sessionReady = ready && active && ReferenceEquals(_currentCalibrationOwner, _bms) &&
             _currentCalibrationCts?.IsCancellationRequested == false && _currentCalibrationSession is { Closed: false, ConnectionLost: false };
         _currentCalibrationZero.IsEnabled = ready && !active && _bms is not null && !_parameterBusy && !_diagBusy;
+        _currentCalibrationRead.IsEnabled = _currentCalibrationDefaults.IsEnabled = _currentCalibrationZero.IsEnabled;
         _currentCalibrationZeroSave.IsEnabled = sessionReady && _currentCalibrationSession?.Zero is not null && _currentCalibrationSession.Loaded is null;
         _currentCalibrationLoad.IsEnabled = sessionReady && _currentCalibrationSession?.Zero is not null;
         _currentCalibrationSave.IsEnabled = sessionReady && _currentCalibrationSession?.Candidate is not null;

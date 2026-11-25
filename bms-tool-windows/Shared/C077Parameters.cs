@@ -19,7 +19,7 @@ public sealed record C077AfeSnapshot(ushort ServiceState,ushort ServiceError,ush
     public bool ZeroReady=>Chips.All(c=>c.ProfileMatches)&&Chips[0].ZeroState==2&&!Chips[1].CurrentEnabled;
     public string Summary=>$"维修状态{ServiceState}，结果={C077Parameters.ErrorText(ServiceError)}，位置=AFE{(ServicePosition>>8)+1}/0x{ServicePosition&255:X2}；软件输出=0x{OutputRequest:X2}，AFE许可/状态=0x{Permissions:X2}，聚合保护=0x{Protection:X2}，采样有效={SampleValid}，开启待确认={OpeningPending}，控制故障={DriverFault}\n"+
         string.Join("\n",Chips.Select((c,i)=>$"AFE{i+1}：档案{(c.ProfileMatches?"匹配":"不匹配")}，{(UsesPersistentCalibration?"启动检查":"校零")}{c.ZeroStateText}"+
-            (c.CurrentEnabled?$"，样本{c.ZeroSamples}/8，电流(充正/放负){c.CurrentTenthA/10m}A":"，电流采样未启用")+
+            (c.CurrentEnabled?$"，样本{c.ZeroSamples} 点，电流(充正/放负){c.CurrentTenthA/10m}A":"，电流采样未启用")+
             $"，AFE 状态有效={c.Valid}；CONF=0x{c.Conf:X2}，BSTATUS={c.Status1:X2}/{c.Status2:X2}/{c.Status3:X2}；最近错误={C077Parameters.ErrorText(c.LastError)}@0x{c.LastRegister:X2}；{c.HardwareCurrentText}"));
     public static C077AfeSnapshot Parse(ushort[] words)
     {

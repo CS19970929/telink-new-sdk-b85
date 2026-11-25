@@ -4,27 +4,40 @@ using System.IO;
 
 namespace BmsTool.Windows;
 
-public sealed record CurrentCalibrationCoefficients(int OffsetMa, uint GainPpm)
+public sealed record CurrentCalibrationCoefficients(int OffsetMa, uint GainPpm, uint? ChargeGainPpm = null)
 {
-    public ushort[] Words => D008Parameters.Calibration(OffsetMa, GainPpm);
-    public double Apply(double rawMa) => (rawMa - OffsetMa) * GainPpm / 1000000d;
+    public bool Directional => ChargeGainPpm.HasValue;
+    public string Display => ChargeGainPpm is uint charge
+        ? $"零偏 {OffsetMa} mA，充电 {charge} ppm，放电 {GainPpm} ppm"
+        : $"零偏 {OffsetMa} mA，共用增益 {GainPpm} ppm";
+    public ushort[] Words => ChargeGainPpm is uint charge
+        ? [.. D008Parameters.Calibration(OffsetMa, GainPpm), (ushort)charge, (ushort)(charge >> 16)]
+        : D008Parameters.Calibration(OffsetMa, GainPpm);
+    private uint GainFor(double delta) => delta < 0 ? ChargeGainPpm ?? GainPpm : GainPpm;
+    public double Apply(double rawMa)
+    {
+        double delta = rawMa - OffsetMa;
+        return delta * GainFor(delta) / 1000000d;
+    }
     public int ApplyMilliampere(int rawMa)
     {
         long delta = Math.Max(-int.MaxValue, Math.Min(int.MaxValue, (long)rawMa - OffsetMa));
-        long magnitude = Math.Min(int.MaxValue, Math.Abs(delta) * GainPpm / 1000000L);
+        long magnitude = Math.Min(int.MaxValue, Math.Abs(delta) * GainFor(delta) / 1000000L);
         return (int)(delta < 0 ? -magnitude : magnitude);
     }
     public static CurrentCalibrationCoefficients Decode(ushort[] words)
     {
-        if (words.Length != 4) throw new IOException("电流校准参数长度错误。");
-        var value = new CurrentCalibrationCoefficients(D008Parameters.I32(words, 0), D008Parameters.U32(words, 2));
+        if (words.Length is not (4 or 6)) throw new IOException("电流校准参数长度错误。");
+        var value = new CurrentCalibrationCoefficients(D008Parameters.I32(words, 0), D008Parameters.U32(words, 2),
+            words.Length == 6 ? D008Parameters.U32(words, 4) : null);
         value.Validate();
         return value;
     }
     public void Validate()
     {
         // 与现有固件存储范围一致；恢复旧参数不能误用向导的较窄候选范围。
-        if (OffsetMa < -1000000 || OffsetMa > 1000000 || GainPpm < 100000 || GainPpm > 10000000)
+        if (OffsetMa < -1000000 || OffsetMa > 1000000 || GainPpm is < 100000 or > 10000000 ||
+            ChargeGainPpm is < 100000 or > 10000000)
             throw new ArgumentException("电流校准参数超出固件范围。");
     }
 }
@@ -50,10 +63,12 @@ public sealed record CurrentCalibrationPolicy(int SampleCount = 20, int TimeoutS
             throw new ArgumentException("电流校准采集策略无效。");
     }
     public CurrentCalibrationCoefficients Calculate(CurrentCalibrationSamples zero,
-        CurrentCalibrationSamples loaded, int referenceMa)
+        CurrentCalibrationSamples loaded, int referenceMa, CurrentCalibrationCoefficients? original = null)
     {
         Validate();
-        int offset = checked((int)Math.Round(zero.MeanMa, MidpointRounding.AwayFromZero));
+        // 双向标定只改当前方向的斜率。公共零偏由“仅保存零点”单独更新。
+        int offset = original is { Directional: true } ? original.OffsetMa :
+            checked((int)Math.Round(zero.MeanMa, MidpointRounding.AwayFromZero));
         double delta = loaded.MeanMa - offset;
         if (Math.Abs((double)referenceMa) < MinLoadedMa || Math.Abs(delta) < MinLoadedMa ||
             Math.Sign(delta) != Math.Sign(referenceMa))
@@ -61,7 +76,10 @@ public sealed record CurrentCalibrationPolicy(int SampleCount = 20, int TimeoutS
         double gain = Math.Round(referenceMa / delta * 1000000d, MidpointRounding.AwayFromZero);
         if (double.IsNaN(gain) || gain < MinCandidateGainPpm || gain > MaxCandidateGainPpm)
             throw new ArgumentException("计算增益异常，未生成候选；请检查参考电流、单位及采样回路。");
-        var result = new CurrentCalibrationCoefficients(offset, checked((uint)gain));
+        uint gainPpm = checked((uint)gain);
+        var result = original is { Directional: true }
+            ? referenceMa < 0 ? original with { ChargeGainPpm = gainPpm } : original with { GainPpm = gainPpm }
+            : new CurrentCalibrationCoefficients(offset, gainPpm);
         result.Validate();
         return result;
     }
@@ -73,8 +91,7 @@ public sealed record CurrentCalibrationPolicy(int SampleCount = 20, int TimeoutS
         if (double.IsNaN(zero.MeanMa) || double.IsInfinity(zero.MeanMa) || Math.Abs(zero.MeanMa) > ZeroMaxAbsMa)
             throw new ArgumentException("零点残差超出采集范围，请确认实际电流为零。");
         // 零点校准不能重新计算增益，也不能将合法旧增益限制到两点候选范围。
-        var result = new CurrentCalibrationCoefficients(
-            checked((int)Math.Round(zero.MeanMa, MidpointRounding.AwayFromZero)), original.GainPpm);
+        var result = original with { OffsetMa = checked((int)Math.Round(zero.MeanMa, MidpointRounding.AwayFromZero)) };
         result.Validate();
         return result;
     }
@@ -131,10 +148,10 @@ public sealed class CurrentCalibrationSession
         "UTC: " + StartedUtc.ToString("O", CultureInfo.InvariantCulture),
         "上位机: " + BuildIdentity.Display,
         $"设备: SN={Identity.Serial}; MAC={Identity.Mac}; HW={Identity.Hardware}; SW={Identity.Software}",
-        $"原参数: offset_ma={Original.OffsetMa}; gain_ppm={Original.GainPpm}",
+        $"原参数: {Original.Display}",
         "零点: " + Describe(Zero), "加载点: " + Describe(Loaded),
         ZeroOnly ? "外部参考: 确认实际电流为零，无加载点" : $"外部实测参考: {ReferenceMa} mA（正放电、负充电）",
-        Candidate is null ? "候选: 无" : $"候选: offset_ma={Candidate.OffsetMa}; gain_ppm={Candidate.GainPpm}",
+        Candidate is null ? "候选: 无" : $"候选: {Candidate.Display}",
         $"写入已尝试: {WriteAttempted}; 保存核对完成: {SaveVerified}; 连接/时钟失效: {ConnectionLost}",
         "结果: " + Outcome
     });
@@ -145,22 +162,40 @@ public sealed class CurrentCalibrationSession
 public sealed partial class BmsClient
 {
     public const ushort LinearCurrentCalibrationCapability = 0x0400;
-    private async Task<ushort> RequireLinearCurrentCalibrationAsync(CancellationToken ct)
+    private async Task<(ushort Product, bool Directional)> RequireLinearCurrentCalibrationAsync(CancellationToken ct)
     {
         var header = await ReadRegistersAsync(0x2E00, 3, ct);
-        if (header is [0xC060 or 0xC077,1,1]) return header[0];
+        if (header is [0xC077,2,1]) return (header[0], true);
+        if (header is [0xC060 or 0xC077,1,1]) return (header[0], false);
         if (header.Length != 3 || header[0] != D008Parameters.Magic ||
             !D008Parameters.SupportsProtocol(header[1]) || (header[2] & LinearCurrentCalibrationCapability) == 0)
             throw new NotSupportedException("当前固件未声明支持持久电流校准；请使用配套固件。未发送参数写入。");
-        return 0;
+        return (0, false);
     }
+
+    private Task<ushort[]> ReadCurrentCalibrationWordsAsync(bool directional, CancellationToken ct) =>
+        ReadRegistersAsync(directional ? (ushort)0x2E34 : (ushort)0x2E24, directional ? (ushort)6 : (ushort)4, ct);
+
+    public async Task<CurrentCalibrationCoefficients> ReadCurrentCalibrationAsync(CancellationToken ct)
+    {
+        var capability = await RequireLinearCurrentCalibrationAsync(ct);
+        return CurrentCalibrationCoefficients.Decode(await ReadCurrentCalibrationWordsAsync(capability.Directional, ct));
+    }
+
+    public async Task<CurrentCalibrationCoefficients> ReadCurrentCalibrationDefaultsAsync(CancellationToken ct)
+    {
+        var capability = await RequireLinearCurrentCalibrationAsync(ct);
+        if (!capability.Directional) throw new NotSupportedException("当前固件未提供校准默认值。");
+        return CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E3C, 6, ct));
+    }
+
     public async Task<CurrentCalibrationSession> BeginCurrentCalibrationAsync(CancellationToken ct)
     {
-        ushort nativeProduct=await RequireLinearCurrentCalibrationAsync(ct);
+        var (nativeProduct, directional) = await RequireLinearCurrentCalibrationAsync(ct);
         bool native=nativeProduct!=0;
         var identity = await ReadIdentityAsync(ct);
         if(native && (nativeProduct==0xC077 ? !IsC077 : !IsC060 || IsC077))throw new IOException("校准能力与当前设备身份不一致。");
-        var original = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
+        var original = CurrentCalibrationCoefficients.Decode(await ReadCurrentCalibrationWordsAsync(directional, ct));
         AfeHardwareAccessSession access;
         if(native) {
             await WriteSingleRegisterAsync(0x2E30,0xCA01,ct);
@@ -215,12 +250,12 @@ public sealed partial class BmsClient
         // 已正常关闭授权的保存记录仍可校验时钟，但不能再用于原 token 的写入。
         await ReadCurrentCalibrationSampleAsync(session, ct);
     }
-    private async Task<ushort[]> ReadCurrentCalibrationSampleAsync(CurrentCalibrationSession session, CancellationToken ct)
+    private async Task<ushort[]> ReadCurrentCalibrationSampleAsync(CurrentCalibrationSession session, CancellationToken ct, bool allowInvalid = false)
     {
         RequireCurrentCalibrationConnection(session);
         var words = await ReadRegistersAsync(0x2E28, 7, ct);
         RequireCurrentCalibrationConnection(session);
-        session.ObserveSample(words);
+        if (!allowInvalid || words[4] == 1) session.ObserveSample(words);
         return words;
     }
     public async Task CheckCurrentCalibrationAsync(CurrentCalibrationSession session, CancellationToken ct)
@@ -228,8 +263,9 @@ public sealed partial class BmsClient
         if (session.Closed || !ReferenceEquals(session.Client, this)) throw new IOException("校准会话已失效。");
         // 沿用 RAM 授权 token：MCU 重启、其他会话接管或超时后，不重新 OPEN 冒充原会话。
         await HeartbeatCurrentCalibrationAsync(session, ct);
-        if(await RequireLinearCurrentCalibrationAsync(ct)!=session.NativeProduct)throw new IOException("校准协议已变化，旧会话失效。");
-        var current = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
+        if (await RequireLinearCurrentCalibrationAsync(ct) != (session.NativeProduct, session.Original.Directional))
+            throw new IOException("校准协议已变化，旧会话失效。");
+        var current = CurrentCalibrationCoefficients.Decode(await ReadCurrentCalibrationWordsAsync(session.Original.Directional, ct));
         if (current != session.Original) throw new IOException("采集期间设备校准参数已变化，请重新采集。");
         await VerifyCurrentCalibrationContinuityAsync(session, ct);
     }
@@ -271,23 +307,27 @@ public sealed partial class BmsClient
         CurrentCalibrationCoefficients candidate, CancellationToken ct)
     {
         candidate.Validate();
-        if (session.ZeroOnly && candidate.GainPpm != session.Original.GainPpm)
+        if (candidate.Directional != session.Original.Directional)
+            throw new ArgumentException("校准系数与当前设备协议不匹配。");
+        if (session.ZeroOnly && (candidate.GainPpm != session.Original.GainPpm ||
+            candidate.ChargeGainPpm != session.Original.ChargeGainPpm))
             throw new ArgumentException("仅校准零点必须保留设备原增益，未发送写命令。");
         await CheckCurrentCalibrationAsync(session, ct);
         await ReadCurrentCalibrationSampleAsync(session, ct);
         ct.ThrowIfCancellationRequested();
         session.WriteAttempted = true;
-        await WriteRegistersAsync(0x2E24, session.UsesNativeProtocol ? new[]{session.Access.Token}.Concat(candidate.Words).ToArray() : candidate.Words, ct);
-        var actual = CurrentCalibrationCoefficients.Decode(await ReadRegistersAsync(0x2E24, 4, ct));
+        await WriteRegistersAsync(candidate.Directional ? (ushort)0x2E34 : (ushort)0x2E24,
+            session.UsesNativeProtocol ? [session.Access.Token, .. candidate.Words] : candidate.Words, ct);
+        var actual = CurrentCalibrationCoefficients.Decode(await ReadCurrentCalibrationWordsAsync(candidate.Directional, ct));
         if (actual != candidate) throw new IOException("校准写入后读回不一致，请重新读取；不要盲目重复写入。");
         await HeartbeatCurrentCalibrationAsync(session, ct);
         // 以写入/读回之后的缓存为界；写命令前取得的 tick 不能排除途中产生的旧系数帧。
-        var fence = await ReadCurrentCalibrationSampleAsync(session, ct);
+        var fence = await ReadCurrentCalibrationSampleAsync(session, ct, allowInvalid: true);
         uint fenceTick = D008Parameters.U32(fence, 5);
         var timer = Stopwatch.StartNew();
         while (timer.Elapsed < TimeSpan.FromSeconds(3))
         {
-            var sample = await ReadCurrentCalibrationSampleAsync(session, ct);
+            var sample = await ReadCurrentCalibrationSampleAsync(session, ct, allowInvalid: true);
             if (sample[4] == 1 && D008Parameters.U32(sample, 5) != fenceTick)
             {
                 int finalMa = D008Parameters.I32(sample, 2);
