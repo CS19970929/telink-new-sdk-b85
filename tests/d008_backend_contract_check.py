@@ -305,8 +305,10 @@ def check_d008_common_port_fet_contract_check():
             policy = function(bms, "uint8_t bms_afe_driver_set_fets(")
             self.assertIn("dvc1124_fet_drive_t charge_mode = DVC1124_FET_DRIVE_OFF", policy)
             self.assertIn("dvc1124_fet_drive_t discharge_mode = DVC1124_FET_DRIVE_OFF", policy)
-            self.assertIn("return (!s_guard.comm_inhibit && !s_guard.bus_silenced &&", guard)
-            self.assertIn("!s_guard.shutdown_committed) ? 1u : 0u;", guard)
+            self.assertIn("return !s_guard.comm_inhibit && bms_afe_bus_access_allowed();", guard)
+            self.assertIn("return s_guard.bus_state == AFE_BUS_ACTIVE;", guard)
+            self.assertIn("AFE_BUS_WAIT", guard)
+            self.assertIn("AFE_BUS_SHUTDOWN", guard)
             self.assertNotIn("BMS_AFE_REINIT_TRIGGER", guard)
 
     if __name__ == "__main__":

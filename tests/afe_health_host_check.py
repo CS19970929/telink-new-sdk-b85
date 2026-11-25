@@ -155,6 +155,11 @@ int main(void){
  balance_ok=1;now+=5001;poll();qualify();
  #endif
  status=BMS_AFE_SAMPLE_ERROR;poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));
+ /* 主动 Shutdown 与失联静默互斥，不可被普通恢复时限自动唤醒。 */
+ qualify();assert(bms_afe_sleep() && !c && !d && !bms_afe_bus_access_allowed());
+ unsigned shutdown_samples=samples, shutdown_inits=initializations;
+ now+=10000u;poll();
+ assert(samples==shutdown_samples && initializations==shutdown_inits);
  qualify();bms_afe_invalidate_configuration();assert(!c&&!d);
  for(unsigned i=0;i<20;i++)poll();assert(!c&&!d&&bms_error_get(BMS_ERROR_AFE1));
  puts("PASS guard：999/1000ms、tick回绕、瞬时/间歇失败无OFF、只关闭不新开、事务持续失败、静默和完整有效读取恢复、配置禁止");
