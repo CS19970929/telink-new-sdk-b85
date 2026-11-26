@@ -1,6 +1,10 @@
+#ifdef D008_WIRED_HOST
+#include "tests/wired_mock.h"
+#else
 #include "tl_common.h"
 #include "drivers.h"
 #include "stack/ble/ble.h"
+#endif
 #include "registers.h"
 #include "link.h"
 #include "sif.h"
@@ -13,7 +17,9 @@ static volatile bool uart_mode,rx_ready,transmitting;
 static volatile unsigned edges;
 static volatile uint32_t first_edge;
 static bool high_seen,pad_armed;
-static uint32_t high_ms,last_uart_ms,last_frame_ms,last_cell_ms;
+static uint32_t last_uart_ms,last_frame_ms,last_cell_ms;
+static volatile uint32_t frame_due;
+enum { LISHEN_IDLE_TICKS=16000000 };
 static unsigned startup,identity_count;
 static uint8_t wave[64];
 static volatile unsigned wave_size,position,phase_ticks;
@@ -71,7 +77,9 @@ _attribute_ram_code_ static void wave_irq(void)
     if (++phase_ticks==duration) {
         phase_ticks=0;
         if (++position>wave_size*8+1) {
-            stop_timer(); gpio_write(TX,1); gpio_set_output_en(TX,0);
+            stop_timer(); gpio_write(TX,1);
+            if (D008_LISHEN) frame_due=clock_time()+LISHEN_IDLE_TICKS;
+            else gpio_set_output_en(TX,0);
         }
     }
 }
@@ -97,12 +105,19 @@ _attribute_ram_code_ void wired_irq(void)
 }
 bool wired_busy(void)
 {
-    return uart_mode || transmitting || gpio_read(RX) || edges;
+    return uart_mode || transmitting || edges ||
+        (D008_LISHEN ? high_seen!=(gpio_read(RX)!=0) : gpio_read(RX)!=0);
+}
+uint32_t wired_wakeup(uint32_t sample_tick)
+{
+    if (D008_LISHEN && high_seen && !transmitting && !uart_mode &&
+        (int32_t)(frame_due-sample_tick)<0) return frame_due;
+    return sample_tick;
 }
 void wired_prepare_suspend(void)
 {
     if (wired_busy()) return;
-    cpu_set_gpio_wakeup(RX,Level_High,1); pad_armed=true;
+    cpu_set_gpio_wakeup(RX,gpio_read(RX)?Level_Low:Level_High,1); pad_armed=true;
     bls_pm_setWakeupSource(PM_WAKEUP_PAD);
 }
 void wired_poll(uint32_t ms)
@@ -127,16 +142,27 @@ void wired_poll(uint32_t ms)
     irq_restore(irq);
     if (count>=3) {uart_enter(ms);return;}
     if (transmitting) return;
-    if (!gpio_read(RX)) {high_seen=false; startup=3; identity_count=0; return;}
-    if (!high_seen) {high_seen=true; high_ms=ms;}
-    if (ms-high_ms<50 || ms-last_frame_ms<50) return;
+    if (!gpio_read(RX)) {
+        if (high_seen) gpio_set_output_en(TX,0);
+        high_seen=false; startup=3; identity_count=0; return;
+    }
+    if (!high_seen) {
+        high_seen=true; last_frame_ms=ms;
+        frame_due=clock_time()+LISHEN_IDLE_TICKS;
+    }
+    if (D008_LISHEN) {
+        if ((int32_t)(clock_time()-frame_due)<0) return;
+    } else if (ms-last_frame_ms<50) return;
     uint8_t type=0x3a;
     if (startup) type=1;
     else if (identity_count) type=0x3c;
     else if (ms-last_cell_ms>=60000 || !last_cell_ms) type=0x3b;
     unsigned size=sif_frame(&device,D008_LISHEN,type,wave);
     last_frame_ms=ms;
-    if (!size) return;
+    if (!size) {
+        if (D008_LISHEN) frame_due=clock_time()+LISHEN_IDLE_TICKS;
+        return;
+    }
     if (type==1 && !--startup) last_cell_ms=0;
     if (type==0x3c) --identity_count;
     if (type==0x3b) {identity_count=last_cell_ms?1:3; last_cell_ms=ms;}

@@ -7,7 +7,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {"meter": ["meter"], "wide": ["sdk/wide"], "storage": ["store"], "history": ["history"],
-         "lishen": ["sif"], "lishen_extended": ["sif"]}
+         "lishen": ["sif"], "lishen_extended": ["sif"], "wire": ["sif"]}
 
 def main():
     compiler = os.environ.get("HOST_CC") or shutil.which("cc") or shutil.which("gcc")

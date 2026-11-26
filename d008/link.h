@@ -8,5 +8,6 @@ void wired_init(void);
 void wired_irq(void);
 void wired_poll(uint32_t ms);
 bool wired_busy(void);
+uint32_t wired_wakeup(uint32_t sample_tick);
 void wired_prepare_suspend(void);
 void wired_stop(void);

@@ -45,7 +45,7 @@ _attribute_ram_code_ int main(void)
     bls_app_registerEventCallback(BLT_EV_FLAG_SUSPEND_ENTER,sleep_enter);
     bls_app_registerEventCallback(BLT_EV_FLAG_SUSPEND_EXIT,sleep_exit);
     device_init(); wired_init();
-    uint32_t phase=clock_time(), last=phase, ms=0, fraction=0;
+    uint32_t phase=clock_time(), last=phase, ms=0, fraction=0, scheduled=0;
     wd_set_interval_ms(2000,TICKS_PER_MS); wd_clear(); wd_start();
     irq_enable(); wake_due=true;
     for (;;) {
@@ -74,8 +74,9 @@ _attribute_ram_code_ int main(void)
         if (hil_awake) sleep=false;
 #endif
         bls_pm_setSuspendMask(sleep?(SUSPEND_ADV|SUSPEND_CONN):SUSPEND_DISABLE);
-        if (due || wake_due) {
-            wake_due=false; bls_pm_setAppWakeupLowPower(phase+SAMPLE_TICKS,1);
+        uint32_t next=wired_wakeup(phase+SAMPLE_TICKS);
+        if (next!=scheduled || wake_due) {
+            scheduled=next; wake_due=false; bls_pm_setAppWakeupLowPower(next,1);
         }
     }
 }
