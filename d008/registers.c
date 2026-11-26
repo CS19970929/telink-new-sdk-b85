@@ -1,5 +1,8 @@
 #include "registers.h"
 #include <string.h>
+#if D008_COMM_TEST
+#include "tests/hil.h"
+#endif
 
 static unsigned word(const uint8_t *p) {return ((unsigned)p[0]<<8)|p[1];}
 static unsigned capacity_word(int64_t value) {return value>65535 ? 65535 : (unsigned)value;}
@@ -45,6 +48,9 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
 {
     const Config *c=&device.config;
     unsigned v=0;
+#if D008_COMM_TEST
+    if (r>=0x7c00 && r<0x7c16) return hil_read(r-0x7c00,value);
+#endif
     if (r<3) v=((unsigned)device_address[5-r*2]<<8)|device_address[4-r*2];
     else if (r>=0x0100 && r<0x010c) {
         static const uint8_t name[24]=D008_BLE_NAME;

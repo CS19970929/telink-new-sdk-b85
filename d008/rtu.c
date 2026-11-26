@@ -1,5 +1,8 @@
 #include "registers.h"
 #include <string.h>
+#if D008_COMM_TEST
+#include "tests/hil.h"
+#endif
 
 uint16_t rtu_crc(const uint8_t *p,unsigned n)
 {
@@ -109,6 +112,9 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
     if (s->received && ms-s->fragment_ms>5000) s->received=0;
     unsigned op=p[1], error=1, length=0;
     out[0]=p[0]; out[1]=op;
+#if D008_COMM_TEST
+    if (op==0x43) return p[0] && n>=5 ? hil_command(s,p,n,out,ms):0;
+#endif
     if (op==0x7f && p[0]) {memcpy(out,p,n); return n;}
     if (op==0x42) return p[0] && n>=5?maintenance(s,p,n,out,ms):0;
     if (n>=8) {
@@ -131,6 +137,11 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
                 n==9+count*2 && p[6]==count*2)) {
                 /* 广播无会话，不能借本地维护权限修改内部参数。 */
                 if (!p[0] && s->token) return 0;
+#if D008_COMM_TEST
+                if (p[0] && op==6 && (reg==0x7c20 || reg==0x7c21))
+                    error=hil_control(reg-0x7c20,be(p+4));
+                else
+#endif
                 error=D008_COMM_TEST?2:register_write(s,reg,count,p+(op==6?4:7),ms);
                 ++s->sequence; s->result=error;
                 memcpy(out,p,6); length=6;

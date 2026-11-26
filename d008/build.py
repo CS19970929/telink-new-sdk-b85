@@ -70,6 +70,8 @@ def main():
         sources.extend(SDK / path for path in ("drivers/B85/i2c.c", "drivers/B85/uart.c",
                                                "vendor/common/flash_prot.c"))
         sources.extend(sorted((SDK / "drivers/B85/flash").glob("flash_mid*.c")))
+    if args.comm_test:
+        sources.append(APP / "tests/hil.c")
     includes = [APP, SDK, SDK / "drivers/B85", SDK / "common", SDK / "vendor/common"]
     flags = ["-O2", "-std=gnu99", "-fshort-wchar", "-fpack-struct", "-fshort-enums",
              "-fno-jump-tables", "-ffunction-sections", "-fdata-sections",
