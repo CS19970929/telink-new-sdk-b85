@@ -85,6 +85,14 @@ bool store_append(Domain d,const void *data,unsigned size)
     if ((unsigned)d>=DOMAIN_COUNT || !data) return false;
     Journal *j=&journal[d];
     if (!j->ready || size!=j->bytes) return false;
+    if (d!=EVENT_DATA && j->latest) {
+        if (!nor_read(j->latest,verify,stride[d])) return false;
+        if (!valid(d,verify,size) || get32(verify+8)!=j->sequence) {
+            j->ready=false;
+            return false;
+        }
+        if (!memcmp(verify+12,data,size)) return true;
+    }
     unsigned sector=j->latest >= base[d]+SECTOR;
     if (j->next[sector]>=SECTOR) {
         sector^=1;

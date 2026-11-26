@@ -5,6 +5,7 @@
 
 static uint8_t flash[0x10000],baseline[sizeof(flash)];
 static int budget=-1;
+static unsigned erases[16], programs[16];
 bool nor_read(uint32_t at,void *out,unsigned n)
 {
     assert(at>=0x40000 && at+n<=0x50000);
@@ -12,6 +13,7 @@ bool nor_read(uint32_t at,void *out,unsigned n)
 }
 bool nor_write(uint32_t at,const void *p,unsigned n)
 {
+    ++programs[(at-0x40000)/4096];
     assert(n<=256-(at&255));
     for (unsigned i=0;i<n;++i) {
         if (!budget) return false;
@@ -22,6 +24,7 @@ bool nor_write(uint32_t at,const void *p,unsigned n)
 }
 bool nor_erase(uint32_t at)
 {
+    ++erases[(at-0x40000)/4096];
     assert(!(at&4095));
     for (unsigned i=0;i<4096;++i) {
         if (!budget) return false;
@@ -30,6 +33,40 @@ bool nor_erase(uint32_t at)
     }
     return true;
 }
+static void wear(Domain domain, unsigned sector, unsigned slots, unsigned saves)
+{
+    uint32_t value=0, latest=0;
+    uint16_t event;
+    unsigned size=domain==EVENT_DATA ? sizeof(event) : sizeof(value);
+    memset(flash,255,sizeof(flash));
+    memset(erases,0,sizeof(erases));
+    memset(programs,0,sizeof(programs));
+    assert(store_open(domain,&latest,size)==STORE_BLANK);
+    for (unsigned i=1;i<=saves;++i) {
+        value=i;
+        event=(uint16_t)(i%17);
+        const void *payload=domain==EVENT_DATA ? (void *)&event : (void *)&value;
+        assert(store_append(domain,payload,size));
+        if (domain!=EVENT_DATA) {
+            /* 关机、OTA 和主机重发相同快照。 */
+            for (unsigned retry=0;retry<4;++retry)
+                assert(store_append(domain,payload,size));
+        }
+        if (!(i%997)) {
+            assert(store_open(domain,&latest,size)==STORE_VALID);
+            if (domain!=EVENT_DATA) assert(latest==value);
+        }
+    }
+    unsigned rotations=(saves-1)/slots-1;
+    assert(erases[sector]+erases[sector+1]==rotations);
+    assert(erases[sector]==(rotations+1)/2 && erases[sector+1]==rotations/2);
+    assert(programs[sector]+programs[sector+1]==2*saves);
+    for (unsigned i=0;i<16;++i)
+        if (i!=sector && i!=sector+1) assert(!erases[i] && !programs[i]);
+    printf("domain=%u changes=%u duplicate_saves=%u programs=%u erase_A=%u erase_B=%u\n",
+           domain,saves,domain==EVENT_DATA?0:4*saves,2*saves,erases[sector],erases[sector+1]);
+}
+
 int main(void)
 {
     memset(flash,255,sizeof(flash));
@@ -57,5 +94,8 @@ int main(void)
             assert(store_event_at(j,&event) && event==i-j);
         }
     }
+    wear(CONFIG_DATA,0,16,10000);
+    wear(SOC_DATA,4,64,100000);
+    wear(EVENT_DATA,12,128,250000);
     puts("NOR: 4121 power cuts, sector rotation, newest 100, domain isolation OK");
 }
