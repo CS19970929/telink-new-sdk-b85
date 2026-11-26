@@ -26,9 +26,9 @@ public sealed class C077AfeEditorWindow:Window
         WindowStartupLocation=WindowStartupLocation.CenterOwner;Background=SystemColors.WindowBrush;Foreground=SystemColors.WindowTextBrush;
         var panel=new DockPanel{Background=SystemColors.WindowBrush};Content=panel;
         var top=new StackPanel();DockPanel.SetDock(top,Dock.Top);panel.Children.Add(top);
-        top.Children.Add(new TextBlock{Margin=new Thickness(8),TextWrapping=TextWrapping.Wrap,Text="先读取，按片编辑并保存到MCU Flash；保存不会写309。确认关闭输出/均衡后，再明确下发所选片或双片。软件保护参数在主窗口单独编辑。串数以系统参数5～16串为准、CTL双路禁止、MCU均衡及AFE1单CADC；深睡不进入SHIP仓运。"});
+        top.Children.Add(new TextBlock{Margin=new Thickness(8),TextWrapping=TextWrapping.Wrap,Text="先读取，按片编辑并保存到MCU Flash；保存不会写309。确认关闭输出/均衡后，再明确下发所选片或双片。软件保护参数在主窗口单独编辑。串数以设备公布的生产配置为准、CTL双路禁止、MCU均衡及AFE1单CADC；深睡不进入SHIP仓运。"});
         var bar=new WrapPanel();top.Children.Add(bar);bar.Children.Add(chip);
-        Add("读取Flash + 核对两片EEPROM",async()=>await Reload());
+        Add("读取 Flash 和 EEPROM",async()=>await Reload());
         Add("关闭输出 / 均衡",CloseOutputs);
         Add("保存所选片到Flash",Save);
         Add("下发所选片EEPROM",()=>Program(1<<chip.SelectedIndex));
@@ -66,7 +66,10 @@ public sealed class C077AfeEditorWindow:Window
         try{await action();}
         catch(Exception ex){
             string failure=ex.Message;
-            try{snapshot=await client.ReadC077HardwareAsync(false);ShowChip();failure+="\n"+Details(snapshot);}catch(Exception readError){failure+="；诊断读取未完成："+readError.Message;}
+            snapshot = null;
+            ShowChip();
+            try { snapshot = await client.ReadC077HardwareAsync(false); ShowChip(); failure += "\n" + Details(snapshot); }
+            catch (Exception readError) { if (readError.Message != failure) failure += "；诊断读取未完成：" + readError.Message; }
             status.Text="未完成 / 结果未确认："+failure+"。未自动重发。";MessageBox.Show(this,status.Text,"309维护",MessageBoxButton.OK,MessageBoxImage.Warning);}
         finally{busy=false;grid.IsReadOnly=false;chip.IsEnabled=true;}
     }
@@ -77,28 +80,53 @@ public sealed class C077AfeEditorWindow:Window
     }
     private static string Details(C077HardwareSnapshot h)
     {
-        string text=h.Actual.Summary;
+        string text = h.EepromReadbackMask is null ? h.Actual.Summary :
+            $"EEPROM 读取结果 {C077Parameters.ErrorText(h.Actual.ServiceError)}，位置 AFE{(h.Actual.ServicePosition >> 8) + 1} / 0x{h.Actual.ServicePosition & 255:X2}。";
         for(int n=0;n<2;n++) {
             uint mask=(uint)h.Expected[n][13]|((uint)h.Expected[n][14]<<16);
             int bytes=h.Expected[n][15];
-            text+=$"\nAFE{n+1} 差异位图0x{mask:X7}；记录字节：期望0x{bytes>>8:X2} / 实读0x{bytes&255:X2}（I2C/CRC错误时实读不可信）";
+            if (h.EepromReadbackMask is byte confirmed && (confirmed & (1 << n)) == 0)
+                text += $"\nAFE{n + 1} EEPROM 本次读回未确认，表格保留 Flash 档案。";
+            else
+                text += $"\nAFE{n + 1} 差异位图 0x{mask:X7}；记录字节 期望 0x{bytes >> 8:X2} / 实读 0x{bytes & 255:X2}（I2C/CRC 错误时实读不可信）";
         }
         return text;
     }
     private void ShowChip()
     {
-        rows.Clear();if(snapshot is null)return;
-        int n=Math.Max(0,chip.SelectedIndex);shownChip=n;var saved=snapshot.Saved[n];var actual=C077Hardware.Decode(snapshot.Actual.Chips[n].Eeprom,snapshot.Actual.Chips[n].Tr);
-        for(int bit=0;bit<7;bit++)rows.Add(new(){Index=0,Bit=bit,Name=C077Hardware.FeatureNames[bit],Saved=((saved[0]>>bit)&1).ToString(),Draft=((saved[0]>>bit)&1).ToString(),Actual=((actual[0]>>bit)&1).ToString(),Unit="0/1",Hint="1=该位开启；DIS_PF 的1表示禁止保护。"});
-        foreach(var f in C077Hardware.Fields.Skip(1))rows.Add(new(){Index=f.Index,Name=f.Name,Saved=Display(f,f.Value(saved[f.Index])),Draft=Display(f,f.Value(saved[f.Index])),Actual=(f.Signed?"≈":"")+Display(f,actual[f.Index]),Unit=f.Signed?"℃":f.Unit,Hint=f.Signed?"−40..100℃整℃档位；受本片TR编码范围约束":f.Limits});
+        rows.Clear();
+        rawGrid.ItemsSource = null;
+        if (snapshot is null) return;
+        int n = Math.Max(0, chip.SelectedIndex);
+        shownChip = n;
+        var saved = snapshot.Saved[n];
+        var chipState = snapshot.Actual.Chips[n];
+        bool showReadback = snapshot.EepromReadbackMask is not byte confirmed || (confirmed & (1 << n)) != 0;
+        var actual = showReadback ? C077Hardware.Decode(chipState.Eeprom, chipState.Tr) : null;
+        for(int bit=0;bit<7;bit++)rows.Add(new(){Index=0,Bit=bit,Name=C077Hardware.FeatureNames[bit],Saved=((saved[0]>>bit)&1).ToString(),Draft=((saved[0]>>bit)&1).ToString(),Actual=actual is null ? "—" : ((actual[0] >> bit) & 1).ToString(),Unit="0/1",Hint="1=该位开启；DIS_PF 的1表示禁止保护。"});
+        foreach(var f in C077Hardware.Fields.Skip(1))rows.Add(new(){Index=f.Index,Name=f.Name,Saved=Display(f,f.Value(saved[f.Index])),Draft=Display(f,f.Value(saved[f.Index])),Actual=actual is null ? "—" : (f.Signed ? "≈" : "") + Display(f,actual[f.Index]),Unit=f.Signed?"℃":f.Unit,Hint=f.Signed?"−40..100℃整℃档位；受本片TR编码范围约束":f.Limits});
         string[] names={"SCONF1","SCONF2","OVT/LDRT/OVH","OVL","UVT/OVRH","OVRL","UV","UVR","BALV","PREV","L0V","PFV","OCD1","OCD2","SC","OCC","CHS/MOST/OCRT/PFT","OTC","OTCR","UTC","UTCR","OTD","OTDR","UTD","UTDR"};
-        var expected=snapshot.Expected[n];var chipState=snapshot.Actual.Chips[n];
-        rawGrid.ItemsSource=Enumerable.Range(0,25).Select(i=>{int e=i%2==0?expected[i/2]>>8:expected[i/2]&255;return new{Address=$"0x{i:X2}",Name=names[i],Expected=$"0x{e:X2}",Actual=$"0x{chipState.Eeprom[i]:X2}",Different=e!=chipState.Eeprom[i],Result=e==chipState.Eeprom[i]?(chipState.ProfileMatches?"一致":"字节相同，整片未确认"):"待下发 / 不一致"};}).ToArray();
+        var expected = snapshot.Expected[n];
+        rawGrid.ItemsSource = Enumerable.Range(0, 25).Select(i =>
+        {
+            int expectedByte = i % 2 == 0 ? expected[i / 2] >> 8 : expected[i / 2] & 255;
+            int actualByte = chipState.Eeprom[i];
+            return new
+            {
+                Address = $"0x{i:X2}", Name = names[i], Expected = $"0x{expectedByte:X2}",
+                Actual = showReadback ? $"0x{actualByte:X2}" : "—",
+                Different = showReadback && expectedByte != actualByte,
+                Result = !showReadback ? "未确认" : expectedByte != actualByte ? "待下发 / 不一致"
+                    : chipState.ProfileMatches ? "一致" : "字节相同，整片未匹配"
+            };
+        }).ToArray();
     }
     private static string Display(C077HardwareField f,int value)=>f.Signed?(value/10m).ToString("0.0",CultureInfo.InvariantCulture):value.ToString(CultureInfo.InvariantCulture);
     private ushort[] Draft()
     {
         if(snapshot is null)throw new InvalidOperationException("请先读取设备。");
+        if (snapshot.EepromReadbackMask is byte confirmed && (confirmed & (1 << chip.SelectedIndex)) == 0)
+            throw new InvalidOperationException("所选片的 EEPROM 读回未确认，请先重新读取。");
         grid.CommitEdit(DataGridEditingUnit.Cell,true);grid.CommitEdit(DataGridEditingUnit.Row,true);
         var words=(ushort[])snapshot.Saved[chip.SelectedIndex].Clone();words[0]=0;
         foreach(var row in rows){

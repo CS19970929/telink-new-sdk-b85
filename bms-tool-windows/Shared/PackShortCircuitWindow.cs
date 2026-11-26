@@ -87,6 +87,10 @@ internal sealed class PackShortCircuitWindow : Window
             checked((ushort)((uint)mv * config.Parallel * 10u / config.Resistance))).ToArray();
     }
 
+    private static bool HasShortReadback(C077HardwareSnapshot snapshot) =>
+        snapshot.EepromReadbackMask is null or 3 &&
+        snapshot.Actual.ServiceState == 0 && snapshot.Actual.ServiceError is 0 or 4;
+
     private static bool ContainsOnlyShortDifference(C077HardwareSnapshot snapshot, int chip)
     {
         for (int i = 0; i < 25; ++i)
@@ -139,7 +143,7 @@ internal sealed class PackShortCircuitWindow : Window
         if (_client.IsC077)
         {
             var snapshot = await _client.ReadC077HardwareAsync(verifyEeprom: true);
-            if (snapshot.Actual.ServiceState != 0 || snapshot.Actual.ServiceError is not (0 or 4))
+            if (!HasShortReadback(snapshot))
                 throw new IOException("未能读取两片 SH367309 的实际配置。");
             _sh = snapshot;
         }
@@ -208,8 +212,7 @@ internal sealed class PackShortCircuitWindow : Window
             else if (_sh is { } snapshot)
             {
                 var live = await _client.ReadC077HardwareAsync(verifyEeprom: true);
-                if (live.Actual.ServiceState != 0 || live.Actual.ServiceError is not (0 or 4) ||
-                    !ContainsOnlyShortDifference(live, chip))
+                if (!HasShortReadback(live) || !ContainsOnlyShortDifference(live, chip))
                     throw new IOException("SH367309 实际配置未确认，或存在其它档案差异。");
                 var values = (ushort[])snapshot.Saved[chip].Clone();
                 values[16] = choice.Value;
@@ -219,7 +222,7 @@ internal sealed class PackShortCircuitWindow : Window
 
                 // Confirm the saved profile still differs only in the SCD byte before authorizing EEPROM.
                 var pending = await _client.ReadC077HardwareAsync(verifyEeprom: true);
-                if (pending.Actual.ServiceState != 0 || pending.Actual.ServiceError is not (0 or 4) ||
+                if (!HasShortReadback(pending) ||
                     !pending.Saved[chip].SequenceEqual(values) || !ContainsOnlyShortDifference(pending, chip))
                     throw new IOException("保存后配置已变化或读回异常。");
                 if (!pending.Actual.Chips[chip].ProfileMatches)

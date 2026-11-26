@@ -12,11 +12,47 @@ static class Test
         await client.ReadIdentityAsync();Check(client.IsC077,"production C capability selects C077");
         var initial=await client.ReadC077AfeAsync();Check(initial.Schema==3&&initial.UsesPersistentCalibration,"new startup-check diagnostics");
         Check(!initial.Chips[1].ProfileMatches&&!initial.SampleValid,"actual C fixture begins with AFE2 mismatch");
+        var header = await client.ReadRegistersAsync(0x2B00, 7);
+        Check(header[6] == 11, "current production model must report Flash format 11");
+        var readback = await client.ReadC077HardwareAsync(true);
+        Check(readback.EepromReadbackMask == 3 && readback.Saved[0][1] == 4260 && readback.Saved[1][1] == 4300 &&
+            readback.Actual.Chips[0].ProfileMatches && !readback.Actual.Chips[1].ProfileMatches,
+            "format 11 reads both saved and actual profiles, including a verified difference");
+        Check(wire.ReadbackRequests == 1 && wire.ConfigurationWrites == 0, "initial read sends one refresh and no configuration writes");
+        await wire.Configure("@blockafe2");
+        var partial = await client.ReadC077HardwareAsync(true);
+        Check(partial.EepromReadbackMask == 1 && partial.Saved[1][1] == 4300,
+            "AFE2 transport failure leaves only AFE1 confirmed and preserves both Flash profiles");
+        await wire.Configure("@clearbus");
+        wire.ChangeReadbackRevision = true;
+        var changed = await client.ReadC077HardwareAsync(true);
+        Check(changed.EepromReadbackMask == 1, "a changed AFE2 readback revision rejects only its result");
+        wire.ChangeReadbackRevision = false;
+        Check((await client.ReadC077HardwareAsync(false)).EepromReadbackMask == 0, "diagnostic cache is not a fresh EEPROM result");
+        int writes = wire.ServiceWrites;
+        wire.StorageFormat = 12;
+        try { await client.ReadC077HardwareAsync(true); throw new Exception("unknown storage format accepted"); }
+        catch (NotSupportedException ex) { Check(ex.Message.Contains("格式 12"), "unknown Flash format has a specific error"); }
+        try { await client.SaveC077HardwareAsync(0, readback.Saved[0]); throw new Exception("unknown format allowed a save"); }
+        catch (NotSupportedException) { }
+        Check(wire.ServiceWrites == writes && wire.ConfigurationWrites == 0, "unknown format sends no maintenance or configuration commands");
+        wire.StorageFormat = null;
+        wire.ConfigStatus = 0x0400;
+        try { await client.ReadC077HardwareAsync(true); throw new Exception("mismatched production series accepted"); }
+        catch (IOException ex) { Check(ex.Message.Contains("生产串数"), "series mismatch is visible"); }
+        Check(wire.ServiceWrites == writes, "mismatched production series sends no refresh");
+        wire.ConfigStatus = null;
+        foreach (ushort legacy in new ushort[] { 6, 7 })
+        {
+            wire.StorageFormat = legacy;
+            Check((await client.ReadC077HardwareAsync(false)).EepromReadbackMask is null, "legacy format still reads without per-chip evidence");
+        }
+        wire.StorageFormat = null;
         var programmed=await client.RunC077ServiceAsync(true);
         Check(programmed.ZeroReady&&programmed.SampleValid&&programmed.Chips.All(c=>c.Valid),"C driver differential programming, reset, zero and recovery complete");
         Check(programmed.Chips[1].ZeroStateText=="未启用","secondary never requests a CADC zero");
         var zero=await client.RunC077ServiceAsync(false);
-        Check(zero.Chips[0].ZeroSamples==8&&zero.ZeroReady,"production primary-only zero collection");
+        Check(zero.Chips[0].ZeroSamples==2&&zero.ZeroReady,"production primary-only zero collection");
         await wire.Configure("@fail");int commands=wire.ServiceWrites;
         try{await client.RunC077ServiceAsync(true);throw new Exception("interrupted EEPROM accepted");}
         catch(IOException e){Check(e.Message.Contains("0x03"),"failure reports actual chip/register");}
@@ -42,7 +78,7 @@ static class Test
         var complete=await client.ReadC077HardwareAsync(true);
         Check(complete.Actual.Chips.All(c=>c.ProfileMatches&&c.Valid)&&complete.Actual.SampleValid,"second independent program restores pack eligibility");
         Check(complete.Actual.Chips[0].Eeprom[3]==0x50&&complete.Actual.Chips[1].Eeprom[3]==0x60,"two distinct EEPROM values read back");
-        int writes=wire.ServiceWrites;
+        writes=wire.ServiceWrites;
         try {var bad=(ushort[])a.Clone();bad[13]=30;await client.SaveC077HardwareAsync(0,bad);throw new Exception("bad hardware delay accepted");}catch(ArgumentException){}
         Check(writes==wire.ServiceWrites,"invalid physical code does not program");
         await wire.Configure("@unready");int serviceBefore=wire.ServiceWrites;
@@ -53,7 +89,11 @@ static class Test
 }
 sealed class NativeTransport : IBmsTransport
 {
-    readonly Process process;public int ServiceWrites;
+    readonly Process process;
+    public int ServiceWrites, ReadbackRequests, ConfigurationWrites;
+    public ushort? StorageFormat, ConfigStatus;
+    public bool ChangeReadbackRevision;
+    private int evidenceReads;
     public NativeTransport(string path,string mode="--host-service") {
         process=Process.Start(new ProcessStartInfo(path,mode) {UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true})??throw new IOException("native fixture start failed");
     }
@@ -68,11 +108,41 @@ sealed class NativeTransport : IBmsTransport
         if(await process.StandardOutput.ReadLineAsync()!= "OK")throw new IOException("native fixture configuration failed");
     }
     public async Task WriteAsync(ReadOnlyMemory<byte> data,CancellationToken ct=default) {
-        byte[] bytes=data.ToArray();if(bytes.Length>=6&&bytes[1]==6&&bytes[2]==0x2A&&bytes[3]==0x7F)ServiceWrites++;
+        byte[] bytes = data.ToArray();
+        ushort address = System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(2));
+        if (bytes[1] == 6 && address == 0x2A7F)
+        {
+            ServiceWrites++;
+            if (bytes[4] == 0xC0 && bytes[5] == 0x87)
+            {
+                ReadbackRequests++;
+                evidenceReads = 0;
+            }
+        }
+        if (bytes[1] == 16 && address is 0x2B10 or 0x2B30) ConfigurationWrites++;
         await process.StandardInput.WriteLineAsync(Convert.ToHexString(bytes));await process.StandardInput.FlushAsync();
         string? reply=await process.StandardOutput.ReadLineAsync(ct);
         if(reply is null)throw new IOException("native fixture exited: "+await process.StandardError.ReadToEndAsync(ct));
-        byte[] frame=Convert.FromHexString(reply);
+        byte[] frame = Convert.FromHexString(reply);
+        bool changed = false;
+        if (frame[1] == 3 && address == 0x2B00 && StorageFormat is ushort format)
+        {
+            frame[13] &= 0x7F;
+            frame[16] = (byte)format;
+            changed = true;
+        }
+        if (frame[1] == 3 && address == 0x2A28 && ConfigStatus is ushort status)
+        {
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(3), status);
+            changed = true;
+        }
+        if (frame[1] == 3 && address == 0x2B05 && ChangeReadbackRevision && ++evidenceReads == 2)
+        {
+            frame[10] ^= 1;
+            changed = true;
+        }
+        if (changed)
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(frame.Length - 2), ModbusRtu.Crc16(frame.AsSpan(0, frame.Length - 2)));
         for(int at=0;at<frame.Length;at+=7)DataReceived?.Invoke(frame.AsMemory(at,Math.Min(7,frame.Length-at)));
     }
     public async ValueTask DisposeAsync() {

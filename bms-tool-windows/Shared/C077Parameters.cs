@@ -23,7 +23,7 @@ public sealed record C077AfeSnapshot(ushort ServiceState,ushort ServiceError,ush
             $"，AFE 状态有效={c.Valid}；CONF=0x{c.Conf:X2}，BSTATUS={c.Status1:X2}/{c.Status2:X2}/{c.Status3:X2}；最近错误={C077Parameters.ErrorText(c.LastError)}@0x{c.LastRegister:X2}；{c.HardwareCurrentText}"));
     public static C077AfeSnapshot Parse(ushort[] words)
     {
-        if(words.Length!=64||words[0]!=0xC077||words[1] is not (2 or 3)||words[2]>3||words[3]>9||words[7]>1||words[58]>1||words[59]>3||words[61]>8||words[62]>7)
+        if(words.Length!=64||words[0]!=0xC077||words[1] is not (2 or 3)||words[2] > (words[1] == 3 ? 4 : 3)||words[3]>9||words[7]>1||words[58]>1||words[59]>3||words[61]>8||words[62]>7)
             throw new InvalidDataException("C077 309诊断版本或长度不匹配，支持schema 2/3。");
         var chips=new List<C077AfeChip>();
         for(int i=0;i<2;i++) {
@@ -127,7 +127,11 @@ public sealed record C077HardwareField(int Index,string Key,string Name,string U
     public int Value(ushort word)=>Signed?unchecked((short)word):word;
     public string Limits=>Choices is null?$"{Minimum}..{Maximum}，步进{Step}":string.Join(" / ",Choices);
 }
-public sealed record C077HardwareSnapshot(ushort[][] Saved,ushort[][] Expected,C077AfeSnapshot Actual);
+public sealed record C077HardwareSnapshot(ushort[][] Saved,ushort[][] Expected,C077AfeSnapshot Actual)
+{
+    // Bit 0 = AFE1, bit 1 = AFE2. Legacy APPs lack per-chip evidence.
+    public byte? EepromReadbackMask { get; init; }
+}
 public sealed class C077HardwareFile
 {
     public string Product {get;set;}="";
@@ -240,21 +244,50 @@ public static class C077Hardware
 }
 public sealed partial class BmsClient
 {
-    private async Task RequireC077HardwareAsync(CancellationToken ct)
+    private const ushort C077ReadbackEvidence = 0x8000;
+
+    private async Task<ushort> RequireC077HardwareAsync(CancellationToken ct)
     {
-        if(!IsC077)throw new NotSupportedException("设备必须明确识别为C077。");
-        var h=await ReadRegistersAsync(C077Hardware.Header,7,ct);
-        if(h[0]!=0xC077||h[1]!=1||h[2]!=32||h[3]!=2||h[6] is not (6 or 7))throw new NotSupportedException("固件未提供双309 Flash硬保护编辑协议schema1，未发送写命令。");
-        var flags=await ReadRegistersAsync(0x2A28,1,ct);
-        if(flags.Length!=1||(flags[0]&1)==0)throw new IOException("MCU Flash参数尚未就绪；当前RAM默认值不能作为已保存Flash配置，请先检查存储诊断。");
+        if (!IsC077) throw new NotSupportedException("设备必须明确识别为 C077。");
+        var header = await ReadRegistersAsync(C077Hardware.Header, 7, ct);
+        if (header[0] != 0xC077 || header[1] != 1 || header[2] != 32 || header[3] != 2)
+            throw new NotSupportedException("C077 双片 SH367309 硬保护协议头不匹配，要求 schema 1、每片 32 字。");
+        if (header[6] is not (6 or 7 or 11))
+            throw new NotSupportedException($"当前上位机未验证 C077 的 MCU Flash 配置格式 {header[6]}，硬保护操作已停止。");
+        var status = (await ReadRegistersAsync(0x2A28, 1, ct))[0];
+        if ((status >> 8) == 4)
+            throw new IOException("Flash 已保存串数与 C077 固件的生产串数不一致。请核对板子实装串数和对应固件。");
+        if ((status & 1) == 0)
+            throw new IOException("MCU Flash 参数尚未就绪。当前 RAM 默认值不能作为已保存的 Flash 配置。");
+        return header[5];
     }
+
     public async Task<C077HardwareSnapshot> ReadC077HardwareAsync(bool verifyEeprom=false,CancellationToken ct=default)
     {
-        await RequireC077HardwareAsync(ct);
-        if(verifyEeprom)await WriteSingleRegisterAsync(C077Parameters.ServiceRegister,0xC087,ct);
-        var saved=await ReadRegistersAsync(C077Hardware.ConfigBase,64,ct);
-        var expected=await ReadRegistersAsync(C077Hardware.ExpectedBase,32,ct);
-        return new(new[]{saved[..32],saved[32..]},new[]{expected[..16],expected[16..]},await ReadC077AfeAsync(ct));
+        ushort flags = await RequireC077HardwareAsync(ct);
+        bool hasEvidence = (flags & C077ReadbackEvidence) != 0;
+        if (verifyEeprom) await WriteSingleRegisterAsync(C077Parameters.ServiceRegister, 0xC087, ct);
+        ushort[]? before = hasEvidence && verifyEeprom
+            ? await ReadRegistersAsync(C077Hardware.Header + 5, 4, ct) : null;
+        var saved = await ReadRegistersAsync(C077Hardware.ConfigBase, 64, ct);
+        var expected = await ReadRegistersAsync(C077Hardware.ExpectedBase, 32, ct);
+        var actual = await ReadC077AfeAsync(ct);
+
+        byte? confirmed = hasEvidence ? (byte)0 : null;
+        if (before is not null && actual.ServiceState == 0)
+        {
+            var after = await ReadRegistersAsync(C077Hardware.Header + 5, 4, ct);
+            for (int chip = 0; chip < 2; chip++)
+            {
+                int requiredFlags = C077ReadbackEvidence | (0x0100 << chip);
+                if ((before[0] & after[0] & requiredFlags) == requiredFlags && before[2 + chip] == after[2 + chip])
+                    confirmed = (byte)(confirmed.GetValueOrDefault() | (1 << chip));
+            }
+        }
+        return new(new[] { saved[..32], saved[32..] }, new[] { expected[..16], expected[16..] }, actual)
+        {
+            EepromReadbackMask = confirmed
+        };
     }
     public async Task SaveC077HardwareAsync(int chip,ushort[] values,ushort[]? observed=null,CancellationToken ct=default)
     {

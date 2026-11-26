@@ -1,6 +1,6 @@
 # C077 双309完整硬保护编辑
 
-内部版入口：连接C077→C077参数→编辑双309硬件保护（Flash / EEPROM）。每片独立编辑物理电压/恢复/延时、OCC/OCD1/OCD2/短路、温度与恢复、PF/低压禁充、MOS/检测/恢复/负载释放以及7个功能位。固定16串、CTL双路禁止、MCU均衡/预充和AFE1单CADC为板级合同，只读。
+内部版入口：连接C077→C077参数→编辑双309硬件保护（Flash / EEPROM）。每片独立编辑物理电压/恢复/延时、OCC/OCD1/OCD2/短路、温度与恢复、PF/低压禁充、MOS/检测/恢复/负载释放以及7个功能位。生产串数由固件发布、CTL双路禁止、MCU均衡/预充和AFE1单CADC为板级合同，只读。
 
 编辑器先确认MCU参数装载ready；未就绪时拒绝把RAM默认值显示为已保存Flash配置。读取后表中分别显示Flash保存、待保存、AFE实际读回；温度显示℃，原始协议和具名JSON为0.1℃。另一页逐项显示25字节期望/实际，失败时显示片号、寄存器、期望/实读字节及差异位图；IO/CRC失败的实读不可作有效证据。
 
@@ -20,7 +20,7 @@ bms-cli afe309 verify --serial COMx --json
 
 hardware-get导出Product=C077、Schema=1、Chips两组32个具名字段；硬件保存一次提交一片，禁止不完整/陌生字段、非法档位、恢复窗口错误、陈旧Flash覆盖和输出未关。明确下发只使用Flash已保存值。verify只读核对EEPROM，不编程。
 
-新增能力header为2B00 schema1，Flash字段2B10/2B30各32字，期望/差异/字节诊断2B80/2B90各16字；实际EEPROM和原schema2仍由2A40/64提供。C071/C072/C077分别下发AFE1/2/双片，C087只读核对。旧固件无能力时新编辑器拒绝写入。
+新增能力header为2B00 schema1，Flash字段2B10/2B30各32字，期望/差异/字节诊断2B80/2B90各16字；实际EEPROM和原schema2仍由2A40/64提供。C071/C072/C077分别下发AFE1/2/双片，C087只读核对。Windows 接受 Flash 配置格式 6、7 和 11，分别提示硬保护 schema、Flash 格式和参数就绪错误。设备声明逐片读回证据时，C087 后按片核对有效位和代际。某片未确认时仍显示它的 Flash 档案，实际 EEPROM 值显示为未知。
 
 固件格式6/752B兼容格式5/624B前缀；升级只补新增硬保护字段，保留身份/校准/软件参数/SOC/日志及原PENDING续办。硬保护Flash保存、EEPROM编程和现场.c077升级分别进行。默认具名JSON及Keil表达式见固件docs/c077-hardware-editor.md和docs/C077_HARDWARE_DEFAULTS.json。
 
