@@ -5,6 +5,7 @@
 
 static uint8_t flash[0x10000],baseline[sizeof(flash)];
 static int budget=-1;
+static bool refuse_marker;
 static unsigned erases[16], programs[16];
 bool nor_read(uint32_t at,void *out,unsigned n)
 {
@@ -13,6 +14,7 @@ bool nor_read(uint32_t at,void *out,unsigned n)
 }
 bool nor_write(uint32_t at,const void *p,unsigned n)
 {
+    if (refuse_marker && n==1) return false;
     ++programs[(at-0x40000)/4096];
     assert(n<=256-(at&255));
     for (unsigned i=0;i<n;++i) {
@@ -93,6 +95,23 @@ static void first_config(void)
     puts("NOR: 191 first-write power cuts; corrupt and foreign config retained");
 }
 
+static void deferred_commit(void)
+{
+    uint32_t v=0;
+    memset(flash,255,sizeof(flash));
+    memset(erases,0,sizeof(erases)); memset(programs,0,sizeof(programs));
+    assert(store_open(CONFIG_DATA,&v,sizeof(v))==STORE_BLANK);
+    for (v=1;v<=32;++v) assert(store_append(CONFIG_DATA,&v,sizeof(v)));
+    refuse_marker=true;
+    for (unsigned i=0;i<2000;++i) assert(!store_append(CONFIG_DATA,&v,sizeof(v)));
+    refuse_marker=false;
+    assert(store_append(CONFIG_DATA,&v,sizeof(v)));
+    assert(erases[0]==1 && erases[1]==0 && programs[0]+programs[1]==66);
+    v=0;
+    assert(store_open(CONFIG_DATA,&v,sizeof(v))==STORE_VALID && v==33);
+    puts("NOR: 2000 denied commit windows; one body, one erase, one visible update");
+}
+
 int main(void)
 {
     memset(flash,255,sizeof(flash));
@@ -120,6 +139,7 @@ int main(void)
             assert(store_event_at(j,&event) && event==i-j);
         }
     }
+    deferred_commit();
     first_config();
     wear(CONFIG_DATA,0,16,10000);
     wear(SOC_DATA,4,64,100000);

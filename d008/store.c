@@ -5,7 +5,7 @@ enum { SECTOR = 4096, EVENTS = 100, COMMIT = 0x3c };
 static const uint32_t base[] = {0x40000,0x44000,0x4c000};
 static const uint16_t stride[] = {256,64,32};
 typedef struct {
-    uint32_t sequence, latest;
+    uint32_t sequence, latest, pending;
     uint16_t next[2], bytes;
     bool ready;
 } Journal;
@@ -115,6 +115,24 @@ StoreResult store_open_config(void *latest,const void *defaults,unsigned size)
     return scan(CONFIG_DATA,latest,size,factory);
 }
 
+static bool commit_body(Domain d,uint8_t *slot,uint8_t *verify)
+{
+    Journal *j=&journal[d];
+    unsigned marker=stride[d]-1;
+    uint32_t address=j->pending;
+    slot[marker]=COMMIT;
+    nor_write(address+marker,slot+marker,1);
+    if (!nor_read(address,verify,stride[d])) {j->ready=false;return false;}
+    if (memcmp(slot,verify,stride[d])) {
+        /* BLE 空窗不足时，同一请求只重试提交标志。部分编程不再使用该槽。 */
+        if (verify[marker]!=0xff || memcmp(slot,verify,marker)) j->pending=0;
+        return false;
+    }
+    j->pending=0; j->latest=address; ++j->sequence;
+    if (d==EVENT_DATA) index_event(j->sequence,address);
+    return true;
+}
+
 bool store_append(Domain d,const void *data,unsigned size)
 {
     uint8_t slot[256],verify[256];
@@ -129,10 +147,16 @@ bool store_append(Domain d,const void *data,unsigned size)
         }
         if (!memcmp(verify+12,data,size)) return true;
     }
+    encode(d,data,size,j->sequence+1u,slot);
+    if (j->pending) {
+        if (!nor_read(j->pending,verify,stride[d])) return false;
+        if (!memcmp(slot,verify,stride[d])) return commit_body(d,slot,verify);
+        j->pending=0;
+    }
     unsigned sector=j->latest >= base[d]+SECTOR;
     if (j->next[sector]>=SECTOR) {
         sector^=1;
-        if (j->next[sector]) {
+        if (j->next[sector]>=SECTOR) {
             uint32_t erase=base[d]+sector*SECTOR;
             if (d==EVENT_DATA)
                 for (unsigned i=0;i<count;++i)
@@ -141,11 +165,10 @@ bool store_append(Domain d,const void *data,unsigned size)
             for (unsigned off=0;off<SECTOR;off+=sizeof(verify))
                 if (!nor_read(erase+off,verify,sizeof(verify)) || !blank(verify,sizeof(verify)))
                     return false;
+            j->next[sector]=0;
         }
-        j->next[sector]=0;
     }
     uint32_t addr=base[d]+sector*SECTOR+j->next[sector];
-    encode(d,data,size,j->sequence+1u,slot);
     if (!nor_read(addr,verify,stride[d]) || !blank(verify,stride[d])) return false;
     /* 未获准写入时保留空槽。若部分编程则跳过该槽，复位扫描也会跳过。 */
     if (!nor_write(addr,slot,16+size) || !nor_read(addr,verify,16+size) ||
@@ -155,14 +178,8 @@ bool store_append(Domain d,const void *data,unsigned size)
         return false;
     }
     j->next[sector]+=stride[d];
-    slot[stride[d]-1]=COMMIT;
-    /* 即使写接口返回失败，也以整条读回判定是否已提交。 */
-    nor_write(addr+stride[d]-1,slot+stride[d]-1,1);
-    if (!nor_read(addr,verify,stride[d])) {j->ready=false;return false;}
-    if (memcmp(slot,verify,stride[d])) return false;
-    j->latest=addr; ++j->sequence;
-    if (d==EVENT_DATA) index_event(j->sequence,addr);
-    return true;
+    j->pending=addr;
+    return commit_body(d,slot,verify);
 }
 
 unsigned store_events(void) {return count;}
