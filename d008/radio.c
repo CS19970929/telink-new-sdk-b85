@@ -12,7 +12,7 @@ static bool ble_updating, protection_ready;
 static RtuSession session;
 static uint8_t request[256], response[256];
 static unsigned request_size,response_size,sent;
-static u8 name[]="BT_FD190126F03200046_007";
+static u8 name[]=D008_BLE_NAME;
 static u8 ccc[2],ota_ccc[2],dummy[20];
 static const u16 primary=GATT_UUID_PRIMARY_SERVICE, characteristic=GATT_UUID_CHARACTER;
 static const u16 gap=SERVICE_UUID_GENERIC_ACCESS, name_id=GATT_UUID_DEVICE_NAME, ccc_id=GATT_UUID_CLIENT_CHAR_CFG;

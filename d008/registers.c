@@ -45,7 +45,11 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
 {
     const Config *c=&device.config;
     unsigned v=0;
-    if (r<3) v=word(device_address+r*2);
+    if (r<3) v=((unsigned)device_address[5-r*2]<<8)|device_address[4-r*2];
+    else if (r>=0x0100 && r<0x010c) {
+        static const uint8_t name[24]=D008_BLE_NAME;
+        v=word(name+2*(r-0x0100));
+    }
     else if (r>=0xd000 && r<=0xd03e) v=report(r-0xd000);
     else if (r>=0xd120 && r<=0xd12a) {
         const unsigned positions[]={0,0,37,0,52,48,49,47,32,33,36};

@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 /* 此装配使用 PC0/1，GP1～4 NTC，GP5/6 低边驱动，8 × 2 mΩ。 */
+#define D008_BLE_NAME "BT_FD190126F03200046_007"
 #define SHUNT_UOHM 250u
 #define NO_CELL 61001u
 enum { OV, UV, PACK_OV, PACK_UV, CHARGE_OC, DISCHARGE_OC, CHARGE_HOT,
