@@ -221,6 +221,8 @@ public partial class MainWindow
         catch (Exception ex)
         {
             _sessionLog.WriteException("OTA", "OTA/Verify", ex);
+            if (OtaProgressBar.Value is >= 97 and < 100)
+                OtaProgressText.Text = "升级核验未完成";
             OtaVerifyText.Text = "升级未获成功确认：" + ex.Message;
             MessageBox.Show(ex.Message, "OTA failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -254,7 +256,9 @@ public partial class MainWindow
                 serialPortClient.Progress += p => Dispatcher.BeginInvoke(() =>
                 {
                     OtaProgressBar.Value = p.Percent;
-                    OtaProgressText.Text = $"串口升级 · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
+                    OtaProgressText.Text = p.Stage is { } stage
+                        ? $"串口升级 · {p.Percent:F1}% · {stage}"
+                        : $"串口升级 · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
                 });
                 bool confirmed = await serialPortClient.UpgradeAsync(image, ct);
                 return (confirmed, serialPortClient.Verified);
@@ -269,7 +273,9 @@ public partial class MainWindow
             serialClient.Progress += p => Dispatcher.BeginInvoke(() =>
             {
                 OtaProgressBar.Value = p.Percent;
-                OtaProgressText.Text = $"串口升级 · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
+                OtaProgressText.Text = p.Stage is { } stage
+                        ? $"串口升级 · {p.Percent:F1}% · {stage}"
+                        : $"串口升级 · {p.Percent:F1}% · 第 {p.PageIndex}/{p.PageCount} 页";
             });
             bool bleConfirmed = await serialClient.UpgradeAsync(image, ct);
             return (bleConfirmed, serialClient.Verified);

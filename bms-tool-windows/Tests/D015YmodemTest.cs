@@ -113,7 +113,8 @@ static class Test
                 Check(device.Mode==1,"empty APP still supports read-only Boot identification");
                 var sender=new SerialYmodemClient(transport);double progress=0;sender.Progress+=p=>progress=p.Percent;sender.Log+=Console.WriteLine;
                 Check(await sender.UpgradeAsync(image,device,default),"actual C receiver upgrade");
-                Check(transport.Reconnects>0,"APP verification rebuilds transport after reset");
+                Check(transport.Reconnects == 0, "a working link survives APP reset without a forced reconnect");
+                Check(transport.FinalPackets >= 1, "the final commit was attempted before APP verification");
                 Check(progress==100 && sender.Verified is not null,"one shared verified readback for UI and CLI");
                 if(loseAck)Check(transport.Corrupted && transport.DroppedAck && transport.DroppedFinalAck,"error injection exercised");
                 device=await UpgradeDetection.ReadAsync(transport,false,default);Check(device.Mode==0,"APP advertises same protocol");
@@ -124,7 +125,7 @@ static class Test
                 Check(await new SerialYmodemClient(transport).UpgradeAsync(image,device,default),"APP entry and repeated upgrade");
                 Check(transport.TurnaroundDrops==0,"50 ms response handoff respected across all client lifetimes");
                 if(!loseAck)Check(transport.DroppedEnterRequests==1 && transport.EnterRequests==2,"lost ENTER request permits only fresh-identity checked retry");
-                Check(transport.Reconnects>=reconnects+2,"APP entry and final reset each rebuild the same device link");
+                Check(transport.Reconnects>reconnects,"APP entry rebuilds the same link before YMODEM");
                 if(!loseAck) {
                     await transport.WindowAsync();
                     device=await UpgradeDetection.WaitForYmodemAsync(transport,default);
@@ -155,13 +156,37 @@ static class Test
                 var device=await UpgradeDetection.ReadAsync(transport,false,default);
                 var sender=new SerialYmodemClient(transport);
                 Check(await sender.UpgradeAsync(image,device,default),"final write IOException resolves through exact APP readback");
-                Check(transport.FinalDisconnected && sender.Verified is not null,"disconnect injection and final evidence exercised");
+                Check(transport.FinalDisconnected && transport.Reconnects == 1 && sender.Verified is not null,
+                    "post-commit disconnect reconnects the same link and verifies the exact image");
+            }
+            await using (var transport = new ReceiverProcess(args[0]) { DropAppProbes = 2, StallRuntime = true })
+            {
+                var device = await UpgradeDetection.ReadAsync(transport, false, default);
+                var sender = new SerialYmodemClient(transport);
+                var stages = new List<double>();
+                sender.Progress += p => stages.Add(p.Percent);
+                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(22));
+                Check(await sender.UpgradeAsync(image, device, deadline.Token), "slow runtime does not hold confirmed APP at 98%");
+                Check(transport.Reconnects == 1 && transport.StalledRuntime && sender.Verified is { RuntimeDataAvailable: false },
+                    "two unanswered probes trigger one recovery; optional runtime is time-limited");
+                Check(stages.Contains(98) && stages.Contains(99) && stages[^1] == 100 &&
+                      stages.SequenceEqual(stages.Order()), "verification progress is monotonic without waiting for telemetry");
             }
             await using(var transport=new ReceiverProcess(args[0]) { WrongBootOnReconnect=true }) {
                 var device=(await UpgradeDetection.ReadAsync(transport,false,default)) with { Mode=0 };
                 bool refused=false;try {await new SerialYmodemClient(transport).UpgradeAsync(image,device,default);}
                 catch(Exception ex) when(ex is IOException or InvalidDataException){refused=true;}
                 Check(refused && transport.DataBlocks==0,"reconnected identity mismatch stops before file transfer");
+            }
+            await using (var transport = new ReceiverProcess(args[0]) { WrongCrcAfterCommit = true })
+            {
+                var device = await UpgradeDetection.ReadAsync(transport, false, default);
+                var sender = new SerialYmodemClient(transport);
+                bool refused = false;
+                try { await sender.UpgradeAsync(image, device, default); }
+                catch (InvalidDataException ex) { refused = ex.Message.Contains("CRC"); }
+                Check(refused && transport.CommitObserved && sender.Verified is null,
+                    "a committed final block cannot turn a mismatching running APP CRC into success");
             }
             await using(var transport=new ReceiverProcess(args[0]) {WrongCapacityAfterCommit=true}) {
                 var device=await UpgradeDetection.ReadAsync(transport,false,default);
@@ -182,12 +207,14 @@ sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
     public int YmodemBlePayloadLimit {get;init;}=20;
     readonly Process _process;readonly SemaphoreSlim _gate=new(1);readonly CancellationTokenSource _stop=new();readonly Task _poll;
     public bool Faults,Corrupted,DroppedAck,DroppedFinalAck,DisconnectAtFinal,FinalDisconnected,WrongBootOnReconnect;
-    public int DataBlocks,MaxWriteBytes,WriteCalls;
+    public int DataBlocks,MaxWriteBytes,WriteCalls,FinalPackets,DropAppProbes;
+    public bool StallRuntime,StalledRuntime;
+    private bool disconnected;
     public FastBleFault FirstFastBlockFault { get; init; }
     public bool FastBlockFaultInjected { get; private set; }
     public bool CompatibleRetrySeen { get; private set; }
     private int _firstFastBlockRemaining;
-    public bool DropEnterOnce,WrongCapacityAfterCommit,CommitObserved;
+    public bool DropEnterOnce,WrongCapacityAfterCommit,WrongCrcAfterCommit,CommitObserved;
     public int EnterRequests,DroppedEnterRequests,TurnaroundMs,TurnaroundDrops;
     private long lastReplyTick;
     public CancellationTokenSource? CancelAtEnd;
@@ -198,11 +225,11 @@ sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
         var start=new ProcessStartInfo(path){UseShellExecute=false,CreateNoWindow=true,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
         start.ArgumentList.Add("--server");_process=Process.Start(start)!;_poll=PollAsync();
     }
-    public bool IsConnected=>!_process.HasExited;
+    public bool IsConnected=>!_process.HasExited && !disconnected;
     public string DiscoveryDescription=>"production C YMODEM receiver with simulated Flash/AFE";
     public event Action<ReadOnlyMemory<byte>>? DataReceived;
     public event Action<string>? ConnectionProgress {add{}remove{}}
-    public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;return Task.CompletedTask;}
+    public Task ReconnectAsync(CancellationToken ct=default){Reconnects++;disconnected=false;return Task.CompletedTask;}
     public Task WindowAsync()=>CommandAsync("W",false,default);
     public Task ResetAsync()=>CommandAsync("R",false,default);
     async Task PollAsync() {
@@ -214,6 +241,20 @@ sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
         WriteCalls++;MaxWriteBytes=Math.Max(MaxWriteBytes,bytes.Length);
         bool modbus=bytes.Length==8 && bytes[0]==1 && bytes[1] is 3 or 6;
         if(modbus && lastReplyTick!=0 && Stopwatch.GetElapsedTime(lastReplyTick).TotalMilliseconds<TurnaroundMs) { TurnaroundDrops++;return; }
+        if (modbus && bytes[1] == 3 && CommitObserved)
+        {
+            ushort address = BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(2));
+            if (address == 0xD170 && DropAppProbes > 0)
+            {
+                DropAppProbes--;
+                return;
+            }
+            if (address == 0xC002 && StallRuntime)
+            {
+                StalledRuntime = true;
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            }
+        }
         if(modbus && bytes[1]==6) { EnterRequests++;if(DropEnterOnce) { DropEnterOnce=false;DroppedEnterRequests++;return; } }
         if(bytes.Length==1029)DataBlocks++;
         bool firstDataFragment = bytes.Length >= 3 && bytes[0] == 2 && bytes[1] == 1 && bytes[2] == 0xFE;
@@ -237,11 +278,11 @@ sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
             else if(!DroppedAck){drop=true;DroppedAck=true;}
         }
         if(Faults && bytes.Length==133 && bytes[1]==0 && bytes[3]==0 && !DroppedFinalAck){drop=true;DroppedFinalAck=true;}
-        if(bytes.Length==133 && bytes[1]==0 && bytes[3]==0)CommitObserved=true;
+        if(bytes.Length==133 && bytes[1]==0 && bytes[3]==0) { CommitObserved=true; FinalPackets++; }
         bool disconnect=DisconnectAtFinal && bytes.Length==133 && bytes[1]==0 && bytes[3]==0 && !FinalDisconnected;
         await CommandAsync(Convert.ToHexString(bytes),drop || disconnect,ct);
         if(bytes.Length==1 && bytes[0]==4 && ++eots==2)CancelAtEnd?.Cancel();
-        if(disconnect){FinalDisconnected=true;throw new IOException("cable disconnected after final block");}
+        if(disconnect){FinalDisconnected=true;disconnected=true;throw new IOException("cable disconnected after final block");}
     }
     async Task CommandAsync(string command,bool drop,CancellationToken ct) {
         await _gate.WaitAsync(ct);
@@ -258,6 +299,11 @@ sealed class ReceiverProcess : IBmsTransport, IBmsMtuTransport
                 ushort capacity=BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(21,2));
                 BinaryPrimitives.WriteUInt16BigEndian(response.AsSpan(21,2),(ushort)(capacity-1024));
                 BinaryPrimitives.WriteUInt16LittleEndian(response.AsSpan(27),ModbusRtu.Crc16(response.AsSpan(0,27)));
+            }
+            if (WrongCrcAfterCommit && CommitObserved && command.StartsWith("0103D17C") && response.Length == 21)
+            {
+                response[12] ^= 1;
+                BinaryPrimitives.WriteUInt16LittleEndian(response.AsSpan(19), ModbusRtu.Crc16(response.AsSpan(0, 19)));
             }
             if(command.Length==16 && response.Length>=5 && response[0]==1 && response[1] is 3 or 6)lastReplyTick=Stopwatch.GetTimestamp();
             if(!drop)for(int at=0;at<response.Length;at+=7)DataReceived?.Invoke(response.AsMemory(at,Math.Min(7,response.Length-at)));

@@ -15,9 +15,13 @@ public sealed class SerialYmodemClient
     private const int ConservativeBlePayload = 20;
     private const int ConservativeBleDelayMs = 15;
     private const int PacketAttempts = 10;
+    private static readonly TimeSpan FinalCommitBudget = TimeSpan.FromSeconds(8);
     private const int SerialPacketResponseTimeoutMs = 2000;
     // The Boot can wait 2 s after the last UART byte before rejecting a short frame.
     private const int BlePacketResponseTimeoutMs = 3000;
+    private static readonly TimeSpan AppVerificationBudget = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan AppProbeTimeout = TimeSpan.FromMilliseconds(1200);
+    private static readonly TimeSpan RuntimeReadBudget = TimeSpan.FromSeconds(3);
 
     private readonly IBmsTransport _transport;
     private readonly bool _ble;
@@ -183,14 +187,15 @@ public sealed class SerialYmodemClient
     private async Task CheckRunningImageAsync(BmsClient client,SerialFirmwarePackage package,CancellationToken ct)
     {
         bool d015Legacy=false;ushort[]? info=null;
-        try { info=await client.ReadRegistersAsync(0xD17C,8,ct); }
+        try { info=await client.ReadRegistersAsync(0xD17C,8,ct,AppProbeTimeout); }
         catch(BmsModbusException ex) when(package.BoardId==D015FirmwarePackage.BoardId && ex.Code is 1 or 2) { d015Legacy=true; }
         catch(TimeoutException) when(package.BoardId==D015FirmwarePackage.BoardId) { d015Legacy=true; }
         // Early D015 answered reserved windows with zero. Its established
         // D130/D13D evidence remains a compatibility path, never a write route.
         if(package.BoardId==D015FirmwarePackage.BoardId && info is not null && info.All(w=>w==0))d015Legacy=true;
         if(d015Legacy) {
-            var id=await client.ReadRegistersAsync(0xD130,4,ct);var crc=await client.ReadRegistersAsync(0xD13D,3,ct);
+            var id = await client.ReadRegistersAsync(0xD130, 4, ct, AppProbeTimeout);
+            var crc = await client.ReadRegistersAsync(0xD13D, 3, ct, AppProbeTimeout);
             if((((uint)id[0]<<16)|id[1])!=package.BoardId || (((uint)id[2]<<16)|id[3])!=package.Version ||
                (((uint)crc[0]<<16)|crc[1])!=package.PayloadCrc || crc[2]!=package.PayloadLength)
                 throw new InvalidDataException("升级后 D015 兼容身份、版本、CRC 或长度不匹配。");
@@ -201,35 +206,83 @@ public sealed class SerialYmodemClient
            (((uint)info[4]<<16)|info[5])!=package.PayloadCrc || info[6]!=1 || info[7]!=0)
             throw new InvalidDataException("升级后 APP 的版本、长度、CRC 或有效状态与所选包不一致。");
     }
-    private async Task VerifyAppAsync(SerialFirmwarePackage package,SerialUpgradeDevice expected,CancellationToken ct)
+    private async Task VerifyAppAsync(SerialFirmwarePackage package, SerialUpgradeDevice boot,
+        int fileLength, CancellationToken ct)
     {
-        Exception? last=null;
-        for(int attempt=0;attempt<10;attempt++) {
-            await Task.Delay(attempt==0?5500:700,ct);
-            try {
-                await _transport.ReconnectAsync(ct);await Task.Delay(UpgradeDetection.ResponseTurnaround,ct);
-                await using var client=new BmsClient(_transport,responseTurnaround:UpgradeDetection.ResponseTurnaround);
-                var words=await client.ReadRegistersAsync(0xD170,12,ct);
-                var device=UpgradeDetection.ParseCapabilities(words) ?? throw new InvalidDataException("重启后未公布有效升级能力。");
-                UpgradeDetection.CheckPackage(device,package);
-                if(device.Capacity!=expected.Capacity)throw new InvalidDataException("升级后 APP 公布的分区容量与已确认 Boot 不一致。");
-                if(device.Mode!=0)throw new IOException("设备尚未返回正常 APP。");
-                await CheckRunningImageAsync(client,package,ct);
-                DeviceIdentity? identity=null;BatterySnapshot? battery=null;uint? build=null;
-                try {
-                    identity=await client.ReadIdentityAsync(ct);
-                    battery=client.IsC077 ? await client.ReadC077ReadyBatteryAsync(ct) : await client.ReadBatteryAsync(ct);
-                    if(package.BoardId==D015FirmwarePackage.BoardId)build=await client.TryReadFirmwareBuildIdAsync(ct);
-                } catch(Exception ex) when(ex is IOException or TimeoutException or InvalidDataException) {
-                    Log?.Invoke("APP 升级元数据已确认；当前项目的身份/实时视图未完整读取："+ex.Message);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(AppVerificationBudget);
+        var token = deadline.Token;
+        Exception? last = null;
+        int missedProbes = 0;
+        try
+        {
+            // C060/C077 Boot keeps the committed ACK available for 5 s before resetting.
+            await Task.Delay(5500, token);
+            while (true)
+            {
+                try
+                {
+                    if (!_transport.IsConnected || missedProbes >= 2)
+                    {
+                        missedProbes = 0;
+                        Log?.Invoke("APP 核验：重连本次升级使用的串口或蓝牙模块。");
+                        await _transport.ReconnectAsync(token);
+                        await Task.Delay(UpgradeDetection.ResponseTurnaround, token);
+                    }
+
+                    await using var client = new BmsClient(_transport, responseTurnaround: UpgradeDetection.ResponseTurnaround);
+                    var words = await client.ReadRegistersAsync(0xD170, 12, token, AppProbeTimeout);
+                    var device = UpgradeDetection.ParseCapabilities(words)
+                        ?? throw new InvalidDataException("重启后未公布有效升级能力。");
+                    UpgradeDetection.CheckPackage(device, package);
+                    if (device.Capacity != boot.Capacity)
+                        throw new InvalidDataException("升级后 APP 公布的分区容量与已确认 Boot 不一致。");
+                    if (device.Mode == 2)
+                        throw new InvalidDataException("设备返回安全关断失败的 Boot 状态，无法确认新 APP。");
+                    if (device.Mode == 0)
+                    {
+                        await CheckRunningImageAsync(client, package, token);
+
+                        Verified = new(null, null, null, package.BoardId, package.Version, package.PayloadCrc, package.PayloadLength);
+                        Progress?.Invoke(new(99, fileLength, fileLength, "APP 身份与 CRC 已确认，读取实时信息"));
+                        using var runtimeBudget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                        runtimeBudget.CancelAfter(RuntimeReadBudget);
+                        try
+                        {
+                            var identity = await client.ReadIdentityAsync(runtimeBudget.Token);
+                            Verified = Verified with { Identity = identity };
+                            var battery = client.IsC077
+                                ? await client.ReadC077ReadyBatteryAsync(runtimeBudget.Token)
+                                : await client.ReadBatteryAsync(runtimeBudget.Token);
+                            Verified = Verified with { Battery = battery };
+                            if (package.BoardId == D015FirmwarePackage.BoardId)
+                                Verified = Verified with { BuildId = await client.TryReadFirmwareBuildIdAsync(runtimeBudget.Token) };
+                        }
+                        catch (Exception ex) when (ex is IOException or TimeoutException or InvalidDataException or OperationCanceledException)
+                        {
+                            Log?.Invoke("APP 升级元数据已确认，身份文本或实时信息暂未完整读取：" + ex.Message);
+                        }
+
+                        Log?.Invoke($"VERIFIED YMODEM board={package.BoardId:X8} version={package.Version:X8} CRC32={package.PayloadCrc:X8} bytes={package.PayloadLength}; runtime={Verified.RuntimeDataAvailable}");
+                        return;
+                    }
+
+                    // A valid Boot reply proves the bridge is still working.
+                    missedProbes = 0;
+                    last = new IOException($"设备尚处于 Boot 模式 {device.Mode}。");
                 }
-                Verified=new(identity,battery,build,package.BoardId,package.Version,package.PayloadCrc,package.PayloadLength);
-                Log?.Invoke($"VERIFIED YMODEM board={package.BoardId:X8} version={package.Version:X8} CRC32={package.PayloadCrc:X8} bytes={package.PayloadLength}; runtime={Verified.RuntimeDataAvailable}");
-                return;
-            } catch(InvalidDataException) { throw; }
-              catch(Exception ex) when(ex is IOException or TimeoutException) { last=ex; }
+                catch (Exception ex) when (ex is IOException or TimeoutException)
+                {
+                    missedProbes++;
+                    last = ex;
+                }
+                await Task.Delay(500, token);
+            }
         }
-        throw new IOException("固件发送结束，但未能确认新 APP 的身份和 CRC；不能判定升级成功。",last);
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new TimeoutException("固件已发送，30 秒内未能核实新 APP。请重连原设备核对当前版本和 CRC。", last);
+        }
     }
     public async Task<bool> UpgradeAsync(FirmwareImage image,SerialUpgradeDevice device,CancellationToken ct)
     {
@@ -257,10 +310,30 @@ public sealed class SerialYmodemClient
                 Progress?.Invoke(new((offset+n)*95.0/file.Length,offset+n,file.Length,"传输并校验"));
             }
             await EndDataAsync(ct);ct.ThrowIfCancellationRequested();finalBlockAttempted=true;
-            try { await SendPacketAsync(Packet(0,new byte[128],128),false,ct,finalCommit:true); }
-            catch(Exception ex) when(ex is TimeoutException or IOException) { Log?.Invoke("最终提交结果待确认："+ex.Message+"；重连核对 APP，不重新擦写。"); }
+            Progress?.Invoke(new(97, file.Length, file.Length, "等待设备提交 APP"));
+            bool commitAcknowledged = false;
+            using (var commitBudget = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                commitBudget.CancelAfter(FinalCommitBudget);
+                try
+                {
+                    await SendPacketAsync(Packet(0, new byte[128], 128), false, commitBudget.Token, finalCommit: true);
+                    commitAcknowledged = true;
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    Log?.Invoke("最终提交应答超时，转入 APP 只读核验。");
+                }
+                catch (Exception ex) when (ex is TimeoutException or IOException)
+                {
+                    Log?.Invoke("最终提交结果待确认，转入 APP 只读核验：" + ex.Message);
+                }
+            }
             _transport.DataReceived-=Receive;subscribed=false;
-            Progress?.Invoke(new(98,file.Length,file.Length,"等待重启并核对新 APP"));await VerifyAppAsync(package,device,ct);
+            Progress?.Invoke(new(98, file.Length, file.Length, commitAcknowledged
+                ? "Boot 已确认写入，等待 APP 重启并核验"
+                : "最终提交结果待确认，等待 APP 核验"));
+            await VerifyAppAsync(package, boot, file.Length, ct);
             Progress?.Invoke(new(100,file.Length,file.Length,"升级成功，APP 身份与 CRC 已确认"));return true;
         } catch {
             if(subscribed && !finalBlockAttempted) {

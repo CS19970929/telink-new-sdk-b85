@@ -5,7 +5,10 @@ using System.IO;
 
 namespace BmsTool.Windows;
 
-public sealed record Stm32OtaProgress(double Percent, int SentBytes, int TotalBytes, int PageIndex, int PageCount);
+public sealed record Stm32OtaProgress(double Percent, int SentBytes, int TotalBytes, int PageIndex, int PageCount)
+{
+    public string? Stage { get; init; }
+}
 
 public sealed class Stm32SerialBleOtaClient
 {
@@ -66,7 +69,8 @@ public sealed class Stm32SerialBleOtaClient
         if(device.Protocol==SerialUpgradeProtocol.YmodemV2) {
             var sender=new SerialYmodemClient(_transport,_chunkForBle);
             sender.Log+=message=>Log?.Invoke(message);
-            sender.Progress+=p=>Progress?.Invoke(new Stm32OtaProgress(p.Percent,p.SentBytes,p.TotalBytes,(p.SentBytes+1023)/1024,(p.TotalBytes+1023)/1024));
+            sender.Progress += p => Progress?.Invoke(new Stm32OtaProgress(p.Percent, p.SentBytes, p.TotalBytes,
+                (p.SentBytes + 1023) / 1024, (p.TotalBytes + 1023) / 1024) { Stage = p.Stage });
             bool result=await sender.UpgradeAsync(image,device,ct);
             Verified=sender.Verified;
             return result;

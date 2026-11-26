@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
@@ -240,7 +241,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
 
         _device = await StepAsync("BluetoothLEDevice.FromBluetoothAddressAsync", async () =>
         {
-            var device = await BluetoothLEDevice.FromBluetoothAddressAsync(address);
+            var device = await BluetoothLEDevice.FromBluetoothAddressAsync(address).AsTask(ct);
             if (device is null) throw new IOException("Windows returned null BluetoothLEDevice.");
             return device;
         });
@@ -250,7 +251,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
         try
         {
             _session = await StepAsync("GattSession.FromDeviceIdAsync", async () =>
-                await GattSession.FromDeviceIdAsync(_device.BluetoothDeviceId));
+                await GattSession.FromDeviceIdAsync(_device.BluetoothDeviceId).AsTask(ct));
             if (_session is not null)
             {
                 Diag($"[CONNECT] GATT_SESSION canMaintain={_session.CanMaintainConnection}; mtu={_session.MaxPduSize}");
@@ -261,7 +262,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             DiagException("[CONNECT] GATT_SESSION_WARNING continuing without session", ex);
             _session = null;
@@ -296,7 +297,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
         _response.ValueChanged += OnValueChanged;
         GattCommunicationStatus notifyStatus = await StepAsync("CCCD.Notify.Attempt1", async () =>
             await _response.WriteClientCharacteristicConfigurationDescriptorAsync(
-                GattClientCharacteristicConfigurationDescriptorValue.Notify));
+                GattClientCharacteristicConfigurationDescriptorValue.Notify).AsTask(ct));
         Diag($"[CONNECT] CCCD attempt=1 status={notifyStatus}");
 
         if (notifyStatus != GattCommunicationStatus.Success)
@@ -304,7 +305,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
             await Task.Delay(220, ct);
             notifyStatus = await StepAsync("CCCD.Notify.Attempt2", async () =>
                 await _response.WriteClientCharacteristicConfigurationDescriptorAsync(
-                    GattClientCharacteristicConfigurationDescriptorValue.Notify));
+                    GattClientCharacteristicConfigurationDescriptorValue.Notify).AsTask(ct));
             Diag($"[CONNECT] CCCD attempt=2 status={notifyStatus}");
         }
 
@@ -328,7 +329,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
         // Uncached discovery initiates the actual BLE connection. Do not duplicate an
         // unreachable request with cached discovery plus another 15-second wait.
         var result = await StepAsync("ServiceDiscovery.Uncached", async () =>
-            await device.GetGattServicesForUuidAsync(ServiceUuid, BluetoothCacheMode.Uncached));
+            await device.GetGattServicesForUuidAsync(ServiceUuid, BluetoothCacheMode.Uncached).AsTask(ct));
         Diag($"[CONNECT] SERVICE status={result.Status}; count={result.Services.Count}");
         if (result.Status == GattCommunicationStatus.Success && result.Services.Count > 0) return result;
         foreach (var service in result.Services) service.Dispose();
@@ -343,14 +344,14 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
     {
         ct.ThrowIfCancellationRequested();
         var cached = await StepAsync($"Characteristic.{role}.Cached", async () =>
-            await service.GetCharacteristicsForUuidAsync(uuid, BluetoothCacheMode.Cached));
+            await service.GetCharacteristicsForUuidAsync(uuid, BluetoothCacheMode.Cached).AsTask(ct));
         Diag($"[CONNECT] CHAR {role} cached status={cached.Status}; count={cached.Characteristics.Count}");
         if (cached.Status == GattCommunicationStatus.Success && cached.Characteristics.Count > 0)
             return cached;
 
         ct.ThrowIfCancellationRequested();
         var uncached = await StepAsync($"Characteristic.{role}.Uncached", async () =>
-            await service.GetCharacteristicsForUuidAsync(uuid, BluetoothCacheMode.Uncached));
+            await service.GetCharacteristicsForUuidAsync(uuid, BluetoothCacheMode.Uncached).AsTask(ct));
         Diag($"[CONNECT] CHAR {role} uncached status={uncached.Status}; count={uncached.Characteristics.Count}");
         if (uncached.Status != GattCommunicationStatus.Success || uncached.Characteristics.Count == 0)
             throw new IOException($"GATT characteristic {role} not found; cached={cached.Status}, uncached={uncached.Status}");
@@ -396,7 +397,7 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
         var sw = Stopwatch.StartNew();
         try
         {
-            var status = await characteristic.WriteValueAsync(buffer, option);
+            var status = await characteristic.WriteValueAsync(buffer, option).AsTask(ct);
             if (status != GattCommunicationStatus.Success)
                 throw new IOException($"BMS BLE write failed: {status}");
             Diag($"[GATT] WRITE_OK len={data.Length}; option={option}; status={status}; elapsed={sw.ElapsedMilliseconds}ms");
@@ -404,6 +405,8 @@ public sealed class BmsBleTransport : IBmsTransport, IBmsMtuTransport
         catch (Exception ex)
         {
             DiagException($"[GATT] WRITE_FAIL len={data.Length}; option={option}; elapsed={sw.ElapsedMilliseconds}ms", ex);
+            if (ex is COMException or ObjectDisposedException)
+                throw new IOException("BMS 蓝牙写入失败，GATT 链路可能已断开。", ex);
             throw;
         }
     }
