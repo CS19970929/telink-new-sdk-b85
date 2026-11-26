@@ -9,3 +9,9 @@
 - 维持现场 BLE、UART/Modbus、一线通和 APP/OTA 槽合同。电流正放负充，温度为 `(°C+40)*10`，未装单体为 61001，A1.3.3 边界为 0xFFFF。旧 Flash 格式不迁移。配置、SOC 与最近 100 条事件独立提交，普通 OTA 保留本代数据。
 - 中断只做必要的寄存器操作、搬运、捕时和置位。采样、保护、Flash 和组包在主循环。正常 Suspend 保留业务 RAM。
 - 每轮解决一个可验证的问题，按文件白名单独立提交。标题和简短正文用中文，技术标识保留英文。不自动推送。临时文件和验证产物放 Windows 用户临时区。
+
+## 上位机适配与实板验收
+
+D008 的目标上位机为本仓库 `feature/windows-classic-ui-20261118` 分支的 Classic UI。Windows 客户版在 `bms-tool-windows/BmsTool.Windows/`，内部版在 `BmsFactoryTest.Windows/`，读取和 BLE 传输合同以该分支的 `Shared/`、`BmsTool.Core/` 及实际窗口调用为准。记录当次核对的客户端提交；CLI 取同分支共用读数实现。首次核对的客户端源码为 `ac7f5d30`。
+
+先通过 BLE 读取实板身份、16 串装配的各串电压、包压、电流、温度及 SOC，核对有效标志、未装串占位和多次读取的一致性。实测记录应注明客户端版本、板型、固件提交和设备地址。固件升级使用 Telink 官方 BLE OTA。UART 供 Modbus 通信。
