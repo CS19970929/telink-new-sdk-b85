@@ -96,6 +96,7 @@ Classic 自动模式在 ATT MTU 65 选择 `LegacyFast`，每个标准包传 16 B
 
 - `python -B d008/tests/run.py` 运行主机回归。`python -B d008/build.py --profile 16s-lfp --sif lishen` 默认只生成 ELF/MAP。本轮 16S LFP、20S NMC、23S LFP、24S LFP 四种产品目标通过链接。
 - `d008/tests/RideReplay.csproj` 通过 `ClassicClientProject` 指向指定 Classic 源码的 `BmsTool.Cli.csproj`。在临时目录编译后运行 `RideReplay <MAC> <新JSON路径> [模式]`。省略模式运行骑行，`afe` 验证同值分片和回读，`wire` 解码引脚，`advertising` 在断开 GATT 的广播期间对照计时。Classic 全套检查使用 `bms-cli test soc-hil --mac <MAC> --suite all --yes --output <JSON>`。
+- `--comm-test --soc-charge-test` 使通信台架每次上电从 0% 开始，以 1 A 模拟充电。Classic 实时 SOC 和剩余容量走正常业务路径，电流显示保留 AFE 实测。只有在有效样本之间按真实时间积分，电压和满端仍用实板数据。模拟 SOC 只在 RAM 内，MOS、均衡及加热继续关闭。版本带 `-1A` 后缀。20 Ah 配置下，每充 36 s 约增加 0.01 Ah。
 - Flash 实物轮转另需 `--comm-test --flash-test`，仅限测试区已核对空白的对应板。运行 `journal-start` 后断开让擦除完成，以 `journal-read` 查看结果，复位后用 `journal-reboot` 只读验证。`d008/tests/ota/` 提供标准包传输中断工具，随后可用 Classic 的 `ota` 命令完整重试。
 - 量产验收仍需可编程电源验证擦写中途断电，新格式生产板验证关机/OTA 前保存与恢复，实负载、电量计与电流表验证 SOC 和功耗，故障工装验证 AFE 失联、保护恢复、MOS、均衡、加热及关机唤醒。保护性关机当前只尝试一次保存 SOC，若恰遇 BLE 暂缓或介质出错，重启会恢复上次成功提交的值。能为保存预留多少关机时间、异常掉电允许回退多少电量，仍需确定。
 - 生产配置首次投产或更换旧格式须有明确的配置初始化流程。当前没有整板恢复出厂命令，SOH 与循环数也没有有效量产数据。其余串数只有链接验证。

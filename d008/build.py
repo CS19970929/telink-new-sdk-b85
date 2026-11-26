@@ -20,9 +20,12 @@ def main():
     parser.add_argument("--sif", choices=("lishen","lishen-extended","a133"), default="lishen")
     parser.add_argument("--fuse-fitted", action="store_true", help="装配确认已安装熔断支路")
     parser.add_argument("--comm-test", action="store_true", help="实板通信测试，功率输出关闭，使用 RAM 装配")
+    parser.add_argument("--soc-charge-test", action="store_true", help="通信台架从 0% 开始模拟 1 A 充电")
     parser.add_argument("--flash-test", action="store_true", help="仅通信台架，将日志映射到已核对的六个空白测试扇区")
     parser.add_argument("--image", type=Path, help="按指定路径导出经原厂工具处理的 BIN")
     args = parser.parse_args()
+    if args.soc_charge_test and (not args.comm_test or args.flash_test):
+        parser.error("SOC 充电测试要求 --comm-test，不能搭配 --flash-test")
     if args.flash_test and not args.comm_test:
         parser.error("Flash 测试必须搭配 --comm-test")
     if args.comm_test and args.profile == "bench":
@@ -89,6 +92,7 @@ def main():
                   "-DAPP_FLASH_PROTECTION_ENABLE=" + str(int(product))])
     flags.append("-DD008_COMM_TEST=" + str(int(args.comm_test)))
     flags.append("-DD008_FLASH_TEST=" + str(int(args.flash_test)))
+    flags.append("-DD008_SOC_CHARGE_TEST=" + str(int(args.soc_charge_test)))
     revision = "dev"
     if shutil.which("git"):
         head = subprocess.run(["git", "rev-parse", "--short=8", "HEAD"], cwd=APP,

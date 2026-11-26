@@ -20,3 +20,7 @@
 #ifndef D008_COMM_TEST
 #define D008_COMM_TEST 0
 #endif
+
+#if D008_SOC_CHARGE_TEST && (!D008_COMM_TEST || D008_FLASH_TEST)
+#error "SOC charge test requires a communication-only build"
+#endif

@@ -33,6 +33,9 @@ void device_init(void)
     config_defaults(&assembly,D008_CELLS,D008_NMC);
 #if D008_COMM_TEST
     d->config=assembly; d->configured=config_valid(&assembly); d->allowed=0;
+#if D008_SOC_CHARGE_TEST
+    soc_manual(&d->soc,&d->config,0,0);
+#endif
 #else
     StoreResult cfg=store_open_config(&d->config,&assembly,sizeof(assembly));
     if (cfg==STORE_BLANK || cfg==STORE_INITIAL) {
@@ -211,7 +214,14 @@ void device_measure(uint32_t tick,uint32_t ms)
     }
     d->valid=sampled;
     if (!sampled) {gpio_write(GPIO_PA1,0); control_gap(&d->control);}
-    soc_sample(&d->soc,&d->config,&d->sample,&d->outputs,sampled, sampled && !probing && !wire_settling &&
+    const Sample *soc_input=&d->sample;
+#if D008_SOC_CHARGE_TEST
+    /* 只替换 SOC 的电流输入，沿用实板电压、采样资格和真实 tick。 */
+    Sample simulated=d->sample;
+    simulated.ma=-1000;
+    soc_input=&simulated;
+#endif
+    soc_sample(&d->soc,&d->config,soc_input,&d->outputs,sampled, sampled && !probing && !wire_settling &&
                !d->wire_fault && d->sample.min_mv>=500 && d->sample.max_mv<=4800,tick,ms);
     uint32_t dt=sampled && previous_good ? ms-last_good_ms : 0;
     if (dt>1000) dt=0;

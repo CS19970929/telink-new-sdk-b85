@@ -86,6 +86,8 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
 #if D008_COMM_TEST
             #if D008_FLASH_TEST
             "D008-FLASH-TEST";
+#elif D008_SOC_CHARGE_TEST
+            "D008-COMM-" D008_BUILD_TAG D008_WIRE_TAG "-1A";
 #else
             "D008-COMM-" D008_BUILD_TAG D008_WIRE_TAG;
 #endif
