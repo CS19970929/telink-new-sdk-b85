@@ -30,6 +30,9 @@ void device_init(void)
     d->allowed=3;
     Config assembly;
     config_defaults(&assembly,D008_CELLS,D008_NMC);
+#if D008_COMM_TEST
+    d->config=assembly; d->configured=config_valid(&assembly); d->allowed=0;
+#else
     StoreResult cfg=store_open(CONFIG_DATA,&d->config,sizeof(d->config));
     if (cfg==STORE_BLANK) {
         d->config=assembly;
@@ -48,6 +51,7 @@ void device_init(void)
     }
     StoreResult log=store_open(EVENT_DATA,0,2);
     d->storage_fault=!d->configured || state==STORE_BAD || log==STORE_BAD;
+#endif
     dvc_bus_init(); gpio_write(GPIO_PD7,1);
     if (d->configured) begin_setup();
     else {mode=STOPPED; (void)afe_outputs(0,0,0);}
@@ -55,7 +59,7 @@ void device_init(void)
 
 bool device_save_soc(void)
 {
-    if (!device.soc.initialized || !device.configured) return false;
+    if (D008_COMM_TEST || !device.soc.initialized || !device.configured) return false;
     SavedSoc s={device.soc.state.remaining_uas,device.config.capacity_dah,device.soc.state.percent};
     return store_append(SOC_DATA,&s,sizeof(s));
 }
@@ -92,7 +96,7 @@ void device_service(uint32_t ms)
     } else if (mode==QUIET && ms-quiet_ms>=5000) {
         begin_setup();
     }
-    if (event_pending && !update_active() && !device_busy() &&
+    if (!D008_COMM_TEST && event_pending && !update_active() && !device_busy() &&
         blc_ll_getCurrentState()!=BLS_LINK_STATE_CONN) {
         event_pending=false;
         if (!store_append(EVENT_DATA,&pending_event,2)) device.storage_fault=true;
@@ -181,6 +185,7 @@ void device_measure(uint32_t tick,uint32_t ms)
             if (result==AFE_OK && sampled) {
                 d->outputs=control_sample(&d->control,&d->config,&next,ms,d->allowed,
                                           gpio_read(GPIO_PB1)!=0,d->wire_fault);
+                if (D008_COMM_TEST) {d->outputs.drive=0; d->outputs.heat=false; d->outputs.fuse=false; d->outputs.balance=0;}
                 if (!d->outputs.heat) gpio_write(GPIO_PA1,0);
                 if (!afe_outputs(d->outputs.drive,d->outputs.balance,ms) ||
                     (d->outputs.ack && !afe_ack(d->outputs.ack))) result=AFE_ERROR;

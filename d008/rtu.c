@@ -38,6 +38,7 @@ void hw_words(const Config *c,bool effective,uint16_t out[35])
 }
 unsigned hw_write(const uint8_t *p)
 {
+    if (D008_COMM_TEST) return 2;
     Config c=device.config;
     uint16_t previous[35];
     hw_words(&c,false,previous);
@@ -130,7 +131,7 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
                 n==9+count*2 && p[6]==count*2)) {
                 /* 广播无会话，不能借本地维护权限修改内部参数。 */
                 if (!p[0] && s->token) return 0;
-                error=register_write(s,reg,count,p+(op==6?4:7),ms);
+                error=D008_COMM_TEST?2:register_write(s,reg,count,p+(op==6?4:7),ms);
                 ++s->sequence; s->result=error;
                 memcpy(out,p,6); length=6;
             }

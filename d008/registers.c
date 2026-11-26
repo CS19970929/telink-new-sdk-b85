@@ -51,7 +51,12 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
         const unsigned positions[]={0,0,37,0,52,48,49,47,32,33,36};
         v=r==0xd120?0x4253:r==0xd121?1:r==0xd123?report(50)-report(51):report(positions[r-0xd120]);
     } else if (r>=0xc002 && r<0xc032) {
-        static const uint8_t hw[32]="HS-D008-24S100A-V1", fw[32]="D008-CLEAN-V1";
+        static const uint8_t hw[32]="HS-D008-24S100A-V1", fw[32]=
+#if D008_COMM_TEST
+            "D008-COMM-V1";
+#else
+            "D008-CLEAN-V1";
+#endif
         unsigned i=r-0xc002;
         v=word((i<16?c->sn:i<32?hw:fw)+2*(i%16));
     } else if (r>=0x2100 && r<=0x2140) {

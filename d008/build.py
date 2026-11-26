@@ -19,7 +19,13 @@ def main():
     parser.add_argument("--chemistry", choices=("lfp","nmc"))
     parser.add_argument("--sif", choices=("lishen","a133"), default="lishen")
     parser.add_argument("--fuse-fitted", action="store_true", help="装配确认已安装熔断支路")
+    parser.add_argument("--comm-test", action="store_true", help="实板通信测试，功率输出关闭，使用 RAM 装配")
+    parser.add_argument("--image", type=Path, help="按指定路径导出经原厂工具处理的 BIN")
     args = parser.parse_args()
+    if args.comm_test and args.profile == "bench":
+        parser.error("通信测试需要选择实际电池装配")
+    if args.image and args.image.exists():
+        parser.error("目标镜像已存在，请使用新的文件名")
     product = args.profile != "bench"
     if args.profile == "custom":
         if not args.cells or not args.chemistry:
@@ -73,6 +79,7 @@ def main():
                   "-DD008_LISHEN=" + str(int(args.sif == "lishen")),
                   "-DD008_FUSE_FITTED=" + str(int(args.fuse_fitted)),
                   "-DAPP_FLASH_PROTECTION_ENABLE=" + str(int(product))])
+    flags.append("-DD008_COMM_TEST=" + str(int(args.comm_test)))
     objects = []
     for index, source in enumerate(sources):
         obj = out / (str(index) + "-" + source.stem + ".o")
@@ -90,6 +97,21 @@ def main():
     reserve = values["__SRAM_SIZE"] - values["_ram_use_end_"]
     if values["__SRAM_SIZE"] != 0x848000 or reserve < 3072 or values["_sstored_"] > 0x1f000:
         raise SystemExit("目标超出 TLSR8251 的 RAM 或 APP 槽")
+    if args.image:
+        import zlib
+        image = out / "d008.bin"
+        run([tool("objcopy"), "-O", "binary", str(elf), str(image)])
+        checker = SDK / "script/tl_check_fw/tl_check_fw2.exe"
+        result = subprocess.run([str(checker), str(image)], cwd=checker.parent, env=env,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+        data = image.read_bytes()
+        if (b"done" not in result.stdout.lower() or data[8:12] != b"KNLT"
+                or int.from_bytes(data[24:28], "little") != len(data)
+                or len(data) > 0x1f000 or zlib.crc32(data) != 0xffffffff):
+            raise SystemExit("原厂处理后的启动标志、长度或 CRC 不合格")
+        with args.image.open("xb") as target:
+            target.write(data)
+        print(f"{args.image}  {len(data)} B")
     print(f"{elf}  APP={values['_sstored_']} B  main stack={reserve} B")
 
 if __name__ == "__main__":

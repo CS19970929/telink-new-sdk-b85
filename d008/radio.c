@@ -65,7 +65,7 @@ static int ota_receive(void *packet)
     const u8 *v=(const u8 *)&p->value;
     unsigned cmd=v[0]|((unsigned)v[1]<<8);
     if (!ble_updating && (cmd==CMD_OTA_START || cmd==CMD_OTA_START_EXT) &&
-        (!device.valid || !device_save_soc())) return 0;
+        (!device.valid || (!D008_COMM_TEST && !device_save_soc()))) return 0;
     return otaWrite(packet);
 }
 #define A(n,perm,id,val) {n,perm,sizeof(id),sizeof(val),(u8 *)&id,(u8 *)&val}

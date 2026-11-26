@@ -16,3 +16,7 @@
 #define PD4_DATA_OUT 0
 #define PA0_INPUT_ENABLE 1
 #define PB1_INPUT_ENABLE 1
+
+#ifndef D008_COMM_TEST
+#define D008_COMM_TEST 0
+#endif
