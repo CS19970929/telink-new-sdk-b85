@@ -15,3 +15,5 @@
 D008 的目标上位机为本仓库 `feature/windows-classic-ui-20261118` 分支的 Classic UI。Windows 客户版在 `bms-tool-windows/BmsTool.Windows/`，内部版在 `BmsFactoryTest.Windows/`，读取和 BLE 传输合同以该分支的 `Shared/`、`BmsTool.Core/` 及实际窗口调用为准。记录当次核对的客户端提交；CLI 取同分支共用读数实现。首次核对的客户端源码为 `ac7f5d30`。
 
 先通过 BLE 读取实板身份、16 串装配的各串电压、包压、电流、温度及 SOC，核对有效标志、未装串占位和多次读取的一致性。实测记录应注明客户端版本、板型、固件提交和设备地址。固件升级使用 Telink 官方 BLE OTA。UART 供 Modbus 通信。
+
+Classic 自动 OTA 已在 16S 铁锂台架以 ATT MTU 65 和官方 16 B 标准包验收。变更 MTU 或传输方式时，用同一客户端复测自动升级、中断后重试，以及 35 字 DVC 参数的 v2 分片与回读。锂神标准帧和项目扩展帧按客户仪表装配选择，当前默认标准帧。
