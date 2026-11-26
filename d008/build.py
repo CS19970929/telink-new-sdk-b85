@@ -17,7 +17,7 @@ def main():
     parser.add_argument("--profile", choices=("bench","16s-lfp","20s-nmc","23s-lfp","24s-lfp","custom"), default="16s-lfp")
     parser.add_argument("--cells", type=int)
     parser.add_argument("--chemistry", choices=("lfp","nmc"))
-    parser.add_argument("--sif", choices=("lishen","a133"), default="lishen")
+    parser.add_argument("--sif", choices=("lishen","lishen-extended","a133"), default="lishen")
     parser.add_argument("--fuse-fitted", action="store_true", help="装配确认已安装熔断支路")
     parser.add_argument("--comm-test", action="store_true", help="实板通信测试，功率输出关闭，使用 RAM 装配")
     parser.add_argument("--flash-test", action="store_true", help="仅通信台架，将日志映射到已核对的六个空白测试扇区")
@@ -83,7 +83,8 @@ def main():
              "-finline-small-functions", "-fms-extensions", "-DCHIP_TYPE=1",
              "-include", str(APP / "board.h"), "-DBENCH_AWAKE=" + str(int(args.awake))]
     flags.extend(["-DD008_CELLS=" + str(cells), "-DD008_NMC=" + str(int(chemistry == "nmc")),
-                  "-DD008_LISHEN=" + str(int(args.sif == "lishen")),
+                  "-DD008_LISHEN=" + str(int(args.sif != "a133")),
+                  "-DD008_LISHEN_EXTENDED=" + str(int(args.sif == "lishen-extended")),
                   "-DD008_FUSE_FITTED=" + str(int(args.fuse_fitted)),
                   "-DAPP_FLASH_PROTECTION_ENABLE=" + str(int(product))])
     flags.append("-DD008_COMM_TEST=" + str(int(args.comm_test)))

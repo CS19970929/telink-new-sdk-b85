@@ -30,8 +30,15 @@ unsigned sif_frame(const Device *d,bool lishen,uint8_t type,uint8_t *p)
     memset(p,255,64);
     if (lishen) {
         unsigned v=(s->sum_mv+500)/1000;
-        if (!soc_ok || !v || v>255 || hot>1650) return 0;
-        p[0]=0; p[1]=soc/2; p[2]=v; p[3]=(uint8_t)((int)(hot+5)/10-40); p[4]=0;
+        int temp=(int)(hot+5)/10-40;
+        if (!soc_ok || !v || v>255 || temp>127) return 0;
+        p[0]=0; p[1]=soc/2; p[2]=v; p[3]=(uint8_t)temp; p[4]=0;
+#if D008_LISHEN_EXTENDED
+        /* 单一有符号 mA，正放负充。先限制范围，避免极值取反或取整溢出。 */
+        if (s->ma <= -127500 || s->ma >= 127500) p[0]=0x80;
+        else p[0]=(uint8_t)((s->ma+(s->ma<0?-500:500))/1000);
+        p[4]=0xc0u|fault_code(d);
+#endif
         n=6;
     } else if (type==1) {
         p[0]=1; p[1]=0x13; p[4]=d->config.nmc?3:1; le(p+7,d->config.capacity_dah);
