@@ -4,14 +4,15 @@
 #include "device.h"
 #include "link.h"
 #include "afe.h"
+#include "history.h"
 #include "dvc_bus.h"
 #include <string.h>
 
 Device device;
 static enum { STOPPED, SETUP, SAMPLING, QUIET, SHUTDOWN } mode;
-static bool failing, probing, wire_settling, event_pending;
+static bool failing, probing, wire_settling;
 static uint32_t fail_ms, quiet_ms, probe_ms, normal_low_ms, low_ms, uv_ms;
-static uint16_t last_fault, pending_event;
+static uint32_t service_ms;
 static uint32_t last_good_ms;
 static bool previous_good;
 typedef struct { int64_t uas; uint16_t capacity, percent; } SavedSoc;
@@ -51,6 +52,7 @@ void device_init(void)
     }
     StoreResult log=store_open(EVENT_DATA,0,2);
     d->storage_fault=!d->configured || state==STORE_BAD || log==STORE_BAD;
+    history_note(1,0);
 #endif
     dvc_bus_init(); gpio_write(GPIO_PD7,1);
     if (d->configured) begin_setup();
@@ -96,11 +98,9 @@ void device_service(uint32_t ms)
     } else if (mode==QUIET && ms-quiet_ms>=5000) {
         begin_setup();
     }
-    if (!D008_COMM_TEST && event_pending && !update_active() && !device_busy() &&
-        blc_ll_getCurrentState()!=BLS_LINK_STATE_CONN) {
-        event_pending=false;
-        if (!store_append(EVENT_DATA,&pending_event,2)) device.storage_fault=true;
-    }
+    service_ms=ms;
+    if (!D008_COMM_TEST && !update_active() && !device_busy() && !history_flush(ms))
+        device.storage_fault=true;
 }
 
 bool device_set_config(const Config *c)
@@ -141,6 +141,10 @@ void device_powerdown(bool acc)
     mode=SHUTDOWN;
     gpio_write(GPIO_PA1,0);
     if (bus_allowed) {(void)afe_outputs(0,0,0); (void)afe_shutdown();}
+    if (!D008_COMM_TEST) {
+        (void)history_note(2,service_ms);
+        (void)history_flush(service_ms);
+    }
     (void)device_save_soc();
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
     bls_pm_setAppWakeupLowPower(0,0);
@@ -221,13 +225,19 @@ void device_measure(uint32_t tick,uint32_t ms)
         if (normal_low_ms>=86400000u || low_ms>=3600000u || uv_ms>=180000u)
             device_powerdown(false);
     }
-    uint16_t fault=d->control.latched;
-    if (d->afe_fault) fault|=0x8000;
-    if (fault!=last_fault) {
-        uint16_t changed=fault^last_fault; unsigned bit=0;
-        while (!(changed & (1u<<bit))) ++bit;
-        pending_event=(uint16_t)(((bit+1u+(fault&(1u<<bit)?0u:32u))<<8) | ((ms/60000u)&255u));
-        event_pending=true; last_fault=fault;
+    if (!D008_COMM_TEST) {
+        uint16_t active=d->control.latched;
+        if (sampled) {
+            if (d->sample.alarms&0x40) active|=1u<<OV;
+            if (d->sample.alarms&0x20) active|=1u<<UV;
+            if (d->sample.alarms&0x0a) active|=1u<<CHARGE_OC;
+            if (d->sample.alarms&0x15) active|=1u<<DISCHARGE_OC;
+        }
+        if (d->wire_fault) active|=1u<<12;
+        if (d->afe_fault) active|=1u<<13;
+        if (d->storage_fault) active|=1u<<14;
+        if (sampled && d->outputs.heat) active|=1u<<15;
+        if (!history_observe(active,ms)) d->storage_fault=true;
     }
 }
 

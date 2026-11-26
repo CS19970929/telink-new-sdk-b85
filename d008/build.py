@@ -69,7 +69,7 @@ def main():
     if product:
         sources.extend(APP / (name + ".c") for name in
                        ("product", "dvc_bus", "afe", "control", "soc", "store", "nor",
-                        "device", "registers", "rtu", "radio", "sif", "wired"))
+                        "history", "device", "registers", "rtu", "radio", "sif", "wired"))
         sources.extend(SDK / path for path in ("drivers/B85/i2c.c", "drivers/B85/uart.c",
                                                "vendor/common/flash_prot.c"))
         sources.extend(sorted((SDK / "drivers/B85/flash").glob("flash_mid*.c")))

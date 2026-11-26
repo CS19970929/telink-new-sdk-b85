@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = {"meter": ["meter"], "wide": ["sdk/wide"], "storage": ["store"]}
+CASES = {"meter": ["meter"], "wide": ["sdk/wide"], "storage": ["store"], "history": ["history"]}
 
 def main():
     compiler = os.environ.get("HOST_CC") or shutil.which("cc") or shutil.which("gcc")
