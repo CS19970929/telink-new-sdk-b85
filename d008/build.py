@@ -14,7 +14,25 @@ PATCH = PACKAGE / "tc_ble_single_sdk_v3.4.2.8_Patch" / "patch_0001_20250929"
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--awake", action="store_true", help="禁用普通 Suspend，作台架对照")
+    parser.add_argument("--profile", choices=("bench","16s-lfp","20s-nmc","23s-lfp","24s-lfp","custom"), default="16s-lfp")
+    parser.add_argument("--cells", type=int)
+    parser.add_argument("--chemistry", choices=("lfp","nmc"))
+    parser.add_argument("--sif", choices=("lishen","a133"), default="lishen")
+    parser.add_argument("--fuse-fitted", action="store_true", help="装配确认已安装熔断支路")
     args = parser.parse_args()
+    product = args.profile != "bench"
+    if args.profile == "custom":
+        if not args.cells or not args.chemistry:
+            parser.error("定制装配需同时指定串数与化学体系")
+        cells, chemistry = args.cells, args.chemistry
+    else:
+        if args.cells is not None or args.chemistry is not None:
+            parser.error("只有 custom 装配可以覆盖串数和化学体系")
+        spec = "16s-lfp" if not product else args.profile
+        count, chemistry = spec.split("s-")
+        cells = int(count)
+    if not 4 <= cells <= (23 if chemistry == "nmc" else 24):
+        parser.error("装配超出芯片电压或串数范围")
     out = Path(tempfile.mkdtemp(prefix="d008-clean-"))
     tool_dir = Path(os.environ.get("TC32_BIN", "C:/TelinkIoTStudio/opt/tc32/bin"))
     compiler = shutil.which("tc32-elf-gcc", path=str(tool_dir)) or shutil.which("tc32-elf-gcc")
@@ -28,7 +46,7 @@ def main():
     def tool(name):
         return str(tools / ("tc32-elf-" + name + (".exe" if os.name == "nt" else "")))
 
-    sources = [APP / "sdk/cstartup_825x.S", APP / "main.c", APP / "meter.c", APP / "sdk/wide.c",
+    sources = [APP / "sdk/cstartup_825x.S", APP / ("run.c" if product else "main.c"), APP / "meter.c", APP / "sdk/wide.c",
                PATCH / "drivers/B85/clock.c"]
     for name in ("common/div_mod.S", "common/string.c", "common/utility.c",
                  "drivers/B85/analog.c", "drivers/B85/gpio.c", "drivers/B85/flash.c",
@@ -39,11 +57,22 @@ def main():
                  "drivers/B85/flash/flash_common.c", "vendor/common/ble_flash.c",
                  "vendor/common/user_config.c"):
         sources.append(SDK / name)
+    if product:
+        sources.extend(APP / (name + ".c") for name in
+                       ("product", "dvc_bus", "afe", "control", "soc", "store", "nor",
+                        "device", "registers", "rtu", "radio", "sif", "wired"))
+        sources.extend(SDK / path for path in ("drivers/B85/i2c.c", "drivers/B85/uart.c",
+                                               "vendor/common/flash_prot.c"))
+        sources.extend(sorted((SDK / "drivers/B85/flash").glob("flash_mid*.c")))
     includes = [APP, SDK, SDK / "drivers/B85", SDK / "common", SDK / "vendor/common"]
     flags = ["-O2", "-std=gnu99", "-fshort-wchar", "-fpack-struct", "-fshort-enums",
              "-fno-jump-tables", "-ffunction-sections", "-fdata-sections",
              "-finline-small-functions", "-fms-extensions", "-DCHIP_TYPE=1",
              "-include", str(APP / "board.h"), "-DBENCH_AWAKE=" + str(int(args.awake))]
+    flags.extend(["-DD008_CELLS=" + str(cells), "-DD008_NMC=" + str(int(chemistry == "nmc")),
+                  "-DD008_LISHEN=" + str(int(args.sif == "lishen")),
+                  "-DD008_FUSE_FITTED=" + str(int(args.fuse_fitted)),
+                  "-DAPP_FLASH_PROTECTION_ENABLE=" + str(int(product))])
     objects = []
     for index, source in enumerate(sources):
         obj = out / (str(index) + "-" + source.stem + ".o")

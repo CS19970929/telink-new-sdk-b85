@@ -10,4 +10,3 @@ void wired_poll(uint32_t ms);
 bool wired_busy(void);
 void wired_prepare_suspend(void);
 void wired_stop(void);
-uint16_t rtu_reply(const uint8_t *req,unsigned n,uint8_t *reply,uint32_t ms);
