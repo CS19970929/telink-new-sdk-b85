@@ -47,7 +47,7 @@ static void index_event(uint32_t seq,uint32_t addr)
     while (i<count && (int32_t)(seq-recent[i].seq)<0) ++i;
     if (i==EVENTS) return;
     if (count<EVENTS) ++count;
-    memmove(&recent[i+1],&recent[i],(count-i-1)*sizeof(recent[0]));
+    for (unsigned j=count-1;j>i;--j) recent[j]=recent[j-1];
     recent[i].seq=seq; recent[i].addr=addr;
 }
 
