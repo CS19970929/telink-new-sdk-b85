@@ -5,7 +5,6 @@
 #include "vendor/common/flash_prot.h"
 #include "registers.h"
 #include "link.h"
-#include "update.h"
 
 uint8_t device_address[6];
 static uint16_t lock_command;
@@ -25,8 +24,8 @@ static const u8 rx_decl[]={CHAR_PROP_WRITE|CHAR_PROP_WRITE_WITHOUT_RSP,6,0,TELIN
 static const u8 tx_decl[]={CHAR_PROP_READ|CHAR_PROP_NOTIFY,8,0,TELINK_SPP_DATA_CLIENT2SERVER};
 static const u8 ota_decl[]={CHAR_PROP_WRITE_WITHOUT_RSP|CHAR_PROP_WRITE|CHAR_PROP_NOTIFY|CHAR_PROP_READ,12,0,TELINK_SPP_DATA_OTA};
 
-bool update_active(void) {return ble_updating || uart_update_busy();}
-bool update_layout(void)
+bool update_active(void) {return ble_updating;}
+static bool update_layout(void)
 {
     if (!protection_ready || blc_flash_capacity!=FLASH_SIZE_512K ||
         ota_program_bootAddr!=0x20000 || (ota_program_offset && ota_program_offset!=0x20000) ||
@@ -35,7 +34,7 @@ bool update_layout(void)
     flash_read_page((ota_program_offset?0:0x20000)+8,4,(u8 *)&mark);
     return mark==0x544c4e4b;
 }
-void update_lock(bool lock)
+static void update_lock(bool lock)
 {
     if (!protection_ready) return;
     if (lock) flash_lock(lock_command);
@@ -62,7 +61,7 @@ static int receive(void *packet)
 static int ota_receive(void *packet)
 {
     const rf_packet_att_write_t *p=packet;
-    if (uart_update_busy() || !update_layout() || p->l2capLen<5) return 0;
+    if (!update_layout() || p->l2capLen<5) return 0;
     const u8 *v=(const u8 *)&p->value;
     unsigned cmd=v[0]|((unsigned)v[1]<<8);
     if (!ble_updating && (cmd==CMD_OTA_START || cmd==CMD_OTA_START_EXT) &&
