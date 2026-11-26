@@ -5,6 +5,8 @@
 #include <stdio.h>
 
 Device device;
+static bool updating;
+bool update_active(void) {return updating;}
 unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint32_t ms)
 {
     (void)s; (void)p; (void)n; (void)out; (void)ms; return 0;
@@ -59,6 +61,14 @@ int main(void)
     }
     assert(uart_mode && wired_busy());
     wired_poll(13760); assert(!uart_mode && !wired_busy());
+    pin_rx=1; device.valid=true;
+    wired_poll(14000); simulated_tick+=16000000;
+    wired_poll(15000); assert(wired_transmitting());
+    updating=true; wired_pause_frame();
+    assert(!wired_transmitting() && !tx_enable);
+    simulated_tick+=32000000; wired_poll(17000); assert(!wired_transmitting());
+    updating=false; wired_poll(17001); simulated_tick+=16000000;
+    wired_poll(18001); assert(wired_transmitting());
     assert(ticks==1516);
     puts("Lishen: 1516 output levels, 1379 ms spacing, wrap, Suspend pad polarity, UART handover OK");
 }

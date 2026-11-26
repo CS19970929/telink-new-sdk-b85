@@ -38,7 +38,7 @@ bool nor_read(uint32_t addr,void *out,unsigned n)
 
 static bool modify(uint32_t addr,const void *data,unsigned n)
 {
-    if (!allowed(addr,n) || update_active() || !witness() ||
+    if (!allowed(addr,n) || update_active() || wired_transmitting() || !witness() ||
         blc_flash_capacity!=FLASH_SIZE_512K || flash_read_mid()!=blc_flash_mid) return false;
     switch (blc_flash_mid) {
     case 0x1360c8: case 0x13325e: case 0x134051: case 0x136085: case 0x1360eb: break;

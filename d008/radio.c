@@ -68,6 +68,7 @@ static int ota_receive(void *packet)
     if (cmd==CMD_OTA_START || cmd==CMD_OTA_START_EXT) {
         unsigned expected=cmd==CMD_OTA_START?sizeof(ota_start_t):sizeof(ota_startExt_t);
         if ((unsigned)p->l2capLen!=expected+3 || !device.valid) return 0;
+        wired_pause_frame();
         if (!ble_updating && !D008_COMM_TEST && !device_save_soc()) {
             /* 连接中禁止长擦除；断开后准备 SOC 槽，使下一次升级可以正常开始。 */
             retry_soc_after_disconnect=true; retry_soc_ms=0;

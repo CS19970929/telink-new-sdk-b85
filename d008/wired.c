@@ -103,6 +103,17 @@ _attribute_ram_code_ void wired_irq(void)
         dma_chn_irq_status_clr(flags&(FLD_DMA_CHN_UART_RX|FLD_DMA_CHN_UART_TX));
     }
 }
+bool wired_transmitting(void) {return transmitting;}
+void wired_pause_frame(void)
+{
+    u8 irq=irq_disable();
+    if (transmitting) {
+        stop_timer(); gpio_write(TX,1); gpio_set_output_en(TX,0);
+        high_seen=false;
+    }
+    irq_restore(irq);
+}
+
 bool wired_busy(void)
 {
     return uart_mode || transmitting || edges ||
@@ -141,7 +152,7 @@ void wired_poll(uint32_t ms)
     if (count && count<3 && clock_time()-first_edge>40000u) edges=0;
     irq_restore(irq);
     if (count>=3) {uart_enter(ms);return;}
-    if (transmitting) return;
+    if (transmitting || update_active()) return;
     if (!gpio_read(RX)) {
         if (high_seen) gpio_set_output_en(TX,0);
         high_seen=false; startup=3; identity_count=0; return;
