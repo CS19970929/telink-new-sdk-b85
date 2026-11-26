@@ -91,7 +91,19 @@ bool control=false;
 try {
     await ble.ConnectAsync(mac,ct);
     await VerifyBoard();
-    if (args.Length==3 && args[2]=="wire") {
+    if (args.Length==3 && args[2]=="afe") {
+        var id=await client.ReadIdentityAsync(ct);
+        Check(id.Software.StartsWith("D008-COMM-") && ble.NegotiatedMtu==65,"通信台架或 MTU 不符");
+        var original=await client.ReadRegistersAsync(0x2500,35,ct);
+        var session=await client.OpenAfeHardwareAccessAsync(ct);
+        try {
+            await client.WriteAfeProfileAsync(original,session,ct);
+            var after=await client.ReadRegistersAsync(0x2500,35,ct);
+            Check(after.SequenceEqual(original),"分片回读不符");
+            stages.Add(new {mtu=ble.NegotiatedMtu,frameBytes=79,fragments=8,readbackWords=after.Length,
+                            version=session.ProtocolVersion});
+        } finally { await client.CloseAfeHardwareAccessAsync(session.Token,ct); }
+    } else if (args.Length==3 && args[2]=="wire") {
         await client.WriteSingleRegisterAsync(0x7c23,0x5111,ct);
         await Task.Delay(4000,ct);
         var w=await client.ReadRegistersAsync(0x7d00,111,ct);

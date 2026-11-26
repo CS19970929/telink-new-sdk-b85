@@ -46,10 +46,14 @@ void hw_words(const Config *c,bool effective,uint16_t out[35])
 }
 unsigned hw_write(const uint8_t *p)
 {
-    if (D008_COMM_TEST) return 2;
     Config c=device.config;
     uint16_t previous[35];
     hw_words(&c,false,previous);
+#if D008_COMM_TEST
+    /* 仅开放原值对照以验证分片和提交应答。测试固件不写 AFE 或业务区。 */
+    for (unsigned i=0;i<35;++i) if (be(p+2*i)!=previous[i]) return 2;
+    return 0;
+#endif
     for (unsigned i=0;i<35;++i) {
         unsigned v=be(p+2*i);
         switch (i) {
