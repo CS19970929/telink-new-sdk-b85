@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using BmsTool.Windows;
 
-if (args.Length != 2) throw new ArgumentException("参数为板卡 MAC 和新建的 JSON 证据文件路径");
+if (args.Length is <2 or >3) throw new ArgumentException("参数为板卡 MAC 和新建的 JSON 证据文件路径");
 ulong mac = ulong.Parse(args[0].Replace(":", ""), NumberStyles.HexNumber);
 using var output = new FileStream(args[1], FileMode.CreateNew, FileAccess.Write);
 using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(6));
@@ -91,12 +91,34 @@ bool control=false;
 try {
     await ble.ConnectAsync(mac,ct);
     await VerifyBoard();
-    await client.ReadRegistersAsync(0x7c00,28,ct);
-    control=true;
-    await Ride(true,1);
-    await Ride(false,1);
-    await Ride(false,60);
-    await VerifyBoard();
+    if (args.Length==3) {
+        var mode=args[2];
+        if (mode!="journal-start" && mode!="journal-read" && mode!="journal-reboot")
+            throw new ArgumentException("未知台架测试");
+        var before=await client.ReadRegistersAsync(0x7c30,15,ct);
+        Check(before[14]==0xd008 && Pair(before,12)==0x1360c8,"与已核对的台架 Flash 不符");
+        if (mode!="journal-read") {
+            Check(before[0]==0,"台架已启动");
+            await client.WriteSingleRegisterAsync(0x7c22,0xd008,ct);
+            await Task.Delay(2200,ct);
+        }
+        var w=await client.ReadRegistersAsync(0x7c30,15,ct);
+        stages.Add(new {mode,state=w[0],cfg=w[1],soc=w[2],events=w[3],programs=w[4],erases=w[5],
+                        retries=w[6],missed=w[7],maxOperation_ms=Pair(w,8)/16000m,
+                        elapsed_ms=Pair(w,10),mid=Pair(w,12).ToString("X6")});
+        Check(w[0] is >=1 and <=4,"台架拒绝或校验失败");
+        if (mode=="journal-reboot") Check(w[0]==4 && w[4]==0 && w[5]==0,"复位后只读恢复失败");
+        if (mode=="journal-read" && w[0]==4)
+            Check(w[1]==33 && w[2]==129 && w[3]==257 && w[4]==838 && w[5]==3 && w[7]==0,
+                  "实物轮转、磨损或采样漏期不符");
+    } else {
+        await client.ReadRegistersAsync(0x7c00,28,ct);
+        control=true;
+        await Ride(true,1);
+        await Ride(false,1);
+        await Ride(false,60);
+        await VerifyBoard();
+    }
 } catch (Exception ex) { failure=ex.Message; }
 finally {
     if (control) {
