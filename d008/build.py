@@ -88,6 +88,17 @@ def main():
                   "-DAPP_FLASH_PROTECTION_ENABLE=" + str(int(product))])
     flags.append("-DD008_COMM_TEST=" + str(int(args.comm_test)))
     flags.append("-DD008_FLASH_TEST=" + str(int(args.flash_test)))
+    revision = "dev"
+    if shutil.which("git"):
+        head = subprocess.run(["git", "rev-parse", "--short=8", "HEAD"], cwd=APP,
+                              text=True, capture_output=True)
+        if head.returncode == 0:
+            revision = head.stdout.strip()
+            dirty = subprocess.run(["git", "status", "--porcelain", "--", "."], cwd=APP,
+                                   text=True, capture_output=True)
+            if dirty.returncode or dirty.stdout.strip():
+                revision += "-dev"
+    flags.append('-DD008_BUILD_TAG="' + revision + '"')
     objects = []
     for index, source in enumerate(sources):
         obj = out / (str(index) + "-" + source.stem + ".o")

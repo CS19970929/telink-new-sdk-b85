@@ -8,6 +8,10 @@
 #include "tests/flash_board.h"
 #endif
 
+#ifndef D008_BUILD_TAG
+#define D008_BUILD_TAG "dev"
+#endif
+
 static unsigned word(const uint8_t *p) {return ((unsigned)p[0]<<8)|p[1];}
 static unsigned capacity_word(int64_t value) {return value>65535 ? 65535 : (unsigned)value;}
 static unsigned report(unsigned index)
@@ -73,10 +77,10 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
             #if D008_FLASH_TEST
             "D008-FLASH-TEST";
 #else
-            "D008-COMM-V1";
+            "D008-COMM-" D008_BUILD_TAG;
 #endif
 #else
-            "D008-CLEAN-V1";
+            "D008-CLEAN-" D008_BUILD_TAG;
 #endif
         unsigned i=r-0xc002;
         v=word((i<16?c->sn:i<32?hw:fw)+2*(i%16));
