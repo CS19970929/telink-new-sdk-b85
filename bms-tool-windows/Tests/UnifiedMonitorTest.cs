@@ -114,8 +114,10 @@ static class UnifiedMonitorTest
         Check(balanceText(true,measured)=="进行中" && measured.IsCellBalancing(2) && !measured.IsCellBalancing(1),
             "有有效均衡位图时沿用逐串图标");
 
-        var run=assembly.GetType("BmsTool.Windows.CommToolCanUpgrade")!.GetMethod("Run",BindingFlags.NonPublic|BindingFlags.Static)!
-            .CreateDelegate<Action<byte[],Func<byte,byte[],CancellationToken,byte[]>,IProgress<(int,string)>,CancellationToken>>();
+        var runCore=assembly.GetType("BmsTool.Windows.CommToolCanUpgrade")!.GetMethod("Run",BindingFlags.NonPublic|BindingFlags.Static)!
+            .CreateDelegate<Action<byte[],Func<byte,byte[],CancellationToken,byte[]>,IProgress<(int,string)>,CancellationToken,Func<Version,bool>?>>();
+        void run(byte[] image, Func<byte,byte[],CancellationToken,byte[]> adapter, IProgress<(int,string)> progress,
+            CancellationToken ct, Func<Version,bool>? confirm=null) => runCore(image,adapter,progress,ct,confirm);
         byte[] app=new byte[1024], cached=new byte[1024];
         void Put(int offset,uint value)=>BinaryPrimitives.WriteUInt32LittleEndian(app.AsSpan(offset),value);
         Put(0,0x20005000);Put(4,0x08003121);Put(0x104,0xC073000D);Put(0x108,0x08003000);Put(0x10C,17);Put(0x110,900);
@@ -132,6 +134,7 @@ static class UnifiedMonitorTest
         byte[] Adapter(byte cmd,byte[] data,CancellationToken token) {
             token.ThrowIfCancellationRequested();
             switch(cmd) {
+                case 1: return [1,0,2,11,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
                 case 2: Check(BinaryPrimitives.ReadUInt32LittleEndian(data)==250000 && data[4]==1 && data[5]==0,"CAN 速率与双节点地址");return [];
                 case 0x20: ++cacheBegins;meta=data;cacheValid=false;return [];
                 case 0x21:
@@ -225,8 +228,58 @@ static class UnifiedMonitorTest
         catch (InvalidDataException) { Check(!started,"guarded CAN rejects historical 44 KiB before START"); }
         upgradeBoard=0x002C;
         run(guardedPackage,CompactAdapter,new Progress<(int,string)>(),default);
-        Check(started,"guarded CAN verifies matching 44 KiB identity");
+        Check(started && BinaryPrimitives.ReadUInt32LittleEndian(meta)==0x08003000,"新版转接器使用 C073 原分区");
         started=false;
+
+        patch=3;
+        int legacyIdentityReads=0, legacyStarts=0;
+        bool changeBeforeStart=false;
+        byte[] LegacyAdapter(byte op,byte[] data,CancellationToken ct) {
+            if (op==0x10 && data[0]==0x70) {
+                ++legacyIdentityReads;
+                if (changeBeforeStart && legacyIdentityReads==2)
+                    return Words(0x5550,1,0xC073,13,2,2,0x0800,0x3000,0,0xB000,0,0);
+            }
+            if (op==0x20) Check(BinaryPrimitives.ReadUInt32LittleEndian(data)==0x08004800,
+                "旧版转接器使用缓存分类 0x08004800");
+            if (op==0x31) {
+                ++legacyStarts;
+                Check(legacyIdentityReads==2,"缓存前和启动前都核对 C073 身份");
+            }
+            return CompactAdapter(op,data,ct);
+        }
+        int beforeLegacy=cacheBegins;
+        try {
+            run(guardedPackage,LegacyAdapter,new Progress<(int,string)>(),default,
+                version=>{Check(version==new Version(0,2,3) && legacyIdentityReads==1,"旧转接器核对身份后请求单板确认");return false;});
+            throw new Exception("取消单板确认后仍升级");
+        } catch(OperationCanceledException) {
+            Check(cacheBegins==beforeLegacy && legacyStarts==0,"取消确认后不碰缓存和 BMS");
+        }
+        legacyIdentityReads=0;
+        appAnswers=false;
+        try {
+            run(guardedPackage,LegacyAdapter,new Progress<(int,string)>(),default,_=>true);
+            throw new Exception("未读到 APP 仍用旧转接器启动");
+        } catch(IOException) {
+            Check(cacheBegins==beforeLegacy && legacyStarts==0,"旧版转接器拒绝无法确认身份的 Boot 设备");
+        }
+        appAnswers=true;
+        legacyIdentityReads=0;
+        changeBeforeStart=true;
+        try {
+            run(guardedPackage,LegacyAdapter,new Progress<(int,string)>(),default,_=>true);
+            throw new Exception("启动前设备换板仍继续");
+        } catch(InvalidDataException) {
+            Check(cacheBegins==beforeLegacy+1 && legacyStarts==0,"缓存写完设备身份变化时禁止启动");
+        }
+        changeBeforeStart=false;
+        legacyIdentityReads=0;
+        run(guardedPackage,LegacyAdapter,new Progress<(int,string)>(),default,_=>true);
+        Check(legacyStarts==1 && cacheBegins==beforeLegacy+1 && legacyIdentityReads==3,
+            "旧版转接器复用缓存并完成当前 C073 格式 2 包升级及运行 CRC32 确认");
+        started=false;
+        cacheValid=false;
         Put(0x104,0xC073000D);
         Put(0x10C,17);
         crc=SerialFirmwarePackage.Crc32(app);
@@ -235,7 +288,7 @@ static class UnifiedMonitorTest
         int statusReads=0, syncs=0;
         byte[] WithPartialFrame(byte op,byte[] data,CancellationToken ct) {
             if (op==0x32 && ++statusReads==1) throw new TimeoutException("残留半帧吞掉首次查询");
-            if (op==1) {
+            if (op==1 && data.Length!=0) {
                 Check(data.Length==512 && data.All(b=>b==255),"只读 GET_INFO 同步帧覆盖最大残留长度");
                 ++syncs;throw new TimeoutException("同步帧被残留数据消费");
             }

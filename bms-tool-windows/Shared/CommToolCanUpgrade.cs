@@ -7,6 +7,7 @@ namespace BmsTool.Windows;
 internal static class CommToolCanUpgrade
 {
     private const int CacheBlockBytes = 48;
+    private const uint LegacyCacheAppAddress = 0x08004800;
     private static readonly Version CompactLayoutAdapterVersion = new(0, 2, 10);
     private static readonly Version GuardedLayoutAdapterVersion = new(0, 2, 11);
 
@@ -24,7 +25,8 @@ internal static class CommToolCanUpgrade
     }
 
     internal static void Run(byte[] packageBytes, Func<byte, byte[], CancellationToken, byte[]> command,
-        IProgress<(int Percent, string Message)> progress, CancellationToken token)
+        IProgress<(int Percent, string Message)> progress, CancellationToken token,
+        Func<Version, bool>? confirmLegacySingleBoard)
     {
         var package = SerialFirmwarePackage.Parse(packageBytes);
         if (!SerialFirmwarePackage.IsC073Board(package.BoardId) || package.AppAddress != SerialFirmwarePackage.C073AppBase)
@@ -33,9 +35,12 @@ internal static class CommToolCanUpgrade
             == SerialFirmwarePackage.C073CompactCapacity;
         var minimumAdapter = package.BoardId == SerialFirmwarePackage.C073GuardedBoardId
             ? GuardedLayoutAdapterVersion : CompactLayoutAdapterVersion;
-        if (compact && (CommToolOwcProtocol.TryReadFirmwareVersion(command, token) is not { } version ||
-                        version < minimumAdapter))
-            throw new InvalidDataException($"此 44 KiB CAN 升级要求 Comm Tool {minimumAdapter} 或更新版本。");
+        var version = CommToolOwcProtocol.TryReadFirmwareVersion(command, token);
+        bool legacy = version is { Major: 0, Minor: 2, Build: 3 or 4 or 6 or 7 or 8 };
+        if (compact && version is null)
+            throw new IOException("未读到 Comm Tool 固件版本，无法选择 CAN 升级流程。请重新连接转接器后重试。");
+        if (compact && !legacy && version < minimumAdapter)
+            throw new InvalidDataException($"检测到 Comm Tool {version}。该版本升级此 C073 需要更新至 {minimumAdapter} 或使用直连串口、BLE。");
         byte[] app = packageBytes[SerialFirmwarePackage.HeaderBytes..];
         byte[] config = new byte[8];
         BinaryPrimitives.WriteUInt32LittleEndian(config, 250000);
@@ -63,8 +68,17 @@ internal static class CommToolCanUpgrade
         if (status.Length != 13 || status[0] == 1)
             throw new IOException("Comm Tool 状态不可用或已有升级正在进行。");
         Ack(0x02, config);
+        if (legacy)
+        {
+            ConfirmRunningApp(0);
+            if (confirmLegacySingleBoard?.Invoke(version!) != true)
+                throw new OperationCanceledException("已取消旧版 Comm Tool 单板升级。");
+            token.ThrowIfCancellationRequested();
+            progress.Report((0, $"已确认 C073，使用 Comm Tool {version} 单板兼容升级"));
+        }
         byte[] meta = new byte[14];
-        BinaryPrimitives.WriteUInt32LittleEndian(meta, package.AppAddress);
+        // 旧转接器将 0x08004800 用作缓存分类。CAN START 只发长度与 CRC16，C073 Boot 按自身分区写入。
+        BinaryPrimitives.WriteUInt32LittleEndian(meta, legacy ? LegacyCacheAppAddress : package.AppAddress);
         BinaryPrimitives.WriteUInt32LittleEndian(meta.AsSpan(4), (uint)app.Length);
         BinaryPrimitives.WriteUInt16LittleEndian(meta.AsSpan(8), ModbusRtu.Crc16(app));
         BinaryPrimitives.WriteUInt32LittleEndian(meta.AsSpan(10), package.PayloadCrc);
@@ -85,25 +99,31 @@ internal static class CommToolCanUpgrade
             StageCache();
         }
 
-        // RTC 的第一帧可能只唤醒设备。Boot 中的 C073 由转接器通过 CAN-IAP Hello 校验，
-        // APP 有回复时必须通过完整身份校验。
-        progress.Report((30, "正在通过 CAN 确认 C073 身份"));
-        for (int attempt = 0; attempt < 2; ++attempt)
+        // RTC 首帧可能只负责唤醒。旧转接器自身不核对 Boot 板号，因此缓存就绪后也必须重读 APP 身份。
+        ConfirmRunningApp(30);
+
+        void ConfirmRunningApp(int percent)
         {
-            try
+            progress.Report((percent, "正在通过 CAN 确认 C073 身份"));
+            for (int attempt = 0; attempt < 2; ++attempt)
             {
-                ValidateAppIdentity(command(0x10, [0x70, 0xD1, 12, 0], token), package);
-                break;
-            }
-            catch (CommToolCommandException ex) when (ex.Status == 6)
-            {
-                if (attempt == 0)
-                    token.WaitHandle.WaitOne(250);
-                else if (compact)
-                    throw new IOException("CAN 未读到 44 KiB APP 布局。设备若已留在 Boot，请通过直连串口或 BLE 恢复。", ex);
-                else
-                    progress.Report((30, "未收到 APP 应答，转入 CAN Boot 身份检查"));
-                token.ThrowIfCancellationRequested();
+                try
+                {
+                    ValidateAppIdentity(command(0x10, [0x70, 0xD1, 12, 0], token), package);
+                    return;
+                }
+                catch (CommToolCommandException ex) when (ex.Status == 6)
+                {
+                    if (attempt == 0)
+                    {
+                        token.WaitHandle.WaitOne(250);
+                        token.ThrowIfCancellationRequested();
+                        continue;
+                    }
+                    if (legacy || compact)
+                        throw new IOException("CAN 未读到匹配的 C073 APP 身份。请确认钥匙与连线。设备若已在 Boot，请通过直连串口或 BLE 恢复。", ex);
+                    progress.Report((percent, "未收到 APP 应答，转入 CAN Boot 身份检查"));
+                }
             }
         }
 

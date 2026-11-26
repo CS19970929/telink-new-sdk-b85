@@ -111,7 +111,14 @@ public partial class MainWindow
         {
             await Task.Run(() => {
                 using var channel = new CommToolSerialConnection(serial.PortName, 9000);
-                CommToolCanUpgrade.Run(image.Bytes, channel.Command, progress, ct);
+                CommToolCanUpgrade.Run(image.Bytes, channel.Command, progress, ct, version => Dispatcher.Invoke(() =>
+                {
+                    ct.ThrowIfCancellationRequested();
+                    return MessageBox.Show(this,
+                        $"已核对 C073 身份。Comm Tool {version} 将使用单板兼容升级。请确认 CAN 总线上只连接了本次要升级的这块 C073。升级缓存请勿用于其他板型的离线升级。",
+                        "确认 C073 单板升级", MessageBoxButton.OKCancel, MessageBoxImage.Information,
+                        MessageBoxResult.Cancel) == MessageBoxResult.OK;
+                }));
             }, ct);
             OtaVerifyText.Text = $"C073 已重启。版本 {package.Version:X8}、长度 {package.PayloadLength} 和 CRC32 {package.PayloadCrc:X8} 回读一致。";
             AppendLog(OtaVerifyText.Text, "OTA");
