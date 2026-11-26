@@ -67,6 +67,32 @@ static void wear(Domain domain, unsigned sector, unsigned slots, unsigned saves)
            domain,saves,domain==EVENT_DATA?0:4*saves,2*saves,erases[sector],erases[sector+1]);
 }
 
+static void first_config(void)
+{
+    uint8_t defaults[173], readback[sizeof(defaults)];
+    for (unsigned i=0;i<sizeof(defaults);++i) defaults[i]=(uint8_t)(i*13u);
+    for (unsigned cut=0;cut<=sizeof(defaults)+17;++cut) {
+        memset(flash,255,sizeof(flash));
+        assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_BLANK);
+        budget=(int)cut;
+        bool committed=store_append(CONFIG_DATA,defaults,sizeof(defaults));
+        budget=-1;
+        StoreResult status=store_open_config(readback,defaults,sizeof(defaults));
+        assert(status==(committed?STORE_VALID:cut?STORE_INITIAL:STORE_BLANK));
+        assert(store_append(CONFIG_DATA,defaults,sizeof(defaults)));
+        assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_VALID);
+        assert(!memcmp(defaults,readback,sizeof(defaults)));
+    }
+    /* 单条已提交记录 CRC 损坏，以及未知旧格式，两者都必须保留现场。 */
+    flash[12]^=1;
+    assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_BAD);
+    assert(!store_append(CONFIG_DATA,defaults,sizeof(defaults)));
+    memset(flash,255,sizeof(flash)); flash[0]=0;
+    assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_BAD);
+    assert(!store_append(CONFIG_DATA,defaults,sizeof(defaults)));
+    puts("NOR: 191 first-write power cuts; corrupt and foreign config retained");
+}
+
 int main(void)
 {
     memset(flash,255,sizeof(flash));
@@ -94,6 +120,7 @@ int main(void)
             assert(store_event_at(j,&event) && event==i-j);
         }
     }
+    first_config();
     wear(CONFIG_DATA,0,16,10000);
     wear(SOC_DATA,4,64,100000);
     wear(EVENT_DATA,12,128,250000);

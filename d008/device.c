@@ -33,8 +33,8 @@ void device_init(void)
 #if D008_COMM_TEST
     d->config=assembly; d->configured=config_valid(&assembly); d->allowed=0;
 #else
-    StoreResult cfg=store_open(CONFIG_DATA,&d->config,sizeof(d->config));
-    if (cfg==STORE_BLANK) {
+    StoreResult cfg=store_open_config(&d->config,&assembly,sizeof(assembly));
+    if (cfg==STORE_BLANK || cfg==STORE_INITIAL) {
         d->config=assembly;
         d->configured=config_valid(&assembly) && store_append(CONFIG_DATA,&d->config,sizeof(d->config));
     } else {

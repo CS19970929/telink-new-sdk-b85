@@ -51,21 +51,43 @@ static void index_event(uint32_t seq,uint32_t addr)
     recent[i].seq=seq; recent[i].addr=addr;
 }
 
-StoreResult store_open(Domain d,void *latest,unsigned size)
+static void encode(Domain d,const void *data,unsigned size,uint32_t sequence,uint8_t *slot)
+{
+    memset(slot,0xff,stride[d]);
+    slot[0]='D'; slot[1]='8'; slot[2]=1; slot[3]=d; slot[4]=size;
+    put32(slot+8,sequence); memcpy(slot+12,data,size);
+    put32(slot+12+size,crc(slot,12+size));
+}
+
+/* 首次写入断电允许有些位仍为 1。已提交的损坏记录或不符的装配不得自动覆盖。 */
+static bool partial_factory(const uint8_t *slot,const uint8_t *factory)
+{
+    unsigned marker=stride[CONFIG_DATA]-1;
+    if (slot[marker]==COMMIT) return false;
+    for (unsigned i=0;i<marker;++i)
+        if ((slot[i]&factory[i])!=factory[i]) return false;
+    if (slot[marker]==0xff) return true;
+    return (slot[marker]&COMMIT)==COMMIT && !memcmp(slot,factory,marker);
+}
+
+static StoreResult scan(Domain d,void *latest,unsigned size,const uint8_t *factory)
 {
     uint8_t slot[256];
-    if ((unsigned)d>=DOMAIN_COUNT || !size || size+17>stride[d]) return STORE_BAD;
+    if ((unsigned)d>=DOMAIN_COUNT || !size || size>(unsigned)stride[d]-17) return STORE_BAD;
     Journal *j=&journal[d];
     memset(j,0,sizeof(*j)); j->bytes=size;
     if (d==EVENT_DATA) count=0;
-    bool dirty=false;
+    bool dirty=false, first_only=factory!=NULL;
     for (unsigned sector=0;sector<2;++sector) {
         for (unsigned off=0;off<SECTOR;off+=stride[d]) {
             uint32_t address=base[d]+sector*SECTOR+off;
             if (!nor_read(address,slot,stride[d])) return STORE_BAD;
             if (blank(slot,stride[d])) continue;
             dirty=true; j->next[sector]=off+stride[d];
-            if (!valid(d,slot,size)) continue;
+            if (!valid(d,slot,size)) {
+                if (first_only && !partial_factory(slot,factory)) first_only=false;
+                continue;
+            }
             uint32_t seq=get32(slot+8);
             if (d==EVENT_DATA) index_event(seq,address);
             if (!j->latest || (int32_t)(seq-j->sequence)>0) {
@@ -74,9 +96,23 @@ StoreResult store_open(Domain d,void *latest,unsigned size)
             }
         }
     }
-    j->ready=j->latest || !dirty || d!=CONFIG_DATA;
+    j->ready=j->latest || !dirty || first_only || d!=CONFIG_DATA;
     if (j->latest) return STORE_VALID;
+    if (dirty && first_only) return STORE_INITIAL;
     return dirty ? STORE_BAD : STORE_BLANK;
+}
+
+StoreResult store_open(Domain d,void *latest,unsigned size)
+{
+    return scan(d,latest,size,NULL);
+}
+
+StoreResult store_open_config(void *latest,const void *defaults,unsigned size)
+{
+    uint8_t factory[256];
+    if (!defaults || !size || size>(unsigned)stride[CONFIG_DATA]-17) return STORE_BAD;
+    encode(CONFIG_DATA,defaults,size,1,factory);
+    return scan(CONFIG_DATA,latest,size,factory);
 }
 
 bool store_append(Domain d,const void *data,unsigned size)
@@ -109,10 +145,7 @@ bool store_append(Domain d,const void *data,unsigned size)
         j->next[sector]=0;
     }
     uint32_t addr=base[d]+sector*SECTOR+j->next[sector];
-    memset(slot,0xff,stride[d]);
-    slot[0]='D'; slot[1]='8'; slot[2]=1; slot[3]=d; slot[4]=size;
-    put32(slot+8,j->sequence+1u); memcpy(slot+12,data,size);
-    put32(slot+12+size,crc(slot,12+size));
+    encode(d,data,size,j->sequence+1u,slot);
     if (!nor_read(addr,verify,stride[d]) || !blank(verify,stride[d])) return false;
     /* 未获准写入时保留空槽。若部分编程则跳过该槽，复位扫描也会跳过。 */
     if (!nor_write(addr,slot,16+size) || !nor_read(addr,verify,16+size) ||
