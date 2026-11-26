@@ -122,7 +122,7 @@ bool device_set_config(const Config *c)
         if (result!=AFE_OK) {begin_setup();return false;}
     }
     if (!store_append(CONFIG_DATA,c,sizeof(*c))) {
-        device.storage_fault=true;
+        if (!store_deferred) device.storage_fault=true;
         if (hardware) begin_setup();
         return false;
     }

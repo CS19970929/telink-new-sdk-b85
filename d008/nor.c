@@ -38,7 +38,8 @@ bool nor_read(uint32_t addr,void *out,unsigned n)
 
 static bool modify(uint32_t addr,const void *data,unsigned n)
 {
-    if (!allowed(addr,n) || update_active() || wired_transmitting() || !witness() ||
+    if (update_active() || wired_transmitting()) {store_deferred=true;return false;}
+    if (!allowed(addr,n) || !witness() ||
         blc_flash_capacity!=FLASH_SIZE_512K || flash_read_mid()!=blc_flash_mid) return false;
     switch (blc_flash_mid) {
     case 0x1360c8: case 0x13325e: case 0x134051: case 0x136085: case 0x1360eb: break;
@@ -47,7 +48,7 @@ static bool modify(uint32_t addr,const void *data,unsigned n)
     bool connected=blc_ll_getCurrentState()==BLS_LINK_STATE_CONN;
     if (connected) {
         /* 官方 API 以 ms 授予 BRX 空窗；擦除延后到断开连接。 */
-        if (!data || bls_ll_requestConnBrxEventDisable()<10) return false;
+        if (!data || bls_ll_requestConnBrxEventDisable()<10) {store_deferred=true;return false;}
         bls_ll_disableConnBrxEvent();
     }
 #if D008_FLASH_TEST

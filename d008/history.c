@@ -45,7 +45,7 @@ bool history_flush(uint32_t ms)
 {
     if (!count || (deferred && ms-retry_ms<RETRY_MS)) return true;
     if (!store_append(EVENT_DATA,&pending[first],sizeof(*pending))) {
-        deferred=true; retry_ms=ms; return false;
+        deferred=true; retry_ms=ms; return store_deferred;
     }
     deferred=false; first=(first+1)%DEPTH; --count;
     return true;

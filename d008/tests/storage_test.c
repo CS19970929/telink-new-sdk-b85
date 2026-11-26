@@ -14,7 +14,7 @@ bool nor_read(uint32_t at,void *out,unsigned n)
 }
 bool nor_write(uint32_t at,const void *p,unsigned n)
 {
-    if (refuse_marker && n==1) return false;
+    if (refuse_marker && n==1) {store_deferred=true; return false;}
     ++programs[(at-0x40000)/4096];
     assert(n<=256-(at&255));
     for (unsigned i=0;i<n;++i) {
@@ -104,8 +104,10 @@ static void deferred_commit(void)
     for (v=1;v<=32;++v) assert(store_append(CONFIG_DATA,&v,sizeof(v)));
     refuse_marker=true;
     for (unsigned i=0;i<2000;++i) assert(!store_append(CONFIG_DATA,&v,sizeof(v)));
+    assert(store_deferred);
     refuse_marker=false;
     assert(store_append(CONFIG_DATA,&v,sizeof(v)));
+    assert(!store_deferred);
     assert(erases[0]==1 && erases[1]==0 && programs[0]+programs[1]==66);
     v=0;
     assert(store_open(CONFIG_DATA,&v,sizeof(v))==STORE_VALID && v==33);

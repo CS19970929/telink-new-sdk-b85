@@ -10,6 +10,7 @@ typedef struct {
     bool ready;
 } Journal;
 static Journal journal[DOMAIN_COUNT];
+bool store_deferred;
 static struct {uint32_t seq, addr;} recent[EVENTS];
 static unsigned count;
 
@@ -136,6 +137,7 @@ static bool commit_body(Domain d,uint8_t *slot,uint8_t *verify)
 bool store_append(Domain d,const void *data,unsigned size)
 {
     uint8_t slot[256],verify[256];
+    store_deferred=false;
     if ((unsigned)d>=DOMAIN_COUNT || !data) return false;
     Journal *j=&journal[d];
     if (!j->ready || size!=j->bytes) return false;

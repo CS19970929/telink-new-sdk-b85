@@ -4,6 +4,8 @@ typedef enum { CONFIG_DATA, SOC_DATA, EVENT_DATA, DOMAIN_COUNT } Domain;
 typedef enum { STORE_BAD, STORE_BLANK, STORE_VALID, STORE_INITIAL } StoreResult;
 StoreResult store_open(Domain domain, void *latest, unsigned size);
 StoreResult store_open_config(void *latest,const void *defaults,unsigned size);
+/* 同步调用的暂缓原因由 NOR 端报告，主循环下次再试。 */
+extern bool store_deferred;
 bool store_append(Domain domain, const void *data, unsigned size);
 unsigned store_events(void);
 bool store_event_at(unsigned newest_index, uint16_t *event);
