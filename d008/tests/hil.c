@@ -11,7 +11,9 @@ static bool current_valid,voltage_valid,ready;
 static uint16_t token,generation,scale=1;
 static uint8_t sequence,sample_state,dir,before;
 static uint32_t activity_ms,applied,dt32k,delta_as10,previous_tick,v_tick,v_ms,v_fraction;
-static bool started;
+static bool started, switched;
+static uint64_t transition_tick;
+static uint32_t transition_interval;
 static uint64_t virtual_ticks;
 static int64_t charged;
 
@@ -34,6 +36,9 @@ void hil_sample(uint32_t tick,uint32_t ms)
     if (!token || !ready) return;
     if (ms-activity_ms>=8000 || !safe()) {token=0; ready=false; return;}
     uint32_t dt=started?tick-previous_tick:0;
+    if (switched) {
+        transition_tick=virtual_ticks; transition_interval=dt; switched=false;
+    }
     previous_tick=tick; started=true;
     uint64_t scaled=(uint64_t)dt*scale;
     int64_t initial=simulation.state.remaining_uas;
@@ -89,7 +94,7 @@ unsigned hil_command(RtuSession *link,const uint8_t *p,unsigned n,uint8_t *out,u
                 current_valid=(flags&1) && !(flags&((1u<<7)|(1u<<9)));
                 voltage_valid=(flags&2) && !(flags&((1u<<5)|(1u<<6)|(1u<<10)));
                 endpoints.full_trip=(flags&(1u<<11))!=0; endpoints.empty_trip=(flags&(1u<<12))!=0;
-                sequence=p[5]; ready=true; u16be(out+4,token); out[6]=sequence;
+                sequence=p[5]; ready=true; switched=true; u16be(out+4,token); out[6]=sequence;
                 u32be(out+7,applied); length=11;
             }
         } else if (cmd==2 && n==7) {u16be(out+4,token); u16be(out+6,8); length=8;}
@@ -114,6 +119,10 @@ bool hil_read(unsigned i,uint16_t *v)
     if (i<20) {*v=pairs[i/2]>>(i%2?0:16);return true;}
     if (i==20) {*v=hil_awake;return true;}
     if (i==21) {*v=scale;return true;}
+    if (i>=22 && i<=27) {
+        uint32_t mark=i<24?(uint32_t)(transition_tick>>32):i<26?(uint32_t)transition_tick:transition_interval;
+        *v=mark>>(i%2?0:16); return true;
+    }
     return false;
 }
 unsigned hil_control(unsigned offset,unsigned value)
