@@ -9,22 +9,36 @@
         "16s-lfp",
         "20s-nmc",
         "23s-lfp",
-        "24s-lfp",
-        "custom"
+        "24s-lfp"
       ],
       "default": "16s-lfp"
+    },
+    {
+      "id": "d008Sif",
+      "type": "pickString",
+      "description": "一线通协议",
+      "options": [
+        "lishen",
+        "lishen-extended",
+        "a133"
+      ],
+      "default": "lishen"
     }
   ],
   "tasks": [
     {
-      "label": "D008 源码配置",
+      "label": "D008 独立固件链接（无镜像）",
       "type": "process",
       "command": "python",
       "args": [
         "-X",
         "utf8",
         "-B",
-        "bms_tools/configure_d008.py"
+        "d008/build.py",
+        "--profile",
+        "${input:d008Profile}",
+        "--sif",
+        "${input:d008Sif}"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -33,43 +47,17 @@
         "kind": "build",
         "isDefault": true
       },
-      "presentation": {
-        "focus": false,
-        "panel": "dedicated"
-      },
       "problemMatcher": []
     },
     {
-      "label": "BMS: 选择配置编译并发送 OTA",
-      "dependsOn": "D008 源码配置",
-      "hide": true,
-      "problemMatcher": []
-    },
-    {
-      "label": "BMS: 修改源码参数与 AFE 寄存器配置",
-      "type": "process",
-      "command": "python",
-      "args": ["-X", "utf8", "-B", "bms_tools/configure_parameters.py"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "D008 生产链接（无镜像）",
+      "label": "D008 主机回归",
       "type": "process",
       "command": "python",
       "args": [
         "-X",
         "utf8",
         "-B",
-        "bms_tools/bms.py",
-        "--production",
-        "--d008-profile",
-        "${input:d008Profile}",
-        "link",
-        "--jobs",
-        "4"
+        "d008/tests/run.py"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
