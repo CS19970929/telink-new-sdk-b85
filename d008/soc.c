@@ -11,11 +11,12 @@ void soc_manual(Soc *p, const Config *c, unsigned percent, uint32_t ms)
     p->state.remaining_uas = capacity(c)/100 * percent;
     p->state.percent = percent; p->initialized = true;
     p->meter = (Meter){0}; p->display_ms = ms;
+    p->confirmed_full = false;
     p->near_full = p->near_empty = p->charging = p->discharging = false;
 }
 
 void soc_sample(Soc *p, const Config *c, const Sample *s, const Outputs *o,
-                bool valid, uint32_t tick, uint32_t ms)
+                bool valid, bool voltage_valid, uint32_t tick, uint32_t ms)
 {
     uint32_t missing;
     int64_t delta = meter_sample(&p->meter,tick,s->ma,valid,&missing);
@@ -25,7 +26,7 @@ void soc_sample(Soc *p, const Config *c, const Sample *s, const Outputs *o,
     }
     if (!valid) return;
     unsigned average = s->sum_mv/c->cells;
-    bool consistent = s->max_mv-s->min_mv <= 100;
+    bool consistent = voltage_valid && s->max_mv-s->min_mv <= 100;
     if (!p->initialized) {
         if (!consistent || s->max_mv > 4500 || s->min_mv < 1500) return;
         /* 首估只做一次。平台区与带载时采用保守中值，端点另行确认。 */
@@ -61,10 +62,11 @@ void soc_sample(Soc *p, const Config *c, const Sample *s, const Outputs *o,
     bool empty_end = empty_zone && ((o->empty_trip && s->ma < 320) ||
                                   (average <= c->empty_mv && ms-p->edge_ms >= 5000 &&
                                    s->ma < (int32_t)c->capacity_dah*20));
-    if (full_end) p->state.remaining_uas = full;
+    if (!voltage_valid || s->ma > 320) p->confirmed_full=false;
+    if (full_end) {p->state.remaining_uas=full; p->confirmed_full=true;}
     if (empty_end) p->state.remaining_uas = 0;
     unsigned target = (unsigned)((p->state.remaining_uas*100 + full/2)/full);
-    if (!full_end && target == 100 && p->state.percent < 100) target = 99;
+    if (!p->confirmed_full && target == 100 && p->state.percent < 100) target = 99;
     if (!empty_end && !target && p->state.percent) target = 1;
     if (empty_end && o->empty_trip) {p->state.percent = 0; p->display_ms = ms;}
     if (ms-p->display_ms >= 1000) {
@@ -72,7 +74,7 @@ void soc_sample(Soc *p, const Config *c, const Sample *s, const Outputs *o,
         if (target > p->state.percent && p->charging) ++p->state.percent;
         if (target < p->state.percent && p->discharging) --p->state.percent;
         /* 截断后进入静置，只允许已确认的满端显示完成。 */
-        if (s->ma >= -320 && s->ma <= 320 && p->state.remaining_uas == full && !p->charging &&
+        if (s->ma >= -320 && s->ma <= 320 && p->confirmed_full && !p->charging &&
             p->state.percent < 100 && !p->discharging) ++p->state.percent;
     }
 }

@@ -38,6 +38,7 @@ void device_init(void)
         d->configured=cfg==STORE_VALID && config_valid(&d->config) &&
             d->config.cells==assembly.cells && d->config.nmc==assembly.nmc;
     }
+    if (!d->configured) d->config=assembly;
     SavedSoc saved;
     StoreResult state=store_open(SOC_DATA,&saved,sizeof(saved));
     if (state==STORE_VALID && d->configured && saved.capacity==d->config.capacity_dah &&
@@ -154,7 +155,7 @@ void device_measure(uint32_t tick,uint32_t ms)
 {
     Device *d=&device;
     if (mode==SHUTDOWN) return;
-    if (gpio_read(GPIO_PA0)) {device_powerdown(true);return;}
+    /* PA0 是此装配的预留 ACC，不作为关机请求。 */
     bool sampled=false;
     if (mode==SAMPLING) {
         Sample next = {0};
@@ -201,7 +202,7 @@ void device_measure(uint32_t tick,uint32_t ms)
     }
     d->valid=sampled;
     if (!sampled) {gpio_write(GPIO_PA1,0); control_gap(&d->control);}
-    soc_sample(&d->soc,&d->config,&d->sample,&d->outputs,sampled && !probing && !wire_settling &&
+    soc_sample(&d->soc,&d->config,&d->sample,&d->outputs,sampled, sampled && !probing && !wire_settling &&
                !d->wire_fault && d->sample.min_mv>=500 && d->sample.max_mv<=4800,tick,ms);
     uint32_t dt=sampled && previous_good ? ms-last_good_ms : 0;
     if (dt>1000) dt=0;
@@ -223,4 +224,17 @@ void device_measure(uint32_t tick,uint32_t ms)
         pending_event=(uint16_t)(((bit+1u+(fault&(1u<<bit)?0u:32u))<<8) | ((ms/60000u)&255u));
         event_pending=true; last_fault=fault;
     }
+}
+
+bool device_set_allowed(uint8_t allowed,uint32_t ms)
+{
+    if (allowed>3 || mode!=SAMPLING || !device.valid || ms-last_good_ms>250u) return false;
+    /* 使用与周期保护相同的最终仲裁，并把实际寄存器读回结果返回给上位机。 */
+    device.allowed=allowed;
+    Outputs next=control_sample(&device.control,&device.config,&device.sample,ms,allowed,
+                                gpio_read(GPIO_PB1)!=0,device.wire_fault);
+    if (!next.heat) gpio_write(GPIO_PA1,0);
+    if (!afe_outputs(next.drive,next.balance,ms)) {silence(ms);return false;}
+    device.outputs=next;
+    return true;
 }
