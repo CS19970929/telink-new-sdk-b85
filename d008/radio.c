@@ -7,6 +7,9 @@
 #include "link.h"
 
 uint8_t device_address[6];
+/* Classic 自动 OTA 在 MTU >= 71 时使用 Extend64。当前 SDK 对该客户端首包返回
+ * SEQ_ERR。65 可承载普通参数组，DVC 整组使用现有 0x42 分片事务。 */
+enum { D008_ATT_MTU=65 };
 static uint16_t lock_command;
 static bool ble_updating, protection_ready, retry_soc_after_disconnect;
 static uint32_t retry_soc_ms;
@@ -129,7 +132,7 @@ void product_radio_init(void)
     blc_ll_initStandby_module(device_address); blc_ll_initAdvertising_module(device_address);
     blc_ll_initConnection_module(); blc_ll_initSlaveRole_module();
     blc_gap_peripheral_init(); blc_l2cap_register_handler(blc_l2cap_packet_receive);
-    bls_att_setAttributeTable((u8 *)attrs); blc_att_setRxMtuSize(247);
+    bls_att_setAttributeTable((u8 *)attrs); blc_att_setRxMtuSize(D008_ATT_MTU);
     blc_smp_setSecurityLevel(No_Security);
     if (update_layout()) {
         blc_ota_initOtaServer_module(); blc_ota_setOtaProcessTimeout(600); blc_ota_setOtaDataPacketTimeout(15);

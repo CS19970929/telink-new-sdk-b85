@@ -13,6 +13,14 @@
 #define D008_BUILD_TAG "dev"
 #endif
 
+#if D008_LISHEN_EXTENDED
+#define D008_WIRE_TAG "-LX"
+#elif D008_LISHEN
+#define D008_WIRE_TAG "-LS"
+#else
+#define D008_WIRE_TAG "-A1"
+#endif
+
 static unsigned word(const uint8_t *p) {return ((unsigned)p[0]<<8)|p[1];}
 static unsigned capacity_word(int64_t value) {return value>65535 ? 65535 : (unsigned)value;}
 static unsigned report(unsigned index)
@@ -79,10 +87,10 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
             #if D008_FLASH_TEST
             "D008-FLASH-TEST";
 #else
-            "D008-COMM-" D008_BUILD_TAG;
+            "D008-COMM-" D008_BUILD_TAG D008_WIRE_TAG;
 #endif
 #else
-            "D008-CLEAN-" D008_BUILD_TAG;
+            "D008-CLEAN-" D008_BUILD_TAG D008_WIRE_TAG;
 #endif
         unsigned i=r-0xc002;
         v=word((i<16?c->sn:i<32?hw:fw)+2*(i%16));
