@@ -112,6 +112,47 @@ static void deferred_commit(void)
     puts("NOR: 2000 denied commit windows; one body, one erase, one visible update");
 }
 
+static void domain_cuts(Domain domain,unsigned record_bytes,unsigned sector,unsigned slots)
+{
+    uint8_t payload[sizeof(Config)], recovered[sizeof(Config)];
+    assert(record_bytes<=sizeof(payload));
+    memset(flash,255,sizeof(flash));
+    assert(store_open(domain,recovered,record_bytes)==STORE_BLANK);
+    for (unsigned i=0;i<2*slots;++i) {
+        memset(payload,(int)i,record_bytes);
+        assert(store_append(domain,payload,record_bytes));
+    }
+    memcpy(baseline,flash,sizeof(flash));
+    unsigned old=(2*slots-1)&255u;
+    memset(payload,0x5a,record_bytes);
+    unsigned last=4096+17+record_bytes;
+    for (unsigned cut=0;cut<=last;++cut) {
+        memcpy(flash,baseline,sizeof(flash));
+        assert(store_open(domain,recovered,record_bytes)==STORE_VALID);
+        budget=(int)cut;
+        bool committed=store_append(domain,payload,record_bytes);
+        budget=-1;
+        assert(store_open(domain,recovered,record_bytes)==STORE_VALID);
+        for (unsigned i=0;i<record_bytes;++i) assert(recovered[i]==(committed?0x5a:old));
+        assert(!memcmp(flash,baseline,sector*4096));
+        unsigned end=(sector+2)*4096;
+        assert(!memcmp(flash+end,baseline+end,sizeof(flash)-end));
+        if (domain==EVENT_DATA) {
+            uint16_t event=0;
+            assert(store_events()==100 && store_event_at(99,&event));
+            assert(event==(uint16_t)((old-99+(committed?1:0))*257u));
+        }
+    }
+    /* 最后一次已提交载荷、CRC 或标志翻转一位时，只采用前一条完整记录。 */
+    unsigned slot=(sector+2)*4096-4096/slots;
+    for (unsigned i=0;i<record_bytes+4;++i) {
+        memcpy(flash,baseline,sizeof(flash)); flash[slot+12+i]^=1;
+        assert(store_open(domain,recovered,record_bytes)==STORE_VALID && recovered[0]==((old-1)&255u));
+    }
+    printf("domain=%u payload=%u rotation_cuts=%u CRC_fallback=%u\n",
+           domain,record_bytes,last+1,record_bytes+4);
+}
+
 int main(void)
 {
     memset(flash,255,sizeof(flash));
@@ -139,6 +180,9 @@ int main(void)
             assert(store_event_at(j,&event) && event==i-j);
         }
     }
+    domain_cuts(CONFIG_DATA,sizeof(Config),0,16);
+    domain_cuts(SOC_DATA,12,4,64);
+    domain_cuts(EVENT_DATA,2,12,128);
     deferred_commit();
     first_config();
     wear(CONFIG_DATA,0,16,10000);
