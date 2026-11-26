@@ -1,21 +1,55 @@
-# D008 独立量产固件
+# HS-D008 独立固件开发
 
-本分支维护 HS-D008，使用 TLSR8251、DVC1124 和 Telink B85 SDK。四产品基线保留在 `codex-bms-deep-simplification-20261016` 的 `2e02f32e9af2`。
+新工程位于 `d008/`。本分支以 `7c3ec352` 为资料基线。原 D008 业务代码和旧工程的构建入口用于追溯现场合同。新目标只选择本目录和 Telink SDK 的源文件，不链接旧 BMS。
 
-## 装配与构建
+## 硬件与资料
 
-- 量产候选包括 16S LFP、20S NMC、23S LFP、24S LFP 和受控自定义装配。串数、电芯和 Rsense 以签核装配为准，示例默认仍需实物验收。
-- 板级入口位于 [D008 产品目录](bms/products/d008/AGENTS.md)，唯一编译清单为 [sources.txt](bms/products/d008/sources.txt)。保留 B85 启动、链接 ABI、供应商库和生产 core 禁用跳转表的设置。
-- 生产链接入口为 `python bms_tools/bms.py --production --d008-profile 16s-lfp link --jobs 4`。它产生 ELF/MAP/LST。用同样的配置参数执行 `resources` 查看资源。各量产装配分别核对。
-- VS Code 用 `Ctrl+Shift+B` 打开 [D008 源码配置窗口](docs/BUILD_AND_TEST.md)，也可用 `python bms_tools/build_options.py show` 查看配置。普通 OTA 默认保参，专用出厂包初始化业务区。生成固件与发布需符合本分支签核。
-- 完整主机回归入口为 `python tests/run_host_regression.py`。本机验证按 [协作规则](AGENTS.md) 执行。工程产物写到源树外。
+| 功能 | 已能核对的设计输入 | 仍需实物确认 |
+| --- | --- | --- |
+| MCU | 24S V1 图中 U1 为 TLSR8251F512ET32，Y1 为 24 MHz。芯片有 32 KiB SRAM、512 KiB Flash | Flash MID、晶振和内部 RC 的实际偏差 |
+| 电源 | PC4 保持 MCU-LDO，PD7 为 MCU-AFE-EN，PA0 为低有效 ACC，PB1 接 C− 检测网络 | PC4 上电保持时间、负载移除电平、关机再唤醒 |
+| 功率 | GP5/GP6 经外置驱动控制低侧充/放 MOS。PA1 驱动加热，PD4 进入 F1 支路 | 后缀、选装支路、Gate 波形、NTC 的实际位置 |
+| 采集 | PC0/PC1 为 SDA/SCL，4.7 kΩ 上拉。GP1/4 板载，GP2/3 接线束。图中十个分流位，历史装配记录为八个 2 mΩ 并联 | 各批次 BOM、Kelvin 实测值、较少串数的短接方式 |
+| 均衡与通信 | C0～C24、外部 68 Ω 支路；PC2/PC3 共用 OWC/UART，PA7 保留 SWS | 均衡温升、现场 SIF 版本、首帧及总线切换 |
 
-## 资料
+源码中的装配候选为 16S LFP、20S NMC、23S LFP、24S LFP 及定制。不同化学体系和电流规格分别审查。图纸上的器件位不能证明已安装。资料包括 [24S 原理图](references/hardware/d008/HS-D008-24S100A-V1.pdf)、[DVC 原手册入口](docs/AFE_REFERENCE_GUIDE.md)、[TLSR8251 手册 §5](https://wiki.telink-semi.cn/doc/ds/DS_TLSR8251-E_Datasheet%20for%20Telink%20BLE%20SoC%20TLSR8251.pdf)、[Telink 单连接 SDK 手册](https://doc.telink-semi.cn/doc/zh/software/res/sdk/ble/tc_ble_cn/tc_ble_single_connection_cn/)。本机另有 `D:/DVC11XX_demoCode V1.3` 的 STM32 参考例程，`2.Current/API/Current.c` 可核对 20 位补码。
 
-- [D008 板级参考](docs/D008_PRODUCT_REFERENCE.md)、[24S 原理图](references/hardware/d008/HS-D008-24S100A-V1.pdf)、[AFE 原厂手册](docs/AFE_REFERENCE_GUIDE.md)
-- [架构与数据所有权](docs/ARCHITECTURE.md)、[SOC 与两个客户参数](docs/SOC.md)、[Flash 存储](docs/STORAGE.md)、[OTA 参数更新](docs/OTA_PARAMETERS.md)、[构建和测试](docs/BUILD_AND_TEST.md)
-- [保护参数](docs/D008_PROTECTION_CONFIGURATION.md)、[电流校准](docs/CURRENT_CALIBRATION.md)、[低功耗](docs/LOW_POWER_POLICY.md)、[串口升级](docs/SERIAL_OTA.md)
-- [宏配置与 AFE 参数盘点](docs/D008_MACRO_CONFIGURATION.md)、[逐宏索引](docs/D008_MACRO_INDEX.csv)
-- [历史四产品资料导航](docs/README.md)、[原硬件验收记录](docs/HARDWARE_VALIDATION.md)
+## 运行顺序与计量
 
-历史资料按当时提交使用。当前编译输入、默认参数和通过的验证以本分支源码和对应收据为准。
+1. 保持 MCU 电源并令加热、熔断处于非动作电平。启动 SDK 的时钟、RF、BLE。台架目标提供虚拟电流。产品目标应先读配置，验证 AFE 固定设置、硬件保护和首份测量，再允许输出。
+2. 每轮运行 BLE SDK，检查同一周期截止点。SDK 的应用层唤醒提前返回主循环，广播和连接的 latency 只影响无线调度。普通 Suspend 保持 RAM。GPIO 提前唤醒仍读同一时钟。
+3. 每次到期只采一次，按计划相位推进到未来的第一个截止点。候选周期 200 ms。计量用相邻有效读数的真实间隔，梯形近似区间平均电流，保留有符号余数。短暂重复 CC2 寄存器值是正常输入。失败、冷启动、关机及长停顿切断积分，不补造历史电流。
+4. System Timer 固定 16 MHz，32 位约 268.435456 s 回绕。B85 `drivers/B85/lib/include/pm.h` 将内部 RC 绑定到 `pm_tim_recover_32k_rc`。休眠期间高频计时由 SDK 根据低频时钟恢复；应用不二次加上睡眠时长。回绕差成立的条件是两次观察间隔小于一整圈；停机或复位须重新建立基准。
+5. 主循环处理保护、端点、均衡及加热，再由唯一出口写输出。通信读取上一份完整测量。请求写入采用候选校验、受控应用及回读、持久提交和读回后应答。长 Flash 事务要让出无线时隙；ISR 只交付数据和发波形。
+
+积分误差分开验算。1 A 连续 1 h 应得 1 Ah。1 mA 的零点偏置一天累积 24 mAh，1000 ppm 时基偏差使 10 Ah 产生约 10 mAh 时间误差。另外记录增益、死区、样本间电流变化和无法计量的时间。虚拟恒流只能隔离时基和算术误差。真实负载必须与独立电量计同步比较。
+
+## AFE 与功率设计
+
+DS V1.1 第 13～16、17～24 页及 RM V1.2 第 2～7、15～27 页给出测量与输出约束。CC2 为 20 位补码，0.3125 µV/bit，名义 256 ms；换算使用装配分流电阻。状态 0x01 中 VADF/CC2F 读清，由驱动单独读取。正常读取 CRC 合格且数值合理即可发布。连续同值不能判定 ADC 停转，须用驱动内连续转换事件缺失和使能状态复核。
+
+总线用 100 kHz、写/读传输地址 0x40/0x41，CRC8 多项式 0x07，初值 0。读首字节覆盖写地址、寄存器、读地址及数据，此后逐字节 CRC。读取电压时注意 VC4 与 VC5 的地址断点。首次转换、启动校准和主动 COW 分开处理。失败事务有界退出；持续 1 秒确认故障，撤销输出许可并留足完全静默时间给独立看门狗，成功重配和首次测量后才恢复。
+
+硬件比较器承担快过流/短路；MCU 用有延时与回差的实际动作阈值。OC/SC 保留直到物理移除或有效反向证据；关断后零电流不构成恢复。单侧关断遇有效反向电流临时放行，双侧关断及共同保护优先。均衡按充电、温度、门限和最大通道数选择；0x67～69 有 60 s 自清零，读回及必要续期。加热需充电会话、有效温度与充电 MOS 互锁；PB1 仅提供负载检测信息。
+
+## 产品配置、存储与协议
+
+固定路由与装配、电池容量、客户可写保护参数分别归属。客户 SOC 电压参数保留 SOC100、SOC0。新板用首份可信静置测量作保守估计；已有 SOC 直接恢复，长眠间隔不计电量。充电/放电显示遵循对应方向；满端结合充电前史与整包接近满端证据，空端要求可信欠压，不以孤立异常串或负载瞬降校准。手动校正同时同步显示和存储。
+
+APP/OTA 槽保持 0x00000/0x20000，槽尾 4 KiB 为元数据，0x74000 起为 SDK 保留区。新记录自有标识，配置、SOC、事件用独立扇区。追加先写载荷和校验，再写提交标志并读回。轮转时保留旧有效副本。日志按序保留最近 100 条。采样失败不应阻塞保护。SOC 在主动关机、OTA、手动校正时保存；异常断电误差按最大电流 × 未保存时长评估，在装配及允许误差确定后选择周期。
+
+UART 115200 8N1 与 BLE GATT 共用 Modbus。主要现场窗口包括 0xD000～D03E 实时量、0x2100～2140 软件保护、0x1005 SOC、0x2318 容量、0x2E00 能力/结果、0x2E20 起加热/校准、0x2E30 起 SN、0x2E70 起均衡、0xC008 历史。AFE 参数依语义窗口及硬件量化返回实际值。SIF 有锂神 V1.1.1 和 A1.3.3 客户合同，未装串在后者编码 0xFFFF，其余为 61001。OTA 使用 SDK 双槽和 CRC，普通 OTA 保参。
+
+## 开发及验收顺序
+
+| 轮次 | 交付 | 独立验证 |
+| --- | --- | --- |
+| 时基 | 周期相位、间隔电量及余数 | 小电流、恒流、正反向、抖动、丢样、回绕和长跑 |
+| 最小 MCU | B85 SDK、BLE、普通 Suspend、虚拟恒流 | 链接 8251 ELF；外部时钟对照开关 PM、广播/连接、持续 GATT 读、GPIO 提前唤醒、平均电流 |
+| 采集 | I²C、有界超时、CRC、CC2、各串及温度 | 手册向量、失联/停转、首次转换；实板对表及动态电流 |
+| 保护与功能 | MOS、保护恢复、SOC 显示、均衡、加热和关机 | 故障叠加、反向、电压截断、开线、温控；实测 Gate、支路电流 |
+| 持久化 | 配置、SOC、事件分域 | 各写入和轮转边界断电，验证旧或新完整记录 |
+| 设备接口 | BLE、Modbus、SIF、参数闭环、OTA | 真实客户设备、上位机、MTU、DMA、升级中断和保参 |
+| 整板 | 典型与极端并发、装配逐项验收 | 同步记录时钟、样本间隔、Ah、功耗、保护延时及复电状态 |
+
+主机测试、目标链接、整板实测分别记录。试验参数不能直接作为量产签核值。
