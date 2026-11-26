@@ -9,6 +9,10 @@
 #include "link.h"
 #include "sif.h"
 
+#if D008_COMM_TEST
+#include "tests/wire_probe.h"
+#endif
+
 enum { RX=GPIO_PC3, TX=GPIO_PC2 };
 typedef struct {uint32_t size; uint8_t data[268];} DmaPacket;
 static DmaPacket rx __attribute__((aligned(4))), tx __attribute__((aligned(4)));
@@ -63,6 +67,9 @@ static void uart_enter(uint32_t ms)
 /* 第 0 段为同步，剩余位置每次只处理一个位的一个半毫秒电平。 */
 _attribute_ram_code_ static void wave_irq(void)
 {
+#if D008_COMM_TEST
+    if (wire_probe_frame) wire_probe_tick(clock_time(),gpio_read(TX)!=0);
+#endif
     unsigned duration,low;
     if (!position) {
         duration=D008_LISHEN?128:22; low=D008_LISHEN?124:20;
@@ -78,6 +85,9 @@ _attribute_ram_code_ static void wave_irq(void)
         phase_ticks=0;
         if (++position>wave_size*8+1) {
             stop_timer(); gpio_write(TX,1);
+#if D008_COMM_TEST
+            if (wire_probe_frame) wire_probe_end(gpio_read(TX)!=0);
+#endif
             if (D008_LISHEN) frame_due=clock_time()+LISHEN_IDLE_TICKS;
             else gpio_set_output_en(TX,0);
         }
@@ -103,6 +113,13 @@ _attribute_ram_code_ void wired_irq(void)
         dma_chn_irq_status_clr(flags&(FLD_DMA_CHN_UART_RX|FLD_DMA_CHN_UART_TX));
     }
 }
+static bool line_present(void)
+{
+#if D008_COMM_TEST
+    if (wire_probe_requested) return true;
+#endif
+    return gpio_read(RX)!=0;
+}
 bool wired_transmitting(void) {return transmitting;}
 void wired_pause_frame(void)
 {
@@ -117,7 +134,7 @@ void wired_pause_frame(void)
 bool wired_busy(void)
 {
     return uart_mode || transmitting || edges ||
-        (D008_LISHEN ? high_seen!=(gpio_read(RX)!=0) : gpio_read(RX)!=0);
+        (D008_LISHEN ? high_seen!=line_present() : gpio_read(RX)!=0);
 }
 uint32_t wired_wakeup(uint32_t sample_tick)
 {
@@ -133,6 +150,9 @@ void wired_prepare_suspend(void)
 }
 void wired_poll(uint32_t ms)
 {
+#if D008_COMM_TEST
+    wire_probe_expire(ms);
+#endif
     if (pad_armed) {cpu_set_gpio_wakeup(RX,Level_High,0); pad_armed=false;}
     if (uart_mode) {
         if (rx_ready && !uart_tx_is_busy()) {
@@ -153,7 +173,7 @@ void wired_poll(uint32_t ms)
     irq_restore(irq);
     if (count>=3) {uart_enter(ms);return;}
     if (transmitting || update_active()) return;
-    if (!gpio_read(RX)) {
+    if (!line_present()) {
         if (high_seen) gpio_set_output_en(TX,0);
         high_seen=false; startup=3; identity_count=0; return;
     }
@@ -179,6 +199,9 @@ void wired_poll(uint32_t ms)
     if (type==0x3b) {identity_count=last_cell_ms?1:3; last_cell_ms=ms;}
     irq=irq_disable();
     wave_size=size; position=phase_ticks=0; transmitting=true;
+#if D008_COMM_TEST
+    if (wire_probe_requested) wire_probe_begin(wave);
+#endif
     gpio_write(TX,1); gpio_set_output_en(TX,1);
     reg_tmr0_tick=0; reg_tmr0_capt=8000; reg_tmr_sta=FLD_TMR_STA_TMR0;
     reg_irq_mask|=FLD_IRQ_TMR0_EN; reg_tmr_ctrl|=FLD_TMR0_EN;

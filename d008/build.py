@@ -74,7 +74,7 @@ def main():
                                                "vendor/common/flash_prot.c"))
         sources.extend(sorted((SDK / "drivers/B85/flash").glob("flash_mid*.c")))
     if args.comm_test:
-        sources.append(APP / "tests/hil.c")
+        sources.extend([APP / "tests/hil.c", APP / "tests/wire_probe.c"])
     if args.flash_test:
         sources.append(APP / "tests/flash_board.c")
     includes = [APP, SDK, SDK / "drivers/B85", SDK / "common", SDK / "vendor/common"]

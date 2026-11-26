@@ -2,6 +2,7 @@
 #include <string.h>
 #if D008_COMM_TEST
 #include "tests/hil.h"
+#include "tests/wire_probe.h"
 #endif
 
 #if D008_FLASH_TEST
@@ -147,7 +148,9 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
                     error=flash_test_request(be(p+4));
                 else
 #endif
-                if (p[0] && op==6 && (reg==0x7c20 || reg==0x7c21))
+                if (p[0] && op==6 && reg==0x7c23)
+                    error=wire_probe_arm(be(p+4),ms);
+                else if (p[0] && op==6 && (reg==0x7c20 || reg==0x7c21))
                     error=hil_control(reg-0x7c20,be(p+4));
                 else
 #endif

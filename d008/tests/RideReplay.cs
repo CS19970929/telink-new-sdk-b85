@@ -91,7 +91,43 @@ bool control=false;
 try {
     await ble.ConnectAsync(mac,ct);
     await VerifyBoard();
-    if (args.Length==3) {
+    if (args.Length==3 && args[2]=="wire") {
+        await client.WriteSingleRegisterAsync(0x7c23,0x5111,ct);
+        await Task.Delay(4000,ct);
+        var w=await client.ReadRegistersAsync(0x7d00,111,ct);
+        Check(w[0]==2 && w[1]==0 && w[110]==758,"未采集到两个完整 PC2 波形");
+        for (int f=0;f<2;++f) {
+            int pos=0;
+            bool Level() {
+                bool high=(w[14+48*f+pos/16]&(1<<(pos%16)))!=0; ++pos; return high;
+            }
+            void Pulse(int low,int high) {
+                for(int i=0;i<low;++i) Check(!Level(),"低电平不符 "+pos);
+                for(int i=0;i<high;++i) Check(Level(),"高电平不符 "+pos);
+            }
+            Pulse(124,4);
+            var bytes=new byte[6];
+            for(int i=0;i<48;++i) {
+                int low=0;
+                bool raised=false;
+                for(int j=0;j<12;++j) {
+                    bool high=Level();
+                    Check(!raised || high,"位周期内重复下降沿"); raised|=high;
+                    if (!high) ++low;
+                }
+                Check(low==4 || low==8,"数据位宽不符");
+                bytes[i/8]=(byte)((bytes[i/8]<<1)|(low==4?1:0));
+            }
+            Pulse(50,4);
+            for(int i=0;i<3;++i) Check((bytes[2*i]<<8|bytes[2*i+1])==w[8+f*3+i],"引脚与发帧不同");
+            Check((byte)bytes.Take(5).Sum(x=>(int)x)==bytes[5],"线上校验和不符");
+            records.Add(new {frame=f,hex=Convert.ToHexString(bytes),levels=pos});
+        }
+        double spacing=Pair(w,2)/16000.0;
+        stages.Add(new {frames=w[0],levels=1516,spacing_ms=spacing,minIrq_us=Pair(w,4)/16.0,maxIrq_us=Pair(w,6)/16.0});
+        Check(Math.Abs(spacing-1379)<5,"相邻起始沿间隔超出 5 ms 台架窗口");
+        await VerifyBoard();
+    } else if (args.Length==3) {
         var mode=args[2];
         if (mode!="journal-start" && mode!="journal-read" && mode!="journal-reboot")
             throw new ArgumentException("未知台架测试");
