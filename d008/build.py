@@ -20,8 +20,11 @@ def main():
     parser.add_argument("--sif", choices=("lishen","a133"), default="lishen")
     parser.add_argument("--fuse-fitted", action="store_true", help="装配确认已安装熔断支路")
     parser.add_argument("--comm-test", action="store_true", help="实板通信测试，功率输出关闭，使用 RAM 装配")
+    parser.add_argument("--flash-test", action="store_true", help="仅通信台架，将日志映射到已核对的六个空白测试扇区")
     parser.add_argument("--image", type=Path, help="按指定路径导出经原厂工具处理的 BIN")
     args = parser.parse_args()
+    if args.flash_test and not args.comm_test:
+        parser.error("Flash 测试必须搭配 --comm-test")
     if args.comm_test and args.profile == "bench":
         parser.error("通信测试需要选择实际电池装配")
     if args.image and args.image.exists():
@@ -72,6 +75,8 @@ def main():
         sources.extend(sorted((SDK / "drivers/B85/flash").glob("flash_mid*.c")))
     if args.comm_test:
         sources.append(APP / "tests/hil.c")
+    if args.flash_test:
+        sources.append(APP / "tests/flash_board.c")
     includes = [APP, SDK, SDK / "drivers/B85", SDK / "common", SDK / "vendor/common"]
     flags = ["-O2", "-std=gnu99", "-fshort-wchar", "-fpack-struct", "-fshort-enums",
              "-fno-jump-tables", "-ffunction-sections", "-fdata-sections",
@@ -82,6 +87,7 @@ def main():
                   "-DD008_FUSE_FITTED=" + str(int(args.fuse_fitted)),
                   "-DAPP_FLASH_PROTECTION_ENABLE=" + str(int(product))])
     flags.append("-DD008_COMM_TEST=" + str(int(args.comm_test)))
+    flags.append("-DD008_FLASH_TEST=" + str(int(args.flash_test)))
     objects = []
     for index, source in enumerate(sources):
         obj = out / (str(index) + "-" + source.stem + ".o")

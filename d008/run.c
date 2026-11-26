@@ -7,6 +7,10 @@
 #include "tests/hil.h"
 #endif
 
+#if D008_FLASH_TEST
+#include "tests/flash_board.h"
+#endif
+
 MYFIFO_INIT(blt_rxfifo,64,8);
 MYFIFO_INIT(blt_txfifo,40,16);
 static volatile bool wake_due;
@@ -61,6 +65,9 @@ _attribute_ram_code_ int main(void)
 #endif
         }
         device_service(ms);
+#if D008_FLASH_TEST
+        flash_test_poll(ms);
+#endif
         wired_poll(ms); product_radio_poll(ms);
         bool sleep=!BENCH_AWAKE && !wired_busy() && !device_busy() && !update_active();
 #if D008_COMM_TEST

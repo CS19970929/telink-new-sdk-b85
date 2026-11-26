@@ -4,6 +4,10 @@
 #include "tests/hil.h"
 #endif
 
+#if D008_FLASH_TEST
+#include "tests/flash_board.h"
+#endif
+
 static unsigned word(const uint8_t *p) {return ((unsigned)p[0]<<8)|p[1];}
 static unsigned capacity_word(int64_t value) {return value>65535 ? 65535 : (unsigned)value;}
 static unsigned report(unsigned index)
@@ -49,6 +53,9 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
     const Config *c=&device.config;
     unsigned v=0;
 #if D008_COMM_TEST
+#if D008_FLASH_TEST
+    if (r>=0x7c30 && r<=0x7c3e) return flash_test_read(r-0x7c30,value);
+#endif
     if (r>=0x7c00 && r<0x7c1c) return hil_read(r-0x7c00,value);
 #endif
     if (r<3) v=((unsigned)device_address[5-r*2]<<8)|device_address[4-r*2];
@@ -63,7 +70,11 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
     } else if (r>=0xc002 && r<0xc032) {
         static const uint8_t hw[32]="HS-D008-24S100A-V1", fw[32]=
 #if D008_COMM_TEST
+            #if D008_FLASH_TEST
+            "D008-FLASH-TEST";
+#else
             "D008-COMM-V1";
+#endif
 #else
             "D008-CLEAN-V1";
 #endif

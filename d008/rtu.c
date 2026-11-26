@@ -4,6 +4,10 @@
 #include "tests/hil.h"
 #endif
 
+#if D008_FLASH_TEST
+#include "tests/flash_board.h"
+#endif
+
 uint16_t rtu_crc(const uint8_t *p,unsigned n)
 {
     uint16_t crc=65535;
@@ -138,6 +142,11 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
                 /* 广播无会话，不能借本地维护权限修改内部参数。 */
                 if (!p[0] && s->token) return 0;
 #if D008_COMM_TEST
+#if D008_FLASH_TEST
+                if (p[0] && op==6 && reg==0x7c22)
+                    error=flash_test_request(be(p+4));
+                else
+#endif
                 if (p[0] && op==6 && (reg==0x7c20 || reg==0x7c21))
                     error=hil_control(reg-0x7c20,be(p+4));
                 else

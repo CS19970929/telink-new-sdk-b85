@@ -5,6 +5,13 @@
 #include "store.h"
 #include "link.h"
 
+#if D008_FLASH_TEST
+#include "tests/flash_board.h"
+#define NOR_OFFSET 0x20000u
+#else
+#define NOR_OFFSET 0u
+#endif
+
 static bool allowed(uint32_t addr, unsigned n)
 {
     const uint32_t bases[] = {0x40000,0x44000,0x4c000};
@@ -25,7 +32,7 @@ static bool witness(void)
 bool nor_read(uint32_t addr,void *out,unsigned n)
 {
     if (!allowed(addr,n) || blc_flash_capacity!=FLASH_SIZE_512K || !witness()) return false;
-    flash_read_page(addr,n,out);
+    flash_read_page(addr+NOR_OFFSET,n,out);
     return true;
 }
 
@@ -43,6 +50,11 @@ static bool modify(uint32_t addr,const void *data,unsigned n)
         if (!data || bls_ll_requestConnBrxEventDisable()<10) return false;
         bls_ll_disableConnBrxEvent();
     }
+#if D008_FLASH_TEST
+    if (data) ++flash_test_programs;
+    else ++flash_test_erases;
+#endif
+    addr+=NOR_OFFSET;
     if (data) flash_write_page(addr,n,(u8 *)data);
     else flash_erase_sector(addr);
     if (connected) bls_ll_restoreConnBrxEvent();
