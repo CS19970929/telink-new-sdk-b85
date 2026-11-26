@@ -91,7 +91,34 @@ bool control=false;
 try {
     await ble.ConnectAsync(mac,ct);
     await VerifyBoard();
-    if (args.Length==3 && args[2]=="afe") {
+    if (args.Length==3 && args[2]=="advertising") {
+        var id=await client.ReadIdentityAsync(ct);
+        Check(id.Software.StartsWith("D008-COMM-"),"需要通信台架固件");
+        control=true;
+        foreach (bool awake in new[]{true,false}) {
+            await client.WriteSingleRegisterAsync(0x7c20,(ushort)(awake?1:0),ct);
+            var start=await ReadClock();
+            await ble.DisposeAsync();
+            DiscoveredDevice? observed;
+            using (var scanner=new BmsBleScanner(_=>{})) {
+                scanner.Start();
+                await Task.Delay(30000,ct);
+                observed=scanner.Snapshot().FirstOrDefault(item=>item.Address==mac);
+            }
+            await ble.ConnectAsync(mac,ct);
+            var end=await ReadClock();
+            double host=end.midpoint-start.midpoint;
+            uint board=unchecked(Pair(end.w,0)-Pair(start.w,0));
+            uint exits=unchecked(Pair(end.w,4)-Pair(start.w,4));
+            uint missed=unchecked(Pair(end.w,6)-Pair(start.w,6));
+            double uncertainty=200+(start.rtt+end.rtt)/2;
+            stages.Add(new {awake,discovery=observed?.Source.ToString(),seen=observed?.LastSeenUtc,host_ms=host,board_ms=board,
+                            clock_uncertainty_ms=uncertainty,exits,missed});
+            Check(observed!=null && missed==0 && (awake?exits==0:exits>0),"广播或 Suspend 对照未成立");
+            Check(Math.Abs(host-board)<=uncertainty+host*0.005,"广播期间计时超出测量区间");
+        }
+        await VerifyBoard();
+    } else if (args.Length==3 && args[2]=="afe") {
         var id=await client.ReadIdentityAsync(ct);
         Check(id.Software.StartsWith("D008-COMM-") && ble.NegotiatedMtu==65,"通信台架或 MTU 不符");
         var original=await client.ReadRegistersAsync(0x2500,35,ct);
@@ -170,7 +197,11 @@ try {
 } catch (Exception ex) { failure=ex.Message; }
 finally {
     if (control) {
-        try { await client.WriteSingleRegisterAsync(0x7c20,0,CancellationToken.None); }
+        try {
+            using var restore=new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            if (!ble.IsConnected) await ble.ConnectAsync(mac,restore.Token);
+            await client.WriteSingleRegisterAsync(0x7c20,0,restore.Token);
+        }
         catch (Exception ex) { failure=(failure+" 恢复 Suspend 失败 "+ex.Message).Trim(); }
     }
     string json=JsonSerializer.Serialize(new {mac=args[0],stages,records,failure},new JsonSerializerOptions{WriteIndented=true});
