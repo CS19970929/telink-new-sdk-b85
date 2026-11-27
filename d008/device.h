@@ -13,6 +13,7 @@ extern Device device;
 void device_init(void);
 bool device_service(uint32_t ms);
 void device_measure(uint32_t tick,uint32_t ms);
+bool device_prepare_ota(void);
 bool device_save_soc(void);
 typedef enum { SOC_WRITE_FAILED, SOC_WRITE_DEFERRED, SOC_WRITE_DONE } SocWriteResult;
 SocWriteResult device_set_cycle(unsigned cycles);

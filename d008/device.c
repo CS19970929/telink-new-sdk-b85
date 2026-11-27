@@ -10,14 +10,16 @@
 #include <string.h>
 
 Device device;
-static enum { SETUP, INIT_STORAGE, SAMPLING, QUIET, SHUTDOWN } mode;
+static enum { SETUP, INIT_STORAGE, SAMPLING, QUIET, SHUTDOWN_SAVE, SHUTDOWN } mode;
 static bool init_storage_pending, boot_storage_pending;
 static bool failing;
 static uint32_t fail_ms, quiet_ms, normal_low_ms, low_ms, uv_ms;
 static uint32_t service_ms, command_shutdown_ms, soc_space_ms;
 enum { CONFIG_RETRY_MS=5000 };
 static uint32_t config_retry_ms=0u-CONFIG_RETRY_MS;
-static bool command_shutdown_pending;
+static bool command_shutdown_pending, shutdown_acc, shutdown_bus, shutdown_soc_saved;
+static uint32_t shutdown_ms, shutdown_attempt_ms;
+enum { SHUTDOWN_SAVE_MS=900, SHUTDOWN_RETRY_MS=50, SHUTDOWN_FLASH_MARGIN_MS=350 };
 enum { OUTPUT_SAMPLE_MAX_AGE_MS = 250, CURRENT_MAX_AGE_MS = 400, COMMAND_REPLY_MS = 500 };
 static uint32_t last_good_ms, last_current_ms;
 static bool previous_good, current_seen;
@@ -83,6 +85,7 @@ void device_init(void)
 
 static SocWriteResult save_soc(const Soc *candidate)
 {
+    store_deferred=false;
     if (!candidate->initialized || !device.configured || !store_available(SOC_DATA))
         return SOC_WRITE_FAILED;
     SocSnapshot s=soc_snapshot(candidate,&device.config);
@@ -101,7 +104,7 @@ bool device_save_soc(void)
 
 SocWriteResult device_set_soc(unsigned percent,uint32_t ms)
 {
-    if (percent>100 || factory_pending() || !device.configured || mode==SHUTDOWN || command_shutdown_pending || update_active())
+    if (percent>100 || factory_pending() || !device.configured || mode>=SHUTDOWN_SAVE || command_shutdown_pending || update_active())
         return SOC_WRITE_FAILED;
     Soc candidate=device.soc;
     soc_manual(&candidate,&device.config,percent,ms);
@@ -201,12 +204,12 @@ static bool revoke_outputs(uint8_t allowed,uint32_t ms)
 
 bool device_busy(void)
 {
-    return command_shutdown_pending || factory_pending() || mode==SETUP || mode==INIT_STORAGE || mode==SHUTDOWN;
+    return command_shutdown_pending || mode==SETUP || mode==INIT_STORAGE || mode>=SHUTDOWN_SAVE;
 }
 
 bool device_request_shutdown(uint32_t ms)
 {
-    if (mode==SHUTDOWN || update_active()) return false;
+    if (mode>=SHUTDOWN_SAVE || update_active()) return false;
     if (!command_shutdown_pending) command_shutdown_ms=ms;
     command_shutdown_pending=true;
     return true;
@@ -216,14 +219,48 @@ uint16_t device_mos_status(void)
 {
     /* Classic 诊断位依次为总授权、通信门禁、总线静默、故障锁存、采样合格。 */
     return (device.configured?0x0001u:0u) | (!device.valid?0x0002u:0u) |
-        ((mode==QUIET || mode==SHUTDOWN)?0x0004u:0u) | (device.afe_fault?0x0008u:0u) |
+        ((mode>=QUIET)?0x0004u:0u) | (device.afe_fault?0x0008u:0u) |
         (device.valid?0x0010u:0u);
+}
+
+bool device_prepare_ota(void)
+{
+    if (device_busy() || factory_pending() || mode!=SAMPLING ||
+        !device.valid || !device.configured) return false;
+    if (!afe_confirm_off(service_ms)) {silence(service_ms);return false;}
+    device.outputs=(Outputs){0};
+    return true;
+}
+
+static void finish_powerdown(void)
+{
+    mode=SHUTDOWN;
+    if (shutdown_bus) (void)afe_shutdown();
+    if (!shutdown_acc) {gpio_write(GPIO_PC4,0);return;}
+    if (!gpio_read(GPIO_PA0)) start_reboot();
+    cpu_set_gpio_wakeup(GPIO_PA0,Level_Low,1);
+    cpu_sleep_wakeup(DEEPSLEEP_MODE,PM_WAKEUP_PAD,0);
+    start_reboot();
 }
 
 bool device_service(uint32_t ms)
 {
-    if (mode==SHUTDOWN) return false;
     service_ms=ms;
+    if (mode==SHUTDOWN) return false;
+    if (mode==SHUTDOWN_SAVE) {
+        uint32_t elapsed=ms-shutdown_ms;
+        if (elapsed>=SHUTDOWN_SAVE_MS-SHUTDOWN_FLASH_MARGIN_MS) finish_powerdown();
+        else if (ms-shutdown_attempt_ms>=SHUTDOWN_RETRY_MS &&
+                 blc_ll_getCurrentState()!=BLS_LINK_STATE_CONN) {
+            shutdown_attempt_ms=ms;
+            if (!device.configured || factory_pending() || update_active()) finish_powerdown();
+            else if (shutdown_soc_saved) {
+                (void)history_flush(ms);
+                finish_powerdown();
+            } else shutdown_soc_saved=device_save_soc();
+        }
+        return false;
+    }
     if (command_shutdown_pending) {
         /* 先让 Modbus 应答离开传输队列，按旧合同最多等 500 ms。 */
         if (ms-command_shutdown_ms<COMMAND_REPLY_MS &&
@@ -278,13 +315,13 @@ bool device_service(uint32_t ms)
         soc_space_ms=ms;
         if (!store_prepare_soc_space() && !store_deferred) device.storage_fault=true;
     }
-    if (mode==SAMPLING && device.valid && device.configured && !device_busy() && !update_active() &&
+    if (mode==SAMPLING && device.valid && device.configured && !factory_pending() && !device_busy() && !update_active() &&
         ms-soc_retry_ms>=5000 && (soc_init_pending || !store_available(SOC_DATA) ||
         device.soc.soc_id<soc_update_id || device.soc.cycle_id<cycle_update_id)) {
         soc_retry_ms=ms;
         service_soc(ms);
     }
-    if (device.configured && !update_active() && !device_busy()) {
+    if (device.configured && !factory_pending() && !update_active() && !device_busy()) {
         if (store_available(EVENT_DATA) && store_log_update_id()<log_clear_id) {
             if (!log_retry_ms || ms-log_retry_ms>=5000) {
                 log_retry_ms=ms;
@@ -336,7 +373,7 @@ bool device_set_config(const Config *c)
 
 bool device_restore(unsigned group,uint32_t ms)
 {
-    if (device_busy() || update_active() || !device.configured || !device.valid) return false;
+    if (device_busy() || factory_pending() || update_active() || !device.configured || !device.valid) return false;
     if (group==RESET_SOC) {
         if (!soc_resting || ms-soc_rest_ms<5000) return false;
         return device_set_soc(soc_estimate(&device.config,&device.sample),ms)==SOC_WRITE_DONE;
@@ -382,37 +419,30 @@ bool device_restore(unsigned group,uint32_t ms)
 
 void device_powerdown(bool acc)
 {
-    if (mode==SHUTDOWN) return;
-    bool bus_allowed=mode!=QUIET;
-    wired_stop();
-    mode=SHUTDOWN;
+    if (mode>=SHUTDOWN_SAVE) return;
+    shutdown_bus=mode!=QUIET && afe_confirm_off(service_ms);
+    shutdown_acc=acc;
+    shutdown_soc_saved=false;
+    shutdown_ms=service_ms;
+    shutdown_attempt_ms=service_ms-SHUTDOWN_RETRY_MS;
+    mode=SHUTDOWN_SAVE;
     command_shutdown_pending=false;
     gpio_write(D008_RUN_LED_PIN,0);
     device.valid=false;
     device.outputs=(Outputs){0};
-    if (bus_allowed) {(void)afe_disable_outputs(service_ms); (void)afe_shutdown();}
-    if (device.configured) {
-        (void)history_note(2,service_ms);
-        (void)history_flush(service_ms);
-    }
-    (void)device_save_soc();
+    wired_stop();
+    if (device.configured && !factory_pending()) (void)history_note(2,service_ms);
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
     bls_pm_setAppWakeupLowPower(0,0);
+    bls_ll_setAdvEnable(BLC_ADV_DISABLE);
     if (blc_ll_getCurrentState()==BLS_LINK_STATE_CONN)
         bls_ll_terminateConnection(HCI_ERR_REMOTE_USER_TERM_CONN);
-    bls_ll_setAdvEnable(BLC_ADV_DISABLE);
-    if (acc) {
-        if (!gpio_read(GPIO_PA0)) start_reboot();
-        cpu_set_gpio_wakeup(GPIO_PA0,Level_Low,1);
-        cpu_sleep_wakeup(DEEPSLEEP_MODE,PM_WAKEUP_PAD,0);
-        start_reboot();
-    } else gpio_write(GPIO_PC4,0);
 }
 
 void device_measure(uint32_t tick,uint32_t ms)
 {
     Device *d=&device;
-    if (mode==SHUTDOWN) return;
+    if (mode>=SHUTDOWN_SAVE) return;
     /* PA0 是此装配的预留 ACC，不作为关机请求。 */
     bool sampled=false;
     uint8_t observed_alarms=0;
@@ -435,7 +465,7 @@ void device_measure(uint32_t tick,uint32_t ms)
                 result=AFE_ERROR;
             }
             if (result==AFE_OK && sampled && d->configured && !factory_pending()) {
-                Outputs out=control_sample(&d->control,&d->config,&next,ms,d->allowed,
+                Outputs out=control_sample(&d->control,&d->config,&next,ms,update_active()?0:d->allowed,
                                            current_qualified(ms),gpio_read(GPIO_PB1)!=0);
                 bool closing=(d->outputs.drive & ~out.drive)!=0;
                 bool output_ok=afe_outputs(out.drive,out.balance,ms);
@@ -500,7 +530,7 @@ void device_measure(uint32_t tick,uint32_t ms)
 
 bool device_set_allowed(uint8_t allowed,uint32_t ms)
 {
-    if (allowed>(CHARGE|DISCHARGE) || (allowed && (!device.configured || factory_pending()))) return false;
+    if (update_active() || mode>=SHUTDOWN_SAVE || allowed>(CHARGE|DISCHARGE) || (allowed && (!device.configured || factory_pending()))) return false;
     uint8_t previous=device.allowed;
     if (allowed==previous) return true;
     bool fresh=mode==SAMPLING && device.valid && ms-last_good_ms<=OUTPUT_SAMPLE_MAX_AGE_MS &&

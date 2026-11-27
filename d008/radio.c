@@ -46,10 +46,14 @@ static void update_lock(bool lock)
 }
 static void stack_flash(u8 event,u32 start,u32 end)
 {
-    (void)start; (void)end;
-    if (event==FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_BEGIN || event==FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_BEGIN)
-        update_lock(false);
-    else if (event==FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_END || event==FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_END)
+    /* B85 ota_server.o: 写入回调覆盖两 APP 槽，清理回调只覆盖目标槽。
+       end 为开区间，SDK 不擦写业务区、MAC 或校准区。 */
+    if (event==FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_BEGIN) {
+        if (update_layout() && start==0 && end==0x3f000) update_lock(false);
+    } else if (event==FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_BEGIN) {
+        if (update_layout() && start==ota_program_offset && end==start+0x1f000)
+            update_lock(false);
+    } else if (event==FLASH_OP_EVT_STACK_OTA_WRITE_NEW_FW_END || event==FLASH_OP_EVT_STACK_OTA_CLEAR_OLD_FW_END)
         update_lock(true);
 }
 
@@ -70,14 +74,19 @@ static int ota_receive(void *packet)
     unsigned cmd=v[0]|((unsigned)v[1]<<8);
     if (cmd==CMD_OTA_START || cmd==CMD_OTA_START_EXT) {
         unsigned expected=cmd==CMD_OTA_START?sizeof(ota_start_t):sizeof(ota_startExt_t);
-        if ((unsigned)p->l2capLen!=expected+3 || !device.configured || !device.valid || device_busy()) return 0;
-        wired_pause_frame();
-        if (!ble_updating && !device_save_soc()) {
-            /* 连接中禁止长擦除；断开后准备 SOC 槽，使下一次升级可以正常开始。 */
-            retry_soc_after_disconnect=true; retry_soc_ms=0;
-            return 0;
+        if ((unsigned)p->l2capLen!=expected+3) return 0;
+        if (!ble_updating) {
+            if (!device_prepare_ota()) return 0;
+            wired_pause_frame();
+            if (!device_save_soc() && (store_deferred ||
+                (store_available(SOC_DATA) && device.soc.initialized))) {
+                /* 普通升级要求正常快照。空窗不足时断开后准备备用槽。 */
+                retry_soc_after_disconnect=true; retry_soc_ms=0;
+                return 0;
+            }
+            /* SOC 区故障可保留上份快照，已经验证双路 MOS 关闭。 */
+            retry_soc_after_disconnect=false;
         }
-        retry_soc_after_disconnect=false;
     }
     return otaWrite(packet);
 }
