@@ -19,7 +19,7 @@ static unsigned report(unsigned index)
     const Sample *s=&device.sample;
     const Config *c=&device.config;
     bool ok=device.valid;
-    unsigned hot=s->temp_x10[1], cold=s->temp_x10[2];
+    unsigned hot=s->temp_x10[NTC_BAT1], cold=s->temp_x10[NTC_BAT2];
     if (cold>hot) {unsigned t=hot; hot=cold; cold=t;}
     if (index<32) return index>=c->cells || index>=24 ? NO_CELL : (ok?s->mv[index]:0);
     switch (index) {
@@ -29,9 +29,9 @@ static unsigned report(unsigned index)
     case 35: return ok?s->min_index+1:0;
     case 36: return ok?s->max_mv-s->min_mv:0;
     case 37: return ok?s->sum_mv/10:0;
-    case 38: case 39: case 40: return ok?s->temp_x10[index-38]:0;
+    case 39: case 40: return ok?s->temp_x10[index-39]:0;
     case 46: case 48: return ok?hot:0;
-    case 47: return ok?s->temp_x10[3]:0;
+    case 47: return ok?s->temp_x10[NTC_MOS]:0;
     case 49: return ok?cold:0;
     case 50: return ok && s->ma<0 ? -s->ma/100:0;
     case 51: return ok && s->ma>0 ? s->ma/100:0;
@@ -101,7 +101,7 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
     else if (r>=0x2e08 && r<=0x2e0f) {
         Config base;
         config_defaults(&base,D008_CELLS,D008_NMC);
-        const unsigned defaults[]={base.capacity_dah,1,base.heat_start_x10,base.heat_stop_x10,
+        const unsigned defaults[]={base.capacity_dah,0,0,0,
             base.balance_on,base.balance_mv,base.balance_start_mv,base.balance_stop_mv};
         v=defaults[r-0x2e08];
     } else switch (r) {
@@ -110,16 +110,15 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
     case 0x2319: v=report(57); break;
     case 0x2e00: v=0xd008; break;
     case 0x2e01: case 0x2e05: v=2; break;
-    case 0x2e02: v=0x14df; break;
+    case 0x2e02: v=0x14db; break;
     case 0x2e03: v=session->result; break;
     case 0x2e04: v=session->sequence; break;
     case 0x2e06: v=session->sn_generation; break;
     case 0x2e07: v=1; break;
     case 0x2e18: v=c->full_mv; break;
     case 0x2e19: v=c->empty_mv; break;
-    case 0x2e20: v=c->heat_on; break;
-    case 0x2e21: v=c->heat_start_x10; break;
-    case 0x2e22: v=c->heat_stop_x10; break;
+    /* 旧客户端批量读的保留字。 */
+    case 0x2e20: case 0x2e21: case 0x2e22: break;
     case 0x2e2c: v=device.valid; break;
     case 0x2e2d: v=device.soc.meter.last_tick; break;
     case 0x2e2e: v=device.soc.meter.last_tick>>16; break;
@@ -136,7 +135,7 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
     case 0x2f16: v=device_mos_status(); break;
     case 0x2f17: v=((device.outputs.drive&3)==3) | (((device.outputs.drive>>2)==3)<<1); break;
     case 0xd115: v=(device.valid?0x400u | (device.configured?1u:0u) | (device.sample.fet<<2):0u) |
-        (device.outputs.heat<<8)|(device.outputs.balance?0x1000:0); break;
+        (device.outputs.balance?0x1000:0); break;
     case 0xd116: break;
     default: return false;
     }
@@ -156,9 +155,7 @@ unsigned register_write(RtuSession *s,uint16_t r,unsigned n,const uint8_t *p,uin
     if (r==0x2500 && n==35) return s->token?hw_write(p):2;
     if (r==0x2318 && n==1) c.capacity_dah=v;
     else if (r==0x2e18 && n==2) {c.full_mv=v; c.empty_mv=word(p+2);}
-    else if (r==0x2e20 && n==3) {
-        c.heat_on=v; c.heat_start_x10=word(p+2); c.heat_stop_x10=word(p+4);
-    } else if (r==0x2e70 && n==4) {
+    else if (r==0x2e70 && n==4) {
         c.balance_on=v; c.balance_mv=word(p+2); c.balance_start_mv=word(p+4); c.balance_stop_mv=word(p+6);
     } else if (r==0x2e24 && n==4) {
         if (!s->token) return 2;

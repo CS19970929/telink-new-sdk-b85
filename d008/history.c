@@ -30,13 +30,13 @@ bool history_note(unsigned id,uint32_t ms)
 
 bool history_observe(uint16_t active,uint32_t ms)
 {
-    /* 顺序对应 Limit，再接开线、AFE、存储和加热。MOS 高温无独立历史 ID。 */
-    static const uint8_t ids[]={6,9,7,10,8,11,14,12,15,13,0,16,17,18,20,4};
+    /* 顺序对应 Limit，再接开线、AFE 和存储。MOS 高温无独立历史 ID。 */
+    static const uint8_t ids[]={6,9,7,10,8,11,14,12,15,13,0,16,17,18,20};
     uint16_t rising=active&~previous_faults;
     previous_faults=active;
     advance(ms);
     bool fits=true;
-    for (unsigned i=0;i<16;++i)
+    for (unsigned i=0;i<sizeof(ids);++i)
         if ((rising&(1u<<i)) && ids[i] && !history_note(ids[i],ms)) fits=false;
     return fits;
 }

@@ -17,7 +17,6 @@ def main():
     parser.add_argument("--cells", type=int)
     parser.add_argument("--chemistry", choices=("lfp","nmc"))
     parser.add_argument("--sif", choices=("lishen","lishen-extended","a133"), default="lishen")
-    parser.add_argument("--fuse-fitted", action="store_true", help="装配确认已安装熔断支路")
     images = parser.add_mutually_exclusive_group()
     images.add_argument("--image", type=Path, help="按指定路径导出 BIN，已有文件时拒绝覆盖")
     images.add_argument("--image-dir", type=Path, help="在指定目录更新所选装配和协议的 BIN")
@@ -73,7 +72,6 @@ def main():
     flags.extend(["-DD008_CELLS=" + str(cells), "-DD008_NMC=" + str(int(chemistry == "nmc")),
                   "-DD008_LISHEN=" + str(int(args.sif != "a133")),
                   "-DD008_LISHEN_EXTENDED=" + str(int(args.sif == "lishen-extended")),
-                  "-DD008_FUSE_FITTED=" + str(int(args.fuse_fitted)),
                   "-DAPP_FLASH_PROTECTION_ENABLE=1"])
     revision = "dev"
     if shutil.which("git"):
@@ -116,8 +114,7 @@ def main():
                 or len(data) > 0x1f000 or zlib.crc32(data) != 0xffffffff):
             raise SystemExit("原厂处理后的启动标志、长度或 CRC 不合格")
         if args.image_dir:
-            fuse_suffix = "-fuse" if args.fuse_fitted else ""
-            destination = args.image_dir / f"d008-{cells}s-{chemistry}-{args.sif}{fuse_suffix}.bin"
+            destination = args.image_dir / f"d008-{cells}s-{chemistry}-{args.sif}.bin"
             destination.parent.mkdir(parents=True, exist_ok=True)
             # 同目录替换，避免失败的构建留下半写入的正式 BIN。
             with tempfile.TemporaryDirectory(prefix=".d008-", dir=destination.parent) as staging:

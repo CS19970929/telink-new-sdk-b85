@@ -8,9 +8,8 @@ static Sample healthy_sample(void)
     s.sum_mv=16u*3200u;
     s.min_mv=s.max_mv=3200;
     for (unsigned i=0;i<16;++i) s.mv[i]=3200;
-    for (unsigned i=0;i<4;++i) s.temp_x10[i]=650;
+    for (unsigned i=0;i<NTC_COUNT;++i) s.temp_x10[i]=650;
     s.current_fresh=true;
-    s.heater_ntc_valid=true;
     return s;
 }
 
@@ -77,29 +76,6 @@ static void short_circuit_recovery(const Config *c)
     assert(control_sample(&state,c,&s,2200,3,true,false,false).drive==0x0f);
 }
 
-static void heater_sensor_loss(const Config *c)
-{
-    Control state={0};
-    Sample s=healthy_sample();
-    s.temp_x10[1]=s.temp_x10[2]=350;
-    s.ma=-1000;
-    assert(control_sample(&state,c,&s,0,3,true,false,false).heat);
-    s.heater_ntc_valid=false;
-    s.temp_x10[0]=1350;
-    Outputs out=control_sample(&state,c,&s,200,3,true,false,false);
-    assert(!out.heat && !out.fuse && !state.fuse_timing);
-
-    s.temp_x10[1]=s.temp_x10[2]=650;
-    s.ma=0;
-    out=control_sample(&state,c,&s,11000,3,true,false,false);
-    assert(!out.heat && !out.fuse);
-#if D008_FUSE_FITTED
-    assert(out.drive==0 && !out.balance);
-#else
-    assert(out.drive==0x0f);
-#endif
-}
-
 int main(void)
 {
     Config config;
@@ -108,7 +84,6 @@ int main(void)
     remote_permissions(&config);
     software_protection(&config);
     short_circuit_recovery(&config);
-    heater_sensor_loss(&config);
     puts("PASS protection: normal drive, explicit off, reverse expiry, OV and SCD readback");
     return 0;
 }

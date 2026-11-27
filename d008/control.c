@@ -6,8 +6,8 @@ enum { REVERSE_MA = 320, LOAD_RELEASE_MS = 1000, CURRENT_ALARMS = OCD|OCC|SCD };
 
 void control_gap(Control *p)
 {
-    p->pending = 0; p->load_seen = false; p->charging = false; p->heat = false;
-    p->balance = 0; p->fuse_timing = false;
+    p->pending = 0; p->load_seen = false;
+    p->balance = 0;
 }
 
 void control_acknowledged(Control *p, uint8_t ack, uint8_t alarms)
@@ -20,11 +20,11 @@ Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms
                        uint8_t allowed, bool current_qualified, bool load_removed, bool wire_fault)
 {
     Outputs out = {0};
-    uint16_t cold = s->temp_x10[1], hot = s->temp_x10[2];
+    uint16_t cold = s->temp_x10[NTC_BAT1], hot = s->temp_x10[NTC_BAT2];
     if (cold > hot) {uint16_t tmp = cold; cold = hot; hot = tmp;}
     int32_t value[LIMIT_COUNT] = {
         s->max_mv,s->min_mv,(int32_t)s->sum_mv/10,(int32_t)s->sum_mv/10,
-        -s->ma/100,s->ma/100,hot,cold,hot,cold,s->temp_x10[3],s->max_mv-s->min_mv
+        -s->ma/100,s->ma/100,hot,cold,hot,cold,s->temp_x10[NTC_MOS],s->max_mv-s->min_mv
     };
     p->current_faults |= s->alarms & CURRENT_ALARMS;
     uint8_t alarms = s->alarms | p->current_faults;
@@ -66,44 +66,21 @@ Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms
         BIT_OF(DISCHARGE_HOT)|BIT_OF(DISCHARGE_COLD);
     bool common = wire_fault || s->min_mv < 500 || s->max_mv > 4800 ||
         (p->latched & (BIT_OF(MOS_HOT)|BIT_OF(CELL_DELTA))) || (alarms & (IWT|SCD));
-#if D008_FUSE_FITTED
-    common |= !s->heater_ntc_valid;
-#endif
     bool chg = (allowed & CHARGE) && !(p->latched & charge_faults) && !(alarms & (OCC|COV));
     bool dsg = (allowed & DISCHARGE) && !(p->latched & discharge_faults) && !(alarms & (OCD|CUV));
 
-    /* 加热关充使电流归零时保留会话，放电、热故障及最长会话立即撤销。 */
-    if (reverse_charge) p->charging = true;
-    if (reverse_discharge || common || !(allowed & CHARGE) || (!reverse_charge && !p->heat))
-        p->charging = false;
-    if (!s->heater_ntc_valid || !c->heat_on || !p->charging || !dsg || (alarms & (OCC|COV)) ||
-        (p->latched & (charge_faults & ~BIT_OF(CHARGE_COLD))) ||
-        s->temp_x10[0] >= 1200 || cold >= c->heat_stop_x10 ||
-        (p->heat && ms-p->heat_since >= 600000u)) {
-        p->heat = false;
-    } else if (!p->heat && cold <= c->heat_start_x10) {
-        p->heat = true; p->heat_since = ms;
-    }
-    if (s->heater_ntc_valid && !p->heat && s->temp_x10[0] >= 1350) {
-        if (!p->fuse_timing) {p->fuse_timing = true; p->fuse_since = ms;}
-        if (ms-p->fuse_since >= 10000) p->fuse_trip = true;
-    } else p->fuse_timing = false;
-    out.fuse = p->fuse_trip;
-    common |= out.fuse;
-    if (p->heat) chg = false;
     if (!common && (chg || dsg)) {
         /* 单侧保护可用 AFE 自主续流。上位机单关须有有效反向电流才放行。 */
-        bool auto_charge = current_qualified && !p->heat && (allowed & CHARGE);
+        bool auto_charge = current_qualified && (allowed & CHARGE);
         bool auto_discharge = current_qualified && (allowed & DISCHARGE);
-        unsigned cm = chg || (!p->heat && reverse_discharge) ? 3u : (auto_charge ? 2u : 0u);
+        unsigned cm = chg || reverse_discharge ? 3u : (auto_charge ? 2u : 0u);
         unsigned dm = dsg || reverse_charge ? 3u : (auto_discharge ? 2u : 0u);
         out.drive = (dm << 2) | cm;
         out.reverse_modes = ((cm && !chg) ? 0x03u : 0u) | ((dm && !dsg) ? 0x0cu : 0u);
-        out.heat = p->heat && !(s->fet & CHARGE);
     }
 
-    if (hot >= 1000 || s->temp_x10[3] >= 1000) p->balance_hot = true;
-    if (hot <= 900 && s->temp_x10[3] <= 900) p->balance_hot = false;
+    if (hot >= 1000 || s->temp_x10[NTC_MOS] >= 1000) p->balance_hot = true;
+    if (hot <= 900 && s->temp_x10[NTC_MOS] <= 900) p->balance_hot = false;
     if (c->balance_on && reverse_charge && chg && !common && !p->balance_hot) {
         /* 每次选最高的四个合格通道，已开启的通道允许压差回差。 */
         for (unsigned slot = 0; slot < 4; ++slot) {

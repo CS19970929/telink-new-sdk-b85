@@ -59,7 +59,8 @@ AfeResult afe_setup_step(void)
         {0x51,0,0xff}, {0x67,0,0xff}, {0x68,0,0xff}, {0x69,0,0xff},
         {0x77,0xc4,0xe7}, /* 4 s 看门狗，保留 V3P3 供电。 */
         {0x53,0x50,0xff}, {0x54,0x78,0xff}, {0x66,2,0xff},
-        {0x74,0x49,0xff}, {0x75,0x7f,0xff}, {0x55,0x88,0x8d},
+        {0x74,0x09,0xff}, /* GP1 高阻，GP2/3 为 NTC。 */
+        {0x75,0x7f,0xff}, {0x55,0x88,0x8d},
         {0x6a,absent >> 16,0xff}, {0x6b,absent >> 8,0xff}, {0x6c,absent,0xff},
         {0x6d,0x28,0x3f}, {0x6e,0xc1,0xf3},
         {0x70,ov >> 4,0xff}, {0x71,(ov << 4) | voltage_delay(c->hw_ov_ms),0xff},
@@ -102,10 +103,9 @@ AfeResult afe_sample(const Config *c, uint32_t ms, Sample *out)
     if (seen != ADC_DONE) return AFE_WAIT;
     if (!dvc_read(0x0f,therm,sizeof(therm))) return AFE_ERROR;
     uint16_t ref=be16(therm);
-    /* GP1 监督加热支路。GP2/3 的电池温度和 GP4 的 MOS 温度是主回路必需探头。 */
-    next.heater_ntc_valid=temperature(be16(therm+2),ref,&next.temp_x10[0]);
-    for (unsigned i=1;i<4;++i)
-        if (!temperature(be16(therm+2+2*i),ref,&next.temp_x10[i])) return AFE_ERROR;
+    /* GP1 的两个字节仅随连续读包到达。 */
+    for (unsigned i=0;i<NTC_COUNT;++i)
+        if (!temperature(be16(therm+4+2*i),ref,&next.temp_x10[i])) return AFE_ERROR;
     next.alarms = header[0];
     next.fet = header[6] & 3;
     next.current_fresh = (flags & CC2_DONE) != 0;

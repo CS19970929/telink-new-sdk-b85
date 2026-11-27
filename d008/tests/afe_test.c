@@ -7,7 +7,7 @@
 static uint8_t status, alarm, clear_mask;
 static bool alarm_read_ok=true;
 static uint16_t therm[]={0x4650,0x2710,0x2710,0x2710,0x2710};
-static uint8_t failed_block=0xff;
+static uint8_t failed_block=0xff, gp123_mode;
 
 bool dvc_read(uint8_t reg, uint8_t *data, uint8_t length)
 {
@@ -41,7 +41,7 @@ bool dvc_write(uint8_t reg, const uint8_t *data, uint8_t length)
 
 bool dvc_set(uint8_t reg, uint8_t value, uint8_t mask)
 {
-    (void)reg; (void)value; (void)mask;
+    if (reg==0x74) {assert(mask==0xff); gp123_mode=value;}
     return true;
 }
 
@@ -52,7 +52,7 @@ int main(void)
     afe_begin(&config);
     AfeResult result=AFE_WAIT;
     for (unsigned i=0;i<40 && result==AFE_WAIT;++i) result=afe_setup_step();
-    assert(result==AFE_OK);
+    assert(result==AFE_OK && gp123_mode==0x09);
 
     Sample s;
     status=0x40; /* VADF，CC2 尚未完成。 */
@@ -61,14 +61,14 @@ int main(void)
     assert(afe_sample(&config,200,&s)==AFE_OK && s.current_fresh);
     status=0x40;
     assert(afe_sample(&config,400,&s)==AFE_OK && !s.current_fresh);
-    assert(s.min_mv==3200 && s.max_mv==3200 && s.ma==0 && s.heater_ntc_valid);
+    assert(s.min_mv==3200 && s.max_mv==3200 && s.ma==0);
 
-    /* GP1 在实板超过 V1P8。其余温度和两个单体块仍须读出。 */
+    /* 实板 GP1 超过 V1P8。GP2～GP4 与两个单体块仍须读出。 */
     const uint16_t board_therm[]={0x45dc,0x4624,0x22c9,0x22d7,0x22be};
     memcpy(therm,board_therm,sizeof(therm));
     status=0x50;
     assert(afe_sample(&config,600,&s)==AFE_OK);
-    assert(!s.heater_ntc_valid && s.temp_x10[0]==0 && s.temp_x10[1]>600 && s.temp_x10[3]>600);
+    for (unsigned i=0;i<NTC_COUNT;++i) assert(s.temp_x10[i]>600);
     assert(s.sum_mv==16u*3200u && s.mv[15]==3200);
     for (unsigned i=2;i<5;++i) {
         therm[i]=therm[0];

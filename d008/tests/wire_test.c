@@ -34,7 +34,7 @@ static void expected_frame(const uint8_t data[6])
 int main(void)
 {
     device.valid=device.soc.initialized=true; device.soc.state.percent=50;
-    device.sample.sum_mv=48000; device.sample.temp_x10[1]=300;
+    device.sample.sum_mv=48000; device.sample.temp_x10[NTC_BAT1]=300;
     simulated_tick=UINT32_MAX-15000000; wired_init(); pin_rx=0;
     wired_poll(0); wired_prepare_suspend(); assert(wake_enabled && wake_pol==Level_High);
     pin_rx=1; wired_poll(0); assert(!wired_busy() && !wake_enabled);

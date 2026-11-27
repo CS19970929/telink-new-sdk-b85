@@ -28,7 +28,8 @@ void config_defaults(Config *c, unsigned cells, bool nmc)
     c->hw_sc_us = 256;
     c->balance_on = 1; c->balance_mv = nmc ? 4100 : 3400;
     c->balance_start_mv = 50; c->balance_stop_mv = 30;
-    c->heat_on = 1; c->heat_start_x10 = 400; c->heat_stop_x10 = 450;
+    /* 保持格式 1 的首次提交字节，掉电残片仍可识别。 */
+    c->reserved[0] = 1; c->reserved[1] = 400; c->reserved[2] = 450;
     c->gain_ppm = 1000000;
 }
 
@@ -65,6 +66,5 @@ bool config_valid(const Config *c)
         in_range(c->hw_d1_ms, 8, 2048) && in_range(c->hw_c1_ms, 8, 2048) &&
         in_range(c->hw_d2_ms, 4, 1024) && in_range(c->hw_c2_ms, 4, 1024) &&
         c->balance_on <= 1 && in_range(c->balance_mv, c->empty_mv, c->hw_ov_mv) &&
-        c->balance_start_mv > c->balance_stop_mv && c->balance_start_mv < 1000 &&
-        c->heat_on <= 1 && c->heat_start_x10 < c->heat_stop_x10 && c->heat_stop_x10 < c->sw[CHARGE_HOT].release;
+        c->balance_start_mv > c->balance_stop_mv && c->balance_start_mv < 1000;
 }

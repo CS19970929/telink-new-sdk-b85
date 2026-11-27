@@ -21,7 +21,7 @@ unsigned sif_frame(const Device *d,bool lishen,uint8_t type,uint8_t *p)
     bool ok=d->valid;
     bool soc_ok=ok && d->soc.initialized && d->soc.state.percent<=100;
     unsigned soc=soc_ok?d->soc.state.percent*2:255;
-    unsigned hot=s->temp_x10[1],cold=s->temp_x10[2];
+    unsigned hot=s->temp_x10[NTC_BAT1],cold=s->temp_x10[NTC_BAT2];
     if (cold>hot) {unsigned t=cold; cold=hot; hot=t;}
     int32_t a10=s->ma/100;
     unsigned current=ok && a10>=-5000 && a10<=5000 ? 5000+a10:65535;
@@ -43,12 +43,12 @@ unsigned sif_frame(const Device *d,bool lishen,uint8_t type,uint8_t *p)
     } else if (type==1) {
         p[0]=1; p[1]=0x13; p[4]=d->config.nmc?3:1; le(p+7,d->config.capacity_dah);
         p[9]=soc; le(p+10,ok?s->sum_mv/100:65535); le(p+12,current);
-        p[14]=ok?hot/10:255; p[15]=ok?cold/10:255; p[16]=ok?s->temp_x10[3]/10:255;
+        p[14]=ok?hot/10:255; p[15]=ok?cold/10:255; p[16]=ok?s->temp_x10[NTC_MOS]/10:255;
         p[17]=fault_code(d); p[18]=status; n=20;
     } else if (type==0x3a) {
         p[0]=type; p[1]=0x13; p[2]=29; p[3]=soc;
         le(p+4,ok?s->sum_mv/100:65535); le(p+6,current);
-        p[8]=ok?hot/10:255; p[9]=ok?cold/10:255; p[10]=ok?s->temp_x10[3]/10:255;
+        p[8]=ok?hot/10:255; p[9]=ok?cold/10:255; p[10]=ok?s->temp_x10[NTC_MOS]/10:255;
         p[11]=fault_code(d); p[12]=status; le(p+16,ok?s->max_mv:65535); le(p+18,ok?s->min_mv:65535);
         p[20]=ok?s->max_index+1:255; p[21]=ok?s->min_index+1:255; p[27]=0; n=33;
     } else if (type==0x3b) {

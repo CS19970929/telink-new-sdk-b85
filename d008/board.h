@@ -10,6 +10,7 @@
 #define PC4_DATA_OUT 1
 #define PD7_OUTPUT_ENABLE 1
 #define PD7_DATA_OUT 0
+/* 旧 PCB 的 PA1、PD4 有外部执行电路，GPIO 初始态固定为低。 */
 #define PA1_OUTPUT_ENABLE 1
 #define PA1_DATA_OUT 0
 #define PD4_OUTPUT_ENABLE 1

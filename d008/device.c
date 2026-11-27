@@ -23,7 +23,6 @@ typedef struct { int64_t uas; uint16_t capacity, percent; } SavedSoc;
 static void begin_setup(void)
 {
     mode=SETUP; device.valid=false; previous_good=current_seen=false; probing=wire_settling=false;
-    gpio_write(GPIO_PA1,0);
     control_gap(&device.control);
     afe_begin(&device.config);
 }
@@ -83,7 +82,6 @@ static void silence(uint32_t ms)
 {
     /* 随后完全停止 I²C 访问，连诊断和读请求也不得喂到硬件 WDT。 */
     (void)afe_disable_outputs(ms);
-    gpio_write(GPIO_PA1,0);
     device.valid=false; device.afe_fault=true;
     device.outputs=(Outputs){0};
     previous_good=current_seen=false; control_gap(&device.control);
@@ -100,12 +98,10 @@ static bool revoke_outputs(uint8_t allowed,uint32_t ms)
 {
     uint8_t keep=((allowed&CHARGE)?0x03u:0u) | ((allowed&DISCHARGE)?0x0cu:0u);
     uint8_t drive=device.outputs.drive & keep & ~device.outputs.reverse_modes;
-    gpio_write(GPIO_PA1,0);
     if (!afe_outputs(drive,0,ms)) {silence(ms);return false;}
     device.outputs.drive=drive;
     device.outputs.reverse_modes=0;
     device.outputs.balance=0;
-    device.outputs.heat=false;
     return true;
 }
 
@@ -163,7 +159,6 @@ bool device_set_config(const Config *c)
     bool hardware=memcmp(&c->hw_ov_mv,&device.config.hw_ov_mv,
                (const uint8_t *)&c->balance_on-(const uint8_t *)&c->hw_ov_mv)!=0;
     if (hardware) {
-        gpio_write(GPIO_PA1,0);
         bls_pm_setSuspendMask(SUSPEND_DISABLE);
         afe_begin(c);
         AfeResult result=AFE_WAIT;
@@ -193,7 +188,6 @@ void device_powerdown(bool acc)
     mode=SHUTDOWN;
     device.valid=false;
     device.outputs=(Outputs){0};
-    gpio_write(GPIO_PA1,0);
     if (bus_allowed) {(void)afe_disable_outputs(service_ms); (void)afe_shutdown();}
     if (device.configured) {
         (void)history_note(2,service_ms);
@@ -254,21 +248,14 @@ void device_measure(uint32_t tick,uint32_t ms)
             if (result==AFE_OK && sampled && d->configured) {
                 Outputs out=control_sample(&d->control,&d->config,&next,ms,d->allowed,
                                            current_qualified(ms),gpio_read(GPIO_PB1)!=0,d->wire_fault);
-                if (!out.heat) gpio_write(GPIO_PA1,0);
                 bool closing=(d->outputs.drive & ~out.drive)!=0;
                 bool output_ok=afe_outputs(out.drive,out.balance,ms);
                 if (output_ok) d->outputs=out;
                 if (!output_ok && closing) silence(ms);
                 if (!output_ok || (out.ack && !afe_ack(out.ack,&remaining))) result=AFE_ERROR;
-                else {
-                    if (out.ack) {
-                        control_acknowledged(&d->control,out.ack,remaining);
-                        d->sample.alarms=remaining;
-                    }
-                    gpio_write(GPIO_PA1,out.heat);
-#if D008_FUSE_FITTED
-                    if (d->outputs.fuse) gpio_write(GPIO_PD4,1);
-#endif
+                else if (out.ack) {
+                    control_acknowledged(&d->control,out.ack,remaining);
+                    d->sample.alarms=remaining;
                 }
             }
             if (result==AFE_OK && sampled) {d->afe_fault=false; failing=false;}
@@ -284,7 +271,6 @@ void device_measure(uint32_t tick,uint32_t ms)
     d->valid=sampled;
     if (!sampled) {
         current_seen=false;
-        gpio_write(GPIO_PA1,0);
         control_gap(&d->control);
         if (mode==SAMPLING && (d->outputs.reverse_modes || d->outputs.balance))
             (void)revoke_outputs(d->allowed,ms);
@@ -314,7 +300,6 @@ void device_measure(uint32_t tick,uint32_t ms)
     if (d->wire_fault) active|=1u<<12;
     if (d->afe_fault) active|=1u<<13;
     if (d->storage_fault) active|=1u<<14;
-    if (sampled && d->outputs.heat) active|=1u<<15;
     if (!history_observe(active,ms)) d->storage_fault=true;
 }
 
@@ -331,7 +316,6 @@ bool device_set_allowed(uint8_t allowed,uint32_t ms)
     if (!fresh) return mode!=SAMPLING || revoke_outputs(allowed,ms);
     Outputs next=control_sample(&device.control,&device.config,&device.sample,ms,allowed,
                                 true,gpio_read(GPIO_PB1)!=0,device.wire_fault);
-    if (!next.heat) gpio_write(GPIO_PA1,0);
     if (!afe_outputs(next.drive,next.balance,ms)) {
         device.allowed &= previous;
         silence(ms);
