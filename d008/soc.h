@@ -10,14 +10,14 @@ typedef struct {
     uint64_t discharged_uas;
     uint32_t soc_id, cycle_id;
     uint16_t capacity_dah, percent;
-    uint32_t reserved;
+    uint32_t factory_id;
 } SocSnapshot;
 
 typedef struct {
     Meter meter;
     SocState state;
     uint64_t discharged_uas;
-    uint32_t soc_id, cycle_id, discharge_remainder;
+    uint32_t soc_id, cycle_id, factory_id, discharge_remainder;
     bool initialized, charging, discharging, near_full, near_empty, confirmed_full;
     uint32_t direction_ms, edge_ms, display_ms;
 } Soc;

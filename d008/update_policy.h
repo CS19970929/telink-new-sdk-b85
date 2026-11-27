@@ -16,3 +16,7 @@
 #define D008_CYCLE_UPDATE_ID 0u
 #define D008_CYCLE_UPDATE_COUNT 0u
 #endif
+
+#ifndef D008_LOG_CLEAR_ID
+#define D008_LOG_CLEAR_ID 0u
+#endif

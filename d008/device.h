@@ -17,6 +17,11 @@ bool device_save_soc(void);
 typedef enum { SOC_WRITE_FAILED, SOC_WRITE_DEFERRED, SOC_WRITE_DONE } SocWriteResult;
 SocWriteResult device_set_cycle(unsigned cycles);
 SocWriteResult device_set_soc(unsigned percent,uint32_t ms);
+enum {
+    RESET_SW=1, RESET_HW, RESET_BUSINESS, RESET_BALANCE, RESET_ENDPOINTS,
+    RESET_CALIBRATION, RESET_SOC, RESET_CYCLE, RESET_LOG, RESET_FACTORY=0xfac7
+};
+bool device_restore(unsigned group,uint32_t ms);
 bool device_set_config(const Config *candidate);
 bool device_request_shutdown(uint32_t ms);
 void device_powerdown(bool acc);

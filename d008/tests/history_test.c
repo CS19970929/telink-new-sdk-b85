@@ -6,11 +6,15 @@ static uint16_t seen[120];
 static unsigned attempts,used;
 static bool permit;
 bool store_deferred;
-bool store_append(Domain d,const void *data,unsigned size)
+bool store_available(Domain d) {return d==EVENT_DATA;}
+StoreResult store_open_log(void) {return STORE_VALID;}
+bool store_log_clear(uint32_t id,uint32_t factory) {(void)id;(void)factory;return permit;}
+bool store_log_degraded(void) {return false;}
+bool store_log_append(uint16_t event)
 {
-    assert(d==EVENT_DATA && size==2); ++attempts;
+    ++attempts;
     if (!permit) return false;
-    seen[used++]=*(const uint16_t *)data; return true;
+    seen[used++]=event; return true;
 }
 int main(void)
 {

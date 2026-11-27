@@ -10,6 +10,13 @@ bool store_available(Domain domain);
 extern bool store_deferred;
 bool store_append(Domain domain, const void *data, unsigned size);
 bool store_prepare_soc_space(void);
+enum { LOG_PAYLOAD_BYTES=14 };
+StoreResult store_open_log(void);
+bool store_log_append(uint16_t event);
+bool store_log_clear(uint32_t update_id,uint32_t factory_id);
+uint32_t store_log_update_id(void);
+uint32_t store_log_factory_id(void);
+bool store_log_degraded(void);
 unsigned store_events(void);
 bool store_event_at(unsigned newest_index, uint16_t *event);
 

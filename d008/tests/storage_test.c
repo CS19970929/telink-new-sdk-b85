@@ -66,23 +66,23 @@ static void wear(Domain domain, unsigned sector, unsigned slots, unsigned saves)
 {
     uint32_t value=0, latest=0;
     uint16_t event;
-    unsigned size=domain==EVENT_DATA ? sizeof(event) : sizeof(value);
+    unsigned size=domain==EVENT_DATA ? LOG_PAYLOAD_BYTES : sizeof(value);
     memset(flash,255,sizeof(flash));
     memset(erases,0,sizeof(erases));
     memset(programs,0,sizeof(programs));
-    assert(store_open(domain,&latest,size)==STORE_BLANK);
+    assert((domain==EVENT_DATA?store_open_log():store_open(domain,&latest,size))==STORE_BLANK);
     for (unsigned i=1;i<=saves;++i) {
         value=i;
-        event=(uint16_t)(i%17);
+        event=(uint16_t)(1+i%17);
         const void *payload=domain==EVENT_DATA ? (void *)&event : (void *)&value;
-        assert(store_append(domain,payload,size));
+        assert(domain==EVENT_DATA?store_log_append(event):store_append(domain,payload,size));
         if (domain!=EVENT_DATA) {
             /* 关机、OTA 和主机重发相同快照。 */
             for (unsigned retry=0;retry<4;++retry)
                 assert(store_append(domain,payload,size));
         }
         if (!(i%997)) {
-            assert(store_open(domain,&latest,size)==STORE_VALID);
+            assert((domain==EVENT_DATA?store_open_log():store_open(domain,&latest,size))==STORE_VALID);
             if (domain!=EVENT_DATA) assert(latest==value);
         }
     }
@@ -105,7 +105,7 @@ static void independent_initialization(void)
     uint16_t log=0x1234;
     memset(flash,255,sizeof(flash));
     assert(store_open(SOC_DATA,NULL,4)==STORE_BLANK && store_append(SOC_DATA,&soc,4));
-    assert(store_open(EVENT_DATA,NULL,2)==STORE_BLANK && store_append(EVENT_DATA,&log,2));
+    assert(store_open_log()==STORE_BLANK && store_log_append(log));
     memset(flash,0x55,8192);
     flash[0]='D'; flash[1]='8'; flash[2]=1;
     memcpy(baseline,flash,sizeof(flash));
@@ -217,6 +217,41 @@ static void domain_cuts(Domain domain,unsigned record_bytes,unsigned sector,unsi
            domain,record_bytes,last+1,record_bytes+4);
 }
 
+static void log_clear_cuts(void)
+{
+    memset(flash,255,sizeof(flash));
+    assert(store_open_log()==STORE_BLANK);
+    for (unsigned i=1;i<=256;++i) assert(store_log_append(i));
+    memcpy(baseline,flash,sizeof(flash));
+    for (int cut=0;cut<=4096+LOG_PAYLOAD_BYTES+17;++cut) {
+        memcpy(flash,baseline,sizeof(flash));
+        assert(store_open_log()==STORE_VALID);
+        budget=cut;
+        bool committed=store_log_clear(7,3);
+        budget=-1;
+        assert(store_open_log()==STORE_VALID);
+        assert(store_events()==(committed?0:100));
+        assert(store_log_update_id()==(committed?7:0));
+        assert(store_log_factory_id()==(committed?3:0));
+        assert(store_log_clear(7,3) && store_events()==0);
+        assert(store_log_append(777));
+        assert(store_open_log()==STORE_VALID && store_events()==1);
+        assert(store_log_clear(7,3) && store_events()==1);
+    }
+    /* 两个扇区都已满，有效记录散落于大量坏槽之间。 */
+    memset(flash,0,8192);
+    memset(flash+0xc000,255,8192);
+    assert(store_open_log()==STORE_BLANK);
+    for (unsigned i=1;i<=256;++i) assert(store_log_append(i));
+    for (unsigned i=0;i<256;++i)
+        if (i%32) flash[0xc000+i*32+31]=0;
+    assert(store_open_log()==STORE_VALID && store_events()==8);
+    assert(store_log_append(999) && store_log_degraded() && store_events()==5);
+    uint16_t event=0;
+    assert(store_open_log()==STORE_VALID && store_event_at(0,&event) && event==999);
+    puts("PASS log: clear receipts, rotate power cuts, old epoch suppression and damaged slots");
+}
+
 int main(void)
 {
     memset(flash,255,sizeof(flash));
@@ -234,11 +269,11 @@ int main(void)
         assert(cfg==(success?17u:16u));
         assert(store_open(SOC_DATA,&cfg,4)==STORE_VALID && cfg==123);
     }
-    assert(store_open(EVENT_DATA,NULL,2)==STORE_BLANK);
+    assert(store_open_log()==STORE_BLANK);
     for (unsigned i=1;i<=650;++i) {
         uint16_t event=i;
-        assert(store_append(EVENT_DATA,&event,2));
-        if (!(i%29)) assert(store_open(EVENT_DATA,NULL,2)==STORE_VALID);
+        assert(store_log_append(event));
+        if (!(i%29)) assert(store_open_log()==STORE_VALID);
         assert(store_events()==(i<100?i:100));
         for (unsigned j=0;j<store_events();++j) {
             assert(store_event_at(j,&event) && event==i-j);
@@ -246,7 +281,7 @@ int main(void)
     }
     domain_cuts(CONFIG_DATA,sizeof(Config),0,8);
     domain_cuts(SOC_DATA,12,4,64);
-    domain_cuts(EVENT_DATA,2,12,128);
+    log_clear_cuts();
     deferred_commit();
     deferred_second_page();
     prepare_soc_space();

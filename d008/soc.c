@@ -11,7 +11,7 @@ typedef char SocLayout[(sizeof(SocSnapshot)==32 && offsetof(SocSnapshot,capacity
 SocSnapshot soc_snapshot(const Soc *p,const Config *c)
 {
     return (SocSnapshot){p->state.remaining_uas,p->discharged_uas,p->soc_id,p->cycle_id,
-                         c->capacity_dah,p->state.percent,0};
+                         c->capacity_dah,p->state.percent,p->factory_id};
 }
 
 void soc_resize(Soc *p,unsigned previous,unsigned next)
@@ -22,14 +22,14 @@ void soc_resize(Soc *p,unsigned previous,unsigned next)
 
 bool soc_restore(Soc *p,const Config *c,const SocSnapshot *s)
 {
-    if (!s->capacity_dah || s->capacity_dah>10000 || s->percent>100 || s->reserved ||
+    if (!s->capacity_dah || s->capacity_dah>10000 || s->percent>100 ||
         s->remaining_uas<0 || s->remaining_uas>(int64_t)s->capacity_dah*360000000) return false;
     *p=(Soc){0};
     p->initialized=true;
     p->state.remaining_uas=s->remaining_uas;
     p->state.percent=s->percent;
     p->discharged_uas=s->discharged_uas;
-    p->soc_id=s->soc_id; p->cycle_id=s->cycle_id;
+    p->soc_id=s->soc_id; p->cycle_id=s->cycle_id; p->factory_id=s->factory_id;
     soc_resize(p,s->capacity_dah,c->capacity_dah);
     return true;
 }

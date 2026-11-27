@@ -152,7 +152,7 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
             if ((op==6 && n==8) || (op==16 && count && count<=123 && reg+count<=65536u &&
                 n==9+count*2 && p[6]==count*2)) {
                 /* 广播保留给普通参数，SOC、功率控制和休眠只接受单播。 */
-                if (!p[0] && (s->token || reg==0x1005 || reg==0x2319 || reg==0x1102 || (reg<0x2f18 && reg+count>0x2f10))) return 0;
+                if (!p[0] && (s->token || reg==0x1005 || reg==0x2319 || reg==0x2e10 || reg==0x1102 || (reg<0x2f18 && reg+count>0x2f10))) return 0;
                 const uint8_t *data=p+(op==6?4:7);
                 error=reg==0x1005 ? write_soc(s,count,data,ms) : register_write(s,reg,count,data,ms);
                 if (error==RTU_PENDING) return RTU_PENDING;

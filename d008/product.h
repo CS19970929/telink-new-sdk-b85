@@ -26,6 +26,7 @@ typedef struct {
     int32_t offset_ma, gain_ppm;
     uint8_t sn[32];
     uint32_t update_id[CONFIG_UPDATE_COUNT];
+    uint32_t factory_generation;
 } Config;
 
 enum { NTC_BAT1, NTC_BAT2, NTC_MOS, NTC_COUNT };

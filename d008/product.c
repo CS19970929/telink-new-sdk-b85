@@ -118,4 +118,4 @@ bool config_apply_updates(Config *c)
 }
 
 /* 结构体直接编码，主机和 TC32 使用同一显式布局。 */
-typedef char ConfigLayout[(sizeof(Config)==260 && offsetof(Config,update_id)==216) ? 1 : -1];
+typedef char ConfigLayout[(sizeof(Config)==264 && offsetof(Config,update_id)==216) ? 1 : -1];

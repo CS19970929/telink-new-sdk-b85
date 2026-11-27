@@ -136,6 +136,7 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
     case 0x2e04: v=session->sequence; break;
     case 0x2e06: v=session->sn_generation; break;
     case 0x2e07: v=1; break;
+    case 0x2e11: v=0xd800 | (c->factory_generation&1u) | (device.storage_fault?2u:0u); break;
     case 0x2e18: v=c->full_mv; break;
     case 0x2e19: v=c->empty_mv; break;
     /* 旧客户端批量读的保留字。 */
@@ -179,6 +180,11 @@ unsigned register_write(RtuSession *s,uint16_t r,unsigned n,const uint8_t *p,uin
         return v>1?3:device_set_allowed((device.allowed & ~bit)|(v?bit:0),ms)?0:4;
     }
     if (r==0x2500 && n==35) return s->token?hw_write(p):2;
+    if (r==0x2e10) {
+        if (n!=1 || !s->token) return 2;
+        if ((v<RESET_SW || v>RESET_LOG) && v!=RESET_FACTORY) return 3;
+        return device_restore(v,ms)?0:4;
+    }
     if (r==0x2319) {
         if (n!=1 || v==UINT16_MAX) return 3;
         return device_set_cycle(v)==SOC_WRITE_DONE?0:4;

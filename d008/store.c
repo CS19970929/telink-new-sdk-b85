@@ -14,6 +14,8 @@ static Journal journal[DOMAIN_COUNT];
 bool store_deferred;
 static struct {uint32_t seq, addr;} recent[EVENTS];
 static unsigned count;
+static uint32_t log_epoch, log_update, log_factory;
+static bool log_degraded;
 
 static void put32(uint8_t *p,uint32_t n)
 {
@@ -54,6 +56,16 @@ static void index_event(uint32_t seq,uint32_t addr)
     recent[i].seq=seq; recent[i].addr=addr;
 }
 
+static void index_log(const uint8_t *payload,uint32_t seq,uint32_t address)
+{
+    uint32_t epoch=get32(payload);
+    if ((int32_t)(epoch-log_epoch)>0) {
+        count=0;
+        log_epoch=epoch;
+    }
+    if (epoch==log_epoch && (payload[12] || payload[13])) index_event(seq,address);
+}
+
 static void encode(Domain d,const void *data,unsigned size,uint32_t sequence,uint8_t *slot)
 {
     memset(slot,0xff,stride[d]);
@@ -69,7 +81,10 @@ static StoreResult scan(Domain d,void *latest,unsigned size,const Config *assemb
     if ((unsigned)d>=DOMAIN_COUNT || !size || size>(unsigned)stride[d]-17) return STORE_BAD;
     Journal *j=&journal[d];
     memset(j,0,sizeof(*j)); j->bytes=size;
-    if (d==EVENT_DATA) count=0;
+    if (d==EVENT_DATA) {
+        count=0;
+        log_epoch=log_update=log_factory=0;
+    }
     bool dirty=false, conflict=false;
     for (unsigned sector=0;sector<2;++sector) {
         for (unsigned off=0;off<SECTOR;off+=stride[d]) {
@@ -96,9 +111,13 @@ static StoreResult scan(Domain d,void *latest,unsigned size,const Config *assemb
                 }
             }
             uint32_t seq=get32(slot+8);
-            if (d==EVENT_DATA) index_event(seq,address);
+            if (d==EVENT_DATA) index_log(slot+12,seq,address);
             if (!j->latest || (int32_t)(seq-j->sequence)>0) {
                 j->latest=address; j->sequence=seq;
+                if (d==EVENT_DATA) {
+                    log_update=get32(slot+16);
+                    log_factory=get32(slot+20);
+                }
                 if (latest) memcpy(latest,slot+12,size);
             }
         }
@@ -148,16 +167,22 @@ static bool commit_body(Domain d,uint8_t *slot,uint8_t *verify)
         return false;
     }
     j->pending=0; j->latest=address; ++j->sequence;
-    if (d==EVENT_DATA) index_event(j->sequence,address);
+    if (d==EVENT_DATA) {
+        index_log(slot+12,j->sequence,address);
+        log_update=get32(slot+16); log_factory=get32(slot+20);
+    }
     return true;
 }
 
 static bool recycle_sector(Journal *j,unsigned sector,uint32_t address)
 {
     bool empty;
-    if (!nor_erase(address)) return false;
+    if (!nor_erase(address)) {
+        if (!store_deferred) j->ready=false;
+        return false;
+    }
     if (!inspect_sector(address,&empty)) {j->ready=false;return false;}
-    if (!empty) return false;
+    if (!empty) {j->ready=false;return false;}
     j->next[sector]=0;
     if (j->pending>=address && j->pending-address<SECTOR) j->pending=0;
     return true;
@@ -179,7 +204,7 @@ bool store_append(Domain d,const void *data,unsigned size)
     store_deferred=false;
     if ((unsigned)d>=DOMAIN_COUNT || !data) return false;
     Journal *j=&journal[d];
-    if (!j->ready || size!=j->bytes) return false;
+    if (!j->ready || size!=j->bytes || (d==EVENT_DATA && size!=LOG_PAYLOAD_BYTES)) return false;
     if (d!=EVENT_DATA && j->latest) {
         if (!nor_read(j->latest,verify,stride[d])) {j->ready=false;return false;}
         if (!valid(d,verify,size) || get32(verify+8)!=j->sequence) {
@@ -208,10 +233,14 @@ bool store_append(Domain d,const void *data,unsigned size)
         sector^=1;
         if (j->next[sector]>=SECTOR) {
             uint32_t erase=base[d]+sector*SECTOR;
-            if (d==EVENT_DATA)
-                for (unsigned i=0;i<count;++i)
-                    if (recent[i].addr/SECTOR==erase/SECTOR) return false;
             if (!recycle_sector(j,sector,erase)) return false;
+            if (d==EVENT_DATA) {
+                unsigned keep=0;
+                for (unsigned i=0;i<count;++i)
+                    if (recent[i].addr/SECTOR!=erase/SECTOR) recent[keep++]=recent[i];
+                log_degraded|=keep<count;
+                count=keep;
+            }
         }
     }
     uint32_t addr=base[d]+sector*SECTOR+j->next[sector];
@@ -236,11 +265,41 @@ bool store_append(Domain d,const void *data,unsigned size)
     return commit_body(d,slot,verify);
 }
 
-unsigned store_events(void) {return count;}
+StoreResult store_open_log(void)
+{
+    return store_open(EVENT_DATA,NULL,LOG_PAYLOAD_BYTES);
+}
+
+static bool write_log(uint32_t epoch,uint32_t update,uint32_t factory,uint16_t event)
+{
+    uint8_t payload[LOG_PAYLOAD_BYTES];
+    put32(payload,epoch); put32(payload+4,update); put32(payload+8,factory);
+    payload[12]=(uint8_t)event; payload[13]=event>>8;
+    return store_append(EVENT_DATA,payload,sizeof(payload));
+}
+
+bool store_log_append(uint16_t event)
+{
+    return event && write_log(log_epoch,log_update,log_factory,event);
+}
+
+bool store_log_clear(uint32_t update_id,uint32_t factory_id)
+{
+    if (!journal[EVENT_DATA].ready) return false;
+    if ((update_id || factory_id) && update_id<=log_update && factory_id<=log_factory) return true;
+    return write_log(journal[EVENT_DATA].sequence+1u,update_id>log_update?update_id:log_update,
+                     factory_id>log_factory?factory_id:log_factory,0);
+}
+
+uint32_t store_log_update_id(void) {return log_update;}
+uint32_t store_log_factory_id(void) {return log_factory;}
+bool store_log_degraded(void) {return log_degraded;}
+unsigned store_events(void) {return journal[EVENT_DATA].ready?count:0;}
 bool store_event_at(unsigned i,uint16_t *event)
 {
     uint8_t slot[32];
-    if (i>=count || !event || !nor_read(recent[i].addr,slot,sizeof(slot)) ||
-        !valid(EVENT_DATA,slot,2)) return false;
-    memcpy(event,slot+12,2); return true;
+    if (i>=store_events() || !event || !nor_read(recent[i].addr,slot,sizeof(slot)) ||
+        !valid(EVENT_DATA,slot,LOG_PAYLOAD_BYTES) || get32(slot+12)!=log_epoch) return false;
+    *event=(uint16_t)(slot[24]|slot[25]<<8);
+    return true;
 }

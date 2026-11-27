@@ -5,7 +5,7 @@ enum { DEPTH=100, WEEK_MS=168u*3600000u, RETRY_MS=5000 };
 static uint16_t pending[DEPTH], previous_faults;
 static unsigned first,count,last_id;
 static uint32_t observed_ms,interval_ms,retry_ms;
-static bool deferred;
+static bool deferred, uncertain;
 
 static void advance(uint32_t ms)
 {
@@ -41,12 +41,37 @@ bool history_observe(uint16_t active,uint32_t ms)
     return fits;
 }
 
+bool history_clear(uint32_t update_id,uint32_t factory_id)
+{
+    if (!store_available(EVENT_DATA) && store_open_log()==STORE_IO_ERROR) return false;
+    bool cleared=store_log_clear(update_id,factory_id);
+    if (!cleared && store_available(EVENT_DATA)) return false;
+    /* 结果不确定时也停止重发此前的 RAM 事件，避免带入可能已提交的新代。 */
+    first=count=last_id=0;
+    interval_ms=0;
+    deferred=uncertain=false;
+    return cleared;
+}
+
 bool history_flush(uint32_t ms)
 {
     if (!count || (deferred && ms-retry_ms<RETRY_MS)) return true;
-    if (!store_append(EVENT_DATA,&pending[first],sizeof(*pending))) {
-        deferred=true; retry_ms=ms; return store_deferred;
+    if (!store_available(EVENT_DATA)) {
+        if (store_open_log()==STORE_IO_ERROR) goto retry;
+        if (uncertain) {
+            /* 提交未确认的事件舍弃 RAM 重发，防止旧事件重复入库。 */
+            uncertain=false;
+            first=(first+1)%DEPTH; --count;
+            deferred=false;
+            return false;
+        }
     }
-    deferred=false; first=(first+1)%DEPTH; --count;
-    return true;
+    if (store_log_append(pending[first])) {
+        deferred=false; first=(first+1)%DEPTH; --count;
+        return !store_log_degraded();
+    }
+    uncertain=!store_available(EVENT_DATA);
+retry:
+    deferred=true; retry_ms=ms;
+    return store_deferred;
 }
