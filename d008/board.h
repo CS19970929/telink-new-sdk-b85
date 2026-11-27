@@ -17,3 +17,5 @@
 #define PD4_DATA_OUT 0
 #define PA0_INPUT_ENABLE 1
 #define PB1_INPUT_ENABLE 1
+/* 负载检测的 Q40 拉低 PB1，释放后由弱上拉提供高电平。 */
+#define PULL_WAKEUP_SRC_PB1 PM_PIN_PULLUP_1M

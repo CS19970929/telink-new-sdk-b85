@@ -76,6 +76,13 @@ static void short_circuit_recovery(const Config *c)
     assert(out.drive==0 && out.ack==1);
     control_acknowledged(&state,out.ack,0);
     assert(control_sample(&state,c,&s,2200,3,true,false).drive==0x0f);
+
+    /* 负载仍在时，零电流和等待超过解除时间也不能清除短路。 */
+    s.alarms=1;
+    for (uint32_t ms=2400;ms<=5600;ms+=200) {
+        out=control_sample(&state,c,&s,ms,3,true,false);
+        assert(out.drive==0 && out.ack==0);
+    }
 }
 
 int main(void)
