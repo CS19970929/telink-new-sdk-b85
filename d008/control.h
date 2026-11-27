@@ -16,6 +16,6 @@ typedef struct {
 } Outputs;
 Outputs control_sample(Control *state, const Config *c, const Sample *s,
                        uint32_t ms, uint8_t allowed, bool current_qualified,
-                       bool load_removed, bool wire_fault);
+                       bool load_removed);
 void control_acknowledged(Control *state, uint8_t ack, uint8_t alarms);
 void control_gap(Control *state);

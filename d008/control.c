@@ -17,7 +17,7 @@ void control_acknowledged(Control *p, uint8_t ack, uint8_t alarms)
 }
 
 Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms,
-                       uint8_t allowed, bool current_qualified, bool load_removed, bool wire_fault)
+                       uint8_t allowed, bool current_qualified, bool load_removed)
 {
     Outputs out = {0};
     uint16_t cold = s->temp_x10[NTC_BAT1], hot = s->temp_x10[NTC_BAT2];
@@ -64,7 +64,7 @@ Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms
         BIT_OF(CHARGE_HOT)|BIT_OF(CHARGE_COLD);
     const unsigned discharge_faults = BIT_OF(UV)|BIT_OF(PACK_UV)|BIT_OF(DISCHARGE_OC)|
         BIT_OF(DISCHARGE_HOT)|BIT_OF(DISCHARGE_COLD);
-    bool common = wire_fault || s->min_mv < 500 || s->max_mv > 4800 ||
+    bool common = s->min_mv < 500 || s->max_mv > 4800 ||
         (p->latched & (BIT_OF(MOS_HOT)|BIT_OF(CELL_DELTA))) || (alarms & (IWT|SCD));
     bool chg = (allowed & CHARGE) && !(p->latched & charge_faults) && !(alarms & (OCC|COV));
     bool dsg = (allowed & DISCHARGE) && !(p->latched & discharge_faults) && !(alarms & (OCD|CUV));

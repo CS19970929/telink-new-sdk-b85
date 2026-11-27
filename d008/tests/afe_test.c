@@ -7,7 +7,7 @@
 static uint8_t status, alarm, clear_mask;
 static bool alarm_read_ok=true;
 static uint16_t therm[]={0x4650,0x2710,0x2710,0x2710,0x2710};
-static uint8_t failed_block=0xff, gp123_mode;
+static uint8_t failed_block=0xff, gp123_mode, measure_mode;
 
 bool dvc_read(uint8_t reg, uint8_t *data, uint8_t length)
 {
@@ -42,6 +42,7 @@ bool dvc_write(uint8_t reg, const uint8_t *data, uint8_t length)
 bool dvc_set(uint8_t reg, uint8_t value, uint8_t mask)
 {
     if (reg==0x74) {assert(mask==0xff); gp123_mode=value;}
+    if (reg==0x6d) {assert(mask==0x3f && !(value&4)); measure_mode=value;}
     return true;
 }
 
@@ -52,7 +53,7 @@ int main(void)
     afe_begin(&config);
     AfeResult result=AFE_WAIT;
     for (unsigned i=0;i<40 && result==AFE_WAIT;++i) result=afe_setup_step();
-    assert(result==AFE_OK && gp123_mode==0x09);
+    assert(result==AFE_OK && gp123_mode==0x09 && measure_mode==0x28);
 
     Sample s;
     status=0x40; /* VADF，CC2 尚未完成。 */

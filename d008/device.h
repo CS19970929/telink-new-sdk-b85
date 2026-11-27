@@ -6,7 +6,7 @@ typedef struct {
     Control control;
     Outputs outputs;
     Sample sample;
-    bool valid, configured, afe_fault, wire_fault, storage_fault;
+    bool valid, configured, afe_fault, storage_fault;
     uint8_t allowed;
 } Device;
 extern Device device;

@@ -161,11 +161,6 @@ bool afe_ack(uint8_t flags, uint8_t *remaining)
     return dvc_write(0x00,&keep,1) && dvc_read(0x00,remaining,1);
 }
 
-bool afe_openwire(bool on)
-{
-    return dvc_set(0x6d,on ? 0x2c : 0x28,0x3f);
-}
-
 bool afe_shutdown(void)
 {
     uint8_t cmd = 0x0f;

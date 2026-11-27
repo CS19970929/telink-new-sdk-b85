@@ -12,8 +12,8 @@ Device device;
 static enum { SETUP, INIT_STORAGE, SAMPLING, QUIET, SHUTDOWN } mode;
 static bool init_storage_pending;
 static uint8_t init_erase_mask;
-static bool failing, probing, wire_settling;
-static uint32_t fail_ms, quiet_ms, probe_ms, normal_low_ms, low_ms, uv_ms;
+static bool failing;
+static uint32_t fail_ms, quiet_ms, normal_low_ms, low_ms, uv_ms;
 static uint32_t service_ms;
 enum { OUTPUT_SAMPLE_MAX_AGE_MS = 250, CURRENT_MAX_AGE_MS = 400 };
 static uint32_t last_good_ms, last_current_ms;
@@ -22,7 +22,7 @@ typedef struct { int64_t uas; uint16_t capacity, percent; } SavedSoc;
 
 static void begin_setup(void)
 {
-    mode=SETUP; device.valid=false; previous_good=current_seen=false; probing=wire_settling=false;
+    mode=SETUP; device.valid=false; previous_good=current_seen=false;
     control_gap(&device.control);
     afe_begin(&device.config);
 }
@@ -222,21 +222,8 @@ void device_measure(uint32_t tick,uint32_t ms)
             d->sample=next;
             observed_alarms=next.alarms;
             if (next.current_fresh) {last_current_ms=ms; current_seen=true;}
-            if (d->configured) {
-                /* 检测期间仍执行正常保护。COW 对电压有扰动，撤销端点资格。 */
-                if (probing && ms-probe_ms>=600) {
-                    d->wire_fault=next.min_mv<500;
-                    if (!afe_openwire(false)) result=AFE_ERROR;
-                    probing=false; wire_settling=true; probe_ms=ms;
-                } else if (wire_settling && ms-probe_ms>=600) wire_settling=false;
-                else if (!probing && !wire_settling && (next.max_mv-next.min_mv>600 || d->wire_fault) &&
-                         ms-probe_ms>=5000) {
-                    if (!afe_openwire(true)) result=AFE_ERROR;
-                    else {probing=true; probe_ms=ms;}
-                }
-            }
             uint8_t remaining;
-            if (result==AFE_OK && (next.alarms & 0x80)) {
+            if (next.alarms & 0x80) {
                 if (d->afe_fault && afe_ack(0x80,&remaining) && !(remaining&0x80)) sampled=false;
                 else result=AFE_ERROR;
             }
@@ -247,7 +234,7 @@ void device_measure(uint32_t tick,uint32_t ms)
             }
             if (result==AFE_OK && sampled && d->configured) {
                 Outputs out=control_sample(&d->control,&d->config,&next,ms,d->allowed,
-                                           current_qualified(ms),gpio_read(GPIO_PB1)!=0,d->wire_fault);
+                                           current_qualified(ms),gpio_read(GPIO_PB1)!=0);
                 bool closing=(d->outputs.drive & ~out.drive)!=0;
                 bool output_ok=afe_outputs(out.drive,out.balance,ms);
                 if (output_ok) d->outputs=out;
@@ -276,8 +263,8 @@ void device_measure(uint32_t tick,uint32_t ms)
             (void)revoke_outputs(d->allowed,ms);
     }
     if (!d->configured) return;
-    soc_sample(&d->soc,&d->config,&d->sample,&d->outputs,sampled, sampled && !probing && !wire_settling &&
-               !d->wire_fault && d->sample.min_mv>=500 && d->sample.max_mv<=4800,tick,ms);
+    soc_sample(&d->soc,&d->config,&d->sample,&d->outputs,sampled,
+               sampled && d->sample.min_mv>=500 && d->sample.max_mv<=4800,tick,ms);
     uint32_t dt=sampled && previous_good ? ms-last_good_ms : 0;
     if (dt>1000) dt=0;
     previous_good=sampled;
@@ -297,7 +284,6 @@ void device_measure(uint32_t tick,uint32_t ms)
         if (observed_alarms&0x0a) active|=1u<<CHARGE_OC;
         if (observed_alarms&0x15) active|=1u<<DISCHARGE_OC;
     }
-    if (d->wire_fault) active|=1u<<12;
     if (d->afe_fault) active|=1u<<13;
     if (d->storage_fault) active|=1u<<14;
     if (!history_observe(active,ms)) d->storage_fault=true;
@@ -315,7 +301,7 @@ bool device_set_allowed(uint8_t allowed,uint32_t ms)
     device.allowed=allowed;
     if (!fresh) return mode!=SAMPLING || revoke_outputs(allowed,ms);
     Outputs next=control_sample(&device.control,&device.config,&device.sample,ms,allowed,
-                                true,gpio_read(GPIO_PB1)!=0,device.wire_fault);
+                                true,gpio_read(GPIO_PB1)!=0);
     if (!afe_outputs(next.drive,next.balance,ms)) {
         device.allowed &= previous;
         silence(ms);

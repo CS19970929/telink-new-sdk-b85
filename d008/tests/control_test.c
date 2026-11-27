@@ -17,21 +17,23 @@ static void remote_permissions(const Config *c)
 {
     Control state={0};
     Sample s=healthy_sample();
-    assert(control_sample(&state,c,&s,0,3,true,false,false).drive==0x0f);
-    assert(control_sample(&state,c,&s,200,DISCHARGE,true,false,false).drive==0x0c);
+    assert(control_sample(&state,c,&s,0,3,true,false).drive==0x0f);
+    assert(control_sample(&state,c,&s,200,DISCHARGE,true,false).drive==0x0c);
     s.ma=320;
-    assert(control_sample(&state,c,&s,400,DISCHARGE,true,false,false).drive==0x0c);
+    assert(control_sample(&state,c,&s,400,DISCHARGE,true,false).drive==0x0c);
     s.ma=321;
-    Outputs out=control_sample(&state,c,&s,600,DISCHARGE,true,false,false);
+    Outputs out=control_sample(&state,c,&s,600,DISCHARGE,true,false);
     assert(out.drive==0x0f && out.reverse_modes==0x03);
-    assert(control_sample(&state,c,&s,800,DISCHARGE,false,false,false).drive==0x0c);
-    assert(control_sample(&state,c,&s,1000,DISCHARGE,true,false,true).drive==0);
-    assert(control_sample(&state,c,&s,1200,0,true,false,false).drive==0);
+    assert(control_sample(&state,c,&s,800,DISCHARGE,false,false).drive==0x0c);
+    s.min_mv=499;
+    assert(control_sample(&state,c,&s,1000,DISCHARGE,true,false).drive==0);
+    s.min_mv=3200;
+    assert(control_sample(&state,c,&s,1200,0,true,false).drive==0);
     s.ma=-1000;
-    out=control_sample(&state,c,&s,1400,CHARGE,true,false,false);
+    out=control_sample(&state,c,&s,1400,CHARGE,true,false);
     assert(out.drive==0x0f && out.reverse_modes==0x0c);
     s.ma=0;
-    assert(control_sample(&state,c,&s,1600,CHARGE,true,false,false).drive==0x03);
+    assert(control_sample(&state,c,&s,1600,CHARGE,true,false).drive==0x03);
 }
 
 static void software_protection(const Config *c)
@@ -39,15 +41,15 @@ static void software_protection(const Config *c)
     Control state={0};
     Sample s=healthy_sample();
     s.max_mv=3650;
-    assert(control_sample(&state,c,&s,0,3,true,false,false).drive==0x0f);
-    assert(control_sample(&state,c,&s,1000,3,true,false,false).drive==0x0e);
+    assert(control_sample(&state,c,&s,0,3,true,false).drive==0x0f);
+    assert(control_sample(&state,c,&s,1000,3,true,false).drive==0x0e);
     s.ma=1000;
-    Outputs out=control_sample(&state,c,&s,1200,3,true,false,false);
+    Outputs out=control_sample(&state,c,&s,1200,3,true,false);
     assert(out.full_trip && out.drive==0x0f && out.reverse_modes==0x03);
-    out=control_sample(&state,c,&s,1400,3,false,false,false);
+    out=control_sample(&state,c,&s,1400,3,false,false);
     assert(out.full_trip && out.drive==0x0c);
     s.max_mv=3550;
-    assert(control_sample(&state,c,&s,1600,3,true,false,false).drive==0x0f);
+    assert(control_sample(&state,c,&s,1600,3,true,false).drive==0x0f);
 }
 
 static void short_circuit_recovery(const Config *c)
@@ -55,25 +57,25 @@ static void short_circuit_recovery(const Config *c)
     Control state={0};
     Sample s=healthy_sample();
     s.alarms=1;
-    assert(control_sample(&state,c,&s,0,3,true,false,false).drive==0);
+    assert(control_sample(&state,c,&s,0,3,true,false).drive==0);
     control_gap(&state);
     s=healthy_sample();  /* AFE 重配置后告警寄存器可为 0。 */
-    assert(control_sample(&state,c,&s,200,3,true,false,false).drive==0);
+    assert(control_sample(&state,c,&s,200,3,true,false).drive==0);
     s.ma=-1000;
-    assert(control_sample(&state,c,&s,400,3,false,false,false).ack==0);
+    assert(control_sample(&state,c,&s,400,3,false,false).ack==0);
     s.current_fresh=false;
-    assert(control_sample(&state,c,&s,600,3,true,false,false).ack==0);
+    assert(control_sample(&state,c,&s,600,3,true,false).ack==0);
     s.current_fresh=true;
-    Outputs out=control_sample(&state,c,&s,800,3,true,false,false);
+    Outputs out=control_sample(&state,c,&s,800,3,true,false);
     assert(out.drive==0 && out.ack==1);
     control_acknowledged(&state,out.ack,1);  /* 已发清除但 AFE 仍报故障。 */
     s.ma=0;
-    assert(control_sample(&state,c,&s,1000,3,true,true,false).ack==0);
-    assert(control_sample(&state,c,&s,1800,3,true,true,false).ack==0);
-    out=control_sample(&state,c,&s,2000,3,true,true,false);
+    assert(control_sample(&state,c,&s,1000,3,true,true).ack==0);
+    assert(control_sample(&state,c,&s,1800,3,true,true).ack==0);
+    out=control_sample(&state,c,&s,2000,3,true,true);
     assert(out.drive==0 && out.ack==1);
     control_acknowledged(&state,out.ack,0);
-    assert(control_sample(&state,c,&s,2200,3,true,false,false).drive==0x0f);
+    assert(control_sample(&state,c,&s,2200,3,true,false).drive==0x0f);
 }
 
 int main(void)
