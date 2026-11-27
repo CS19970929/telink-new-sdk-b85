@@ -3,7 +3,8 @@
 #include "dvc_bus.h"
 
 enum { WRITE_ADDR = 0x40, READ_ADDR = 0x41, MAX_BURST = 16,
-       AFE_ENABLE_SETTLE_US = 20000, SDA_WAKE_US = 1000, BUS_FREE_US = 5 };
+       AFE_ENABLE_SETTLE_US = 20000, SDA_WAKE_US = 1000, BUS_FREE_US = 5,
+       WAKE_RETRY_INTERVAL_US = 5000, WAKE_RETRY_WINDOW_US = 120000 };
 static uint8_t crc_byte(uint8_t crc, uint8_t data)
 {
     crc ^= data;
@@ -108,14 +109,25 @@ bool dvc_set(uint8_t reg, uint8_t value, uint8_t mask)
     return dvc_write(reg,&value,1) && matches(reg,value,mask);
 }
 
-bool dvc_startup_set(uint8_t reg, uint8_t value, uint8_t mask)
+DvcStartupResult dvc_startup_off(DvcStartup *startup)
 {
-    bool no_reply=false;
-    if (!transfer(reg,&value,0,1,&no_reply)) {
-        /* 仅首段无应答时唤醒。数据阶段或读回失败交给现有故障确认。 */
-        if (!no_reply) return false;
-        wake_shutdown();
-        if (!dvc_write(reg,&value,1)) return false;
+    const uint8_t off=0;
+    if (startup->retrying) {
+        if (clock_time_exceed(startup->wake_tick,WAKE_RETRY_WINDOW_US-1u)) return DVC_STARTUP_ERROR;
+        if (!clock_time_exceed(startup->last_try_tick,WAKE_RETRY_INTERVAL_US-1u)) return DVC_STARTUP_WAIT;
     }
-    return matches(reg,value,mask);
+
+    bool no_reply=false;
+    bool written=transfer(0x51,&off,0,1,&no_reply);
+    if (!written && no_reply && !startup->retrying) {
+        wake_shutdown();
+        startup->retrying=true;
+        startup->wake_tick=clock_time();
+        written=transfer(0x51,&off,0,1,&no_reply);
+    }
+    if (written) return matches(0x51,off,0xff) ? DVC_STARTUP_OK : DVC_STARTUP_ERROR;
+    /* 只等待启动寻址。数据或读回失败仍立即上报。 */
+    if (!no_reply) return DVC_STARTUP_ERROR;
+    startup->last_try_tick=clock_time();
+    return DVC_STARTUP_WAIT;
 }

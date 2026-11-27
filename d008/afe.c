@@ -5,6 +5,7 @@
 enum { CC2_DONE = 0x10, VADC_DONE = 0x40, ADC_DONE = CC2_DONE|VADC_DONE };
 
 static const Config *setup;
+static DvcStartup startup;
 static uint8_t setup_index, seen, progress, drive_cache;
 static bool outputs_known, activity_started;
 static uint32_t activity_ms, balance_cache, balance_ms;
@@ -43,6 +44,7 @@ static uint8_t voltage_delay(uint16_t ms)
 void afe_begin(const Config *config)
 {
     setup = config; setup_index = 0; seen = progress = 0;
+    startup = (DvcStartup){0};
     activity_started = outputs_known = false;
 }
 
@@ -74,7 +76,7 @@ AfeResult afe_setup_step(void)
         {0x60,c->hw_d2_ms/4-1,0xff}, {0x61,c->hw_c2_ms/4-1,0xff}
     };
     if (setup_index < sizeof(settings)/sizeof(settings[0])) {
-        const struct Setting *s = &settings[setup_index++];
+        const struct Setting *s = &settings[setup_index];
         uint8_t value = s->value, old;
         if (s->writable != 0xff) {
             if (!dvc_read(s->reg, &old, 1)) return AFE_ERROR;
@@ -82,9 +84,11 @@ AfeResult afe_setup_step(void)
         }
         if (s->reg==0x51) {
             uint8_t fet;
-            if (!dvc_startup_set(s->reg,value,s->writable) ||
-                !dvc_read(0x06,&fet,1) || (fet & 3u)) return AFE_ERROR;
+            DvcStartupResult result=dvc_startup_off(&startup);
+            if (result==DVC_STARTUP_WAIT) return AFE_WAIT;
+            if (result!=DVC_STARTUP_OK || !dvc_read(0x06,&fet,1) || (fet & 3u)) return AFE_ERROR;
         } else if (!dvc_set(s->reg,value,s->writable)) return AFE_ERROR;
+        ++setup_index;
         return AFE_WAIT;
     }
     uint8_t fet, trim, status;

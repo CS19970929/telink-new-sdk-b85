@@ -8,6 +8,7 @@ static uint8_t status, alarm, clear_mask, fet_status;
 static uint8_t first_settings[3], sc_setting;
 static unsigned settings_written, alarm_writes;
 static bool alarm_read_ok=true;
+static unsigned startup_waits;
 static uint16_t therm[]={0x4650,0x2710,0x2710,0x2710,0x2710};
 static uint8_t failed_block=0xff, gp123_mode, measure_mode;
 
@@ -56,10 +57,15 @@ bool dvc_set(uint8_t reg, uint8_t value, uint8_t mask)
     return true;
 }
 
-bool dvc_startup_set(uint8_t reg,uint8_t value,uint8_t mask)
+DvcStartupResult dvc_startup_off(DvcStartup *startup)
 {
-    assert(reg==0x51);
-    return dvc_set(reg,value,mask);
+    if (startup_waits) {
+        --startup_waits;
+        startup->retrying=true;
+        return DVC_STARTUP_WAIT;
+    }
+    assert(dvc_set(0x51,0,0xff));
+    return DVC_STARTUP_OK;
 }
 
 int main(void)
@@ -79,7 +85,11 @@ int main(void)
     fet_status=0;
     settings_written=0;
     alarm=1;
+    startup_waits=2;
     afe_begin(&config);
+    assert(afe_setup_step()==AFE_WAIT && settings_written==0);
+    assert(afe_setup_step()==AFE_WAIT && settings_written==0);
+    assert(afe_setup_step()==AFE_WAIT && settings_written==1 && first_settings[0]==0x51);
     AfeResult result=AFE_WAIT;
     for (unsigned i=0;i<40 && result==AFE_WAIT;++i) result=afe_setup_step();
     assert(result==AFE_OK && gp123_mode==0x09 && measure_mode==0x28);

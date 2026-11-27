@@ -9,14 +9,17 @@ static uint8_t ctrl, readback;
 static unsigned step, nak1, nak2, timeout_step;
 static unsigned resets, inits, delay_calls;
 static bool output[2];
-static bool corrupt_crc;
+static bool corrupt_crc, address_silent;
+static uint32_t now_us;
+static DvcStartup startup;
 
 uint8_t *test_i2c_command(void) {++step; return &ctrl;}
 
 uint8_t test_i2c_status(void)
 {
     assert(reg_i2c_adr==0x51); /* 唤醒不发复位或清告警命令。 */
-    return step==nak1 || step==nak2 ? FLD_I2C_NAK : 0;
+    return step==nak1 || step==nak2 || (address_silent && (ctrl & FLD_I2C_CMD_START))
+        ? FLD_I2C_NAK : 0;
 }
 
 uint8_t test_i2c_data(void)
@@ -31,11 +34,10 @@ uint8_t test_i2c_data(void)
     return corrupt_crc ? (uint8_t)(crc^1u) : crc;
 }
 
-uint32_t clock_time(void) {return 0;}
+uint32_t clock_time(void) {return now_us;}
 bool clock_time_exceed(uint32_t start,uint32_t us)
 {
-    assert(start==0 && us==6000);
-    return step==timeout_step;
+    return (us==6000 && step==timeout_step) || now_us-start>us;
 }
 
 void reset_i2c_module(void) {++resets;}
@@ -60,48 +62,69 @@ void sleep_us(unsigned long us)
     assert(delay_calls<3 && us==times[delay_calls]);
     assert(output[GPIO_PC0]==(delay_calls==1) && !output[GPIO_PC1]);
     ++delay_calls;
+    now_us+=(uint32_t)us;
 }
 
 static void scenario(void)
 {
     ctrl=readback=0;
     step=nak1=nak2=timeout_step=resets=inits=delay_calls=0;
-    corrupt_crc=false;
+    corrupt_crc=address_silent=false;
+    now_us=0;
+    startup=(DvcStartup){0};
 }
 
 int main(void)
 {
     scenario();
-    assert(dvc_startup_set(0x51,0,0xff));
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_OK);
     assert(step==9 && !resets && !inits && !delay_calls);
 
     scenario();
     nak1=1;
-    assert(dvc_startup_set(0x51,0,0xff));
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_OK);
     assert(step==11 && resets==1 && inits==1 && delay_calls==3);
 
     scenario();
     timeout_step=1;
-    assert(dvc_startup_set(0x51,0,0xff));
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_OK);
     assert(step==11 && resets==1 && inits==1 && delay_calls==3);
 
     scenario();
+    now_us=UINT32_MAX-22000u;
     nak1=1; nak2=3;
-    assert(!dvc_startup_set(0x51,0,0xff));
-    assert(step==4 && resets==1 && inits==1 && delay_calls==3);
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_WAIT && step==4);
+    now_us+=4999;
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_WAIT && step==4);
+    ++now_us;
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_OK && step==13);
+    assert(resets==1 && inits==1 && delay_calls==3);
 
     scenario();
+    address_silent=true;
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_WAIT && step==4);
+    for (unsigned i=1;i<24;++i) {
+        now_us+=5000;
+        assert(dvc_startup_off(&startup)==DVC_STARTUP_WAIT && step==4+2*i);
+    }
+    now_us+=5000;
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_ERROR && step==50 && resets==1);
+
+    scenario();
+    nak1=1; nak2=4;
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_ERROR && resets==1);
+    scenario();
     nak1=2;
-    assert(!dvc_startup_set(0x51,0,0xff) && !resets);
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_ERROR && !resets);
     scenario();
     corrupt_crc=true;
-    assert(!dvc_startup_set(0x51,0,0xff) && !resets);
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_ERROR && !resets);
     scenario();
     readback=1;
-    assert(!dvc_startup_set(0x51,0,0xff) && !resets);
+    assert(dvc_startup_off(&startup)==DVC_STARTUP_ERROR && !resets);
     scenario();
     nak1=1;
     assert(!dvc_set(0x51,0,0xff) && !resets);
-    puts("PASS DVC bus: fast path, first NAK/timeout wakes once, open-drain pins and no alarm or reset writes");
+    puts("PASS DVC bus: immediate and delayed wake, retry deadline, open-drain pins and no alarm or reset writes");
     return 0;
 }
