@@ -28,7 +28,7 @@ typedef struct {
     uint32_t sum_mv;
     int32_t raw_ma, ma;
     uint8_t alarms, fet, min_index, max_index;
-    bool current_fresh;
+    bool current_fresh, heater_ntc_valid;
 } Sample;
 
 void config_defaults(Config *c, unsigned cells, bool nmc);

@@ -101,8 +101,11 @@ AfeResult afe_sample(const Config *c, uint32_t ms, Sample *out)
     if (ms-activity_ms >= 1200u) return AFE_ERROR;
     if (seen != ADC_DONE) return AFE_WAIT;
     if (!dvc_read(0x0f,therm,sizeof(therm))) return AFE_ERROR;
-    for (unsigned i = 0; i < 4; ++i)
-        if (!temperature(be16(&therm[2+2*i]), be16(therm), &next.temp_x10[i])) return AFE_ERROR;
+    uint16_t ref=be16(therm);
+    /* GP1 监督加热支路。GP2/3 的电池温度和 GP4 的 MOS 温度是主回路必需探头。 */
+    next.heater_ntc_valid=temperature(be16(therm+2),ref,&next.temp_x10[0]);
+    for (unsigned i=1;i<4;++i)
+        if (!temperature(be16(therm+2+2*i),ref,&next.temp_x10[i])) return AFE_ERROR;
     next.alarms = header[0];
     next.fet = header[6] & 3;
     next.current_fresh = (flags & CC2_DONE) != 0;

@@ -66,6 +66,9 @@ Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms
         BIT_OF(DISCHARGE_HOT)|BIT_OF(DISCHARGE_COLD);
     bool common = wire_fault || s->min_mv < 500 || s->max_mv > 4800 ||
         (p->latched & (BIT_OF(MOS_HOT)|BIT_OF(CELL_DELTA))) || (alarms & (IWT|SCD));
+#if D008_FUSE_FITTED
+    common |= !s->heater_ntc_valid;
+#endif
     bool chg = (allowed & CHARGE) && !(p->latched & charge_faults) && !(alarms & (OCC|COV));
     bool dsg = (allowed & DISCHARGE) && !(p->latched & discharge_faults) && !(alarms & (OCD|CUV));
 
@@ -73,7 +76,7 @@ Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms
     if (reverse_charge) p->charging = true;
     if (reverse_discharge || common || !(allowed & CHARGE) || (!reverse_charge && !p->heat))
         p->charging = false;
-    if (!c->heat_on || !p->charging || !dsg || (alarms & (OCC|COV)) ||
+    if (!s->heater_ntc_valid || !c->heat_on || !p->charging || !dsg || (alarms & (OCC|COV)) ||
         (p->latched & (charge_faults & ~BIT_OF(CHARGE_COLD))) ||
         s->temp_x10[0] >= 1200 || cold >= c->heat_stop_x10 ||
         (p->heat && ms-p->heat_since >= 600000u)) {
@@ -81,7 +84,7 @@ Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms
     } else if (!p->heat && cold <= c->heat_start_x10) {
         p->heat = true; p->heat_since = ms;
     }
-    if (!p->heat && s->temp_x10[0] >= 1350) {
+    if (s->heater_ntc_valid && !p->heat && s->temp_x10[0] >= 1350) {
         if (!p->fuse_timing) {p->fuse_timing = true; p->fuse_since = ms;}
         if (ms-p->fuse_since >= 10000) p->fuse_trip = true;
     } else p->fuse_timing = false;
