@@ -46,6 +46,7 @@ _attribute_ram_code_ int main(void)
         uint32_t due=sample_periods(now,&phase);
         if (due) device_measure(now,ms);
         if (!device_service(ms)) continue;
+        if (due) gpio_toggle(D008_RUN_LED_PIN);
         wired_poll(ms); product_radio_poll(ms);
         bool sleep=!wired_busy() && !device_busy() && !update_active() && !product_radio_request_pending();
         bls_pm_setSuspendMask(sleep?(SUSPEND_ADV|SUSPEND_CONN):SUSPEND_DISABLE);

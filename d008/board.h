@@ -17,5 +17,9 @@
 #define PD4_DATA_OUT 0
 #define PA0_INPUT_ENABLE 1
 #define PB1_INPUT_ENABLE 1
+/* 板载蓝灯 LED1，经 R165 接 B−，高电平点亮。 */
+#define D008_RUN_LED_PIN GPIO_PB4
+#define PB4_OUTPUT_ENABLE 1
+#define PB4_DATA_OUT 1
 /* 负载检测的 Q40 拉低 PB1，释放后由弱上拉提供高电平。 */
 #define PULL_WAKEUP_SRC_PB1 PM_PIN_PULLUP_1M

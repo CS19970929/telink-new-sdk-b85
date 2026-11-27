@@ -215,6 +215,7 @@ void device_powerdown(bool acc)
     wired_stop();
     mode=SHUTDOWN;
     command_shutdown_pending=false;
+    gpio_write(D008_RUN_LED_PIN,0);
     device.valid=false;
     device.outputs=(Outputs){0};
     if (bus_allowed) {(void)afe_disable_outputs(service_ms); (void)afe_shutdown();}
