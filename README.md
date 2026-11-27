@@ -94,7 +94,7 @@ Classic 自动模式在 ATT MTU 65 选择 `LegacyFast`，每个标准包传 16 B
 
 ### 复测入口及未验项
 
-- VS Code 的 `Ctrl+Shift+B` 生成 ELF、MAP 和 BIN。选择装配与一线通协议后，BIN 放在工作树根目录的 `bin/`，例如 `bin/d008-16s-lfp-lishen.bin`。重复构建相同装配与协议会在镜像校验通过后更新对应文件。ELF/MAP 和中间文件保存在 Windows 用户临时目录。
+- 在 VS Code 打开独立 D008 工作树，按 `Ctrl+Shift+B` 进入配置窗口。可选择串数、电池类型、首次建档的额定容量及一线通协议，默认 16S 铁锂、20 Ah、锂神扩展。点「仅链接 ELF」生成 ELF/MAP，点「编译 BIN」额外写入根目录 `bin/`，例如 `bin/d008-16s-lfp-lishen-extended.bin`。重复构建相同装配与协议会在镜像校验通过后更新对应文件。ELF/MAP 和中间文件保存在 Windows 用户临时目录。
 - `python -B d008/tests/run.py` 运行主机回归。`python -B d008/build.py --profile 16s-lfp --sif lishen` 默认只生成 ELF/MAP。本轮 16S LFP、20S NMC、23S LFP、24S LFP 四种产品目标通过链接。
 - 当前构建只提供正式固件，台架开关及注入寄存器已移除。历史台架的 SOC 注入、Flash 加速轮转、波形回读和 OTA 中断工具可从提交 `1dcad260` 复现。
 - 量产验收仍需可编程电源验证擦写中途断电，新格式生产板验证关机/OTA 前保存与恢复，实负载、电量计与电流表验证 SOC 和功耗，故障工装验证 AFE 失联、保护恢复、MOS、均衡及关机唤醒。保护性关机当前只尝试一次保存 SOC，若恰遇 BLE 暂缓或介质出错，重启会恢复上次成功提交的值。能为保存预留多少关机时间、异常掉电允许回退多少电量，仍需确定。

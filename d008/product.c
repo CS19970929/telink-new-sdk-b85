@@ -1,11 +1,15 @@
 #include "product.h"
 #include <string.h>
 
+#ifndef D008_CAPACITY_DAH
+#define D008_CAPACITY_DAH 200
+#endif
+
 void config_defaults(Config *c, unsigned cells, bool nmc)
 {
     /* 工程候选按当前装配合同取值。快保护还需分流标定、Vgs 和 SOA 验收。 */
     memset(c, 0, sizeof(*c));
-    c->cells = cells; c->nmc = nmc; c->capacity_dah = 200;
+    c->cells = cells; c->nmc = nmc; c->capacity_dah = D008_CAPACITY_DAH;
     c->full_mv = nmc ? 4180 : 3550; c->empty_mv = nmc ? 3100 : 2600;
     c->sw[OV] = (Limit){nmc ? 4200 : 3650, nmc ? 4100 : 3550, 1000};
     c->sw[UV] = (Limit){nmc ? 3000 : 2500, nmc ? 3100 : 2900, 1000};

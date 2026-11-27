@@ -144,6 +144,8 @@ static void previous_defaults(void)
     Config defaults,prior,readback;
     config_defaults(&defaults,16,false);
     prior=defaults;
+    defaults.capacity_dah=345;
+    prior.capacity_dah=200;
     prior.sw[PACK_OV].release=5680;
     prior.sw[PACK_UV].release=4640;
     prior.hw_sc_a10=2000;

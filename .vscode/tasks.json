@@ -1,46 +1,17 @@
 {
   "version": "2.0.0",
-  "inputs": [
-    {
-      "id": "d008Profile",
-      "type": "pickString",
-      "description": "D008 装配",
-      "options": [
-        "16s-lfp",
-        "20s-nmc",
-        "23s-lfp",
-        "24s-lfp"
-      ],
-      "default": "16s-lfp"
-    },
-    {
-      "id": "d008Sif",
-      "type": "pickString",
-      "description": "一线通协议",
-      "options": [
-        "lishen",
-        "lishen-extended",
-        "a133"
-      ],
-      "default": "lishen"
-    }
-  ],
   "tasks": [
     {
-      "label": "D008 正式固件构建（ELF/MAP/BIN）",
+      "label": "D008 固件配置",
       "type": "process",
       "command": "python",
       "args": [
         "-X",
         "utf8",
         "-B",
-        "d008/build.py",
-        "--profile",
-        "${input:d008Profile}",
-        "--sif",
-        "${input:d008Sif}",
-        "--image-dir",
-        "${workspaceFolder}/bin"
+        "d008/configure.py",
+        "--editor",
+        "${execPath}"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -49,7 +20,11 @@
         "kind": "build",
         "isDefault": true
       },
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "focus": false,
+        "panel": "dedicated"
+      }
     },
     {
       "label": "D008 主机回归",

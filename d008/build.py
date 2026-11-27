@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--profile", choices=("16s-lfp","20s-nmc","23s-lfp","24s-lfp","custom"), default="16s-lfp")
     parser.add_argument("--cells", type=int)
     parser.add_argument("--chemistry", choices=("lfp","nmc"))
+    parser.add_argument("--capacity-dah", type=int, default=200, help="首次建档的默认容量（0.1 Ah）")
     parser.add_argument("--sif", choices=("lishen","lishen-extended","a133"), default="lishen")
     images = parser.add_mutually_exclusive_group()
     images.add_argument("--image", type=Path, help="按指定路径导出 BIN，已有文件时拒绝覆盖")
@@ -34,6 +35,8 @@ def main():
         cells = int(count)
     if not 4 <= cells <= (23 if chemistry == "nmc" else 24):
         parser.error("装配超出芯片电压或串数范围")
+    if not 1 <= args.capacity_dah <= 10000:
+        parser.error("额定容量超限（0.1～1000.0 Ah）")
     out = Path(tempfile.mkdtemp(prefix="d008-clean-"))
     tool_dir = Path(os.environ.get("TC32_BIN", "C:/TelinkIoTStudio/opt/tc32/bin"))
     compiler = shutil.which("tc32-elf-gcc", path=str(tool_dir)) or shutil.which("tc32-elf-gcc")
@@ -70,6 +73,7 @@ def main():
              "-finline-small-functions", "-fms-extensions", "-DCHIP_TYPE=1",
              "-include", str(APP / "board.h")]
     flags.extend(["-DD008_CELLS=" + str(cells), "-DD008_NMC=" + str(int(chemistry == "nmc")),
+                  "-DD008_CAPACITY_DAH=" + str(args.capacity_dah),
                   "-DD008_LISHEN=" + str(int(args.sif != "a133")),
                   "-DD008_LISHEN_EXTENDED=" + str(int(args.sif == "lishen-extended")),
                   "-DAPP_FLASH_PROTECTION_ENABLE=1"])

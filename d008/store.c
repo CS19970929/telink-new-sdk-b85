@@ -136,13 +136,17 @@ StoreResult store_open_config(void *latest,const void *defaults,unsigned size)
 
 StoreResult store_open_product_config(Config *latest,const Config *defaults)
 {
-    if (defaults->nmc) return store_open_config(latest,defaults,sizeof(*defaults));
+    if (defaults->nmc && defaults->capacity_dah==200)
+        return store_open_config(latest,defaults,sizeof(*defaults));
 
-    /* 格式 1 的旧铁锂默认值可能留下未提交的首次写入。 */
+    /* 识别格式 1 旧版本的首次写入残片。旧版本的默认容量固定为 20 Ah。 */
     Config prior=*defaults;
-    prior.sw[PACK_OV].release=prior.cells*prior.sw[OV].release/10;
-    prior.sw[PACK_UV].release=prior.cells*prior.sw[UV].release/10;
-    prior.hw_sc_a10=2000;
+    prior.capacity_dah=200;
+    if (!prior.nmc) {
+        prior.sw[PACK_OV].release=prior.cells*prior.sw[OV].release/10;
+        prior.sw[PACK_UV].release=prior.cells*prior.sw[UV].release/10;
+        prior.hw_sc_a10=2000;
+    }
     uint8_t factory[256], prior_factory[256];
     encode(CONFIG_DATA,defaults,sizeof(*defaults),1,factory);
     encode(CONFIG_DATA,&prior,sizeof(prior),1,prior_factory);
