@@ -100,6 +100,12 @@ AfeResult afe_setup_step(void)
     return AFE_OK;
 }
 
+bool afe_setup_safe(void)
+{
+    /* 0x51 已核验关闭，0x62 / 0x63 已优先配置。 */
+    return setup_index>=3;
+}
+
 AfeResult afe_sample(const Config *c, uint32_t ms, Sample *out)
 {
     uint8_t header[7], therm[10], cells[16];
@@ -163,6 +169,12 @@ bool afe_disable_outputs(uint32_t ms)
     /* 请求硬关闭时忽略缓存，实际重写并读回驱动和均衡寄存器。 */
     outputs_known=false;
     return afe_outputs(0,0,ms);
+}
+
+bool afe_confirm_off(uint32_t ms)
+{
+    uint8_t fet;
+    return afe_disable_outputs(ms) && dvc_read(0x06,&fet,1) && !(fet&3u);
 }
 
 bool afe_ack(uint8_t flags, uint8_t *remaining)

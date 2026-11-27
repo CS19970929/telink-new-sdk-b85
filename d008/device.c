@@ -11,10 +11,12 @@
 
 Device device;
 static enum { SETUP, INIT_STORAGE, SAMPLING, QUIET, SHUTDOWN } mode;
-static bool init_storage_pending;
+static bool init_storage_pending, boot_storage_pending;
 static bool failing;
 static uint32_t fail_ms, quiet_ms, normal_low_ms, low_ms, uv_ms;
-static uint32_t service_ms, command_shutdown_ms, soc_space_ms, config_retry_ms;
+static uint32_t service_ms, command_shutdown_ms, soc_space_ms;
+enum { CONFIG_RETRY_MS=5000 };
+static uint32_t config_retry_ms=0u-CONFIG_RETRY_MS;
 static bool command_shutdown_pending;
 enum { OUTPUT_SAMPLE_MAX_AGE_MS = 250, CURRENT_MAX_AGE_MS = 400, COMMAND_REPLY_MS = 500 };
 static uint32_t last_good_ms, last_current_ms;
@@ -73,6 +75,7 @@ void device_init(void)
     load_config();
     device.allowed=device.configured ? CHARGE|DISCHARGE : 0;
     restore_runtime_storage();
+    boot_storage_pending=init_storage_pending;
     if (init_storage_pending) bls_ll_setAdvEnable(BLC_ADV_DISABLE);
     gpio_write(GPIO_PD7,1); dvc_bus_init();
     begin_setup();
@@ -233,8 +236,10 @@ bool device_service(uint32_t ms)
         if (result==AFE_ERROR) {
             if (init_storage_pending) bls_ll_setAdvEnable(BLC_ADV_ENABLE);
             silence(ms);
+        } else if (init_storage_pending && afe_setup_safe() && ms-config_retry_ms>=CONFIG_RETRY_MS) {
+            mode=INIT_STORAGE;
         } else if (result==AFE_OK) {
-            mode=init_storage_pending?INIT_STORAGE:SAMPLING;
+            mode=SAMPLING;
             failing=false;
         }
     } else if (mode==INIT_STORAGE) {
@@ -247,17 +252,18 @@ bool device_service(uint32_t ms)
         if (saved) {
             init_storage_pending=false;
             device.configured=true;
-            device.allowed=CHARGE|DISCHARGE;
+            if (boot_storage_pending) device.allowed=CHARGE|DISCHARGE;
+            boot_storage_pending=false;
             restore_runtime_storage();
             begin_setup();
         } else {
             device.storage_fault=true;
-            mode=SAMPLING;
+            mode=SETUP;
         }
     } else if (mode==QUIET && ms-quiet_ms>=5000) {
         begin_setup();
     } else if (mode==SAMPLING && init_storage_pending && device.valid &&
-               ms-config_retry_ms>=5000 && !wired_busy() && !update_active() &&
+               ms-config_retry_ms>=CONFIG_RETRY_MS && !wired_busy() && !update_active() &&
                blc_ll_getCurrentState()!=BLS_LINK_STATE_CONN) {
         mode=INIT_STORAGE;
     }
@@ -297,24 +303,35 @@ bool device_set_config(const Config *c)
     bool hardware=(c->factory_generation&1u) || memcmp(&c->hw_ov_mv,&device.config.hw_ov_mv,
                (const uint8_t *)&c->balance_on-(const uint8_t *)&c->hw_ov_mv)!=0;
     if (hardware) {
-        bls_pm_setSuspendMask(SUSPEND_DISABLE);
-        afe_begin(c);
-        AfeResult result=AFE_WAIT;
-        for (unsigned i=0;i<40 && result==AFE_WAIT;++i) {
-            result=afe_setup_step();
-            blt_sdk_main_loop();
-        }
-        if (result!=AFE_OK) {begin_setup();return false;}
+        if (!afe_confirm_off(service_ms)) {silence(service_ms);return false;}
+        device.outputs=(Outputs){0};
+        device.valid=false;
     }
     if (!store_append(CONFIG_DATA,c,sizeof(*c))) {
         if (!store_deferred) device.storage_fault=true;
-        if (hardware) begin_setup();
+        if (!store_available(CONFIG_DATA)) {
+            /* 读回失去权威时不再运行旧 RAM 参数，下次先读已提交记录。 */
+            device.configured=false;
+            init_storage_pending=true;
+            silence(service_ms);
+        } else if (hardware) begin_setup();
         return false;
     }
     soc_resize(&device.soc,device.config.capacity_dah,c->capacity_dah);
     device.config=*c;
-    if (hardware) {device.valid=false; previous_good=current_seen=false;}
-    return true;
+    control_gap(&device.control);
+    if (!hardware) return true;
+
+    /* 稳定持久化之后只从 device.config 同步。保留当前锁存，失败由前台重试。 */
+    begin_setup();
+    bls_pm_setSuspendMask(SUSPEND_DISABLE);
+    for (unsigned i=0;i<40;++i) {
+        AfeResult result=afe_setup_step();
+        if (result==AFE_OK) {mode=SAMPLING;return true;}
+        if (result==AFE_ERROR) {silence(service_ms);return false;}
+        blt_sdk_main_loop();
+    }
+    return false;
 }
 
 bool device_restore(unsigned group,uint32_t ms)
