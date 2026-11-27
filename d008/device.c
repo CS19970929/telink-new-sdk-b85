@@ -9,7 +9,9 @@
 #include <string.h>
 
 Device device;
-static enum { SETUP, SAMPLING, QUIET, SHUTDOWN } mode;
+static enum { SETUP, INIT_STORAGE, SAMPLING, QUIET, SHUTDOWN } mode;
+static bool init_storage_pending;
+static uint8_t init_erase_mask;
 static bool failing, probing, wire_settling;
 static uint32_t fail_ms, quiet_ms, probe_ms, normal_low_ms, low_ms, uv_ms;
 static uint32_t service_ms;
@@ -26,21 +28,9 @@ static void begin_setup(void)
     afe_begin(&device.config);
 }
 
-void device_init(void)
+static void restore_runtime_storage(void)
 {
     Device *d=&device;
-    Config assembly;
-    config_defaults(&assembly,D008_CELLS,D008_NMC);
-    StoreResult cfg=store_open_config(&d->config,&assembly,sizeof(assembly));
-    if (cfg==STORE_BLANK || cfg==STORE_INITIAL) {
-        d->config=assembly;
-        d->configured=config_valid(&assembly) && store_append(CONFIG_DATA,&d->config,sizeof(d->config));
-    } else {
-        d->configured=cfg==STORE_VALID && config_valid(&d->config) &&
-            d->config.cells==assembly.cells && d->config.nmc==assembly.nmc;
-    }
-    if (!d->configured) d->config=assembly;
-    d->allowed=d->configured ? CHARGE|DISCHARGE : 0;
     SavedSoc saved;
     StoreResult state=store_open(SOC_DATA,&saved,sizeof(saved));
     if (state==STORE_VALID && d->configured && saved.capacity==d->config.capacity_dah &&
@@ -49,10 +39,25 @@ void device_init(void)
         d->soc.state.remaining_uas=saved.uas; d->soc.state.percent=saved.percent;
     }
     StoreResult log=store_open(EVENT_DATA,0,2);
-    d->storage_fault=!d->configured || state==STORE_BAD || log==STORE_BAD;
+    d->storage_fault=!d->configured || (state!=STORE_VALID && state!=STORE_BLANK) ||
+        (log!=STORE_VALID && log!=STORE_BLANK);
     if (d->configured) history_note(1,0);
+}
+
+void device_init(void)
+{
+    Device *d=&device;
+    Config assembly;
+    config_defaults(&assembly,D008_CELLS,D008_NMC);
+    StoreResult cfg=store_open_config(&d->config,&assembly,sizeof(assembly));
+    d->configured=cfg==STORE_VALID && config_valid(&d->config) &&
+        d->config.cells==assembly.cells && d->config.nmc==assembly.nmc;
+    if (!d->configured) d->config=assembly;
+    d->allowed=d->configured ? CHARGE|DISCHARGE : 0;
+    restore_runtime_storage();
+    init_storage_pending=config_valid(&assembly) && store_prepare_init(cfg,&init_erase_mask);
+    if (init_storage_pending) bls_ll_setAdvEnable(BLC_ADV_DISABLE);
     dvc_bus_init(); gpio_write(GPIO_PD7,1);
-    /* 允许按编译装配读取实测值。未确认 Flash 配置时禁止功率输出。 */
     begin_setup();
 }
 
@@ -104,7 +109,7 @@ static bool revoke_outputs(uint8_t allowed,uint32_t ms)
     return true;
 }
 
-bool device_busy(void) {return mode==SETUP || mode==SHUTDOWN;}
+bool device_busy(void) {return mode==SETUP || mode==INIT_STORAGE || mode==SHUTDOWN;}
 
 uint16_t device_mos_status(void)
 {
@@ -114,12 +119,34 @@ uint16_t device_mos_status(void)
         (device.valid?0x0010u:0u);
 }
 
+static void storage_init_finished(bool initialized)
+{
+    init_storage_pending=false;
+    if (initialized) {
+        device.configured=true;
+        device.allowed=CHARGE|DISCHARGE;
+        restore_runtime_storage();
+    }
+    bls_ll_setAdvEnable(BLC_ADV_ENABLE);
+}
+
 void device_service(uint32_t ms)
 {
     if (mode==SETUP) {
         AfeResult result=afe_setup_step();
-        if (result==AFE_ERROR) silence(ms);
-        else if (result==AFE_OK) {mode=SAMPLING; failing=false;}
+        if (result==AFE_ERROR) {
+            if (init_storage_pending) storage_init_finished(false);
+            silence(ms);
+        } else if (result==AFE_OK) {
+            mode=init_storage_pending?INIT_STORAGE:SAMPLING;
+            failing=false;
+        }
+    } else if (mode==INIT_STORAGE) {
+        StoreInitResult result=store_initialize(&init_erase_mask,&device.config);
+        if (result!=STORE_INIT_WAIT) {
+            storage_init_finished(result==STORE_INIT_DONE);
+            begin_setup();
+        }
     } else if (mode==QUIET && ms-quiet_ms>=5000) {
         begin_setup();
     }

@@ -1,7 +1,8 @@
 #include "store.h"
 #include <string.h>
 
-enum { SECTOR = 4096, EVENTS = 100, COMMIT = 0x3c };
+enum { SECTOR = 4096, EVENTS = 100, FORMAT = 1, COMMIT = 0x3c,
+       INIT_CONFIG_INDEX = 2 * (DOMAIN_COUNT - 1) };
 static const uint32_t base[] = {0x40000,0x44000,0x4c000};
 static const uint16_t stride[] = {256,64,32};
 typedef struct {
@@ -36,10 +37,23 @@ static bool blank(const uint8_t *p,unsigned n)
     while (n--) if (*p++ != 0xff) return false;
     return true;
 }
+static bool current_format(const uint8_t *p)
+{
+    return p[0]=='D' && p[1]=='8' && p[2]==FORMAT;
+}
+
 static bool valid(Domain d,const uint8_t *p,unsigned size)
 {
-    return p[0]=='D' && p[1]=='8' && p[2]==1 && p[3]==d && p[4]==size &&
+    return current_format(p) && p[3]==d && p[4]==size &&
         p[stride[d]-1]==COMMIT && get32(p+12+size)==crc(p,12+size);
+}
+
+/* 标识字节损坏时，余下的完整记录仍足以识别本代格式。 */
+static bool known_config(uint8_t *p,unsigned size)
+{
+    if (current_format(p)) return true;
+    p[0]='D'; p[1]='8'; p[2]=FORMAT;
+    return valid(CONFIG_DATA,p,size);
 }
 
 static void index_event(uint32_t seq,uint32_t addr)
@@ -55,7 +69,7 @@ static void index_event(uint32_t seq,uint32_t addr)
 static void encode(Domain d,const void *data,unsigned size,uint32_t sequence,uint8_t *slot)
 {
     memset(slot,0xff,stride[d]);
-    slot[0]='D'; slot[1]='8'; slot[2]=1; slot[3]=d; slot[4]=size;
+    slot[0]='D'; slot[1]='8'; slot[2]=FORMAT; slot[3]=d; slot[4]=size;
     put32(slot+8,sequence); memcpy(slot+12,data,size);
     put32(slot+12+size,crc(slot,12+size));
 }
@@ -78,15 +92,16 @@ static StoreResult scan(Domain d,void *latest,unsigned size,const uint8_t *facto
     Journal *j=&journal[d];
     memset(j,0,sizeof(*j)); j->bytes=size;
     if (d==EVENT_DATA) count=0;
-    bool dirty=false, first_only=factory!=NULL;
+    bool dirty=false, current=false, first_only=factory!=NULL;
     for (unsigned sector=0;sector<2;++sector) {
         for (unsigned off=0;off<SECTOR;off+=stride[d]) {
             uint32_t address=base[d]+sector*SECTOR+off;
-            if (!nor_read(address,slot,stride[d])) return STORE_BAD;
+            if (!nor_read(address,slot,stride[d])) return STORE_IO_ERROR;
             if (blank(slot,stride[d])) continue;
             dirty=true; j->next[sector]=off+stride[d];
             if (!valid(d,slot,size)) {
                 if (first_only && !partial_factory(slot,factory)) first_only=false;
+                if (factory && !current && known_config(slot,size)) current=true;
                 continue;
             }
             uint32_t seq=get32(slot+8);
@@ -99,8 +114,9 @@ static StoreResult scan(Domain d,void *latest,unsigned size,const uint8_t *facto
     }
     j->ready=j->latest || !dirty || first_only || d!=CONFIG_DATA;
     if (j->latest) return STORE_VALID;
-    if (dirty && first_only) return STORE_INITIAL;
-    return dirty ? STORE_BAD : STORE_BLANK;
+    if (!dirty) return STORE_BLANK;
+    if (first_only) return STORE_INITIAL;
+    return factory && !current ? STORE_FOREIGN : STORE_BAD;
 }
 
 StoreResult store_open(Domain d,void *latest,unsigned size)
@@ -114,6 +130,58 @@ StoreResult store_open_config(void *latest,const void *defaults,unsigned size)
     if (!defaults || !size || size>(unsigned)stride[CONFIG_DATA]-17) return STORE_BAD;
     encode(CONFIG_DATA,defaults,size,1,factory);
     return scan(CONFIG_DATA,latest,size,factory);
+}
+
+static uint32_t initialization_sector(unsigned index)
+{
+    /* 清理状态和历史在前，默认配置的提交在最后。 */
+    const Domain order[]={SOC_DATA,EVENT_DATA,CONFIG_DATA};
+    return base[order[index/2]]+(index%2)*SECTOR;
+}
+
+static bool inspect_sector(uint32_t address,bool *empty)
+{
+    uint8_t data[256];
+    *empty=true;
+    for (unsigned off=0;off<SECTOR;off+=sizeof(data)) {
+        if (!nor_read(address+off,data,sizeof(data))) return false;
+        if (!blank(data,sizeof(data))) *empty=false;
+    }
+    return true;
+}
+
+bool store_prepare_init(StoreResult config_status,uint8_t *erase_mask)
+{
+    if (config_status!=STORE_FOREIGN && config_status!=STORE_BLANK &&
+        config_status!=STORE_INITIAL) return false;
+    uint8_t mask=0;
+    for (unsigned i=0;i<2*DOMAIN_COUNT;++i) {
+        bool empty;
+        if (!inspect_sector(initialization_sector(i),&empty)) return false;
+        /* 留下已识别的默认配置残片，追加完成首次提交即可。 */
+        if (!empty && (i<INIT_CONFIG_INDEX || config_status!=STORE_INITIAL))
+            mask|=1u<<i;
+    }
+    *erase_mask=mask;
+    return true;
+}
+
+StoreInitResult store_initialize(uint8_t *erase_mask,const Config *defaults)
+{
+    for (unsigned i=0;i<2*DOMAIN_COUNT;++i) {
+        uint8_t bit=1u<<i;
+        if (!(*erase_mask&bit)) continue;
+        uint32_t address=initialization_sector(i);
+        bool empty;
+        if (!nor_erase(address) || !inspect_sector(address,&empty) || !empty)
+            return STORE_INIT_FAILED;
+        *erase_mask&=(uint8_t)~bit;
+        return STORE_INIT_WAIT;
+    }
+    Config readback;
+    StoreResult status=store_open_config(&readback,defaults,sizeof(readback));
+    if (status!=STORE_BLANK && status!=STORE_INITIAL) return STORE_INIT_FAILED;
+    return store_append(CONFIG_DATA,defaults,sizeof(*defaults)) ? STORE_INIT_DONE : STORE_INIT_FAILED;
 }
 
 static bool commit_body(Domain d,uint8_t *slot,uint8_t *verify)
@@ -164,9 +232,8 @@ bool store_append(Domain d,const void *data,unsigned size)
                 for (unsigned i=0;i<count;++i)
                     if (recent[i].addr/SECTOR==erase/SECTOR) return false;
             if (!nor_erase(erase)) return false;
-            for (unsigned off=0;off<SECTOR;off+=sizeof(verify))
-                if (!nor_read(erase+off,verify,sizeof(verify)) || !blank(verify,sizeof(verify)))
-                    return false;
+            bool empty;
+            if (!inspect_sector(erase,&empty) || !empty) return false;
             j->next[sector]=0;
         }
     }

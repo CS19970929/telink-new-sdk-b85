@@ -1,9 +1,12 @@
 #pragma once
 #include "soc.h"
 typedef enum { CONFIG_DATA, SOC_DATA, EVENT_DATA, DOMAIN_COUNT } Domain;
-typedef enum { STORE_BAD, STORE_BLANK, STORE_VALID, STORE_INITIAL } StoreResult;
+typedef enum { STORE_BAD, STORE_BLANK, STORE_VALID, STORE_INITIAL, STORE_FOREIGN, STORE_IO_ERROR } StoreResult;
+typedef enum { STORE_INIT_FAILED, STORE_INIT_WAIT, STORE_INIT_DONE } StoreInitResult;
 StoreResult store_open(Domain domain, void *latest, unsigned size);
 StoreResult store_open_config(void *latest,const void *defaults,unsigned size);
+bool store_prepare_init(StoreResult config_status,uint8_t *erase_mask);
+StoreInitResult store_initialize(uint8_t *erase_mask,const Config *defaults);
 /* 同步调用的暂缓原因由 NOR 端报告，主循环下次再试。 */
 extern bool store_deferred;
 bool store_append(Domain domain, const void *data, unsigned size);

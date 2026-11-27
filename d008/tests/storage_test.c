@@ -5,11 +5,13 @@
 
 static uint8_t flash[0x10000],baseline[sizeof(flash)];
 static int budget=-1;
-static bool refuse_marker;
+static bool refuse_marker, incomplete_erase;
+static uint32_t fail_read;
 static unsigned erases[16], programs[16];
 bool nor_read(uint32_t at,void *out,unsigned n)
 {
     assert(at>=0x40000 && at+n<=0x50000);
+    if (fail_read>=at && fail_read-at<n) return false;
     memcpy(out,flash+at-0x40000,n); return true;
 }
 bool nor_write(uint32_t at,const void *p,unsigned n)
@@ -33,6 +35,7 @@ bool nor_erase(uint32_t at)
         if (budget>0) --budget;
         flash[at-0x40000+i]=255;
     }
+    if (incomplete_erase) flash[at-0x40000+4095]=0;
     return true;
 }
 static void wear(Domain domain, unsigned sector, unsigned slots, unsigned saves)
@@ -85,14 +88,92 @@ static void first_config(void)
         assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_VALID);
         assert(!memcmp(defaults,readback,sizeof(defaults)));
     }
-    /* 单条已提交记录 CRC 损坏，以及未知旧格式，两者都必须保留现场。 */
+    /* 当前格式已提交记录损坏时禁止自动重置。 */
     flash[12]^=1;
     assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_BAD);
     assert(!store_append(CONFIG_DATA,defaults,sizeof(defaults)));
-    memset(flash,255,sizeof(flash)); flash[0]=0;
-    assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_BAD);
-    assert(!store_append(CONFIG_DATA,defaults,sizeof(defaults)));
-    puts("NOR: 191 first-write power cuts; corrupt and foreign config retained");
+    flash[12]^=1;
+    for (unsigned i=0;i<3;++i) {
+        flash[i]^=1;
+        assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_BAD);
+        assert(!store_append(CONFIG_DATA,defaults,sizeof(defaults)));
+        flash[i]^=1;
+    }
+    puts("NOR: 191 first-write power cuts; corrupt config retained");
+}
+
+
+static const unsigned init_order[]={4,5,12,13,0,1};
+
+static StoreInitResult initialize(const Config *defaults,uint8_t mask)
+{
+    for (unsigned step=0;step<=2*DOMAIN_COUNT;++step) {
+        StoreInitResult r=store_initialize(&mask,defaults);
+        if (r!=STORE_INIT_WAIT) return r;
+    }
+    assert(0);
+    return STORE_INIT_FAILED;
+}
+
+static void old_format_reset(void)
+{
+    Config defaults,readback;
+    config_defaults(&defaults,16,false);
+    memset(baseline,0x55,sizeof(baseline));
+    for (unsigned i=0;i<2*DOMAIN_COUNT;++i)
+        memset(baseline+4096*init_order[i],0,4096);
+
+    memcpy(flash,baseline,sizeof(flash));
+    uint8_t mask=0;
+    assert(store_open_config(&readback,&defaults,sizeof(defaults))==STORE_FOREIGN);
+    fail_read=0x40000;
+    assert(store_open_config(&readback,&defaults,sizeof(defaults))==STORE_IO_ERROR);
+    assert(!store_prepare_init(STORE_IO_ERROR,&mask));
+    fail_read=0x4dfff;
+    assert(!store_prepare_init(STORE_FOREIGN,&mask));
+    fail_read=0;
+    assert(!memcmp(flash,baseline,sizeof(flash)));
+    assert(store_prepare_init(STORE_FOREIGN,&mask));
+    incomplete_erase=true;
+    assert(store_initialize(&mask,&defaults)==STORE_INIT_FAILED);
+    assert(flash[5*4096-1]==0 && flash[0]==0);
+    incomplete_erase=false;
+
+    const unsigned last=6*4096+sizeof(defaults)+17;
+    for (unsigned cut=0;cut<=last;++cut) {
+        memcpy(flash,baseline,sizeof(flash));
+        memset(erases,0,sizeof(erases));
+        StoreResult status=store_open_config(&readback,&defaults,sizeof(defaults));
+        assert(status==STORE_FOREIGN && store_prepare_init(status,&mask));
+        budget=(int)cut;
+        StoreInitResult result=initialize(&defaults,mask);
+        budget=-1;
+        assert((result==STORE_INIT_DONE)==(cut==last));
+        for (unsigned i=0;i<2*DOMAIN_COUNT;++i)
+            assert(erases[init_order[i]]==(cut>=(i*4096)));
+        status=store_open_config(&readback,&defaults,sizeof(defaults));
+        if (cut<last) {
+            assert(status!=STORE_VALID && store_prepare_init(status,&mask));
+            assert(initialize(&defaults,mask)==STORE_INIT_DONE);
+        }
+        assert(store_open_config(&readback,&defaults,sizeof(defaults))==STORE_VALID);
+        assert(!memcmp(&defaults,&readback,sizeof(defaults)));
+        assert(!store_prepare_init(STORE_VALID,&mask));
+        assert(store_open(SOC_DATA,NULL,12)==STORE_BLANK);
+        assert(store_open(EVENT_DATA,NULL,2)==STORE_BLANK);
+        assert(!memcmp(flash+0x2000,baseline+0x2000,0x2000));
+        assert(!memcmp(flash+0x6000,baseline+0x6000,0x6000));
+        assert(!memcmp(flash+0xe000,baseline+0xe000,0x2000));
+    }
+
+    memcpy(flash,baseline,sizeof(flash));
+    memset(flash,255,8192);
+    assert(store_open_config(&readback,&defaults,sizeof(defaults))==STORE_BLANK);
+    assert(store_prepare_init(STORE_BLANK,&mask));
+    assert(mask==0x0f && initialize(&defaults,mask)==STORE_INIT_DONE);
+    assert(store_open(SOC_DATA,NULL,12)==STORE_BLANK);
+    assert(store_open(EVENT_DATA,NULL,2)==STORE_BLANK);
+    printf("NOR: %u initialization cuts, six-sector order, read/erase faults and isolation OK\n",last+1);
 }
 
 static void deferred_commit(void)
@@ -187,6 +268,7 @@ int main(void)
     domain_cuts(EVENT_DATA,2,12,128);
     deferred_commit();
     first_config();
+    old_format_reset();
     wear(CONFIG_DATA,0,16,10000);
     wear(SOC_DATA,4,64,100000);
     wear(EVENT_DATA,12,128,250000);
