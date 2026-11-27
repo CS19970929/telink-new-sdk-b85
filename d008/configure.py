@@ -46,7 +46,7 @@ def choose_build(editor=None):
     capacity = tk.StringVar(value="20.0")
     protocol = tk.StringVar(value=next(iter(PROTOCOLS)))
 
-    def start(image):
+    def start(image, android_ota=False):
         try:
             selected = build_args(cells.get(), CHEMISTRIES[chemistry.get()], capacity.get(),
                                   PROTOCOLS[protocol.get()])
@@ -55,6 +55,8 @@ def choose_build(editor=None):
             return
         if image:
             selected += ["--image-dir", str(ROOT / "bin")]
+        if android_ota:
+            selected.append("--android-ota")
         choices["args"] = selected
         window.destroy()
 
@@ -79,12 +81,13 @@ def choose_build(editor=None):
     if editor:
         ttk.Button(panel, text="打开保护参数源码", command=open_protection_defaults).grid(
             row=5, column=1, sticky="e", pady=(6, 0))
-    ttk.Label(panel, text="容量用于首次建档。普通 OTA 保留已有参数。").grid(
+    ttk.Label(panel, text="容量用于首次建档。普通 OTA 保留已有参数。\n"
+                          "编译并 OTA 前，请用安卓 App 连接装配一致的 D008。").grid(
         row=6, column=0, columnspan=2, sticky="w", pady=(10, 0))
     buttons = ttk.Frame(panel)
     buttons.grid(row=7, column=0, columnspan=2, sticky="e", pady=(12, 0))
     for label, action in (("仅链接 ELF", lambda: start(False)), ("编译 BIN", lambda: start(True)),
-                          ("取消", window.destroy)):
+                          ("编译并 OTA", lambda: start(True, android_ota=True)), ("取消", window.destroy)):
         ttk.Button(buttons, text=label, command=action).pack(side="left", padx=3)
     window.bind("<Escape>", lambda _: window.destroy())
     window.mainloop()

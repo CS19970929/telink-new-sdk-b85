@@ -4,12 +4,20 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 
 APP = Path(__file__).resolve().parent
 PACKAGE = APP.parent / "tc_ble_single_sdk-V3.4.2.8_Patch_0001"
 SDK = PACKAGE / "tc_ble_single_sdk"
 PATCH = PACKAGE / "tc_ble_single_sdk_v3.4.2.8_Patch" / "patch_0001_20250929"
+
+def resolve_android_sender():
+    sys.path.insert(0, str(APP.parent))
+    from bms_tools.android_ota import default_sender
+
+    return default_sender()
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -21,7 +29,10 @@ def main():
     images = parser.add_mutually_exclusive_group()
     images.add_argument("--image", type=Path, help="按指定路径导出 BIN，已有文件时拒绝覆盖")
     images.add_argument("--image-dir", type=Path, help="在指定目录更新所选装配和协议的 BIN")
+    parser.add_argument("--android-ota", action="store_true", help="导出后经既有 Android Sender 请求 OTA")
     args = parser.parse_args()
+    if args.android_ota and not args.image_dir:
+        parser.error("--android-ota 需同时指定 --image-dir")
     if args.image and args.image.exists():
         parser.error("目标镜像已存在，请使用新的文件名")
     if args.profile == "custom":
@@ -130,7 +141,16 @@ def main():
             with destination.open("xb") as target:
                 target.write(data)
         print(f"{destination.resolve()}  {len(data)} B")
-    print(f"{elf}  APP={values['_sstored_']} B  main stack={reserve} B")
+    print(f"{elf}  APP={values['_sstored_']} B  main stack={reserve} B", flush=True)
+    if args.android_ota:
+        sender = resolve_android_sender()
+        if not sender.is_file():
+            raise SystemExit(f"找不到 Android Sender：{sender}。可设置 BMS_ANDROID_SENDER 或手动升级。")
+        # 每轮构建独占的已校验文件，避免另一个构建覆盖 bin/ 中的同名产物。
+        print("正在发送本次构建。请在安卓 App 查看 OTA 状态和重连结果。", flush=True)
+        result = subprocess.run([str(sender), "--firmware", str(image), "--auto-ota"], cwd=sender.parent)
+        if result.returncode:
+            raise SystemExit(f"Android Sender 失败（退出码 {result.returncode}），已导出的 BIN 可手动升级。")
 
 if __name__ == "__main__":
     main()
