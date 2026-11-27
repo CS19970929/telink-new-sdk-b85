@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = {"meter": ["meter"], "soc": ["soc", "meter", "product"], "control": ["control", "product"], "afe": ["afe", "product"], "dvc_bus": ["dvc_bus"], "commands": ["rtu", "registers", "product", "soc", "meter"], "wide": ["sdk/wide"], "policy": ["product"], "storage": ["store", "product"], "history": ["history"],
+CASES = {"meter": ["meter"], "soc": ["soc", "meter", "product"], "control": ["control", "product"], "afe": ["afe", "product"], "dvc_bus": ["dvc_bus"], "commands": ["rtu", "registers", "product", "soc", "meter"], "wide": ["sdk/wide"], "policy": ["product"], "lifecycle": ["device", "store", "product", "history", "control", "soc", "meter"], "storage": ["store", "product"], "history": ["history"],
          "lishen": ["sif"], "lishen_extended": ["sif"], "wire": ["sif"]}
 
 def main():
@@ -20,6 +20,8 @@ def main():
             case = "lishen" if name.startswith("lishen") else name
             exe = Path(out) / (name + (".exe" if os.name == "nt" else ""))
             sdk_mock = ["-I", str(ROOT / "tests" / "dvc_sdk")] if name == "dvc_bus" else []
+            if name == "lifecycle":
+                sdk_mock = ["-I", str(ROOT / "tests" / "lifecycle_sdk")]
             identity = ["-DD008_BUILD_ID=0x1234abcdu", "-DD008_BUILD_DIRTY=1"] if name == "commands" else []
             policy = ["-DD008_CONFIG_UPDATES=D008_UPDATE(UPDATE_CAPACITY,1,capacity_dah,uint16_t,300),"
                       "D008_UPDATE(UPDATE_HW_SC,2,hw_sc_a10,uint16_t,5200),"
@@ -30,7 +32,9 @@ def main():
                             str(ROOT / "tests" / (case + "_test.c")),
                             *[str(ROOT / (unit + ".c")) for unit in units], "-o", str(exe)],
                            cwd=out, env=env, check=True)
-            subprocess.run([str(exe)], cwd=out, env=env, check=True)
+            scenarios = ((), ("factory-restart",), ("factory-generation",), ("shutdown-io",)) if name == "lifecycle" else ((),)
+            for args in scenarios:
+                subprocess.run([str(exe), *args], cwd=out, env=env, check=True)
 
 if __name__ == "__main__":
     main()

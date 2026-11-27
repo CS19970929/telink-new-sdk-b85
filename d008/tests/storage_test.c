@@ -64,36 +64,36 @@ static void prepare_soc_space(void)
 
 static void wear(Domain domain, unsigned sector, unsigned slots, unsigned saves)
 {
-    uint32_t value=0, latest=0;
-    uint16_t event;
-    unsigned size=domain==EVENT_DATA ? LOG_PAYLOAD_BYTES : sizeof(value);
+    uint8_t payload[sizeof(Config)]={0}, latest[sizeof(Config)];
+    unsigned size=domain==EVENT_DATA?LOG_PAYLOAD_BYTES:
+                  domain==CONFIG_DATA?sizeof(Config):sizeof(SocSnapshot);
     memset(flash,255,sizeof(flash));
     memset(erases,0,sizeof(erases));
     memset(programs,0,sizeof(programs));
-    assert((domain==EVENT_DATA?store_open_log():store_open(domain,&latest,size))==STORE_BLANK);
+    assert((domain==EVENT_DATA?store_open_log():store_open(domain,latest,size))==STORE_BLANK);
     for (unsigned i=1;i<=saves;++i) {
-        value=i;
-        event=(uint16_t)(1+i%17);
-        const void *payload=domain==EVENT_DATA ? (void *)&event : (void *)&value;
+        uint32_t value=i;
+        uint16_t event=(uint16_t)(1+i%17);
+        memcpy(payload,&value,sizeof(value));
         assert(domain==EVENT_DATA?store_log_append(event):store_append(domain,payload,size));
         if (domain!=EVENT_DATA) {
-            /* 关机、OTA 和主机重发相同快照。 */
             for (unsigned retry=0;retry<4;++retry)
                 assert(store_append(domain,payload,size));
         }
         if (!(i%997)) {
-            assert((domain==EVENT_DATA?store_open_log():store_open(domain,&latest,size))==STORE_VALID);
-            if (domain!=EVENT_DATA) assert(latest==value);
+            assert((domain==EVENT_DATA?store_open_log():store_open(domain,latest,size))==STORE_VALID);
+            if (domain!=EVENT_DATA) assert(!memcmp(latest,payload,size));
         }
     }
     unsigned rotations=(saves-1)/slots-1;
     assert(erases[sector]+erases[sector+1]==rotations);
     assert(erases[sector]==(rotations+1)/2 && erases[sector+1]==rotations/2);
-    assert(programs[sector]+programs[sector+1]==2*saves);
+    unsigned expected_programs=(domain==CONFIG_DATA?3:2)*saves;
+    assert(programs[sector]+programs[sector+1]==expected_programs);
     for (unsigned i=0;i<16;++i)
         if (i!=sector && i!=sector+1) assert(!erases[i] && !programs[i]);
     printf("domain=%u changes=%u duplicate_saves=%u programs=%u erase_A=%u erase_B=%u\n",
-           domain,saves,domain==EVENT_DATA?0:4*saves,2*saves,erases[sector],erases[sector+1]);
+           domain,saves,domain==EVENT_DATA?0:4*saves,expected_programs,erases[sector],erases[sector+1]);
 }
 
 static void independent_initialization(void)
@@ -280,7 +280,7 @@ int main(void)
         }
     }
     domain_cuts(CONFIG_DATA,sizeof(Config),0,8);
-    domain_cuts(SOC_DATA,12,4,64);
+    domain_cuts(SOC_DATA,sizeof(SocSnapshot),4,64);
     log_clear_cuts();
     deferred_commit();
     deferred_second_page();

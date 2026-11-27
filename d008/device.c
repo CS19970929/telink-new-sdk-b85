@@ -383,11 +383,15 @@ bool device_restore(unsigned group,uint32_t ms)
     Config c=device.config, defaults;
     config_defaults(&defaults,c.cells,c.nmc);
     if (group==RESET_FACTORY) {
-        if (c.factory_generation>=UINT32_MAX-1u) return false;
+        if (!store_available(SOC_DATA) || !store_available(EVENT_DATA)) return false;
+        uint32_t last=c.factory_generation;
+        if (device.soc.factory_id>last) last=device.soc.factory_id;
+        if (store_log_factory_id()>last) last=store_log_factory_id();
+        if (last>=UINT32_MAX-2u) return false;
         defaults.offset_ma=c.offset_ma; defaults.gain_ppm=c.gain_ppm;
         memcpy(defaults.sn,c.sn,sizeof(c.sn));
         memcpy(defaults.update_id,c.update_id,sizeof(c.update_id));
-        defaults.factory_generation=c.factory_generation+1u;
+        defaults.factory_generation=(last+1u)|1u;
         return device_set_config(&defaults);
     }
     switch (group) {

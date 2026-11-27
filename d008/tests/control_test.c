@@ -75,6 +75,53 @@ static void warning_levels(const Config *c)
     assert(!(state.alarm[0]&3) && !(state.alarm[1]&3));
 }
 
+static void set_limit_value(Sample *s,unsigned limit,unsigned value)
+{
+    switch (limit) {
+    case OV: s->max_mv=value; break;
+    case UV: s->min_mv=value; break;
+    case PACK_OV: case PACK_UV: s->sum_mv=value*10; break;
+    case CHARGE_OC: s->ma=-(int32_t)value*100; break;
+    case DISCHARGE_OC: s->ma=(int32_t)value*100; break;
+    case CHARGE_HOT: case DISCHARGE_HOT: case CHARGE_COLD: case DISCHARGE_COLD:
+        s->temp_x10[NTC_BAT1]=s->temp_x10[NTC_BAT2]=value;
+        break;
+    case MOS_HOT: s->temp_x10[NTC_MOS]=value; break;
+    case CELL_DELTA: s->min_mv=2600; s->max_mv=2600+value; break;
+    default: assert(0);
+    }
+}
+
+static void all_limits(const Config *c)
+{
+    for (unsigned i=0;i<SOC_LOW;++i) {
+        Sample s=healthy_sample();
+        Control p={0};
+        unsigned bit=1u<<i;
+        const Limit *limit=&c->sw[i];
+        const unsigned value[]={limit->alarm1,limit->alarm2,limit->trip};
+        uint32_t ms=0;
+        for (unsigned level=0;level<3;++level) {
+            set_limit_value(&s,i,value[level]);
+            const uint16_t *flags=level<2?&p.alarm[level]:&p.latched;
+            assert(!(*flags&bit));
+            control_sample(&p,c,&s,ms,3,true,false);
+            control_sample(&p,c,&s,ms+limit->delay_ms-1,3,true,false);
+            assert(!(*flags&bit));
+            Outputs out=control_sample(&p,c,&s,ms+limit->delay_ms,3,true,false);
+            assert(*flags&bit);
+            if (level<2) assert(!(p.latched&bit));
+            else if (i==MOS_HOT || i==CELL_DELTA) assert(!out.drive);
+            ms+=limit->delay_ms+200;
+        }
+        set_limit_value(&s,i,limit->release);
+        if (i==CHARGE_OC) s.ma=1000;
+        if (i==DISCHARGE_OC) s.ma=-1000;
+        control_sample(&p,c,&s,ms,3,true,false);
+        assert(!(p.latched&bit));
+    }
+}
+
 static void short_circuit_recovery(const Config *c)
 {
     Control state={0};
@@ -115,6 +162,7 @@ int main(void)
     assert(config_valid(&config));
     remote_permissions(&config);
     warning_levels(&config);
+    all_limits(&config);
     Control low={0};
     control_soc(&low,&config,5,0);
     control_soc(&low,&config,5,1000);

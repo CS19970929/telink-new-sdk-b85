@@ -29,7 +29,7 @@ SocWriteResult device_set_soc(unsigned percent,uint32_t ms)
 }
 SocWriteResult device_set_cycle(unsigned cycles) {(void)cycles;return SOC_WRITE_FAILED;}
 bool device_restore(unsigned group,uint32_t ms) {(void)group;(void)ms;return false;}
-bool device_set_config(const Config *config) {(void)config;return false;}
+bool device_set_config(const Config *config) {device.config=*config;return true;}
 bool device_set_allowed(uint8_t allowed,uint32_t ms) {(void)allowed;(void)ms;return false;}
 uint16_t device_mos_status(void) {return 0;}
 unsigned store_events(void) {return 0;}
@@ -49,6 +49,21 @@ int main(void)
     uint8_t reply[256];
 
     /* Classic 和 Android 用同一 24 字读取。每字大端，Build ID 的低字在前。 */
+    config_defaults(&device.config,16,false);
+    uint16_t value;
+    assert(register_read(&session,0x2100,&value) && value==3500);
+    assert(register_read(&session,0x2101,&value) && value==3600);
+    assert(register_read(&session,0x2102,&value) && value==3650);
+    assert(register_write(&session,0x2100,2,(uint8_t[]){0x0d,0xac,0x0e,0x06},0)==0);
+    assert(device.config.sw[OV].alarm1==3500 && device.config.sw[OV].alarm2==3590);
+    assert(register_write(&session,0x2100,1,(uint8_t[]){0xff,0xff},0)==3);
+    device.control.alarm[0]=1u<<OV;
+    device.control.alarm[1]=1u<<SOC_LOW;
+    device.control.latched=1u<<MOS_HOT;
+    assert(register_read(&session,0xd03a,&value) && value==1u);
+    assert(register_read(&session,0xd03b,&value) && value==(1u<<12));
+    assert(register_read(&session,0xd03c,&value) && value==(1u<<13));
+
     uint8_t build[]={1,3,0x2a,0,0,24,0,0};
     assert(request(&session,build,6,reply,0)==53 && reply[2]==48 && rtu_crc(reply,53)==0);
     assert(reply[3]==0x44 && reply[4]==0x47 && reply[5]==0 && reply[6]==1);
