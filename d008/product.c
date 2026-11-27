@@ -9,8 +9,8 @@ void config_defaults(Config *c, unsigned cells, bool nmc)
     c->full_mv = nmc ? 4180 : 3550; c->empty_mv = nmc ? 3100 : 2600;
     c->sw[OV] = (Limit){nmc ? 4200 : 3650, nmc ? 4100 : 3550, 1000};
     c->sw[UV] = (Limit){nmc ? 3000 : 2500, nmc ? 3100 : 2900, 1000};
-    c->sw[PACK_OV] = (Limit){cells*c->sw[OV].trip/10, cells*c->sw[OV].release/10, 1000};
-    c->sw[PACK_UV] = (Limit){cells*c->sw[UV].trip/10, cells*c->sw[UV].release/10, 1000};
+    c->sw[PACK_OV] = (Limit){cells*c->sw[OV].trip/10, cells*(nmc ? 4100 : 3500)/10, 1000};
+    c->sw[PACK_UV] = (Limit){cells*c->sw[UV].trip/10, cells*(nmc ? 3100 : 3000)/10, 1000};
     c->sw[CHARGE_OC] = (Limit){400, 10, 100};
     c->sw[DISCHARGE_OC] = (Limit){1200, 10, 500};
     c->sw[CHARGE_HOT] = (Limit){950, 800, 1000};
@@ -23,7 +23,8 @@ void config_defaults(Config *c, unsigned cells, bool nmc)
     c->hw_ov_ms = c->hw_uv_ms = 1000;
     c->hw_d1_a10 = 1500; c->hw_c1_a10 = 600;
     c->hw_d2_a10 = 3000; c->hw_c2_a10 = 800;
-    c->hw_sc_a10 = 2000; /* 50 mV / 250 µΩ。对照 DS p9 的 10 mV 步进。 */
+    /* 铁锂沿用旧 D008 的 150 mV。分流电阻标称 250 µΩ。 */
+    c->hw_sc_a10 = nmc ? 2000 : 6000;
     c->hw_d1_ms = c->hw_c1_ms = c->hw_d2_ms = c->hw_c2_ms = 100;
     c->hw_sc_us = 256;
     c->balance_on = 1; c->balance_mv = nmc ? 4100 : 3400;

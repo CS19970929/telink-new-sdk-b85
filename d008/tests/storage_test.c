@@ -139,6 +139,34 @@ static StoreInitResult initialize(const Config *defaults,uint8_t mask)
     return STORE_INIT_FAILED;
 }
 
+static void previous_defaults(void)
+{
+    Config defaults,prior,readback;
+    config_defaults(&defaults,16,false);
+    prior=defaults;
+    prior.sw[PACK_OV].release=5680;
+    prior.sw[PACK_UV].release=4640;
+    prior.hw_sc_a10=2000;
+    for (unsigned cut=0;cut<=sizeof(prior)+17;++cut) {
+        memset(flash,255,sizeof(flash));
+        assert(store_open_config(&readback,&prior,sizeof(prior))==STORE_BLANK);
+        budget=(int)cut;
+        bool committed=store_append(CONFIG_DATA,&prior,sizeof(prior));
+        budget=-1;
+        StoreResult status=store_open_product_config(&readback,&defaults);
+        if (committed) {
+            assert(status==STORE_VALID && !memcmp(&prior,&readback,sizeof(prior)));
+        } else {
+            uint8_t mask;
+            assert(status==(cut?STORE_INITIAL:STORE_BLANK));
+            assert(store_prepare_init(status,&mask) && initialize(&defaults,mask)==STORE_INIT_DONE);
+            assert(store_open_product_config(&readback,&defaults)==STORE_VALID);
+            assert(!memcmp(&defaults,&readback,sizeof(defaults)));
+        }
+    }
+    puts("NOR: prior LFP defaults retained, or interrupted first commit recovered");
+}
+
 static void old_format_reset(void)
 {
     Config defaults,readback;
@@ -293,6 +321,7 @@ int main(void)
     deferred_commit();
     prepare_soc_space();
     first_config();
+    previous_defaults();
     old_format_reset();
     wear(CONFIG_DATA,0,16,10000);
     wear(SOC_DATA,4,64,100000);

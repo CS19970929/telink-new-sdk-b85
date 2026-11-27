@@ -5,6 +5,7 @@ typedef enum { STORE_BAD, STORE_BLANK, STORE_VALID, STORE_INITIAL, STORE_FOREIGN
 typedef enum { STORE_INIT_FAILED, STORE_INIT_WAIT, STORE_INIT_DONE } StoreInitResult;
 StoreResult store_open(Domain domain, void *latest, unsigned size);
 StoreResult store_open_config(void *latest,const void *defaults,unsigned size);
+StoreResult store_open_product_config(Config *latest,const Config *defaults);
 bool store_prepare_init(StoreResult config_status,uint8_t *erase_mask);
 StoreInitResult store_initialize(uint8_t *erase_mask,const Config *defaults);
 /* 同步调用的暂缓原因由 NOR 端报告，主循环下次再试。 */

@@ -5,7 +5,7 @@
 #include <string.h>
 
 static uint8_t status, alarm, clear_mask, fet_status;
-static uint8_t first_settings[3];
+static uint8_t first_settings[3], sc_setting;
 static unsigned settings_written, alarm_writes;
 static bool alarm_read_ok=true;
 static uint16_t therm[]={0x4650,0x2710,0x2710,0x2710,0x2710};
@@ -49,7 +49,7 @@ bool dvc_set(uint8_t reg, uint8_t value, uint8_t mask)
     if (settings_written<sizeof(first_settings)) first_settings[settings_written]=reg;
     ++settings_written;
     if (reg==0x51) assert(value==0 && mask==0xff);
-    if (reg==0x62) assert(value==0x45 && mask==0x7f);
+    if (reg==0x62) {assert(mask==0x7f); sc_setting=value;}
     if (reg==0x63) assert(value==0x20 && mask==0xff);
     if (reg==0x74) {assert(mask==0xff); gp123_mode=value;}
     if (reg==0x6d) {assert(mask==0x3f && !(value&4)); measure_mode=value;}
@@ -83,6 +83,14 @@ int main(void)
     AfeResult result=AFE_WAIT;
     for (unsigned i=0;i<40 && result==AFE_WAIT;++i) result=afe_setup_step();
     assert(result==AFE_OK && gp123_mode==0x09 && measure_mode==0x28);
+    assert(config_valid(&config) && sc_setting==0x4f);
+    assert(config.sw[PACK_OV].release==5600 && config.sw[PACK_UV].release==4800);
+    config.hw_sc_a10=2000; /* 设备保存的值继续进入寄存器。 */
+    settings_written=0;
+    afe_begin(&config);
+    result=AFE_WAIT;
+    for (unsigned i=0;i<40 && result==AFE_WAIT;++i) result=afe_setup_step();
+    assert(result==AFE_OK && sc_setting==0x45);
     const uint8_t first_expected[]={0x51,0x62,0x63};
     assert(!memcmp(first_settings,first_expected,sizeof(first_expected)) && alarm_writes==0);
 

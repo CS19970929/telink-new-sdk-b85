@@ -49,7 +49,7 @@ void device_init(void)
     Device *d=&device;
     Config assembly;
     config_defaults(&assembly,D008_CELLS,D008_NMC);
-    StoreResult cfg=store_open_config(&d->config,&assembly,sizeof(assembly));
+    StoreResult cfg=store_open_product_config(&d->config,&assembly);
     d->configured=cfg==STORE_VALID && config_valid(&d->config) &&
         d->config.cells==assembly.cells && d->config.nmc==assembly.nmc;
     if (!d->configured) d->config=assembly;

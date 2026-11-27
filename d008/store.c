@@ -85,7 +85,8 @@ static bool partial_factory(const uint8_t *slot,const uint8_t *factory)
     return (slot[marker]&COMMIT)==COMMIT && !memcmp(slot,factory,marker);
 }
 
-static StoreResult scan(Domain d,void *latest,unsigned size,const uint8_t *factory)
+static StoreResult scan(Domain d,void *latest,unsigned size,
+                        const uint8_t *factory,const uint8_t *prior_factory)
 {
     uint8_t slot[256];
     if ((unsigned)d>=DOMAIN_COUNT || !size || size>(unsigned)stride[d]-17) return STORE_BAD;
@@ -100,7 +101,8 @@ static StoreResult scan(Domain d,void *latest,unsigned size,const uint8_t *facto
             if (blank(slot,stride[d])) continue;
             dirty=true; j->next[sector]=off+stride[d];
             if (!valid(d,slot,size)) {
-                if (first_only && !partial_factory(slot,factory)) first_only=false;
+                if (first_only && !partial_factory(slot,factory) &&
+                    (!prior_factory || !partial_factory(slot,prior_factory))) first_only=false;
                 if (factory && !current && known_config(slot,size)) current=true;
                 continue;
             }
@@ -121,7 +123,7 @@ static StoreResult scan(Domain d,void *latest,unsigned size,const uint8_t *facto
 
 StoreResult store_open(Domain d,void *latest,unsigned size)
 {
-    return scan(d,latest,size,NULL);
+    return scan(d,latest,size,NULL,NULL);
 }
 
 StoreResult store_open_config(void *latest,const void *defaults,unsigned size)
@@ -129,7 +131,22 @@ StoreResult store_open_config(void *latest,const void *defaults,unsigned size)
     uint8_t factory[256];
     if (!defaults || !size || size>(unsigned)stride[CONFIG_DATA]-17) return STORE_BAD;
     encode(CONFIG_DATA,defaults,size,1,factory);
-    return scan(CONFIG_DATA,latest,size,factory);
+    return scan(CONFIG_DATA,latest,size,factory,NULL);
+}
+
+StoreResult store_open_product_config(Config *latest,const Config *defaults)
+{
+    if (defaults->nmc) return store_open_config(latest,defaults,sizeof(*defaults));
+
+    /* 格式 1 的旧铁锂默认值可能留下未提交的首次写入。 */
+    Config prior=*defaults;
+    prior.sw[PACK_OV].release=prior.cells*prior.sw[OV].release/10;
+    prior.sw[PACK_UV].release=prior.cells*prior.sw[UV].release/10;
+    prior.hw_sc_a10=2000;
+    uint8_t factory[256], prior_factory[256];
+    encode(CONFIG_DATA,defaults,sizeof(*defaults),1,factory);
+    encode(CONFIG_DATA,&prior,sizeof(prior),1,prior_factory);
+    return scan(CONFIG_DATA,latest,sizeof(*defaults),factory,prior_factory);
 }
 
 static uint32_t initialization_sector(unsigned index)
@@ -179,7 +196,7 @@ StoreInitResult store_initialize(uint8_t *erase_mask,const Config *defaults)
         return STORE_INIT_WAIT;
     }
     Config readback;
-    StoreResult status=store_open_config(&readback,defaults,sizeof(readback));
+    StoreResult status=store_open_product_config(&readback,defaults);
     if (status!=STORE_BLANK && status!=STORE_INITIAL) return STORE_INIT_FAILED;
     return store_append(CONFIG_DATA,defaults,sizeof(*defaults)) ? STORE_INIT_DONE : STORE_INIT_FAILED;
 }
