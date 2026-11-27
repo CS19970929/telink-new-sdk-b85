@@ -29,7 +29,10 @@ public partial class MainWindow
         _firmwarePath=null;
         FirmwareText.Text=UnifiedTestEdition ? "未选择固件" : "未选择升级包";
         FirmwareInspection inspection=FirmwareImage.Inspect(path);
-        if(!inspection.LooksLikeTelink && !inspection.FitsStm32App)
+        bool legacyCan = IsCanMode && inspection.SerialPackage is null;
+        if (legacyCan)
+            _ = CommToolCanUpgrade.LoadLegacyBin(path);
+        else if (!inspection.LooksLikeTelink && !inspection.FitsStm32App)
             throw new InvalidDataException("文件不满足已知 BMS 升级包或 APP 镜像格式。");
         _firmwarePath=path;
         FirmwareText.Text=UnifiedTestEdition ? inspection.Description : inspection.FileName;
@@ -78,13 +81,18 @@ public partial class MainWindow
         if (_bms is not null && (_connectionMode != ConnectionMode.Can ||
             !string.Equals(serial.PortName, _connectedSerialPort, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("请先断开当前设备，再选择升级端口。");
-        string path = _firmwarePath ?? throw new InvalidOperationException("请先选择 C073 固件。");
-        var image = FirmwareImage.LoadForTarget(path, OtaTargetKind.Stm32SerialIap);
-        var package = SerialFirmwarePackage.Parse(image.Bytes);
-        if (!SerialFirmwarePackage.IsC073Board(package.BoardId) || package.AppAddress != SerialFirmwarePackage.C073AppBase)
-            throw new InvalidDataException($"当前 CAN 升级仅支持匹配分区的 C073 固件。{package.BoardName} 请使用直连串口或蓝牙升级。");
+        string path = _firmwarePath ?? throw new InvalidOperationException("请先选择 C073 包或旧项目 APP BIN。");
+        bool legacy = FirmwareImage.Inspect(path).SerialPackage is null;
+        var image = legacy ? null : FirmwareImage.LoadForTarget(path, OtaTargetKind.Stm32SerialIap);
+        var package = legacy ? null : image!.Package ??
+            throw new InvalidDataException("升级文件已改变，请重新选择。");
+        if (package is not null && (!SerialFirmwarePackage.IsC073Board(package.BoardId) ||
+            package.AppAddress != SerialFirmwarePackage.C073AppBase))
+            throw new InvalidDataException($"此 CAN 升级入口支持指定 C073 和旧项目 BIN。{package.BoardName} 请使用直连串口或蓝牙升级。");
+        byte[] bytes = legacy ? CommToolCanUpgrade.LoadLegacyBin(path) : image!.Bytes;
         string expected = ExpectedVersionBox.Text.Trim();
-        if (expected.Length != 0 && !string.Equals(expected, package.Version.ToString("X8"), StringComparison.OrdinalIgnoreCase))
+        if (package is not null && expected.Length != 0 &&
+            !string.Equals(expected, package.Version.ToString("X8"), StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException($"镜像版本为 {package.Version:X8}，与填写的预期版本不符。");
         _otaRunning = true;
         _otaCts = new CancellationTokenSource();
@@ -109,9 +117,22 @@ public partial class MainWindow
         });
         try
         {
-            await Task.Run(() => {
+            OtaVerifyText.Text = await Task.Run(() => {
                 using var channel = new CommToolSerialConnection(serial.PortName, 9000);
-                CommToolCanUpgrade.Run(image.Bytes, channel.Command, progress, ct, version => Dispatcher.Invoke(() =>
+                if (package is null)
+                {
+                    var identity = CommToolCanUpgrade.RunLegacy(bytes, expected, channel.Command, progress, ct,
+                        target => Dispatcher.Invoke(() =>
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            return MessageBox.Show(this,
+                                $"文件 {Path.GetFileName(path)}\n硬件 {target.Hardware}，当前软件 {target.Software}，SN {target.Serial}\n\n请确认该 BIN 已用于此项目，且 CAN 只连接这块板。旧 Boot 开始传输即擦除 APP 首页。",
+                                "确认旧项目 CAN 升级", MessageBoxButton.OKCancel, MessageBoxImage.Warning,
+                                MessageBoxResult.Cancel) == MessageBoxResult.OK;
+                        }));
+                    return $"旧板已重启。已读回硬件 {identity.Hardware}、软件 {identity.Software}。旧板未提供运行镜像 CRC32。";
+                }
+                CommToolCanUpgrade.Run(bytes, channel.Command, progress, ct, version => Dispatcher.Invoke(() =>
                 {
                     ct.ThrowIfCancellationRequested();
                     return MessageBox.Show(this,
@@ -119,8 +140,8 @@ public partial class MainWindow
                         "确认 C073 单板升级", MessageBoxButton.OKCancel, MessageBoxImage.Information,
                         MessageBoxResult.Cancel) == MessageBoxResult.OK;
                 }));
+                return $"C073 已重启。版本 {package.Version:X8}、长度 {package.PayloadLength} 和 CRC32 {package.PayloadCrc:X8} 回读一致。";
             }, ct);
-            OtaVerifyText.Text = $"C073 已重启。版本 {package.Version:X8}、长度 {package.PayloadLength} 和 CRC32 {package.PayloadCrc:X8} 回读一致。";
             AppendLog(OtaVerifyText.Text, "OTA");
         }
         finally { ConnectionText.Text = "点击连接恢复 CAN 实时监控"; }

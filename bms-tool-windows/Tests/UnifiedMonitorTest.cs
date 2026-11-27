@@ -349,6 +349,116 @@ static class UnifiedMonitorTest
         throw new Exception("错误分区被接受");
     }
 
+    private static void CheckLegacyCanUpgrade()
+    {
+        var assembly=typeof(MainWindow).Assembly;
+        var type=assembly.GetType("BmsTool.Windows.CommToolCanUpgrade")!;
+        var run=type.GetMethod("RunLegacy",BindingFlags.Static|BindingFlags.NonPublic)!;
+        var commandError=assembly.GetType("BmsTool.Windows.CommToolCommandException",true)!;
+        byte[] app=new byte[60*1024];
+        BinaryPrimitives.WriteUInt32LittleEndian(app, 0x20004000);
+        BinaryPrimitives.WriteUInt32LittleEndian(app.AsSpan(4), 0x08004821);
+        byte[] CacheStatus(byte[] meta,bool valid) => [..meta,valid ? (byte)1 : (byte)0];
+        byte[] Identity(string sn,string version) {
+            byte[] result=new byte[96];
+            System.Text.Encoding.ASCII.GetBytes(sn).CopyTo(result,0);
+            System.Text.Encoding.ASCII.GetBytes("LiTech").CopyTo(result,32);
+            System.Text.Encoding.ASCII.GetBytes(version).CopyTo(result,64);
+            for(int i=0;i<result.Length;i+=2) (result[i],result[i+1])=(result[i+1],result[i]);
+            return result;
+        }
+        foreach(byte patch in new byte[]{3,11}) {
+            byte[] metadata=new byte[14];
+            bool cacheValid=false,started=false,wrongBoard=false,identityChanged=false,bootOnly=false;
+            int writes=0,transfers=0,identityReads=0;
+            var commands=new List<byte>();
+            byte[] Adapter(byte op,byte[] payload,CancellationToken ct) {
+                ct.ThrowIfCancellationRequested();
+                commands.Add(op);
+                switch(op) {
+                    case 1: return [1,0,2,patch,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+                    case 2: return [];
+                    case 0x10:
+                        if(payload[0]==0x70) {
+                            if(wrongBoard) { byte[] current=new byte[24];current[0]=0x50;current[1]=0x55;return current; }
+                            throw (Exception)Activator.CreateInstance(commandError,(byte)7,"BMS_ERROR")!;
+                        }
+                        if(bootOnly) throw (Exception)Activator.CreateInstance(commandError,(byte)6,"CAN_TIMEOUT")!;
+                        if(payload[0]==2) {
+                            ++identityReads;
+                            string serial=identityChanged && identityReads>1 ? "OTHER" : "D009-01";
+                            return Identity(serial,started ? "T3-NEW" : "T3-OLD");
+                        }
+                        Check(payload.SequenceEqual(new byte[]{0x34,0xD0,2,0}),"旧板监控已读回");
+                        return [67,0,100,0];
+                    case 0x20:
+                        ++writes; metadata=payload;cacheValid=false;
+                        Check(BinaryPrimitives.ReadUInt32LittleEndian(payload)==0x08004800,"旧 BIN 缓存使用原地址");
+                        return [];
+                    case 0x21:
+                        int offset=(int)BinaryPrimitives.ReadUInt32LittleEndian(payload);
+                        if(payload.Length>52 || !payload.AsSpan(4).SequenceEqual(app.AsSpan(offset,payload.Length-4)))
+                            throw new Exception("旧 APP 缓存字节或长度错误");
+                        return [];
+                    case 0x22: cacheValid=true; return [];
+                    case 0x23: return CacheStatus(metadata,cacheValid);
+                    case 0x31:
+                        ++transfers;started=true;return [];
+                    case 0x32:
+                        byte[] status=new byte[13];
+                        if(started) {
+                            status[0]=2;status[1]=100;
+                            BinaryPrimitives.WriteInt32LittleEndian(status.AsSpan(3),app.Length);
+                            BinaryPrimitives.WriteInt32LittleEndian(status.AsSpan(7),app.Length);
+                        }
+                        return status;
+                    default: throw new Exception($"unexpected command {op:X2}");
+                }
+            }
+            object? Execute(Func<object,bool> confirm,string expected="T3-NEW",byte[]? payload=null) =>
+                run.Invoke(null,[payload??app,expected,(Func<byte,byte[],CancellationToken,byte[]>)Adapter,
+                    new Progress<(int,string)>(),CancellationToken.None,confirm]);
+
+            void Reject<T>(Func<object?> action) where T:Exception {
+                try { action(); throw new Exception("unexpected legacy upgrade"); }
+                catch(TargetInvocationException ex) when(ex.InnerException is T) { }
+            }
+
+            Reject<OperationCanceledException>(()=>Execute(_=>false));
+            Check(writes==0 && transfers==0,"旧板取消时保留缓存和 APP");
+            wrongBoard=true;
+            Reject<InvalidDataException>(()=>Execute(_=>true));
+            Check(writes==0 && transfers==0,"读取到新版升级身份时拒绝旧 BIN");
+            wrongBoard=false;
+            bootOnly=true;
+            Reject<IOException>(()=>Execute(_=>true));
+            Check(writes==0 && transfers==0,"旧板身份不明时不会启动 CAN");
+            bootOnly=false;
+            identityReads=0;
+            identityChanged=true;
+            Reject<InvalidDataException>(()=>Execute(_=>true));
+            Check(writes==1 && transfers==0,"旧板缓存完成后身份变化会阻止启动");
+            identityChanged=false;
+            identityReads=0;
+
+            var identity=Execute(_=>true);
+            Check(identity?.GetType().GetProperty("Software")?.GetValue(identity)?.ToString()=="T3-NEW" &&
+                transfers==1 && writes==1 && identityReads==3,
+                $"旧项目 BIN 在 Comm Tool 0.2.{patch} 上回放成功并复用缓存");
+            started=false;
+            Reject<InvalidDataException>(()=>Execute(_=>true,"T3-WRONG"));
+            Check(transfers==2 && writes==1,"旧板重启后软件版本不一致时不报成功");
+
+            int prior=commands.Count;
+            Reject<InvalidDataException>(()=>Execute(_=>true,payload:new byte[94*1024+1]));
+            Check(commands.Count==prior,"超过旧项目参数区边界的镜像在通信前拒绝");
+            var c073=(byte[])app.Clone();
+            BinaryPrimitives.WriteUInt32LittleEndian(c073.AsSpan(0x104),0xC073002C);
+            Reject<InvalidDataException>(()=>Execute(_=>true,payload:c073));
+            Check(commands.Count==prior,"带 C073 身份的裸 BIN 不会落入旧板升级流程");
+        }
+    }
+
     [STAThread] static int Main()
     {
         string output=Environment.GetEnvironmentVariable("BMS_UNIFIED_TEST_OUTPUT") ?? throw new Exception("缺少输出目录");
@@ -356,6 +466,7 @@ static class UnifiedMonitorTest
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
         var app=new Application { ShutdownMode=ShutdownMode.OnExplicitShutdown };
         CheckCanProtocol();
+        CheckLegacyCanUpgrade();
         var window=new MainWindow();
         var updateProtection=typeof(MainWindow).GetMethod("UpdateProtectionPage",Flags)!;
         var protectionTab=(TabItem)window.FindName("ProtectionTab");
