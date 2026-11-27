@@ -3,6 +3,19 @@
 #ifndef D008_BUILD_TAG
 #define D008_BUILD_TAG "dev"
 #endif
+#ifndef D008_BUILD_ID
+#define D008_BUILD_ID 0u
+#endif
+#ifndef D008_BUILD_DIRTY
+#define D008_BUILD_DIRTY 1
+#endif
+
+enum { BUILD_IDENTITY_BASE=0x2a00, BUILD_IDENTITY_WORDS=24 };
+/* 旧版身份头。能力字为 0，客户端只读取构建身份。 */
+static const uint16_t build_identity[BUILD_IDENTITY_WORDS]={
+    [0]=0x4447, [1]=1, [13]=0x04u | (D008_BUILD_DIRTY ? 0x08u : 0u),
+    [22]=(uint16_t)D008_BUILD_ID, [23]=(uint16_t)(D008_BUILD_ID>>16)
+};
 
 #if D008_LISHEN_EXTENDED
 #define D008_WIRE_TAG "-LX"
@@ -94,6 +107,8 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
             case 45: v=8; break;
             }
         }
+    } else if (r>=BUILD_IDENTITY_BASE && r<BUILD_IDENTITY_BASE+BUILD_IDENTITY_WORDS) {
+        v=build_identity[r-BUILD_IDENTITY_BASE];
     } else if (r>=0x2e24 && r<=0x2e2b) {
         const int32_t values[]={c->offset_ma,c->gain_ppm,device.sample.raw_ma,device.sample.ma};
         v=(uint32_t)values[(r-0x2e24)/2]>>((r&1u)*16);

@@ -45,6 +45,21 @@ int main(void)
 {
     RtuSession session={0};
     uint8_t reply[256];
+
+    /* Classic 和 Android 用同一 24 字读取。每字大端，Build ID 的低字在前。 */
+    uint8_t build[]={1,3,0x2a,0,0,24,0,0};
+    assert(request(&session,build,6,reply,0)==53 && reply[2]==48 && rtu_crc(reply,53)==0);
+    assert(reply[3]==0x44 && reply[4]==0x47 && reply[5]==0 && reply[6]==1);
+    assert(reply[7]==0 && reply[8]==0 && reply[29]==0 && reply[30]==0x0c);
+    assert(!memcmp(reply+47,(uint8_t[]){0xab,0xcd,0x12,0x34},4));
+    build[5]=25;
+    assert(request(&session,build,6,reply,0)==5 && reply[1]==0x83 && reply[2]==2);
+    uint8_t write_build[]={1,6,0x2a,0x16,0,0,0,0};
+    assert(request(&session,write_build,6,reply,0)==5 && reply[1]==0x86 && reply[2]==2);
+    build[5]=24;
+    assert(request(&session,build,6,reply,0)==53 &&
+           !memcmp(reply+47,(uint8_t[]){0xab,0xcd,0x12,0x34},4));
+
     uint8_t sleep[]={1,6,0x11,2,0,10,0,0};
     uint8_t group[]={1,16,0x11,2,0,1,2,0,10,0,0};
     assert(request(&session,sleep,6,reply,125)==8 && !memcmp(sleep,reply,8));
@@ -103,5 +118,5 @@ int main(void)
     soc_result=SOC_WRITE_FAILED;
     set[5]=82;
     assert(request(&other,set,6,reply,1103)==5 && reply[2]==4 && device.soc.state.percent==25);
-    puts("PASS D008 commands: legacy sleep, SOC echo/readback, retry, timeout, disconnect and broadcast");
+    puts("PASS D008 commands: read-only Build ID, legacy sleep, SOC echo/readback, retry, timeout, disconnect and broadcast");
 }

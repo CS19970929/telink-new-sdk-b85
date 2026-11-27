@@ -2,6 +2,7 @@
 import argparse
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -88,17 +89,21 @@ def main():
                   "-DD008_LISHEN=" + str(int(args.sif != "a133")),
                   "-DD008_LISHEN_EXTENDED=" + str(int(args.sif == "lishen-extended")),
                   "-DAPP_FLASH_PROTECTION_ENABLE=1"])
-    revision = "dev"
+    revision, build_id, dirty = "dev", 0, True
     if shutil.which("git"):
-        head = subprocess.run(["git", "rev-parse", "--short=8", "HEAD"], cwd=APP,
+        head = subprocess.run(["git", "rev-parse", "--verify", "HEAD"], cwd=APP,
                               text=True, capture_output=True)
-        if head.returncode == 0:
-            revision = head.stdout.strip()
-            dirty = subprocess.run(["git", "status", "--porcelain", "--", "."], cwd=APP,
-                                   text=True, capture_output=True)
-            if dirty.returncode or dirty.stdout.strip():
+        sha = head.stdout.strip()
+        if head.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", sha):
+            revision = sha[:8]
+            build_id = int(revision, 16)
+            status = subprocess.run(["git", "status", "--porcelain"], cwd=APP,
+                                    text=True, capture_output=True)
+            dirty = status.returncode != 0 or bool(status.stdout.strip())
+            if dirty:
                 revision += "-dev"
-    flags.append('-DD008_BUILD_TAG="' + revision + '"')
+    flags.extend([f'-DD008_BUILD_TAG="{revision}"', f"-DD008_BUILD_ID=0x{build_id:08x}u",
+                  f"-DD008_BUILD_DIRTY={int(dirty)}"])
     objects = []
     for index, source in enumerate(sources):
         obj = out / (str(index) + "-" + source.stem + ".o")

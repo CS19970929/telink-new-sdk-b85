@@ -20,7 +20,8 @@ def main():
             case = "lishen" if name.startswith("lishen") else name
             exe = Path(out) / (name + (".exe" if os.name == "nt" else ""))
             sdk_mock = ["-I", str(ROOT / "tests" / "dvc_sdk")] if name == "dvc_bus" else []
-            subprocess.run([compiler, "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror", *sdk_mock,
+            identity = ["-DD008_BUILD_ID=0x1234abcdu", "-DD008_BUILD_DIRTY=1"] if name == "commands" else []
+            subprocess.run([compiler, "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror", *sdk_mock, *identity,
                             "-DD008_LISHEN_EXTENDED=" + str(int(name == "lishen_extended")),
                             "-DD008_CELLS=16", "-DD008_NMC=0", "-I", str(ROOT),
                             str(ROOT / "tests" / (case + "_test.c")),
