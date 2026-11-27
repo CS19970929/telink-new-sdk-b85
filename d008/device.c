@@ -31,12 +31,6 @@ void device_init(void)
     d->allowed=3;
     Config assembly;
     config_defaults(&assembly,D008_CELLS,D008_NMC);
-#if D008_COMM_TEST
-    d->config=assembly; d->configured=config_valid(&assembly); d->allowed=0;
-#if D008_SOC_CHARGE_TEST
-    soc_manual(&d->soc,&d->config,0,0);
-#endif
-#else
     StoreResult cfg=store_open_config(&d->config,&assembly,sizeof(assembly));
     if (cfg==STORE_BLANK || cfg==STORE_INITIAL) {
         d->config=assembly;
@@ -56,7 +50,6 @@ void device_init(void)
     StoreResult log=store_open(EVENT_DATA,0,2);
     d->storage_fault=!d->configured || state==STORE_BAD || log==STORE_BAD;
     history_note(1,0);
-#endif
     dvc_bus_init(); gpio_write(GPIO_PD7,1);
     if (d->configured) begin_setup();
     else {mode=STOPPED; (void)afe_outputs(0,0,0);}
@@ -64,7 +57,7 @@ void device_init(void)
 
 bool device_save_soc(void)
 {
-    if (D008_COMM_TEST || !device.soc.initialized || !device.configured) return false;
+    if (!device.soc.initialized || !device.configured) return false;
     SavedSoc s={device.soc.state.remaining_uas,device.config.capacity_dah,device.soc.state.percent};
     return store_append(SOC_DATA,&s,sizeof(s));
 }
@@ -102,7 +95,7 @@ void device_service(uint32_t ms)
         begin_setup();
     }
     service_ms=ms;
-    if (!D008_COMM_TEST && !update_active() && !device_busy() && !history_flush(ms))
+    if (!update_active() && !device_busy() && !history_flush(ms))
         device.storage_fault=true;
 }
 
@@ -144,10 +137,8 @@ void device_powerdown(bool acc)
     mode=SHUTDOWN;
     gpio_write(GPIO_PA1,0);
     if (bus_allowed) {(void)afe_outputs(0,0,0); (void)afe_shutdown();}
-    if (!D008_COMM_TEST) {
-        (void)history_note(2,service_ms);
-        (void)history_flush(service_ms);
-    }
+    (void)history_note(2,service_ms);
+    (void)history_flush(service_ms);
     (void)device_save_soc();
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
     bls_pm_setAppWakeupLowPower(0,0);
@@ -192,7 +183,6 @@ void device_measure(uint32_t tick,uint32_t ms)
             if (result==AFE_OK && sampled) {
                 d->outputs=control_sample(&d->control,&d->config,&next,ms,d->allowed,
                                           gpio_read(GPIO_PB1)!=0,d->wire_fault);
-                if (D008_COMM_TEST) {d->outputs.drive=0; d->outputs.heat=false; d->outputs.fuse=false; d->outputs.balance=0;}
                 if (!d->outputs.heat) gpio_write(GPIO_PA1,0);
                 if (!afe_outputs(d->outputs.drive,d->outputs.balance,ms) ||
                     (d->outputs.ack && !afe_ack(d->outputs.ack))) result=AFE_ERROR;
@@ -214,14 +204,7 @@ void device_measure(uint32_t tick,uint32_t ms)
     }
     d->valid=sampled;
     if (!sampled) {gpio_write(GPIO_PA1,0); control_gap(&d->control);}
-    const Sample *soc_input=&d->sample;
-#if D008_SOC_CHARGE_TEST
-    /* 只替换 SOC 的电流输入，沿用实板电压、采样资格和真实 tick。 */
-    Sample simulated=d->sample;
-    simulated.ma=-1000;
-    soc_input=&simulated;
-#endif
-    soc_sample(&d->soc,&d->config,soc_input,&d->outputs,sampled, sampled && !probing && !wire_settling &&
+    soc_sample(&d->soc,&d->config,&d->sample,&d->outputs,sampled, sampled && !probing && !wire_settling &&
                !d->wire_fault && d->sample.min_mv>=500 && d->sample.max_mv<=4800,tick,ms);
     uint32_t dt=sampled && previous_good ? ms-last_good_ms : 0;
     if (dt>1000) dt=0;
@@ -235,20 +218,18 @@ void device_measure(uint32_t tick,uint32_t ms)
         if (normal_low_ms>=86400000u || low_ms>=3600000u || uv_ms>=180000u)
             device_powerdown(false);
     }
-    if (!D008_COMM_TEST) {
-        uint16_t active=d->control.latched;
-        if (sampled) {
-            if (d->sample.alarms&0x40) active|=1u<<OV;
-            if (d->sample.alarms&0x20) active|=1u<<UV;
-            if (d->sample.alarms&0x0a) active|=1u<<CHARGE_OC;
-            if (d->sample.alarms&0x15) active|=1u<<DISCHARGE_OC;
-        }
-        if (d->wire_fault) active|=1u<<12;
-        if (d->afe_fault) active|=1u<<13;
-        if (d->storage_fault) active|=1u<<14;
-        if (sampled && d->outputs.heat) active|=1u<<15;
-        if (!history_observe(active,ms)) d->storage_fault=true;
+    uint16_t active=d->control.latched;
+    if (sampled) {
+        if (d->sample.alarms&0x40) active|=1u<<OV;
+        if (d->sample.alarms&0x20) active|=1u<<UV;
+        if (d->sample.alarms&0x0a) active|=1u<<CHARGE_OC;
+        if (d->sample.alarms&0x15) active|=1u<<DISCHARGE_OC;
     }
+    if (d->wire_fault) active|=1u<<12;
+    if (d->afe_fault) active|=1u<<13;
+    if (d->storage_fault) active|=1u<<14;
+    if (sampled && d->outputs.heat) active|=1u<<15;
+    if (!history_observe(active,ms)) d->storage_fault=true;
 }
 
 bool device_set_allowed(uint8_t allowed,uint32_t ms)

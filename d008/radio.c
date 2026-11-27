@@ -72,7 +72,7 @@ static int ota_receive(void *packet)
         unsigned expected=cmd==CMD_OTA_START?sizeof(ota_start_t):sizeof(ota_startExt_t);
         if ((unsigned)p->l2capLen!=expected+3 || !device.valid) return 0;
         wired_pause_frame();
-        if (!ble_updating && !D008_COMM_TEST && !device_save_soc()) {
+        if (!ble_updating && !device_save_soc()) {
             /* 连接中禁止长擦除；断开后准备 SOC 槽，使下一次升级可以正常开始。 */
             retry_soc_after_disconnect=true; retry_soc_ms=0;
             return 0;
@@ -150,7 +150,7 @@ void product_radio_init(void)
 }
 void product_radio_poll(uint32_t ms)
 {
-    if (retry_soc_after_disconnect && !ble_updating && !D008_COMM_TEST &&
+    if (retry_soc_after_disconnect && !ble_updating &&
         blc_ll_getCurrentState()!=BLS_LINK_STATE_CONN && (!retry_soc_ms || ms-retry_soc_ms>=5000)) {
         retry_soc_ms=ms;
         if (device_save_soc()) retry_soc_after_disconnect=false;

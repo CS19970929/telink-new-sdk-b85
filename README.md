@@ -16,7 +16,7 @@
 
 ## 运行顺序与计量
 
-1. 保持 MCU 电源并令加热、熔断处于非动作电平。启动 SDK 的时钟、RF、BLE。台架目标提供虚拟电流。产品目标应先读配置，验证 AFE 固定设置、硬件保护和首份测量，再允许输出。
+1. 保持 MCU 电源并令加热、熔断处于非动作电平。启动 SDK 的时钟、RF、BLE。读配置并确认 AFE 的固定设置、硬件保护和首份测量后，允许输出进入保护仲裁。
 2. 每轮运行 BLE SDK，检查同一周期截止点。SDK 的应用层唤醒提前返回主循环，广播和连接的 latency 只影响无线调度。普通 Suspend 保持 RAM。GPIO 提前唤醒仍读同一时钟。
 3. 每次到期只采一次，按计划相位推进到未来的第一个截止点。采样周期 200 ms。计量用相邻有效读数的真实间隔，梯形近似区间平均电流，保留有符号余数。短暂重复 CC2 寄存器值是正常输入。失败、冷启动、关机及长停顿切断积分，不补造历史电流。
 4. System Timer 固定 16 MHz，32 位约 268.435456 s 回绕。B85 `drivers/B85/lib/include/pm.h` 将内部 RC 绑定到 `pm_tim_recover_32k_rc`。休眠期间高频计时由 SDK 根据低频时钟恢复；应用不二次加上睡眠时长。回绕差成立的条件是两次观察间隔小于一整圈；停机或复位须重新建立基准。
@@ -56,7 +56,7 @@ UART 115200 8N1 与 BLE GATT 共用 Modbus。主要现场窗口包括 0xD000～D
 
 ## 2026-11-26 台架验收
 
-实板为 16S 铁锂，BLE 地址 `A4:C1:38:21:65:3F`。板上最终版本为 `D008-COMM-031ddfc2-LS`，对端为 Classic UI 分支 `ac7f5d30` 的 CLI、BLE 传输和 OTA 实现。通信镜像禁止充放电、加热、均衡和熔断，电流注入仅作用于独立的 SOC RAM 会话。Telink USB 下载器通过 SWS 完成整片备份、读回、复位和清醒期 RAM 观测。
+以下为移除板端台架代码前的历史验收，台架源码可从提交 `1dcad260` 查阅。实板为 16S 铁锂，BLE 地址 `A4:C1:38:21:65:3F`。板上最终版本为 `D008-COMM-031ddfc2-LS`，对端为 Classic UI 分支 `ac7f5d30` 的 CLI、BLE 传输和 OTA 实现。通信镜像禁止充放电、加热、均衡和熔断，电流注入仅作用于独立的 SOC RAM 会话。Telink USB 下载器通过 SWS 完成整片备份、读回、复位和清醒期 RAM 观测。
 
 ### Flash 提交、恢复与寿命
 
@@ -95,8 +95,6 @@ Classic 自动模式在 ATT MTU 65 选择 `LegacyFast`，每个标准包传 16 B
 ### 复测入口及未验项
 
 - `python -B d008/tests/run.py` 运行主机回归。`python -B d008/build.py --profile 16s-lfp --sif lishen` 默认只生成 ELF/MAP。本轮 16S LFP、20S NMC、23S LFP、24S LFP 四种产品目标通过链接。
-- `d008/tests/RideReplay.csproj` 通过 `ClassicClientProject` 指向指定 Classic 源码的 `BmsTool.Cli.csproj`。在临时目录编译后运行 `RideReplay <MAC> <新JSON路径> [模式]`。省略模式运行骑行，`afe` 验证同值分片和回读，`wire` 解码引脚，`advertising` 在断开 GATT 的广播期间对照计时。Classic 全套检查使用 `bms-cli test soc-hil --mac <MAC> --suite all --yes --output <JSON>`。
-- `--comm-test --soc-charge-test` 使通信台架每次上电从 0% 开始，以 1 A 模拟充电。Classic 实时 SOC 和剩余容量走正常业务路径，电流显示保留 AFE 实测。只有在有效样本之间按真实时间积分，电压和满端仍用实板数据。模拟 SOC 只在 RAM 内，MOS、均衡及加热继续关闭。版本带 `-1A` 后缀。20 Ah 配置下，每充 36 s 约增加 0.01 Ah。
-- Flash 实物轮转另需 `--comm-test --flash-test`，仅限测试区已核对空白的对应板。运行 `journal-start` 后断开让擦除完成，以 `journal-read` 查看结果，复位后用 `journal-reboot` 只读验证。`d008/tests/ota/` 提供标准包传输中断工具，随后可用 Classic 的 `ota` 命令完整重试。
+- 当前构建只提供正式固件。主机回归仍从 `d008/tests/run.py` 运行。历史台架的 SOC 注入、Flash 加速轮转、波形回读和 OTA 中断工具可从提交 `1dcad260` 复现。
 - 量产验收仍需可编程电源验证擦写中途断电，新格式生产板验证关机/OTA 前保存与恢复，实负载、电量计与电流表验证 SOC 和功耗，故障工装验证 AFE 失联、保护恢复、MOS、均衡、加热及关机唤醒。保护性关机当前只尝试一次保存 SOC，若恰遇 BLE 暂缓或介质出错，重启会恢复上次成功提交的值。能为保存预留多少关机时间、异常掉电允许回退多少电量，仍需确定。
 - 生产配置首次投产或更换旧格式须有明确的配置初始化流程。当前没有整板恢复出厂命令，SOH 与循环数也没有有效量产数据。其余串数只有链接验证。

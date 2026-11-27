@@ -1,14 +1,5 @@
 #include "registers.h"
 #include <string.h>
-#if D008_COMM_TEST
-#include "tests/hil.h"
-#include "tests/wire_probe.h"
-#endif
-
-#if D008_FLASH_TEST
-#include "tests/flash_board.h"
-#endif
-
 #ifndef D008_BUILD_TAG
 #define D008_BUILD_TAG "dev"
 #endif
@@ -65,13 +56,6 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
 {
     const Config *c=&device.config;
     unsigned v=0;
-#if D008_COMM_TEST
-#if D008_FLASH_TEST
-    if (r>=0x7c30 && r<=0x7c3e) return flash_test_read(r-0x7c30,value);
-#endif
-    if (r>=0x7d00 && r<=0x7d6e) return wire_probe_read(r-0x7d00,value);
-    if (r>=0x7c00 && r<0x7c1c) return hil_read(r-0x7c00,value);
-#endif
     if (r<3) v=((unsigned)device_address[5-r*2]<<8)|device_address[4-r*2];
     else if (r>=0x0100 && r<0x010c) {
         static const uint8_t name[24]=D008_BLE_NAME;
@@ -83,17 +67,7 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
         v=r==0xd120?0x4253:r==0xd121?1:r==0xd123?report(50)-report(51):report(positions[r-0xd120]);
     } else if (r>=0xc002 && r<0xc032) {
         static const uint8_t hw[32]="HS-D008-24S100A-V1", fw[32]=
-#if D008_COMM_TEST
-            #if D008_FLASH_TEST
-            "D008-FLASH-TEST";
-#elif D008_SOC_CHARGE_TEST
-            "D008-COMM-" D008_BUILD_TAG D008_WIRE_TAG "-1A";
-#else
-            "D008-COMM-" D008_BUILD_TAG D008_WIRE_TAG;
-#endif
-#else
             "D008-CLEAN-" D008_BUILD_TAG D008_WIRE_TAG;
-#endif
         unsigned i=r-0xc002;
         v=word((i<16?c->sn:i<32?hw:fw)+2*(i%16));
     } else if (r>=0x2100 && r<=0x2140) {

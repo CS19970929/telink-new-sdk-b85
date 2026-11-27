@@ -16,11 +16,3 @@
 #define PD4_DATA_OUT 0
 #define PA0_INPUT_ENABLE 1
 #define PB1_INPUT_ENABLE 1
-
-#ifndef D008_COMM_TEST
-#define D008_COMM_TEST 0
-#endif
-
-#if D008_SOC_CHARGE_TEST && (!D008_COMM_TEST || D008_FLASH_TEST)
-#error "SOC charge test requires a communication-only build"
-#endif

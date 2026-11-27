@@ -1,13 +1,5 @@
 #include "registers.h"
 #include <string.h>
-#if D008_COMM_TEST
-#include "tests/hil.h"
-#include "tests/wire_probe.h"
-#endif
-
-#if D008_FLASH_TEST
-#include "tests/flash_board.h"
-#endif
 
 uint16_t rtu_crc(const uint8_t *p,unsigned n)
 {
@@ -49,11 +41,6 @@ unsigned hw_write(const uint8_t *p)
     Config c=device.config;
     uint16_t previous[35];
     hw_words(&c,false,previous);
-#if D008_COMM_TEST
-    /* 仅开放原值对照以验证分片和提交应答。测试固件不写 AFE 或业务区。 */
-    for (unsigned i=0;i<35;++i) if (be(p+2*i)!=previous[i]) return 2;
-    return 0;
-#endif
     for (unsigned i=0;i<35;++i) {
         unsigned v=be(p+2*i);
         switch (i) {
@@ -121,9 +108,6 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
     if (s->received && ms-s->fragment_ms>5000) s->received=0;
     unsigned op=p[1], error=1, length=0;
     out[0]=p[0]; out[1]=op;
-#if D008_COMM_TEST
-    if (op==0x43) return p[0] && n>=5 ? hil_command(s,p,n,out,ms):0;
-#endif
     if (op==0x7f && p[0]) {memcpy(out,p,n); return n;}
     if (op==0x42) return p[0] && n>=5?maintenance(s,p,n,out,ms):0;
     if (n>=8) {
@@ -146,19 +130,7 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
                 n==9+count*2 && p[6]==count*2)) {
                 /* 广播无会话，不能借本地维护权限修改内部参数。 */
                 if (!p[0] && s->token) return 0;
-#if D008_COMM_TEST
-#if D008_FLASH_TEST
-                if (p[0] && op==6 && reg==0x7c22)
-                    error=flash_test_request(be(p+4));
-                else
-#endif
-                if (p[0] && op==6 && reg==0x7c23)
-                    error=wire_probe_arm(be(p+4),ms);
-                else if (p[0] && op==6 && (reg==0x7c20 || reg==0x7c21))
-                    error=hil_control(reg-0x7c20,be(p+4));
-                else
-#endif
-                error=D008_COMM_TEST?2:register_write(s,reg,count,p+(op==6?4:7),ms);
+                error=register_write(s,reg,count,p+(op==6?4:7),ms);
                 ++s->sequence; s->result=error;
                 memcpy(out,p,6); length=6;
             }

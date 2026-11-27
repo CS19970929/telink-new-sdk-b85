@@ -3,13 +3,6 @@
 #include "stack/ble/ble.h"
 #include "device.h"
 #include "link.h"
-#if D008_COMM_TEST
-#include "tests/hil.h"
-#endif
-
-#if D008_FLASH_TEST
-#include "tests/flash_board.h"
-#endif
 
 MYFIFO_INIT(blt_rxfifo,64,8);
 MYFIFO_INIT(blt_txfifo,40,16);
@@ -27,9 +20,6 @@ static void sleep_enter(u8 evt,u8 *data,int n)
 }
 static void sleep_exit(u8 evt,u8 *data,int n)
 {
-#if D008_COMM_TEST
-    ++hil_pm_exits;
-#endif
     (void)evt; (void)data; (void)n; rf_set_power_level_index(RF_POWER_P0dBm);
 }
 
@@ -54,25 +44,10 @@ _attribute_ram_code_ int main(void)
         last=now; ms+=elapsed/TICKS_PER_MS; fraction+=elapsed%TICKS_PER_MS;
         if (fraction>=TICKS_PER_MS) {fraction-=TICKS_PER_MS; ++ms;}
         uint32_t due=sample_periods(now,&phase);
-        if (due) {
-            device_measure(now,ms);
-#if D008_COMM_TEST
-            static uint32_t prev_sample;
-            uint32_t interval=now-prev_sample;
-            if (hil_samples && interval>hil_largest_ticks) hil_largest_ticks=interval;
-            prev_sample=now; hil_missed+=due-1;
-            hil_sample(now,ms);
-#endif
-        }
+        if (due) device_measure(now,ms);
         device_service(ms);
-#if D008_FLASH_TEST
-        flash_test_poll(ms);
-#endif
         wired_poll(ms); product_radio_poll(ms);
-        bool sleep=!BENCH_AWAKE && !wired_busy() && !device_busy() && !update_active();
-#if D008_COMM_TEST
-        if (hil_awake) sleep=false;
-#endif
+        bool sleep=!wired_busy() && !device_busy() && !update_active();
         bls_pm_setSuspendMask(sleep?(SUSPEND_ADV|SUSPEND_CONN):SUSPEND_DISABLE);
         uint32_t next=wired_wakeup(phase+SAMPLE_TICKS);
         if (next!=scheduled || wake_due) {
