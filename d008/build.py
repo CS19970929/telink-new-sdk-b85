@@ -1,4 +1,4 @@
-"""仅链接 TLSR8251 ELF 与 MAP。默认产物位于用户临时目录。"""
+"""链接 TLSR8251 ELF/MAP，可按需导出 BIN。链接产物位于用户临时目录。"""
 import argparse
 import os
 from pathlib import Path
@@ -18,7 +18,9 @@ def main():
     parser.add_argument("--chemistry", choices=("lfp","nmc"))
     parser.add_argument("--sif", choices=("lishen","lishen-extended","a133"), default="lishen")
     parser.add_argument("--fuse-fitted", action="store_true", help="装配确认已安装熔断支路")
-    parser.add_argument("--image", type=Path, help="按指定路径导出经原厂工具处理的 BIN")
+    images = parser.add_mutually_exclusive_group()
+    images.add_argument("--image", type=Path, help="按指定路径导出 BIN，已有文件时拒绝覆盖")
+    images.add_argument("--image-dir", type=Path, help="在指定目录更新所选装配和协议的 BIN")
     args = parser.parse_args()
     if args.image and args.image.exists():
         parser.error("目标镜像已存在，请使用新的文件名")
@@ -101,7 +103,7 @@ def main():
     reserve = values["__SRAM_SIZE"] - values["_ram_use_end_"]
     if values["__SRAM_SIZE"] != 0x848000 or reserve < 3072 or values["_sstored_"] > 0x1f000:
         raise SystemExit("目标超出 TLSR8251 的 RAM 或 APP 槽")
-    if args.image:
+    if args.image or args.image_dir:
         import zlib
         image = out / "d008.bin"
         run([tool("objcopy"), "-O", "binary", str(elf), str(image)])
@@ -113,9 +115,20 @@ def main():
                 or int.from_bytes(data[24:28], "little") != len(data)
                 or len(data) > 0x1f000 or zlib.crc32(data) != 0xffffffff):
             raise SystemExit("原厂处理后的启动标志、长度或 CRC 不合格")
-        with args.image.open("xb") as target:
-            target.write(data)
-        print(f"{args.image}  {len(data)} B")
+        if args.image_dir:
+            fuse_suffix = "-fuse" if args.fuse_fitted else ""
+            destination = args.image_dir / f"d008-{cells}s-{chemistry}-{args.sif}{fuse_suffix}.bin"
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            # 同目录替换，避免失败的构建留下半写入的正式 BIN。
+            with tempfile.TemporaryDirectory(prefix=".d008-", dir=destination.parent) as staging:
+                temporary = Path(staging) / destination.name
+                temporary.write_bytes(data)
+                temporary.replace(destination)
+        else:
+            destination = args.image
+            with destination.open("xb") as target:
+                target.write(data)
+        print(f"{destination.resolve()}  {len(data)} B")
     print(f"{elf}  APP={values['_sstored_']} B  main stack={reserve} B")
 
 if __name__ == "__main__":

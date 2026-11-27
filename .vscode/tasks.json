@@ -27,7 +27,7 @@
   ],
   "tasks": [
     {
-      "label": "D008 独立固件链接（无镜像）",
+      "label": "D008 正式固件构建（ELF/MAP/BIN）",
       "type": "process",
       "command": "python",
       "args": [
@@ -38,7 +38,9 @@
         "--profile",
         "${input:d008Profile}",
         "--sif",
-        "${input:d008Sif}"
+        "${input:d008Sif}",
+        "--image-dir",
+        "${workspaceFolder}/bin"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
