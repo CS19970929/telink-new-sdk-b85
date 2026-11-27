@@ -70,7 +70,7 @@ static int ota_receive(void *packet)
     unsigned cmd=v[0]|((unsigned)v[1]<<8);
     if (cmd==CMD_OTA_START || cmd==CMD_OTA_START_EXT) {
         unsigned expected=cmd==CMD_OTA_START?sizeof(ota_start_t):sizeof(ota_startExt_t);
-        if ((unsigned)p->l2capLen!=expected+3 || !device.valid) return 0;
+        if ((unsigned)p->l2capLen!=expected+3 || !device.configured || !device.valid) return 0;
         wired_pause_frame();
         if (!ble_updating && !device_save_soc()) {
             /* 连接中禁止长擦除；断开后准备 SOC 槽，使下一次升级可以正常开始。 */

@@ -9,7 +9,7 @@
 #include <string.h>
 
 Device device;
-static enum { STOPPED, SETUP, SAMPLING, QUIET, SHUTDOWN } mode;
+static enum { SETUP, SAMPLING, QUIET, SHUTDOWN } mode;
 static bool failing, probing, wire_settling;
 static uint32_t fail_ms, quiet_ms, probe_ms, normal_low_ms, low_ms, uv_ms;
 static uint32_t service_ms;
@@ -29,7 +29,6 @@ static void begin_setup(void)
 void device_init(void)
 {
     Device *d=&device;
-    d->allowed=3;
     Config assembly;
     config_defaults(&assembly,D008_CELLS,D008_NMC);
     StoreResult cfg=store_open_config(&d->config,&assembly,sizeof(assembly));
@@ -41,6 +40,7 @@ void device_init(void)
             d->config.cells==assembly.cells && d->config.nmc==assembly.nmc;
     }
     if (!d->configured) d->config=assembly;
+    d->allowed=d->configured ? CHARGE|DISCHARGE : 0;
     SavedSoc saved;
     StoreResult state=store_open(SOC_DATA,&saved,sizeof(saved));
     if (state==STORE_VALID && d->configured && saved.capacity==d->config.capacity_dah &&
@@ -50,10 +50,10 @@ void device_init(void)
     }
     StoreResult log=store_open(EVENT_DATA,0,2);
     d->storage_fault=!d->configured || state==STORE_BAD || log==STORE_BAD;
-    history_note(1,0);
+    if (d->configured) history_note(1,0);
     dvc_bus_init(); gpio_write(GPIO_PD7,1);
-    if (d->configured) begin_setup();
-    else {mode=STOPPED; (void)afe_outputs(0,0,0);}
+    /* 允许按编译装配读取实测值。未确认 Flash 配置时禁止功率输出。 */
+    begin_setup();
 }
 
 bool device_save_soc(void)
@@ -77,7 +77,7 @@ bool device_set_soc(unsigned percent,uint32_t ms)
 static void silence(uint32_t ms)
 {
     /* 随后完全停止 I²C 访问，连诊断和读请求也不得喂到硬件 WDT。 */
-    (void)afe_outputs(0,0,ms);
+    (void)afe_disable_outputs(ms);
     gpio_write(GPIO_PA1,0);
     device.valid=false; device.afe_fault=true;
     device.outputs=(Outputs){0};
@@ -124,7 +124,7 @@ void device_service(uint32_t ms)
         begin_setup();
     }
     service_ms=ms;
-    if (!update_active() && !device_busy() && !history_flush(ms))
+    if (device.configured && !update_active() && !device_busy() && !history_flush(ms))
         device.storage_fault=true;
 }
 
@@ -167,9 +167,11 @@ void device_powerdown(bool acc)
     device.valid=false;
     device.outputs=(Outputs){0};
     gpio_write(GPIO_PA1,0);
-    if (bus_allowed) {(void)afe_outputs(0,0,0); (void)afe_shutdown();}
-    (void)history_note(2,service_ms);
-    (void)history_flush(service_ms);
+    if (bus_allowed) {(void)afe_disable_outputs(service_ms); (void)afe_shutdown();}
+    if (device.configured) {
+        (void)history_note(2,service_ms);
+        (void)history_flush(service_ms);
+    }
     (void)device_save_soc();
     bls_pm_setSuspendMask(SUSPEND_DISABLE);
     bls_pm_setAppWakeupLowPower(0,0);
@@ -199,23 +201,30 @@ void device_measure(uint32_t tick,uint32_t ms)
             d->sample=next;
             observed_alarms=next.alarms;
             if (next.current_fresh) {last_current_ms=ms; current_seen=true;}
-            /* 检测期间仍执行正常保护。COW 对电压有扰动，撤销端点资格。 */
-            if (probing && ms-probe_ms>=600) {
-                d->wire_fault=next.min_mv<500;
-                if (!afe_openwire(false)) result=AFE_ERROR;
-                probing=false; wire_settling=true; probe_ms=ms;
-            } else if (wire_settling && ms-probe_ms>=600) wire_settling=false;
-            else if (!probing && !wire_settling && (next.max_mv-next.min_mv>600 || d->wire_fault) &&
-                     ms-probe_ms>=5000) {
-                if (!afe_openwire(true)) result=AFE_ERROR;
-                else {probing=true; probe_ms=ms;}
+            if (d->configured) {
+                /* 检测期间仍执行正常保护。COW 对电压有扰动，撤销端点资格。 */
+                if (probing && ms-probe_ms>=600) {
+                    d->wire_fault=next.min_mv<500;
+                    if (!afe_openwire(false)) result=AFE_ERROR;
+                    probing=false; wire_settling=true; probe_ms=ms;
+                } else if (wire_settling && ms-probe_ms>=600) wire_settling=false;
+                else if (!probing && !wire_settling && (next.max_mv-next.min_mv>600 || d->wire_fault) &&
+                         ms-probe_ms>=5000) {
+                    if (!afe_openwire(true)) result=AFE_ERROR;
+                    else {probing=true; probe_ms=ms;}
+                }
             }
             uint8_t remaining;
             if (result==AFE_OK && (next.alarms & 0x80)) {
                 if (d->afe_fault && afe_ack(0x80,&remaining) && !(remaining&0x80)) sampled=false;
                 else result=AFE_ERROR;
             }
-            if (result==AFE_OK && sampled) {
+            if (result==AFE_OK && sampled && !d->configured && next.fet) {
+                /* 发现驱动异常时重新发送硬关断并让 AFE watchdog 接管。 */
+                silence(ms);
+                result=AFE_ERROR;
+            }
+            if (result==AFE_OK && sampled && d->configured) {
                 Outputs out=control_sample(&d->control,&d->config,&next,ms,d->allowed,
                                            current_qualified(ms),gpio_read(GPIO_PB1)!=0,d->wire_fault);
                 if (!out.heat) gpio_write(GPIO_PA1,0);
@@ -233,9 +242,9 @@ void device_measure(uint32_t tick,uint32_t ms)
 #if D008_FUSE_FITTED
                     if (d->outputs.fuse) gpio_write(GPIO_PD4,1);
 #endif
-                    d->afe_fault=false; failing=false;
                 }
             }
+            if (result==AFE_OK && sampled) {d->afe_fault=false; failing=false;}
         }
         if (result==AFE_ERROR) {
             sampled=false;
@@ -253,6 +262,7 @@ void device_measure(uint32_t tick,uint32_t ms)
         if (mode==SAMPLING && (d->outputs.reverse_modes || d->outputs.balance))
             (void)revoke_outputs(d->allowed,ms);
     }
+    if (!d->configured) return;
     soc_sample(&d->soc,&d->config,&d->sample,&d->outputs,sampled, sampled && !probing && !wire_settling &&
                !d->wire_fault && d->sample.min_mv>=500 && d->sample.max_mv<=4800,tick,ms);
     uint32_t dt=sampled && previous_good ? ms-last_good_ms : 0;
@@ -283,7 +293,7 @@ void device_measure(uint32_t tick,uint32_t ms)
 
 bool device_set_allowed(uint8_t allowed,uint32_t ms)
 {
-    if (allowed>(CHARGE|DISCHARGE)) return false;
+    if (allowed>(CHARGE|DISCHARGE) || (allowed && !device.configured)) return false;
     uint8_t previous=device.allowed;
     if (allowed==previous) return true;
     bool fresh=mode==SAMPLING && device.valid && ms-last_good_ms<=OUTPUT_SAMPLE_MAX_AGE_MS &&

@@ -144,6 +144,13 @@ bool afe_outputs(uint8_t drive, uint32_t balance, uint32_t ms)
     return true;
 }
 
+bool afe_disable_outputs(uint32_t ms)
+{
+    /* 请求硬关闭时忽略缓存，实际重写并读回驱动和均衡寄存器。 */
+    outputs_known=false;
+    return afe_outputs(0,0,ms);
+}
+
 bool afe_ack(uint8_t flags, uint8_t *remaining)
 {
     /* W0C。未确认恢复的位写 1，避免误清其他故障。 */
