@@ -150,7 +150,9 @@ static bool commit_body(Domain d,uint8_t *slot,uint8_t *verify)
 static bool recycle_sector(Journal *j,unsigned sector,uint32_t address)
 {
     bool empty;
-    if (!nor_erase(address) || !inspect_sector(address,&empty) || !empty) return false;
+    if (!nor_erase(address)) return false;
+    if (!inspect_sector(address,&empty)) {j->ready=false;return false;}
+    if (!empty) return false;
     j->next[sector]=0;
     if (j->pending>=address && j->pending-address<SECTOR) j->pending=0;
     return true;
@@ -174,7 +176,7 @@ bool store_append(Domain d,const void *data,unsigned size)
     Journal *j=&journal[d];
     if (!j->ready || size!=j->bytes) return false;
     if (d!=EVENT_DATA && j->latest) {
-        if (!nor_read(j->latest,verify,stride[d])) return false;
+        if (!nor_read(j->latest,verify,stride[d])) {j->ready=false;return false;}
         if (!valid(d,verify,size) || get32(verify+8)!=j->sequence) {
             j->ready=false;
             return false;
@@ -183,7 +185,7 @@ bool store_append(Domain d,const void *data,unsigned size)
     }
     encode(d,data,size,j->sequence+1u,slot);
     if (j->pending) {
-        if (!nor_read(j->pending,verify,stride[d])) return false;
+        if (!nor_read(j->pending,verify,stride[d])) {j->ready=false;return false;}
         if (!memcmp(slot,verify,stride[d])) return commit_body(d,slot,verify);
         j->pending=0;
     }

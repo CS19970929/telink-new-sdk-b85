@@ -13,7 +13,7 @@ static enum { SETUP, INIT_STORAGE, SAMPLING, QUIET, SHUTDOWN } mode;
 static bool init_storage_pending;
 static bool failing;
 static uint32_t fail_ms, quiet_ms, normal_low_ms, low_ms, uv_ms;
-static uint32_t service_ms, command_shutdown_ms, soc_space_ms;
+static uint32_t service_ms, command_shutdown_ms, soc_space_ms, config_retry_ms;
 static bool command_shutdown_pending;
 enum { OUTPUT_SAMPLE_MAX_AGE_MS = 250, CURRENT_MAX_AGE_MS = 400, COMMAND_REPLY_MS = 500 };
 static uint32_t last_good_ms, last_current_ms;
@@ -43,18 +43,21 @@ static void restore_runtime_storage(void)
     if (d->configured) history_note(1,0);
 }
 
-void device_init(void)
+static void load_config(void)
 {
-    Device *d=&device;
     Config assembly;
     config_defaults(&assembly,D008_CELLS,D008_NMC);
-    StoreResult cfg=store_open_config(&d->config,&assembly);
-    d->configured=cfg==STORE_VALID && config_valid(&d->config) &&
-        d->config.cells==assembly.cells && d->config.nmc==assembly.nmc;
-    if (!d->configured) d->config=assembly;
-    d->allowed=d->configured ? CHARGE|DISCHARGE : 0;
+    StoreResult state=store_open_config(&device.config,&assembly);
+    device.configured=state==STORE_VALID;
+    if (!device.configured) device.config=assembly;
+    init_storage_pending=state!=STORE_VALID && state!=STORE_CONFLICT && config_valid(&assembly);
+}
+
+void device_init(void)
+{
+    load_config();
+    device.allowed=device.configured ? CHARGE|DISCHARGE : 0;
     restore_runtime_storage();
-    init_storage_pending=config_valid(&assembly) && (cfg==STORE_BLANK || cfg==STORE_BAD);
     if (init_storage_pending) bls_ll_setAdvEnable(BLC_ADV_DISABLE);
     gpio_write(GPIO_PD7,1); dvc_bus_init();
     begin_setup();
@@ -128,17 +131,6 @@ uint16_t device_mos_status(void)
         (device.valid?0x0010u:0u);
 }
 
-static void storage_init_finished(bool initialized)
-{
-    init_storage_pending=false;
-    if (initialized) {
-        device.configured=true;
-        device.allowed=CHARGE|DISCHARGE;
-        restore_runtime_storage();
-    }
-    bls_ll_setAdvEnable(BLC_ADV_ENABLE);
-}
-
 bool device_service(uint32_t ms)
 {
     if (mode==SHUTDOWN) return false;
@@ -153,20 +145,35 @@ bool device_service(uint32_t ms)
     if (mode==SETUP) {
         AfeResult result=afe_setup_step();
         if (result==AFE_ERROR) {
-            if (init_storage_pending) storage_init_finished(false);
+            if (init_storage_pending) bls_ll_setAdvEnable(BLC_ADV_ENABLE);
             silence(ms);
         } else if (result==AFE_OK) {
             mode=init_storage_pending?INIT_STORAGE:SAMPLING;
             failing=false;
         }
     } else if (mode==INIT_STORAGE) {
-        bool saved=store_append(CONFIG_DATA,&device.config,sizeof(device.config));
-        if (saved || !store_deferred) {
-            storage_init_finished(saved);
+        /* 提交可能已经生效，读回未确认时先重新扫描。 */
+        if (!store_available(CONFIG_DATA)) load_config();
+        bool saved=device.configured || (init_storage_pending &&
+            store_append(CONFIG_DATA,&device.config,sizeof(device.config)));
+        config_retry_ms=ms;
+        bls_ll_setAdvEnable(BLC_ADV_ENABLE);
+        if (saved) {
+            init_storage_pending=false;
+            device.configured=true;
+            device.allowed=CHARGE|DISCHARGE;
+            restore_runtime_storage();
             begin_setup();
+        } else {
+            device.storage_fault=true;
+            mode=SAMPLING;
         }
     } else if (mode==QUIET && ms-quiet_ms>=5000) {
         begin_setup();
+    } else if (mode==SAMPLING && init_storage_pending && device.valid &&
+               ms-config_retry_ms>=5000 && !wired_busy() && !update_active() &&
+               blc_ll_getCurrentState()!=BLS_LINK_STATE_CONN) {
+        mode=INIT_STORAGE;
     }
     if (mode==SAMPLING && device.valid && device.configured && !update_active() && !wired_busy() &&
         blc_ll_getCurrentState()!=BLS_LINK_STATE_CONN && (!soc_space_ms || ms-soc_space_ms>=5000)) {
