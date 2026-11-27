@@ -131,9 +131,9 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
     case 0x2f10: v=0x4d43; break;
     case 0x2f11: v=1; break;
     case 0x2f12: case 0x2f13: v=(device.allowed>>(r-0x2f12))&1; break;
-    case 0x2f14: v=device.sample.fet; break;
+    case 0x2f14: v=device.valid?device.sample.fet:0; break;
     case 0x2f15: v=device.valid; break;
-    case 0x2f16: v=device.valid?1:0; break;
+    case 0x2f16: v=device_mos_status(); break;
     case 0x2f17: v=((device.outputs.drive&3)==3) | (((device.outputs.drive>>2)==3)<<1); break;
     case 0xd115: v=(device.valid?0x401:0)|(device.sample.fet<<2)|(device.outputs.heat<<8)|(device.outputs.balance?0x1000:0); break;
     case 0xd116: break;

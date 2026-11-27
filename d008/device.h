@@ -18,3 +18,4 @@ bool device_set_soc(unsigned percent,uint32_t ms);
 bool device_set_config(const Config *candidate);
 void device_powerdown(bool acc);
 bool device_busy(void);
+uint16_t device_mos_status(void);

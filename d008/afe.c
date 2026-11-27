@@ -2,6 +2,8 @@
 #include "dvc_bus.h"
 #include <string.h>
 
+enum { CC2_DONE = 0x10, VADC_DONE = 0x40, ADC_DONE = CC2_DONE|VADC_DONE };
+
 static const Config *setup;
 static uint8_t setup_index, seen, progress, drive_cache;
 static bool outputs_known, activity_started;
@@ -91,21 +93,22 @@ AfeResult afe_sample(const Config *c, uint32_t ms, Sample *out)
     uint8_t header[7], therm[10], cells[16];
     Sample next = {0};
     if (!dvc_read(0,header,sizeof(header))) return AFE_ERROR;
-    uint8_t flags = header[1] & 0x50; /* 0x01 的 VADF 与 CC2F 读清 */
+    uint8_t flags = header[1] & ADC_DONE; /* 0x01 的 VADF 与 CC2F 读清 */
     seen |= flags; progress |= flags;
-    if (!activity_started || progress == 0x50) {
+    if (!activity_started || progress == ADC_DONE) {
         activity_ms = ms; activity_started = true; progress = 0;
     }
     if (ms-activity_ms >= 1200u) return AFE_ERROR;
-    if (seen != 0x50) return AFE_WAIT;
+    if (seen != ADC_DONE) return AFE_WAIT;
     if (!dvc_read(0x0f,therm,sizeof(therm))) return AFE_ERROR;
     for (unsigned i = 0; i < 4; ++i)
         if (!temperature(be16(&therm[2+2*i]), be16(therm), &next.temp_x10[i])) return AFE_ERROR;
     next.alarms = header[0];
     next.fet = header[6] & 3;
+    next.current_fresh = (flags & CC2_DONE) != 0;
     int32_t cc2 = ((int32_t)header[4] << 12) | (header[5] << 4) | (header[6] >> 4);
     if (cc2 & 0x80000) cc2 -= 0x100000;
-    next.raw_ma = cc2 * 625 / (2 * 250);
+    next.raw_ma = cc2 * 625 / (2 * (int32_t)SHUNT_UOHM);
     next.ma = (int32_t)(((int64_t)(next.raw_ma-c->offset_ma)*c->gain_ppm)/1000000);
     next.min_mv = UINT16_MAX;
     for (unsigned start = 0; start < c->cells; start += 8) {
@@ -141,11 +144,11 @@ bool afe_outputs(uint8_t drive, uint32_t balance, uint32_t ms)
     return true;
 }
 
-bool afe_ack(uint8_t flags)
+bool afe_ack(uint8_t flags, uint8_t *remaining)
 {
     /* W0C。未确认恢复的位写 1，避免误清其他故障。 */
     uint8_t keep = (uint8_t)~flags;
-    return dvc_write(0x00,&keep,1);
+    return dvc_write(0x00,&keep,1) && dvc_read(0x00,remaining,1);
 }
 
 bool afe_openwire(bool on)
