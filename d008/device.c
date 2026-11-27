@@ -14,8 +14,9 @@ static bool init_storage_pending;
 static uint8_t init_erase_mask;
 static bool failing;
 static uint32_t fail_ms, quiet_ms, normal_low_ms, low_ms, uv_ms;
-static uint32_t service_ms;
-enum { OUTPUT_SAMPLE_MAX_AGE_MS = 250, CURRENT_MAX_AGE_MS = 400 };
+static uint32_t service_ms, command_shutdown_ms;
+static bool command_shutdown_pending;
+enum { OUTPUT_SAMPLE_MAX_AGE_MS = 250, CURRENT_MAX_AGE_MS = 400, COMMAND_REPLY_MS = 500 };
 static uint32_t last_good_ms, last_current_ms;
 static bool previous_good, current_seen;
 typedef struct { int64_t uas; uint16_t capacity, percent; } SavedSoc;
@@ -105,7 +106,18 @@ static bool revoke_outputs(uint8_t allowed,uint32_t ms)
     return true;
 }
 
-bool device_busy(void) {return mode==SETUP || mode==INIT_STORAGE || mode==SHUTDOWN;}
+bool device_busy(void)
+{
+    return command_shutdown_pending || mode==SETUP || mode==INIT_STORAGE || mode==SHUTDOWN;
+}
+
+bool device_request_shutdown(uint32_t ms)
+{
+    if (mode==SHUTDOWN || update_active()) return false;
+    if (!command_shutdown_pending) command_shutdown_ms=ms;
+    command_shutdown_pending=true;
+    return true;
+}
 
 uint16_t device_mos_status(void)
 {
@@ -126,8 +138,17 @@ static void storage_init_finished(bool initialized)
     bls_ll_setAdvEnable(BLC_ADV_ENABLE);
 }
 
-void device_service(uint32_t ms)
+bool device_service(uint32_t ms)
 {
+    if (mode==SHUTDOWN) return false;
+    service_ms=ms;
+    if (command_shutdown_pending) {
+        /* 先让 Modbus 应答离开传输队列，按旧合同最多等 500 ms。 */
+        if (ms-command_shutdown_ms<COMMAND_REPLY_MS &&
+            (wired_reply_pending() || product_radio_reply_pending())) return true;
+        device_powerdown(false);
+        return false;
+    }
     if (mode==SETUP) {
         AfeResult result=afe_setup_step();
         if (result==AFE_ERROR) {
@@ -146,9 +167,9 @@ void device_service(uint32_t ms)
     } else if (mode==QUIET && ms-quiet_ms>=5000) {
         begin_setup();
     }
-    service_ms=ms;
     if (device.configured && !update_active() && !device_busy() && !history_flush(ms))
         device.storage_fault=true;
+    return true;
 }
 
 bool device_set_config(const Config *c)
@@ -186,6 +207,7 @@ void device_powerdown(bool acc)
     bool bus_allowed=mode!=QUIET;
     wired_stop();
     mode=SHUTDOWN;
+    command_shutdown_pending=false;
     device.valid=false;
     device.outputs=(Outputs){0};
     if (bus_allowed) {(void)afe_disable_outputs(service_ms); (void)afe_shutdown();}

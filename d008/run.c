@@ -45,7 +45,7 @@ _attribute_ram_code_ int main(void)
         if (fraction>=TICKS_PER_MS) {fraction-=TICKS_PER_MS; ++ms;}
         uint32_t due=sample_periods(now,&phase);
         if (due) device_measure(now,ms);
-        device_service(ms);
+        if (!device_service(ms)) continue;
         wired_poll(ms); product_radio_poll(ms);
         bool sleep=!wired_busy() && !device_busy() && !update_active();
         bls_pm_setSuspendMask(sleep?(SUSPEND_ADV|SUSPEND_CONN):SUSPEND_DISABLE);

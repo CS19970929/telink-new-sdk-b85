@@ -108,6 +108,7 @@ static bool line_present(void)
     return gpio_read(RX)!=0;
 }
 bool wired_transmitting(void) {return transmitting;}
+bool wired_reply_pending(void) {return uart_mode && uart_tx_is_busy();}
 void wired_pause_frame(void)
 {
     u8 irq=irq_disable();

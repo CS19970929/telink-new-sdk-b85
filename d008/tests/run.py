@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = {"meter": ["meter"], "control": ["control", "product"], "afe": ["afe", "product"], "wide": ["sdk/wide"], "storage": ["store", "product"], "history": ["history"],
+CASES = {"meter": ["meter"], "control": ["control", "product"], "afe": ["afe", "product"], "commands": ["rtu", "registers", "product"], "wide": ["sdk/wide"], "storage": ["store", "product"], "history": ["history"],
          "lishen": ["sif"], "lishen_extended": ["sif"], "wire": ["sif"]}
 
 def main():

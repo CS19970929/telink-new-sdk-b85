@@ -11,11 +11,12 @@ typedef struct {
 } Device;
 extern Device device;
 void device_init(void);
-void device_service(uint32_t ms);
+bool device_service(uint32_t ms);
 void device_measure(uint32_t tick,uint32_t ms);
 bool device_save_soc(void);
 bool device_set_soc(unsigned percent,uint32_t ms);
 bool device_set_config(const Config *candidate);
+bool device_request_shutdown(uint32_t ms);
 void device_powerdown(bool acc);
 bool device_busy(void);
 uint16_t device_mos_status(void);

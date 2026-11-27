@@ -70,7 +70,7 @@ static int ota_receive(void *packet)
     unsigned cmd=v[0]|((unsigned)v[1]<<8);
     if (cmd==CMD_OTA_START || cmd==CMD_OTA_START_EXT) {
         unsigned expected=cmd==CMD_OTA_START?sizeof(ota_start_t):sizeof(ota_startExt_t);
-        if ((unsigned)p->l2capLen!=expected+3 || !device.configured || !device.valid) return 0;
+        if ((unsigned)p->l2capLen!=expected+3 || !device.configured || !device.valid || device_busy()) return 0;
         wired_pause_frame();
         if (!ble_updating && !device_save_soc()) {
             /* 连接中禁止长擦除；断开后准备 SOC 槽，使下一次升级可以正常开始。 */
@@ -148,6 +148,11 @@ void product_radio_init(void)
         random?OWN_ADDRESS_RANDOM:OWN_ADDRESS_PUBLIC,0,0,BLT_ENABLE_ADV_ALL,ADV_FP_NONE);
     rf_set_power_level_index(RF_POWER_P0dBm); bls_ll_setAdvEnable(BLC_ADV_ENABLE);
 }
+bool product_radio_reply_pending(void)
+{
+    return response_size || (blc_ll_getCurrentState()==BLS_LINK_STATE_CONN && blc_ll_getTxFifoNumber());
+}
+
 void product_radio_poll(uint32_t ms)
 {
     if (retry_soc_after_disconnect && !ble_updating &&

@@ -128,8 +128,8 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
             error=3;
             if ((op==6 && n==8) || (op==16 && count && count<=123 && reg+count<=65536u &&
                 n==9+count*2 && p[6]==count*2)) {
-                /* 广播无会话，禁止修改 MOS 或借用本地维护权限。 */
-                if (!p[0] && (s->token || (reg<0x2f18 && reg+count>0x2f10))) return 0;
+                /* 广播保留给普通参数，功率控制和休眠仅由单播触发。 */
+                if (!p[0] && (s->token || reg==0x1102 || (reg<0x2f18 && reg+count>0x2f10))) return 0;
                 error=register_write(s,reg,count,p+(op==6?4:7),ms);
                 ++s->sequence; s->result=error;
                 memcpy(out,p,6); length=6;
