@@ -6,3 +6,13 @@
 #ifndef D008_CONFIG_UPDATES
 #define D008_CONFIG_UPDATES
 #endif
+
+/* SOC 0～100 指定百分比，101 按可信静置电压初始化。 */
+#ifndef D008_SOC_UPDATE_ID
+#define D008_SOC_UPDATE_ID 0u
+#define D008_SOC_UPDATE_PERCENT 101u
+#endif
+#ifndef D008_CYCLE_UPDATE_ID
+#define D008_CYCLE_UPDATE_ID 0u
+#define D008_CYCLE_UPDATE_COUNT 0u
+#endif

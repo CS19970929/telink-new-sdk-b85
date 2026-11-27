@@ -6,6 +6,7 @@
 #include "afe.h"
 #include "history.h"
 #include "dvc_bus.h"
+#include "update_policy.h"
 #include <string.h>
 
 Device device;
@@ -18,28 +19,32 @@ static bool command_shutdown_pending;
 enum { OUTPUT_SAMPLE_MAX_AGE_MS = 250, CURRENT_MAX_AGE_MS = 400, COMMAND_REPLY_MS = 500 };
 static uint32_t last_good_ms, last_current_ms;
 static bool previous_good, current_seen;
-typedef struct { int64_t uas; uint16_t capacity, percent; } SavedSoc;
+static bool soc_init_pending;
+static uint32_t soc_retry_ms, soc_rest_ms;
+static bool soc_resting;
+static const uint32_t soc_update_id=D008_SOC_UPDATE_ID, cycle_update_id=D008_CYCLE_UPDATE_ID;
+typedef char SocPolicy[(D008_SOC_UPDATE_PERCENT<=101u && D008_CYCLE_UPDATE_COUNT<UINT16_MAX) ? 1 : -1];
 
 static void begin_setup(void)
 {
-    mode=SETUP; device.valid=false; previous_good=current_seen=false;
+    mode=SETUP; device.valid=false; previous_good=current_seen=soc_resting=false;
     control_gap(&device.control);
     afe_begin(&device.config);
+}
+
+static void restore_soc(void)
+{
+    SocSnapshot saved;
+    StoreResult status=store_open(SOC_DATA,&saved,sizeof(saved));
+    soc_init_pending=status!=STORE_VALID || !soc_restore(&device.soc,&device.config,&saved);
 }
 
 static void restore_runtime_storage(void)
 {
     Device *d=&device;
-    SavedSoc saved;
-    StoreResult state=store_open(SOC_DATA,&saved,sizeof(saved));
-    if (state==STORE_VALID && d->configured && saved.capacity==d->config.capacity_dah &&
-        saved.percent<=100 && saved.uas>=0 && saved.uas<=(int64_t)saved.capacity*360000000) {
-        d->soc.initialized=true;
-        d->soc.state.remaining_uas=saved.uas; d->soc.state.percent=saved.percent;
-    }
+    if (d->configured) restore_soc();
     StoreResult log=store_open(EVENT_DATA,0,2);
-    d->storage_fault=!d->configured || (state!=STORE_VALID && state!=STORE_BLANK) ||
-        (log!=STORE_VALID && log!=STORE_BLANK);
+    d->storage_fault=!d->configured || !store_available(SOC_DATA) || log==STORE_IO_ERROR;
     if (d->configured) history_note(1,0);
 }
 
@@ -67,11 +72,22 @@ void device_init(void)
     begin_setup();
 }
 
+static SocWriteResult save_soc(const Soc *candidate)
+{
+    if (!candidate->initialized || !device.configured || !store_available(SOC_DATA))
+        return SOC_WRITE_FAILED;
+    SocSnapshot s=soc_snapshot(candidate,&device.config);
+    if (!store_append(SOC_DATA,&s,sizeof(s))) {
+        if (!store_deferred) device.storage_fault=true;
+        return store_deferred?SOC_WRITE_DEFERRED:SOC_WRITE_FAILED;
+    }
+    soc_init_pending=false;
+    return SOC_WRITE_DONE;
+}
+
 bool device_save_soc(void)
 {
-    if (!device.soc.initialized || !device.configured) return false;
-    SavedSoc s={device.soc.state.remaining_uas,device.config.capacity_dah,device.soc.state.percent};
-    return store_append(SOC_DATA,&s,sizeof(s));
+    return save_soc(&device.soc)==SOC_WRITE_DONE;
 }
 
 SocWriteResult device_set_soc(unsigned percent,uint32_t ms)
@@ -80,11 +96,42 @@ SocWriteResult device_set_soc(unsigned percent,uint32_t ms)
         return SOC_WRITE_FAILED;
     Soc candidate=device.soc;
     soc_manual(&candidate,&device.config,percent,ms);
-    SavedSoc s={candidate.state.remaining_uas,device.config.capacity_dah,candidate.state.percent};
-    if (!store_append(SOC_DATA,&s,sizeof(s)))
-        return store_deferred ? SOC_WRITE_DEFERRED : SOC_WRITE_FAILED;
-    device.soc=candidate;
-    return SOC_WRITE_DONE;
+    SocWriteResult result=save_soc(&candidate);
+    if (result==SOC_WRITE_DONE) device.soc=candidate;
+    return result;
+}
+
+SocWriteResult device_set_cycle(unsigned cycles)
+{
+    if (cycles>=UINT16_MAX || !device.valid || mode!=SAMPLING ||
+        command_shutdown_pending || update_active()) return SOC_WRITE_FAILED;
+    Soc candidate=device.soc;
+    soc_set_cycles(&candidate,&device.config,cycles);
+    SocWriteResult result=save_soc(&candidate);
+    if (result==SOC_WRITE_DONE) device.soc=candidate;
+    return result;
+}
+
+static void service_soc(uint32_t ms)
+{
+    if (!store_available(SOC_DATA)) restore_soc();
+    Soc candidate=device.soc;
+    if (!candidate.initialized) return;
+    bool updated=soc_init_pending;
+    if (candidate.soc_id<soc_update_id &&
+        (D008_SOC_UPDATE_PERCENT<=100u || (soc_resting && ms-soc_rest_ms>=5000))) {
+        unsigned estimate=D008_SOC_UPDATE_PERCENT<=100u?D008_SOC_UPDATE_PERCENT:
+            soc_estimate(&device.config,&device.sample);
+        soc_manual(&candidate,&device.config,estimate,ms);
+        candidate.soc_id=D008_SOC_UPDATE_ID;
+        updated=true;
+    }
+    if (candidate.cycle_id<cycle_update_id) {
+        soc_set_cycles(&candidate,&device.config,D008_CYCLE_UPDATE_COUNT);
+        candidate.cycle_id=D008_CYCLE_UPDATE_ID;
+        updated=true;
+    }
+    if (updated && save_soc(&candidate)==SOC_WRITE_DONE) device.soc=candidate;
 }
 
 static void silence(uint32_t ms)
@@ -184,6 +231,12 @@ bool device_service(uint32_t ms)
         soc_space_ms=ms;
         if (!store_prepare_soc_space() && !store_deferred) device.storage_fault=true;
     }
+    if (mode==SAMPLING && device.valid && device.configured && !device_busy() && !update_active() &&
+        ms-soc_retry_ms>=5000 && (soc_init_pending || !store_available(SOC_DATA) ||
+        device.soc.soc_id<soc_update_id || device.soc.cycle_id<cycle_update_id)) {
+        soc_retry_ms=ms;
+        service_soc(ms);
+    }
     if (device.configured && !update_active() && !device_busy() && !history_flush(ms))
         device.storage_fault=true;
     return true;
@@ -211,8 +264,7 @@ bool device_set_config(const Config *c)
         if (hardware) begin_setup();
         return false;
     }
-    if (c->capacity_dah!=device.config.capacity_dah && device.soc.initialized)
-        soc_manual(&device.soc,c,device.soc.state.percent,last_good_ms);
+    soc_resize(&device.soc,device.config.capacity_dah,c->capacity_dah);
     device.config=*c;
     if (hardware) {device.valid=false; previous_good=current_seen=false;}
     return true;
@@ -305,6 +357,12 @@ void device_measure(uint32_t tick,uint32_t ms)
     if (!d->configured) return;
     soc_sample(&d->soc,&d->config,&d->sample,&d->outputs,sampled,
                sampled && d->sample.min_mv>=500 && d->sample.max_mv<=4800,tick,ms);
+    bool rest=sampled && d->sample.ma>=-320 && d->sample.ma<=320 &&
+        d->sample.min_mv>=1500 && d->sample.max_mv<=4500 &&
+        d->sample.max_mv-d->sample.min_mv<=100 && !d->sample.alarms &&
+        !(d->control.latched & ~(1u<<SOC_LOW)) && current_qualified(ms);
+    if (rest && (!soc_resting || !previous_good || ms-last_good_ms>1000)) soc_rest_ms=ms;
+    soc_resting=rest;
     if (sampled && d->soc.initialized) control_soc(&d->control,&d->config,d->soc.state.percent,ms);
     uint32_t dt=sampled && previous_good ? ms-last_good_ms : 0;
     if (dt>1000) dt=0;

@@ -27,6 +27,7 @@ SocWriteResult device_set_soc(unsigned percent,uint32_t ms)
     if (soc_result==SOC_WRITE_DONE) device.soc.state.percent=percent;
     return soc_result;
 }
+SocWriteResult device_set_cycle(unsigned cycles) {(void)cycles;return SOC_WRITE_FAILED;}
 bool device_set_config(const Config *config) {(void)config;return false;}
 bool device_set_allowed(uint8_t allowed,uint32_t ms) {(void)allowed;(void)ms;return false;}
 uint16_t device_mos_status(void) {return 0;}

@@ -49,7 +49,8 @@ static unsigned report(unsigned index)
     case 50: return ok && s->ma<0 ? -s->ma/100:0;
     case 51: return ok && s->ma>0 ? s->ma/100:0;
     case 52: return device.soc.state.percent;
-    case 53: case 57: return UINT16_MAX;
+    case 53: return UINT16_MAX;
+    case 57: return soc_cycles(&device.soc,c);
     case 54: return capacity_word(device.soc.state.remaining_uas/36000000);
     case 55: case 56: return capacity_word(c->capacity_dah*10ul);
     case 58: case 59: case 60: {
@@ -178,6 +179,10 @@ unsigned register_write(RtuSession *s,uint16_t r,unsigned n,const uint8_t *p,uin
         return v>1?3:device_set_allowed((device.allowed & ~bit)|(v?bit:0),ms)?0:4;
     }
     if (r==0x2500 && n==35) return s->token?hw_write(p):2;
+    if (r==0x2319) {
+        if (n!=1 || v==UINT16_MAX) return 3;
+        return device_set_cycle(v)==SOC_WRITE_DONE?0:4;
+    }
     if (r==0x2318 && n==1) c.capacity_dah=v;
     else if (r==0x2e18 && n==2) {c.full_mv=v; c.empty_mv=word(p+2);}
     else if (r==0x2e70 && n==4) {
