@@ -56,7 +56,10 @@ AfeResult afe_setup_step(void)
     uint16_t uv = c->hw_uv_mv;
     struct Setting { uint8_t reg, value, writable; };
     const struct Setting settings[] = {
-        {0x51,0,0xff}, {0x67,0,0xff}, {0x68,0,0xff}, {0x69,0,0xff},
+        {0x51,0,0xff},
+        /* 双关确认后优先退出复位默认短路配置，保留 SCDE 和 SCD 锁存。 */
+        {0x62,0x40 | (c->hw_sc_a10/400),0x7f}, {0x63,c->hw_sc_us*100u/781u,0xff},
+        {0x67,0,0xff}, {0x68,0,0xff}, {0x69,0,0xff},
         {0x77,0xc4,0xe7}, /* 4 s 看门狗，保留 V3P3 供电。 */
         {0x53,0x50,0xff}, {0x54,0x78,0xff}, {0x66,2,0xff},
         {0x74,0x09,0xff}, /* GP1 高阻，GP2/3 为 NTC。 */
@@ -68,8 +71,7 @@ AfeResult afe_setup_step(void)
         {0x59,c->hw_d1_a10/10,0xff}, {0x5a,c->hw_c1_a10/10,0xff},
         {0x5b,c->hw_d1_ms/8-1,0xff}, {0x5c,c->hw_c1_ms/8-1,0xff},
         {0x5e,0x40 | (c->hw_d2_a10/160-1),0x7f}, {0x5f,0x40 | (c->hw_c2_a10/160-1),0x7f},
-        {0x60,c->hw_d2_ms/4-1,0xff}, {0x61,c->hw_c2_ms/4-1,0xff},
-        {0x62,0x40 | (c->hw_sc_a10/400),0x7f}, {0x63,c->hw_sc_us*100u/781u,0xff}
+        {0x60,c->hw_d2_ms/4-1,0xff}, {0x61,c->hw_c2_ms/4-1,0xff}
     };
     if (setup_index < sizeof(settings)/sizeof(settings[0])) {
         const struct Setting *s = &settings[setup_index++];
@@ -78,7 +80,12 @@ AfeResult afe_setup_step(void)
             if (!dvc_read(s->reg, &old, 1)) return AFE_ERROR;
             value |= old & (uint8_t)~s->writable;
         }
-        return dvc_set(s->reg, value, s->writable) ? AFE_WAIT : AFE_ERROR;
+        if (!dvc_set(s->reg,value,s->writable)) return AFE_ERROR;
+        if (s->reg==0x51) {
+            uint8_t fet;
+            if (!dvc_read(0x06,&fet,1) || (fet & 3u)) return AFE_ERROR;
+        }
+        return AFE_WAIT;
     }
     uint8_t fet, trim, status;
     if (!dvc_read(0x06,&fet,1) || (fet & 3) || !dvc_read(0x7e,&trim,1) ||

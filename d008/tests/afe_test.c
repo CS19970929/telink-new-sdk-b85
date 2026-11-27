@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 
-static uint8_t status, alarm, clear_mask;
+static uint8_t status, alarm, clear_mask, fet_status;
+static uint8_t first_settings[3];
+static unsigned settings_written, alarm_writes;
 static bool alarm_read_ok=true;
 static uint16_t therm[]={0x4650,0x2710,0x2710,0x2710,0x2710};
 static uint8_t failed_block=0xff, gp123_mode, measure_mode;
@@ -19,6 +21,8 @@ bool dvc_read(uint8_t reg, uint8_t *data, uint8_t length)
     } else if (reg==0 && length==1) {
         data[0]=alarm;
         return alarm_read_ok;
+    } else if (reg==0x06 && length==1) {
+        data[0]=fet_status;
     } else if (reg==0x0f && length==10) {
         for (unsigned i=0;i<5;++i) {
             data[2*i]=therm[i]>>8;
@@ -35,12 +39,18 @@ bool dvc_read(uint8_t reg, uint8_t *data, uint8_t length)
 bool dvc_write(uint8_t reg, const uint8_t *data, uint8_t length)
 {
     assert(reg==0 && length==1);
+    ++alarm_writes;
     clear_mask=(uint8_t)~data[0];
     return true;
 }
 
 bool dvc_set(uint8_t reg, uint8_t value, uint8_t mask)
 {
+    if (settings_written<sizeof(first_settings)) first_settings[settings_written]=reg;
+    ++settings_written;
+    if (reg==0x51) assert(value==0 && mask==0xff);
+    if (reg==0x62) assert(value==0x45 && mask==0x7f);
+    if (reg==0x63) assert(value==0x20 && mask==0xff);
     if (reg==0x74) {assert(mask==0xff); gp123_mode=value;}
     if (reg==0x6d) {assert(mask==0x3f && !(value&4)); measure_mode=value;}
     return true;
@@ -50,10 +60,25 @@ int main(void)
 {
     Config config;
     config_defaults(&config,16,false);
+    failed_block=0x06;
+    afe_begin(&config);
+    assert(afe_setup_step()==AFE_ERROR && settings_written==1 && first_settings[0]==0x51);
+    failed_block=0xff;
+    for (uint8_t on=1;on<=2;++on) {
+        fet_status=on;
+        settings_written=0;
+        afe_begin(&config);
+        assert(afe_setup_step()==AFE_ERROR && settings_written==1);
+    }
+    fet_status=0;
+    settings_written=0;
+    alarm=1;
     afe_begin(&config);
     AfeResult result=AFE_WAIT;
     for (unsigned i=0;i<40 && result==AFE_WAIT;++i) result=afe_setup_step();
     assert(result==AFE_OK && gp123_mode==0x09 && measure_mode==0x28);
+    const uint8_t first_expected[]={0x51,0x62,0x63};
+    assert(!memcmp(first_settings,first_expected,sizeof(first_expected)) && alarm_writes==0);
 
     Sample s;
     status=0x40; /* VADF，CC2 尚未完成。 */
@@ -62,7 +87,7 @@ int main(void)
     assert(afe_sample(&config,200,&s)==AFE_OK && s.current_fresh);
     status=0x40;
     assert(afe_sample(&config,400,&s)==AFE_OK && !s.current_fresh);
-    assert(s.min_mv==3200 && s.max_mv==3200 && s.ma==0);
+    assert(s.min_mv==3200 && s.max_mv==3200 && s.ma==0 && s.alarms==1);
 
     /* 实板 GP1 超过 V1P8。GP2～GP4 与两个单体块仍须读出。 */
     const uint16_t board_therm[]={0x45dc,0x4624,0x22c9,0x22d7,0x22be};
@@ -89,6 +114,6 @@ int main(void)
     assert(afe_ack(1,&remaining) && remaining==0x40);
     alarm_read_ok=false;
     assert(!afe_ack(1,&remaining));
-    puts("PASS AFE: CC2 freshness is distinct from VADC, W0C preserves unrequested alarms and reads back");
+    puts("PASS AFE: short-circuit setup order, MOS-off gate, latch retention, ADC freshness and W0C");
     return 0;
 }
