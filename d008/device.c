@@ -57,7 +57,7 @@ void device_init(void)
     restore_runtime_storage();
     init_storage_pending=config_valid(&assembly) && store_prepare_init(cfg,&init_erase_mask);
     if (init_storage_pending) bls_ll_setAdvEnable(BLC_ADV_DISABLE);
-    dvc_bus_init(); gpio_write(GPIO_PD7,1);
+    gpio_write(GPIO_PD7,1); dvc_bus_init();
     begin_setup();
 }
 

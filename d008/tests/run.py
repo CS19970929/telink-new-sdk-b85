@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = {"meter": ["meter"], "control": ["control", "product"], "afe": ["afe", "product"], "commands": ["rtu", "registers", "product"], "wide": ["sdk/wide"], "storage": ["store", "product"], "history": ["history"],
+CASES = {"meter": ["meter"], "control": ["control", "product"], "afe": ["afe", "product"], "dvc_bus": ["dvc_bus"], "commands": ["rtu", "registers", "product"], "wide": ["sdk/wide"], "storage": ["store", "product"], "history": ["history"],
          "lishen": ["sif"], "lishen_extended": ["sif"], "wire": ["sif"]}
 
 def main():
@@ -19,7 +19,8 @@ def main():
         for name, units in CASES.items():
             case = "lishen" if name.startswith("lishen") else name
             exe = Path(out) / (name + (".exe" if os.name == "nt" else ""))
-            subprocess.run([compiler, "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror",
+            sdk_mock = ["-I", str(ROOT / "tests" / "dvc_sdk")] if name == "dvc_bus" else []
+            subprocess.run([compiler, "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror", *sdk_mock,
                             "-DD008_LISHEN_EXTENDED=" + str(int(name == "lishen_extended")),
                             "-DD008_CELLS=16", "-DD008_NMC=0", "-I", str(ROOT),
                             str(ROOT / "tests" / (case + "_test.c")),

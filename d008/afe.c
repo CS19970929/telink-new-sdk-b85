@@ -80,11 +80,11 @@ AfeResult afe_setup_step(void)
             if (!dvc_read(s->reg, &old, 1)) return AFE_ERROR;
             value |= old & (uint8_t)~s->writable;
         }
-        if (!dvc_set(s->reg,value,s->writable)) return AFE_ERROR;
         if (s->reg==0x51) {
             uint8_t fet;
-            if (!dvc_read(0x06,&fet,1) || (fet & 3u)) return AFE_ERROR;
-        }
+            if (!dvc_startup_set(s->reg,value,s->writable) ||
+                !dvc_read(0x06,&fet,1) || (fet & 3u)) return AFE_ERROR;
+        } else if (!dvc_set(s->reg,value,s->writable)) return AFE_ERROR;
         return AFE_WAIT;
     }
     uint8_t fet, trim, status;

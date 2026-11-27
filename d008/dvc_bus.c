@@ -2,7 +2,8 @@
 #include "drivers.h"
 #include "dvc_bus.h"
 
-enum { WRITE_ADDR = 0x40, READ_ADDR = 0x41, MAX_BURST = 16 };
+enum { WRITE_ADDR = 0x40, READ_ADDR = 0x41, MAX_BURST = 16,
+       AFE_ENABLE_SETTLE_US = 20000, SDA_WAKE_US = 1000, BUS_FREE_US = 5 };
 static uint8_t crc_byte(uint8_t crc, uint8_t data)
 {
     crc ^= data;
@@ -17,6 +18,28 @@ void dvc_bus_init(void)
     i2c_master_init(WRITE_ADDR, CLOCK_SYS_CLOCK_HZ / (4u * 100000u));
 }
 
+/* PD7 已启用 AFE 接口。沿用旧 D008 的 SDA 唤醒脉冲，只复位 MCU I²C 外设。 */
+static void wake_shutdown(void)
+{
+    sleep_us(AFE_ENABLE_SETTLE_US);
+    reset_i2c_module();
+    gpio_set_output_en(GPIO_PC1,0);
+    gpio_set_func(GPIO_PC1,AS_GPIO);
+    gpio_set_input_en(GPIO_PC1,1);
+    gpio_setup_up_down_resistor(GPIO_PC1,PM_PIN_PULLUP_10K);
+
+    gpio_set_output_en(GPIO_PC0,0);
+    gpio_write(GPIO_PC0,0);
+    gpio_set_func(GPIO_PC0,AS_GPIO);
+    gpio_setup_up_down_resistor(GPIO_PC0,PM_PIN_PULLUP_10K);
+    gpio_set_input_en(GPIO_PC0,1);
+    gpio_set_output_en(GPIO_PC0,1);
+    sleep_us(SDA_WAKE_US);
+    gpio_set_output_en(GPIO_PC0,0);
+    sleep_us(BUS_FREE_US);
+    dvc_bus_init();
+}
+
 /* 以整笔事务为界，16 个数据 + 16 个 CRC 在 100 kHz 约 3.3 ms。 */
 static bool command(uint8_t cmd, bool expect_ack, uint32_t start)
 {
@@ -27,7 +50,7 @@ static bool command(uint8_t cmd, bool expect_ack, uint32_t start)
     return !clock_time_exceed(start, 6000) && (!expect_ack || !(reg_i2c_status & FLD_I2C_NAK));
 }
 
-static bool transfer(uint8_t reg, const uint8_t *tx, uint8_t *rx, uint8_t n)
+static bool transfer(uint8_t reg, const uint8_t *tx, uint8_t *rx, uint8_t n, bool *no_reply)
 {
     if (!n || n > MAX_BURST || (unsigned)reg+n > 0x91u) return false;
     uint32_t start = clock_time();
@@ -35,6 +58,7 @@ static bool transfer(uint8_t reg, const uint8_t *tx, uint8_t *rx, uint8_t n)
     reg_i2c_id = WRITE_ADDR;
     reg_i2c_adr = reg;
     bool ok = command(FLD_I2C_CMD_START | FLD_I2C_CMD_ID | FLD_I2C_CMD_ADDR, true, start);
+    if (no_reply) *no_reply=!ok;
     if (ok && rx) {
         reg_i2c_id = READ_ADDR;
         ok = command(FLD_I2C_CMD_START | FLD_I2C_CMD_ID, true, start);
@@ -65,17 +89,33 @@ static bool transfer(uint8_t reg, const uint8_t *tx, uint8_t *rx, uint8_t n)
 
 bool dvc_read(uint8_t reg, uint8_t *data, uint8_t length)
 {
-    return data && transfer(reg, 0, data, length);
+    return data && transfer(reg, 0, data, length, 0);
 }
 
 bool dvc_write(uint8_t reg, const uint8_t *data, uint8_t length)
 {
-    return data && transfer(reg, data, 0, length);
+    return data && transfer(reg, data, 0, length, 0);
+}
+
+static bool matches(uint8_t reg, uint8_t value, uint8_t mask)
+{
+    uint8_t readback;
+    return dvc_read(reg,&readback,1) && ((readback^value)&mask)==0;
 }
 
 bool dvc_set(uint8_t reg, uint8_t value, uint8_t mask)
 {
-    uint8_t readback;
-    return dvc_write(reg, &value, 1) && dvc_read(reg, &readback, 1)
-        && ((readback ^ value) & mask) == 0;
+    return dvc_write(reg,&value,1) && matches(reg,value,mask);
+}
+
+bool dvc_startup_set(uint8_t reg, uint8_t value, uint8_t mask)
+{
+    bool no_reply=false;
+    if (!transfer(reg,&value,0,1,&no_reply)) {
+        /* 仅首段无应答时唤醒。数据阶段或读回失败交给现有故障确认。 */
+        if (!no_reply) return false;
+        wake_shutdown();
+        if (!dvc_write(reg,&value,1)) return false;
+    }
+    return matches(reg,value,mask);
 }

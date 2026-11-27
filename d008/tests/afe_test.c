@@ -56,6 +56,12 @@ bool dvc_set(uint8_t reg, uint8_t value, uint8_t mask)
     return true;
 }
 
+bool dvc_startup_set(uint8_t reg,uint8_t value,uint8_t mask)
+{
+    assert(reg==0x51);
+    return dvc_set(reg,value,mask);
+}
+
 int main(void)
 {
     Config config;
