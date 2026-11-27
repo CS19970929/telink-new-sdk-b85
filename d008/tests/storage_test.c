@@ -5,7 +5,7 @@
 
 static uint8_t flash[0x10000],baseline[sizeof(flash)];
 static int budget=-1;
-static bool refuse_marker, incomplete_erase;
+static bool refuse_marker, refuse_second, incomplete_erase;
 static uint32_t fail_read;
 static unsigned erases[16], programs[16];
 bool nor_read(uint32_t at,void *out,unsigned n)
@@ -16,7 +16,7 @@ bool nor_read(uint32_t at,void *out,unsigned n)
 }
 bool nor_write(uint32_t at,const void *p,unsigned n)
 {
-    if (refuse_marker && n==1) {store_deferred=true; return false;}
+    if ((refuse_marker && n==1) || (refuse_second && n>1 && (at&511)==256)) {store_deferred=true; return false;}
     ++programs[(at-0x40000)/4096];
     assert(n<=256-(at&255));
     for (unsigned i=0;i<n;++i) {
@@ -156,6 +156,26 @@ static void deferred_commit(void)
     puts("NOR: 2000 denied commit windows; one body, one erase, one visible update");
 }
 
+static void deferred_second_page(void)
+{
+    memset(flash,255,sizeof(flash));
+    memset(programs,0,sizeof(programs));
+    Config defaults, readback;
+    config_defaults(&defaults,16,false);
+    assert(store_open_config(&readback,&defaults)==STORE_BLANK);
+    refuse_second=true;
+    for (unsigned i=0;i<100;++i) {
+        assert(!store_append(CONFIG_DATA,&defaults,sizeof(defaults)));
+        assert(store_deferred && programs[0]==1);
+    }
+    refuse_second=false; refuse_marker=true;
+    assert(!store_append(CONFIG_DATA,&defaults,sizeof(defaults)) && store_deferred);
+    assert(programs[0]==2);
+    refuse_marker=false;
+    assert(store_append(CONFIG_DATA,&defaults,sizeof(defaults)) && programs[0]==3);
+    assert(store_open_config(&readback,&defaults)==STORE_VALID);
+}
+
 static void domain_cuts(Domain domain,unsigned record_bytes,unsigned sector,unsigned slots)
 {
     uint8_t payload[sizeof(Config)], recovered[sizeof(Config)];
@@ -228,6 +248,7 @@ int main(void)
     domain_cuts(SOC_DATA,12,4,64);
     domain_cuts(EVENT_DATA,2,12,128);
     deferred_commit();
+    deferred_second_page();
     prepare_soc_space();
     independent_initialization();
     wear(CONFIG_DATA,0,8,10000);

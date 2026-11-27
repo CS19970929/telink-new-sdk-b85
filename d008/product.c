@@ -1,4 +1,6 @@
 #include "product.h"
+#include "update_policy.h"
+#include <stddef.h>
 #include <string.h>
 
 #ifndef D008_CAPACITY_DAH
@@ -81,3 +83,39 @@ bool config_valid(const Config *c)
         c->balance_on <= 1 && in_range(c->balance_mv, c->empty_mv, c->hw_ov_mv) &&
         c->balance_start_mv > c->balance_stop_mv && c->balance_start_mv < 1000;
 }
+
+static const struct {
+    unsigned target;
+    uint32_t id;
+    unsigned offset, size;
+    const void *value;
+} updates[] = {
+#define D008_UPDATE(target,id,member,type,...) \
+    {target,id,offsetof(Config,member),sizeof((const type[]){__VA_ARGS__}), \
+     (const type[]){__VA_ARGS__}}
+    D008_CONFIG_UPDATES
+#undef D008_UPDATE
+    {0,0,0,0,0}
+};
+
+bool config_apply_updates(Config *c)
+{
+    /* 固定产品字段替换，完成编号由同一 Config 记录提交。 */
+    uint32_t previous[CONFIG_UPDATE_COUNT];
+    memcpy(previous,c->update_id,sizeof(previous));
+    bool changed=false;
+    for (unsigned i=0;i+1<sizeof(updates)/sizeof(*updates);++i) {
+        unsigned target=updates[i].target, start=updates[i].offset, size=updates[i].size;
+        uint32_t id=updates[i].id;
+        if (target>=CONFIG_UPDATE_COUNT || start<offsetof(Config,capacity_dah) ||
+            start>=offsetof(Config,update_id) || size>offsetof(Config,update_id)-start) continue;
+        if (id<=previous[target] || id<c->update_id[target]) continue;
+        memcpy((uint8_t *)c+start,updates[i].value,size);
+        c->update_id[target]=id;
+        changed=true;
+    }
+    return changed;
+}
+
+/* 结构体直接编码，主机和 TC32 使用同一显式布局。 */
+typedef char ConfigLayout[(sizeof(Config)==260 && offsetof(Config,update_id)==216) ? 1 : -1];

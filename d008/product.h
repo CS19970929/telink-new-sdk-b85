@@ -11,6 +11,11 @@ enum { OV, UV, PACK_OV, PACK_UV, CHARGE_OC, DISCHARGE_OC, CHARGE_HOT,
 typedef struct {
     uint16_t alarm1, alarm2, trip, release, delay_ms;
 } Limit;
+enum {
+    UPDATE_CAPACITY, UPDATE_SW_OV, UPDATE_HW_SC, UPDATE_SW, UPDATE_HW, UPDATE_BALANCE,
+    UPDATE_ENDPOINTS, UPDATE_CALIBRATION, UPDATE_PRODUCT, UPDATE_EXTRA_1, UPDATE_EXTRA_2,
+    CONFIG_UPDATE_COUNT
+};
 typedef struct {
     uint16_t cells, nmc, capacity_dah, full_mv, empty_mv;
     Limit sw[LIMIT_COUNT];
@@ -20,6 +25,7 @@ typedef struct {
     uint16_t balance_on, balance_mv, balance_start_mv, balance_stop_mv;
     int32_t offset_ma, gain_ppm;
     uint8_t sn[32];
+    uint32_t update_id[CONFIG_UPDATE_COUNT];
 } Config;
 
 enum { NTC_BAT1, NTC_BAT2, NTC_MOS, NTC_COUNT };
@@ -33,4 +39,5 @@ typedef struct {
 
 bool limit_low(unsigned index);
 void config_defaults(Config *c, unsigned cells, bool nmc);
+bool config_apply_updates(Config *c);
 bool config_valid(const Config *c);

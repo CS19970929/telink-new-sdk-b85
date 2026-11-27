@@ -48,9 +48,13 @@ static void load_config(void)
     Config assembly;
     config_defaults(&assembly,D008_CELLS,D008_NMC);
     StoreResult state=store_open_config(&device.config,&assembly);
-    device.configured=state==STORE_VALID;
-    if (!device.configured) device.config=assembly;
-    init_storage_pending=state!=STORE_VALID && state!=STORE_CONFLICT && config_valid(&assembly);
+    if (state!=STORE_VALID) device.config=assembly;
+    bool updated=config_apply_updates(&device.config);
+    bool legal=config_valid(&device.config);
+    device.configured=state==STORE_VALID && legal && !updated;
+    init_storage_pending=legal && ((state==STORE_VALID && updated) ||
+        state==STORE_BLANK || state==STORE_BAD || state==STORE_IO_ERROR);
+    if (!legal) device.config=assembly;
 }
 
 void device_init(void)

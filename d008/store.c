@@ -88,7 +88,12 @@ static StoreResult scan(Domain d,void *latest,unsigned size,const Config *assemb
                     conflict=true;
                     continue;
                 }
-                if (!config_valid(&candidate)) continue;
+                Config final=candidate;
+                config_apply_updates(&final);
+                if (!config_valid(&final)) {
+                    if (config_valid(&candidate)) conflict=true;
+                    continue;
+                }
             }
             uint32_t seq=get32(slot+8);
             if (d==EVENT_DATA) index_event(seq,address);
@@ -184,9 +189,18 @@ bool store_append(Domain d,const void *data,unsigned size)
         if (!memcmp(verify+12,data,size)) return true;
     }
     encode(d,data,size,j->sequence+1u,slot);
+    unsigned body=16+size;
+    unsigned first=body>256?256:body;
     if (j->pending) {
         if (!nor_read(j->pending,verify,stride[d])) {j->ready=false;return false;}
         if (!memcmp(slot,verify,stride[d])) return commit_body(d,slot,verify);
+        if (first<body && !memcmp(slot,verify,first) && blank(verify+first,stride[d]-first)) {
+            (void)nor_write(j->pending+first,slot+first,body-first);
+            if (!nor_read(j->pending,verify,stride[d])) {j->ready=false;return false;}
+            if (!memcmp(slot,verify,stride[d])) return commit_body(d,slot,verify);
+            if (!blank(verify+first,stride[d]-first)) j->pending=0;
+            return false;
+        }
         j->pending=0;
     }
     unsigned sector=j->latest >= base[d]+SECTOR;
@@ -203,17 +217,21 @@ bool store_append(Domain d,const void *data,unsigned size)
     uint32_t addr=base[d]+sector*SECTOR+j->next[sector];
     if (!nor_read(addr,verify,stride[d])) {j->ready=false;return false;}
     if (!blank(verify,stride[d])) {j->ready=false;return false;}
-    /* 每页分别授权，以便 BLE 连接时按真实 BRX 空窗编程。 */
-    unsigned first=16+size;
-    if (first>256) first=256;
-    bool written=nor_write(addr,slot,first);
-    if (written && first<16+size) written=nor_write(addr+first,slot+first,16+size-first);
+    /* 跨页时记住已回读的第一页，BLE 暂缓不消耗新槽。 */
+    (void)nor_write(addr,slot,first);
     if (!nor_read(addr,verify,stride[d])) {j->ready=false;return false;}
-    if (!written || memcmp(slot,verify,stride[d])) {
-        if (!blank(verify,stride[d])) j->next[sector]+=stride[d];
-        return false;
-    }
+    if (blank(verify,stride[d])) return false;
     j->next[sector]+=stride[d];
+    if (memcmp(slot,verify,first) || !blank(verify+first,stride[d]-first)) return false;
+    if (first<body) {
+        j->pending=addr;
+        (void)nor_write(addr+first,slot+first,body-first);
+        if (!nor_read(addr,verify,stride[d])) {j->ready=false;return false;}
+        if (memcmp(slot,verify,stride[d])) {
+            if (!blank(verify+first,stride[d]-first)) j->pending=0;
+            return false;
+        }
+    }
     j->pending=addr;
     return commit_body(d,slot,verify);
 }

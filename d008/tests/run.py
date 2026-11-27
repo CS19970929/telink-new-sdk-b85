@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = {"meter": ["meter"], "control": ["control", "product"], "afe": ["afe", "product"], "dvc_bus": ["dvc_bus"], "commands": ["rtu", "registers", "product"], "wide": ["sdk/wide"], "storage": ["store", "product"], "history": ["history"],
+CASES = {"meter": ["meter"], "control": ["control", "product"], "afe": ["afe", "product"], "dvc_bus": ["dvc_bus"], "commands": ["rtu", "registers", "product"], "wide": ["sdk/wide"], "policy": ["product"], "storage": ["store", "product"], "history": ["history"],
          "lishen": ["sif"], "lishen_extended": ["sif"], "wire": ["sif"]}
 
 def main():
@@ -21,7 +21,10 @@ def main():
             exe = Path(out) / (name + (".exe" if os.name == "nt" else ""))
             sdk_mock = ["-I", str(ROOT / "tests" / "dvc_sdk")] if name == "dvc_bus" else []
             identity = ["-DD008_BUILD_ID=0x1234abcdu", "-DD008_BUILD_DIRTY=1"] if name == "commands" else []
-            subprocess.run([compiler, "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror", *sdk_mock, *identity,
+            policy = ["-DD008_CONFIG_UPDATES=D008_UPDATE(UPDATE_CAPACITY,1,capacity_dah,uint16_t,300),"
+                      "D008_UPDATE(UPDATE_HW_SC,2,hw_sc_a10,uint16_t,5200),"
+                      "D008_UPDATE(UPDATE_SW_OV,1,sw[OV].trip,uint16_t,3650),"] if name == "policy" else []
+            subprocess.run([compiler, "-std=c99", "-O2", "-Wall", "-Wextra", "-Werror", *sdk_mock, *identity, *policy,
                             "-DD008_LISHEN_EXTENDED=" + str(int(name == "lishen_extended")),
                             "-DD008_CELLS=16", "-DD008_NMC=0", "-I", str(ROOT),
                             str(ROOT / "tests" / (case + "_test.c")),
