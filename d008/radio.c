@@ -106,7 +106,7 @@ static void ota_result(int result)
 static void disconnected(u8 event,u8 *data,int n)
 {
     (void)event; (void)data; (void)n;
-    memset(&session,0,sizeof(session)); request_size=response_size=sent=0;
+    rtu_reset(&session); request_size=response_size=sent=0;
     memset(ccc,0,2); memset(ota_ccc,0,2);
 }
 void product_radio_init(void)
@@ -148,6 +148,8 @@ void product_radio_init(void)
         random?OWN_ADDRESS_RANDOM:OWN_ADDRESS_PUBLIC,0,0,BLT_ENABLE_ADV_ALL,ADV_FP_NONE);
     rf_set_power_level_index(RF_POWER_P0dBm); bls_ll_setAdvEnable(BLC_ADV_ENABLE);
 }
+bool product_radio_request_pending(void) {return request_size!=0;}
+
 bool product_radio_reply_pending(void)
 {
     return response_size || (blc_ll_getCurrentState()==BLS_LINK_STATE_CONN && blc_ll_getTxFifoNumber());
@@ -161,8 +163,9 @@ void product_radio_poll(uint32_t ms)
         if (device_save_soc()) retry_soc_after_disconnect=false;
     }
     if (request_size) {
-        response_size=rtu_channel(&session,request,request_size,response,ms);
-        sent=0; request_size=0;
+        unsigned size=rtu_channel(&session,request,request_size,response,ms);
+        if (size==RTU_PENDING) return;
+        response_size=size; sent=0; request_size=0;
     }
     if (response_size && !(ccc[0]&1)) response_size=0;
     if (response_size) {

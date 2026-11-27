@@ -7,6 +7,8 @@ typedef struct {
     bool staging_sn;
 } RtuSession;
 extern uint8_t device_address[6];
+enum { RTU_PENDING = 257 }; /* 保存暂缓，调用者保留本帧并稍后重试。 */
+void rtu_reset(RtuSession *session);
 uint16_t rtu_crc(const uint8_t *p,unsigned n);
 unsigned rtu_channel(RtuSession *session,const uint8_t *p,unsigned n,uint8_t *out,uint32_t ms);
 bool register_read(const RtuSession *session,uint16_t reg,uint16_t *value);

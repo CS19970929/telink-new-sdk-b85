@@ -5,6 +5,7 @@ bool update_active(void);
 void product_radio_init(void);
 void product_radio_poll(uint32_t ms);
 bool product_radio_reply_pending(void);
+bool product_radio_request_pending(void);
 void wired_init(void);
 void wired_irq(void);
 void wired_poll(uint32_t ms);

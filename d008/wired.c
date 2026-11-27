@@ -43,7 +43,7 @@ void wired_stop(void)
 }
 void wired_init(void)
 {
-    wired_stop(); memset(&session,0,sizeof(session));
+    wired_stop(); rtu_reset(&session);
     gpio_set_func(RX,AS_GPIO); gpio_set_input_en(RX,1); gpio_set_output_en(RX,0);
     gpio_setup_up_down_resistor(RX,PM_PIN_PULLDOWN_100K);
     gpio_set_interrupt_risc0(RX,POL_FALLING); gpio_en_interrupt_risc0(RX,1);
@@ -142,7 +142,9 @@ void wired_poll(uint32_t ms)
     if (uart_mode) {
         if (rx_ready && !uart_tx_is_busy()) {
             unsigned n=rx.size;
-            tx.size=n<=256?rtu_channel(&session,rx.data,n,tx.data,ms):0;
+            unsigned size=n<=256?rtu_channel(&session,rx.data,n,tx.data,ms):0;
+            if (size==RTU_PENDING) return;
+            tx.size=size;
             u8 irq=irq_disable();
             rx_ready=false; rx.size=0; uart_recbuff_init((u8 *)&rx,sizeof(rx));
             irq_restore(irq);

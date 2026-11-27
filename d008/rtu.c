@@ -100,6 +100,29 @@ static unsigned maintenance(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *o
     return finish(out,length);
 }
 
+enum { SOC_RETRY_MS = 10, SOC_REPLY_MS = 1000 };
+static RtuSession *soc_writer;
+static uint32_t soc_since, soc_attempt_ms;
+
+void rtu_reset(RtuSession *session)
+{
+    if (soc_writer==session) soc_writer=NULL;
+    memset(session,0,sizeof(*session));
+}
+
+static unsigned write_soc(RtuSession *s,unsigned count,const uint8_t *data,uint32_t ms)
+{
+    /* 同一份持久化事务只由一条链路重试，成功或超时后再释放。 */
+    if (soc_writer && soc_writer!=s) return 4;
+    if (!soc_writer) soc_since=ms;
+    else if (ms-soc_since>=SOC_REPLY_MS) {soc_writer=NULL;return 4;}
+    else if (ms-soc_attempt_ms<SOC_RETRY_MS) return RTU_PENDING;
+    soc_attempt_ms=ms;
+    unsigned result=register_write(s,0x1005,count,data,ms);
+    soc_writer=result==RTU_PENDING ? s : NULL;
+    return result;
+}
+
 /* 调用者为每个物理链路提供独立会话及 256 字节应答空间。 */
 unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint32_t ms)
 {
@@ -128,9 +151,11 @@ unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint
             error=3;
             if ((op==6 && n==8) || (op==16 && count && count<=123 && reg+count<=65536u &&
                 n==9+count*2 && p[6]==count*2)) {
-                /* 广播保留给普通参数，功率控制和休眠仅由单播触发。 */
-                if (!p[0] && (s->token || reg==0x1102 || (reg<0x2f18 && reg+count>0x2f10))) return 0;
-                error=register_write(s,reg,count,p+(op==6?4:7),ms);
+                /* 广播保留给普通参数，SOC、功率控制和休眠只接受单播。 */
+                if (!p[0] && (s->token || reg==0x1005 || reg==0x1102 || (reg<0x2f18 && reg+count>0x2f10))) return 0;
+                const uint8_t *data=p+(op==6?4:7);
+                error=reg==0x1005 ? write_soc(s,count,data,ms) : register_write(s,reg,count,data,ms);
+                if (error==RTU_PENDING) return RTU_PENDING;
                 ++s->sequence; s->result=error;
                 memcpy(out,p,6); length=6;
             }

@@ -147,7 +147,11 @@ unsigned register_write(RtuSession *s,uint16_t r,unsigned n,const uint8_t *p,uin
 {
     Config c=device.config;
     unsigned v=word(p);
-    if (r==0x1005 && n==1) return v>100?3:device_set_soc(v,ms)?0:4;
+    if (r==0x1005) {
+        if (n!=1 || v>100) return 3;
+        SocWriteResult result=device_set_soc(v,ms);
+        return result==SOC_WRITE_DEFERRED ? RTU_PENDING : result==SOC_WRITE_DONE ? 0 : 4;
+    }
     if (r==0x1102) return n!=1 || v!=0x000a ? 2 : device_request_shutdown(ms) ? 0 : 4;
     if ((r==0x2f12 || r==0x2f13) && n==1) {
         unsigned bit=1u<<(r-0x2f12);

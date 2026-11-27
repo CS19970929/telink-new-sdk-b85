@@ -6,10 +6,14 @@
 
 Device device;
 static bool updating;
+static unsigned mock_rtu_size, rtu_calls;
+void rtu_reset(RtuSession *s) {memset(s,0,sizeof(*s));}
 bool update_active(void) {return updating;}
 unsigned rtu_channel(RtuSession *s,const uint8_t *p,unsigned n,uint8_t *out,uint32_t ms)
 {
-    (void)s; (void)p; (void)n; (void)out; (void)ms; return 0;
+    (void)s; (void)p; (void)n; (void)out; (void)ms;
+    ++rtu_calls;
+    return mock_rtu_size;
 }
 static unsigned ticks;
 static void half_ms(unsigned level)
@@ -60,6 +64,11 @@ int main(void)
         wired_irq(); wired_poll(3760);
     }
     assert(uart_mode && wired_busy());
+    rx.size=8; rx_ready=true; mock_rtu_size=RTU_PENDING;
+    wired_poll(3760);
+    assert(rx_ready && rx.size==8 && rtu_calls==1);
+    mock_rtu_size=8; wired_poll(3760);
+    assert(!rx_ready && rx.size==0 && rtu_calls==2 && tx.size==8);
     wired_poll(13760); assert(!uart_mode && !wired_busy());
     pin_rx=1; device.valid=true;
     wired_poll(14000); simulated_tick+=16000000;

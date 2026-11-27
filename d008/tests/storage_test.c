@@ -38,6 +38,30 @@ bool nor_erase(uint32_t at)
     if (incomplete_erase) flash[at-0x40000+4095]=0;
     return true;
 }
+static void prepare_soc_space(void)
+{
+    uint32_t value=0;
+    memset(flash,255,sizeof(flash));
+    memset(erases,0,sizeof(erases));
+    flash[0]=0xaa; flash[0xc000]=0xbb;
+    assert(store_open(SOC_DATA,&value,sizeof(value))==STORE_BLANK);
+    assert(store_prepare_soc_space() && !erases[4] && !erases[5]);
+    for (value=1;value<=128;++value) assert(store_append(SOC_DATA,&value,sizeof(value)));
+    memcpy(baseline,flash,sizeof(flash));
+    budget=97;
+    assert(!store_prepare_soc_space());
+    budget=-1;
+    assert(store_open(SOC_DATA,&value,sizeof(value))==STORE_VALID && value==128);
+    assert(store_prepare_soc_space() && erases[4]==2 && !erases[5]);
+    assert(!memcmp(flash+0x5000,baseline+0x5000,4096));
+    assert(flash[0]==0xaa && flash[0xc000]==0xbb);
+    assert(store_prepare_soc_space() && erases[4]==2);
+    ++value;
+    assert(store_append(SOC_DATA,&value,sizeof(value)));
+    assert(store_open(SOC_DATA,&value,sizeof(value))==STORE_VALID && value==129);
+    puts("NOR: prepared SOC spare sector preserves committed state through an interrupted erase");
+}
+
 static void wear(Domain domain, unsigned sector, unsigned slots, unsigned saves)
 {
     uint32_t value=0, latest=0;
@@ -267,6 +291,7 @@ int main(void)
     domain_cuts(SOC_DATA,12,4,64);
     domain_cuts(EVENT_DATA,2,12,128);
     deferred_commit();
+    prepare_soc_space();
     first_config();
     old_format_reset();
     wear(CONFIG_DATA,0,16,10000);

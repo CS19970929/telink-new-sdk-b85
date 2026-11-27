@@ -202,6 +202,25 @@ static bool commit_body(Domain d,uint8_t *slot,uint8_t *verify)
     return true;
 }
 
+static bool recycle_sector(Journal *j,unsigned sector,uint32_t address)
+{
+    bool empty;
+    if (!nor_erase(address) || !inspect_sector(address,&empty) || !empty) return false;
+    j->next[sector]=0;
+    if (j->pending>=address && j->pending-address<SECTOR) j->pending=0;
+    return true;
+}
+
+bool store_prepare_soc_space(void)
+{
+    store_deferred=false;
+    Journal *j=&journal[SOC_DATA];
+    if (!j->ready || j->next[0]<SECTOR || j->next[1]<SECTOR) return true;
+    /* 空闲且无 BLE 连接时周转旧扇区，最新检查点所在扇区继续保留。 */
+    unsigned spare=j->latest<base[SOC_DATA]+SECTOR;
+    return recycle_sector(j,spare,base[SOC_DATA]+spare*SECTOR);
+}
+
 bool store_append(Domain d,const void *data,unsigned size)
 {
     uint8_t slot[256],verify[256];
@@ -231,10 +250,7 @@ bool store_append(Domain d,const void *data,unsigned size)
             if (d==EVENT_DATA)
                 for (unsigned i=0;i<count;++i)
                     if (recent[i].addr/SECTOR==erase/SECTOR) return false;
-            if (!nor_erase(erase)) return false;
-            bool empty;
-            if (!inspect_sector(erase,&empty) || !empty) return false;
-            j->next[sector]=0;
+            if (!recycle_sector(j,sector,erase)) return false;
         }
     }
     uint32_t addr=base[d]+sector*SECTOR+j->next[sector];

@@ -10,6 +10,7 @@ StoreInitResult store_initialize(uint8_t *erase_mask,const Config *defaults);
 /* 同步调用的暂缓原因由 NOR 端报告，主循环下次再试。 */
 extern bool store_deferred;
 bool store_append(Domain domain, const void *data, unsigned size);
+bool store_prepare_soc_space(void);
 unsigned store_events(void);
 bool store_event_at(unsigned newest_index, uint16_t *event);
 

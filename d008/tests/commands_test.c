@@ -17,7 +17,16 @@ bool device_request_shutdown(uint32_t ms)
     return true;
 }
 
-bool device_set_soc(unsigned percent,uint32_t ms) {(void)percent;(void)ms;return false;}
+static SocWriteResult soc_result=SOC_WRITE_DONE;
+static unsigned soc_attempts;
+
+SocWriteResult device_set_soc(unsigned percent,uint32_t ms)
+{
+    (void)ms;
+    ++soc_attempts;
+    if (soc_result==SOC_WRITE_DONE) device.soc.state.percent=percent;
+    return soc_result;
+}
 bool device_set_config(const Config *config) {(void)config;return false;}
 bool device_set_allowed(uint8_t allowed,uint32_t ms) {(void)allowed;(void)ms;return false;}
 uint16_t device_mos_status(void) {return 0;}
@@ -56,5 +65,43 @@ int main(void)
     shutdown_allowed=false;
     assert(request(&session,sleep,6,reply,303)==5 && reply[2]==4);
     assert(shutdown_requests==2);
-    puts("PASS D008 commands: legacy unicast sleep, echo, CRC, broadcast and busy rejection");
+    RtuSession other={0};
+    uint8_t set[]={1,6,0x10,5,0,37,0,0};
+    uint8_t read[]={1,3,0x10,5,0,1,0,0};
+    uint8_t set_group[]={1,16,0x10,5,0,1,2,0,100,0,0};
+    device.soc.state.percent=60;
+    soc_result=SOC_WRITE_DEFERRED;
+    uint32_t start=UINT32_MAX-5;
+    assert(request(&session,set,6,reply,start)==RTU_PENDING && soc_attempts==1);
+    assert(request(&session,set,6,reply,start+9)==RTU_PENDING && soc_attempts==1);
+    assert(request(&other,set_group,9,reply,start+9)==5 && reply[2]==4 && soc_attempts==1);
+    assert(request(&other,read,6,reply,start+9)==7 && reply[4]==60);
+    soc_result=SOC_WRITE_DONE;
+    assert(request(&session,set,6,reply,start+10)==8 && !memcmp(set,reply,8));
+    assert(soc_attempts==2 && request(&other,read,6,reply,start+11)==7 && reply[4]==37);
+    assert(request(&session,set_group,9,reply,40)==8 && !memcmp(set_group,reply,6));
+    assert(device.soc.state.percent==100);
+    set[5]=0;
+    assert(request(&session,set,6,reply,41)==8 && device.soc.state.percent==0);
+    set[5]=101;
+    assert(request(&session,set,6,reply,42)==5 && reply[2]==3 && device.soc.state.percent==0);
+    set[0]=set_group[0]=0;
+    set[5]=25;
+    assert(!request(&session,set,6,reply,43));
+    assert(!request(&session,set_group,9,reply,43));
+    assert(device.soc.state.percent==0);
+    set[0]=1;
+    soc_result=SOC_WRITE_DEFERRED;
+    assert(request(&session,set,6,reply,100)==RTU_PENDING);
+    unsigned attempts=soc_attempts;
+    assert(request(&session,set,6,reply,1100)==5 && reply[2]==4 && soc_attempts==attempts);
+    assert(device.soc.state.percent==0);
+    assert(request(&session,set,6,reply,1101)==RTU_PENDING);
+    rtu_reset(&session);
+    soc_result=SOC_WRITE_DONE;
+    assert(request(&other,set,6,reply,1102)==8 && device.soc.state.percent==25);
+    soc_result=SOC_WRITE_FAILED;
+    set[5]=82;
+    assert(request(&other,set,6,reply,1103)==5 && reply[2]==4 && device.soc.state.percent==25);
+    puts("PASS D008 commands: legacy sleep, SOC echo/readback, retry, timeout, disconnect and broadcast");
 }

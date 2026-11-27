@@ -14,7 +14,7 @@ static bool init_storage_pending;
 static uint8_t init_erase_mask;
 static bool failing;
 static uint32_t fail_ms, quiet_ms, normal_low_ms, low_ms, uv_ms;
-static uint32_t service_ms, command_shutdown_ms;
+static uint32_t service_ms, command_shutdown_ms, soc_space_ms;
 static bool command_shutdown_pending;
 enum { OUTPUT_SAMPLE_MAX_AGE_MS = 250, CURRENT_MAX_AGE_MS = 400, COMMAND_REPLY_MS = 500 };
 static uint32_t last_good_ms, last_current_ms;
@@ -68,15 +68,17 @@ bool device_save_soc(void)
     return store_append(SOC_DATA,&s,sizeof(s));
 }
 
-bool device_set_soc(unsigned percent,uint32_t ms)
+SocWriteResult device_set_soc(unsigned percent,uint32_t ms)
 {
-    if (percent>100 || !device.configured) return false;
+    if (percent>100 || !device.configured || mode==SHUTDOWN || command_shutdown_pending || update_active())
+        return SOC_WRITE_FAILED;
     Soc candidate=device.soc;
     soc_manual(&candidate,&device.config,percent,ms);
     SavedSoc s={candidate.state.remaining_uas,device.config.capacity_dah,candidate.state.percent};
-    if (!store_append(SOC_DATA,&s,sizeof(s))) return false;
+    if (!store_append(SOC_DATA,&s,sizeof(s)))
+        return store_deferred ? SOC_WRITE_DEFERRED : SOC_WRITE_FAILED;
     device.soc=candidate;
-    return true;
+    return SOC_WRITE_DONE;
 }
 
 static void silence(uint32_t ms)
@@ -166,6 +168,11 @@ bool device_service(uint32_t ms)
         }
     } else if (mode==QUIET && ms-quiet_ms>=5000) {
         begin_setup();
+    }
+    if (mode==SAMPLING && device.valid && device.configured && !update_active() && !wired_busy() &&
+        blc_ll_getCurrentState()!=BLS_LINK_STATE_CONN && (!soc_space_ms || ms-soc_space_ms>=5000)) {
+        soc_space_ms=ms;
+        if (!store_prepare_soc_space() && !store_deferred) device.storage_fault=true;
     }
     if (device.configured && !update_active() && !device_busy() && !history_flush(ms))
         device.storage_fault=true;
