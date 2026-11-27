@@ -6,7 +6,9 @@ enum { REVERSE_MA = 320, LOAD_RELEASE_MS = 1000, CURRENT_ALARMS = OCD|OCC|SCD };
 
 void control_gap(Control *p)
 {
-    p->pending = 0; p->load_seen = false;
+    p->pending[0]=p->pending[1]=p->pending[2]=0;
+    p->alarm[0]=p->alarm[1]=0;
+    p->load_seen=false;
     p->balance = 0;
 }
 
@@ -22,7 +24,7 @@ Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms
     Outputs out = {0};
     uint16_t cold = s->temp_x10[NTC_BAT1], hot = s->temp_x10[NTC_BAT2];
     if (cold > hot) {uint16_t tmp = cold; cold = hot; hot = tmp;}
-    int32_t value[LIMIT_COUNT] = {
+    int32_t value[SOC_LOW] = {
         s->max_mv,s->min_mv,(int32_t)s->sum_mv/10,(int32_t)s->sum_mv/10,
         -s->ma/100,s->ma/100,hot,cold,hot,cold,s->temp_x10[NTC_MOS],s->max_mv-s->min_mv
     };
@@ -36,20 +38,27 @@ Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms
     } else p->load_seen = false;
     bool released = p->load_seen && ms-p->load_since >= LOAD_RELEASE_MS;
     bool current_fresh = current_qualified && s->current_fresh;
-    for (unsigned i = 0; i < LIMIT_COUNT; ++i) {
+    for (unsigned i = 0; i < SOC_LOW; ++i) {
         const Limit *limits = &c->sw[i];
-        bool low = i == UV || i == PACK_UV || i == CHARGE_COLD || i == DISCHARGE_COLD;
-        bool trip = low ? value[i] <= limits->trip : value[i] >= limits->trip;
-        bool recover = low ? value[i] >= limits->release : value[i] <= limits->release;
-        if (i == CHARGE_OC) recover &= current_fresh && reverse_discharge;
-        if (i == DISCHARGE_OC) recover &= current_fresh && (released || reverse_charge);
-        unsigned bit = BIT_OF(i);
-        if (trip) {
-            if (!(p->pending & bit)) {p->pending |= bit; p->since[i] = ms;}
-            if (ms-p->since[i] >= limits->delay_ms) p->latched |= bit;
-        } else {
-            p->pending &= ~bit;
-            if (recover) p->latched &= ~bit;
+        bool low=limit_low(i);
+        const uint16_t threshold[]={limits->alarm1,limits->alarm2,limits->trip};
+        const unsigned bit=BIT_OF(i);
+        for (unsigned level=0;level<3;++level) {
+            uint16_t *flags=level<2?&p->alarm[level]:&p->latched;
+            bool trip=low?value[i]<=threshold[level]:value[i]>=threshold[level];
+            if (trip) {
+                if (!(p->pending[level]&bit)) {
+                    p->pending[level]|=bit;
+                    p->since[i][level]=ms;
+                }
+                if (ms-p->since[i][level]>=limits->delay_ms) *flags|=bit;
+            } else {
+                p->pending[level]&=~bit;
+                bool recover=low?value[i]>=limits->release:value[i]<=limits->release;
+                if (i==CHARGE_OC) recover &= current_fresh && reverse_discharge;
+                if (i==DISCHARGE_OC) recover &= current_fresh && (released || reverse_charge);
+                if (level<2 || recover) *flags&=~bit;
+            }
         }
     }
     if (s->max_mv <= c->sw[OV].release) out.ack |= COV;
@@ -98,4 +107,30 @@ Outputs control_sample(Control *p, const Config *c, const Sample *s, uint32_t ms
     }
     p->balance = out.balance;
     return out;
+}
+
+void control_soc(Control *p,const Config *c,unsigned percent,uint32_t ms)
+{
+    const Limit *l=&c->sw[SOC_LOW];
+    const uint16_t trip[]={l->alarm1,l->alarm2,l->trip};
+    const unsigned bit=BIT_OF(SOC_LOW);
+    for (unsigned level=0;level<3;++level) {
+        uint16_t *flags=level<2?&p->alarm[level]:&p->latched;
+        bool active=(*flags&bit)!=0;
+        unsigned release=l->release>trip[level]?l->release:trip[level]+1u;
+        if (release>100) release=100;
+        if (!trip[level]) *flags&=~bit;
+        bool change=trip[level] && (active?percent>=release:percent<=trip[level]);
+        if (!change) p->pending[level]&=~bit;
+        else {
+            if (!(p->pending[level]&bit)) {
+                p->pending[level]|=bit;
+                p->since[SOC_LOW][level]=ms;
+            }
+            if (ms-p->since[SOC_LOW][level]>=l->delay_ms) {
+                *flags^=bit;
+                p->pending[level]&=~bit;
+            }
+        }
+    }
 }

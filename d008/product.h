@@ -7,9 +7,9 @@
 #define SHUNT_UOHM 250u
 #define NO_CELL 61001u
 enum { OV, UV, PACK_OV, PACK_UV, CHARGE_OC, DISCHARGE_OC, CHARGE_HOT,
-       CHARGE_COLD, DISCHARGE_HOT, DISCHARGE_COLD, MOS_HOT, CELL_DELTA, LIMIT_COUNT };
+       CHARGE_COLD, DISCHARGE_HOT, DISCHARGE_COLD, MOS_HOT, CELL_DELTA, SOC_LOW, LIMIT_COUNT };
 typedef struct {
-    uint16_t trip, release, delay_ms;
+    uint16_t alarm1, alarm2, trip, release, delay_ms;
 } Limit;
 typedef struct {
     uint16_t cells, nmc, capacity_dah, full_mv, empty_mv;
@@ -18,7 +18,6 @@ typedef struct {
     uint16_t hw_d1_a10, hw_c1_a10, hw_d2_a10, hw_c2_a10, hw_sc_a10;
     uint16_t hw_d1_ms, hw_c1_ms, hw_d2_ms, hw_c2_ms, hw_sc_us;
     uint16_t balance_on, balance_mv, balance_start_mv, balance_stop_mv;
-    uint16_t reserved[3]; /* 配置日志占位，保留后续字段的 Flash 偏移。 */
     int32_t offset_ma, gain_ppm;
     uint8_t sn[32];
 } Config;
@@ -32,5 +31,6 @@ typedef struct {
     bool current_fresh;
 } Sample;
 
+bool limit_low(unsigned index);
 void config_defaults(Config *c, unsigned cells, bool nmc);
 bool config_valid(const Config *c);

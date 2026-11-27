@@ -52,6 +52,29 @@ static void software_protection(const Config *c)
     assert(control_sample(&state,c,&s,1600,3,true,false).drive==0x0f);
 }
 
+static void warning_levels(const Config *c)
+{
+    Control state={0};
+    Sample s=healthy_sample();
+    s.max_mv=3500;
+    assert(control_sample(&state,c,&s,0,3,true,false).drive==15);
+    assert(control_sample(&state,c,&s,999,3,true,false).drive==15);
+    assert(!state.alarm[0] && !state.alarm[1]);
+    s.max_mv=3600;
+    assert(control_sample(&state,c,&s,1000,3,true,false).drive==15);
+    assert((state.alarm[0]&1) && !(state.alarm[1]&1) && !state.latched);
+    assert(control_sample(&state,c,&s,2000,3,true,false).drive==15);
+    assert((state.alarm[1]&1) && !state.latched);
+    s.max_mv=3400;
+    s.min_mv=2900;
+    control_sample(&state,c,&s,2200,3,true,false);
+    assert(control_sample(&state,c,&s,3200,3,true,false).drive==15);
+    assert((state.alarm[0]&3)==2 && (state.alarm[1]&3)==2 && !state.latched);
+    s.min_mv=3200;
+    control_sample(&state,c,&s,3400,3,true,false);
+    assert(!(state.alarm[0]&3) && !(state.alarm[1]&3));
+}
+
 static void short_circuit_recovery(const Config *c)
 {
     Control state={0};
@@ -91,6 +114,16 @@ int main(void)
     config_defaults(&config,16,false);
     assert(config_valid(&config));
     remote_permissions(&config);
+    warning_levels(&config);
+    Control low={0};
+    control_soc(&low,&config,5,0);
+    control_soc(&low,&config,5,1000);
+    assert(low.alarm[0]==(1u<<SOC_LOW) && low.alarm[1]==low.alarm[0] && low.latched==low.alarm[0]);
+    Sample healthy=healthy_sample();
+    assert(control_sample(&low,&config,&healthy,1100,3,true,false).drive==15);
+    control_soc(&low,&config,21,1200);
+    control_soc(&low,&config,21,2200);
+    assert(!low.alarm[0] && !low.alarm[1] && !low.latched);
     software_protection(&config);
     short_circuit_recovery(&config);
     puts("PASS protection: normal drive, explicit off, reverse expiry, OV and SCD readback");

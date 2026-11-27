@@ -301,6 +301,7 @@ void device_measure(uint32_t tick,uint32_t ms)
     if (!d->configured) return;
     soc_sample(&d->soc,&d->config,&d->sample,&d->outputs,sampled,
                sampled && d->sample.min_mv>=500 && d->sample.max_mv<=4800,tick,ms);
+    if (sampled && d->soc.initialized) control_soc(&d->control,&d->config,d->soc.state.percent,ms);
     uint32_t dt=sampled && previous_good ? ms-last_good_ms : 0;
     if (dt>1000) dt=0;
     previous_good=sampled;

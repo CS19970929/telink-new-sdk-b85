@@ -52,11 +52,12 @@ static unsigned report(unsigned index)
     case 53: case 57: return UINT16_MAX;
     case 54: return capacity_word(device.soc.state.remaining_uas/36000000);
     case 55: case 56: return capacity_word(c->capacity_dah*10ul);
-    case 60: {
-        static const uint8_t bits[]={0,1,2,3,4,5,6,8,7,9,13,10};
+    case 58: case 59: case 60: {
+        uint16_t active=index==60?device.control.latched:device.control.alarm[index-58];
+        static const uint8_t bits[]={0,1,2,3,4,5,6,8,7,9,13,10,12};
         unsigned result=0;
         for (unsigned i=0;i<LIMIT_COUNT;++i)
-            if (device.control.latched&(1u<<i)) result|=1u<<bits[i];
+            if (active&(1u<<i)) result|=1u<<bits[i];
         return result;
     }
     case 61: return ok?(uint16_t)device.outputs.balance:0;
@@ -85,7 +86,11 @@ bool register_read(const RtuSession *session,uint16_t r,uint16_t *value)
         v=word((i<16?c->sn:i<32?hw:fw)+2*(i%16));
     } else if (r>=0x2100 && r<=0x2140) {
         unsigned i=(r-0x2100)/5, field=(r-0x2100)%5;
-        if (i<LIMIT_COUNT) v=field==2?c->sw[i].trip:field==3?c->sw[i].release:field==4?c->sw[i].delay_ms/10:0;
+        if (i<LIMIT_COUNT) {
+            const Limit *p=&c->sw[i];
+            const uint16_t fields[]={p->alarm1,p->alarm2,p->trip,p->release,p->delay_ms/10};
+            v=fields[field];
+        }
     } else if (r>=0x2500 && r<0x2563) {
         unsigned i=r-0x2500;
         if (i<35 || i>=64) {
@@ -198,7 +203,8 @@ unsigned register_write(RtuSession *s,uint16_t r,unsigned n,const uint8_t *p,uin
         for (unsigned j=0;j<n;++j) {
             unsigned offset=r-0x2100+j, i=offset/5, field=offset%5;
             v=word(p+2*j);
-            if (i==LIMIT_COUNT || field<2) {if (v) return 3;}
+            if (field==0) c.sw[i].alarm1=v;
+            else if (field==1) c.sw[i].alarm2=v;
             else if (field==2) c.sw[i].trip=v;
             else if (field==3) c.sw[i].release=v;
             else {if (v>6553) return 3; c.sw[i].delay_ms=v*10;}
