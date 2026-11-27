@@ -11,7 +11,6 @@
 Device device;
 static enum { SETUP, INIT_STORAGE, SAMPLING, QUIET, SHUTDOWN } mode;
 static bool init_storage_pending;
-static uint8_t init_erase_mask;
 static bool failing;
 static uint32_t fail_ms, quiet_ms, normal_low_ms, low_ms, uv_ms;
 static uint32_t service_ms, command_shutdown_ms, soc_space_ms;
@@ -49,13 +48,13 @@ void device_init(void)
     Device *d=&device;
     Config assembly;
     config_defaults(&assembly,D008_CELLS,D008_NMC);
-    StoreResult cfg=store_open_product_config(&d->config,&assembly);
+    StoreResult cfg=store_open_config(&d->config,&assembly);
     d->configured=cfg==STORE_VALID && config_valid(&d->config) &&
         d->config.cells==assembly.cells && d->config.nmc==assembly.nmc;
     if (!d->configured) d->config=assembly;
     d->allowed=d->configured ? CHARGE|DISCHARGE : 0;
     restore_runtime_storage();
-    init_storage_pending=config_valid(&assembly) && store_prepare_init(cfg,&init_erase_mask);
+    init_storage_pending=config_valid(&assembly) && (cfg==STORE_BLANK || cfg==STORE_BAD);
     if (init_storage_pending) bls_ll_setAdvEnable(BLC_ADV_DISABLE);
     gpio_write(GPIO_PD7,1); dvc_bus_init();
     begin_setup();
@@ -161,9 +160,9 @@ bool device_service(uint32_t ms)
             failing=false;
         }
     } else if (mode==INIT_STORAGE) {
-        StoreInitResult result=store_initialize(&init_erase_mask,&device.config);
-        if (result!=STORE_INIT_WAIT) {
-            storage_init_finished(result==STORE_INIT_DONE);
+        bool saved=store_append(CONFIG_DATA,&device.config,sizeof(device.config));
+        if (saved || !store_deferred) {
+            storage_init_finished(saved);
             begin_setup();
         }
     } else if (mode==QUIET && ms-quiet_ms>=5000) {

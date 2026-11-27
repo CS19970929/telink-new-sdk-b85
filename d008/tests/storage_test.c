@@ -96,138 +96,45 @@ static void wear(Domain domain, unsigned sector, unsigned slots, unsigned saves)
            domain,saves,domain==EVENT_DATA?0:4*saves,2*saves,erases[sector],erases[sector+1]);
 }
 
-static void first_config(void)
+static void independent_initialization(void)
 {
-    uint8_t defaults[173], readback[sizeof(defaults)];
-    for (unsigned i=0;i<sizeof(defaults);++i) defaults[i]=(uint8_t)(i*13u);
-    for (unsigned cut=0;cut<=sizeof(defaults)+17;++cut) {
-        memset(flash,255,sizeof(flash));
-        assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_BLANK);
-        budget=(int)cut;
-        bool committed=store_append(CONFIG_DATA,defaults,sizeof(defaults));
-        budget=-1;
-        StoreResult status=store_open_config(readback,defaults,sizeof(defaults));
-        assert(status==(committed?STORE_VALID:cut?STORE_INITIAL:STORE_BLANK));
-        assert(store_append(CONFIG_DATA,defaults,sizeof(defaults)));
-        assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_VALID);
-        assert(!memcmp(defaults,readback,sizeof(defaults)));
-    }
-    /* 当前格式已提交记录损坏时禁止自动重置。 */
-    flash[12]^=1;
-    assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_BAD);
-    assert(!store_append(CONFIG_DATA,defaults,sizeof(defaults)));
-    flash[12]^=1;
-    for (unsigned i=0;i<3;++i) {
-        flash[i]^=1;
-        assert(store_open_config(readback,defaults,sizeof(defaults))==STORE_BAD);
-        assert(!store_append(CONFIG_DATA,defaults,sizeof(defaults)));
-        flash[i]^=1;
-    }
-    puts("NOR: 191 first-write power cuts; corrupt config retained");
-}
-
-
-static const unsigned init_order[]={4,5,12,13,0,1};
-
-static StoreInitResult initialize(const Config *defaults,uint8_t mask)
-{
-    for (unsigned step=0;step<=2*DOMAIN_COUNT;++step) {
-        StoreInitResult r=store_initialize(&mask,defaults);
-        if (r!=STORE_INIT_WAIT) return r;
-    }
-    assert(0);
-    return STORE_INIT_FAILED;
-}
-
-static void previous_defaults(void)
-{
-    Config defaults,prior,readback;
+    Config defaults, readback, wrong;
     config_defaults(&defaults,16,false);
-    prior=defaults;
-    defaults.capacity_dah=345;
-    prior.capacity_dah=200;
-    prior.sw[PACK_OV].release=5680;
-    prior.sw[PACK_UV].release=4640;
-    prior.hw_sc_a10=2000;
-    for (unsigned cut=0;cut<=sizeof(prior)+17;++cut) {
-        memset(flash,255,sizeof(flash));
-        assert(store_open_config(&readback,&prior,sizeof(prior))==STORE_BLANK);
-        budget=(int)cut;
-        bool committed=store_append(CONFIG_DATA,&prior,sizeof(prior));
-        budget=-1;
-        StoreResult status=store_open_product_config(&readback,&defaults);
-        if (committed) {
-            assert(status==STORE_VALID && !memcmp(&prior,&readback,sizeof(prior)));
-        } else {
-            uint8_t mask;
-            assert(status==(cut?STORE_INITIAL:STORE_BLANK));
-            assert(store_prepare_init(status,&mask) && initialize(&defaults,mask)==STORE_INIT_DONE);
-            assert(store_open_product_config(&readback,&defaults)==STORE_VALID);
-            assert(!memcmp(&defaults,&readback,sizeof(defaults)));
-        }
-    }
-    puts("NOR: prior LFP defaults retained, or interrupted first commit recovered");
-}
-
-static void old_format_reset(void)
-{
-    Config defaults,readback;
-    config_defaults(&defaults,16,false);
-    memset(baseline,0x55,sizeof(baseline));
-    for (unsigned i=0;i<2*DOMAIN_COUNT;++i)
-        memset(baseline+4096*init_order[i],0,4096);
-
-    memcpy(flash,baseline,sizeof(flash));
-    uint8_t mask=0;
-    assert(store_open_config(&readback,&defaults,sizeof(defaults))==STORE_FOREIGN);
-    fail_read=0x40000;
-    assert(store_open_config(&readback,&defaults,sizeof(defaults))==STORE_IO_ERROR);
-    assert(!store_prepare_init(STORE_IO_ERROR,&mask));
-    fail_read=0x4dfff;
-    assert(!store_prepare_init(STORE_FOREIGN,&mask));
-    fail_read=0;
-    assert(!memcmp(flash,baseline,sizeof(flash)));
-    assert(store_prepare_init(STORE_FOREIGN,&mask));
-    incomplete_erase=true;
-    assert(store_initialize(&mask,&defaults)==STORE_INIT_FAILED);
-    assert(flash[5*4096-1]==0 && flash[0]==0);
-    incomplete_erase=false;
-
-    const unsigned last=6*4096+sizeof(defaults)+17;
-    for (unsigned cut=0;cut<=last;++cut) {
+    wrong=defaults; wrong.cells=20;
+    uint32_t soc=123;
+    uint16_t log=0x1234;
+    memset(flash,255,sizeof(flash));
+    assert(store_open(SOC_DATA,NULL,4)==STORE_BLANK && store_append(SOC_DATA,&soc,4));
+    assert(store_open(EVENT_DATA,NULL,2)==STORE_BLANK && store_append(EVENT_DATA,&log,2));
+    memset(flash,0x55,8192);
+    flash[0]='D'; flash[1]='8'; flash[2]=1;
+    memcpy(baseline,flash,sizeof(flash));
+    for (unsigned cut=0;cut<=4096+17+sizeof(defaults);++cut) {
         memcpy(flash,baseline,sizeof(flash));
-        memset(erases,0,sizeof(erases));
-        StoreResult status=store_open_config(&readback,&defaults,sizeof(defaults));
-        assert(status==STORE_FOREIGN && store_prepare_init(status,&mask));
+        assert(store_open_config(&readback,&defaults)==STORE_BAD);
         budget=(int)cut;
-        StoreInitResult result=initialize(&defaults,mask);
+        bool committed=store_append(CONFIG_DATA,&defaults,sizeof(defaults));
         budget=-1;
-        assert((result==STORE_INIT_DONE)==(cut==last));
-        for (unsigned i=0;i<2*DOMAIN_COUNT;++i)
-            assert(erases[init_order[i]]==(cut>=(i*4096)));
-        status=store_open_config(&readback,&defaults,sizeof(defaults));
-        if (cut<last) {
-            assert(status!=STORE_VALID && store_prepare_init(status,&mask));
-            assert(initialize(&defaults,mask)==STORE_INIT_DONE);
-        }
-        assert(store_open_config(&readback,&defaults,sizeof(defaults))==STORE_VALID);
+        assert(store_open_config(&readback,&defaults)==(committed?STORE_VALID:STORE_BAD));
+        assert(store_append(CONFIG_DATA,&defaults,sizeof(defaults)));
+        assert(store_open_config(&readback,&defaults)==STORE_VALID);
         assert(!memcmp(&defaults,&readback,sizeof(defaults)));
-        assert(!store_prepare_init(STORE_VALID,&mask));
-        assert(store_open(SOC_DATA,NULL,12)==STORE_BLANK);
-        assert(store_open(EVENT_DATA,NULL,2)==STORE_BLANK);
-        assert(!memcmp(flash+0x2000,baseline+0x2000,0x2000));
-        assert(!memcmp(flash+0x6000,baseline+0x6000,0x6000));
-        assert(!memcmp(flash+0xe000,baseline+0xe000,0x2000));
+        assert(!memcmp(flash+8192,baseline+8192,sizeof(flash)-8192));
     }
-
-    memcpy(flash,baseline,sizeof(flash));
-    memset(flash,255,8192);
-    assert(store_open_config(&readback,&defaults,sizeof(defaults))==STORE_BLANK);
-    assert(store_prepare_init(STORE_BLANK,&mask));
-    assert(mask==0x0f && initialize(&defaults,mask)==STORE_INIT_DONE);
-    assert(store_open(SOC_DATA,NULL,12)==STORE_BLANK);
-    assert(store_open(EVENT_DATA,NULL,2)==STORE_BLANK);
-    printf("NOR: %u initialization cuts, six-sector order, read/erase faults and isolation OK\n",last+1);
+    fail_read=0x41000;
+    assert(store_open_config(&readback,&defaults)==STORE_IO_ERROR);
+    assert(!store_append(CONFIG_DATA,&defaults,sizeof(defaults)));
+    fail_read=0;
+    assert(store_open_config(&readback,&defaults)==STORE_VALID);
+    Config invalid=defaults;
+    invalid.capacity_dah=0;
+    assert(store_append(CONFIG_DATA,&invalid,sizeof(invalid)));
+    assert(store_open_config(&readback,&defaults)==STORE_VALID);
+    assert(readback.capacity_dah==defaults.capacity_dah);
+    assert(store_append(CONFIG_DATA,&wrong,sizeof(wrong)));
+    assert(store_open_config(&readback,&defaults)==STORE_CONFLICT);
+    assert(!store_append(CONFIG_DATA,&defaults,sizeof(defaults)));
+    puts("NOR: independent old format take-over, power cuts, invalid fallback, read failure and assembly gate");
 }
 
 static void deferred_commit(void)
@@ -236,16 +143,16 @@ static void deferred_commit(void)
     memset(flash,255,sizeof(flash));
     memset(erases,0,sizeof(erases)); memset(programs,0,sizeof(programs));
     assert(store_open(CONFIG_DATA,&v,sizeof(v))==STORE_BLANK);
-    for (v=1;v<=32;++v) assert(store_append(CONFIG_DATA,&v,sizeof(v)));
+    for (v=1;v<=16;++v) assert(store_append(CONFIG_DATA,&v,sizeof(v)));
     refuse_marker=true;
     for (unsigned i=0;i<2000;++i) assert(!store_append(CONFIG_DATA,&v,sizeof(v)));
     assert(store_deferred);
     refuse_marker=false;
     assert(store_append(CONFIG_DATA,&v,sizeof(v)));
     assert(!store_deferred);
-    assert(erases[0]==1 && erases[1]==0 && programs[0]+programs[1]==66);
+    assert(erases[0]==1 && erases[1]==0 && programs[0]+programs[1]==34);
     v=0;
-    assert(store_open(CONFIG_DATA,&v,sizeof(v))==STORE_VALID && v==33);
+    assert(store_open(CONFIG_DATA,&v,sizeof(v))==STORE_VALID && v==17);
     puts("NOR: 2000 denied commit windows; one body, one erase, one visible update");
 }
 
@@ -297,14 +204,14 @@ int main(void)
     assert(store_open(CONFIG_DATA,&cfg,4)==STORE_BLANK);
     assert(store_open(SOC_DATA,&cfg,4)==STORE_BLANK);
     assert(store_append(SOC_DATA,&saved,4));
-    for (cfg=1;cfg<=32;++cfg) assert(store_append(CONFIG_DATA,&cfg,4));
+    for (cfg=1;cfg<=16;++cfg) assert(store_append(CONFIG_DATA,&cfg,4));
     memcpy(baseline,flash,sizeof(flash));
     for (int cut=0;cut<=4120;++cut) {
         memcpy(flash,baseline,sizeof(flash)); budget=-1;
-        assert(store_open(CONFIG_DATA,&cfg,4)==STORE_VALID && cfg==32);
-        cfg=33; budget=cut; bool success=store_append(CONFIG_DATA,&cfg,4); budget=-1;
+        assert(store_open(CONFIG_DATA,&cfg,4)==STORE_VALID && cfg==16);
+        cfg=17; budget=cut; bool success=store_append(CONFIG_DATA,&cfg,4); budget=-1;
         assert(store_open(CONFIG_DATA,&cfg,4)==STORE_VALID);
-        assert(cfg==(success?33u:32u));
+        assert(cfg==(success?17u:16u));
         assert(store_open(SOC_DATA,&cfg,4)==STORE_VALID && cfg==123);
     }
     assert(store_open(EVENT_DATA,NULL,2)==STORE_BLANK);
@@ -317,15 +224,13 @@ int main(void)
             assert(store_event_at(j,&event) && event==i-j);
         }
     }
-    domain_cuts(CONFIG_DATA,sizeof(Config),0,16);
+    domain_cuts(CONFIG_DATA,sizeof(Config),0,8);
     domain_cuts(SOC_DATA,12,4,64);
     domain_cuts(EVENT_DATA,2,12,128);
     deferred_commit();
     prepare_soc_space();
-    first_config();
-    previous_defaults();
-    old_format_reset();
-    wear(CONFIG_DATA,0,16,10000);
+    independent_initialization();
+    wear(CONFIG_DATA,0,8,10000);
     wear(SOC_DATA,4,64,100000);
     wear(EVENT_DATA,12,128,250000);
     puts("NOR: 4121 power cuts, sector rotation, newest 100, domain isolation OK");

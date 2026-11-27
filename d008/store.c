@@ -1,10 +1,10 @@
 #include "store.h"
 #include <string.h>
 
-enum { SECTOR = 4096, EVENTS = 100, FORMAT = 1, COMMIT = 0x3c,
-       INIT_CONFIG_INDEX = 2 * (DOMAIN_COUNT - 1) };
+enum { SECTOR = 4096, EVENTS = 100, COMMIT = 0x3c };
 static const uint32_t base[] = {0x40000,0x44000,0x4c000};
-static const uint16_t stride[] = {256,64,32};
+static const uint16_t stride[] = {512,64,32};
+static const uint8_t format[] = {CONFIG_FORMAT_VERSION,SOC_FORMAT_VERSION,LOG_FORMAT_VERSION};
 typedef struct {
     uint32_t sequence, latest, pending;
     uint16_t next[2], bytes;
@@ -37,23 +37,11 @@ static bool blank(const uint8_t *p,unsigned n)
     while (n--) if (*p++ != 0xff) return false;
     return true;
 }
-static bool current_format(const uint8_t *p)
-{
-    return p[0]=='D' && p[1]=='8' && p[2]==FORMAT;
-}
-
 static bool valid(Domain d,const uint8_t *p,unsigned size)
 {
-    return current_format(p) && p[3]==d && p[4]==size &&
-        p[stride[d]-1]==COMMIT && get32(p+12+size)==crc(p,12+size);
-}
-
-/* 标识字节损坏时，余下的完整记录仍足以识别本代格式。 */
-static bool known_config(uint8_t *p,unsigned size)
-{
-    if (current_format(p)) return true;
-    p[0]='D'; p[1]='8'; p[2]=FORMAT;
-    return valid(CONFIG_DATA,p,size);
+    return p[0]=='D' && p[1]=='8' && p[2]==format[d] && p[3]==d &&
+        p[4]==(size&255u) && p[5]==(size>>8) && p[stride[d]-1]==COMMIT &&
+        get32(p+12+size)==crc(p,12+size);
 }
 
 static void index_event(uint32_t seq,uint32_t addr)
@@ -69,42 +57,38 @@ static void index_event(uint32_t seq,uint32_t addr)
 static void encode(Domain d,const void *data,unsigned size,uint32_t sequence,uint8_t *slot)
 {
     memset(slot,0xff,stride[d]);
-    slot[0]='D'; slot[1]='8'; slot[2]=FORMAT; slot[3]=d; slot[4]=size;
+    slot[0]='D'; slot[1]='8'; slot[2]=format[d]; slot[3]=d;
+    slot[4]=size; slot[5]=size>>8;
     put32(slot+8,sequence); memcpy(slot+12,data,size);
     put32(slot+12+size,crc(slot,12+size));
 }
 
-/* 首次写入断电允许有些位仍为 1。已提交的损坏记录或不符的装配不得自动覆盖。 */
-static bool partial_factory(const uint8_t *slot,const uint8_t *factory)
+static StoreResult scan(Domain d,void *latest,unsigned size,const Config *assembly)
 {
-    unsigned marker=stride[CONFIG_DATA]-1;
-    if (slot[marker]==COMMIT) return false;
-    for (unsigned i=0;i<marker;++i)
-        if ((slot[i]&factory[i])!=factory[i]) return false;
-    if (slot[marker]==0xff) return true;
-    return (slot[marker]&COMMIT)==COMMIT && !memcmp(slot,factory,marker);
-}
-
-static StoreResult scan(Domain d,void *latest,unsigned size,
-                        const uint8_t *factory,const uint8_t *prior_factory)
-{
-    uint8_t slot[256];
+    uint8_t slot[512];
     if ((unsigned)d>=DOMAIN_COUNT || !size || size>(unsigned)stride[d]-17) return STORE_BAD;
     Journal *j=&journal[d];
     memset(j,0,sizeof(*j)); j->bytes=size;
     if (d==EVENT_DATA) count=0;
-    bool dirty=false, current=false, first_only=factory!=NULL;
+    bool dirty=false, conflict=false;
     for (unsigned sector=0;sector<2;++sector) {
         for (unsigned off=0;off<SECTOR;off+=stride[d]) {
             uint32_t address=base[d]+sector*SECTOR+off;
-            if (!nor_read(address,slot,stride[d])) return STORE_IO_ERROR;
+            if (!nor_read(address,slot,stride[d])) {
+                if (d==EVENT_DATA) count=0;
+                return STORE_IO_ERROR;
+            }
             if (blank(slot,stride[d])) continue;
             dirty=true; j->next[sector]=off+stride[d];
-            if (!valid(d,slot,size)) {
-                if (first_only && !partial_factory(slot,factory) &&
-                    (!prior_factory || !partial_factory(slot,prior_factory))) first_only=false;
-                if (factory && !current && known_config(slot,size)) current=true;
-                continue;
+            if (!valid(d,slot,size)) continue;
+            if (assembly) {
+                Config candidate;
+                memcpy(&candidate,slot+12,sizeof(candidate));
+                if (candidate.cells!=assembly->cells || candidate.nmc!=assembly->nmc) {
+                    conflict=true;
+                    continue;
+                }
+                if (!config_valid(&candidate)) continue;
             }
             uint32_t seq=get32(slot+8);
             if (d==EVENT_DATA) index_event(seq,address);
@@ -114,50 +98,24 @@ static StoreResult scan(Domain d,void *latest,unsigned size,
             }
         }
     }
-    j->ready=j->latest || !dirty || first_only || d!=CONFIG_DATA;
-    if (j->latest) return STORE_VALID;
-    if (!dirty) return STORE_BLANK;
-    if (first_only) return STORE_INITIAL;
-    return factory && !current ? STORE_FOREIGN : STORE_BAD;
+    if (conflict) return STORE_CONFLICT;
+    j->ready=true;
+    return j->latest ? STORE_VALID : dirty ? STORE_BAD : STORE_BLANK;
 }
 
 StoreResult store_open(Domain d,void *latest,unsigned size)
 {
-    return scan(d,latest,size,NULL,NULL);
+    return scan(d,latest,size,NULL);
 }
 
-StoreResult store_open_config(void *latest,const void *defaults,unsigned size)
+StoreResult store_open_config(Config *latest,const Config *assembly)
 {
-    uint8_t factory[256];
-    if (!defaults || !size || size>(unsigned)stride[CONFIG_DATA]-17) return STORE_BAD;
-    encode(CONFIG_DATA,defaults,size,1,factory);
-    return scan(CONFIG_DATA,latest,size,factory,NULL);
+    return scan(CONFIG_DATA,latest,sizeof(*latest),assembly);
 }
 
-StoreResult store_open_product_config(Config *latest,const Config *defaults)
+bool store_available(Domain d)
 {
-    if (defaults->nmc && defaults->capacity_dah==200)
-        return store_open_config(latest,defaults,sizeof(*defaults));
-
-    /* 识别格式 1 旧版本的首次写入残片。旧版本的默认容量固定为 20 Ah。 */
-    Config prior=*defaults;
-    prior.capacity_dah=200;
-    if (!prior.nmc) {
-        prior.sw[PACK_OV].release=prior.cells*prior.sw[OV].release/10;
-        prior.sw[PACK_UV].release=prior.cells*prior.sw[UV].release/10;
-        prior.hw_sc_a10=2000;
-    }
-    uint8_t factory[256], prior_factory[256];
-    encode(CONFIG_DATA,defaults,sizeof(*defaults),1,factory);
-    encode(CONFIG_DATA,&prior,sizeof(prior),1,prior_factory);
-    return scan(CONFIG_DATA,latest,sizeof(*defaults),factory,prior_factory);
-}
-
-static uint32_t initialization_sector(unsigned index)
-{
-    /* 清理状态和历史在前，默认配置的提交在最后。 */
-    const Domain order[]={SOC_DATA,EVENT_DATA,CONFIG_DATA};
-    return base[order[index/2]]+(index%2)*SECTOR;
+    return journal[d].ready;
 }
 
 static bool inspect_sector(uint32_t address,bool *empty)
@@ -169,40 +127,6 @@ static bool inspect_sector(uint32_t address,bool *empty)
         if (!blank(data,sizeof(data))) *empty=false;
     }
     return true;
-}
-
-bool store_prepare_init(StoreResult config_status,uint8_t *erase_mask)
-{
-    if (config_status!=STORE_FOREIGN && config_status!=STORE_BLANK &&
-        config_status!=STORE_INITIAL) return false;
-    uint8_t mask=0;
-    for (unsigned i=0;i<2*DOMAIN_COUNT;++i) {
-        bool empty;
-        if (!inspect_sector(initialization_sector(i),&empty)) return false;
-        /* 留下已识别的默认配置残片，追加完成首次提交即可。 */
-        if (!empty && (i<INIT_CONFIG_INDEX || config_status!=STORE_INITIAL))
-            mask|=1u<<i;
-    }
-    *erase_mask=mask;
-    return true;
-}
-
-StoreInitResult store_initialize(uint8_t *erase_mask,const Config *defaults)
-{
-    for (unsigned i=0;i<2*DOMAIN_COUNT;++i) {
-        uint8_t bit=1u<<i;
-        if (!(*erase_mask&bit)) continue;
-        uint32_t address=initialization_sector(i);
-        bool empty;
-        if (!nor_erase(address) || !inspect_sector(address,&empty) || !empty)
-            return STORE_INIT_FAILED;
-        *erase_mask&=(uint8_t)~bit;
-        return STORE_INIT_WAIT;
-    }
-    Config readback;
-    StoreResult status=store_open_product_config(&readback,defaults);
-    if (status!=STORE_BLANK && status!=STORE_INITIAL) return STORE_INIT_FAILED;
-    return store_append(CONFIG_DATA,defaults,sizeof(*defaults)) ? STORE_INIT_DONE : STORE_INIT_FAILED;
 }
 
 static bool commit_body(Domain d,uint8_t *slot,uint8_t *verify)
@@ -244,7 +168,7 @@ bool store_prepare_soc_space(void)
 
 bool store_append(Domain d,const void *data,unsigned size)
 {
-    uint8_t slot[256],verify[256];
+    uint8_t slot[512],verify[512];
     store_deferred=false;
     if ((unsigned)d>=DOMAIN_COUNT || !data) return false;
     Journal *j=&journal[d];
@@ -275,12 +199,16 @@ bool store_append(Domain d,const void *data,unsigned size)
         }
     }
     uint32_t addr=base[d]+sector*SECTOR+j->next[sector];
-    if (!nor_read(addr,verify,stride[d]) || !blank(verify,stride[d])) return false;
-    /* 未获准写入时保留空槽。若部分编程则跳过该槽，复位扫描也会跳过。 */
-    if (!nor_write(addr,slot,16+size) || !nor_read(addr,verify,16+size) ||
-        memcmp(slot,verify,16+size)) {
-        if (!nor_read(addr,verify,stride[d])) j->ready=false;
-        else if (!blank(verify,stride[d])) j->next[sector]+=stride[d];
+    if (!nor_read(addr,verify,stride[d])) {j->ready=false;return false;}
+    if (!blank(verify,stride[d])) {j->ready=false;return false;}
+    /* 每页分别授权，以便 BLE 连接时按真实 BRX 空窗编程。 */
+    unsigned first=16+size;
+    if (first>256) first=256;
+    bool written=nor_write(addr,slot,first);
+    if (written && first<16+size) written=nor_write(addr+first,slot+first,16+size-first);
+    if (!nor_read(addr,verify,stride[d])) {j->ready=false;return false;}
+    if (!written || memcmp(slot,verify,stride[d])) {
+        if (!blank(verify,stride[d])) j->next[sector]+=stride[d];
         return false;
     }
     j->next[sector]+=stride[d];
